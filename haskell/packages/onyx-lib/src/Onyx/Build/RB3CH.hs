@@ -25,8 +25,7 @@ import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
-import           Data.Maybe                        (fromMaybe, isJust,
-                                                    isNothing)
+import           Data.Maybe                        (fromMaybe, isNothing)
 import qualified Data.Text                         as T
 import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Difficulty
@@ -623,18 +622,20 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       keysPart = either (.keys) (.keys) target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
-        Just part -> if isNothing (anyFiveFret part) && isNothing part.proKeys
+        Just part -> if isNothing (anyFiveFret part) && isNothing (anyProKeys part)
           then (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
           else let
             basicKeys = makeGRYBOTrack True keysPart
             fpart = F.getFlexPart keysPart trks
-            keysDiff diff = if isJust part.proKeys
-              then case diff of
-                Easy   -> F.onyxPartRealKeysE fpart
-                Medium -> F.onyxPartRealKeysM fpart
-                Hard   -> F.onyxPartRealKeysH fpart
-                Expert -> F.onyxPartRealKeysX fpart
-              else F.keysToProKeys diff basicKeys
+            keysDiff diff = case anyProKeys part of
+              Just builder -> let
+                result = builder ModeInput
+                  { tempo  = tempos
+                  , events = F.getEventsTrack trks
+                  , part   = F.getFlexPart keysPart trks
+                  }
+                in fromMaybe mempty $ Map.lookup diff result.difficulties
+              Nothing -> F.keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
             eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges
               . (case removeBRE target $ F.onyxEvents trks of

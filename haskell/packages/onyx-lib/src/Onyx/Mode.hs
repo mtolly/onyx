@@ -27,7 +27,8 @@ import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
                                                    rockBand2x)
 import           Onyx.Guitar
-import           Onyx.MIDI.Common                 (StrumHOPOTap (..),
+import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
+                                                   StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Common                 as RB
 import           Onyx.MIDI.Read                   (mapTrack)
@@ -251,13 +252,73 @@ buildDrumAnimation pd tmap opart = let
     anims : _ -> anims
     []        -> case pd.mode of
       DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
-        $ FD.getDifficulty (Just RB.Expert) $ F.onyxPartFullDrums opart
+        $ FD.getDifficulty (Just Expert) $ F.onyxPartFullDrums opart
       -- TODO this could be made better for modes other than pro
       _ -> inRealTime (D.autoDrumAnimation closeTime)
-        $ fmap fst $ D.computePro (Just RB.Expert)
+        $ fmap fst $ D.computePro (Just Expert)
         $ case filter (not . D.nullDrums) rbTracks of
           trk : _ -> trk
           []      -> mempty
+
+------------------------------------------------------------------
+
+data ProKeysResult = ProKeysResult
+  { settings     :: PartProKeys
+  , difficulties :: Map.Map RB.Difficulty (ProKeysTrack U.Beats)
+  , source       :: T.Text
+  , autochart    :: Bool
+  }
+
+type BuildProKeys = ModeInput -> ProKeysResult
+
+anyProKeys :: Part f -> Maybe BuildProKeys
+anyProKeys p
+  = nativeProKeys p
+  <|> maniaToProKeys p
+
+nativeProKeys :: Part f -> Maybe BuildProKeys
+nativeProKeys part = flip fmap part.proKeys $ \ppk input -> let
+  in ProKeysResult
+    { settings = ppk
+    , difficulties = Map.fromList
+      [ (Expert, input.part.onyxPartRealKeysX)
+      , (Hard  , input.part.onyxPartRealKeysH)
+      , (Medium, input.part.onyxPartRealKeysM)
+      , (Easy  , input.part.onyxPartRealKeysE)
+      ]
+    , source = "pro keys chart"
+    , autochart = False
+    }
+
+maniaToProKeys :: Part f -> Maybe BuildProKeys
+maniaToProKeys part = do
+  pm <- part.mania
+  guard $ pm.keys > 5 -- don't make pro keys if this chart fits in basic keys
+  guard $ pm.keys <= 10 -- for now, only use white keys and don't try to autochart down
+  Just $ \input -> let
+    (range, keys) = case pm.keys of
+      1 -> (RangeF, [                                                    BlueGreen D                                                    ])
+      3 -> (RangeF, [                                       BlueGreen C, BlueGreen D, BlueGreen E                                       ])
+      5 -> (RangeF, [                          RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F                          ])
+      7 -> (RangeF, [             RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F, BlueGreen G             ])
+      9 -> (RangeF, [RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F, BlueGreen G, BlueGreen A])
+      2 -> (RangeC, [                                                    RedYellow G, RedYellow A                                                    ])
+      4 -> (RangeC, [                                       RedYellow F, RedYellow G, RedYellow A, RedYellow B                                       ])
+      6 -> (RangeC, [                          RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C                          ])
+      8 -> (RangeC, [             RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D             ])
+      _ -> (RangeC, [RedYellow C, RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E])
+    in ProKeysResult
+      { settings = PartProKeys
+        { difficulty  = Tier 1
+        , fixFreeform = False
+        }
+      , difficulties = Map.singleton Expert mempty
+        { pkLanes = RTB.singleton 0 range
+        , pkNotes = fmap (fmap (keys !!)) $ maniaNotes input.part.onyxPartMania
+        }
+      , source = "converted Mania chart to pro keys"
+      , autochart = False
+      }
 
 ------------------------------------------------------------------
 
@@ -338,7 +399,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
         (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
         autoResult
-      in Map.singleton RB.Expert
+      in Map.singleton Expert
         $ RTB.flatten
         $ adjustRocksmithHST input.tempo
         $ RTB.fromAbsoluteEventList
@@ -381,7 +442,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
       autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
         (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
         autoResult
-      in Map.singleton RB.Expert
+      in Map.singleton Expert
         $ RTB.flatten
         $ RTB.fromAbsoluteEventList
         $ ATB.fromPairList
@@ -402,7 +463,7 @@ maniaToFiveFret :: Part f -> Maybe BuildFive
 maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
   in FiveResult
     { settings = def :: PartGRYBO
-    , notes = Map.singleton RB.Expert $ if pm.keys <= 5
+    , notes = Map.singleton Expert $ if pm.keys <= 5
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
         $ maniaNotes $ F.onyxPartMania input.part
@@ -442,7 +503,7 @@ danceToFiveFret part = flip fmap part.dance $ \pd _ftype input -> FiveResult
     { difficulty = pd.difficulty
     }
   , notes = Map.fromList $ do
-    (diff, dd) <- zip [RB.Expert, RB.Hard, RB.Medium, RB.Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
+    (diff, dd) <- zip [Expert, Hard, Medium, Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
     let five :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
         five
           = RTB.mapMaybe (\case
@@ -464,7 +525,7 @@ danceToDrums :: Part f -> Maybe BuildDrums
 danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
   notes :: [(RB.Difficulty, RTB.T U.Beats (D.Gem D.ProType))]
   notes = do
-    (diff, dd) <- zip [RB.Expert, RB.Hard, RB.Medium, RB.Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
+    (diff, dd) <- zip [Expert, Hard, Medium, Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
     let diffNotes
           = RTB.flatten
           $ fmap (\xs -> case xs of
@@ -504,7 +565,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       = U.unapplyTempoTrack input.tempo
       $ D.autoDrumAnimation 0.25
       $ U.applyTempoTrack input.tempo
-      $ fromMaybe RTB.empty $ lookup RB.Expert notes
+      $ fromMaybe RTB.empty $ lookup Expert notes
       :: RTB.T U.Beats D.Animation
     , source = "converted dance chart to drums"
     , autochart = False
@@ -552,7 +613,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
       , fileDTXKit  = Nothing
       , fullLayout  = FDStandard
       }
-    , notes = Map.singleton RB.Expert $ (, D.VelocityNormal) <$> notes
+    , notes = Map.singleton Expert $ (, D.VelocityNormal) <$> notes
     , other = mempty
     , hasRBMarks = False
     , animations
@@ -597,7 +658,7 @@ drumResultToTrack dr = if dr.hasRBMarks
           []     -> Nothing -- shouldn't happen (collectCoincident)
         in case mapM getUniform $ RTB.collectCoincident allDiffs of
           Just noConflicts -> noConflicts
-          Nothing          -> getColorDiff ybg $ fromMaybe RTB.empty $ Map.lookup RB.Expert dr.notes
+          Nothing          -> getColorDiff ybg $ fromMaybe RTB.empty $ Map.lookup Expert dr.notes
       in foldr RTB.merge RTB.empty $ do
         ybg <- [D.Yellow, D.Blue, D.Green]
         return $ fmap (ybg,) $ makeColorTomMarkers $ getColor ybg

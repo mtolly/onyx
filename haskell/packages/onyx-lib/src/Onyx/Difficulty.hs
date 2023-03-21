@@ -67,15 +67,25 @@ difficultyRB3 rb3 songYaml = let
       in case result.settings.difficulty of
         Rank r -> r
         Tier t -> tierToRank dmap t
+  proKeysRank flex dmap = case getPart flex songYaml >>= anyProKeys of
+    Nothing -> 0
+    Just builder -> let
+      result = builder ModeInput
+        { tempo  = U.tempoMapFromBPS RTB.empty
+        , events = mempty
+        , part   = mempty
+        }
+      in case result.settings.difficulty of
+        Rank r -> r
+        Tier t -> tierToRank dmap t
 
   rb3DrumsRank     = drumRank rb3.drums  drumsDiffMap
   rb3BassRank'     = fiveRank rb3.bass   bassDiffMap
   rb3GuitarRank'   = fiveRank rb3.guitar guitarDiffMap
   rb3KeysRank'     = fiveRank rb3.keys   keysDiffMap
-  rb3VocalRank     = simpleRank rb3.vocal  (.vocal    ) vocalDiffMap
-  rb3ProKeysRank'  = simpleRank rb3.keys   (.proKeys  ) keysDiffMap
-  rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
-  rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
+  rb3VocalRank     = simpleRank rb3.vocal (.vocal) vocalDiffMap
+  rb3ProKeysRank   = proKeysRank rb3.keys keysDiffMap
+  rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank else rb3KeysRank'
   rb3ProBassRank   = simpleRank rb3.bass   (.proGuitar) proBassDiffMap
   rb3ProGuitarRank = simpleRank rb3.guitar (.proGuitar) proGuitarDiffMap
   rb3GuitarRank    = if rb3GuitarRank' == 0 then rb3ProGuitarRank else rb3GuitarRank'

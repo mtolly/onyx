@@ -491,17 +491,20 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           _                -> T.pack $ show fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums trk)] ++ case pdrums.mode of
-            DrumsFull -> case drumTrackFull fpart pdrums diff of
-              Nothing -> []
-              Just trkFull ->
-                [ ( case fpart of
-                    F.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
-                    _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
-                  , PreviewDrumsFull pdrums.fullLayout trkFull
-                  )
-                ]
-            _         -> []
+          Just trk -> let
+            standard = [(name <> " (" <> letter <> ")", PreviewDrums trk)]
+            full = case pdrums.mode of
+              DrumsFull -> case drumTrackFull fpart pdrums diff of
+                Nothing -> []
+                Just trkFull ->
+                  [ ( case fpart of
+                      F.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
+                      _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
+                    , PreviewDrumsFull pdrums.fullLayout trkFull
+                    )
+                  ]
+              _         -> []
+            in full <> standard
     mania = case part.mania of
       Nothing -> []
       Just pm -> let
