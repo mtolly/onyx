@@ -14,6 +14,7 @@ parts:
     drums:
       kicks: both
       mode: full
+      # TODO maybe flip toms in layout, see bar 38
 audio:
   album-track:
     md5: 1c9fd614f9392408e0aa183f6289d244
