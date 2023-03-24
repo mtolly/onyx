@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 module Onyx.Import.Rocksmith where
@@ -266,7 +267,7 @@ importRSSong folder song level = do
           (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
         assembleMMap lens = RTB.fromPairList $ zip (0 : lens) lens
         in assembleMMap $ makeBarLengths modifiedBeats
-      namedParts = goNameParts [] parts
+      namedParts = moveToLead $ goNameParts [] parts
       goNameParts _ [] = []
       goNameParts prev ((slot, sng, bnkPath, meta, isBass, tones) : rest) = let
         n = length $ filter (== slot) prev
@@ -278,6 +279,20 @@ importRSSong folder song level = do
             0 -> ""
             _ -> "-" <> T.pack (show $ n + 1)
         in ((slot, name), sng, bnkPath, meta, isBass, tones) : goNameParts (slot : prev) rest
+      -- if we don't have a Lead part, let another track be assigned to main guitar
+      moveToLead input = let
+        originalNames = [ name | ((_, name), _, _, _, _, _) <- input ]
+        replaceName n1 n2 = do
+          orig@((slot, name), sng, bnkPath, meta, isBass, tones) <- input
+          return $ if name == n1
+            then ((slot, n2), sng, bnkPath, meta, isBass, tones)
+            else orig
+        in if
+          | elem F.FlexGuitar originalNames                 -> input
+          | elem (F.FlexExtra "combo-lead"  ) originalNames -> replaceName (F.FlexExtra "combo-lead"  ) F.FlexGuitar
+          | elem (F.FlexExtra "combo-rhythm") originalNames -> replaceName (F.FlexExtra "combo-rhythm") F.FlexGuitar
+          | elem (F.FlexExtra "rhythm"      ) originalNames -> replaceName (F.FlexExtra "rhythm"      ) F.FlexGuitar
+          | otherwise                                       -> input
       midi = case level of
         ImportFull -> F.Song temps sigs mempty
           { F.onyxParts = Map.fromList $ do
@@ -381,6 +396,7 @@ importRSSong folder song level = do
                   lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
                   inBounds note = pi_StartTime iter1 <= notes_Time note
                     && all (\iter2 -> notes_Time note < pi_StartTime iter2) miter2
+                    && notes_PhraseId note /= -1 -- fix for Time Is Running Out (Muse) bass: weird phantom note past [phrase END]
                   in filter inBounds $ arr_Notes lvl
                 getPhraseAnchors iter1 miter2 = let
                   phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)

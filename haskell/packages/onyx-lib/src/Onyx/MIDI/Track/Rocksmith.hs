@@ -24,6 +24,7 @@ module Onyx.MIDI.Track.Rocksmith
 , getNotesWithModifiers
 , RSRockBandOutput(..)
 , rsToRockBand
+, TremoloFrequency(..)
 ) where
 
 import           Control.Applicative              (liftA2, (<|>))
@@ -750,8 +751,8 @@ buildRS tmap capo trk = do
             (Map.lookupLE t chordBank)
           oneTimeChords = if bankTime == t then Map.toList $ cb_notes_once bankState else []
       findOnceChords (makeNoteChord t) noteGroup oneTimeChords >>= \case
-        Left cinfo -> do
-          warn $ "Couldn't apply one-time chord (notes) event: " <> show cinfo
+        Left _cinfo -> do
+          -- warn $ "Couldn't apply one-time chord (notes) event: " <> show cinfo
           -- don't bother trying to make chords, at least for now
           return $ map (Left . makeNote t) noteGroup
         Right ([], onceChords) -> return onceChords
@@ -777,8 +778,8 @@ buildRS tmap capo trk = do
             (Map.lookupLE t chordBank)
           oneTimeChords = if bankTime == t then Map.toList $ cb_shapes_once bankState else []
       findOnceChords (makeShapeChord t) noteGroup oneTimeChords >>= \case
-        Left cinfo -> do
-          warn $ "Couldn't apply one-time chord (shape) event: " <> show cinfo
+        Left _cinfo -> do
+          -- warn $ "Couldn't apply one-time chord (shape) event: " <> show cinfo
           return []
         Right ([], onceChords) -> return onceChords
         Right (noteGroup', onceChords) -> (onceChords <>) <$> let
@@ -786,7 +787,7 @@ buildRS tmap capo trk = do
           in case Map.lookupLE t chordBank >>= Map.lookup key . cb_shapes . snd of
             Just cinfo -> (: []) <$> makeShapeChord t cinfo noteGroup'
             Nothing -> do
-              warn $ "Couldn't find handshape chord mapping for " <> show key
+              -- warn $ "Couldn't find handshape chord mapping for " <> show key
               return []
   let allNotes = notesAndChords >>= \case
         Left  note       -> [note]
@@ -910,13 +911,16 @@ buildRSVocals tmap vox = Vocals $ V.fromList $ let
     RNil -> RNil
   in map (\(t, f) -> f t) $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ go evts
 
--- TODO make this have two modes: 80ms (for tremolo lanes) and 16th notes (for CH etc.)
+data TremoloFrequency
+  = TremoloSeconds U.Seconds
+  | TremoloBeats U.Beats
+
 applyTremolo
-  :: U.TempoMap
+  :: TremoloFrequency
+  -> U.TempoMap
   -> RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
   -> (RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats), RTB.T U.Beats U.Beats)
-applyTremolo tmap notes = let
-  tremoloSpeed = 0.080 :: U.Seconds
+applyTremolo freq tmap notes = let
   results = do
     orig@(t, (chord, len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 notes
     let allMods = chord >>= thd3
@@ -934,11 +938,15 @@ applyTremolo tmap notes = let
             (str, fret, mods) <- chord
             let newMods = filter (/= ModTremolo) mods <> [ModMute | isSlide]
             return (str, fret, newMods)
-          newNotes  = takeWhile ((< endBeats) . fst) $ do
-            newSecs <- iterate (+ tremoloSpeed) startSecs
-            -- lock positions to 480 resolution to avoid problems with autochart
-            let newBeats = fromInteger (floor $ U.unapplyTempoMap tmap newSecs * 480) / 480 :: U.Beats
-            return (newBeats, (newChord, Nothing))
+          newNotes  = takeWhile ((< endBeats) . fst) $ case freq of
+            TremoloSeconds freqSecs -> do
+              newSecs <- iterate (+ freqSecs) startSecs
+              -- lock positions to 480 resolution to avoid problems with autochart
+              let newBeats = fromInteger (floor $ U.unapplyTempoMap tmap newSecs * 480) / 480 :: U.Beats
+              return (newBeats, (newChord, Nothing))
+            TremoloBeats freqBeats -> do
+              newBeats <- iterate (+ freqBeats) t
+              return (newBeats, (newChord, Nothing))
           tremolo   = [Right (t, sustainBeats) | not $ null $ drop 1 newNotes]
           in map Left newNotes <> tremolo
         else [Left orig]
@@ -955,12 +963,12 @@ data RSRockBandOutput = RSRockBandOutput
   , tremoloMarkers :: RTB.T U.Beats U.Beats
   }
 
-rsToRockBand :: U.TempoMap -> RocksmithTrack U.Beats -> RSRockBandOutput
-rsToRockBand tmap rs = let
+rsToRockBand :: TremoloFrequency -> U.TempoMap -> RocksmithTrack U.Beats -> RSRockBandOutput
+rsToRockBand freq tmap rs = let
 
   calculatedNotes :: RTB.T U.Beats ([(GtrString, GtrFret, [RSModifier])], Maybe U.Beats)
   (calculatedNotes, tremolo)
-    = applyTremolo tmap
+    = applyTremolo freq tmap
     $ guitarify'
     $ fmap (\((fret, mods), str, len) -> ((str, fret, mods), len))
     $ edgeBlips minSustainLengthRB
@@ -1043,7 +1051,7 @@ rsToRockBand tmap rs = let
 convertRStoPG :: U.TempoMap -> RocksmithTrack U.Beats -> ProGuitarTrack U.Beats
 convertRStoPG tmap rs = let
 
-  output = rsToRockBand tmap rs
+  output = rsToRockBand (TremoloSeconds 0.080) tmap rs
   extendedNotesShapes = notesWithHandshapes output
   tremolo = tremoloMarkers output
 

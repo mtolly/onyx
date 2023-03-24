@@ -381,10 +381,10 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       chorded = RTB.toAbsoluteEventList 0 $ notesWithHandshapes $ fromMaybe (RSRockBandOutput RTB.empty RTB.empty) $ listToMaybe $ catMaybes
         [ do
           guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSGuitar input.part
-          return $ rsToRockBand input.tempo $ F.onyxPartRSGuitar input.part
+          return $ rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSGuitar input.part
         , do
           guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSBass input.part
-          return $ rsToRockBand input.tempo $ F.onyxPartRSBass input.part
+          return $ rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSBass input.part
         -- TODO support RB protar tracks
         ]
       strings = tuningPitches ppg.tuning

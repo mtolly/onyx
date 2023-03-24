@@ -77,6 +77,15 @@ data PreviewSong = PreviewSong
   , previewSections :: Map.Map Double T.Text
   } deriving (Show)
 
+displayPartName :: F.FlexPartName -> T.Text
+displayPartName = \case
+  F.FlexGuitar  -> "Guitar"
+  F.FlexBass    -> "Bass"
+  F.FlexDrums   -> "Drums"
+  F.FlexKeys    -> "Keys"
+  F.FlexVocal   -> "Vocal"
+  F.FlexExtra t -> T.unwords $ map T.toTitle $ T.words $ T.replace "-" " " t
+
 computeTracks
   :: (SendMessage m)
   => SongYaml FilePath
@@ -368,14 +377,14 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
               F.FlexExtra "rhythm"       -> "RS Rhythm"
               F.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
               F.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
-              _                               -> T.pack $ show fpart <> " [RS Guitar]"
+              _                          -> displayPartName fpart <> " [RS Guitar]"
         return $ (\rso -> (name, PreviewPG ppg.tuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
               F.FlexBass               -> "RS Bass"
               F.FlexExtra "bonus-bass" -> "RS Bonus Bass"
-              _                        -> T.pack $ show fpart <> " [RS Bass]"
+              _                        -> displayPartName fpart <> " [RS Bass]"
         return $ (\rso -> (name, PreviewPG ppg.tuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcB
       ]
 
@@ -471,13 +480,15 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           F.FlexKeys                -> "Keys"
           F.FlexExtra "rhythm"      -> "Rhythm"
           F.FlexExtra "guitar-coop" -> "Guitar Coop"
-          _                         -> T.pack $ show fpart <> " [5]"
+          _                         -> displayPartName fpart <> " [5]"
           ) <> if result.autochart
             then " (Autochart)"
             else ""
         in diffPairs >>= \(diff, letter) -> case fiveTrack diff result of
           Nothing  -> []
-          Just trk -> [(name <> " (" <> letter <> ")", PreviewFive trk)]
+          Just trk -> [(result.autochart, (name <> " (" <> letter <> ")", PreviewFive trk))]
+    fiveNative = map snd $ filter (not . fst) five
+    fiveAuto   = map snd $ filter fst         five
     drums = case part.drums of
       Nothing     -> []
       Just pdrums -> let
@@ -488,7 +499,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             DrumsPro  -> "Pro Drums"
             DrumsReal -> "Pro Drums"
             DrumsFull -> "Pro Drums"
-          _                -> T.pack $ show fpart <> " [D]"
+          _           -> displayPartName fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
           Just trk -> let
@@ -499,7 +510,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
                 Just trkFull ->
                   [ ( case fpart of
                       F.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
-                      _                -> T.pack (show fpart) <> " Full Drums (" <> letter <> ")"
+                      _           -> displayPartName fpart <> " [Full Drums] (" <> letter <> ")"
                     , PreviewDrumsFull pdrums.fullLayout trkFull
                     )
                   ]
@@ -508,7 +519,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     mania = case part.mania of
       Nothing -> []
       Just pm -> let
-        name = T.pack $ show fpart <> " [Mania]"
+        name = displayPartName fpart <> " [Mania]"
         in case maniaTrack fpart of
           Nothing  -> []
           Just trk -> [(name, PreviewMania pm trk)]
@@ -517,7 +528,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       Just _ -> let
         name = case fpart of
           F.FlexExtra "dance" -> "Dance"
-          _                   -> T.pack $ show fpart <> " [Dance]"
+          _                   -> displayPartName fpart <> " [Dance]"
         in do
           (smdiff, preview) <- danceTracks fpart
           let diffLabel = T.pack $ " (" <> (drop 2 $ show smdiff) <> ")"
@@ -528,14 +539,15 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         name = case fpart of
           F.FlexGuitar -> "Pro Guitar"
           F.FlexBass   -> "Pro Bass"
-          _            -> T.pack $ show fpart <> " [PG]"
+          _            -> displayPartName fpart <> " [PG]"
         in diffPairs >>= \(diff, letter) -> case pgTrack fpart ppg diff of
           Nothing  -> []
           Just trk -> [(name <> " (" <> letter <> ")", PreviewPG ppg.tuning trk)]
-    rs = case part.proGuitar of
-      Nothing  -> return []
-      Just ppg -> rsTracks fpart ppg
-    in ((mania ++ dance ++ five ++ drums ++ pg) ++) <$> rs
+    in do
+      rs <- case part.proGuitar of
+        Nothing  -> return []
+        Just ppg -> rsTracks fpart ppg
+      return $ concat [mania, dance, fiveNative, drums, pg, rs, fiveAuto]
 
   bgs = concat
     [ case songYaml.global.backgroundVideo of
