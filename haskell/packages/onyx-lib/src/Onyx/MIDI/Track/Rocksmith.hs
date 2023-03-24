@@ -6,6 +6,7 @@ Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
 {-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE MultiWayIf         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE TupleSections      #-}
@@ -551,10 +552,12 @@ applyLinks = \case
           Nothing -> Wait t thisEdge $ applyLinks rest
           Just ((thisLength, ()), rest') -> case U.extractFirst findNextOn rest' of
             Nothing -> Wait t thisEdge $ applyLinks rest
-            -- TODO probably we don't want to change anything if tremolo starts/ends between the two notes
-            Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if fret == nextFret
+            Just ((beforeNextOn, (nextFret, nextMods)), rest'') -> if
+              -- if tremolo starts/ends at the link boundary, don't change anything
+              | elem ModTremolo mods /= elem ModTremolo nextMods
+                -> Wait t thisEdge $ applyLinks rest
               -- if linking to same fret, join the two notes together, and move slide/link mods from 2nd note to 1st
-              then let
+              | fret == nextFret -> let
                 mods' = filter (/= ModLink) mods <> let
                   moveBack = \case
                     ModSlide        _ -> True
@@ -564,7 +567,7 @@ applyLinks = \case
                   in filter moveBack nextMods
                 in applyLinks $ Wait t (EdgeOn (fret, mods') str) rest''
               -- if linking to a different fret, don't remove any notes, but mark 2nd note as "HOPO"
-              else Wait t thisEdge
+              | otherwise -> Wait t thisEdge
                 $ applyLinks
                 $ RTB.insert thisLength (EdgeOff str)
                 $ RTB.insert beforeNextOn (EdgeOn (nextFret, ModHammerOn : nextMods) str)
@@ -938,7 +941,7 @@ applyTremolo freq tmap notes = let
             (str, fret, mods) <- chord
             let newMods = filter (/= ModTremolo) mods <> [ModMute | isSlide]
             return (str, fret, newMods)
-          newNotes  = takeWhile ((< endBeats) . fst) $ case freq of
+          newNotes  = removeLaterHOPO $ takeWhile ((< endBeats) . fst) $ case freq of
             TremoloSeconds freqSecs -> do
               newSecs <- iterate (+ freqSecs) startSecs
               -- lock positions to 480 resolution to avoid problems with autochart
@@ -948,6 +951,13 @@ applyTremolo freq tmap notes = let
               newBeats <- iterate (+ freqBeats) t
               return (newBeats, (newChord, Nothing))
           tremolo   = [Right (t, sustainBeats) | not $ null $ drop 1 newNotes]
+          removeLaterHOPO (x : xs) = x : do
+            (bts, (thisChord, thisLength)) <- xs
+            let chord' = do
+                  (str, fret, mods) <- thisChord
+                  return (str, fret, filter (`notElem` [ModHammerOn, ModPullOff, ModTap]) mods)
+            return (bts, (chord', thisLength))
+          removeLaterHOPO [] = []
           in map Left newNotes <> tremolo
         else [Left orig]
   toRTB = RTB.fromAbsoluteEventList . ATB.fromPairList

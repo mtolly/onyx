@@ -38,8 +38,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania
-import           Onyx.MIDI.Track.ProGuitar        (getStringIndex,
-                                                   tuningPitches)
+import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.PhaseShift.Dance
@@ -342,7 +341,7 @@ adjustRocksmithHST
 adjustRocksmithHST tempos = let
   timeLong, timeShort :: U.Seconds
   timeLong  = 0.5
-  timeShort = 0.13 -- may want to adjust this, could be too high for some situations
+  timeShort = 0.1
   go = \case
     -- tap, hopo: hopo should become tap
     Wait t1 chord1@(((_, Tap), _) : _) (Wait t2 chord2@(((_, HOPO), _) : _) rest)
@@ -369,62 +368,108 @@ adjustRocksmithHST tempos = let
     RNil -> RNil
   in U.unapplyTempoTrack tempos . go . U.applyTempoTrack tempos
 
+-- Only adding things that are currently used in converting to 5-fret
+loadProtarOutput :: ProGuitarTrack U.Beats -> RSRockBandOutput
+loadProtarOutput pgt = let
+  -- could pass hopo threshold in via ModeInput if we really wanted
+  result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert $ pgDifficulties pgt
+  in RSRockBandOutput
+    { notesWithHandshapes = flip fmap result $ \(sht, notes, sustain) ->
+      ( do
+        (str, fret, typ) <- notes
+        guard $ typ /= ArpeggioForm
+        let mods = concat
+              [ [ModHammerOn          | sht == HOPO ]
+              , [ModTap               | sht == Tap  ]
+              , [ModMute              | typ == Muted]
+              , [ModSlideUnpitch fret | isSlide     ] -- important to not chart muted slides as opens
+              ]
+            isSlide = case sustain of
+              Just (_len, maybeSlide) -> isJust maybeSlide
+              Nothing                 -> False
+        return (str, fret, mods)
+      , fst <$> sustain
+      , Nothing
+      )
+    , tremoloMarkers = RTB.empty
+    }
+
 proGuitarToFiveFret :: Part f -> Maybe BuildFive
 proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
+  -- TODO
+  -- * maybe split bent notes into multiple
+  (rsOutput, maybePG) = fromMaybe (RSRockBandOutput RTB.empty RTB.empty, Nothing) $ listToMaybe $ catMaybes
+    [ do
+      guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSGuitar input.part
+      return (rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSGuitar input.part, Nothing)
+    , do
+      guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSBass input.part
+      return (rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSBass input.part, Nothing)
+    , do
+      let pg = F.onyxPartRealGuitar22 input.part
+      guard $ not $ nullPG pg
+      return (loadProtarOutput pg, Just pg)
+    , do
+      let pg = F.onyxPartRealGuitar input.part
+      guard $ not $ nullPG pg
+      return (loadProtarOutput pg, Just pg)
+    ]
+  chorded = RTB.toAbsoluteEventList 0 $ notesWithHandshapes rsOutput
+  strings = tuningPitches ppg.tuning
+  toPitch str fret = (strings !! getStringIndex 6 str) + fret
+  isSlide = \case
+    ModSlide{}        -> True
+    ModSlideUnpitch{} -> True
+    _                 -> False
+  autoResult = autoChart 5 $ do
+    (bts, (notes, _len, _shape)) <- ATB.toPairList chorded
+    pitch <- simplifyChord $ nubOrd $ do
+      (str, fret, mods) <- notes
+      -- Don't give fret-hand-mute notes to the autochart,
+      -- then below they will automatically become open notes
+      guard $ notElem ModMute mods || any isSlide mods
+      return $ toPitch str fret
+    return (realToFrac bts, pitch)
+  autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
+    (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
+    autoResult
   in FiveResult
     { settings = (def :: PartGRYBO)
       { difficulty = ppg.difficulty
       }
-    , notes = let
-      -- TODO
-      -- * maybe split bent notes into multiple
-      chorded = RTB.toAbsoluteEventList 0 $ notesWithHandshapes $ fromMaybe (RSRockBandOutput RTB.empty RTB.empty) $ listToMaybe $ catMaybes
-        [ do
-          guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSGuitar input.part
-          return $ rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSGuitar input.part
-        , do
-          guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSBass input.part
-          return $ rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSBass input.part
-        -- TODO support RB protar tracks
-        ]
-      strings = tuningPitches ppg.tuning
-      toPitch str fret = (strings !! getStringIndex 6 str) + fret
-      autoResult = autoChart 5 $ do
-        (bts, (notes, _len, _shape)) <- ATB.toPairList chorded
-        pitch <- simplifyChord $ nubOrd
-          -- Don't give fret-hand-mute notes to the autochart,
-          -- then below they will automatically become open notes
-          [ toPitch str fret | (str, fret, mods) <- notes, notElem ModMute mods ]
-        return (realToFrac bts, pitch)
-      autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
-        (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
-        autoResult
-      in Map.singleton Expert
-        $ RTB.flatten
-        $ adjustRocksmithHST input.tempo
-        $ RTB.fromAbsoluteEventList
-        $ ATB.fromPairList
-        $ map (\(posn, (chord, len, _shape)) -> let
-          allMods = chord >>= \(_, _, mods) -> mods
-          hst = if elem ModHammerOn allMods || elem ModPullOff allMods
-            then HOPO
-            else if elem ModTap allMods
-              then Tap
-              else Strum
-          notes = do
-            fret <- maybe [Nothing] (map (Just . toEnum)) $ Map.lookup posn autoMap
-            return ((fret, hst), len)
-          in (posn, notes)
-          )
-        $ ATB.toPairList
-        $ chorded
-    , other = mempty -- TODO when RB pro tracks are supported, add overdrive, solos, etc.
+    , notes = Map.singleton Expert
+      $ RTB.flatten
+      $ adjustRocksmithHST input.tempo
+      $ RTB.fromAbsoluteEventList
+      $ ATB.fromPairList
+      $ map (\(posn, (chord, len, _shape)) -> let
+        allMods = chord >>= \(_, _, mods) -> mods
+        hst = if elem ModHammerOn allMods || elem ModPullOff allMods
+          then HOPO
+          else if elem ModTap allMods
+            then Tap
+            else Strum
+        notes = do
+          fret <- maybe [Nothing] (map (Just . toEnum)) $ Map.lookup posn autoMap
+          return ((fret, hst), len)
+        in (posn, notes)
+        )
+      $ ATB.toPairList
+      $ chorded
+    , other = case maybePG of
+      Nothing -> mempty
+      Just pg -> mempty
+        { Five.fiveOverdrive = pgOverdrive   pg
+        , Five.fiveSolo      = pgSolo        pg
+        , Five.fiveBRE       = snd <$> pgBRE pg
+        }
     , source = "converted Rocksmith chart to five-fret"
     , autochart = True
     }
 
 proKeysToFiveFret :: Part f -> Maybe BuildFive
 proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
+  expertPK = F.onyxPartRealKeysX input.part
   in FiveResult
     { settings = (def :: PartGRYBO)
       { difficulty = ppk.difficulty
@@ -434,7 +479,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         = RTB.toAbsoluteEventList 0
         $ guitarify'
         $ fmap (\((), key, len) -> (fromEnum key, guard (len >= standardBlipThreshold) >> Just len))
-        $ RB.joinEdgesSimple $ pkNotes $ F.onyxPartRealKeysX input.part
+        $ RB.joinEdgesSimple $ pkNotes expertPK
       autoResult = autoChart 5 $ do
         (bts, (notes, _len)) <- ATB.toPairList chorded
         pitch <- simplifyChord notes
@@ -454,7 +499,13 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
           )
         $ ATB.toPairList
         $ chorded
-    , other = mempty -- TODO overdrive, solos, etc.
+    , other = mempty
+      { Five.fiveOverdrive = pkOverdrive expertPK
+      , Five.fiveSolo      = pkSolo      expertPK
+      , Five.fiveBRE       = pkBRE       expertPK
+      , Five.fiveMood      = pkMood      expertPK
+      -- could do trill, but may not be valid if autochart was weird
+      }
     , source = "converted Pro Keys chart to five-fret"
     , autochart = True
     }

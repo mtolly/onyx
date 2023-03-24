@@ -42,6 +42,8 @@ Contributors and other special thanks:
 
 * Members of BirdmanExe's Discord server (BirdmanExe, SoundHaven, RealSavageJef, and many others) and the MiloHax Discord server (LocalH, jnack, mariteaux, and many others) have tested countless builds of Onyx to try new features and report bugs, which I hugely appreciate.
 
+* Edward "EFHIII" Hass created a .midi to Clone Hero autochart tool (https://github.com/EFHIII/midi-ch), whose algorithm I adopted into Onyx to automatically adapt Pro Guitar, Rocksmith, Pro Keys, and Beatmania tracks into playable 5-fret tracks. This was a longstanding vision of mine that I was very excited to finally see working, and Edward very graciously licensed his code to make it happen.
+
 * Harmonix, Neversoft, Konami, Srylain, mdsitton, and other rhythm game developers, for creating the games I've been obsessed with for so many years :)
 
 ================================================================================
