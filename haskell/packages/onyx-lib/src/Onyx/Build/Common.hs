@@ -372,6 +372,7 @@ adjustSpec False _        = [(-1, 0), (1, 0)]
 
 padAudio :: (Monad m) => Int -> AudioSource m Float -> AudioSource m Float
 padAudio pad src = if frames src == 0
+  -- NOTE: ffmpeg loaded .xma files have length set to 0, so we hack it in Onyx.Audio.buildSource'
   then src
   else padStart (Seconds $ realToFrac pad) src
 

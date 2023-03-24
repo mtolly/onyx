@@ -512,6 +512,15 @@ buildSource' aud = case aud of
     -- need to actually figure out what's going on!
     -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
     ".wav" -> sourceSnd fin
+    ".xma" -> do
+      -- NOTE: this is a hack so that padAudio actually pads the audio from an .xma file.
+      -- (since we check if frames is 0 and don't pad if so)
+      -- ffmpeg apparently does not bother setting the correct length, just sets it to 0.
+      -- we could get it ourselves though?
+      src <- ffSourceFixPath (Frames 0) fin
+      return src
+        { frames = if frames src == 0 then 1 else 0
+        }
     _      -> ffSourceFixPath (Frames 0) fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
