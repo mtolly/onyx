@@ -156,21 +156,24 @@ importRSSong folder song level = do
           PC      -> "generic"
     sngFile <- need $ "songs" :| ["bin", binFolder, T.pack $ sngPath <.> "sng"]
     -- TODO when level is ImportQuick, we probably want to skip parsing the .sng altogether
-    sng <- stackIO (useHandle sngFile handleToByteString) >>= loadSNG platform . BL.toStrict
-    if not $ null $ sng_Vocals sng
+    sng <- case level of
+      ImportFull  -> fmap Just $ stackIO (useHandle sngFile handleToByteString) >>= loadSNG platform . BL.toStrict
+      ImportQuick -> return Nothing
+    -- 1 seen on all pc (dlc + customs) and xbox odlc, 2 seen in xbox+ps3 cdlc
+    let manifest1 = "manifests" :| [T.pack header, T.pack $ manifest <.> "json"]
+        manifest2 = "manifests" :| ["songs_dlc"  , T.pack $ manifest <.> "json"]
+    jsonFile <- errorToEither (need manifest1) >>= \case
+      Right x -> return x
+      Left  _ -> errorToEither (need manifest2) >>= \case
+        Right x -> return x
+        Left  _ -> fatal "Couldn't find manifest .json file"
+    json <- stackIO (useHandle jsonFile handleToByteString) >>=
+      either fatal return . A.eitherDecodeStrict . BL.toStrict
+    jsonAttrs <- prop "Entries" json >>= singleKey >>= prop "Attributes"
+    arrName <- prop "ArrangementName" jsonAttrs >>= getString
+    if arrName == "Vocals"
       then return Nothing
       else do
-        -- 1 seen on all pc (dlc + customs) and xbox odlc, 2 seen in xbox+ps3 cdlc
-        let manifest1 = "manifests" :| [T.pack header, T.pack $ manifest <.> "json"]
-            manifest2 = "manifests" :| ["songs_dlc"  , T.pack $ manifest <.> "json"]
-        jsonFile <- errorToEither (need manifest1) >>= \case
-          Right x -> return x
-          Left  _ -> errorToEither (need manifest2) >>= \case
-            Right x -> return x
-            Left  _ -> fatal "Couldn't find manifest .json file"
-        json <- stackIO (useHandle jsonFile handleToByteString) >>=
-          either fatal return . A.eitherDecodeStrict . BL.toStrict
-        jsonAttrs <- prop "Entries" json >>= singleKey >>= prop "Attributes"
         title <- prop "SongName" jsonAttrs >>= getString
         artist <- prop "ArtistName" jsonAttrs >>= getString
         album <- prop "AlbumName" jsonAttrs >>= getString
@@ -181,7 +184,6 @@ importRSSong folder song level = do
         isBass <- prop "pathBass" arrProps >>= getBool
         isBonus <- prop "bonusArr" arrProps >>= getBool
         isDefault <- prop "represent" arrProps >>= getBool
-        arrName <- prop "ArrangementName" jsonAttrs >>= getString
         let arrmod = case (isDefault, isBonus) of
               (True , _    ) -> RSDefault
               (False, False) -> RSAlternate
@@ -234,7 +236,7 @@ importRSSong folder song level = do
           Xbox360 -> BigEndian
           PS3     -> BigEndian
         in extractRSOgg bnkFile audioDir
-      modifiedBeats = removeDupeTimes $ case sng_BPMs firstArr of
+      modifiedBeats = removeDupeTimes $ case maybe [] sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t
@@ -296,7 +298,7 @@ importRSSong folder song level = do
       midi = case level of
         ImportFull -> F.Song temps sigs mempty
           { F.onyxParts = Map.fromList $ do
-            ((_, partName), sng, _, _, isBass, _) <- namedParts
+            ((_, partName), Just sng, _, _, isBass, _) <- namedParts
             let toSeconds = realToFrac :: Float -> U.Seconds
                 capoOffset :: Int
                 capoOffset = case meta_CapoFretId $ sng_Metadata sng of
@@ -576,7 +578,7 @@ importRSSong folder song level = do
       , fileTempo   = Nothing
       }
     , parts = Parts $ HM.fromList $ do
-      ((_, partName), sng, _, _, isBass, tones) <- namedParts
+      ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
       let part = emptyPart
             { proGuitar = Just PartProGuitar
               { difficulty    = Tier 1

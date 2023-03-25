@@ -21,6 +21,8 @@ import qualified Data.Text.Encoding              as TE
 import           Onyx.Codec.Binary
 import           Onyx.Rocksmith.Crypt
 import qualified Onyx.Util.Handle                as SH
+import           Onyx.Xbox.STFS                  (runGetM)
+import           System.IO                       (SeekMode (..), hSeek)
 
 data Header = Header
   { hdr_magic        :: B.ByteString
@@ -78,15 +80,11 @@ extractPSARC fin dout = do
 
 readPSARCFolder :: SH.Readable -> IO (SH.Folder T.Text SH.Readable)
 readPSARCFolder readable = do
-  -- TODO maybe improve this to not read the whole file into memory
-  (bs, origLabel) <- SH.useHandle readable $ \h -> do
-    bs <- SH.handleToByteString h
-    return (bs, SH.handleLabel h)
-  (hdr, tocBytes) <- return $ flip runGet bs $ do
-    hdr <- codecIn (bin :: BinaryCodec Header)
-    tocEnc <- getByteString (fromIntegral (hdr_tocLength hdr) - 32)
+  (hdr, tocBytes, origLabel) <- SH.useHandle readable $ \h -> do
+    hdr <- BL.hGet h 32 >>= runGetM (codecIn (bin :: BinaryCodec Header))
+    tocEnc <- B.hGet h $ fromIntegral (hdr_tocLength hdr) - 32
     toc <- decryptPSARCTable' tocEnc
-    return (hdr, toc)
+    return (hdr, toc, SH.handleLabel h)
   (toc, zlengths) <- return $ flip runGet (BL.fromStrict tocBytes) $ do
     toc <- replicateM (fromIntegral $ hdr_tocEntries hdr) $ do
       codecIn (bin :: BinaryCodec TOCEntry)
@@ -95,24 +93,28 @@ readPSARCFolder readable = do
           False -> liftA2 (:) getWord16be getZLengths
     zlengths <- getZLengths
     return (toc, zlengths)
-  listing : pieces <- return $ flip map toc $ \entry -> do
-    let seeked = BL.drop (fromIntegral $ toc_offset entry) bs
-        lens = map fromIntegral $ drop (fromIntegral $ toc_zIndex entry) zlengths
-        readEntry []       _     _   = BL.empty
-        readEntry (z : zs) bytes len = if len == toc_length entry
-          then BL.empty
-          else let
-            defaultBlockSize = 0x10000
-            (chunk, afterChunk) = BL.splitAt (if z == 0 then defaultBlockSize else z) bytes
-            chunk' = fromMaybe chunk $ zlibMaybe chunk
-            in chunk' <> readEntry zs afterChunk (len + fromIntegral (BL.length chunk'))
-    readEntry lens seeked 0
+  let entryReaders = flip map toc $ \entry -> SH.useHandle readable $ \h -> do
+        hSeek h AbsoluteSeek $ fromIntegral $ toc_offset entry
+        let readEntry' []       _   = return BL.empty
+            readEntry' (z : zs) len = if len == toc_length entry
+              then return BL.empty
+              else do
+                let defaultBlockSize = 0x10000
+                chunk <- BL.hGet h $ if z == 0 then defaultBlockSize else z
+                let chunk' = fromMaybe chunk $ zlibMaybe chunk
+                (chunk' <>) <$> readEntry' zs (len + fromIntegral (BL.length chunk'))
+            lens = map fromIntegral $ drop (fromIntegral $ toc_zIndex entry) zlengths
+        readEntry' lens 0
+  (listingReader, fileReaders) <- case entryReaders of
+    []     -> fail "No file listing found in PSARC"
+    x : xs -> return (x, xs)
+  listing <- listingReader
   let filenames = T.lines $ TE.decodeLatin1 $ BL.toStrict listing
       folder = SH.fromFiles $ do
-        (path, piece) <- zip filenames pieces
+        (path, fileReader) <- zip filenames fileReaders
         Just spath <- [SH.splitPath path] -- error if Nothing?
         let newLabel = origLabel <> " | " <> T.unpack path
-        return (spath, SH.makeHandle newLabel $ SH.byteStringSimpleHandle piece)
+        return (spath, SH.makeHandle newLabel $ fileReader >>= SH.byteStringSimpleHandle)
   return folder
 
 zlibMaybe :: BL.ByteString -> Maybe BL.ByteString
