@@ -308,9 +308,10 @@ instance ParseTrack ProGuitarTrack where
       pgChordName    <- pgChordName =. let
         cmd = T.pack $ "chrd" ++ show (fromEnum diff)
         parse = \case
-          [k] | k == cmd        -> Just Nothing
-          [k, cname] | k == cmd -> Just $ Just cname
-          _                     -> Nothing
+          k : cname | k == cmd -> Just $ case cname of
+            []    -> Nothing
+            _ : _ -> Just $ T.unwords cname
+          _                    -> Nothing
         unparse cname = cmd : toList cname
         in commandMatch' parse unparse
       return ProGuitarDifficulty{..}

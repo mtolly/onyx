@@ -688,12 +688,14 @@ buildRS tmap capo trk = do
           return []
         assignFingers fs       ((str, 0) : rest) = ((str, 0, Nothing) :) <$> assignFingers fs rest
         assignFingers (f : fs) ((str, n) : rest) = ((str, n, Just f ) :) <$> assignFingers fs rest
-        assignFingers _        _                 = fatal $ unwords
-          [ "Mismatched chord fingers: can't match"
-          , show notes
-          , "with"
-          , show cinfo
-          ]
+        assignFingers _        _                 = do
+          warn $ unwords
+            [ "Mismatched chord fingers: can't match"
+            , show notes
+            , "with"
+            , show cinfo
+            ]
+          return []
         finish assigned = ChordTemplate
           { ct_chordName   = fromMaybe "" $ ciName cinfo
           , ct_displayName = fromMaybe "" (ciName cinfo)
@@ -1139,7 +1141,10 @@ convertRStoPG tmap rs = let
           lookupNotOnce = Map.lookup targetChord $ cb_shapes bank
           name = (lookupOnce <|> lookupNotOnce) >>= ciName >>= \x -> do
             guard $ T.any (not . isSpace) x
-            return x
+            -- Looks nice to translate parens to superscript,
+            -- but also we need to because for some reason (#...) breaks Magma.
+            -- Seems to recognize it as some kind of weird command syntax
+            return $ T.replace "(" "<gtr>" $ T.replace ")" "</gtr>" x
           in Just (t, name)
       )
     $ ATB.toPairList

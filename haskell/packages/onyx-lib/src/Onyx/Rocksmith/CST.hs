@@ -22,7 +22,6 @@ import           Onyx.Codec.Common          (makeOut, opt, req)
 import           Onyx.Codec.JSON
 import           Onyx.Codec.XML
 import           Onyx.StackTrace
-import           Text.Read                  (readMaybe)
 import           Text.XML.Light
 
 cstSpaceW3, cstSpaceMain, cstSpaceArrProps, cstSpaceSng2014, cstSpaceAggGraph, cstSpaceTone, cstSpaceTone2014, cstSpaceArrays :: String
@@ -101,6 +100,7 @@ data Tone2014 = Tone2014
   , t14_SortOrder       :: Maybe Milli -- can be missing in manifest .json
   , t14_ToneDescriptors :: V.Vector T.Text
   , t14_Volume          :: Milli
+  -- TODO MacVolume, usually not present but seen in some dlc
   } deriving (Eq, Show)
 
 instance IsInside Tone2014 where
@@ -124,7 +124,7 @@ toneDescriptors = do
 
 -- | Format used in manifest .json
 instance StackJSON Tone2014 where
-  stackJSON = asStrictObject "Tone2014" $ do
+  stackJSON = asObject "Tone2014" $ do
     t14_GearList        <- t14_GearList        =. req "GearList" stackJSON
     t14_IsCustom        <- t14_IsCustom        =. req "IsCustom" stackJSON
     t14_Key             <- t14_Key             =. req "Key" stackJSON
@@ -133,9 +133,11 @@ instance StackJSON Tone2014 where
     t14_SortOrder       <- t14_SortOrder       =. opt Nothing "SortOrder" stackJSON
     t14_ToneDescriptors <- t14_ToneDescriptors =. req "ToneDescriptors" stackJSON
     t14_Volume          <- t14_Volume          =. req "Volume" Codec
-      { codecIn = codecIn stackJSON >>= \s -> case readMaybe s of
-        Nothing -> fatal "Couldn't read volume number from string"
-        Just v  -> return v
+      { codecIn = codecIn stackJSON >>= \s -> case reads s of
+        -- use reads due to e.g. rancfall_rhythm.json with
+        --  "Volume": "-20.000Qaqaq",
+        []         -> fatal "Couldn't read volume number from string"
+        (v, _) : _ -> return v
       , codecOut = makeOut $ A.String . T.pack . show
       }
     return Tone2014{..}
