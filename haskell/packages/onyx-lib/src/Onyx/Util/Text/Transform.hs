@@ -23,7 +23,7 @@ replaceCharsRB rbproj txt = liftIO $ let
     in any (\(pmin, pmax) -> pmin <= point && point <= pmax) jpnRanges
   nonBreakingSpace = '\8203'
   latinifier s = flip T.map (T.filter (/= nonBreakingSpace) s) $ \case
-    -- TODO fill this list out more
+    -- TODO should replace this with either text-icu or utf8proc, using normalization
     'ÿ' | rbproj -> 'y'
     'Ÿ' | rbproj -> 'Y'
     '–'          -> '-' -- en dash
@@ -76,7 +76,7 @@ replaceCharsRB rbproj txt = liftIO $ let
         $ T.replace "( " "("
         $ T.replace " )" ")"
         $ T.replace "[ " "["
-        $ T.replace " [" "]"
+        $ T.replace " ]" "]"
         $ T.replace "{ " "{"
         $ T.replace " }" "}"
         $ T.replace " ," ","

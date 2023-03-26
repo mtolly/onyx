@@ -9,7 +9,8 @@ module Onyx.Import where
 
 import           Control.Applicative          ((<|>))
 import qualified Control.Monad.Catch          as MC
-import           Control.Monad.Extra          (anyM, forM, forM_, guard)
+import           Control.Monad.Extra          (anyM, concatMapM, forM, forM_,
+                                               guard)
 import           Control.Monad.IO.Class       (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Data.Bifunctor               (first)
@@ -279,9 +280,12 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                   Nothing -> return ([], [])
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
-        let single = null $ drop 1 imports
-        fmap ([],) $ forM (zip [0..] imports) $ \(i, imp) -> do
-          quick <- imp ImportQuick
+        scanned <- flip concatMapM imports $ \imp -> do
+          errorToWarning (imp ImportQuick) >>= return . \case
+            Nothing    -> []
+            Just quick -> [(imp, quick)]
+        let single = null $ drop 1 scanned
+        fmap ([],) $ forM (zip [0..] scanned) $ \(i, (imp, quick)) -> do
           let index = guard (not single) >> Just i
           return Importable
             { impTitle = quick.metadata.title

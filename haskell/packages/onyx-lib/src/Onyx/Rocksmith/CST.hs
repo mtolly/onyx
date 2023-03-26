@@ -12,7 +12,7 @@ import           Data.Fixed                 (Milli)
 import           Data.Functor.Identity      (Identity)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Int                   (Int32)
-import           Data.Maybe                 (isNothing)
+import           Data.Maybe                 (fromMaybe, isNothing)
 import           Data.Profunctor            (dimap)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
@@ -82,8 +82,12 @@ instance IsInside DLCPackageData where
     dlc_PreviewVolume     <- dlc_PreviewVolume     =. childTag (inSpace cstSpaceMain "PreviewVolume"    ) (parseInside' $ milliText childText)
     dlc_SignatureType     <- dlc_SignatureType     =. childTag (inSpace cstSpaceMain "SignatureType"    ) (parseInside' childText)
     dlc_SongInfo          <- dlc_SongInfo          =. childTag (inSpace cstSpaceMain "SongInfo"         ) (parseInside' insideCodec)
-    dlc_Tones             <- dlc_Tones             =. childTag (inSpace cstSpaceMain "Tones"            ) (parseInside' $ return V.empty)
-    dlc_TonesRS2014       <- dlc_TonesRS2014       =. pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014")
+    let emptyOnError parser = parser
+          -- if a tone has an error, just ignore it and return an empty vector
+          { codecIn = fmap (fromMaybe V.empty) $ errorToWarning $ codecIn parser
+          }
+    dlc_Tones             <- dlc_Tones             =. emptyOnError (childTag (inSpace cstSpaceMain "Tones") (parseInside' $ return V.empty))
+    dlc_TonesRS2014       <- dlc_TonesRS2014       =. emptyOnError (pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014"))
     dlc_ToolkitInfo       <- dlc_ToolkitInfo       =. childTag (inSpace cstSpaceMain "ToolkitInfo"      ) (parseInside' insideCodec)
     dlc_Version           <- dlc_Version           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
     dlc_Volume            <- dlc_Volume            =. childTag (inSpace cstSpaceMain "Volume"           ) (parseInside' $ milliText childText)

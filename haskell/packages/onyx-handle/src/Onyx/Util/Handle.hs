@@ -198,7 +198,7 @@ allFiles folder = let
   in inHere <> inSub
 
 splitPath :: T.Text -> Maybe (NE.NonEmpty T.Text)
-splitPath t = NE.nonEmpty $ T.splitOn "/" t >>= T.splitOn "\\"
+splitPath t = NE.nonEmpty $ filter (not . T.null) $ T.splitOn "/" t >>= T.splitOn "\\"
 
 unsplitPath :: NE.NonEmpty T.Text -> T.Text
 unsplitPath = T.pack . foldr1 ((</>)) . fmap T.unpack
