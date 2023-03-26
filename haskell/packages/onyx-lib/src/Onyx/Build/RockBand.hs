@@ -295,7 +295,19 @@ rbRules buildInfo dir rb3 mrb2 = do
     case rb3.magma of
       MagmaRequire -> do
         lg "# Running Magma v2 to export MIDI"
-        magma
+        errorToEither magma >>= \case
+          Right result -> return result
+          Left (Messages errors) -> throwNoContext $ Messages $ do
+            let annotation = "\n" <> unwords
+                  [ "Magma returned an error; check the log above for what caused"
+                  , "the problem. If it seems like something unimportant or that"
+                  , "you don't care about, consider selecting \"Edit > Preferences\""
+                  , "from the menu above, navigating to the Rock Band tab, and"
+                  , "either making Magma optional or disabling it."
+                  ] <> "\n"
+            Message str ctx <- errors
+            return $ Message (str <> annotation) ctx
+
       MagmaTry -> do
         lg "# Running Magma v2 to export MIDI (with fallback)"
         errorToWarning magma >>= \case

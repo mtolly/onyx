@@ -29,8 +29,10 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.Mania
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Onyx.Util.Files                  (fixFileCase)
 import           Onyx.Util.Handle                 (fileReadable)
 import qualified Sound.MIDI.Util                  as U
+import           System.Directory                 (doesFileExist, makeAbsolute)
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
@@ -177,24 +179,30 @@ importBMS bmsPath level = do
           }
 
   background <- case bms_BGA bms of
+    _ | level == ImportQuick -> return Nothing
     RNil -> return Nothing
     Wait bts chip RNil -> case HM.lookup chip $ bms_BMP bms of
       Nothing -> do
         warn $ "Couldn't find BGA chip: " <> show chip
         return Nothing
-      Just fp -> let
-        ext = map toLower $ takeExtension fp
-        in if elem ext [".png", ".bmp", ".gif", ".jpg", ".jpeg"]
-          then return $ Just $ Left $ SoftFile ("background" <> ext)
-            $ SoftReadable $ fileReadable $ takeDirectory bmsPath </> fp
-          else return $ Just $ Right VideoInfo
-            { fileVideo = SoftFile ("background" <> ext)
-              $ SoftReadable $ fileReadable $ takeDirectory bmsPath </> fp
-            , videoStartTime = Just $ negate $ realToFrac
-              $ U.applyTempoMap (F.s_tempos midi) bts
-            , videoEndTime = Nothing
-            , videoLoop = False
-            }
+      Just fp -> do
+        fp' <- stackIO $ fixFileCase (takeDirectory bmsPath </> fp) >>= makeAbsolute
+        let ext = map toLower $ takeExtension fp'
+        stackIO (doesFileExist fp') >>= \case
+          False -> do
+            warn $ "Background file " <> show fp <> " was not found"
+            return Nothing
+          True -> if elem ext [".png", ".bmp", ".gif", ".jpg", ".jpeg"]
+            then return $ Just $ Left $ SoftFile ("background" <> ext)
+              $ SoftReadable $ fileReadable fp'
+            else return $ Just $ Right VideoInfo
+              { fileVideo = SoftFile ("background" <> ext)
+                $ SoftReadable $ fileReadable fp'
+              , videoStartTime = Just $ negate $ realToFrac
+                $ U.applyTempoMap (F.s_tempos midi) bts
+              , videoEndTime = Nothing
+              , videoLoop = False
+              }
     _ -> do
       warn "Can't import background yet (more than one BGA chip)"
       return Nothing

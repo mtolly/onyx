@@ -217,7 +217,7 @@ instance TraverseTrack ProGuitarTrack where
 
 data ProGuitarDifficulty t = ProGuitarDifficulty
   { pgChordName    :: RTB.T t (Maybe T.Text)
-  , pgForce        :: RTB.T t (Edge () PGForce) -- Found by Ruggy, ch13 (1-based?) is force strum
+  , pgForce        :: RTB.T t (Edge () PGForce) -- Found by Ruggy, ch13 (1-based) is force strum
   , pgSlide        :: RTB.T t SlideType -- TODO test to make sure this is a blip (has to coincide with the note, can't cover multiple)
   , pgArpeggio     :: RTB.T t Bool
   , pgPartialChord :: RTB.T t StrumArea
@@ -238,8 +238,8 @@ data PGForce = PGForceStrum | PGForceHOPO
 
 instance ChannelType PGForce where
   encodeChannel PGForceHOPO  = 0
-  encodeChannel PGForceStrum = 14
-  channelMap = [ (c, if c == 14 then PGForceStrum else PGForceHOPO) | c <- [0..15] ]
+  encodeChannel PGForceStrum = 12
+  channelMap = [ (c, if c == 12 then PGForceStrum else PGForceHOPO) | c <- [0..15] ]
 
 instance ParseTrack ProGuitarTrack where
   parseTrack = do

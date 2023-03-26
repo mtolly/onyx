@@ -155,7 +155,6 @@ importRSSong folder song level = do
           PS3     -> "ps3"
           PC      -> "generic"
     sngFile <- need $ "songs" :| ["bin", binFolder, T.pack $ sngPath <.> "sng"]
-    -- TODO when level is ImportQuick, we probably want to skip parsing the .sng altogether
     sng <- case level of
       ImportFull  -> fmap Just $ stackIO (useHandle sngFile handleToByteString) >>= loadSNG platform . BL.toStrict
       ImportQuick -> return Nothing

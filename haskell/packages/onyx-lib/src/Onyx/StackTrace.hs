@@ -48,6 +48,7 @@ import qualified Control.Monad.Trans.State.Lazy   as SL
 import qualified Control.Monad.Trans.State.Strict as SS
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8            as B8
+import           Data.Char                        (isSpace)
 import           Data.Functor.Identity            (Identity)
 import           Data.List                        (stripPrefix)
 import qualified Development.Shake                as Shake
@@ -255,13 +256,18 @@ stackProcess cp = do
   -- otherwise non-utf-8 chars crash with "invalid byte sequence".
   stackIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
     (ExitSuccess  , out, _  ) -> return $ stringNoCR out
-    (ExitFailure n, out, err) -> fatal $ unlines
-      [ "process exited with code " ++ show n
-      , "stdout:"
-      , stringNoCR out
-      , "stderr:"
-      , stringNoCR err
-      ]
+    (ExitFailure n, out, err) -> fatal $ unlines $ let
+      outNoCR = stringNoCR out
+      errNoCR = stringNoCR err
+      in concat
+        [ ["process exited with code " ++ show n]
+        , do
+          guard $ any (not . isSpace) outNoCR
+          ["stdout:", outNoCR]
+        , do
+          guard $ any (not . isSpace) errNoCR
+          ["stderr:", errNoCR]
+        ]
     where stringNoCR = filter (/= '\r') . B8.unpack
   -- TODO Magma v1 can crash sometimes (something related to vocals processing)
   -- and this doesn't seem to always catch it correctly, at least in Wine

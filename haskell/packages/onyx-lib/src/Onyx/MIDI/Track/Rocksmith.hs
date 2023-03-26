@@ -1129,9 +1129,15 @@ convertRStoPG tmap rs = let
   convertedChordNames
     = RTB.fromAbsoluteEventList
     $ ATB.fromPairList
-    $ mapMaybe (\(t, (chord, _, maybeShape)) -> do
-      (shapeExtra, _shapeLength) <- maybeShape
-      case Map.lookupLE t chordBank of
+    $ mapMaybe (\(t, (chord, _, maybeShape)) -> case maybeShape of
+      Nothing -> do
+        -- if we have a chord with no handshape, it's probably in the middle of a handshape.
+        -- in RB, if we have an arpeggio with a hidden name, chords in the middle of the
+        -- arpeggio can still make a name appear. so we need to hide names at the later chord
+        guard $ not $ null $ drop 1 chord
+        Just (t, Nothing)
+      Just (shapeExtra, _shapeLength) -> case Map.lookupLE t chordBank of
+        -- TODO this will put useless chord name hide markers on repeated chords
         Nothing               -> Just (t, Nothing)
         Just (bankTime, bank) -> let
           targetChord = Map.fromList $ [ (str, fret) | (str, fret, _) <- chord ] <> shapeExtra
@@ -1145,6 +1151,8 @@ convertRStoPG tmap rs = let
             -- but also we need to because for some reason (#...) breaks Magma.
             -- Seems to recognize it as some kind of weird command syntax
             return $ T.replace "(" "<gtr>" $ T.replace ")" "</gtr>" x
+            -- should put any other substitution needed on chord names here.
+            -- sharp/flat are already good to go (#/b in both formats)
           in Just (t, name)
       )
     $ ATB.toPairList
@@ -1161,9 +1169,6 @@ convertRStoPG tmap rs = let
       Wait t (Just _) rest -> RTB.delay t $ go rest
       RNil -> RNil
     in U.trackJoin $ go convertedChordNames
-
-  -- TODO check if there's any chord name character substitution we need to do.
-  -- sharp/flat should already be good to go (#/b in both formats apparently)
 
   desiredSlides :: RTB.T U.Beats Slide
   desiredSlides
