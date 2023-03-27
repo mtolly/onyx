@@ -18,7 +18,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (find)
 import           Data.Functor                     (void)
-import           Data.List.Extra                  (nubOrd, sort)
+import           Data.List.Extra                  (nubOrd, sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
@@ -313,7 +313,7 @@ maniaToProKeys part = do
         }
       , difficulties = Map.singleton Expert mempty
         { pkLanes = RTB.singleton 0 range
-        , pkNotes = fmap (fmap (keys !!)) $ maniaNotes input.part.onyxPartMania
+        , pkNotes = fmap (fmap (keys !!)) $ maniaChordSnap $ maniaNotes input.part.onyxPartMania
         }
       , source = "converted Mania chart to pro keys"
       , autochart = False
@@ -510,6 +510,36 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
     , autochart = True
     }
 
+maniaChordSnap :: RTB.T U.Beats (RB.Edge () Int) -> RTB.T U.Beats (RB.Edge () Int)
+maniaChordSnap = U.trackJoin . RTB.flatten . go . RTB.collectCoincident where
+  window = 11 / 480 :: U.Beats
+  go :: RTB.T U.Beats [RB.Edge () Int] -> RTB.T U.Beats [RTB.T U.Beats (RB.Edge () Int)]
+  go = \case
+    Wait dt instant rest -> if any (\case RB.EdgeOn{} -> True; _ -> False) instant
+      then case U.trackSplit window rest of
+        (inWindow, outWindow) -> let
+          toFlatten = concat $ instant : RTB.getBodies inWindow
+          instant' = do
+            key <- nubOrd $ map (\case RB.EdgeOn () k -> k; RB.EdgeOff k -> k) toFlatten
+            let thisKeyBools = toFlatten >>= \case
+                  RB.EdgeOn () k | k == key -> [True]
+                  RB.EdgeOff   k | k == key -> [False]
+                  _                         -> []
+                boolEdge False = RB.EdgeOff   key
+                boolEdge True  = RB.EdgeOn () key
+            case thisKeyBools of
+              []                -> []
+              firstBool : bools -> case unsnoc bools of
+                Nothing            -> [RTB.singleton 0 $ boolEdge firstBool]
+                Just (_, lastBool) -> return $ case (firstBool, lastBool) of
+                  (True , True ) -> RTB.singleton 0 $ boolEdge True
+                  (False, False) -> RTB.singleton 0 $ boolEdge False
+                  (False, True ) -> Wait 0 (boolEdge False) $ Wait 0 (boolEdge True) RNil
+                  (True , False) -> Wait 0 (boolEdge True) $ Wait (1/480) (boolEdge False) RNil
+          in Wait dt instant' $ go $ RTB.delay window outWindow
+      else Wait dt (map (RTB.singleton 0) instant) $ go rest
+    RNil -> RNil
+
 maniaToFiveFret :: Part f -> Maybe BuildFive
 maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
   in FiveResult
@@ -517,6 +547,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
     , notes = Map.singleton Expert $ if pm.keys <= 5
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
+        $ maniaChordSnap
         $ maniaNotes $ F.onyxPartMania input.part
         -- TODO maybe offset if less than 4 keys? like RYB for 3-key
       else let
@@ -524,7 +555,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
           = RTB.toAbsoluteEventList 0
           $ guitarify'
           $ fmap (\((), key, len) -> (key, guard (len >= standardBlipThreshold) >> Just len))
-          $ RB.joinEdgesSimple $ maniaNotes $ F.onyxPartMania input.part
+          $ RB.joinEdgesSimple $ maniaChordSnap $ maniaNotes $ F.onyxPartMania input.part
         autoResult = autoChart 5 $ do
           (bts, (notes, _len)) <- ATB.toPairList chorded
           pitch <- simplifyChord notes
@@ -634,6 +665,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
       )
     $ RTB.collectCoincident
     $ RTB.mapMaybe (\case RB.EdgeOn _ n -> Just n; RB.EdgeOff _ -> Nothing)
+    $ maniaChordSnap
     $ maniaNotes $ F.onyxPartMania input.part
   notes :: RTB.T U.Beats (D.Gem D.ProType)
   notes = if pm.keys <= laneCount
