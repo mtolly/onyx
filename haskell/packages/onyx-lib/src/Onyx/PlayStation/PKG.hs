@@ -30,6 +30,7 @@ import qualified Data.ByteString         as B
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Char8   as B8
 import qualified Data.ByteString.Lazy    as BL
+import           Data.Char               (toUpper)
 import           Data.List               (inits)
 import qualified Data.List.NonEmpty      as NE
 import           Data.Maybe              (isJust)
@@ -421,7 +422,9 @@ makePKGRecords = fmap (go "") . mapM annotate where
       -- Check both the name and magic number, in case we are generating unencrypted midis for RPCS3
       let isEDAT = ((".edat" `B.isSuffixOf` name) || (".EDAT" `B.isSuffixOf` name))
             && magic == "NPD\0"
-          flags = if isEDAT then 0x80000002 else 0x80000003
+          flags = if elem (B8.map toUpper name) ["PARAM.SFO", "ICON0.PNG"]
+            then 3 -- this means, don't overwrite if already present
+            else if isEDAT then 0x80000002 else 0x80000003
       return (addPath name, (size, r), flags)
     subs = do
       (name, sub) <- folderSubfolders folder
