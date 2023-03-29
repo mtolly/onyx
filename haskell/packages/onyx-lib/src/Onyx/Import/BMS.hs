@@ -8,7 +8,7 @@ module Onyx.Import.BMS where
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
-import           Data.Char                        (toLower)
+import           Data.Char                        (isDigit, toLower)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
@@ -59,7 +59,27 @@ joinLongNotes
 
 importBMS :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importBMS bmsPath level = do
-  bms <- stackIO $ readBMSLines <$> loadBMSLines bmsPath
+  let stripQuick2 bms = case level of
+        ImportFull  -> bms
+        ImportQuick -> bms
+          { bms_Player1     = RTB.empty
+          , bms_Player2     = RTB.empty
+          , bms_Player1Long = RTB.empty
+          , bms_Player2Long = RTB.empty
+          , bms_BGM         = RTB.empty
+          , bms_BGA         = RTB.empty
+          , bms_WAV         = HM.empty
+          , bms_VOLWAV      = HM.empty
+          , bms_BMP         = HM.empty
+          }
+      stripQuick1 lns = case level of
+        ImportFull  -> lns
+        ImportQuick -> flip filter lns $ \(k, _) -> not
+          $  T.any isDigit (T.take 1 k)
+          || ("WAV"  `T.isPrefixOf` k)
+          || ("BMP"  `T.isPrefixOf` k)
+          || ("STOP" `T.isPrefixOf` k)
+  bms <- stackIO $ stripQuick2 . readBMSLines . stripQuick1 <$> loadBMSLines bmsPath
 
   let isPMS = map toLower (takeExtension bmsPath) == ".pms"
 
@@ -225,7 +245,9 @@ importBMS bmsPath level = do
       , fileMidi = SoftFile "notes.mid" $ SoftChart midi
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
+    , audio = case level of
+      ImportQuick -> HM.empty
+      ImportFull  -> HM.fromList $ chipAudio <> songAudios <> p1Audios <> p2Audios
     , jammit = HM.empty
     , plans = HM.singleton "bms" $ StandardPlan StandardPlanInfo
       { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")

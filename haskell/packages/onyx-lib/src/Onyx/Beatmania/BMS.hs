@@ -63,15 +63,15 @@ bmeMapping =
 
 readBMSLines :: [(T.Text, T.Text)] -> BMS
 readBMSLines lns = BMS
-  { bms_PLAYER = lookup "PLAYER" lns >>= readMaybe . T.unpack
-  , bms_GENRE = lookup "GENRE" lns
-  , bms_TITLE = lookup "TITLE" lns
-  , bms_SUBTITLE = lookup "SUBTITLE" lns
-  , bms_ARTIST = lookup "ARTIST" lns
-  , bms_SUBARTIST = lookup "SUBARTIST" lns
-  , bms_PLAYLEVEL = lookup "PLAYLEVEL" lns >>= readMaybe . T.unpack
-  , bms_RANK = lookup "RANK" lns >>= readMaybe . T.unpack
-  , bms_STAGEFILE = T.unpack <$> lookup "STAGEFILE" lns
+  { bms_PLAYER = HM.lookup "PLAYER" lnsMap >>= readMaybe . T.unpack
+  , bms_GENRE = HM.lookup "GENRE" lnsMap
+  , bms_TITLE = HM.lookup "TITLE" lnsMap
+  , bms_SUBTITLE = HM.lookup "SUBTITLE" lnsMap
+  , bms_ARTIST = HM.lookup "ARTIST" lnsMap
+  , bms_SUBARTIST = HM.lookup "SUBARTIST" lnsMap
+  , bms_PLAYLEVEL = HM.lookup "PLAYLEVEL" lnsMap >>= readMaybe . T.unpack
+  , bms_RANK = HM.lookup "RANK" lnsMap >>= readMaybe . T.unpack
+  , bms_STAGEFILE = T.unpack <$> HM.lookup "STAGEFILE" lnsMap
   , bms_WAV = fmap T.unpack $ HM.fromList $ getReferences "WAV" lns
   , bms_VOLWAV
     = HM.mapMaybe (readMaybe . T.unpack)
@@ -86,8 +86,11 @@ readBMSLines lns = BMS
   , bms_BGM = getChannel "01"
   , bms_BMP = fmap T.unpack $ HM.fromList $ getReferences "BMP" lns
   , bms_BGA = getChannel "04"
-  , bms_LNOBJ = lookup "LNOBJ" lns
+  , bms_LNOBJ = HM.lookup "LNOBJ" lnsMap
   } where
+
+    lnsMap :: HM.HashMap T.Text T.Text
+    lnsMap = HM.fromList lns
 
     objects :: Map.Map BarNumber (HM.HashMap Channel [T.Text])
     objects = getObjects lns
@@ -115,13 +118,13 @@ readBMSLines lns = BMS
       $ RTB.merge bpmHexes bpmRefs
     addStartBPM bpms = case bpms of
       Wait 0 _ _ -> bpms -- already a tempo set at time 0
-      _          -> case lookup "BPM" lns >>= textFloat of
+      _          -> case HM.lookup "BPM" lnsMap >>= textFloat of
         Just n | n /= 0 -> Wait 0 n   bpms
         _               -> Wait 0 120 bpms
     bpmHexes = RTB.mapMaybe textHex $ getChannel "03"
     bpmRefs = RTB.mapMaybe (`HM.lookup` refBPMs) $ getChannel "08"
     refBPMs = HM.mapMaybe textFloat $ HM.fromList $ getReferences "BPM" lns
-    baseBPM = fromMaybe 0 $ lookup "BASEBPM" lns >>= textFloat
+    baseBPM = fromMaybe 0 $ HM.lookup "BASEBPM" lnsMap >>= textFloat
 
     readPlayer c = foldr RTB.merge RTB.empty $ do
       (col, key) <- bmeMapping

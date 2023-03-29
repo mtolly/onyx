@@ -308,7 +308,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
-      ents <- stackIO $ Dir.listDirectory fp
+      let shouldList f = let
+            ext = map toLower $ takeExtension f
+            in not $ elem ext [".ogg", ".xa", ".wav", ".bmp", ".png"]
+      ents <- stackIO $ filter shouldList <$> Dir.listDirectory fp
       let lookFor [] = do
             hasRBDTA <- stackIO $ anyM Dir.doesFileExist
               [fp </> "songs/songs.dta", fp </> "songs/gen/songs.dtb"]

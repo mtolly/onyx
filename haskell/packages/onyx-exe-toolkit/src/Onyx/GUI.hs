@@ -3689,20 +3689,23 @@ launchGUI = withAL $ \hasAudio -> do
     "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
   addTerm term $ TermLog "Select an option below to get started."
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
-    process = liftIO (atomically $ tryReadTChan evts) >>= \case
+    process messageCapacity = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
-      Just e -> do
-        case e of
-          EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
-          EventFail   msg  -> liftIO $ addTerm term $ TermError msg
-          EventIO     act  -> liftIO act
-          EventOnyx   act  -> safeOnyx act
-        process
+      Just e -> if messageCapacity > 0
+        then do
+          case e of
+            EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
+            EventFail   msg  -> liftIO $ addTerm term $ TermError msg
+            EventIO     act  -> liftIO act
+            EventOnyx   act  -> safeOnyx act
+          process $ messageCapacity - 1
+        else return ()
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()
       False -> liftIO wait >>= \case
         False -> return ()
-        True  -> process >> loop
+        True  -> process maxMessagesAtOnce >> loop
+    maxMessagesAtOnce = 20 :: Int
     in do
       readPreferences >>= stackIO . applyThreads
       unless hasAudio $ warn

@@ -52,6 +52,7 @@ encodeShiftJIS = B.concat . map
   $ HM.lookup c shiftJISReverse
   )
 
+-- TODO optimize; should return Text and quickly passthrough blocks of ASCII
 decodeShiftJIS :: B.ByteString -> String
 decodeShiftJIS b = if B.null b
   then ""
