@@ -32,6 +32,7 @@ import           Data.Text.Encoding           (encodeUtf8)
 import qualified Data.Text.Encoding           as TE
 import           Onyx.Build
 import           Onyx.Build.GuitarHero2.Logic (adjustSongText)
+import           Onyx.CloneHero.SNG           (getSNGFolder, readSNGHeader)
 import           Onyx.Codec.JSON              (loadYaml)
 import           Onyx.GuitarPro               (parseGP, parseGPX)
 import           Onyx.Harmonix.Ark
@@ -140,7 +141,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundFoF loc = do
         -- loc can be a .ini or .chart
         let dir = takeDirectory loc
-        foundImport "Frets on Fire/Phase Shift/Clone Hero" dir $ importFoF dir
+        folder <- stackIO $ crawlFolder dir
+        foundImport "Frets on Fire/Phase Shift/Clone Hero" dir $ importFoF dir folder
       foundHDR hdr = do
         let dir = takeDirectory hdr
         stackIO (crawlFolder dir) >>= foundGEN dir
@@ -377,7 +379,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           let dir = takeDirectory fp
           folder <- stackIO $ crawlFolder dir
           foundPowerGig fp folder $ takeFileName fp
-        ".sng" -> foundFreetar fp
+        ".sng" -> do
+          magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 6
+          case magic of
+            "SNGPKG" -> do
+              let r = fileReadable fp
+              hdr <- stackIO $ readSNGHeader r
+              foundImport "Clone Hero SNG" fp $ importFoF fp $ getSNGFolder True hdr r
+            _        -> foundFreetar fp
         ".iso" -> foundISO fp
         ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         _ -> case map toLower $ takeFileName fp of

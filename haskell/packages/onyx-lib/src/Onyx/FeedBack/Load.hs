@@ -10,6 +10,7 @@ import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import           Data.Default.Class               (def)
 import           Data.Either                      (isLeft)
@@ -39,6 +40,8 @@ import           Onyx.MIDI.Track.Vocal
 import           Onyx.Sections                    (makeRB2Section)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
+import           Onyx.Util.Handle                 (Readable, handleToByteString,
+                                                   useHandle)
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
@@ -117,6 +120,11 @@ chartToBeats chart = let
 loadChartFile :: (MonadIO m) => FilePath -> StackTraceT m (Chart Ticks)
 loadChartFile fp = inside ("Loading .chart file: " <> fp) $ do
   str <- stackIO $ decodeGeneral <$> B.readFile fp
+  scanStack str >>= parseStack >>= parseChart
+
+loadChartReadable :: (MonadIO m) => Readable -> StackTraceT m (Chart Ticks)
+loadChartReadable r = inside "Loading .chart file" $ do
+  str <- stackIO $ decodeGeneral . BL.toStrict <$> useHandle r handleToByteString
   scanStack str >>= parseStack >>= parseChart
 
 getTempos :: Chart U.Beats -> U.TempoMap

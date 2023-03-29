@@ -7,6 +7,7 @@ import           Control.Monad              ((>=>))
 import           Control.Monad.IO.Class     (MonadIO (liftIO))
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString            as B
+import qualified Data.ByteString.Lazy       as BL
 import           Data.Default.Class         (Default (..))
 import           Data.Fixed                 (Milli)
 import qualified Data.HashMap.Strict        as HM
@@ -16,6 +17,8 @@ import           Data.Maybe                 (mapMaybe)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
 import           Onyx.StackTrace
+import           Onyx.Util.Handle           (Readable, handleToByteString,
+                                             useHandle)
 import           Onyx.Util.Text.Decode      (decodeGeneral)
 import           Text.Read                  (readMaybe)
 
@@ -117,18 +120,20 @@ stripTags = let
     after : _ -> go after
   in T.pack . go . T.unpack
 
-loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
-loadSong fp = do
+loadSong :: (MonadIO m) => Readable -> StackTraceT m Song
+loadSong r = do
   -- We should just parse the ini lines ourselves instead of ini library,
   -- so we can ignore unrecognized lines instead of failing altogether
-  let readIniUTF8 = fmap (parseIni . noComments . decodeGeneral) . B.readFile
+  let readIniUTF8
+        =   parseIni . noComments . decodeGeneral . BL.toStrict
+        <$> useHandle r handleToByteString
       -- C3 CON Tools (new at some point?) puts comments at the bottom
       -- which the ini library chokes on. Not sure if just removing blindly like
       -- this is totally okay (can ini strings extend onto multiple lines?)
       -- but it seems fine
       isComment ln = any (`T.isPrefixOf` ln) [";", "//"]
       noComments = T.unlines . filter (not . isComment) . T.lines
-  ini <- inside fp $ liftIO (readIniUTF8 fp) >>= either fatal return
+  ini <- inside "Parsing song.ini" $ liftIO readIniUTF8 >>= either fatal return
   -- TODO make all keys lowercase before lookup
 
   let str :: T.Text -> Maybe T.Text

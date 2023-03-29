@@ -6,12 +6,13 @@
 module Onyx.Import.FretsOnFire where
 
 import           Codec.Picture                    (PixelRGBA8 (..),
-                                                   convertRGBA8, readImage)
+                                                   convertRGBA8, decodeImage)
 import           Codec.Picture.Types              (dropAlphaLayer)
 import           Control.Arrow                    (first)
-import           Control.Monad                    (forM, forM_, guard, unless,
-                                                   void, when)
+import           Control.Monad                    (forM, forM_, guard, void,
+                                                   when)
 import           Control.Monad.IO.Class           (MonadIO)
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
@@ -49,12 +50,12 @@ import qualified Onyx.MIDI.Track.Vocal.Legacy     as RBVox
 import           Onyx.PhaseShift.Dance            (nullDance)
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
-import           Onyx.Util.Files                  (fixFileCase)
-import           Onyx.Util.Handle                 (fileReadable)
+import           Onyx.Util.Handle
 import qualified Sound.MIDI.File                  as MIDI
 import qualified Sound.MIDI.Util                  as U
-import qualified System.Directory                 as Dir
-import           System.FilePath
+import           System.FilePath                  (dropExtension,
+                                                   splitExtension,
+                                                   takeExtension, (<.>))
 
 -- TODO this swell fix breaks things like gravity blasts, where people
 -- correctly use the single lane over something that may look like it
@@ -138,32 +139,28 @@ redoSwells (F.Song tmap mmap ps) = let
 data LaneNotes = LaneSingle | LaneDouble
   deriving (Eq, Ord)
 
-importFoF :: (SendMessage m, MonadIO m) => FilePath -> Import m
-importFoF src level = do
-  when (level == ImportFull) $ lg $ "Importing FoF/PS/CH song from folder: " <> src
-  allFiles <- stackIO $ Dir.listDirectory src
-  pathMid <- fixFileCase $ src </> "notes.mid"
-  pathChart <- fixFileCase $ src </> "notes.chart"
-  pathIni <- fixFileCase $ src </> "song.ini"
+importFoF :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> Import m
+importFoF src dir level = do
+  when (level == ImportFull) $ lg $ "Importing FoF/PS/CH song from: " <> src
   let hasCymbalMarkers chart = flip any (FB.chartTracks chart) $ any $ \case
         FB.Note 66 _ -> True
         FB.Note 67 _ -> True
         FB.Note 68 _ -> True
         _            -> False
-  (song, parsed, isChart, chartWithCymbals) <- stackIO (Dir.doesFileExist pathIni) >>= \case
-    True -> do
-      ini <- FoF.loadSong pathIni
+  (song, parsed, isChart, chartWithCymbals) <- case findFileCI (pure "song.ini") dir of
+    Just rIni -> do
+      ini <- FoF.loadSong rIni
       case level of
         ImportQuick -> return (ini, emptyChart, False, False)
-        ImportFull  -> stackIO (Dir.doesFileExist pathMid) >>= \case
-          True -> do
+        ImportFull  -> case findFileCI (pure "notes.mid") dir of
+          Just rMidi -> do
             lg "Found song.ini and notes.mid"
-            mid <- loadFoFMIDI ini pathMid
+            mid <- loadFoFMIDI ini rMidi
             return (ini, mid, False, False)
-          False -> stackIO (Dir.doesFileExist pathChart) >>= \case
-            True -> do
+          Nothing -> case findFileCI (pure "notes.chart") dir of
+            Just rChart -> do
               lg "Found song.ini and notes.chart"
-              chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+              chart <- FB.chartToBeats <$> FB.loadChartReadable rChart
               mid <- FB.chartToMIDI chart
               -- if .ini delay is 0 or absent, CH uses .chart Offset
               ini' <- if fromMaybe 0 (FoF.delay ini) == 0
@@ -175,25 +172,25 @@ importFoF src level = do
                     return ini{ FoF.delay = chartDelay }
                 else return ini
               return (ini', mid, True, hasCymbalMarkers chart)
-            False -> fatal "Found song.ini, but no notes.mid or notes.chart"
-    False -> stackIO (Dir.doesFileExist pathChart) >>= \case
-      True -> do
+            Nothing -> fatal "Found song.ini, but no notes.mid or notes.chart"
+    Nothing -> case findFileCI (pure "notes.chart") dir of
+      Just rChart -> do
         lg "Found notes.chart but no song.ini. Metadata will come from .chart"
-        chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+        chart <- FB.chartToBeats <$> FB.loadChartReadable rChart
         mid <- case level of
           ImportQuick -> return emptyChart
           ImportFull  -> FB.chartToMIDI chart
         return (FB.chartToIni chart, mid, True, hasCymbalMarkers chart)
-      False -> fatal "No song.ini or notes.chart found"
+      Nothing -> fatal "No song.ini or notes.chart found"
 
   albumArt <- do
-    let isImage f = case splitExtension $ map toLower f of
+    let isImage f = case splitExtension $ T.unpack $ T.toLower f of
           (x, y) -> elem x ["album", "image"] && elem y [".png", ".jpg", ".jpeg"]
-    case filter isImage allFiles of
-      f : _ -> return $ Just $ SoftFile (map toLower f) $ SoftReadable $ fileReadable $ src </> f
-      []    -> case filter ((== "label.png") . map toLower) allFiles of
-        []    -> return Nothing
-        f : _ -> inside "Converting label.png + cassettecolor to square art" $ do
+    case filter (isImage . fst) $ folderFiles dir of
+      (name, rImage) : _ -> return $ Just $ SoftFile (map toLower $ T.unpack name) $ SoftReadable rImage
+      []                 -> case findFileCI (pure "label.png") dir of
+        Nothing     -> return Nothing
+        Just rLabel -> inside "Converting label.png + cassettecolor to square art" $ do
           -- overlay label.png onto cassettecolor
           let hex s = case readHex s of
                 [(n, "")] -> return n
@@ -210,35 +207,41 @@ importFoF src level = do
             Just s -> do
               warn $ "Unrecognized cassettecolor format: " <> s
               return $ PixelRGBA8 0 0 0 255
-          img <- stackIO (readImage $ src </> f) >>= either fatal (return . convertRGBA8)
+          img <- stackIO (useHandle rLabel handleToByteString)
+            >>= either fatal (return . convertRGBA8) . decodeImage . BL.toStrict
           let img' = backgroundColor bgColor $ squareImage 30 img
           return $ Just $ SoftFile "cover.png" $ SoftImage $ dropAlphaLayer img'
+
   backgroundImage <- case FoF.background song of
     _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS background reference
-      v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
-      stackIO (Dir.doesFileExist v') >>= \case
-        False -> do
-          warn $ "song.ini references background " <> show v <> " but it wasn't found"
+      -- Does not support a relative path that goes outside the folder
+      case splitPath $ T.pack v of
+        Nothing -> do
+          warn "Couldn't interpret background path in song.ini"
           return Nothing
-        True -> return $ Just
-          $ SoftFile ("background" <.> takeExtension v)
-          $ SoftReadable $ fileReadable v'
+        Just path -> case findFileCI path dir of
+          Nothing -> do
+            warn $ "song.ini references background " <> show v <> " but it wasn't found"
+            return Nothing
+          Just rBG -> return $ Just
+            $ SoftFile ("background" <.> map toLower (takeExtension v))
+            $ SoftReadable rBG
     _ -> return $ let -- look for CH background
-      isBackground f = case splitExtension $ map toLower f of
+      isBackground f = case splitExtension $ T.unpack $ T.toLower f of
         ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
         _                   -> False
-      in case filter isBackground allFiles of
-        []    -> Nothing
-        f : _ -> Just $ SoftFile (map toLower f) $ SoftReadable $ fileReadable $ src </> f
+      in case filter (isBackground . fst) $ folderFiles dir of
+        []              -> Nothing
+        (name, rBG) : _ -> Just $ SoftFile (map toLower $ T.unpack name) $ SoftReadable rBG
+
   let loadAudioFile _ | level == ImportQuick = return Nothing
       loadAudioFile x = stackIO $ let
         tryExt ext = do
           let template = x <.> ext
-          path <- fixFileCase $ src </> template
-          Dir.doesFileExist path >>= \case
-            True  -> return $ Just (template, path)
-            False -> return Nothing
+          case findFileCI (pure $ T.pack template) dir of
+            Just rAudio -> return $ Just (template, rAudio)
+            Nothing     -> return Nothing
         in tryExt "opus" >>= \case
           Nothing -> tryExt "ogg" >>= \case
             Nothing -> tryExt "mp3" >>= \case
@@ -270,11 +273,11 @@ importFoF src level = do
   let onlyGuitar = case audioFiles of
         [(x, _)] | dropExtension x == "guitar" -> True
         _                                      -> False
-  audioFilesWithChannels <- forM audioFiles $ \(template, srcPath) -> audioChannels srcPath >>= \case
-    Nothing    -> fatal $ "Couldn't get channel count of audio file: " <> srcPath
-    Just chans -> return ((template, srcPath), chans)
+  audioFilesWithChannels <- forM audioFiles $ \(template, rAudio) -> do
+    chans <- audioChannelsReadable rAudio
+    return ((template, rAudio), chans)
 
-  let softAudio (template, path) = SoftFile template $ SoftReadable $ fileReadable path
+  let softAudio (template, rAudio) = SoftFile template $ SoftReadable rAudio
       gtrAudio = if onlyGuitar then [] else toList audio_guitar
       bassAudio = toList audio_bass
       rhythmAudio = toList audio_rhythm
@@ -326,21 +329,22 @@ importFoF src level = do
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  let maybePath2x = do
+  let maybe2x = listToMaybe $ do
         guard $ level == ImportFull
-        listToMaybe $ flip filter allFiles $ \f -> let
-          lower = T.toLower $ T.pack f
-          in map toLower (takeExtension f) == ".mid"
-            && any (`T.isInfixOf` lower) ["expert+", "expertplus", "notes+"]
+        (name, r) <- folderFiles dir
+        let lower = T.toLower name
+        guard $ map toLower (takeExtension $ T.unpack lower) == ".mid"
+          && any (`T.isInfixOf` lower) ["expert+", "expertplus", "notes+"]
+        return (name, r)
       -- expert+.mid is most common but Drum Projects 2 and 3 also have:
       -- expertplus.mid, notesexpert+.mid, (name of song)Expert+.mid
       -- some also have expert+.chart but we shouldn't have to support that
-  forM_ maybePath2x $ \path2x -> do
-    lg $ "Loading separate X+ file: " <> path2x
+  forM_ maybe2x $ \(name, _) -> do
+    lg $ "Loading separate X+ file: " <> T.unpack name
   -- TODO should we prefer the PS (95) format if there's also a separate midi?
-  add2x <- case maybePath2x of
-    Just path2x -> do
-      parsed2x <- F.loadMIDI $ src </> path2x
+  add2x <- case maybe2x of
+    Just (_, rMidi2x) -> do
+      parsed2x <- F.loadMIDIReadable rMidi2x
       let trk2x = F.fixedPartDrums $ F.s_tracks parsed2x
       return $ if nullDrums trk2x
         then id
@@ -349,7 +353,7 @@ importFoF src level = do
   let (title, is2x) = case FoF.name song of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
-      hasKicks = if isJust maybePath2x
+      hasKicks = if isJust maybe2x
         || not (RTB.null $ drumKick2x $ F.fixedPartDrums       $ F.s_tracks parsed)
         || not (RTB.null $ drumKick2x $ F.fixedPartRealDrumsPS $ F.s_tracks parsed)
         then KicksBoth
@@ -379,20 +383,25 @@ importFoF src level = do
       midi = SoftFile "notes.mid" $ SoftChart $ case delayMIDI outputMIDI of
         F.Song tempos sigs fixed -> F.Song tempos sigs $ F.fixedToOnyx fixed
 
-  vidPath <- case FoF.video song of
+  maybeVideo <- case FoF.video song of
     _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS video
-      v' <- stackIO $ fixFileCase (src </> v) >>= Dir.makeAbsolute
-      exists <- stackIO $ Dir.doesFileExist v'
-      unless exists $ warn $ "song.ini references video " <> show v <> " but it wasn't found"
-      return $ guard exists >> Just v'
-    _ -> case filter ((== "video") . map toLower . dropExtension) $ allFiles of -- CH video
-      v : _ -> do
-        v' <- stackIO $ Dir.makeAbsolute $ src </> v
-        return $ Just v'
-      []    -> return Nothing
-  let videoInfo = flip fmap vidPath $ \f -> VideoInfo
-        { fileVideo = SoftFile ("video" <.> takeExtension f) $ SoftReadable $ fileReadable f
+      -- Does not support a relative path that goes outside the folder
+      case splitPath $ T.pack v of
+        Nothing -> do
+          warn "Couldn't interpret video path in song.ini"
+          return Nothing
+        Just path -> case findFileCI path dir of
+          Nothing -> do
+            warn $ "song.ini references video " <> show v <> " but it wasn't found"
+            return Nothing
+          Just rVideo -> return $ Just (NE.last path, rVideo)
+    _ -> return -- CH video
+      $ listToMaybe
+      $ filter ((== "video") . map toLower . dropExtension . T.unpack . fst)
+      $ folderFiles dir
+  let videoInfo = flip fmap maybeVideo $ \(name, rVideo) -> VideoInfo
+        { fileVideo = SoftFile ("video" <.> takeExtension (T.unpack name)) $ SoftReadable rVideo
         , videoStartTime = FoF.videoStartTime song
         , videoEndTime = FoF.videoEndTime song
         , videoLoop = fromMaybe False $ FoF.videoLoop song
@@ -717,9 +726,9 @@ fixShortVoxPhrases song@(F.Song tmap mmap ps)
 
 -- | Moves star power from the GH 1/2 format to the RB format, either if it is
 -- specified in the song.ini, or automatically detected from the MIDI.
-loadFoFMIDI :: (SendMessage m, MonadIO m, F.ParseFile f) => FoF.Song -> FilePath -> StackTraceT m (F.Song (f U.Beats))
-loadFoFMIDI ini fp = do
-  mid <- F.loadRawMIDI fp
+loadFoFMIDI :: (SendMessage m, MonadIO m, F.ParseFile f) => FoF.Song -> Readable -> StackTraceT m (F.Song (f U.Beats))
+loadFoFMIDI ini r = do
+  mid <- F.loadRawMIDIReadable r
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "T1 GEMS"]
       midGH = case mid of
         MIDI.Cons typ dvn trks -> MIDI.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk

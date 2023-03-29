@@ -24,6 +24,7 @@ module Onyx.Audio
 , audioMD5
 , audioLength
 , audioChannels
+, audioChannelsReadable
 , audioRate
 , audioSeconds
 , applyPansVols
@@ -700,6 +701,13 @@ audioChannels f = if supportedFFExt f
       chans <- liftIO (readVGS f :: IO [AudioSource (ResourceT IO) Int16])
       return $ Just $ length chans
     _ -> return Nothing
+
+-- Assumes the file is FFMPEG readable
+audioChannelsReadable :: (MonadIO m) => Readable -> m Int
+audioChannelsReadable r = do
+  src <- liftIO $ ffSourceFrom (Frames 0) $ Left r
+  let _ = src :: AudioSource (ResourceT IO) Int16
+  return $ channels src
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioRate f = if supportedFFExt f

@@ -68,6 +68,7 @@ import           Onyx.Build.Neversoft                 (makeMetadataLIVE,
                                                        packageNameHashFormat,
                                                        worFilePS3EmptyVRAMPak,
                                                        worFilePS3SongVRAMPak)
+import           Onyx.CloneHero.SNG
 import           Onyx.Codec.Binary
 import           Onyx.Codec.JSON                      (loadYaml, toJSON,
                                                        yamlEncodeFile)
@@ -263,6 +264,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
             "VgS!" -> FileType FileVGS fp
             "FSB3" -> FileType FileFSB fp
             "FSB4" -> FileType FileFSB fp
+            "SNGP" -> FileType FileSNG fp -- assuming this is SNGPKG
             _      -> case BL.unpack magic of
               [0xAF, 0xDE, 0xBE, 0xCA] -> FileType FileMilo fp
               [0xAF, 0xDE, 0xBE, 0xCB] -> FileType FileMilo fp
@@ -324,6 +326,7 @@ data FileType
   | FilePak
   | FileWAD
   | FileHarmonixImage
+  | FileSNG
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -914,6 +917,7 @@ commands =
       , "- Harmonix .hdr/.ark (versions 2-6)"
       , "- Neversoft .pak.*"
       , "- Wii .wad"
+      , "- Clone Hero .sng"
       ]
     , commandUsage = T.unlines
       [ "onyx extract file_in [--to folder_out]"
@@ -1077,6 +1081,12 @@ commands =
           stackIO $ B.writeFile (out </> ("u8-" <> show (i :: Int) <> ".app")) u8Bytes
           let u8' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) u8
           stackIO $ saveHandleFolder u8' $ out </> ("u8-" <> show (i :: Int))
+        return out
+      (FileSNG, fin) -> do
+        out <- outputFile opts $ return $ fin <> "_extract"
+        let r = fileReadable fin
+        hdr <- stackIO $ readSNGHeader r
+        stackIO $ saveHandleFolder (getSNGFolder True hdr r) out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }
