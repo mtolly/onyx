@@ -610,7 +610,7 @@ batchPartPresetsRB3 =
     , keys = FlexGuitar
     , drums = getDrumsOrDance song
     })
-  , ("Copy drums to guitar/bass/keys if empty", \song tgt -> let
+  , ("Copy drums/dance to guitar/bass/keys if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else dod
@@ -619,7 +619,7 @@ batchPartPresetsRB3 =
       , drums  = dod
       }
     )
-  , ("Copy drums to guitar/bass/keys", \song tgt -> let
+  , ("Copy drums/dance to guitar/bass/keys", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = dod
@@ -656,7 +656,7 @@ batchPartPresetsRB2 =
     { bass = FlexKeys
     , drums = getDrumsOrDance song
     })
-  , ("Copy drums to guitar/bass if empty", \song tgt -> let
+  , ("Copy drums/dance to guitar/bass if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else dod
@@ -664,7 +664,7 @@ batchPartPresetsRB2 =
       , drums  = dod
       }
     )
-  , ("Copy drums to guitar/bass", \song tgt -> let
+  , ("Copy drums/dance to guitar/bass", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = dod
@@ -679,28 +679,28 @@ batchPartPresetsCH =
   [ ("Default part configuration", \song tgt -> tgt
     { drums = getDrumsOrDance song
     })
-  , ("Copy drums to guitar if empty", \song tgt -> let
+  , ("Copy drums/dance to guitar if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else dod
       , drums = dod
       }
     )
-  , ("Copy drums to guitar", \song tgt -> let
+  , ("Copy drums/dance to guitar", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { guitar = dod
       , drums = dod
       }
     )
-  , ("Copy drums to rhythm if empty", \song tgt -> let
+  , ("Copy drums/dance to rhythm if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { rhythm = if hasPartWith anyFiveFret song $ FlexExtra "rhythm" then FlexExtra "rhythm" else dod
       , drums = dod
       }
     )
-  , ("Copy drums to rhythm", \song tgt -> let
+  , ("Copy drums/dance to rhythm", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
       { rhythm = dod
