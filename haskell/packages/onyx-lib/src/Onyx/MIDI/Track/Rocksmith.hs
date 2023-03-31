@@ -1091,6 +1091,8 @@ convertRStoPG tmap rs = let
   convertedForces :: RTB.T U.Beats (Edge () PGForce)
   convertedForces
     = fmap (\(b, x) -> if b then EdgeOn () x else EdgeOff x)
+    -- for now, don't actually emit force strums
+    $ RTB.filter (\(_, force) -> force /= PGForceStrum)
     $ cleanEdges
     $ U.trackJoin
     $ fmap (\(chord, _, _) -> let

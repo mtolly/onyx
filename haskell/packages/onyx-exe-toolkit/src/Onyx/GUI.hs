@@ -3689,17 +3689,19 @@ launchGUI = withAL $ \hasAudio -> do
     "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
   addTerm term $ TermLog "Select an option below to get started."
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
+    -- when we have processed a max number of messages, we want to do a quick
+    -- redraw and then continue processing. hopefully awake can be used when
+    -- fltk's not in control? documentation is unclear
+    process 0               = liftIO FLTK.awake
     process messageCapacity = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
-      Just e -> if messageCapacity > 0
-        then do
-          case e of
-            EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
-            EventFail   msg  -> liftIO $ addTerm term $ TermError msg
-            EventIO     act  -> liftIO act
-            EventOnyx   act  -> safeOnyx act
-          process $ messageCapacity - 1
-        else return ()
+      Just e -> do
+        case e of
+          EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
+          EventFail   msg  -> liftIO $ addTerm term $ TermError msg
+          EventIO     act  -> liftIO act
+          EventOnyx   act  -> safeOnyx act
+        process $ messageCapacity - 1
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()
       False -> liftIO wait >>= \case

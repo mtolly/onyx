@@ -1,5 +1,35 @@
 # Version history
 
+## 20230331
+
+* Fix GH:WoR song cache creator overwriting the setlist order of Smash Hits and
+  Van Halen exports (#235), thanks to [AddyMills](https://github.com/AddyMills)
+* Fix audio and chart becoming desynced when converting some songs with XMA
+  audio (360 Rock Revolution, Neversoft GH, Power Gig) to Rock Band (#234)
+* Fix PS3 .pkg files sometimes breaking game updates by overwriting existing
+  game version info and banner images
+  * Existing RB packages with the issue can be fixed by running
+    through Quick Convert
+* Add preliminary support for importing from Clone Hero `.sng` format
+* Several new game formats supported for import
+  * Rocksmith 2014 (any platform `.psarc`)
+    * Converts to RB Pro Guitar, autocharts to 5-fret
+  * BMS (`.bms`, `.bme`, `.bml`, `.pms`)
+    * Converts to 5-fret, drums, or Pro Keys
+  * osu! (`.osz`)
+    * Import osu!mania charts, converts to 5-fret, drums, or Pro Keys
+    * Import osu!taiko charts, converts to 4-lane drums with audio samples
+  * StepMania (`.sm`, `.dwi`)
+    * Converts to Phase Shift dance format, or translates to 5-fret or drums
+    * Supports stops/freezes (translates to extra MIDI time), but not yet warps
+
+Special thanks to
+[EFHIII's .midi to Clone Hero converter](https://github.com/EFHIII/midi-ch)
+for the logic used in several new conversion steps.
+
+  * Pro Guitar/Rocksmith and Pro Keys perform pitch-based conversion to 5-fret
+  * Also used for lane reduction such as higher-key BMS and osu!mania to 5-fret
+
 ## 20230220
 
 * Fix Rock Band 2 output to work around a crash in Lego Rock Band
