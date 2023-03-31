@@ -3,7 +3,7 @@
 ## 20230331
 
 * Fix GH:WoR song cache creator overwriting the setlist order of Smash Hits and
-  Van Halen exports (#235), thanks to [AddyMills](https://github.com/AddyMills)
+  Van Halen exports (#235), thanks to [AddyMills](https://www.addymills.com/)
 * Fix audio and chart becoming desynced when converting some songs with XMA
   audio (360 Rock Revolution, Neversoft GH, Power Gig) to Rock Band (#234)
 * Fix PS3 .pkg files sometimes breaking game updates by overwriting existing

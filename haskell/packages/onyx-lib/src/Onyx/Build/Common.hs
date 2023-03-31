@@ -49,6 +49,8 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Folder (..), Readable,
                                                    crawlFolder)
 import qualified Sound.MIDI.Util                  as U
+import Onyx.Util.Text.Transform (replaceCharsRB)
+import System.IO.Unsafe (unsafePerformIO)
 
 data BuildInfo = BuildInfo
   { biSongYaml        :: SongYaml FilePath
@@ -523,7 +525,8 @@ validFileNamePiece rule s = let
     , "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0"
     , "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0"
     ]
-  s' = fixEnds $ trimLength $ T.map eachChar s
+  s' = fixEnds $ trimLength $ T.map eachChar
+    $ unsafePerformIO $ replaceCharsRB False s
   in if elem (T.toUpper s') reserved
     then s' <> "_"
     else s'
