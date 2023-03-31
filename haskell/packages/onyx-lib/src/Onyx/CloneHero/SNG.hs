@@ -17,10 +17,9 @@ import           Data.Foldable        (toList)
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
+import qualified GHC.IO.Handle        as H
 import           Onyx.Util.Handle
 import           Onyx.Xbox.STFS       (runGetM)
-
-import qualified GHC.IO.Handle        as H
 import           System.IO            (SeekMode (..), hClose, hFileSize, hSeek)
 
 data SNGHeader = SNGHeader

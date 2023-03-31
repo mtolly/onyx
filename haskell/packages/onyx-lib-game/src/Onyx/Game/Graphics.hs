@@ -1840,7 +1840,7 @@ loadGLStuff scaleUI previewSong = do
   glEnable GL_DEPTH_TEST
   glEnable GL_CULL_FACE -- default CCW = front
   glEnable GL_BLEND
-  glBlendFunc GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA
+  glBlendFuncSeparate GL_SRC_ALPHA GL_ONE_MINUS_SRC_ALPHA GL_ONE GL_ONE
 
   -- format of the Vertex type
   let vertexParts =

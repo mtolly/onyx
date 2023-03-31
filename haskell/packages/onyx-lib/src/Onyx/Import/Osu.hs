@@ -125,11 +125,15 @@ importOsu separateSongs f = do
               sampleTrack = F.SamplesTrack
                 $ RTB.flatten
                 $ fmap (\instant -> let
-                  gems = map fst instant
+                  gems   = map fst instant
+                  center = any (`elem` gems) [Pro Yellow (), Pro Blue  ()]
+                  rim    = any (`elem` gems) [Red          , Pro Green ()]
+                  double = not $ null $ drop 1 instant
                   in concat
-                    [ [F.SampleTrigger "" keyNormal | any (`elem` gems) [Pro Yellow (), Pro Blue  ()]]
-                    , [F.SampleTrigger "" keyClap   | any (`elem` gems) [Red          , Pro Green ()]]
-                    , [F.SampleTrigger "" keyFinish | not $ null $ drop 1 instant                    ]
+                    [ [F.SampleTrigger "" keyNormal  | center          ]
+                    , [F.SampleTrigger "" keyClap    | rim             ]
+                    , [F.SampleTrigger "" keyFinish  | center && double]
+                    , [F.SampleTrigger "" keyWhistle | rim    && double]
                     ]
                   )
                 $ RTB.collectCoincident
@@ -165,7 +169,9 @@ importOsu separateSongs f = do
         , titleJP = addVersion <$> primary.metadata.titleUnicode
         , artist = primary.metadata.artist
         , artistJP = primary.metadata.artistUnicode
-        , previewStart = Just $ PreviewSeconds $ fromIntegral primary.general.previewTime / 1000
+        , previewStart = if primary.general.previewTime >= 0
+          then Just $ PreviewSeconds $ fromIntegral primary.general.previewTime / 1000
+          else Nothing
         , fileAlbumArt = background -- just so there's not nothing
         , author = case nubOrd $ mapMaybe (.metadata.creator) osus of
           []      -> Nothing
@@ -291,58 +297,6 @@ maniaToTrack tmap osu = let
         holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
         in return (startBeats, (fromIntegral column, holdBeats))
     }
-
-{-
-maniaToFiveKeys :: U.TempoMap -> OsuFile -> Five.FiveTrack U.Beats
-maniaToFiveKeys tmap osu = let
-  mania = getManiaChart osu
-  fretOffset = case maniaColumnCount osu of
-    1 -> 2 -- Y
-    2 -> 2 -- Y B
-    3 -> 1 -- R Y B
-    4 -> 0 -- G R Y B
-    5 -> 0 -- G R Y B O
-    _ -> 0 -- shouldn't happen
-  toFret column = case column + fretOffset of
-    1 -> Five.Red
-    2 -> Five.Yellow
-    3 -> Five.Blue
-    n -> if n <= 0 then Five.Green else Five.Orange
-  in mempty
-    { Five.fiveDifficulties = Map.singleton Expert $ emit5' $ RTB.fromAbsoluteEventList $ ATB.fromPairList $
-      mania >>= \(secs, (column, endHold)) -> let
-        startBeats = U.unapplyTempoMap tmap secs
-        holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
-        in return (startBeats, ((Just $ toFret column, Tap), holdBeats))
-    }
-
-maniaToProKeys :: U.TempoMap -> OsuFile -> ProKeysTrack U.Beats
-maniaToProKeys tmap osu = let
-  mania = getManiaChart osu
-  -- pick a range and key set so we are centered on either the yellow or blue key areas
-  (range, keys) = case maniaColumnCount osu of
-    1  -> (RangeF, [                                                    BlueGreen D                                                    ])
-    3  -> (RangeF, [                                       BlueGreen C, BlueGreen D, BlueGreen E                                       ])
-    5  -> (RangeF, [                          RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F                          ])
-    7  -> (RangeF, [             RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F, BlueGreen G             ])
-    9  -> (RangeF, [RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E, BlueGreen F, BlueGreen G, BlueGreen A])
-    2  -> (RangeC, [                                                    RedYellow G, RedYellow A                                                    ])
-    4  -> (RangeC, [                                       RedYellow F, RedYellow G, RedYellow A, RedYellow B                                       ])
-    6  -> (RangeC, [                          RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C                          ])
-    8  -> (RangeC, [             RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D             ])
-    10 -> (RangeC, [RedYellow C, RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E])
-    _  -> (RangeD, []) -- shouldn't happen
-  in mempty
-    { pkLanes = RTB.singleton 0 range
-    , pkNotes = blipEdgesRB_ $ RTB.fromAbsoluteEventList $ ATB.fromPairList $
-      mania >>= \(secs, (column, endHold)) -> case drop (fromIntegral column) keys of
-        key : _ -> let
-          startBeats = U.unapplyTempoMap tmap secs
-          holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
-          in return (startBeats, (key, holdBeats))
-        []      -> [] -- key out of range somehow
-    }
--}
 
 taikoToTrack :: U.TempoMap -> OsuFile -> DrumTrack U.Beats
 taikoToTrack tmap osu = let
