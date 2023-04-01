@@ -48,9 +48,9 @@ import           Onyx.Resources                   (onyxAlbum)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Folder (..), Readable,
                                                    crawlFolder)
+import           Onyx.Util.Text.Transform         (replaceCharsRB)
 import qualified Sound.MIDI.Util                  as U
-import Onyx.Util.Text.Transform (replaceCharsRB)
-import System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe                 (unsafePerformIO)
 
 data BuildInfo = BuildInfo
   { biSongYaml        :: SongYaml FilePath

@@ -6,6 +6,7 @@
 module Onyx.Difficulty where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.List.NonEmpty               as NE
 import           Onyx.MIDI.Track.File             (FlexPartName (..))
 import           Onyx.Mode
 import           Onyx.Preferences                 (MagmaSetting (..))
@@ -16,7 +17,11 @@ rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
 
 tierToRank :: DiffMap -> Integer -> Integer
-tierToRank dm tier = (0 : 1 : dm) !! fromIntegral tier
+tierToRank dm tier = let
+  ranks = 0 NE.:| (1 : dm)
+  in case NE.drop (fromIntegral tier) ranks of
+    []       -> NE.last ranks -- if we wanted, could also keep extending upward
+    rank : _ -> rank
 
 type DiffMap = [Integer]
 

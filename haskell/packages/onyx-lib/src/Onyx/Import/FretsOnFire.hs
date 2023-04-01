@@ -327,7 +327,8 @@ importFoF src dir level = do
             , vols = []
             }
 
-  let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
+  -- Used to clamp this at 7, but higher ones should be handled OK now
+  let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ fromIntegral n + 1
 
   let maybe2x = listToMaybe $ do
         guard $ level == ImportFull
