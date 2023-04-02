@@ -1,5 +1,13 @@
 # Version history
 
+## 20230402
+
+* Fix an error when converting StepMania to Rock Band due to difficulty tier
+* Import lyrics from Rocksmith files as an unpitched vocal track
+* Basic support of Unicode lyrics/sections (#200)
+  * Imported MIDI files can have text events in either Latin-1 or UTF-8
+  * Exported MIDI files use Latin-1 for Harmonix games, UTF-8 for Clone Hero
+
 ## 20230331
 
 * Fix GH:WoR song cache creator overwriting the setlist order of Smash Hits and

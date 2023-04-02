@@ -753,7 +753,8 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       trkHarm1' = trkHarm1 { vocalMood = RTB.empty }
       trkHarm2' = trkHarm2 { vocalMood = RTB.empty }
       trkHarm3' = trkHarm3 { vocalMood = RTB.empty }
-      voxPSCH = hashTalkies . asciiLyrics -- ascii lyrics needed for PS, could remove for CH?
+      -- we used to do asciiLyrics here for PS, but removing now since we can give UTF-8 midis to CH
+      voxPSCH = hashTalkies
       -- CH lyrics don't handle ^ correctly, so we replace with the standard #.
       -- specifically "word-^" results in the hyphen being shown.
       hashTalkies vt = vt { vocalLyrics = T.replace "^" "#" <$> vocalLyrics vt }
