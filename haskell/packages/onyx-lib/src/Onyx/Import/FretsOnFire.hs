@@ -660,6 +660,59 @@ removeDummyTracks trks = let
     , F.fixedPartRealDrumsPS = drums $ F.fixedPartRealDrumsPS trks
     }
 
+fixShortVoxPhrasesTrack
+  :: VocalTrack U.Beats -> (VocalTrack U.Beats, [U.Beats])
+fixShortVoxPhrasesTrack vox = let
+  minLength = 1 :: U.Beats
+  joinBools = joinEdgesSimple . fmap
+    (\b -> if b then EdgeOn () () else EdgeOff ())
+  phrases = RTB.toAbsoluteEventList 0 $ joinBools $ vocalPhrase1 vox
+  od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
+    $ RTB.filter id $ vocalOverdrive vox
+  wiggle = 10/480
+  isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
+    Nothing -> False
+    Just t' -> t' < t + wiggle
+  phrasesWithOD :: RTB.T U.Beats (Onyx.MIDI.Common.Edge () Bool)
+  phrasesWithOD
+    = splitEdgesSimple
+    $ RTB.fromAbsoluteEventList
+    $ ATB.fromPairList
+    $ fmap (\(t, ((), (), len)) -> (t, ((), isOD t, len)))
+    $ ATB.toPairList phrases
+  fixed = fixPhrases phrasesWithOD
+  fixPhrases = \case
+    RNil -> RNil
+    Wait dt on@EdgeOn{} (Wait len off@EdgeOff{} rest) ->
+      if len >= minLength
+        then Wait dt on $ Wait len off $ fixPhrases rest -- all good
+        else let
+          -- pull phrase start earlier
+          len2 = min minLength $ len + dt
+          dt2 = (len + dt) - len2
+          in if len2 >= minLength
+            then Wait dt2 on $ Wait len2 off $ fixPhrases rest
+            else let
+              -- also push phrase end later
+              futureSpace = case rest of
+                RNil       -> minLength
+                Wait t _ _ -> t
+              len3 = min minLength $ len2 + futureSpace
+              usedSpace = len3 - len2
+              in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
+    Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
+  vox' = vox
+    { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
+    , vocalOverdrive = flip RTB.mapMaybe fixed $ \case
+      EdgeOn () True -> Just True
+      EdgeOff   True -> Just False
+      _              -> Nothing
+    }
+  differenceTimes = case bothFirstSecond phrasesWithOD fixed of
+    (_, only1, _) -> ATB.getTimes $ RTB.toAbsoluteEventList 0
+      $ RTB.collectCoincident only1
+  in (vox', differenceTimes)
+
 fixShortVoxPhrases
   :: (SendMessage m)
   => F.Song (F.FixedFile U.Beats)
@@ -671,54 +724,7 @@ fixShortVoxPhrases song@(F.Song tmap mmap ps)
     -- not touching songs with separate p1/p2 phrases
   | otherwise = inside "Track PART VOCALS" $ do
     let vox = F.fixedPartVocals ps
-        minLength = 1 :: U.Beats
-        joinBools = joinEdgesSimple . fmap
-          (\b -> if b then EdgeOn () () else EdgeOff ())
-        phrases = RTB.toAbsoluteEventList 0 $ joinBools $ vocalPhrase1 vox
-        od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
-          $ RTB.filter id $ vocalOverdrive vox
-        wiggle = 10/480
-        isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
-          Nothing -> False
-          Just t' -> t' < t + wiggle
-        phrasesWithOD :: RTB.T U.Beats (Onyx.MIDI.Common.Edge () Bool)
-        phrasesWithOD
-          = splitEdgesSimple
-          $ RTB.fromAbsoluteEventList
-          $ ATB.fromPairList
-          $ fmap (\(t, ((), (), len)) -> (t, ((), isOD t, len)))
-          $ ATB.toPairList phrases
-        fixed = fixPhrases phrasesWithOD
-        fixPhrases = \case
-          RNil -> RNil
-          Wait dt on@EdgeOn{} (Wait len off@EdgeOff{} rest) ->
-            if len >= minLength
-              then Wait dt on $ Wait len off $ fixPhrases rest -- all good
-              else let
-                -- pull phrase start earlier
-                len2 = min minLength $ len + dt
-                dt2 = (len + dt) - len2
-                in if len2 >= minLength
-                  then Wait dt2 on $ Wait len2 off $ fixPhrases rest
-                  else let
-                    -- also push phrase end later
-                    futureSpace = case rest of
-                      RNil       -> minLength
-                      Wait t _ _ -> t
-                    len3 = min minLength $ len2 + futureSpace
-                    usedSpace = len3 - len2
-                    in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
-          Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
-        vox' = vox
-          { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
-          , vocalOverdrive = flip RTB.mapMaybe fixed $ \case
-            EdgeOn () True -> Just True
-            EdgeOff   True -> Just False
-            _              -> Nothing
-          }
-        differenceTimes = case bothFirstSecond phrasesWithOD fixed of
-          (_, only1, _) -> ATB.getTimes $ RTB.toAbsoluteEventList 0
-            $ RTB.collectCoincident only1
+        (vox', differenceTimes) = fixShortVoxPhrasesTrack vox
     case differenceTimes of
       [] -> return ()
       _  -> inside (intercalate ", " $ map (showPosition mmap) differenceTimes) $ do

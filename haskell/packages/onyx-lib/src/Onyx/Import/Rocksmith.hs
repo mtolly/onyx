@@ -37,6 +37,7 @@ import           Onyx.Audio                       (Audio (..))
 import           Onyx.Codec.JSON                  (fromJSON)
 import           Onyx.Image.DXT                   (readDDS)
 import           Onyx.Import.Base
+import           Onyx.Import.FretsOnFire          (fixShortVoxPhrasesTrack)
 import           Onyx.MIDI.Common                 (blipEdgesRBNice, fixOverlaps,
                                                    fixOverlapsSimple,
                                                    minSustainLengthRB,
@@ -554,50 +555,65 @@ importRSSong folder song level = do
   let midiWithVox = case maybeVoxSNG of
         Nothing     -> midi
         Just voxSNG -> let
+
           -- see Metropolis for some weird empty vocal events in instrumental section
-          filteredVocals = filter
+          vocals1 = filter
             (B8.any (\c -> not $ isSpace c || c == '+') . vocal_Lyric)
             (maybe [] sng_Vocals voxSNG)
+
+          vocals2 = sort $ do
+            v <- vocals1
+            let pitch = if 36 <= vocal_Note v && vocal_Note v <= 84
+                  then toEnum $ fromIntegral $ vocal_Note v - 36
+                  -- just shift octaves to keep in the valid RB space
+                  else toEnum $ fromIntegral $ rem (vocal_Note v - 36) 48
+                time = toSeconds $ vocal_Time v
+                endTime = toSeconds $ vocal_Time v + vocal_Length v
+                lyric = decodeGeneral $ vocal_Lyric v
+                -- get rid of phrase end marker, make all notes talky
+                lyric' = fromMaybe lyric (T.stripSuffix "+" lyric) <> "#"
+                phraseEnd = "+" `B8.isSuffixOf` vocal_Lyric v
+            return (time, (pitch, endTime, lyric', phraseEnd))
+
+          vocals3 = let
+            go = \case
+              -- fix small overlaps (see yesowne_p.psarc, many others)
+              (t1, (pitch1, tend1, lyric1, end1)) : rest@((t2, _) : _) -> let
+                tend1' = min tend1 t2
+                in (t1, (pitch1, tend1', lyric1, end1)) : go rest
+              -- make sure last note ends phrase even if missing plus (see yasashiku_p.psarc)
+              [(t, (pitch, end, lyric, _))] -> [(t, (pitch, end, lyric, True))]
+              [] -> []
+            in go vocals2
+
           in midi
             { F.s_tracks = (F.s_tracks midi)
               { F.onyxParts = Map.insert F.FlexVocal mempty
-                { F.onyxPartVocals = mempty
+                { F.onyxPartVocals = fst $ fixShortVoxPhrasesTrack mempty
                   { vocalNotes
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
-                    $ sort -- dunno if necessary
                     $ do
-                      v <- filteredVocals
-                      let pitch = if 36 <= vocal_Note v && vocal_Note v <= 84
-                            then toEnum $ fromIntegral $ vocal_Note v - 36
-                            -- just shift octaves to keep in the valid RB space
-                            else toEnum $ fromIntegral $ rem (vocal_Note v - 36) 48
-                          on  = (toSeconds $ vocal_Time v                 , (pitch, True ))
-                          off = (toSeconds $ vocal_Time v + vocal_Length v, (pitch, False))
+                      (t, (pitch, tend, _, _)) <- vocals3
+                      let on  = (t   , (pitch, True ))
+                          off = (tend, (pitch, False))
                       [on, off]
                   , vocalLyrics
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
-                    $ sort -- dunno if necessary
                     $ do
-                      v <- filteredVocals
-                      let lyric = decodeGeneral $ vocal_Lyric v
-                          -- get rid of phrase end marker, make all notes talky
-                          lyric' = fromMaybe lyric (T.stripSuffix "+" lyric) <> "#"
-                      return (toSeconds $ vocal_Time v, lyric')
+                      (t, (_, _, lyric, _)) <- vocals3
+                      return (t, lyric)
                   , vocalPhrase1
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ removeDupePhraseStart
-                    $ sort -- dunno if necessary
                     $ do
-                      v <- filteredVocals
-                      (toSeconds $ vocal_Time v, True) : do
-                        guard $ "+" `B8.isSuffixOf` vocal_Lyric v
-                        [(toSeconds $ vocal_Time v + vocal_Length v, False)]
+                      (t, (_, tend, _, end)) <- vocals3
+                      (t, True) : [(tend, False) | end]
                   }
                 } $ F.onyxParts $ F.s_tracks midi
               }
@@ -694,5 +710,5 @@ importRSSong folder song level = do
       , tuningCents = 0 -- TODO get from manifest .json (CentOffset)
       , fileTempo   = Nothing
       }
-    , parts = Parts $ const partsMap partsMapWithVox -- reenable when working consistently
+    , parts = Parts partsMapWithVox
     }
