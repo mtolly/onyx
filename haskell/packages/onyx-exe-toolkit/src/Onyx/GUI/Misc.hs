@@ -392,7 +392,7 @@ miscPageLipsync sink rect tab startTasks = do
                     $ filter notLipsync (F.rawTracks $ F.s_tracks midRaw)
                     <> F.s_tracks lipsyncRaw
                   }
-            F.saveMIDI input combinedRaw
+            F.saveMIDIUtf8 input combinedRaw
             return [input]
           in startTasks [("Convert vocal tracks to LIPSYNC tracks: " <> input, task)]
 

@@ -106,7 +106,7 @@ binToMidi bin = let
 
 -- testConvert :: FilePath -> IO ()
 -- testConvert f = BL.readFile f >>= runGetM readSheetBin >>= \bin ->
---   F.saveMIDI (f <> ".mid") $ let
+--   F.saveMIDIUtf8 (f <> ".mid") $ let
 --     (tempos, track) = binToMidi bin
 --     in F.Song
 --       { F.s_tempos = tempos
@@ -153,7 +153,7 @@ interpretDK1 dk = let
 
 -- Donkey Konga 2/3 chart format (MIDI)
 
-readTrackDK2 :: (NNC.C t) => RTB.T t E.T -> RTB.T t (DKEvent t)
+readTrackDK2 :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (DKEvent t)
 readTrackDK2 mid = let
   notes = joinEdgesSimple $ flip RTB.mapMaybe mid $ \e ->
     flip fmap (isNoteEdge e) $ \(p, b) ->

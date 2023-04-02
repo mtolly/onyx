@@ -24,13 +24,12 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.StackTrace
 import           Onyx.WebPlayer                   (showTimestamp)
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
   F.Song tempos mmap trks <- F.loadMIDI fin
-  liftIO $ Save.toFile fout $ F.showMIDIFile' $ F.Song tempos mmap trks
+  liftIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap trks
     { F.onyxParts = flip fmap (F.onyxParts trks) $ \flex -> flex
       { F.onyxPartRealKeysE = completeRanges $ F.onyxPartRealKeysE flex
       , F.onyxPartRealKeysM = completeRanges $ F.onyxPartRealKeysM flex

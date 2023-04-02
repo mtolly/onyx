@@ -139,7 +139,7 @@ data QuickFile a
   | QFPNGPS3 a
   | QFEncryptedMIDI B.ByteString a -- folder for decryption
   | QFUnencryptedMIDI a
-  | QFParsedMIDI F.T
+  | QFParsedMIDI (F.T B.ByteString)
   | QFOther a
   deriving (Eq, Show, Foldable)
 
@@ -725,7 +725,7 @@ glueDTA = let
 
 -- Useful processors for modifying songs
 
-blackVenue :: Bool -> F.T -> F.T
+blackVenue :: Bool -> F.T B.ByteString -> F.T B.ByteString
 blackVenue isRB3 (F.Cons typ dvn trks) = let
   black = U.setTrackName "VENUE" $ if isRB3
     then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
@@ -749,10 +749,10 @@ blackVenue isRB3 (F.Cons typ dvn trks) = let
   isVenue = (== Just "VENUE") . U.trackName
   in F.Cons typ dvn $ filter (not . isVenue) trks ++ [black]
 
-removePitch :: (NNC.C t) => Int -> RTB.T t E.T -> RTB.T t E.T
+removePitch :: (NNC.C t) => Int -> RTB.T t (E.T B.ByteString) -> RTB.T t (E.T B.ByteString)
 removePitch n = RTB.filter $ maybe True (\(p, _) -> p /= n) . isNoteEdge
 
-noOverdrive :: F.T -> F.T
+noOverdrive :: F.T B.ByteString -> F.T B.ByteString
 noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
   instrumentTracks =
     [ "PART GUITAR"
@@ -776,7 +776,7 @@ noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     then removePitch 116 trk
     else trk
 
-noLanesGBK :: F.T -> F.T
+noLanesGBK :: F.T B.ByteString -> F.T B.ByteString
 noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
   noLaneTracks =
     [ "PART GUITAR"
@@ -800,13 +800,13 @@ noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
       (_   , True) -> removePitch 117 trk
       _            -> trk
 
-noLanesDrums :: F.T -> F.T
+noLanesDrums :: F.T B.ByteString -> F.T B.ByteString
 noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk ->
   case U.trackName trk of
     Just "PART DRUMS" -> removePitch 116 $ removePitch 117 trk
     _                 -> trk
 
-noDrumFills :: F.T -> F.T
+noDrumFills :: F.T B.ByteString -> F.T B.ByteString
 noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn $ let
    -- remove drum fills, except starting at [coda]
   isCoda = \case
@@ -828,7 +828,7 @@ noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn $ let
       $ filter keepDrumEvent $ ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
     _ -> trk
 
-mustang22 :: F.T -> F.T
+mustang22 :: F.T B.ByteString -> F.T B.ByteString
 mustang22 (F.Cons typ dvn trksOrig) = F.Cons typ dvn $ let
   -- for pg/gb, if both 17 and 22 tracks, remove 17, rename 22
   process name17 name22 trks = let
@@ -840,7 +840,7 @@ mustang22 (F.Cons typ dvn trksOrig) = F.Cons typ dvn $ let
   in process "PART REAL_GUITAR" "PART REAL_GUITAR_22"
     $ process "PART REAL_BASS" "PART REAL_BASS_22" trksOrig
 
-unmuteOver22 :: F.T -> F.T
+unmuteOver22 :: F.T B.ByteString -> F.T B.ByteString
 unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn $ let
    -- for pg/pb, match note on/off, then unmute (ch 3 -> 0) if velocity 123 or above and pitch in pg note range
   processProtar trk = let
@@ -861,7 +861,11 @@ unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     then processProtar trk
     else trk
 
-applyToMIDI :: (SendMessage m, MonadIO m) => (F.T -> F.T) -> Folder T.Text QuickFileSized -> StackTraceT m (Folder T.Text QuickFileSized)
+applyToMIDI
+  :: (SendMessage m, MonadIO m)
+  => (F.T B.ByteString -> F.T B.ByteString)
+  -> Folder T.Text QuickFileSized
+  -> StackTraceT m (Folder T.Text QuickFileSized)
 applyToMIDI midFunction = mapMFilesWithName $ let
   withParsed name mid = return (name, QFParsedMIDI $ midFunction mid)
   withUnenc name r = do

@@ -27,7 +27,6 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Readable, saveReadable)
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.Directory                 (createDirectoryIfMissing)
 import           System.FilePath                  (takeDirectory, takeExtension,
@@ -69,7 +68,7 @@ saveImport dout yaml = do
             SoftImage img -> case map toLower $ takeExtension newName of
               ".png" -> writePng newNameFull img
               ext    -> error $ "saveImport: unhandled image extension " <> show ext
-            SoftChart song -> Save.toFile newNameFull $ F.showMIDIFile' song
+            SoftChart song -> F.saveMIDIUtf8 newNameFull song
             SoftAudio aud -> audioIO Nothing aud newNameFull
           return newName
         modify ((newName, newAsync) :)

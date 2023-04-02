@@ -8,17 +8,16 @@ import           Control.Monad                    (forM_, replicateM)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           Onyx.Harmonix.RockBand.Milo.Dir
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.StackTrace                  (logStdout)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 data Venue t = Venue
@@ -113,11 +112,11 @@ venueToMIDI :: U.TempoMap -> U.MeasureMap -> Venue Float -> F.Song (F.RawFile U.
 venueToMIDI tmap mmap venue = F.Song tmap mmap $ F.RawFile $ do
   trk <- venueTracks venue
   return
-    $ U.setTrackName (B8.unpack $ trackName trk)
+    $ U.setTrackName (TE.decodeLatin1 $ trackName trk)
     $ U.unapplyTempoTrack tmap
     $ RTB.fromAbsoluteEventList
     $ ATB.fromPairList
-    $ map (\e -> (realToFrac $ eventTime e / 30, E.MetaEvent $ Meta.TextEvent $ B8.unpack $ eventName e))
+    $ map (\e -> (realToFrac $ eventTime e / 30, E.MetaEvent $ Meta.TextEvent $ TE.decodeLatin1 $ eventName e))
     $ trackEvents trk
 
 testConvertVenue :: FilePath -> FilePath -> FilePath -> IO ()
@@ -128,7 +127,7 @@ testConvertVenue fmid fven fout = do
     Right mid -> return mid
   ven <- fmap (runGet parseVenue) $ BL.readFile fven
   let raw = venueToMIDI (F.s_tempos mid) (F.s_signatures mid) ven `asTypeOf` mid
-  Save.toFile fout $ F.showMIDIFile' raw
+  F.saveMIDIUtf8 fout raw
 
 venueAdjustSpeed :: Rational -> Venue Float -> Venue Float
 venueAdjustSpeed 1 = id

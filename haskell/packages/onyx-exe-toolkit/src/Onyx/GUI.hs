@@ -2393,7 +2393,7 @@ miscPageMIDI sink rect tab startTasks = do
             in sink $ EventOnyx $ let
               task = do
                 mid <- loadRawMIDIOrChart input
-                stackIO $ Save.toFile f' mid
+                stackIO $ Save.toFile f' $ TE.encodeUtf8 <$> mid
                 return [f']
               in startTasks [("Convert to MIDI: " <> input, task)]
         _ -> return ()

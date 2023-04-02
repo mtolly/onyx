@@ -210,7 +210,7 @@ instance F.ParseFile PGFile where
     return PGFile{..}
 
 -- This is needed for Cherub Rock and maybe others
-fixLateTrackNames :: F.T -> F.T
+fixLateTrackNames :: F.T s -> F.T s
 fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk -> case U.trackName trk of
   Just _  -> trk
   Nothing -> case RTB.partitionMaybe U.readTrackName trk of

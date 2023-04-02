@@ -388,7 +388,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         let f = rel songYaml.global.fileMidi
         doesFileExist f >>= \b -> if b
           then copyFile' f out
-          else F.saveMIDI out F.Song
+          else F.saveMIDIUtf8 out F.Song
             { F.s_tempos = U.tempoMapFromBPS RTB.empty
             , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
             , F.s_tracks = mempty :: F.OnyxFile U.Beats
@@ -555,12 +555,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           tempos <- fmap F.s_tempos $ case getFileTempo plan of
             Nothing -> return input
             Just m  -> F.shakeMIDI m
-          F.saveMIDI out input { F.s_tempos = tempos }
+          F.saveMIDIUtf8 out input { F.s_tempos = tempos }
         midprocessed %> \out -> do
           -- basically just autogen a BEAT track
           input <- F.shakeMIDI midraw
           output <- RB3.processTiming input $ getAudioLength buildInfo planName plan
-          F.saveMIDI out output
+          F.saveMIDIUtf8 out output
 
         sampleTimes %> \out -> do
           input <- F.shakeMIDI midraw

@@ -117,7 +117,7 @@ rsRules buildInfo dir rs = do
         { F.onyxPartRSGuitar = gtr
         , F.onyxPartRSBass   = bass
         }
-    F.saveMIDI out $ mid
+    F.saveMIDIUtf8 out $ mid
       { F.s_tracks = (F.s_tracks mid)
         { F.onyxParts = newParts
         }

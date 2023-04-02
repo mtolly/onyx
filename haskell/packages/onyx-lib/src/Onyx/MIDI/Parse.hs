@@ -12,7 +12,6 @@ import           Control.Monad                         (forM)
 import           Data.Binary.Get
 import           Data.Bits                             (shiftR, testBit, (.&.))
 import qualified Data.ByteString                       as B
-import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Foldable                         (toList)
@@ -31,7 +30,7 @@ import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Mode       as Mode
 import qualified Sound.MIDI.Message.Channel.Voice      as V
 
-getMIDI :: Get (F.T, [String])
+getMIDI :: Get (F.T B.ByteString, [String])
 getMIDI = do
   chunks <- getChunks
   case chunks of
@@ -102,7 +101,7 @@ data RunningStatus
   = Status  Word8 -- normal running status from the previous event
   | Cleared Word8 -- status was technically cleared by a meta event. however we ignore it because other programs do the same
 
-getTrack :: Get (RTB.T NN.Integer E.T)
+getTrack :: Get (RTB.T NN.Integer (E.T B.ByteString))
 getTrack = removeEnd <$> go Nothing where
   removeEnd (Wait _ (E.MetaEvent Meta.EndOfTrack) RNil) = RNil
   removeEnd (Wait dt x rest) = Wait dt x $ removeEnd rest
@@ -113,7 +112,7 @@ getTrack = removeEnd <$> go Nothing where
       Just (tks, e, running') -> RTB.cons tks e <$> go running'
       Nothing                 -> return RTB.empty -- TODO should warn here, probably ran out of bytes
 
-getEvent :: Maybe RunningStatus -> Get (NN.Integer, E.T, Maybe RunningStatus)
+getEvent :: Maybe RunningStatus -> Get (NN.Integer, E.T B.ByteString, Maybe RunningStatus)
 getEvent running = do
   tks <- fromIntegral <$> getVariableNum
   let markCleared = case running of
@@ -124,7 +123,7 @@ getEvent running = do
     0xFF -> do
       metaType <- getWord8
       metaLen <- getVariableNum
-      let str = B8.unpack <$> getByteString metaLen
+      let str = getByteString metaLen
       e <- E.MetaEvent <$> case (metaType, metaLen) of
         (0x00, 2) -> Meta.SequenceNum . fromIntegral <$> getWord16be
         (0x01, _) -> Meta.TextEvent <$> str

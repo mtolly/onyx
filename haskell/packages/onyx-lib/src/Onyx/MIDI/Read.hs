@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Onyx.MIDI.Read where
 
 import           Control.Monad                    (forM, guard, void)
@@ -38,7 +39,7 @@ data MIDITrack f = MIDITrack
   , midiComments    :: f T.Text
   , midiPhaseShift  :: f PSMessage
   , midiPowerGig    :: f T.Text -- vocal text events for powergig
-  , midiUnknown     :: f E.T
+  , midiUnknown     :: f (E.T T.Text)
   }
 
 mapMIDITrack :: (forall a. f a -> g a) -> MIDITrack f -> MIDITrack g
@@ -69,7 +70,7 @@ fixZeroLengthNotes oneTick mt = mt { midiNotes = fmap fixRow $ midiNotes mt } wh
   go _ (Wait t x@EdgeOn{}  rest) = Wait t x $ go True  rest
   go _ RNil                      = RNil
 
-getMIDITrack :: (NNC.C t) => ATB.T t E.T -> MIDITrack (ATB.T t)
+getMIDITrack :: (NNC.C t) => ATB.T t (E.T T.Text) -> MIDITrack (ATB.T t)
 getMIDITrack = let
   go cur [] = cur
   go cur ((t, x) : rest) = let
@@ -89,18 +90,18 @@ getMIDITrack = let
       (readCommandList -> Just cmd) -> cur
         { midiCommands = At t cmd $ midiCommands cur
         }
-      E.MetaEvent (Meta.TextEvent ('#' : cmt)) -> cur
-        { midiComments = At t (T.pack cmt) $ midiComments cur
+      E.MetaEvent (Meta.TextEvent (T.uncons -> Just ('#', cmt))) -> cur
+        { midiComments = At t cmt $ midiComments cur
         }
       E.MetaEvent (Meta.Lyric lyric) -> cur
-        { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
+        { midiLyrics = At t lyric $ midiLyrics cur
         }
       E.MetaEvent (Meta.TextEvent lyric)
         | lyric == "\\n" || lyric == "\\r" -> cur
-          { midiPowerGig = At t (T.pack lyric) $ midiPowerGig cur
+          { midiPowerGig = At t lyric $ midiPowerGig cur
           }
         | otherwise -> cur
-          { midiLyrics = At t (T.pack lyric) $ midiLyrics cur
+          { midiLyrics = At t lyric $ midiLyrics cur
           }
       E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v))) -> cur
         { midiControllers = let
@@ -123,7 +124,7 @@ getMIDITrack = let
     }
   in go empty . reverse . ATB.toPairList
 
-putMIDITrack :: (Functor f) => (f E.T -> f E.T -> f E.T) -> MIDITrack f -> f E.T
+putMIDITrack :: (Functor f) => (f (E.T T.Text) -> f (E.T T.Text) -> f (E.T T.Text)) -> MIDITrack f -> f (E.T T.Text)
 putMIDITrack merge mt = foldr merge (midiUnknown mt) $ let
   notes = flip map (Map.toList $ midiNotes mt) $ \(p, lane) -> let
     f (EdgeOff  c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) Nothing
@@ -134,24 +135,24 @@ putMIDITrack merge mt = foldr merge (midiUnknown mt) $ let
     in f <$> lane
   in notes ++ controllers ++
     [ showCommand' <$> midiCommands mt
-    , (\cmt -> E.MetaEvent $ Meta.TextEvent $ '#' : T.unpack cmt) <$> midiComments mt
-    , (\t -> E.MetaEvent $ Meta.TextEvent $ T.unpack t) <$> midiPowerGig mt
+    , (\cmt -> E.MetaEvent $ Meta.TextEvent $ T.cons '#' cmt) <$> midiComments mt
+    , (\t -> E.MetaEvent $ Meta.TextEvent t) <$> midiPowerGig mt
     , unparsePSSysEx <$> midiPhaseShift mt
     ]
 
 -- like the json/dta one but uses StateT so it can modify the source as it goes
 type TrackParser m t = StackTraceT (StateT (MIDITrack (RTB.T t)) m)
-type TrackBuilder t = State (RTB.T t E.T)
+type TrackBuilder t = State (RTB.T t (E.T T.Text))
 type TrackCodec m t a = Codec (TrackParser m t) (TrackBuilder t) a
 
 type TrackEvent m t a = TrackCodec m t (RTB.T t a)
 
-makeTrackBuilder :: (NNC.C t) => (c -> RTB.T t E.T) -> (c -> TrackBuilder t c)
+makeTrackBuilder :: (NNC.C t) => (c -> RTB.T t (E.T T.Text)) -> (c -> TrackBuilder t c)
 makeTrackBuilder f = fmapArg $ \xs -> modify' $ \ys -> let
   ys' = RTB.merge ys $ f xs
   in seq (forceTrackSpine ys') ys'
 
-runTrackBuilder :: (c -> TrackBuilder t c) -> (c -> RTB.T t E.T)
+runTrackBuilder :: (c -> TrackBuilder t c) -> (c -> RTB.T t (E.T T.Text))
 runTrackBuilder f = (`execState` RTB.empty) . f
 
 -- | Forces the spine of the event list, and WHNFs the times and events.
@@ -312,16 +313,14 @@ commandMatch c = commandMatch'
 lyrics :: (Monad m, NNC.C t) => TrackEvent m t T.Text
 lyrics = Codec
   { codecIn = slurpTrack $ \mt -> (midiLyrics mt, mt { midiLyrics = RTB.empty })
-  , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.Lyric . T.unpack
+  , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.Lyric
   }
 
 powerGigText :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
 powerGigText t = Codec
   { codecIn = slurpTrack $ \mt -> case RTB.partitionMaybe (\x -> guard (x == t) >> Just ()) (midiPowerGig mt) of
     (matches, rest) -> (matches, mt { midiPowerGig = rest })
-  , codecOut = let
-    s = T.unpack t
-    in makeTrackBuilder $ fmap $ E.MetaEvent . Meta.TextEvent . const s
+  , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.TextEvent . const t
   }
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)

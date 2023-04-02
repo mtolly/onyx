@@ -5,7 +5,6 @@ module Onyx.Reaper.Extract where
 import           Control.Monad.Extra                   (forM, mapMaybeM)
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
-import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
@@ -79,7 +78,7 @@ timingToMaps timing = let
   mmap = U.measureMapFromTimeSigs U.Truncate aligned
   in (tmap, mmap)
 
-parseEvent :: (SendMessage m) => Element -> StackTraceT m (Maybe (Integer, Maybe E.T))
+parseEvent :: (SendMessage m) => Element -> StackTraceT m (Maybe (Integer, Maybe (E.T B.ByteString)))
 parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $ do
   let unhex s = case readHex $ T.unpack s of
         [(n, "")] -> Just n
@@ -116,7 +115,7 @@ parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $
             Just xdata -> do
               let bytes = B.concat $ map (B64.decodeLenient . TE.encodeUtf8)
                     [ b64 | Element b64 [] Nothing <- xdata ]
-                  text = B8.unpack $ B.drop 2 bytes
+                  text = B.drop 2 bytes
               mevt <- case B.unpack bytes of
                 0xFF : 0x01 : _ -> return $ Just $ E.MetaEvent $ Meta.TextEvent      text
                 0xFF : 0x02 : _ -> return $ Just $ E.MetaEvent $ Meta.Copyright      text
@@ -130,7 +129,7 @@ parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $
               return $ Just (tks', mevt)
     _ -> return Nothing
 
-getTracks :: (SendMessage m) => Element -> StackTraceT m [RTB.T U.Beats E.T]
+getTracks :: (SendMessage m) => Element -> StackTraceT m [RTB.T U.Beats (E.T B.ByteString)]
 getTracks proj = let
   children = getProject proj
   trks = filter (isNamed "TRACK") children
@@ -156,7 +155,7 @@ getTracks proj = let
                   $ RTB.mapTime (\tks -> fromInteger tks / fromInteger resolution)
                   $ RTB.fromPairList pairs
 
-getMIDI :: (SendMessage m) => Element -> StackTraceT m (F.Song [RTB.T U.Beats E.T])
+getMIDI :: (SendMessage m) => Element -> StackTraceT m (F.Song [RTB.T U.Beats (E.T B.ByteString)])
 getMIDI elt = do
   (tmap, mmap) <- timingToMaps <$> getTiming elt
   trks <- getTracks elt

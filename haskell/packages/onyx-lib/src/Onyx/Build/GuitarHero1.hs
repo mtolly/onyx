@@ -318,7 +318,7 @@ gh1Rules buildInfo dir gh1 = do
     (mid, padSeconds) <- midiRB3toGH1 songYaml audio
       (applyTargetMIDI gh1.common input)
       (getAudioLength buildInfo planName plan)
-    F.saveMIDI out mid
+    F.saveMIDILatin1 out mid
     stackIO $ writeFile pad $ show padSeconds
 
   let loadGH1Midi = F.shakeMIDI $ dir </> "gh1/notes.mid" :: Staction (F.Song (GH1File U.Beats))

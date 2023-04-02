@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE ViewPatterns       #-}
 module Onyx.MIDI.Track.File where
 
 import           Control.Monad                     (forM, forM_, guard, unless,
@@ -17,6 +18,7 @@ import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
+import qualified Data.ByteString                   as B
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Functor                      (void)
@@ -31,6 +33,7 @@ import           Data.Maybe                        (catMaybes, fromJust,
                                                     isNothing, listToMaybe,
                                                     mapMaybe)
 import qualified Data.Text                         as T
+import qualified Data.Text.Encoding                as TE
 import           Development.Shake                 (Action, need)
 import           GHC.Generics                      (Generic)
 import qualified Numeric.NonNegative.Class         as NNC
@@ -65,6 +68,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle                  (Readable (..), fileReadable,
                                                     handleToByteString,
                                                     useHandle)
+import           Onyx.Util.Text.Decode             (decodeGeneral, encodeLatin1)
 import           Onyx.Xbox.STFS                    (runGetM)
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
@@ -72,8 +76,8 @@ import qualified Sound.MIDI.File.Event.Meta        as Meta
 import qualified Sound.MIDI.File.Save              as Save
 import qualified Sound.MIDI.Util                   as U
 
-type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
-type FileBuilder t = Writer [RTB.T t E.T]
+type FileParser m t = StackTraceT (StateT [RTB.T t (E.T T.Text)] m)
+type FileBuilder t = Writer [RTB.T t (E.T T.Text)]
 type FileCodec m t a = Codec (FileParser m t) (FileBuilder t) a
 
 fileId :: FileCodec (PureLog Identity) t a -> FileCodec (PureLog Identity) t a
@@ -82,7 +86,7 @@ fileId = id
 class ParseFile f where
   parseFile :: (SendMessage m) => FileCodec m U.Beats (f U.Beats)
 
-parseTrackReport :: (SendMessage m, ParseTrack trk) => RTB.T U.Beats E.T -> StackTraceT m (trk U.Beats)
+parseTrackReport :: (SendMessage m, ParseTrack trk) => RTB.T U.Beats (E.T T.Text) -> StackTraceT m (trk U.Beats)
 parseTrackReport trk = do
   (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) $ \input -> do
     (errorOrParsed, unrec) <- runStateT input
@@ -102,16 +106,16 @@ fileTrack (name :| otherNames) = Codec
     trks <- lift get
     let (match, rest) = partition matchTrack trks
         match' = stripTrack $ foldr RTB.merge RTB.empty match
-        name' = fromMaybe (T.unpack name) $ U.trackName match'
+        name' = fromMaybe name $ U.trackName match'
     lift $ put rest
-    inside ("Parsing track: " ++ name') $ parseTrackReport match'
+    inside ("Parsing track: " <> T.unpack name') $ parseTrackReport match'
   , codecOut = fmapArg $ \trk -> let
     evs = (`execState` RTB.empty) $ codecOut (forcePure parseTrack) trk
-    in unless (RTB.null evs) $ tell [U.setTrackName (T.unpack name) evs]
+    in unless (RTB.null evs) $ tell [U.setTrackName name evs]
   } where
     matchTrack trk = case U.trackName trk of
       Nothing -> False
-      Just n  -> elem (T.pack n) $ name : otherNames
+      Just n  -> elem n $ name : otherNames
     forcePure
       :: TrackCodec (PureLog Identity) U.Beats (trk U.Beats)
       -> TrackCodec (PureLog Identity) U.Beats (trk U.Beats)
@@ -427,7 +431,7 @@ instance ParseFile OnyxFile where
     onyxParts    <- onyxParts =. Codec
       { codecIn = do
         trks <- lift get
-        let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack . T.pack) trks
+        let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack) trks
         results <- forM partNames $ \partName -> do
           part <- codecIn $ parseOnyxPart partName
           return (partName, part)
@@ -443,7 +447,7 @@ instance ParseFile OnyxFile where
     onyxSamples  <- onyxSamples =. Codec
       { codecIn = do
         trks <- lift get
-        let audioNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix "AUDIO " . T.pack) trks
+        let audioNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix "AUDIO ") trks
         results <- forM audioNames $ \audioName -> do
           trk <- codecIn $ fileTrack $ pure $ "AUDIO " <> audioName
           return (audioName, trk)
@@ -454,7 +458,7 @@ instance ParseFile OnyxFile where
       }
     return OnyxFile{..}
 
-newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
+newtype RawFile t = RawFile { rawTracks :: [RTB.T t (E.T T.Text)] }
   deriving (Eq, Ord, Show)
 
 instance ParseFile RawFile where
@@ -481,7 +485,7 @@ and don't actually look for the phrase ID of 4. So we need to only emit
 a non-255 byte and not the phrase ID of 1, but we happen to emit those in
 the working format already.)
 -}
-fixMoonTaps :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixMoonTaps :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (E.T s)
 fixMoonTaps = RTB.mapMaybe $ \e -> case parsePSSysEx e of
   Just (PSMessage diff TapNotes b) -> case diff of
     Nothing     -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
@@ -502,7 +506,7 @@ If you have an overdrive phrase simultaneous with the only note in it,
 and the phrase event comes after the note in the MIDI, Magma v1 will
 complain that there are no notes under the phrase.
 -}
-fixEventOrder :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixEventOrder :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
 fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
   where f x@(E.MetaEvent (Meta.TrackName _              )) = (-3, 0, x)
         f x@(E.MetaEvent (Meta.TextEvent "[lighting ()]")) = (-1, 0, x) -- magma v1: ensure [lighting ()] comes after simultaneous [verse]
@@ -512,7 +516,7 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
           Just (p, False) -> (1       , negate p, x)
           Just (p, True ) -> (2       , negate p, x)
 
-readMIDIFile :: (SendMessage m) => F.T -> StackTraceT m (Song [RTB.T U.Beats E.T])
+readMIDIFile :: (SendMessage m) => F.T T.Text -> StackTraceT m (Song [RTB.T U.Beats (E.T T.Text)])
 readMIDIFile mid = do
   (s_tempos, s_signatures, s_tracks_nodupe) <- case U.decodeFile mid of
     Right trks -> let
@@ -537,7 +541,7 @@ readMIDIFile mid = do
   return Song{..}
 
 -- | Used for reading midis we expect to be type-0, for Rock Revolution
-readMixedMIDI :: (Monad m) => F.T -> StackTraceT m (Song (RTB.T U.Beats E.T))
+readMixedMIDI :: (Monad m) => F.T s -> StackTraceT m (Song (RTB.T U.Beats (E.T s)))
 readMixedMIDI mid = case mid of
   F.Cons F.Mixed _ _ -> case U.decodeFile mid of
     Left [trk] -> let
@@ -557,11 +561,11 @@ readMixedMIDI mid = case mid of
   F.Cons typ _ _ -> fatal $ "Expected a 'mixed' (type-0) MIDI file but found: " <> show typ
 
 -- | Strips comments and track names from the track before handing it to a track parser.
-stripTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+stripTrack :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
 stripTrack = RTB.filter $ \e -> case e of
-  E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
-  E.MetaEvent (Meta.TrackName _        ) -> False
-  _                                      -> True
+  E.MetaEvent (Meta.TextEvent (T.uncons -> Just ('#', _))) -> False
+  E.MetaEvent (Meta.TrackName _                          ) -> False
+  _                                                        -> True
 
 data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
   deriving (Eq, Ord, Show)
@@ -583,7 +587,7 @@ mergeCharts offset base new = let
       $ U.applyTempoTrack (s_tempos new) trk
   in base { s_tracks = RawFile newTracks }
 
-parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats E.T] -> T.Text -> StackTraceT m (trk U.Beats)
+parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats (E.T T.Text)] -> T.Text -> StackTraceT m (trk U.Beats)
 parseTracks trks name = do
   (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack $ pure name) $ \f -> do
     flip fmap (runStateT f trks) $ \case
@@ -593,7 +597,7 @@ parseTracks trks name = do
 
 interpretMIDIFile
   :: (SendMessage m, ParseFile f)
-  => Song [RTB.T U.Beats E.T]
+  => Song [RTB.T U.Beats (E.T T.Text)]
   -> StackTraceT m (Song (f U.Beats))
 interpretMIDIFile (Song tempos mmap trks) = do
   (file, unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
@@ -609,14 +613,17 @@ interpretMIDIFile (Song tempos mmap trks) = do
     unnamed -> warn $ show (length unnamed) ++ " MIDI track(s) with no track name"
   return $ Song tempos mmap file
 
-readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
+readMIDIFile' :: (SendMessage m, ParseFile f) => F.T T.Text -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = readMIDIFile mid >>= interpretMIDIFile
 
-loadRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (F.T T.Text)
 loadRawMIDI = loadRawMIDIReadable . fileReadable
 
-loadRawMIDIReadable :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m F.T
-loadRawMIDIReadable r = do
+loadRawMIDIReadable :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m (F.T T.Text)
+loadRawMIDIReadable = fmap (fmap decodeGeneral) . loadMIDIBytes
+
+loadMIDIBytes :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m (F.T B.ByteString)
+loadMIDIBytes r = do
   maybe id (\f -> inside $ "loading MIDI: " <> f) (rFilePath r) $ do
     bs <- stackIO $ useHandle r handleToByteString
     (mid, warnings) <- runGetM getMIDI bs
@@ -629,7 +636,7 @@ loadMIDI f = loadRawMIDI f >>= readMIDIFile'
 loadMIDIReadable :: (SendMessage m, MonadIO m, ParseFile f) => Readable -> StackTraceT m (Song (f U.Beats))
 loadMIDIReadable r = loadRawMIDIReadable r >>= readMIDIFile'
 
-showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
+showMIDIFile :: Song [RTB.T U.Beats (E.T T.Text)] -> F.T T.Text
 showMIDIFile s = let
   tempos = U.unmakeTempoMap $ s_tempos s
   sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs $ s_signatures s of
@@ -638,11 +645,11 @@ showMIDIFile s = let
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ map (fixMoonTaps . fixEventOrder) $ tempoTrk : s_tracks s
 
-showMIDITracks :: (ParseFile f) => Song (f U.Beats) -> Song [RTB.T U.Beats E.T]
+showMIDITracks :: (ParseFile f) => Song (f U.Beats) -> Song [RTB.T U.Beats (E.T T.Text)]
 showMIDITracks (Song tempos mmap trks)
   = Song tempos mmap $ execWriter $ codecOut (fileId parseFile) trks
 
-showMIDIFile' :: (ParseFile f) => Song (f U.Beats) -> F.T
+showMIDIFile' :: (ParseFile f) => Song (f U.Beats) -> F.T T.Text
 showMIDIFile' = showMIDIFile . showMIDITracks
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
@@ -937,8 +944,11 @@ songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack $ s_tracks s 
 songLengthMS :: (HasEvents f) => Song (f U.Beats) -> Int
 songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
-saveMIDI :: (MonadIO m, ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
-saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile' song
+saveMIDILatin1 :: (MonadIO m, ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDILatin1 fp song = liftIO $ Save.toFile fp $ fmap encodeLatin1 $ showMIDIFile' song
+
+saveMIDIUtf8 :: (MonadIO m, ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDIUtf8 fp song = liftIO $ Save.toFile fp $ fmap TE.encodeUtf8 $ showMIDIFile' song
 
 shakeMIDI :: (ParseFile f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
 shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp

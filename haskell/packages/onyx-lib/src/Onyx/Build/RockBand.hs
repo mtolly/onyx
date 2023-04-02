@@ -286,7 +286,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     let magma = mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
         fallback = do
           userMid <- F.shakeMIDI pathMagmaMid
-          F.saveMIDI out userMid
+          F.saveMIDILatin1 out userMid
             { F.s_tracks = (F.s_tracks userMid)
               { F.fixedVenue = blackVenueTrack
               -- TODO sections if midi didn't supply any
@@ -353,7 +353,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         user = F.s_tracks userMid
         magma = F.s_tracks magmaMid
         reauthor f = f user `trackOr` f magma
-    F.saveMIDI out $ userMid
+    F.saveMIDILatin1 out $ userMid
       { F.s_tracks = user
         { F.fixedVenue = case songYaml.global.autogenTheme of
           Nothing -> blackVenueTrack
@@ -427,7 +427,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     case invalid of
       [] -> return ()
       _  -> lg $ "The following sections were swapped out for Magma (but will be readded in CON output): " ++ show invalid
-    F.saveMIDI pathMagmaMid output
+    F.saveMIDILatin1 pathMagmaMid output
 
   let pathDta = dir </> "stfs/songs/songs.dta"
       pathMid = dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
@@ -598,20 +598,20 @@ rbRules buildInfo dir rb3 mrb2 = do
           msgToSysEx msg
             = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
           in U.setTrackName name $ msgToSysEx <$> auto
-    F.saveMIDI out input
+    F.saveMIDIUtf8 out input
       { F.s_tracks = F.RawFile
-          [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if nullPG gtr17  then gtr22  else gtr17
-          , playTrack pgThres PGPlay.Squier  "GTR22"  $ if nullPG gtr22  then gtr17  else gtr22
-          , playTrack pbThres PGPlay.Mustang "BASS17" $ if nullPG bass17 then bass22 else bass17
-          , playTrack pbThres PGPlay.Squier  "BASS22" $ if nullPG bass22 then bass17 else bass22
-          ]
+        [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if nullPG gtr17  then gtr22  else gtr17
+        , playTrack pgThres PGPlay.Squier  "GTR22"  $ if nullPG gtr22  then gtr17  else gtr22
+        , playTrack pbThres PGPlay.Mustang "BASS17" $ if nullPG bass17 then bass22 else bass17
+        , playTrack pbThres PGPlay.Squier  "BASS22" $ if nullPG bass22 then bass17 else bass22
+        ]
       }
 
   case mrb2 of
     Nothing -> return ()
     Just rb2 -> do
 
-      pathMagmaMidV1 %> \out -> F.shakeMIDI pathMagmaMid >>= RB2.convertMIDI >>= F.saveMIDI out
+      pathMagmaMidV1 %> \out -> F.shakeMIDI pathMagmaMid >>= RB2.convertMIDI >>= F.saveMIDILatin1 out
 
       pathMagmaProjV1 %> \out -> do
         editedParts <- loadEditedParts
@@ -888,7 +888,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     }
                   else F.fixedVenue trks
                 }
-          F.saveMIDI out mid
+          F.saveMIDILatin1 out mid
         rb2Mogg %> shk . copyFile' pathMogg
         rb2Milo %> \out -> do
           -- TODO replace this with our own lipsync milo, ignore magma

@@ -68,12 +68,12 @@ instance Command [T.Text] where
 data Difficulty = Easy | Medium | Hard | Expert
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-readCommand' :: (Command a) => E.T -> Maybe a
-readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand $ T.pack s
-readCommand' (E.MetaEvent (Meta.Lyric s))     = readCommand $ T.pack s
+readCommand' :: (Command a) => E.T T.Text -> Maybe a
+readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
+readCommand' (E.MetaEvent (Meta.Lyric s))     = readCommand s
 readCommand' _                                = Nothing
 
-readCommandList :: E.T -> Maybe [T.Text]
+readCommandList :: E.T T.Text -> Maybe [T.Text]
 readCommandList = readCommand'
 
 -- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.
@@ -85,8 +85,8 @@ readCommand s =  case T.dropWhile isSpace s of
     _                                -> Nothing
   _                                  -> Nothing
 
-showCommand' :: (Command a) => a -> E.T
-showCommand' = E.MetaEvent . Meta.TextEvent . T.unpack . showCommand
+showCommand' :: (Command a) => a -> E.T T.Text
+showCommand' = E.MetaEvent . Meta.TextEvent . showCommand
 
 -- | Opposite of 'readCommand'.
 showCommand :: (Command a) => a -> T.Text
@@ -320,10 +320,10 @@ splitEdges = U.trackJoin . fmap f where
 splitEdgesBool :: (NNC.C t) => RTB.T t t -> RTB.T t Bool
 splitEdgesBool = U.trackJoin . fmap (\len -> RTB.fromPairList [(NNC.zero, True), (len, False)])
 
-isNoteEdge' :: E.T -> Maybe (Edge Int (Int, Int))
+isNoteEdge' :: E.T s -> Maybe (Edge Int (Int, Int))
 isNoteEdge' = fmap (\(c, p, mv) -> maybe (EdgeOff (c, p)) (`EdgeOn` (c, p)) mv) . isNoteEdgeCPV
 
-isNoteEdgeCPV :: E.T -> Maybe (Int, Int, Maybe Int)
+isNoteEdgeCPV :: E.T s -> Maybe (Int, Int, Maybe Int)
 isNoteEdgeCPV = \case
   E.MIDIEvent (C.Cons c (C.Voice (V.NoteOn  p v))) ->
     Just (C.fromChannel c, V.fromPitch p, case V.fromVelocity v of 0 -> Nothing; v' -> Just v')
@@ -331,24 +331,24 @@ isNoteEdgeCPV = \case
     Just (C.fromChannel c, V.fromPitch p, Nothing)
   _ -> Nothing
 
-isNoteEdge :: E.T -> Maybe (Int, Bool)
+isNoteEdge :: E.T s -> Maybe (Int, Bool)
 isNoteEdge e = isNoteEdgeCPV e >>= \(_c, p, v) -> return (p, isJust v)
 
-unparseBlipCPV :: (Int, Int, Int) -> RTB.T U.Beats E.T
+unparseBlipCPV :: (Int, Int, Int) -> RTB.T U.Beats (E.T s)
 unparseBlipCPV (c, p, v) = RTB.fromPairList
   [ (0      , makeEdgeCPV c p $ Just v)
   , (1 / 480, makeEdgeCPV c p Nothing )
   ]
 
-makeEdge' :: Edge Int (Int, Int) -> E.T
+makeEdge' :: Edge Int (Int, Int) -> E.T s
 makeEdge' (EdgeOff  (c, p)) = makeEdgeCPV c p Nothing
 makeEdge' (EdgeOn v (c, p)) = makeEdgeCPV c p $ Just v
 
-makeEdgeCPV :: Int -> Int -> Maybe Int -> E.T
+makeEdgeCPV :: Int -> Int -> Maybe Int -> E.T s
 makeEdgeCPV c p v = E.MIDIEvent $ C.Cons (C.toChannel c) $ C.Voice $
   V.NoteOn (V.toPitch p) $ maybe (V.toVelocity 0) V.toVelocity v
 
-makeEdge :: Int -> Bool -> E.T
+makeEdge :: Int -> Bool -> E.T s
 makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
 
 data StrumHOPOTap = Strum | HOPO | Tap

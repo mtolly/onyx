@@ -28,7 +28,7 @@ import           Onyx.Difficulty
 import qualified Onyx.FretsOnFire                 as FoF
 import           Onyx.Genre
 import qualified Onyx.MIDI.Track.Drums            as Drums
-import           Onyx.MIDI.Track.File             (saveMIDI, shakeMIDI)
+import           Onyx.MIDI.Track.File             (saveMIDIUtf8, shakeMIDI)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Mode
@@ -59,12 +59,12 @@ psRules buildInfo dir ps = do
       (applyTargetMIDI ps.common input)
       mixMode
       (applyTargetLength ps.common input <$> getAudioLength buildInfo planName plan)
-    saveMIDI out output
+    saveMIDIUtf8 out output
     liftIO $ writeFile parts $ show (diffs, vc)
 
   dir </> "ps/expert+.mid" %> \out -> do
     song <- shakeMIDI $ dir </> "ps/notes.mid"
-    saveMIDI out song
+    saveMIDIUtf8 out song
       { F.s_tracks = (F.s_tracks song)
         { F.fixedPartDrums = Drums.expertWith2x
           $ F.fixedPartDrums $ F.s_tracks song
@@ -276,10 +276,12 @@ psRules buildInfo dir ps = do
     shk $ need $ map (\f -> dir </> "ps" </> f) $ concat
       -- TODO replace (/= emptyPart), should actually check whether the right PS play mode is present
       [ ["song.ini", "notes.mid", "song.ogg", if useJPEG then "album.jpg" else "album.png"]
+      {-
       , ["expert+.mid"
         | maybe False ((/= Kicks1x) . (.kicks))
         $ getPart ps.drums songYaml >>= (.drums)
         ]
+      -}
       , ["try-drums.ogg"   | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode == Drums.D0 && case plan of
           StandardPlan x -> HM.member ps.drums x.parts.getParts
           MoggPlan     _ -> True

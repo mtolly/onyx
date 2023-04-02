@@ -78,7 +78,7 @@ rpp k atoms sub = do
   sublines <- execWriterT sub
   return $ Element k atoms $ Just sublines
 
-processTempoTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t (Meta.Tempo, Maybe (Int, Int))
+processTempoTrack :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (Meta.Tempo, Maybe (Int, Int))
 processTempoTrack = go 500000 . RTB.collectCoincident where
   go tempo rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
@@ -102,7 +102,7 @@ tempoTrack trk = block "TEMPOENVEX" [] $ do
       Nothing           -> []
       Just (num, denom) -> [T.pack $ show $ num + denom * 0x10000, "0", "1"]
 
-event :: (Monad m) => Int -> E.T -> WriterT [Element] m ()
+event :: (Monad m) => Int -> E.T T.Text -> WriterT [Element] m ()
 event tks = \case
   E.MIDIEvent e -> let
     noteOff chan p = C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
@@ -123,7 +123,7 @@ event tks = \case
   E.MetaEvent Meta.TimeSig{} -> return ()
   E.MetaEvent Meta.SetTempo{} -> return ()
   E.MetaEvent e -> let
-    stringBytes = TE.encodeUtf8 . T.pack
+    stringBytes = TE.encodeUtf8
     bytes = B.cons 0xFF <$> case e of
       Meta.TextEvent s -> Just $ B.cons 1 $ stringBytes s
       Meta.Copyright s -> Just $ B.cons 2 $ stringBytes s
@@ -190,9 +190,9 @@ reaSynthBytes rs = do
   putFloatle $ if rs.old_sine then 1 else 0
   putByteString $ B.pack [0,0,16,0,0,0]
 
-track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
+track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t (E.T T.Text) -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
-  name = maybe "untitled track" T.pack $ U.trackName trk
+  name = fromMaybe "untitled track" $ U.trackName trk
   fpart = identifyFlexTrack name
   tuning = flip fromMaybe (fpart >>= (`lookup` tunings.guitars)) $ case fpart of
     Just FlexBass -> GtrTuning Bass4   [] 0 0
@@ -1175,8 +1175,8 @@ dkongaNoteNames = execWriter $ do
   o 39 "CLAP" -- "Hand Clap"
   where o k v = tell [(k, v)]
 
-sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
-sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` T.pack name)
+sortTracks :: (NNC.C t) => [RTB.T t (E.T T.Text)] -> [RTB.T t (E.T T.Text)]
+sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` name)
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
@@ -1222,13 +1222,13 @@ makeReaper tunings evts tempo audios out = do
   tempoMid <- if evts == tempo then return mid else loadRawMIDIOrChart tempo
   makeReaperFromData tunings mid tempoMid audios out
 
-getTempos :: (Monad m) => F.T -> StackTraceT m U.TempoMap
+getTempos :: (Monad m) => F.T T.Text -> StackTraceT m U.TempoMap
 getTempos mid = case U.decodeFile mid of
   Left []           -> return $ U.makeTempoMap RTB.empty
   Left (master : _) -> return $ U.makeTempoMap master
   Right _           -> fatal "SMPTE midi not supported"
 
-makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T -> F.T -> [FilePath] -> FilePath -> StackTraceT m ()
+makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T T.Text -> F.T T.Text -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaperFromData tunings mid tempoMid audios out = do
   lenAudios <- stackIO $ flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud

@@ -491,7 +491,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       fixedVenue            = mempty
   return FixedFile{..}
 
-loadChartAsRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadChartAsRawMIDI :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (F.T T.Text)
 loadChartAsRawMIDI f = do
   chart <- chartToBeats <$> loadChartFile f
   mid   <- chartToMIDI chart
@@ -502,7 +502,7 @@ loadMIDIOrChart f = case map toLower $ takeExtension f of
   ".chart" -> loadChartAsRawMIDI f >>= readMIDIFile'
   _        -> loadMIDI f
 
-loadRawMIDIOrChart :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m F.T
+loadRawMIDIOrChart :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (F.T T.Text)
 loadRawMIDIOrChart f = case map toLower $ takeExtension f of
   ".chart" -> loadChartAsRawMIDI f
   _        -> loadRawMIDI f

@@ -10,7 +10,6 @@ module Onyx.Harmonix.RockBand.RB4.RBMid where
 import           Control.Monad                      (forM, when)
 import           Data.Bits
 import qualified Data.ByteString                    as B
-import qualified Data.ByteString.Char8              as B8
 import qualified Data.EventList.Absolute.TimeBody   as ATB
 import qualified Data.EventList.Relative.TimeBody   as RTB
 import           Data.Maybe                         (isJust, isNothing,
@@ -604,7 +603,7 @@ instance Bin MidiTrack where
     mt_Strings <- mt_Strings =. lenArray lenString
     return MidiTrack{..}
 
-convertMidiEvent :: [B.ByteString] -> Word32 -> Maybe E.T
+convertMidiEvent :: [B.ByteString] -> Word32 -> Maybe (E.T B.ByteString)
 convertMidiEvent strings w = let
   kind = (w .&. 0xFF000000) `shiftR` 24
   in case kind of
@@ -635,7 +634,7 @@ convertMidiEvent strings w = let
     8 -> do
       let ttype = (w .&. 0xFF0000) `shiftR` 16
           strIndex = ((w .&. 0xFF) `shiftL` 8) .|. ((w .&. 0xFF00) `shiftR` 8)
-      txt <- fmap B8.unpack $ listToMaybe $ drop (fromIntegral strIndex) strings
+      txt <- listToMaybe $ drop (fromIntegral strIndex) strings
       E.MetaEvent <$> case ttype of
         1 -> Just $ Meta.TextEvent txt
         2 -> Just $ Meta.Copyright txt
@@ -693,7 +692,7 @@ instance Bin FuserData where
 
 --------------------------------------------------------------------------------
 
-extractMidi :: (SendMessage m) => RBMid -> StackTraceT m F.T
+extractMidi :: (SendMessage m) => RBMid -> StackTraceT m (F.T B.ByteString)
 extractMidi rbmid = do
   let mfr = rbmid_MidiFileResource rbmid
   fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM (mfr_MidiTracks mfr) $ \mt -> do

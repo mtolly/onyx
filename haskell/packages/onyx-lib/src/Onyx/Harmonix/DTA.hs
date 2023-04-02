@@ -28,7 +28,8 @@ import           Onyx.Harmonix.DTA.Parse
 import           Onyx.Harmonix.DTA.Print
 import           Onyx.Harmonix.DTA.Scan
 import           Onyx.StackTrace         (StackTraceT, fatal, inside)
-import           Onyx.Util.Text.Decode   (decodeGeneral, removeBOM)
+import           Onyx.Util.Text.Decode   (decodeGeneral, encodeLatin1,
+                                          removeBOM)
 import           System.IO.Error         (tryIOError)
 
 decodeDTB :: BL.ByteString -> DTA B.ByteString
@@ -89,7 +90,6 @@ readFileDTA_utf8' f = inside ("DTA file: " ++ show f) $ do
 
 writeFileDTA_latin1 :: FilePath -> DTA T.Text -> IO ()
 writeFileDTA_latin1 fp dta = B.writeFile fp $ encodeLatin1 $ showDTA dta
-  where encodeLatin1 = B8.pack . T.unpack
 
 writeFileDTA_utf8 :: FilePath -> DTA T.Text -> IO ()
 writeFileDTA_utf8 fp dta = B.writeFile fp $ encodeUtf8 $ showDTA dta

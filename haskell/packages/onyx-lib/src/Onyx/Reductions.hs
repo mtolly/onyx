@@ -32,7 +32,6 @@ import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys          as PK
 import           Onyx.Mode
 import           Onyx.StackTrace
-import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 completeFiveResult :: Bool -> U.MeasureMap -> FiveResult -> FiveResult
@@ -520,7 +519,7 @@ simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
   let sections = fmap snd $ eventsSections $ F.onyxEvents onyx
-  stackIO $ Save.toFile fout $ F.showMIDIFile' $ F.Song tempos mmap onyx
+  stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
     { F.onyxParts = flip fmap (F.onyxParts onyx) $ \trks -> let
       pkX = F.onyxPartRealKeysX trks
       pkH = F.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX

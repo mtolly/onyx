@@ -579,7 +579,7 @@ loadTracks songYaml f = do
     ".rpp" -> do
       txt <- stackIO $ decodeGeneral <$> B.readFile f
       song <- RPP.scanStack txt >>= RPP.parseStack >>= RPP.getMIDI
-      F.interpretMIDIFile song
+      F.interpretMIDIFile $ map (fmap $ fmap decodeGeneral) <$> song
     ".chart" -> do
       chart <- FB.chartToBeats <$> FB.loadChartFile f
       FB.chartToMIDI chart >>= F.readMIDIFile' . F.showMIDIFile' -- TODO just convert fixed to onyx simply

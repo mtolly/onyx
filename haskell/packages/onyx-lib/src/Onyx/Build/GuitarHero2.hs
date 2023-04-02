@@ -93,7 +93,7 @@ gh2Rules buildInfo dir gh2 = do
     (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
-    F.saveMIDI out mid
+    F.saveMIDILatin1 out mid
     let p1 = gh2PartGuitar $ F.s_tracks mid
         p2 = case gh2.coop of
           GH2Bass   -> gh2PartBass   $ F.s_tracks mid

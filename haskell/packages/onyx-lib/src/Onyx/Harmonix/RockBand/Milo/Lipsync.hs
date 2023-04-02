@@ -60,7 +60,6 @@ import           Onyx.StackTrace                         (StackTraceT, fatal,
                                                           stackIO)
 import           Onyx.Vocal.DryVox                       (vocalTubes)
 import           Onyx.Xbox.STFS                          (runGetM)
-import qualified Sound.MIDI.File.Save                    as Save
 import qualified Sound.MIDI.Util                         as U
 import           System.FilePath                         (takeExtension)
 import           Text.Read                               (readMaybe)
@@ -880,7 +879,7 @@ testConvertLipsync fmid fvocs fout = do
       ".voc" -> vocToMIDITrack     . runGet parseVocFile
       _      -> lipsyncToMIDITrack . runGet parseLipsync
     return $ mapTrack (U.unapplyTempoTrack $ F.s_tempos mid) trk
-  Save.toFile fout $ F.showMIDIFile' mid
+  F.saveMIDIUtf8 fout mid
     { F.s_tracks = (F.s_tracks mid)
       { F.onyxParts = let
         orig = F.onyxParts $ F.s_tracks mid

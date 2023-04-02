@@ -7,7 +7,6 @@ module Onyx.Harmonix.GH1.File where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
@@ -146,12 +145,12 @@ instance ParseTrack EventsTrack where
     eventsList <- eventsList =. simpleText "Event_"
     return EventsTrack{..}
 
-simpleText :: (Show a, Read a, Monad m, NNC.C t) => String -> TrackEvent m t a
+simpleText :: (Show a, Read a, Monad m, NNC.C t) => T.Text -> TrackEvent m t a
 simpleText prefix = Codec
   { codecIn = slurpTrack $ \mt -> let
-    matcher s = readMaybe $ prefix ++ T.unpack s
+    matcher s = readMaybe $ T.unpack $ prefix <> s
     in case RTB.partitionMaybe matcher $ midiLyrics mt of
       (matches, rest) -> (matches, mt { midiLyrics = rest })
   , codecOut = makeTrackBuilder $ fmap $
-    E.MetaEvent . Meta.TextEvent . (\s -> fromMaybe s $ stripPrefix prefix s) . show
+    E.MetaEvent . Meta.TextEvent . (\s -> fromMaybe s $ T.stripPrefix prefix s) . T.pack . show
   }

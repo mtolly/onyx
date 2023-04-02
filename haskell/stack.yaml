@@ -28,7 +28,7 @@ extra-deps:
 - cabal/Cabal/ # this submodule should just be a git reference, but stack appears to not apply it correctly that way
 # git repos
 - git: https://github.com/mtolly/midi
-  commit: 66a49fe08bd941322061fc812f0eab6bac68c6f9
+  commit: 67c595a8f0c3b2fa193c088374de5bf544234ff0 # string-param branch
 - git: https://github.com/mtolly/conduit-audio
   commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
   subdirs:
@@ -44,7 +44,7 @@ extra-deps:
   subdirs:
   - fltkhs
 - git: https://github.com/mtolly/midi-util
-  commit: 1ea0f72a3795375e4b9eafcaef2500d105faf20f
+  commit: e58affa31251cec0d50f9b0588acfa514edd58ae # string-param branch
 - git: https://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
 - git: https://github.com/mtolly/codec # ghc 8.8+ and aeson patches

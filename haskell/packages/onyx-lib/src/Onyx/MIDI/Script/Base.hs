@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Onyx.MIDI.Script.Base
 ( Options(..)
 , ShowFormat(..)
@@ -29,6 +31,7 @@ import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.List.HT                          (partitionMaybe)
 import qualified Data.Map                              as Map
+import qualified Data.Text                             as T
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import qualified Sound.MIDI.Controller                 as Con
@@ -61,8 +64,8 @@ defaultOptions = Options
 
 data StandardMIDI a = StandardMIDI
   { tempoTrack  :: RTB.T NN.Rational a
-  , namedTracks :: [(String, RTB.T NN.Rational a)]
-  } deriving (Eq, Ord, Show)
+  , namedTracks :: [(T.Text, RTB.T NN.Rational a)]
+  } deriving (Eq, Ord, Show, Functor)
 
 -- | Extracts all events at position zero from the event list.
 viewZero :: (NNC.C t) => RTB.T t a -> ([a], RTB.T t a)
@@ -76,7 +79,7 @@ unviewZero = foldr (.) id . map (RTB.cons NNC.zero)
 
 -- | If the track has a single track name event at position zero, extracts it
 -- and returns the name plus the rest of the events.
-getTrackName :: (NNC.C t) => RTB.T t E.T -> Maybe (String, RTB.T t E.T)
+getTrackName :: (NNC.C t) => RTB.T t (E.T s) -> Maybe (s, RTB.T t (E.T s))
 getTrackName rtb = let
   (zs, rtb') = viewZero rtb
   isTrackName x = case x of
@@ -87,7 +90,7 @@ getTrackName rtb = let
     [name] -> Just (name, unviewZero notNames rtb')
     _      -> Nothing
 
-toStandardMIDI :: F.T -> Either String (StandardMIDI E.T)
+toStandardMIDI :: F.T T.Text -> Either String (StandardMIDI (E.T T.Text))
 toStandardMIDI (F.Cons F.Parallel (F.Ticks res) trks) = let
   trks' = map (RTB.mapTime (\tks -> fromIntegral tks / fromIntegral res)) trks
   named = map getTrackName $ drop 1 trks'
@@ -107,7 +110,7 @@ toStandardMIDI (F.Cons F.Mixed (F.Ticks res) [trk]) = let
   in Right $ StandardMIDI tempos [("mixed-midi", noTempos)]
 toStandardMIDI _ = Left "Unsupported MIDI format: must be ticks-based, and must be type-1 (parallel) or type-0 (mixed) with a single track"
 
-fromStandardMIDI :: Options -> StandardMIDI E.T -> (F.T, Maybe String)
+fromStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> (F.T T.Text, Maybe String)
 fromStandardMIDI opts sm = let
   withNames = flip map (namedTracks sm) $ \(s, rtb) ->
     RTB.cons 0 (E.MetaEvent (M.TrackName s)) rtb
@@ -134,18 +137,18 @@ dropTime t rtb = case RTB.viewL rtb of
       then {- t <= dt -} RTB.cons d x rtb'
       else {- t >  dt -} dropTime d rtb'
 
-getTimeSig :: E.T -> Maybe NN.Rational
+getTimeSig :: E.T s -> Maybe NN.Rational
 getTimeSig (E.MetaEvent (M.TimeSig n d _ _)) = Just $
   fromIntegral n * (2 ^^ (-d)) * 4
 getTimeSig _ = Nothing
 
-getTempo :: E.T -> Maybe NN.Int
+getTempo :: E.T s -> Maybe NN.Int
 getTempo (E.MetaEvent (M.SetTempo i)) = Just i
 getTempo _                            = Nothing
 
 -- | Generates an infinite list of measure lengths by reading time signature
 -- events. Assumes 4/4 if there's no event at position 0.
-makeMeasures :: RTB.T NN.Rational E.T -> [NN.Rational]
+makeMeasures :: RTB.T NN.Rational (E.T s) -> [NN.Rational]
 makeMeasures = go 4 where
   go len rtb = if RTB.null rtb
     then repeat len
@@ -194,7 +197,7 @@ showAsSeconds tmps bts = let
   secs = go 500000 tmps 0 0 -- 500000 mspqn = 120 bpm
   in show (realToFrac secs :: Milli) ++ "s"
 
-showStandardMIDI :: Options -> StandardMIDI E.T -> String
+showStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> String
 showStandardMIDI opts m = let
   msrLengths = makeMeasures $ tempoTrack m
   msrStarts = scanl (+) 0 msrLengths
@@ -236,7 +239,7 @@ showBytes ws = "(" ++ intercalate ", " (map showByte ws) ++ ")"
           [c] -> ['0', c]
           hex -> hex
 
-matchEvents :: (NNC.C t) => RTB.T t E.T -> RTB.T t (EventOrNote t)
+matchEvents :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (EventOrNote t)
 matchEvents rtb = case RTB.viewL rtb of
   Nothing -> RTB.empty
   Just ((dt, x), rtb') -> case x of
@@ -247,14 +250,14 @@ matchEvents rtb = case RTB.viewL rtb of
     _ -> RTB.cons dt (Event x) $ matchEvents rtb'
 
 data EventOrNote t
-  = Event E.T
+  = Event (E.T T.Text)
   | Note C.Channel V.Pitch V.Velocity t
   deriving (Eq, Ord, Show)
 
 -- | Tries to locate the note-off for a certain channel and pitch.
 -- If found, returns its position, and the event-list with the note-off removed.
 findOff
-  :: (NNC.C t) => C.Channel -> V.Pitch -> RTB.T t E.T -> Maybe (t, RTB.T t E.T)
+  :: (NNC.C t) => C.Channel -> V.Pitch -> RTB.T t (E.T s) -> Maybe (t, RTB.T t (E.T s))
 findOff c p rtb = case RTB.viewL rtb of
   Nothing -> Nothing
   Just ((dt, x), rtb') -> case x of
@@ -280,7 +283,7 @@ showEventOrNote (Note c p v len) = let
     , "len", showFraction len
     ]
 
-showEvent :: E.T -> String
+showEvent :: E.T T.Text -> String
 showEvent evt = unwords $ case evt of
   E.MetaEvent meta -> case meta of
     M.SequenceNum i         -> ["seqnum", show i]

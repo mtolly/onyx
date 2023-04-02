@@ -410,7 +410,7 @@ changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
   let midPath = dir </> "notes.mid"
   mid <- F.loadMIDI midPath
-  stackIO $ Save.toFile midPath $ F.showMIDIFile' $ F.convertToVenueGen mid
+  stackIO $ F.saveMIDIUtf8 midPath $ F.convertToVenueGen mid
 
 commands :: [Command]
 commands =
@@ -1142,7 +1142,7 @@ commands =
         sf <- stackIO $ MS.readStandardFile . MS.parse . MS.scan <$> readFile fpath
         let (mid, warnings) = MS.fromStandardMIDI (midiOptions opts) sf
         mapM_ warn warnings
-        stackIO $ Save.toFile out mid
+        stackIO $ Save.toFile out $ TE.encodeUtf8 <$> mid
         return [out]
       _ -> unrecognized ftype fpath
     }
@@ -1176,7 +1176,7 @@ commands =
         tracksMid <- F.loadMIDI tracks
         out <- outputFile opts $ return $ tracks ++ ".merged.mid"
         let newMid = F.mergeCharts (F.TrackPad 0) baseMid tracksMid
-        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
+        stackIO $ F.saveMIDIUtf8 out newMid
         return [out]
       [base, tracks, "pad", n] -> do
         baseMid <- F.loadMIDI base
@@ -1186,7 +1186,7 @@ commands =
           Nothing -> fatal "Invalid merge pad amount"
           Just d  -> return $ realToFrac (d :: Double)
         let newMid = F.mergeCharts (F.TrackPad n') baseMid tracksMid
-        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
+        stackIO $ F.saveMIDIUtf8 out newMid
         return [out]
       [base, tracks, "drop", n] -> do
         baseMid <- F.loadMIDI base
@@ -1196,7 +1196,7 @@ commands =
           Nothing -> fatal "Invalid merge drop amount"
           Just d  -> return $ realToFrac (d :: Double)
         let newMid = F.mergeCharts (F.TrackDrop n') baseMid tracksMid
-        stackIO $ Save.toFile out $ F.showMIDIFile' newMid
+        stackIO $ F.saveMIDIUtf8 out newMid
         return [out]
       _ -> fatal "Invalid merge syntax"
     }
@@ -1263,9 +1263,9 @@ commands =
       mid <- F.loadMIDI pathMid
       let existingTracks = F.rawTracks $ F.s_tracks mid
           existingNames = mapMaybe U.trackName existingTracks
-      case filter (`notElem` existingNames) args of
+      case filter (`notElem` existingNames) $ map T.pack args of
         []      -> return ()
-        newTrks -> stackIO $ Save.toFile pathMid $ F.showMIDIFile' mid
+        newTrks -> stackIO $ F.saveMIDIUtf8 pathMid mid
           { F.s_tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
           }
       return [pathMid]
@@ -1797,7 +1797,7 @@ applyMidiFunction
 applyMidiFunction Nothing fin fout = stackIO $ Dir.copyFile fin fout
 applyMidiFunction (Just fn) fin fout = do
   mid <- F.loadMIDI fin
-  stackIO $ Save.toFile fout $ F.showMIDIFile' $ fn mid
+  stackIO $ F.saveMIDIUtf8 fout $ fn mid
 
 getDolphinFunction
   :: [OnyxOption]

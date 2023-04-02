@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Onyx.Util.Text.Decode (decodeWithDefault, decodeGeneral, removeBOM) where
+module Onyx.Util.Text.Decode (decodeWithDefault, decodeGeneral, encodeLatin1, removeBOM) where
 
 import           Control.Applicative      ((<|>))
 import qualified Data.ByteString          as B
+import qualified Data.ByteString.Char8    as B8
 import           Data.Maybe               (fromMaybe)
 import qualified Data.Text                as T
 import qualified Data.Text.Encoding       as TE
@@ -19,6 +20,10 @@ decodeGeneral :: B.ByteString -> T.Text
 decodeGeneral = decodeWithDefault $ \bs -> case TE.decodeUtf8' bs of
   Right t -> t
   Left  _ -> TE.decodeLatin1 bs
+
+encodeLatin1 :: T.Text -> B.ByteString
+encodeLatin1 = B8.pack . map eachChar . T.unpack where
+  eachChar c = if fromEnum c <= 0xFF then c else '?'
 
 removeBOM :: T.Text -> T.Text
 removeBOM s = fromMaybe s

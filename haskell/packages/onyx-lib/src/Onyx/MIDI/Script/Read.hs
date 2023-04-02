@@ -9,8 +9,10 @@ import           Control.Arrow                         (first, second)
 import           Data.List                             (groupBy, sortOn)
 import           Data.Maybe                            (mapMaybe)
 
+import           Data.Bifunctor                        (bimap)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
+import qualified Data.Text                             as T
 import qualified Numeric.NonNegative.Wrapper           as NN
 import qualified Sound.MIDI.Controller                 as Con
 import qualified Sound.MIDI.File.Event                 as E
@@ -24,28 +26,28 @@ import qualified Sound.MIDI.Message.Channel.Voice      as V
 import           Onyx.MIDI.Script.Base
 import           Onyx.MIDI.Script.Parse
 
-readStandardFile :: File -> StandardMIDI E.T
+readStandardFile :: File -> StandardMIDI (E.T T.Text)
 readStandardFile f = let
   tempoTrk = concatMap flattenTrack [ trk | (Nothing, trk) <- f ]
   restTrks = map (second flattenTrack) [ (name, trk) | (Just name, trk) <- f ]
   msrs = getTimeSignatures tempoTrk
   tmps = getTempos msrs tempoTrk
   tempoTrk' = readTrack msrs tmps tempoTrk
-  restTrks' = map (second $ readTrack msrs tmps) $ mergeNames restTrks
+  restTrks' = map (bimap T.pack $ readTrack msrs tmps) $ mergeNames restTrks
   mergeNames = map mergeSame . groupBy (equating fst) . sortOn fst
   mergeSame ps = (fst $ head ps, concatMap snd ps)
   equating g x y = g x == g y
   in StandardMIDI tempoTrk' restTrks'
 
 readTrack :: [Rational] -> [(Rational, Rational, Int)] ->
-  [(Number, Event')] -> RTB.T NN.Rational E.T
+  [(Number, Event')] -> RTB.T NN.Rational (E.T T.Text)
 readTrack msrs tmps trk = let
   num = evalNumber msrs tmps
   int :: (Integral a) => Number -> a -- monomorphism restriction :/
   int = floor . num
   bool = (/= 0) . num
-  readEvent :: Event' -> E.T
-  readEvent evt = case evt of
+  readEvent :: Event' -> E.T T.Text
+  readEvent evt = T.pack <$> case evt of
     Meta meta -> E.MetaEvent $ case meta of
       SequenceNum i -> M.SequenceNum $ int i
       TextEvent s -> M.TextEvent s

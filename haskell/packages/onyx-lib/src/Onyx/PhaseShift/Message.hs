@@ -94,7 +94,7 @@ parsePSText = \case
       _            -> diff Nothing       rest
   _ -> Nothing
 
-parsePSSysEx :: E.T -> Maybe PSMessage
+parsePSSysEx :: E.T s -> Maybe PSMessage
 parsePSSysEx evt = do
   E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
     <- return evt
@@ -113,7 +113,7 @@ parsePSSysEx evt = do
     _ -> Nothing
   return $ PSMessage diff pid pedge
 
-unparsePSSysEx :: PSMessage -> E.T
+unparsePSSysEx :: PSMessage -> E.T s
 unparsePSSysEx (PSMessage diff pid pedge) = E.SystemExclusive $ SysEx.Regular
   [ 0x50
   , 0x53
@@ -125,6 +125,6 @@ unparsePSSysEx (PSMessage diff pid pedge) = E.SystemExclusive $ SysEx.Regular
   , 0xF7
   ]
 
-parsePS :: E.T -> Maybe [PSMessage]
+parsePS :: E.T T.Text -> Maybe [PSMessage]
 parsePS x = fmap (: []) (parsePSSysEx x) <|> do
   readCommandList x >>= parsePSText
