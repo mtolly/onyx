@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Rocksmith where
 
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
@@ -13,8 +14,11 @@ import           Control.Monad.Trans.Reader       (runReaderT)
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.KeyMap                as KM
 import           Data.Bits                        ((.&.))
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isSpace)
 import           Data.Default.Class               (def)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -23,7 +27,8 @@ import           Data.List                        (find, sort)
 import           Data.List.Extra                  (nubOrd)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, mapMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+                                                   listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Text.Encoding.Error         (lenientDecode)
@@ -39,6 +44,7 @@ import           Onyx.MIDI.Common                 (blipEdgesRBNice, fixOverlaps,
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.Rocksmith
+import           Onyx.MIDI.Track.Vocal
 import           Onyx.Project
 import           Onyx.Rocksmith.BNK               (extractRSOgg)
 import           Onyx.Rocksmith.Crypt
@@ -143,8 +149,9 @@ importRSSong folder song level = do
         _          -> fatal "Expected integer in JSON file"
       getBool o = case o of
         A.Number n -> return $ n /= 0
-        _          -> fatal "Expected boolean (0 or 1) in JSON file"
-  parts <- fmap catMaybes $ forM song $ \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
+        A.Bool   b -> return b
+        _          -> fatal "Expected boolean (true/false/0/1) in JSON file"
+  partsWithVox <- fmap catMaybes $ forM song $ \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
     header <- urn $ rsHeader entity -- urn:database:hsan-db or hson-db
     manifest <- urn $ rsManifest entity -- urn:database:json-db
     sngPath <- urn $ rsSngAsset entity -- urn:application:musicgame-song
@@ -171,7 +178,12 @@ importRSSong folder song level = do
     jsonAttrs <- prop "Entries" json >>= singleKey >>= prop "Attributes"
     arrName <- prop "ArrangementName" jsonAttrs >>= getString
     if arrName == "Vocals"
-      then return Nothing
+      then do
+        -- for now, only import romaji vocals for japanese songs
+        japanese <- errorToEither $ prop "JapaneseVocal" jsonAttrs >>= getBool
+        return $ case japanese of
+          Right True -> Nothing
+          _          -> Just $ Left sng
       else do
         title <- prop "SongName" jsonAttrs >>= getString
         artist <- prop "ArtistName" jsonAttrs >>= getString
@@ -214,7 +226,9 @@ importRSSong folder song level = do
             fileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
             fileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
             return RSTones{..}
-          return (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, tones)
+          return $ Right (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, tones)
+  let parts = rights partsWithVox
+      maybeVoxSNG = listToMaybe $ lefts partsWithVox
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
@@ -296,12 +310,12 @@ importRSSong folder song level = do
           | elem (F.FlexExtra "combo-rhythm") originalNames -> replaceName (F.FlexExtra "combo-rhythm") F.FlexGuitar
           | elem (F.FlexExtra "rhythm"      ) originalNames -> replaceName (F.FlexExtra "rhythm"      ) F.FlexGuitar
           | otherwise                                       -> input
+      toSeconds = realToFrac :: Float -> U.Seconds
       midi = case level of
         ImportFull -> F.Song temps sigs mempty
           { F.onyxParts = Map.fromList $ do
             ((_, partName), Just sng, _, _, isBass, _) <- namedParts
-            let toSeconds = realToFrac :: Float -> U.Seconds
-                capoOffset :: Int
+            let capoOffset :: Int
                 capoOffset = case meta_CapoFretId $ sng_Metadata sng of
                   -1 -> 0
                   n  -> fromIntegral n
@@ -537,6 +551,108 @@ importRSSong folder song level = do
       return $ find (`notElem` ["", "Custom Song Creator"]) $ map T.strip
         $ mapMaybe (T.stripPrefix "Package Author:") $ T.lines txt
 
+  let midiWithVox = case maybeVoxSNG of
+        Nothing     -> midi
+        Just voxSNG -> let
+          -- see Metropolis for some weird empty vocal events in instrumental section
+          filteredVocals = filter
+            (B8.any (\c -> not $ isSpace c || c == '+') . vocal_Lyric)
+            (maybe [] sng_Vocals voxSNG)
+          in midi
+            { F.s_tracks = (F.s_tracks midi)
+              { F.onyxParts = Map.insert F.FlexVocal mempty
+                { F.onyxPartVocals = mempty
+                  { vocalNotes
+                    = U.unapplyTempoTrack temps
+                    $ RTB.fromAbsoluteEventList
+                    $ ATB.fromPairList
+                    $ sort -- dunno if necessary
+                    $ do
+                      v <- filteredVocals
+                      let pitch = if 36 <= vocal_Note v && vocal_Note v <= 84
+                            then toEnum $ fromIntegral $ vocal_Note v - 36
+                            -- just shift octaves to keep in the valid RB space
+                            else toEnum $ fromIntegral $ rem (vocal_Note v - 36) 48
+                          on  = (toSeconds $ vocal_Time v                 , (pitch, True ))
+                          off = (toSeconds $ vocal_Time v + vocal_Length v, (pitch, False))
+                      [on, off]
+                  , vocalLyrics
+                    = U.unapplyTempoTrack temps
+                    $ RTB.fromAbsoluteEventList
+                    $ ATB.fromPairList
+                    $ sort -- dunno if necessary
+                    $ do
+                      v <- filteredVocals
+                      let lyric = decodeGeneral $ vocal_Lyric v
+                          -- get rid of phrase end marker, make all notes talky
+                          lyric' = fromMaybe lyric (T.stripSuffix "+" lyric) <> "#"
+                      return (toSeconds $ vocal_Time v, lyric')
+                  , vocalPhrase1
+                    = U.unapplyTempoTrack temps
+                    $ RTB.fromAbsoluteEventList
+                    $ ATB.fromPairList
+                    $ removeDupePhraseStart
+                    $ sort -- dunno if necessary
+                    $ do
+                      v <- filteredVocals
+                      (toSeconds $ vocal_Time v, True) : do
+                        guard $ "+" `B8.isSuffixOf` vocal_Lyric v
+                        [(toSeconds $ vocal_Time v + vocal_Length v, False)]
+                  }
+                } $ F.onyxParts $ F.s_tracks midi
+              }
+            }
+      removeDupePhraseStart = \case
+        pair@(_, True) : pairs -> pair : removeDupePhraseStart (dropWhile snd pairs)
+        pair : pairs -> pair : removeDupePhraseStart pairs
+        [] -> []
+      partsMap = HM.fromList $ do
+        ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
+        let part = emptyPart
+              { proGuitar = Just PartProGuitar
+                { difficulty    = Tier 1
+                , hopoThreshold = 170
+                , tuning        = if isBass
+                  -- TODO set gtrGlobal smarter (detect number applied to all offsets)
+                  -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
+                  then GtrTuning
+                    { gtrBase    = Bass4
+                    , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
+                    , gtrGlobal  = 0
+                    , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                      -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
+                      n  -> n
+                    }
+                  else GtrTuning
+                    { gtrBase    = Guitar6
+                    , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
+                    , gtrGlobal  = 0
+                    , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                      -1 -> 0
+                      n  -> n
+                    }
+                , tuningRSBass = Nothing
+                , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
+                , tones = flip fmap tones $ fmap $ \tone -> let
+                  file = T.unpack (t14_Key tone) <.> "tone2014.xml"
+                  in SoftFile file $ SoftReadable $ makeHandle file $
+                    byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone
+                , pickedBass = False -- TODO
+                }
+              }
+        return (partName, part)
+      partsMapWithVox = if isJust maybeVoxSNG
+        then HM.insert F.FlexVocal (emptyPart :: Part SoftFile)
+          { vocal = Just PartVocal
+            { difficulty = Tier 1
+            , count      = Vocal1
+            , gender     = Nothing
+            , key        = Nothing
+            , lipsyncRB3 = Nothing
+            }
+          } partsMap
+        else partsMap
+
   return SongYaml
     { metadata = def'
       { title        = Just title
@@ -553,7 +669,7 @@ importRSSong folder song level = do
         return (slot, partName)
       }
     , global = def'
-      { fileMidi            = SoftFile "notes.mid" $ SoftChart midi
+      { fileMidi            = SoftFile "notes.mid" $ SoftChart midiWithVox
       , fileSongAnim        = Nothing
       , backgroundVideo     = Nothing
       , fileBackgroundImage = Nothing
@@ -578,39 +694,5 @@ importRSSong folder song level = do
       , tuningCents = 0 -- TODO get from manifest .json (CentOffset)
       , fileTempo   = Nothing
       }
-    , parts = Parts $ HM.fromList $ do
-      ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
-      let part = emptyPart
-            { proGuitar = Just PartProGuitar
-              { difficulty    = Tier 1
-              , hopoThreshold = 170
-              , tuning        = if isBass
-                -- TODO set gtrGlobal smarter (detect number applied to all offsets)
-                -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
-                then GtrTuning
-                  { gtrBase    = Bass4
-                  , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = 0
-                  , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
-                    -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
-                    n  -> n
-                  }
-                else GtrTuning
-                  { gtrBase    = Guitar6
-                  , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
-                  , gtrGlobal  = 0
-                  , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
-                    -1 -> 0
-                    n  -> n
-                  }
-              , tuningRSBass = Nothing
-              , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
-              , tones = flip fmap tones $ fmap $ \tone -> let
-                file = T.unpack (t14_Key tone) <.> "tone2014.xml"
-                in SoftFile file $ SoftReadable $ makeHandle file $
-                  byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone
-              , pickedBass = False -- TODO
-              }
-            }
-      return (partName, part)
+    , parts = Parts $ const partsMap partsMapWithVox -- reenable when working consistently
     }
