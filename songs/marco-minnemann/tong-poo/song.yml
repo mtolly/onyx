@@ -11,27 +11,42 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube 4USfh9GP3-4 140
+  sakamoto:
+    md5: bbcc2543c0855e3229e20cbcd116bc0b
+    frames: 13377000
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
 plans:
-  album:
+  youtube:
     song:
       mix:
       - countin
       - pad: [2.594, gain: [1.8, youtube]]
+  drumless:
+    song:
+      mix:
+      - countin
+      - pad: [2.500, stretch: [0.9998650182225399, sakamoto]]
 parts:
   drums:
     drums:
       kicks: both
       mode: full
       difficulty: 7
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
 targets:
   rb3:
     game: rb3
+    plan: youtube
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: youtube
   ps:
     game: ps
+    plan: youtube
+  dtx:
+    game: dtx
+    plan: drumless

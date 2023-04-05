@@ -4,6 +4,7 @@ parts:
       mode: full
       kicks: 1
       difficulty: 6
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
 audio:
   album-track:
     frames: 11851728
@@ -35,6 +36,15 @@ plans:
         pad: [3.538, channels: [[4, 5], stems]]
       other:
         pad: [3.538, channels: [[6, 7], stems]]
+  drumless:
+    song:
+      pad:
+      - 3.538
+      - mix:
+        - album-track
+        - gain:
+          - -0.89 # invert + about -1 dB
+          - channels: [[2, 3], stems]
 metadata:
   title: Swallow
   artist: Casiopea
@@ -53,3 +63,6 @@ targets:
   ps:
     game: ps
     plan: album
+  dtx:
+    game: dtx
+    plan: drumless

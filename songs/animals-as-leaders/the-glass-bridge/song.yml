@@ -4,6 +4,7 @@ parts:
       mode: full
       kicks: both
       difficulty: 7
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
   # bass: # WIP
   #   pro-guitar:
   #     tuning:
@@ -15,16 +16,24 @@ audio:
   album-track:
     md5: 00927bf759a60fbbba0dced29c6883ce
     frames: 13479900
+  drumless:
+    # Garstka's "8. Glass Bridge Playalong.mp3"
+    file-path: audio-drumless.mp3
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
 plans:
-  plan:
+  album:
     song:
       mix:
       - countin
       - pad: [3.750, album-track]
+  drumless:
+    song:
+      mix:
+      - countin
+      - pad: [3.002, drumless]
 metadata:
   title: The Glass Bridge
   artist: Animals as Leaders
@@ -40,8 +49,14 @@ metadata:
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
+    plan: album
+  dtx:
+    game: dtx
+    plan: drumless

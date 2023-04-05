@@ -26,6 +26,7 @@ parts:
         # Drop G# (G# D# G# C# F#)
         offsets: [-2, 0, 0, 0, 0]
         global: -1
+      picked-bass: true
   drums:
     drums:
       difficulty:
@@ -62,3 +63,7 @@ targets:
     2x-bass-pedal: true
     game: rb3
     song-id: deserthoursidx4
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]

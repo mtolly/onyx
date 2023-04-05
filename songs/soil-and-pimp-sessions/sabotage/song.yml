@@ -17,6 +17,11 @@ audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a
     frames: 12176892
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -27,6 +32,37 @@ plans:
       mix:
       - pad: [2.629, album-track]
       - countin
+  dev:
+    song:
+      expr:
+        pad: [2.629, album-track]
+      pans: [1, -1]
+    parts:
+      bass:
+        expr:
+          pad: [2.629, channels: [[0, 1], stems]]
+        pans: [1, -1]
+      drums:
+        expr:
+          pad: [2.629, channels: [[2, 3], stems]]
+        pans: [1, -1]
+      vocal:
+        expr:
+          pad: [2.629, channels: [[4, 5], stems]]
+        pans: [1, -1]
+      other:
+        expr:
+          pad: [2.629, channels: [[6, 7], stems]]
+        pans: [1, -1]
+  drumless:
+    song:
+      pad:
+      - 2.629
+      - mix:
+        - album-track
+        - gain:
+          - -0.89 # invert + about -1 dB
+          - channels: [[2, 3], stems]
 parts:
   drums:
     drums:
@@ -34,6 +70,7 @@ parts:
       kicks: 1
       kit: VintageKit
       mode: full
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
   blue-ride:
     drums:
       difficulty: 7
@@ -66,16 +103,23 @@ targets:
   # download-ps: http://www.mediafire.com/?11alb85tqpmwr9n
   rb3:
     game: rb3
+    plan: album
     song-id: 1660200114
     version: 2
   ps:
     game: ps
+    plan: album
   rs:
     game: rs
+    plan: album
     arrangements:
     - [bass, bass]
   rb3-blue-ride:
     game: rb3
+    plan: album
     song-id: OnyxSabotageBlueRide
     label: (Blue Ride)
     drums: blue-ride
+  dtx:
+    game: dtx
+    plan: drumless

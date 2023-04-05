@@ -64,3 +64,8 @@ plans:
       guitar: adlc363_2.fsb.xen.0.xma
       vocal: adlc363_2.fsb.xen.2.xma
     song: adlc363_3.fsb.xen.0.xma
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

@@ -15,6 +15,7 @@ parts:
       difficulty: 5
       kicks: both
       mode: full
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
   bass:
     pro-guitar:
       tuning:
@@ -23,6 +24,11 @@ audio:
   album-track:
     frames: 18457077
     md5: 74334a92feb8cbdd800155574b32cd61
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -33,18 +39,46 @@ plans:
       mix:
       - countin
       - pad: [3.781, album-track]
+  dev:
+    song:
+      pad: [3.781, album-track]
+    parts:
+      bass:
+        pad: [3.781, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.781, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.781, channels: [[4, 5], stems]]
+      other:
+        pad: [3.781, channels: [[6, 7], stems]]
+  drumless:
+    song:
+      pad:
+      - 3.781
+      - mix:
+        - album-track
+        - gain:
+          - -0.89 # invert + about -1 dB
+          - channels: [[2, 3], stems]
 targets:
   rb3:
     game: rb3
+    plan: album
     bass: none
   rb3-2x:
     game: rb3
+    plan: album
     2x-bass-pedal: true
     bass: none
   ps:
     game: ps
+    plan: album
     bass: none
   rs:
     game: rs
+    plan: album
     arrangements:
     - [bonus-rhythm, bass]
+  dtx:
+    game: dtx
+    plan: drumless

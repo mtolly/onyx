@@ -10,13 +10,13 @@ audio:
     # https://novacollectivefusion.bandcamp.com
     md5: 7e0309a3f39d551f90bfb7066082cec5
     frames: 15090432
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-  drumless:
-    file-path: audio-drumless.wav
-    commands:
-    - echo TODO set up spleeter here
-    - cp AUDIO(album-track) audio-drumless.wav
   countin:
     samples: {}
 plans:
@@ -25,11 +25,27 @@ plans:
       mix:
       - countin
       - pad: [4.143, album-track]
+  dev:
+    song:
+      pad: [4.143, album-track]
+    parts:
+      bass:
+        pad: [4.143, channels: [[0, 1], stems]]
+      drums:
+        pad: [4.143, channels: [[2, 3], stems]]
+      vocal:
+        pad: [4.143, channels: [[4, 5], stems]]
+      other:
+        pad: [4.143, channels: [[6, 7], stems]]
   drumless:
     song:
-      mix:
-      - countin
-      - pad: [4.143, drumless]
+      pad:
+      - 4.143
+      - mix:
+        - album-track
+        - gain:
+          - -0.89 # invert + about -1 dB
+          - channels: [[2, 3], stems]
 parts:
   drums:
     drums:

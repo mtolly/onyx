@@ -27,6 +27,7 @@ parts:
       mode: full
       kicks: both
       difficulty: 7
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
   guitar: # combined chart by Paturages
     grybo:
       difficulty: 7
@@ -45,6 +46,13 @@ plans:
         channels: [[4, 5], stems]
       other:
         channels: [[6, 7], stems]
+  drumless:
+    song:
+      mix:
+      - album-track
+      - gain:
+        - -0.89 # invert + about -1 dB
+        - channels: [[2, 3], stems]
 targets:
   rb3:
     game: rb3
@@ -60,3 +68,6 @@ targets:
     #   Surprisingly enough, not many notes have changed at all since then: the main
     #   updates actually lie in audio, tempo map, forcing modernisation and a very few
     #   extra instruments.'
+  dtx:
+    game: dtx
+    plan: drumless

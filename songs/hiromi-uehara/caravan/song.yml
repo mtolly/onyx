@@ -4,6 +4,11 @@ parts:
       mode: full
       kicks: 1
       difficulty: 7
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      # full upgrades status:
+      # - hihat annotations done
+      # - foot hihat notes WIP
+      # - snare rim annotations not started
   bass:
     pro-guitar:
       tuning:

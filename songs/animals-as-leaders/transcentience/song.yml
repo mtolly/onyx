@@ -4,20 +4,29 @@ parts:
       mode: full
       kicks: both
       difficulty: 6
+      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
 audio:
   album-track:
     md5: 6cea86da3322a36d35c39eb1b27e44a3
     frames: 14721168
+  drumless:
+    # Garstka's "7. Transentience Playalong.mp3"
+    file-path: audio-drumless.mp3
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
 plans:
-  plan:
+  album:
     song:
       mix:
       - countin
       - pad: [0.291, album-track]
+  drumless:
+    song:
+      mix:
+      - countin
+      - drop: [0.034, drumless]
 metadata:
   title: Transcentience
   artist: Animals as Leaders
@@ -33,8 +42,14 @@ metadata:
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
+    plan: album
+  dtx:
+    game: dtx
+    plan: drumless
