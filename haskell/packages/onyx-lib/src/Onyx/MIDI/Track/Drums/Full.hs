@@ -14,6 +14,7 @@ import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bifunctor                   (first)
 import           Data.Either                      (lefts, rights)
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
@@ -362,12 +363,30 @@ placeToms cymbals notes = let
       (Left . fst <$> cymbals)
       (Right . (\(gem, gtype, _vel) -> (gem, gtype)) <$> notes)
 
-splitFlams :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (FullGem, FullGemType, DrumVelocity)
-splitFlams = fmap (\(FullDrumNote g t vel _) -> (g, t, vel)) -- TODO
+splitFlams :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (FullGem, FullGemType, DrumVelocity)
+splitFlams tmap fdns = let
+  defaultFlamOffset :: U.Seconds
+  defaultFlamOffset = 0.03
+  step1 = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident fdns
+  step2 = zip step1 $ map (Just . fst) (drop 1 step1) <> [Nothing]
+  step3 = step2 >>= \((t, notes), nextTime) -> let
+    flamTimePerfect, flamTimeAdjusted, flamTime :: U.Beats
+    flamTimePerfect = U.unapplyTempoMap tmap $ U.applyTempoMap tmap t + defaultFlamOffset
+    -- so we don't make too-high a subdivision in DTX files,
+    -- round our desired flam time to the nearest 1/24 of a beat
+    flamTimeAdjusted = fromInteger (round $ flamTimePerfect * 24) / 24
+    flamTime = case nextTime of
+      Nothing   -> flamTimeAdjusted
+      -- if next note is close enough, flam should be placed 1/3 between this and next
+      Just next -> min flamTimeAdjusted $ t + (next - t) / 3
+    mainNotes = [ (g, typ, vel) | FullDrumNote g typ vel _    <- notes ]
+    flamNotes = [ (g, typ, vel) | FullDrumNote g typ vel True <- notes ]
+    in (t, mainNotes) : [ (flamTime, flamNotes) | not $ null flamNotes ]
+  in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList step3
 
-fullDrumsToPS :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (D.RealDrum, DrumVelocity)
-fullDrumsToPS input = let
-  notes = splitFlams input
+fullDrumsToPS :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (D.RealDrum, DrumVelocity)
+fullDrumsToPS tmap input = let
+  notes = splitFlams tmap input
   cymbals = placeCymbals notes
   kicksSnares = flip RTB.mapMaybe notes $ \case
     (Kick , _, vel) -> Just (Right D.Kick, vel)
@@ -376,9 +395,9 @@ fullDrumsToPS input = let
   toms = placeToms cymbals notes
   in RTB.merge cymbals $ RTB.merge kicksSnares toms
 
-fullDrumsToRB :: (NNC.C t) => RTB.T t FullDrumNote -> RTB.T t (D.Gem D.ProType, DrumVelocity)
-fullDrumsToRB gems = let
-  real = fullDrumsToPS $ RTB.filter (\note -> fdn_gem note /= HihatFoot) gems
+fullDrumsToRB :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (D.Gem D.ProType, DrumVelocity)
+fullDrumsToRB tmap gems = let
+  real = fullDrumsToPS tmap $ RTB.filter (\note -> fdn_gem note /= HihatFoot) gems
   in flip fmap real $ \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of
@@ -389,12 +408,12 @@ fullDrumsToRB gems = let
       Right rb -> rb
     in (gem', vel)
 
-convertFullDrums :: Bool -> FullDrumTrack U.Beats -> D.DrumTrack U.Beats
-convertFullDrums isPS trk = let
+convertFullDrums :: Bool -> U.TempoMap -> FullDrumTrack U.Beats -> D.DrumTrack U.Beats
+convertFullDrums isPS tmap trk = let
   expert = getDifficulty (Just Expert) trk
   encoded = D.encodePSReal (1/32) Expert $ if isPS
-    then fullDrumsToPS expert
-    else fmap (first Right) $ fullDrumsToRB expert
+    then fullDrumsToPS tmap expert
+    else fmap (first Right) $ fullDrumsToRB tmap expert
   in encoded
     { D.drumOverdrive  = fdOverdrive trk
     , D.drumActivation = fdActivation trk

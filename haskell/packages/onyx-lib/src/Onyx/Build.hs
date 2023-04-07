@@ -200,15 +200,18 @@ dtxRules buildInfo dir dtx = do
       , DTX.dtx_Drums         = case dtxPartDrums of
         Nothing          -> RTB.empty
         Just (part, _pd) -> let
-          -- TODO split flams
-          -- TODO figure out what to do for Left Bass
+          -- TODO figure out putting left kicks on Left Bass,
+          -- probably with new full-track notes for overriding default right/left assignment
+          -- (also remember to handle kick flams!)
           fullNotes
-            = FD.getDifficulty Nothing
+            = FD.splitFlams (F.s_tempos mid)
+            $ FD.getDifficulty Nothing
             $ maybe mempty F.onyxPartFullDrums
             $ Map.lookup part
             $ F.onyxParts
             $ F.s_tracks mid
-          toDTXNotes = fmap $ \fdn -> let
+          toDTXNotes = fmap $ \(g, typ, vel) -> let
+            fdn = FD.FullDrumNote g typ vel False
             lane = case FD.fdn_gem fdn of
               FD.Kick      -> DTX.BassDrum
               FD.Snare     -> DTX.Snare
