@@ -48,7 +48,7 @@ import           Onyx.Build.RockBand
 import           Onyx.Build.Rocksmith
 import           Onyx.Codec.JSON                  (loadYaml)
 import qualified Onyx.DTXMania.DTX                as DTX
-import           Onyx.Guitar                      (guitarify')
+import           Onyx.Guitar                      (applyLongStatus, guitarify')
 import           Onyx.Harmonix.MOGG
 import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
@@ -145,7 +145,7 @@ dtxRules buildInfo dir dtx = do
     case readMaybe $ T.unpack $ decodeGeneral bs of
       Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
       Just m  -> return (f, m)
-  template <- forM mapping $ \(f, DTX.DTXMapping templateRel _) -> liftIO $ do
+  template <- forM mapping $ \(f, DTX.DTXMapping templateRel _ _) -> liftIO $ do
     let templateFixed = takeDirectory f </> templateRel
     templateDTX <- DTX.readDTXLines DTX.FormatDTX <$> DTX.loadDTXLines templateFixed
     return (templateFixed, templateDTX)
@@ -203,14 +203,17 @@ dtxRules buildInfo dir dtx = do
           -- TODO figure out putting left kicks on Left Bass,
           -- probably with new full-track notes for overriding default right/left assignment
           -- (also remember to handle kick flams!)
-          fullNotes
-            = FD.splitFlams (F.s_tempos mid)
-            $ FD.getDifficulty Nothing
-            $ maybe mempty F.onyxPartFullDrums
+          track
+            = maybe mempty F.onyxPartFullDrums
             $ Map.lookup part
             $ F.onyxParts
             $ F.s_tracks mid
-          toDTXNotes = fmap $ \(g, typ, vel) -> let
+          -- TODO need to properly handle blip overrides on flams!
+          fullNotes
+            = applyLongStatus (FD.fdChipOverride track)
+            $ FD.splitFlams (F.s_tempos mid)
+            $ FD.getDifficulty Nothing track
+          toDTXNotes = fmap $ \(currentOverrides, (g, typ, vel)) -> let
             fdn = FD.FullDrumNote g typ vel False
             lane = case FD.fdn_gem fdn of
               FD.Kick      -> DTX.BassDrum
@@ -225,7 +228,13 @@ dtxRules buildInfo dir dtx = do
               FD.Tom3      -> DTX.FloorTom
               FD.CrashR    -> DTX.Cymbal
               FD.Ride      -> DTX.RideCymbal
-            chip = fromMaybe emptyChip $ mapping >>= \(_, m) -> DTX.lookupDTXMapping m fdn
+            chip = fromMaybe emptyChip $ do
+              (_, DTX.DTXMapping _ conds allOverrides) <- mapping
+              let addedConds = do
+                    DTX.DTXOverride tag extraConds <- allOverrides
+                    guard $ elem tag currentOverrides
+                    extraConds
+              DTX.lookupDTXMapping (addedConds <> conds) fdn
             in (lane, chip)
           in toDTXNotes fullNotes
       , DTX.dtx_DrumsDummy    = RTB.empty

@@ -38,13 +38,15 @@ data FullDrumTrack t = FullDrumTrack
   , fdActivation   :: RTB.T t Bool
   , fdSolo         :: RTB.T t Bool
   , fdSticking     :: RTB.T t D.Hand -- this should probably be per-difficulty?
+  -- overrides for DTX sounds
+  , fdChipOverride :: RTB.T t (LongNote () T.Text)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FullDrumTrack t)
 
 instance TraverseTrack FullDrumTrack where
-  traverseTrack fn (FullDrumTrack a b c d e f g) = FullDrumTrack
+  traverseTrack fn (FullDrumTrack a b c d e f g h) = FullDrumTrack
     <$> traverse (traverseTrack fn) a
-    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g
+    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
 
 data FullDrumDifficulty t = FullDrumDifficulty
   { fdGems :: RTB.T t (FullGem, FullGemType, DrumVelocity)
@@ -142,7 +144,21 @@ instance ParseTrack FullDrumTrack where
       fdFlam <- fdFlam =. blip (base + 10)
       return FullDrumDifficulty{..}
     fdKick2 <- fdKick2 =. fatBlips (1/8) (blip 95)
+    fdChipOverride <- fdChipOverride =. dimap (fmap ChipOverrideEvent) (fmap fromChipOverrideEvent) command
     return FullDrumTrack{..}
+
+newtype ChipOverrideEvent = ChipOverrideEvent { fromChipOverrideEvent :: LongNote () T.Text }
+
+instance Command ChipOverrideEvent where
+  toCommand = fmap ChipOverrideEvent . \case
+    ["chip", tag         ] -> Just $ Blip   () tag
+    ["chip", tag, "start"] -> Just $ NoteOn () tag
+    ["chip", tag, "end"  ] -> Just $ NoteOff   tag
+    _                      -> Nothing
+  fromCommand (ChipOverrideEvent ln) = case ln of
+    Blip   () tag -> ["chip", tag         ]
+    NoteOn () tag -> ["chip", tag, "start"]
+    NoteOff   tag -> ["chip", tag, "end"  ]
 
 fullDrumNoteNames :: [(Int, T.Text)]
 fullDrumNoteNames = execWriter $ do

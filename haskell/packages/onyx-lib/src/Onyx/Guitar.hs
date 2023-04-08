@@ -69,6 +69,12 @@ applyBlipStatus status events
   $ RTB.collectCoincident
   $ RTB.merge (fmap Left status) (fmap Right events)
 
+applyLongStatus :: (NNC.C t, Ord a, Ord s) => RTB.T t (LongNote () s) -> RTB.T t a -> RTB.T t ([s], a)
+applyLongStatus lns events = let
+  blips = RTB.mapMaybe (\case Blip () x -> Just x; _ -> Nothing) lns
+  edges = RTB.mapMaybe (\case NoteOn () x -> Just (x, True); NoteOff x -> Just (x, False); Blip{} -> Nothing) lns
+  in fmap (\(xs, (ys, event)) -> (xs <> ys, event)) $ applyStatus edges $ applyBlipStatus blips events
+
 -- | Computes the default strum or HOPO value for each note.
 strumHOPOTap :: (NNC.C t, Ord color) => HOPOsAlgorithm -> t -> RTB.T t (color, len) -> RTB.T t ((color, StrumHOPOTap), len)
 strumHOPOTap algo threshold rtb = let

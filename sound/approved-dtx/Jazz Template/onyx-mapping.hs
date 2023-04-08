@@ -1,4 +1,5 @@
 DTXMapping "mstr.dtx"
+
   [ MatchNote Kick (Chip "01")
   , MatchNote Snare (Branch
     [ MatchType GemRim (Chip "0W")
@@ -18,7 +19,11 @@ DTXMapping "mstr.dtx"
     , Chip "0F"
     ])
   , MatchNote Hihat (Branch
-    [ MatchType GemHihatOpen (Chip "08")
+    [ MatchType GemHihatOpen (Branch
+      [ MatchVelocity VelocityGhost (Chip "0A")
+      , Chip "08"
+      ])
+    , MatchVelocity VelocityGhost (Chip "0Z")
     , Chip "06"
     ])
   , MatchNote CrashL (Branch
@@ -36,4 +41,18 @@ DTXMapping "mstr.dtx"
     , Chip "0R"
     ])
   , MatchNote HihatFoot (Chip "0Y")
+  ]
+
+  [ DTXOverride "blue-splash"
+    [ MatchNote CrashL (Chip "0V")
+    ]
+  , DTXOverride "green-china"
+    [ MatchNote CrashR (Chip "0U")
+    ]
+  , DTXOverride "purple-china"
+    [ MatchNote Ride (Chip "0U")
+    ]
+  , DTXOverride "purple-bell"
+    [ MatchNote Ride (Chip "0T")
+    ]
   ]

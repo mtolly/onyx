@@ -612,7 +612,7 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
 
 -- System for hooking up a template (e.g. from APPROVED) to auto-keysound Full Drums
 
-data DTXMapping = DTXMapping FilePath [DTXCondition]
+data DTXMapping = DTXMapping FilePath [DTXCondition] [DTXOverride]
   deriving (Read)
 
 data DTXCondition
@@ -623,8 +623,11 @@ data DTXCondition
   | Branch        [DTXCondition]
   deriving (Read)
 
-lookupDTXMapping :: DTXMapping -> FD.FullDrumNote -> Maybe Chip
-lookupDTXMapping (DTXMapping _ conds) fdn = go $ Branch conds where
+data DTXOverride = DTXOverride T.Text [DTXCondition]
+  deriving (Read)
+
+lookupDTXMapping :: [DTXCondition] -> FD.FullDrumNote -> Maybe Chip
+lookupDTXMapping conds fdn = go $ Branch conds where
   go (Chip chip)           = Just chip
   go (MatchNote     n sub) = if n == FD.fdn_gem      fdn then go sub else Nothing
   go (MatchType     t sub) = if t == FD.fdn_type     fdn then go sub else Nothing
