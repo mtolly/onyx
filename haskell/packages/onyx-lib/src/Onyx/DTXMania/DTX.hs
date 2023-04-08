@@ -30,6 +30,7 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
 import           Numeric
+import qualified Numeric.NonNegative.Class as NNC
 import           Onyx.DTXMania.XA                 (sourceXA)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -292,6 +293,24 @@ getChannelGeneral chan objects mmap = let
       $ Map.lookup bar objects >>= HM.lookup chan
   in foldr RTB.merge RTB.empty $ map readBar [0 .. maxBar]
 
+-- DTXMania appears to "jump" very slightly for each BPM change,
+-- so to fix songs with many BPM changes, we need to increase BPMs
+-- slightly on import and decrease them on export.
+hackFixTempoMap :: Bool -> RTB.T U.Beats U.BPS -> RTB.T U.Beats U.BPS
+hackFixTempoMap isImport = \case
+  Wait b1 bps1 rest@(Wait b2 _ _) -> let
+    hackAdjust :: U.Seconds
+    hackAdjust = 0.000582978
+    nominalSeconds = U.applyTempo bps1 b2
+    fixedSeconds = if isImport
+      then nominalSeconds NNC.-| hackAdjust
+      else nominalSeconds +      hackAdjust
+    newBPS = if fixedSeconds == 0
+      then bps1
+      else U.makeTempo b2 fixedSeconds
+    in Wait b1 newBPS $ hackFixTempoMap isImport rest
+  rest -> rest
+
 readDTXLines :: DTXFormat -> [(T.Text, T.Text)] -> DTX
 readDTXLines fmt lns = DTX
   { dtx_TITLE      = lookup "TITLE" lns
@@ -357,6 +376,7 @@ readDTXLines fmt lns = DTX
 
     tmap
       = U.tempoMapFromBPS
+      $ hackFixTempoMap True
       $ fmap (\bpm -> U.BPS $ bpm / 60)
       $ addStartBPM
       $ fmap (+ baseBPM)
@@ -511,7 +531,8 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
         y <- chars
         guard $ x /= '0' || y /= '0'
         return $ T.pack [x, y]
-      tempoRefs = zip alphaNumChips $ Set.toList $ Set.fromList $ RTB.getBodies $ U.tempoMapToBPS dtx_TempoMap
+      fixedTempoBPS = hackFixTempoMap False $ U.tempoMapToBPS dtx_TempoMap
+      tempoRefs = zip alphaNumChips $ Set.toList $ Set.fromList $ RTB.getBodies fixedTempoBPS
       tempoLookup = Map.fromList $ map swap tempoRefs
   forM_ tempoRefs $ \(chip, bps) -> pair ("BPM" <> chip) $ showDecimal $ bps * 60
   gap
@@ -538,7 +559,7 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
           return $ fromMaybe "00" $ lookup num chips'
 
   tell ["; BPM changes"]
-  eachBar (U.tempoMapToBPS dtx_TempoMap) $ \barNumber changes -> do
+  eachBar fixedTempoBPS $ \barNumber changes -> do
     bar barNumber "08" $ makeBar $ map (second $ \bps -> fromMaybe "ZZ" $ Map.lookup bps tempoLookup) changes
   gap
 
