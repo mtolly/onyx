@@ -30,7 +30,7 @@ import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Data.Tuple                       (swap)
 import           Numeric
-import qualified Numeric.NonNegative.Class as NNC
+import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DTXMania.XA                 (sourceXA)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
