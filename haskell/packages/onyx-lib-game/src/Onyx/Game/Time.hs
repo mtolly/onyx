@@ -462,7 +462,7 @@ data FullDrumInput
 
 data FullDrumPlayState t = FullDrumPlayState
   { fdEvents    :: [(t, (Maybe FullDrumInput, FullDrumGameState t))]
-  , fdTrack     :: Map.Map t (CommonState (DrumState FullDrumNote FullGem))
+  , fdTrack     :: Map.Map t (CommonState (DrumState (FullDrumNote FlamStatus) FullGem))
   , fdNoteTimes :: Set.Set t
   } deriving (Show)
 
@@ -470,7 +470,7 @@ data FullDrumGameState t = FullDrumGameState
   { fdScore       :: Int
   , fdCombo       :: Int
   , fdHihatOpen   :: Bool
-  , fdNoteResults :: [(t, Map.Map FullDrumNote (NoteResult t))] -- times are of notes
+  , fdNoteResults :: [(t, Map.Map (FullDrumNote FlamStatus) (NoteResult t))] -- times are of notes
   , fdOverhits    :: [(t, FullDrumHit)] -- times are of inputs
   } deriving (Show)
 
@@ -491,7 +491,7 @@ initialFDState = FullDrumGameState
   , fdOverhits    = []
   }
 
-fullNoteStatus :: (Ord t) => t -> FullDrumNote -> [(t, (Maybe FullDrumInput, FullDrumGameState t))] -> NoteStatus t
+fullNoteStatus :: (Ord t) => t -> FullDrumNote FlamStatus -> [(t, (Maybe FullDrumInput, FullDrumGameState t))] -> NoteStatus t
 fullNoteStatus noteTime note events = let
   slices = case events of
     []                      -> []
@@ -581,12 +581,12 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
             _ -> FDHit t
           in Just (note, newStatus)
         Just FDMissed -> Nothing -- probably shouldn't happen?
-        Just (FDHit _) -> if fdn_flam note
-          then Just (note, FDTwoHits t)
-          else Nothing
-        Just (FDHitPendingHihat b) -> if fdn_flam note
-          then Just (note, FDTwoHitsPendingHihat b)
-          else Nothing
+        Just (FDHit _) -> case fdn_extra note of
+          Flam    -> Just (note, FDTwoHits t)
+          NotFlam -> Nothing
+        Just (FDHitPendingHihat b) -> case fdn_extra note of
+          Flam    -> Just (note, FDTwoHitsPendingHihat b)
+          NotFlam -> Nothing
         Just (FDTwoHits _) -> Nothing
         Just (FDTwoHitsPendingHihat _) -> Nothing
     isNormalHit = case normalHitData of

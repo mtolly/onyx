@@ -56,7 +56,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsFull FullDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState FD.FullDrumNote FD.FullGem)))
+  | PreviewDrumsFull FullDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullDrumNote FD.FlamStatus) FD.FullGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
@@ -237,7 +237,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
   drumTrackFull fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
     thisSrc = maybe mempty F.onyxPartFullDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
-    drumMap :: Map.Map Double [FD.FullDrumNote]
+    drumMap :: Map.Map Double [FD.FullDrumNote FD.FlamStatus]
     drumMap = rtbToMap $ RTB.collectCoincident $ FD.getDifficulty diff thisSrc
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
       Nothing   -> (FD.fdActivation thisSrc, RTB.empty)

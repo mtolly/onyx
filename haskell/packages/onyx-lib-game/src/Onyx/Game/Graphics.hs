@@ -202,7 +202,7 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawFullDrums :: GLStuff -> Double -> Double -> FullDrumLayout -> Map.Map Double (CommonState (DrumState FullDrumNote FD.FullGem)) -> IO ()
+drawFullDrums :: GLStuff -> Double -> Double -> FullDrumLayout -> Map.Map Double (CommonState (DrumState (FullDrumNote FD.FlamStatus) FD.FullGem)) -> IO ()
 drawFullDrums glStuff nowTime speed layout trk = drawFullDrumPlay glStuff nowTime speed layout FullDrumPlayState
   { fdEvents = let
     -- dummy game state with no inputs, but all notes marked as hit on time
@@ -311,8 +311,8 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed layout fdps = do
         reference = case fdn_gem note of
           FD.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
-        xPairs = if fdn_flam note
-          then case fdn_gem note of
+        xPairs = case fdn_extra note of
+          FD.Flam -> case fdn_gem note of
             FD.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _       -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
@@ -324,7 +324,7 @@ drawFullDrumPlay glStuff@GLStuff{..} nowTime speed layout fdps = do
                 | snd noteRight > adjustedRight = adjustedRight - snd noteRight
                 | otherwise = 0
               in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
-          else [(x1', x2')]
+          FD.NotFlam -> [(x1', x2')]
         (y1, y2) = (y - reference, y + reference)
         y = gfxConfig.track.y
         (z1, z2) = (z - reference, z + reference)

@@ -54,6 +54,7 @@ import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common
+import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Full       as FD
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Mode
@@ -204,9 +205,6 @@ dtxRules buildInfo dir dtx = do
       , DTX.dtx_Drums         = case dtxPartDrums of
         Nothing          -> RTB.empty
         Just (part, _pd) -> let
-          -- TODO figure out putting left kicks on Left Bass,
-          -- probably with new full-track notes for overriding default right/left assignment
-          -- (also remember to handle kick flams!)
           track
             = maybe mempty F.onyxPartFullDrums
             $ Map.lookup part
@@ -217,10 +215,11 @@ dtxRules buildInfo dir dtx = do
             = applyLongStatus (FD.fdChipOverride track)
             $ FD.splitFlams (F.s_tempos mid)
             $ FD.getDifficulty Nothing track
-          toDTXNotes = fmap $ \(currentOverrides, (g, typ, vel)) -> let
-            fdn = FD.FullDrumNote g typ vel False
+          toDTXNotes = fmap $ \(currentOverrides, fdn) -> let
             lane = case FD.fdn_gem fdn of
-              FD.Kick      -> DTX.BassDrum
+              FD.Kick      -> case FD.fdn_limb fdn of
+                Just D.LH -> DTX.LeftBass
+                _         -> DTX.BassDrum
               FD.Snare     -> DTX.Snare
               FD.Hihat     -> case FD.fdn_type fdn of
                 FD.GemHihatOpen -> DTX.HihatOpen
@@ -261,6 +260,7 @@ dtxRules buildInfo dir dtx = do
       , dir </> "dtx" </> artPath
       , dir </> "dtx/mstr.dtx"
       ]
+    -- TODO only output chip audio we actually used
     forM_ template $ \(templatePath, templateDTX) -> do
       forM_ (HM.toList $ DTX.dtx_WAV templateDTX) $ \(_, path) -> do
         -- again, maybe make sure path is local

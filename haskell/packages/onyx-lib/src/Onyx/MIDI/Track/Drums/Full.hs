@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -18,7 +19,8 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+                                                   listToMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
@@ -40,13 +42,15 @@ data FullDrumTrack t = FullDrumTrack
   , fdSticking     :: RTB.T t D.Hand -- this should probably be per-difficulty?
   -- overrides for DTX sounds
   , fdChipOverride :: RTB.T t (LongNote () T.Text)
+  -- overrides for kick assignment in DTX
+  , fdFooting      :: RTB.T t D.Hand
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FullDrumTrack t)
 
 instance TraverseTrack FullDrumTrack where
-  traverseTrack fn (FullDrumTrack a b c d e f g h) = FullDrumTrack
+  traverseTrack fn (FullDrumTrack a b c d e f g h i) = FullDrumTrack
     <$> traverse (traverseTrack fn) a
-    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i
 
 data FullDrumDifficulty t = FullDrumDifficulty
   { fdGems :: RTB.T t (FullGem, FullGemType, DrumVelocity)
@@ -96,6 +100,9 @@ instance ParseTrack FullDrumTrack where
         CrashR    -> edges $ 84 + 7
         Ride      -> edges $ 84 + 8
     fdSticking <- (fdSticking =.) $ condenseMap_ $ eachKey each $ blip . \case
+      D.RH -> 112
+      D.LH -> 111
+    fdFooting <- (fdFooting =.) $ condenseMap_ $ eachKey each $ blip . \case
       D.RH -> 109
       D.LH -> 108
     fdDifficulties <- (fdDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
@@ -166,8 +173,11 @@ fullDrumNoteNames = execWriter $ do
   o 116 "OVERDRIVE"
   o 115 "SOLO"
   x 114
-  o 109 "RIGHT HAND"
-  o 108 "LEFT HAND"
+  o 112 "RIGHT HAND"
+  o 111 "LEFT HAND"
+  x 110
+  o 109 "RIGHT FOOT"
+  o 108 "LEFT FOOT"
   let difficulty letter base = do
         x (base + 11)
         o (base + 10) $ letter <> " Flam"
@@ -203,22 +213,30 @@ fullDrumNoteNames = execWriter $ do
 data MergedEvent n1 n2
   = MergedNote n1
   | MergedNote2 n2
+  | MergedSticking D.Hand
+  | MergedFooting D.Hand
   | MergedFlam
   deriving (Eq, Ord)
 
-data FullDrumNote = FullDrumNote
+data FlamStatus = NotFlam | Flam
+  deriving (Eq, Ord, Show)
+
+data FullDrumNote a = FullDrumNote
   { fdn_gem      :: FullGem
   , fdn_type     :: FullGemType
   , fdn_velocity :: DrumVelocity
-  , fdn_flam     :: Bool
-  } deriving (Eq, Ord, Show)
+  , fdn_limb     :: Maybe D.Hand -- hand, or foot
+  , fdn_extra    :: a
+  } deriving (Eq, Ord, Show, Functor)
 
-getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t FullDrumNote
+getDifficulty :: (NNC.C t) => Maybe Difficulty -> FullDrumTrack t -> RTB.T t (FullDrumNote FlamStatus)
 getDifficulty diff trk = let
   base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ fdDifficulties trk
   events = foldr RTB.merge RTB.empty
     $ fmap MergedNote (fdGems base)
     : fmap (const MergedFlam) (fdFlam base)
+    : fmap MergedSticking (fdSticking trk)
+    : fmap MergedFooting (fdFooting trk)
     : case diff of
       Nothing -> [fmap MergedNote2 $ fdKick2 trk]
       _       -> []
@@ -227,10 +245,30 @@ getDifficulty diff trk = let
     kick = [ trio | MergedNote trio@(Kick, _, _) <- evts ]
     flam = any (\case MergedFlam -> True; _ -> False) evts
     kick2 = any (\case MergedNote2 () -> True; _ -> False) evts
-    in fmap (\(gem, gtype, vel) -> FullDrumNote gem gtype vel $ flam && gem /= HihatFoot) notKick
-      <> case (kick, kick2) of
-        ([], True) -> [FullDrumNote Kick GemNormal VelocityNormal False]
-        _          -> fmap (\(gem, gtype, vel) -> FullDrumNote gem gtype vel kick2) kick
+    foot = listToMaybe [ f | MergedFooting f <- evts ]
+    outputNotKick = flip fmap notKick $ \(gem, gtype, vel) -> FullDrumNote
+      { fdn_gem      = gem
+      , fdn_type     = gtype
+      , fdn_velocity = vel
+      , fdn_limb     = Nothing -- TODO
+      , fdn_extra    = if flam && gem /= HihatFoot then Flam else NotFlam
+      }
+    outputKick = case (kick, kick2) of
+      ([], True) -> return FullDrumNote
+        { fdn_gem      = Kick
+        , fdn_type     = GemNormal
+        , fdn_velocity = VelocityNormal
+        , fdn_limb     = Just $ fromMaybe D.LH foot
+        , fdn_extra    = NotFlam
+        }
+      _          -> flip fmap kick $ \(gem, gtype, vel) -> FullDrumNote
+        { fdn_gem      = gem
+        , fdn_type     = gtype
+        , fdn_velocity = vel
+        , fdn_limb     = Just $ fromMaybe D.RH foot
+        , fdn_extra    = if kick2 then Flam else NotFlam
+        }
+    in outputNotKick <> outputKick
   in RTB.flatten $ fmap processSlice $ RTB.collectCoincident events
 
 -- full to PS/RB conversion
@@ -244,12 +282,12 @@ data CymbalInstant lc rd = CymbalInstant
   } deriving (Show)
 
 -- Simple version, hihat = Y, left cymbal = B, right cymbal / ride = G
-placeCymbals :: (NNC.C t) => RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
+placeCymbals :: (NNC.C t) => RTB.T t (FullDrumNote ()) -> RTB.T t (D.RealDrum, DrumVelocity)
 placeCymbals
   -- TODO actually preserve the velocities
   = fmap (, VelocityNormal)
   . RTB.flatten . fmap (emitCymbals . makeInstant) . RTB.collectCoincident
-  . fmap (\(gem, gtype, _vel) -> (gem, gtype))
+  . fmap (\fdn -> (fdn_gem fdn, fdn_type fdn))
   where
 
   makeInstant notes = CymbalInstant
@@ -355,7 +393,7 @@ placeCymbalsFancy
     , guard (instantRC now) >> Just (Right $ D.Pro D.Green D.Cymbal)
     ]
 
-placeToms :: (NNC.C t) => RTB.T t (D.RealDrum, DrumVelocity) -> RTB.T t (FullGem, FullGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
+placeToms :: (NNC.C t) => RTB.T t (D.RealDrum, DrumVelocity) -> RTB.T t (FullDrumNote ()) -> RTB.T t (D.RealDrum, DrumVelocity)
 placeToms cymbals notes = let
   basicGem = \case
     Left D.Rimshot -> D.Red
@@ -377,9 +415,9 @@ placeToms cymbals notes = let
   in fmap (, VelocityNormal)
     $ RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge
       (Left . fst <$> cymbals)
-      (Right . (\(gem, gtype, _vel) -> (gem, gtype)) <$> notes)
+      (Right . (\fdn -> (fdn_gem fdn, fdn_type fdn)) <$> notes)
 
-splitFlams :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (FullGem, FullGemType, DrumVelocity)
+splitFlams :: U.TempoMap -> RTB.T U.Beats (FullDrumNote FlamStatus) -> RTB.T U.Beats (FullDrumNote ())
 splitFlams tmap fdns = let
   defaultFlamOffset :: U.Seconds
   defaultFlamOffset = 0.03
@@ -395,23 +433,30 @@ splitFlams tmap fdns = let
       Nothing   -> flamTimeAdjusted
       -- if next note is close enough, flam should be placed 1/3 between this and next
       Just next -> min flamTimeAdjusted $ t + (next - t) / 3
-    mainNotes = [ (g, typ, vel) | FullDrumNote g typ vel _    <- notes ]
-    flamNotes = [ (g, typ, vel) | FullDrumNote g typ vel True <- notes ]
+    mainNotes = map void notes
+    flamNotes = map (flipFoot . void) $ filter (\n -> fdn_extra n == Flam) notes
+    -- for a kick flam, the second note should be on opposite foot from the first
+    flipFoot fdn = case fdn_gem fdn of
+      Kick -> case fdn_limb fdn of
+        Just D.LH -> fdn { fdn_limb = Just D.RH }
+        Just D.RH -> fdn { fdn_limb = Just D.LH }
+        Nothing   -> fdn
+      _    -> fdn
     in (t, mainNotes) : [ (flamTime, flamNotes) | not $ null flamNotes ]
   in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList step3
 
-fullDrumsToPS :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (D.RealDrum, DrumVelocity)
+fullDrumsToPS :: U.TempoMap -> RTB.T U.Beats (FullDrumNote FlamStatus) -> RTB.T U.Beats (D.RealDrum, DrumVelocity)
 fullDrumsToPS tmap input = let
   notes = splitFlams tmap input
   cymbals = placeCymbals notes
-  kicksSnares = flip RTB.mapMaybe notes $ \case
-    (Kick , _, vel) -> Just (Right D.Kick, vel)
-    (Snare, _, vel) -> Just (Right D.Red , vel)
-    _               -> Nothing
+  kicksSnares = flip RTB.mapMaybe notes $ \fdn -> case fdn_gem fdn of
+    Kick  -> Just (Right D.Kick, fdn_velocity fdn)
+    Snare -> Just (Right D.Red , fdn_velocity fdn)
+    _     -> Nothing
   toms = placeToms cymbals notes
   in RTB.merge cymbals $ RTB.merge kicksSnares toms
 
-fullDrumsToRB :: U.TempoMap -> RTB.T U.Beats FullDrumNote -> RTB.T U.Beats (D.Gem D.ProType, DrumVelocity)
+fullDrumsToRB :: U.TempoMap -> RTB.T U.Beats (FullDrumNote FlamStatus) -> RTB.T U.Beats (D.Gem D.ProType, DrumVelocity)
 fullDrumsToRB tmap gems = let
   real = fullDrumsToPS tmap $ RTB.filter (\note -> fdn_gem note /= HihatFoot) gems
   in flip fmap real $ \(gem, vel) -> let
@@ -437,7 +482,7 @@ convertFullDrums isPS tmap trk = let
     , D.drumKick2x     = fdKick2 trk
     }
 
-autoFDAnimation :: (NNC.C t) => t -> RTB.T t FullDrumNote -> RTB.T t D.Animation
+autoFDAnimation :: (NNC.C t) => t -> RTB.T t (FullDrumNote FlamStatus) -> RTB.T t D.Animation
 autoFDAnimation closeTime fdns = let
   hands = D.autoDrumHands closeTime $ RTB.flatten $ flip fmap fdns $ \fdn -> do
     pad <- case fdn_gem fdn of
@@ -451,7 +496,9 @@ autoFDAnimation closeTime fdns = let
       Tom3      -> pure D.AnimFloorTom
       CrashR    -> pure D.AnimCrash2
       Ride      -> pure D.AnimRide
-    _ <- if fdn_flam fdn then [(), ()] else [()]
+    _ <- case fdn_extra fdn of
+      Flam    -> [(), ()]
+      NotFlam -> [()]
     return D.AnimInput
       { aiPad      = pad
       , aiVelocity = fdn_velocity fdn
@@ -462,22 +509,21 @@ autoFDAnimation closeTime fdns = let
   -- TODO hihat pedal
   in RTB.merge kicks hands
 
--- Will not contain any flam notes.
 -- TODO hihat pedal
-animationToFD :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (FullDrumNote, D.Hand)
+animationToFD :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (FullDrumNote (), D.Hand)
 animationToFD anims = RTB.flatten $ flip fmap anims $ \case
-  D.Tom1       hand -> pure (FullDrumNote Tom1   GemNormal      VelocityNormal False, hand)
-  D.Tom2       hand -> pure (FullDrumNote Tom2   GemNormal      VelocityNormal False, hand)
-  D.FloorTom   hand -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal False, hand)
-  D.Hihat      hand -> pure (FullDrumNote Hihat  GemNormal      VelocityNormal False, hand)
-  D.Snare  hit hand -> pure (FullDrumNote Snare  GemNormal      (fromHit hit)  False, hand)
-  D.Ride       hand -> pure (FullDrumNote Ride   GemNormal      VelocityNormal False, hand)
-  D.Crash1 hit hand -> pure (FullDrumNote CrashL GemNormal      (fromHit hit)  False, hand)
-  D.Crash2 hit hand -> pure (FullDrumNote CrashR GemNormal      (fromHit hit)  False, hand)
-  D.KickRF          -> pure (FullDrumNote Kick   GemNormal      VelocityNormal False, D.RH)
-  D.Crash1RHChokeLH -> pure (FullDrumNote CrashL GemCymbalChoke VelocityNormal False, D.RH)
-  D.Crash2RHChokeLH -> pure (FullDrumNote CrashR GemCymbalChoke VelocityNormal False, D.RH)
-  D.PercussionRH    -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal False, D.RH)
+  D.Tom1       hand -> pure (FullDrumNote Tom1   GemNormal      VelocityNormal Nothing (), hand)
+  D.Tom2       hand -> pure (FullDrumNote Tom2   GemNormal      VelocityNormal Nothing (), hand)
+  D.FloorTom   hand -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal Nothing (), hand)
+  D.Hihat      hand -> pure (FullDrumNote Hihat  GemNormal      VelocityNormal Nothing (), hand)
+  D.Snare  hit hand -> pure (FullDrumNote Snare  GemNormal      (fromHit hit)  Nothing (), hand)
+  D.Ride       hand -> pure (FullDrumNote Ride   GemNormal      VelocityNormal Nothing (), hand)
+  D.Crash1 hit hand -> pure (FullDrumNote CrashL GemNormal      (fromHit hit)  Nothing (), hand)
+  D.Crash2 hit hand -> pure (FullDrumNote CrashR GemNormal      (fromHit hit)  Nothing (), hand)
+  D.KickRF          -> pure (FullDrumNote Kick   GemNormal      VelocityNormal Nothing (), D.RH)
+  D.Crash1RHChokeLH -> pure (FullDrumNote CrashL GemCymbalChoke VelocityNormal Nothing (), D.RH)
+  D.Crash2RHChokeLH -> pure (FullDrumNote CrashR GemCymbalChoke VelocityNormal Nothing (), D.RH)
+  D.PercussionRH    -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal Nothing (), D.RH)
   _                 -> []
   where fromHit D.SoftHit = VelocityGhost
         fromHit D.HardHit = VelocityNormal

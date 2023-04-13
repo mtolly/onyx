@@ -647,7 +647,7 @@ data DTXCondition
 data DTXOverride = DTXOverride T.Text [DTXCondition]
   deriving (Read)
 
-lookupDTXMapping :: [DTXCondition] -> FD.FullDrumNote -> Maybe Chip
+lookupDTXMapping :: [DTXCondition] -> FD.FullDrumNote a -> Maybe Chip
 lookupDTXMapping conds fdn = go $ Branch conds where
   go (Chip chip)           = Just chip
   go (MatchNote     n sub) = if n == FD.fdn_gem      fdn then go sub else Nothing
