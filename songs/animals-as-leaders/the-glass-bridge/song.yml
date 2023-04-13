@@ -4,7 +4,7 @@ parts:
       mode: full
       kicks: both
       difficulty: 7
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
   # bass: # WIP
   #   pro-guitar:
   #     tuning:
@@ -60,3 +60,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album

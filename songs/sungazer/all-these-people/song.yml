@@ -4,7 +4,7 @@ parts:
       mode: full
       kicks: 1
       difficulty: 6
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
 audio:
   album-track:
     frames: 10251780
@@ -38,13 +38,15 @@ plans:
         pad: [3.684, channels: [[6, 7], stems]]
   drumless:
     song:
-      pad:
-      - 3.684
-      - mix:
-        - album-track
-        - gain:
-          - -0.89 # invert + about -1 dB
-          - channels: [[2, 3], stems]
+      mix:
+      - countin
+      - pad:
+        - 3.684
+        - mix:
+          - album-track
+          - gain:
+            - -0.89 # invert + about -1 dB
+            - channels: [[2, 3], stems]
 metadata:
   title: All These People
   track-number: 3
@@ -66,3 +68,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album

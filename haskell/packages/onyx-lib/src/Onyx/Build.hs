@@ -122,6 +122,10 @@ dtxRules buildInfo dir dtx = do
     buildAudio (Input wav) out
 
   dir </> "dtx/preview.ogg" %> \out -> do
+    let planPreviewDir = case dtx.planPreview of
+          Nothing   -> planDir
+          Just name -> rel $ "gen/plan" </> T.unpack name
+    -- not supporting different tempo maps (so we don't need to use planPreviewDir for midi load)
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
@@ -130,7 +134,7 @@ dtxRules buildInfo dir dtx = do
           $ Fade Start (Seconds 2)
           $ Take Start (fromMS $ pend - pstart)
           $ Drop Start (fromMS pstart)
-          $ Input (planDir </> "everything.wav")
+          $ Input (planPreviewDir </> "everything.wav")
     buildAudio previewExpr out
 
   artPath <- case songYaml.metadata.fileAlbumArt of

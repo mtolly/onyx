@@ -56,13 +56,15 @@ plans:
         pans: [1, -1]
   drumless:
     song:
-      pad:
-      - 2.629
-      - mix:
-        - album-track
-        - gain:
-          - -0.89 # invert + about -1 dB
-          - channels: [[2, 3], stems]
+      mix:
+      - countin
+      - pad:
+        - 2.629
+        - mix:
+          - album-track
+          - gain:
+            - -0.89 # invert + about -1 dB
+            - channels: [[2, 3], stems]
 parts:
   drums:
     drums:
@@ -70,7 +72,7 @@ parts:
       kicks: 1
       kit: VintageKit
       mode: full
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
   blue-ride:
     drums:
       difficulty: 7
@@ -123,3 +125,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album

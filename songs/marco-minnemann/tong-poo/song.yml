@@ -35,7 +35,7 @@ parts:
       kicks: both
       mode: full
       difficulty: 7
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
 targets:
   rb3:
     game: rb3
@@ -50,3 +50,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: youtube

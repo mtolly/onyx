@@ -27,7 +27,7 @@ parts:
       mode: full
       kicks: both
       difficulty: 7
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
   guitar: # combined chart by Paturages
     grybo:
       difficulty: 7
@@ -71,3 +71,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album

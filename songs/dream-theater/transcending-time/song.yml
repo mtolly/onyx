@@ -15,7 +15,7 @@ parts:
       difficulty: 5
       kicks: both
       mode: full
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
   bass:
     pro-guitar:
       tuning:
@@ -53,13 +53,15 @@ plans:
         pad: [3.781, channels: [[6, 7], stems]]
   drumless:
     song:
-      pad:
-      - 3.781
-      - mix:
-        - album-track
-        - gain:
-          - -0.89 # invert + about -1 dB
-          - channels: [[2, 3], stems]
+      mix:
+      - countin
+      - pad:
+        - 3.781
+        - mix:
+          - album-track
+          - gain:
+            - -0.89 # invert + about -1 dB
+            - channels: [[2, 3], stems]
 targets:
   rb3:
     game: rb3
@@ -82,3 +84,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album

@@ -1419,18 +1419,20 @@ instance Default TargetGH3 where
   def = fromEmptyObject
 
 data TargetDTX = TargetDTX
-  { common :: TargetCommon
-  , drums  :: F.FlexPartName
-  , guitar :: F.FlexPartName
-  , bass   :: F.FlexPartName
+  { common      :: TargetCommon
+  , drums       :: F.FlexPartName
+  , guitar      :: F.FlexPartName
+  , bass        :: F.FlexPartName
+  , planPreview :: Maybe T.Text -- used for preview snippet, since .plan will usually be drumless
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetDTX :: (SendMessage m) => ObjectCodec m A.Value TargetDTX
 parseTargetDTX = do
-  common <- (.common) =. parseTargetCommon
-  guitar <- (.guitar) =. opt F.FlexGuitar "guitar" stackJSON
-  bass   <- (.bass  ) =. opt F.FlexBass   "bass"   stackJSON
-  drums  <- (.drums ) =. opt F.FlexDrums  "drums"  stackJSON
+  common      <- (.common     ) =. parseTargetCommon
+  guitar      <- (.guitar     ) =. opt F.FlexGuitar "guitar"       stackJSON
+  bass        <- (.bass       ) =. opt F.FlexBass   "bass"         stackJSON
+  drums       <- (.drums      ) =. opt F.FlexDrums  "drums"        stackJSON
+  planPreview <- (.planPreview) =. opt Nothing      "plan-preview" stackJSON
   return TargetDTX{..}
 
 instance StackJSON TargetDTX where

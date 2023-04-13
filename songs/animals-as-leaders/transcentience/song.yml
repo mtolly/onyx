@@ -4,7 +4,7 @@ parts:
       mode: full
       kicks: both
       difficulty: 6
-      file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs
+      file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
 audio:
   album-track:
     md5: 6cea86da3322a36d35c39eb1b27e44a3
@@ -53,3 +53,4 @@ targets:
   dtx:
     game: dtx
     plan: drumless
+    plan-preview: album
