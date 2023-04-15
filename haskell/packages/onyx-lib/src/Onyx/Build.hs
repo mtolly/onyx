@@ -145,18 +145,24 @@ dtxRules buildInfo dir dtx = do
     _ -> return "cover.png"
   dir </> "dtx/cover.png" %> shk . copyFile' (rel "gen/cover-full.png")
 
-  mapping <- forM (dtxPartDrums >>= \(_, pd) -> pd.fileDTXKit) $ \f -> do
-    bs <- liftIO $ B.readFile f
-    case readMaybe $ T.unpack $ decodeGeneral bs of
-      Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
-      Just m  -> return (f, m)
-  template <- forM mapping $ \(f, DTX.DTXMapping templateRel _ _) -> liftIO $ do
-    let templateFixed = takeDirectory f </> templateRel
-    templateDTX <- DTX.readDTXLines DTX.FormatDTX <$> DTX.loadDTXLines templateFixed
-    return (templateFixed, templateDTX)
+  let loadMapping = forM (dtxPartDrums >>= \(_, pd) -> pd.fileDTXKit) $ \f -> do
+        shk $ need [f]
+        bs <- liftIO $ B.readFile f
+        case readMaybe $ T.unpack $ decodeGeneral bs of
+          Nothing -> fail $ "Couldn't parse mapping of full drums to DTX template from: " <> f
+          Just m  -> return (f, m)
+      loadMappingTemplate = do
+        mapping <- loadMapping
+        template <- forM mapping $ \(f, DTX.DTXMapping templateRel _ _) -> do
+          let templateFixed = takeDirectory f </> templateRel
+          shk $ need [templateFixed]
+          templateDTX <- liftIO $ DTX.readDTXLines DTX.FormatDTX <$> DTX.loadDTXLines templateFixed
+          return (templateFixed, templateDTX)
+        return (mapping, template)
 
   dir </> "dtx/mstr.dtx" %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    (mapping, template) <- loadMappingTemplate
     let bgmChip   = "0X" -- TODO read this from BGMWAV in mapping
         emptyChip = "ZZ"
         makeGuitarBass = \case
@@ -261,6 +267,7 @@ dtxRules buildInfo dir dtx = do
       , dir </> "dtx/mstr.dtx"
       ]
     -- TODO only output chip audio we actually used
+    (_, template) <- loadMappingTemplate
     forM_ template $ \(templatePath, templateDTX) -> do
       forM_ (HM.toList $ DTX.dtx_WAV templateDTX) $ \(_, path) -> do
         -- again, maybe make sure path is local

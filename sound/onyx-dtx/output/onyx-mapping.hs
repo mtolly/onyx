@@ -7,7 +7,7 @@ DTXMapping "mstr.dtx"
   , MatchNote Snare (Branch
     [ MatchType GemRim (Chip "0J")
     , MatchVelocity VelocityGhost (Chip "0H")
-    , Chip "0I"
+    , Chip "0Y"
     ])
   , MatchNote Tom1 (Branch
     [ MatchVelocity VelocityGhost (Chip "1O")
@@ -148,6 +148,12 @@ DTXMapping "mstr.dtx"
     [ MatchNote Tom3 (Branch
       [ MatchVelocity VelocityGhost (Chip "1W")
       , Chip "0W"
+      ])
+    ]
+  , DTXOverride "tom1-alt-snare"
+    [ MatchNote Tom1 (Branch
+      [ MatchVelocity VelocityGhost (Chip "1Z")
+      , Chip "0Z"
       ])
     ]
   ]
