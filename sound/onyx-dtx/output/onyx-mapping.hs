@@ -156,4 +156,10 @@ DTXMapping "mstr.dtx"
       , Chip "0Z"
       ])
     ]
+  , DTXOverride "snare-brush"
+    [ MatchNote Snare (Branch
+      [ MatchVelocity VelocityGhost (Chip "21")
+      , Chip "20"
+      ])
+    ]
   ]
