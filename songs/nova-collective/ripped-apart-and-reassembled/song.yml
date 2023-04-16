@@ -55,6 +55,7 @@ parts:
       kicks: both
       mode: full
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.00
   bass:
     grybo:
       difficulty: 4
@@ -113,3 +114,5 @@ targets:
     game: dtx
     plan: drumless
     plan-preview: album
+    guitar: disabled
+    bass: disabled

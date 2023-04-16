@@ -5,6 +5,7 @@ parts:
       kicks: both
       difficulty: 6
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.20
 audio:
   album-track:
     md5: 6cea86da3322a36d35c39eb1b27e44a3

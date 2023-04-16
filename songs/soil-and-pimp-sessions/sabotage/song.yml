@@ -73,6 +73,7 @@ parts:
       kit: VintageKit
       mode: full
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.40
   blue-ride:
     drums:
       difficulty: 7
@@ -126,3 +127,5 @@ targets:
     game: dtx
     plan: drumless
     plan-preview: album
+    guitar: disabled
+    bass: disabled

@@ -639,6 +639,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       , fallback    = FallbackGreen
       , fileDTXKit  = Nothing
       , fullLayout  = FDStandard
+      , difficultyDTX = Nothing
       }
     , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
     , other = mempty
@@ -682,20 +683,11 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
   keyToDrum n = case dtarget of
     DrumTargetGH -> [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Orange, D.Pro D.Green D.Tom] !! n
     _            -> [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom,           D.Pro D.Green D.Tom] !! n
+  mode = case dtarget of
+    DrumTargetGH -> Drums5
+    _            -> Drums4
   in DrumResult
-    { settings = PartDrums
-      { difficulty  = Tier 1
-      , mode        = case dtarget of
-        DrumTargetGH -> Drums5
-        _            -> Drums4
-      , kicks       = Kicks1x
-      , fixFreeform = True
-      , kit         = HardRockKit
-      , layout      = StandardLayout
-      , fallback    = FallbackGreen
-      , fileDTXKit  = Nothing
-      , fullLayout  = FDStandard
-      }
+    { settings = emptyPartDrums mode Kicks1x
     , notes = Map.singleton Expert $ (, D.VelocityNormal) <$> notes
     , other = mempty
     , hasRBMarks = False

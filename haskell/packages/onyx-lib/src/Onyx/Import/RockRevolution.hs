@@ -304,31 +304,11 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
         { grybo = Just def
         })
       , (F.FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = Just PartDrums
-          { difficulty = Tier 1
-          , mode = DrumsFull
-          , kicks = Kicks1x
-          , fixFreeform = False
-          , kit = HardRockKit
-          , layout = StandardLayout
-          , fallback = FallbackGreen
-          , fileDTXKit = Nothing
-          , fullLayout = FDStandard
-          }
+        { drums = Just $ emptyPartDrums DrumsFull Kicks1x
         })
       {-
       , (F.FlexExtra "hidden-drums", def
-        { partDrums = Just PartDrums
-          { drumsDifficulty = Tier 1
-          , drumsMode = DrumsFull
-          , drumsKicks = Kicks1x
-          , drumsFixFreeform = False
-          , drumsKit = HardRockKit
-          , drumsLayout = StandardLayout
-          , drumsFallback = FallbackGreen
-          , drumsFileDTXKit = Nothing
-          , drumsFullLayout = FDStandard
-          }
+        { partDrums = Just emptyPartDrums DrumsFull Kicks1x
         })
       -}
       ]

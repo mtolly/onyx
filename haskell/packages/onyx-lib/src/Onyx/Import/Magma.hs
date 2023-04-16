@@ -236,24 +236,20 @@ importMagma fin level = do
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = guard (isJust drums) >> Just PartDrums
-          { difficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
-          , mode = DrumsPro -- TODO set to Drums4 for magma v1?
-          , kicks = if is2x then Kicks2x else Kicks1x
-          , fixFreeform = False
-          , kit = case fmap C3.drumKitSFX c3 of
-            Nothing -> HardRockKit
-            Just 0  -> HardRockKit
-            Just 1  -> ArenaKit
-            Just 2  -> VintageKit
-            Just 3  -> TrashyKit
-            Just 4  -> ElectronicKit
-            Just _  -> HardRockKit
-          , layout = StandardLayout
-          , fallback = FallbackGreen
-          , fileDTXKit = Nothing
-          , fullLayout = FDStandard
-          }
+        { drums = guard (isJust drums) >> let
+          mode = DrumsPro -- TODO set to Drums4 for magma v1?
+          kicks = if is2x then Kicks2x else Kicks1x
+          in Just (emptyPartDrums mode kicks)
+            { difficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
+            , kit = case fmap C3.drumKitSFX c3 of
+              Nothing -> HardRockKit
+              Just 0  -> HardRockKit
+              Just 1  -> ArenaKit
+              Just 2  -> VintageKit
+              Just 3  -> TrashyKit
+              Just 4  -> ElectronicKit
+              Just _  -> HardRockKit
+            }
         })
       , ( FlexGuitar, emptyPart
         { grybo = guard (isJust gtr) >> Just PartGRYBO

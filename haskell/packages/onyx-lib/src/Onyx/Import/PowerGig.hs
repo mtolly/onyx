@@ -453,17 +453,7 @@ importPowerGigSong key song folder level = do
           }
         })
       , (F.FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = Just PartDrums
-          { mode        = Drums4
-          , difficulty  = Tier 1 -- TODO
-          , kicks       = Kicks1x
-          , fixFreeform = True
-          , kit         = HardRockKit
-          , layout      = StandardLayout
-          , fallback    = FallbackGreen
-          , fileDTXKit  = Nothing
-          , fullLayout  = FDStandard
-          }
+        { drums = Just $ emptyPartDrums Drums4 Kicks1x -- TODO difficulty
         })
       , (F.FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = Just PartVocal

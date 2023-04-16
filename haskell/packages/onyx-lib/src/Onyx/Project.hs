@@ -30,7 +30,7 @@ import           Data.Char                            (isDigit, isSpace)
 import           Data.Conduit.Audio                   (Duration (..))
 import           Data.Default.Class
 import qualified Data.EventList.Relative.TimeBody     as RTB
-import           Data.Fixed                           (Milli)
+import           Data.Fixed                           (Centi, Milli)
 import           Data.Foldable                        (toList)
 import           Data.Hashable                        (Hashable (..))
 import qualified Data.HashMap.Strict                  as HM
@@ -757,29 +757,45 @@ instance StackJSON Kicks where
     KicksBoth -> is "both"
 
 data PartDrums f = PartDrums
-  { difficulty  :: Difficulty
-  , mode        :: DrumMode
-  , kicks       :: Kicks
-  , fixFreeform :: Bool
-  , kit         :: DrumKit
-  , layout      :: DrumLayout
-  , fallback    :: OrangeFallback
-  , fileDTXKit  :: Maybe f
-  , fullLayout  :: FullDrumLayout
+  { difficulty    :: Difficulty
+  , mode          :: DrumMode
+  , kicks         :: Kicks
+  , fixFreeform   :: Bool
+  , kit           :: DrumKit
+  , layout        :: DrumLayout
+  , fallback      :: OrangeFallback
+  , fileDTXKit    :: Maybe f
+  , fullLayout    :: FullDrumLayout
+  , difficultyDTX :: Maybe Centi
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
   stackJSON = asStrictObject "PartDrums" $ do
-    difficulty  <- (.difficulty ) =. fill    (Tier 1)       "difficulty"   stackJSON
-    mode        <- (.mode       ) =. opt     DrumsPro       "mode"         stackJSON
-    kicks       <- (.kicks      ) =. warning Kicks1x        "kicks"        stackJSON
-    fixFreeform <- (.fixFreeform) =. opt     True           "fix-freeform" stackJSON
-    kit         <- (.kit        ) =. opt     HardRockKit    "kit"          stackJSON
-    layout      <- (.layout     ) =. opt     StandardLayout "layout"       stackJSON
-    fallback    <- (.fallback   ) =. opt     FallbackGreen  "fallback"     stackJSON
-    fileDTXKit  <- (.fileDTXKit ) =. opt     Nothing        "file-dtx-kit" stackJSON
-    fullLayout  <- (.fullLayout ) =. opt     FDStandard     "full-layout"  stackJSON
+    difficulty    <- (.difficulty   ) =. fill    (Tier 1)       "difficulty"     stackJSON
+    mode          <- (.mode         ) =. opt     DrumsPro       "mode"           stackJSON
+    kicks         <- (.kicks        ) =. warning Kicks1x        "kicks"          stackJSON
+    fixFreeform   <- (.fixFreeform  ) =. opt     True           "fix-freeform"   stackJSON
+    kit           <- (.kit          ) =. opt     HardRockKit    "kit"            stackJSON
+    layout        <- (.layout       ) =. opt     StandardLayout "layout"         stackJSON
+    fallback      <- (.fallback     ) =. opt     FallbackGreen  "fallback"       stackJSON
+    fileDTXKit    <- (.fileDTXKit   ) =. opt     Nothing        "file-dtx-kit"   stackJSON
+    fullLayout    <- (.fullLayout   ) =. opt     FDStandard     "full-layout"    stackJSON
+    difficultyDTX <- (.difficultyDTX) =. opt     Nothing        "difficulty-dtx" stackJSON
     return PartDrums{..}
+
+emptyPartDrums :: DrumMode -> Kicks -> PartDrums f
+emptyPartDrums mode kicks = PartDrums
+  { difficulty    = Tier 1
+  , mode          = mode
+  , kicks         = kicks
+  , fixFreeform   = False
+  , kit           = HardRockKit
+  , layout        = StandardLayout
+  , fallback      = FallbackGreen
+  , fileDTXKit    = Nothing
+  , fullLayout    = FDStandard
+  , difficultyDTX = Nothing
+  }
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

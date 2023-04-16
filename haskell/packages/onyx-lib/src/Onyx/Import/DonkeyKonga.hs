@@ -335,17 +335,7 @@ importDKSong chartName isMidi chartFile dsp level = do
         }
     , targets = HM.empty
     , parts = Parts $ HM.singleton F.FlexDrums (emptyPart :: Part SoftFile)
-      { drums = Just PartDrums
-        { difficulty  = Tier 1
-        , mode        = Drums4
-        , kicks       = Kicks1x
-        , fixFreeform = True
-        , kit         = HardRockKit
-        , layout      = StandardLayout
-        , fallback    = FallbackBlue
-        , fileDTXKit  = Nothing
-        , fullLayout  = FDStandard
-        }
+      { drums = Just $ emptyPartDrums Drums4 Kicks1x
       }
     }
 

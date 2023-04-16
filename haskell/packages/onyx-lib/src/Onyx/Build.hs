@@ -22,7 +22,7 @@ import           Data.Conduit.Audio
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Fixed                       (Centi, Milli)
+import           Data.Fixed                       (Centi, Fixed (..), Milli)
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (intercalate, sort)
@@ -182,6 +182,11 @@ dtxRules buildInfo dir dtx = do
             in (dtxNotes, dtxLongs)
         (gtrNotes , gtrLongs ) = makeGuitarBass dtxPartGuitar
         (bassNotes, bassLongs) = makeGuitarBass dtxPartBass
+        drumDifficulty = dtxPartDrums >>= \(_part, pd) -> case pd.difficultyDTX of
+          Just (MkFixed cents) -> Just $ let
+            (twoDigit, thirdDigit) = quotRem cents 10
+            in (fromIntegral twoDigit, fromIntegral thirdDigit)
+          Nothing              -> Nothing -- translate RB rank/tier?
     liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX DTX.DTX
       { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
       , DTX.dtx_ARTIST        = Just $ getArtist songYaml.metadata
@@ -190,10 +195,10 @@ dtxRules buildInfo dir dtx = do
       , DTX.dtx_GENRE         = songYaml.metadata.genre
       , DTX.dtx_PREVIEW       = Just "preview.ogg"
       , DTX.dtx_STAGEFILE     = Nothing
-      , DTX.dtx_DLEVEL        = Nothing
+      , DTX.dtx_DLEVEL        = fst <$> drumDifficulty
       , DTX.dtx_GLEVEL        = Nothing
       , DTX.dtx_BLEVEL        = Nothing
-      , DTX.dtx_DLVDEC        = Nothing
+      , DTX.dtx_DLVDEC        = snd <$> drumDifficulty
       , DTX.dtx_GLVDEC        = Nothing
       , DTX.dtx_BLVDEC        = Nothing
       , DTX.dtx_WAV           = let

@@ -36,6 +36,7 @@ parts:
       mode: full
       difficulty: 7
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.70
 targets:
   rb3:
     game: rb3

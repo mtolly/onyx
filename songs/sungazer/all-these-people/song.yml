@@ -5,6 +5,7 @@ parts:
       kicks: 1
       difficulty: 6
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 8.70
 audio:
   album-track:
     frames: 10251780

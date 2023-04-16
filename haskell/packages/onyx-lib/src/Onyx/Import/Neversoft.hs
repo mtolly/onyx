@@ -191,19 +191,13 @@ importGH5WoR src folder = do
                 { grybo = readTier (songTierBass info) $ \diff -> def { difficulty = diff }
                 })
               , (F.FlexDrums, (emptyPart :: Part SoftFile)
-                { drums = readTier (songTierDrums info) $ \diff -> PartDrums
-                  { mode        = Drums5
-                  , difficulty  = diff
+                { drums = readTier (songTierDrums info) $ \diff -> let
                   -- TODO are there any WoR songs that have ghost note X+ with no double kicks?
                   -- if so, do they have `double_kick` on?
-                  , kicks       = if songDoubleKick info then KicksBoth else Kicks1x
-                  , fixFreeform = True
-                  , kit         = HardRockKit
-                  , layout      = StandardLayout
-                  , fallback    = FallbackGreen
-                  , fileDTXKit  = Nothing
-                  , fullLayout  = FDStandard
-                  }
+                  kicks = if songDoubleKick info then KicksBoth else Kicks1x
+                  in (emptyPartDrums Drums5 kicks :: PartDrums SoftFile)
+                    { difficulty = diff
+                    }
                 })
               , (F.FlexVocal, (emptyPart :: Part SoftFile)
                 { vocal = readTier (songTierVocals info) $ \diff -> PartVocal
@@ -492,17 +486,7 @@ importGH3Song gh3i = let
         , do
           guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
           Just (F.FlexDrums, emptyPart
-            { drums = Just PartDrums
-              { difficulty  = Tier 1
-              , mode        = DrumsFull
-              , kicks       = if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth
-              , fixFreeform = False
-              , kit         = HardRockKit
-              , layout      = StandardLayout
-              , fallback    = FallbackGreen
-              , fileDTXKit  = Nothing
-              , fullLayout  = FDStandard
-              }
+            { drums = Just $ emptyPartDrums DrumsFull (if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth)
             })
         ]
       }

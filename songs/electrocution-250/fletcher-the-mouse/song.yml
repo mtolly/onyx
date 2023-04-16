@@ -28,6 +28,7 @@ parts:
       kicks: both
       difficulty: 7
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.80
   guitar: # combined chart by Paturages
     grybo:
       difficulty: 7
@@ -72,3 +73,4 @@ targets:
     game: dtx
     plan: drumless
     plan-preview: album
+    guitar: disabled

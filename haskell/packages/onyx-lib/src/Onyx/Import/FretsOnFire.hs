@@ -508,31 +508,29 @@ importFoF src dir level = do
       }
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = guard ((isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
-          { difficulty = toTier $ FoF.diffDrums song
-          , mode = let
-            isFiveLane = FoF.fiveLaneDrums song == Just True || any
-              (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) $ drumGems dd)
-              (Map.toList $ drumDifficulties $ F.fixedPartDrums outputFixed)
-            isReal = isnt nullDrums F.fixedPartRealDrumsPS
-            isPro = case FoF.proDrums song of
-              Just b  -> b
-              Nothing -> not (RTB.null $ drumToms $ F.fixedPartDrums outputFixed)
-                || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
-            in if isFiveLane then Drums5
-              else if isReal then DrumsReal
-                else if isPro then DrumsPro
-                  else Drums4
-          , kicks = hasKicks
-          , fixFreeform = False
-          , kit = HardRockKit
-          , layout = StandardLayout
-          , fallback = if fromMaybe False $ FoF.drumFallbackBlue song
-            then FallbackBlue
-            else FallbackGreen
-          , fileDTXKit = Nothing
-          , fullLayout = FDStandard
-          }
+        { drums = do
+          guard
+            $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS)
+            && guardDifficulty FoF.diffDrums
+          let mode = let
+                isFiveLane = FoF.fiveLaneDrums song == Just True || any
+                  (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) $ drumGems dd)
+                  (Map.toList $ drumDifficulties $ F.fixedPartDrums outputFixed)
+                isReal = isnt nullDrums F.fixedPartRealDrumsPS
+                isPro = case FoF.proDrums song of
+                  Just b  -> b
+                  Nothing -> not (RTB.null $ drumToms $ F.fixedPartDrums outputFixed)
+                    || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
+                in if isFiveLane then Drums5
+                  else if isReal then DrumsReal
+                    else if isPro then DrumsPro
+                      else Drums4
+          Just (emptyPartDrums mode hasKicks)
+            { difficulty = toTier $ FoF.diffDrums song
+            , fallback = if fromMaybe False $ FoF.drumFallbackBlue song
+              then FallbackBlue
+              else FallbackGreen
+            }
         })
       , ( FlexGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (isnt Five.nullFive F.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO

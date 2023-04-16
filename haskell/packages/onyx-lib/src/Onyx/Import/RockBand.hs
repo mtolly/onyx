@@ -553,16 +553,10 @@ importRB rbi level = do
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
       [ ( F.FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = guard (hasRankStr "drum") >> Just PartDrums
+        { drums = guard (hasRankStr "drum") >> Just (emptyPartDrums DrumsPro hasKicks)
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
-          , mode = DrumsPro
-          , kicks = hasKicks
-          , fixFreeform = False
           , kit = drumkit
           , layout = StandardLayout -- TODO import this
-          , fallback = FallbackGreen
-          , fileDTXKit = Nothing
-          , fullLayout = FDStandard
           }
         })
       , ( F.FlexGuitar, (emptyPart :: Part SoftFile)

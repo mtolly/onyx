@@ -150,11 +150,11 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         -- don't include sample if we didn't find its audio
         $ RTB.filter (\chip -> HS.member chip foundChips) chips
       in (Just (name, audios), Just (name, track))
-  audioForChipGroups name chips = if all (RTB.null . snd) chips
+  audioForChipGroups polyphony name chips = if all (RTB.null . snd) chips
     then (Nothing, Nothing)
     else let
       poly = SamplesInfo
-        { groupPolyphony = Just 1
+        { groupPolyphony = Just polyphony
         , groupCrossfade = 0.002
         }
       audios = AudioSamples poly
@@ -168,14 +168,19 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   getDrumChipGroup (groupName, lanes)
     = (groupName, RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) $ dtx_Drums dtx)
   (songAudio, songTrack) = audioForChipsOverlap "audio-song" $ dtx_BGM dtx
-  (guitarAudio, guitarTrack) = audioForChipGroups "audio-guitar" [("", snd <$> dtx_Guitar dtx)]
-  (bassAudio, bassTrack) = audioForChipGroups "audio-bass" [("", snd <$> dtx_Bass dtx)]
-  (kickAudio, kickTrack) = audioForChipGroups "audio-kick" $ map getDrumChipGroup
-    [("", [BassDrum, LeftBass])]
-  (snareAudio, snareTrack) = audioForChipGroups "audio-snare" $ map getDrumChipGroup
+  (guitarAudio, guitarTrack) = audioForChipGroups 1 "audio-guitar" [("", snd <$> dtx_Guitar dtx)]
+  (bassAudio, bassTrack) = audioForChipGroups 1 "audio-bass" [("", snd <$> dtx_Bass dtx)]
+  -- giving each drum lane polyphony 2 based on info at
+  -- https://osdn.net/projects/dtxmania/wiki/DTX%20data%20format
+  (kickAudio, kickTrack) = audioForChipGroups 2 "audio-kick" $ map getDrumChipGroup
+    [ ("BD", [BassDrum])
+    , ("LB", [LeftBass])
+    ]
+  (snareAudio, snareTrack) = audioForChipGroups 2 "audio-snare" $ map getDrumChipGroup
     [("", [Snare])]
-  (kitAudio, kitTrack) = audioForChipGroups "audio-kit" $ map getDrumChipGroup
-    [ ("HH", [HihatClose, HihatOpen, LeftPedal])
+  (kitAudio, kitTrack) = audioForChipGroups 2 "audio-kit" $ map getDrumChipGroup
+    [ ("HH", [HihatClose, HihatOpen])
+    , ("LP", [LeftPedal])
     , ("HT", [HighTom])
     , ("LT", [LowTom])
     , ("CY", [Cymbal])
@@ -183,8 +188,26 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     , ("RC", [RideCymbal])
     , ("LC", [LeftCymbal])
     ]
+  -- this may not behave exactly as DTX does, but close enough.
+  -- LP notes should cut off any previous HH notes, and HHC should cut off HHO.
+  -- but this implementation does mean HHC only has polyphony 1 - should revisit in future
+  hihatSilencer = Just ("hihat-silencer", AudioSnippet $ Silence 2 $ CA.Frames 0)
+  hihatSilencerTrigger = F.SampleTrigger
+    { sampleGroup = "HH"
+    , sampleAudio = "hihat-silencer"
+    }
+  kitTrack' = flip fmap kitTrack $ fmap $ \trk -> trk
+    { F.sampleTriggers = RTB.merge (F.sampleTriggers trk) $
+      RTB.flatten $ flip fmap (RTB.collectCoincident $ dtx_Drums dtx) $ \instant ->
+        if any (\(lane, _) -> elem lane [LeftPedal, HihatClose]) instant
+          then case length $ filter (\(lane, _) -> elem lane [HihatClose, HihatOpen]) instant of
+            0 -> [hihatSilencerTrigger, hihatSilencerTrigger]
+            1 -> [hihatSilencerTrigger]
+            _ -> []
+          else []
+    }
   extraResults = flip map (HM.toList $ dtx_BGMExtra dtx) $ \(chan, chips) ->
-    audioForChipGroups ("audio-extra-" <> chan) [("", chips)]
+    audioForChipGroups 1 ("audio-extra-" <> chan) [("", chips)]
   audioExpr name = PlanAudio
     { expr = Input $ Named name
     , pans = []
@@ -197,7 +220,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     }
   songYaml' = songYaml
     { audio = HM.union songYaml.audio $ HM.fromList $ catMaybes
-      $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio]
+      $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio, hihatSilencer]
       <> map fst extraResults
     , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
       { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
@@ -227,7 +250,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   mid' = mid
     { F.s_tracks = (F.s_tracks mid)
       { F.onyxSamples = Map.fromList $ catMaybes
-        $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, kitTrack]
+        $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, kitTrack']
         <> map snd extraResults
       }
     }
@@ -331,10 +354,17 @@ importSetDef setDefPath song level = do
         warn "Multiple video backgrounds, not importing"
         return Nothing
 
-  let translateDifficulty Nothing    _   = Rank 1
+  let translateDifficulty Nothing _ = Rank 1
+      -- some songs just have a 3-digit *LEVEL
+      translateDifficulty (Just lvl) Nothing | lvl >= 100 = let
+        lvl' = fromIntegral lvl / 1000 :: Rational
+        in Rank $ max 1 $ round $ lvl' * difficultyScale
+      -- but most use 2-digit *LEVEL + optional 1-digit *LVDEC
       translateDifficulty (Just lvl) dec = let
         lvl' = (fromIntegral lvl + maybe 0 ((/ 10) . fromIntegral) dec) / 100 :: Rational
-        in Rank $ max 1 $ round $ lvl' * 525 -- arbitrary scaling factor
+        in Rank $ max 1 $ round $ lvl' * difficultyScale
+      difficultyScale = 525 -- arbitrary scaling factor
+      -- TODO also import to difficulty-dtx
 
   let yamlWithAudio = addChipAudio SongYaml
         { metadata = def'
@@ -358,19 +388,13 @@ importSetDef setDefPath song level = do
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
           [ flip fmap topDrumDiff $ \diff -> (F.FlexDrums, emptyPart
-            { drums = Just PartDrums
-              { difficulty  = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
-              , mode        = DrumsFull
-              , kicks       = if any ((== LeftBass) . fst) $ dtx_Drums diff
+            { drums = Just $ let
+              kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
                 then KicksBoth
                 else Kicks1x
-              , fixFreeform = False
-              , kit         = HardRockKit
-              , layout      = StandardLayout
-              , fallback    = FallbackGreen
-              , fileDTXKit  = Nothing
-              , fullLayout  = FDStandard
-              }
+              in (emptyPartDrums DrumsFull kicks)
+                { difficulty = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
+                }
             })
           , flip fmap topGuitarDiff $ \diff -> (F.FlexGuitar, emptyPart
             { grybo = Just (def :: PartGRYBO)

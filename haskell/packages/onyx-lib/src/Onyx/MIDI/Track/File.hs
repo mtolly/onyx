@@ -518,7 +518,7 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
 
 readMIDIFile :: (SendMessage m) => F.T T.Text -> StackTraceT m (Song [RTB.T U.Beats (E.T T.Text)])
 readMIDIFile mid = do
-  (s_tempos, s_signatures, s_tracks_nodupe) <- case U.decodeFile mid of
+  (s_tempos, s_signatures, s_tracks) <- case U.decodeFile mid of
     Right trks -> let
       tempos = U.tempoMapFromBPS $ RTB.singleton 0 2
       sigs = U.measureMapFromTimeSigs U.Truncate $ RTB.singleton 0 $ U.TimeSig 4 1
@@ -537,7 +537,8 @@ readMIDIFile mid = do
           t : ts -> (t, ts)
           []     -> (RTB.empty, [])
       return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
-  let s_tracks = map (RTB.flatten . fmap nubOrd . RTB.collectCoincident) s_tracks_nodupe
+  -- previously we ran nubOrd to remove duplicate midi events at the same time.
+  -- was there a specific reason? removed to fix some usage of audio sample tracks (dtx hihat stuff)
   return Song{..}
 
 -- | Used for reading midis we expect to be type-0, for Rock Revolution

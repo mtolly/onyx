@@ -5,6 +5,7 @@ parts:
       kicks: both
       difficulty: 7
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
+      difficulty-dtx: 9.20
   # bass: # WIP
   #   pro-guitar:
   #     tuning:
@@ -61,3 +62,4 @@ targets:
     game: dtx
     plan: drumless
     plan-preview: album
+    guitar: disabled
