@@ -25,7 +25,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Centi, Fixed (..), Milli)
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (intercalate, sort)
+import           Data.List.Extra                  (intercalate, nubOrd, sort)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
@@ -160,7 +160,7 @@ dtxRules buildInfo dir dtx = do
           return (templateFixed, templateDTX)
         return (mapping, template)
 
-  dir </> "dtx/mstr.dtx" %> \out -> do
+  (dir </> "dtx/mstr.dtx", dir </> "used-chips.txt") %> \(out, outUsedChips) -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     (mapping, template) <- loadMappingTemplate
     let bgmChip   = "0X" -- TODO read this from BGMWAV in mapping
@@ -187,81 +187,97 @@ dtxRules buildInfo dir dtx = do
             (twoDigit, thirdDigit) = quotRem cents 10
             in (fromIntegral twoDigit, fromIntegral thirdDigit)
           Nothing              -> Nothing -- translate RB rank/tier?
-    liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX DTX.DTX
-      { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
-      , DTX.dtx_ARTIST        = Just $ getArtist songYaml.metadata
-      , DTX.dtx_PREIMAGE      = Just artPath
-      , DTX.dtx_COMMENT       = Nothing
-      , DTX.dtx_GENRE         = songYaml.metadata.genre
-      , DTX.dtx_PREVIEW       = Just "preview.ogg"
-      , DTX.dtx_STAGEFILE     = Nothing
-      , DTX.dtx_DLEVEL        = fst <$> drumDifficulty
-      , DTX.dtx_GLEVEL        = Nothing
-      , DTX.dtx_BLEVEL        = Nothing
-      , DTX.dtx_DLVDEC        = snd <$> drumDifficulty
-      , DTX.dtx_GLVDEC        = Nothing
-      , DTX.dtx_BLVDEC        = Nothing
-      , DTX.dtx_WAV           = let
-        initWAV = HM.fromList
-          [ (emptyChip, "empty.wav")
-          , (bgmChip  , "bgm.ogg"  )
+        dtxFile = DTX.DTX
+          { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
+          , DTX.dtx_ARTIST        = Just $ getArtist songYaml.metadata
+          , DTX.dtx_PREIMAGE      = Just artPath
+          , DTX.dtx_COMMENT       = Nothing
+          , DTX.dtx_GENRE         = songYaml.metadata.genre
+          , DTX.dtx_PREVIEW       = Just "preview.ogg"
+          , DTX.dtx_STAGEFILE     = Nothing
+          , DTX.dtx_DLEVEL        = fst <$> drumDifficulty
+          , DTX.dtx_GLEVEL        = Nothing
+          , DTX.dtx_BLEVEL        = Nothing
+          , DTX.dtx_DLVDEC        = snd <$> drumDifficulty
+          , DTX.dtx_GLVDEC        = Nothing
+          , DTX.dtx_BLVDEC        = Nothing
+          , DTX.dtx_WAV           = let
+            initWAV = HM.fromList
+              [ (emptyChip, "empty.wav")
+              , (bgmChip  , "bgm.ogg"  )
+              ]
+            -- TODO maybe make sure all template WAV paths are local
+            in maybe initWAV (HM.union initWAV . DTX.dtx_WAV . snd) template
+          , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
+          , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
+          , DTX.dtx_AVI           = HM.empty
+          , DTX.dtx_MeasureMap    = F.s_signatures mid
+          , DTX.dtx_TempoMap      = F.s_tempos mid
+          , DTX.dtx_Drums         = case dtxPartDrums of
+            Nothing          -> RTB.empty
+            Just (part, _pd) -> let
+              track
+                = maybe mempty F.onyxPartFullDrums
+                $ Map.lookup part
+                $ F.onyxParts
+                $ F.s_tracks mid
+              -- TODO need to properly handle blip overrides on flams!
+              fullNotes
+                = applyLongStatus (FD.fdChipOverride track)
+                $ FD.splitFlams (F.s_tempos mid)
+                $ FD.getDifficulty Nothing track
+              toDTXNotes = fmap $ \(currentOverrides, fdn) -> let
+                lane = case FD.fdn_gem fdn of
+                  FD.Kick      -> case FD.fdn_limb fdn of
+                    Just D.LH -> DTX.LeftBass
+                    _         -> DTX.BassDrum
+                  FD.Snare     -> DTX.Snare
+                  FD.Hihat     -> case FD.fdn_type fdn of
+                    FD.GemHihatOpen -> DTX.HihatOpen
+                    _               -> DTX.HihatClose
+                  FD.HihatFoot -> DTX.LeftPedal
+                  FD.CrashL    -> DTX.LeftCymbal
+                  FD.Tom1      -> DTX.HighTom
+                  FD.Tom2      -> DTX.LowTom
+                  FD.Tom3      -> DTX.FloorTom
+                  FD.CrashR    -> DTX.Cymbal
+                  FD.Ride      -> DTX.RideCymbal
+                chip = fromMaybe emptyChip $ do
+                  (_, DTX.DTXMapping _ conds allOverrides) <- mapping
+                  let addedConds = do
+                        DTX.DTXOverride tag extraConds <- allOverrides
+                        guard $ elem tag currentOverrides
+                        extraConds
+                  DTX.lookupDTXMapping (addedConds <> conds) fdn
+                in (lane, chip)
+              in toDTXNotes fullNotes
+          , DTX.dtx_DrumsDummy    = RTB.empty
+          , DTX.dtx_Guitar        = gtrNotes
+          , DTX.dtx_GuitarWailing = RTB.empty
+          , DTX.dtx_GuitarLong    = gtrLongs
+          , DTX.dtx_Bass          = bassNotes
+          , DTX.dtx_BassWailing   = RTB.empty
+          , DTX.dtx_BassLong      = bassLongs
+          , DTX.dtx_BGM           = RTB.singleton 0 bgmChip
+          , DTX.dtx_BGMExtra      = HM.empty
+          , DTX.dtx_Video         = RTB.empty
+          }
+        usedChips :: [DTX.Chip]
+        usedChips = nubOrd $ concat
+          [ map snd $ toList $ DTX.dtx_Drums dtxFile
+          , map snd $ toList $ DTX.dtx_DrumsDummy dtxFile
+          , map snd $ toList $ DTX.dtx_Guitar dtxFile
+          , map snd $ toList $ DTX.dtx_Bass dtxFile
+          , toList $ DTX.dtx_BGM dtxFile
+          , toList (DTX.dtx_BGMExtra dtxFile) >>= toList
           ]
-        -- TODO maybe make sure all template WAV paths are local
-        in maybe initWAV (HM.union initWAV . DTX.dtx_WAV . snd) template
-      , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
-      , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
-      , DTX.dtx_AVI           = HM.empty
-      , DTX.dtx_MeasureMap    = F.s_signatures mid
-      , DTX.dtx_TempoMap      = F.s_tempos mid
-      , DTX.dtx_Drums         = case dtxPartDrums of
-        Nothing          -> RTB.empty
-        Just (part, _pd) -> let
-          track
-            = maybe mempty F.onyxPartFullDrums
-            $ Map.lookup part
-            $ F.onyxParts
-            $ F.s_tracks mid
-          -- TODO need to properly handle blip overrides on flams!
-          fullNotes
-            = applyLongStatus (FD.fdChipOverride track)
-            $ FD.splitFlams (F.s_tempos mid)
-            $ FD.getDifficulty Nothing track
-          toDTXNotes = fmap $ \(currentOverrides, fdn) -> let
-            lane = case FD.fdn_gem fdn of
-              FD.Kick      -> case FD.fdn_limb fdn of
-                Just D.LH -> DTX.LeftBass
-                _         -> DTX.BassDrum
-              FD.Snare     -> DTX.Snare
-              FD.Hihat     -> case FD.fdn_type fdn of
-                FD.GemHihatOpen -> DTX.HihatOpen
-                _               -> DTX.HihatClose
-              FD.HihatFoot -> DTX.LeftPedal
-              FD.CrashL    -> DTX.LeftCymbal
-              FD.Tom1      -> DTX.HighTom
-              FD.Tom2      -> DTX.LowTom
-              FD.Tom3      -> DTX.FloorTom
-              FD.CrashR    -> DTX.Cymbal
-              FD.Ride      -> DTX.RideCymbal
-            chip = fromMaybe emptyChip $ do
-              (_, DTX.DTXMapping _ conds allOverrides) <- mapping
-              let addedConds = do
-                    DTX.DTXOverride tag extraConds <- allOverrides
-                    guard $ elem tag currentOverrides
-                    extraConds
-              DTX.lookupDTXMapping (addedConds <> conds) fdn
-            in (lane, chip)
-          in toDTXNotes fullNotes
-      , DTX.dtx_DrumsDummy    = RTB.empty
-      , DTX.dtx_Guitar        = gtrNotes
-      , DTX.dtx_GuitarWailing = RTB.empty
-      , DTX.dtx_GuitarLong    = gtrLongs
-      , DTX.dtx_Bass          = bassNotes
-      , DTX.dtx_BassWailing   = RTB.empty
-      , DTX.dtx_BassLong      = bassLongs
-      , DTX.dtx_BGM           = RTB.singleton 0 bgmChip
-      , DTX.dtx_BGMExtra      = HM.empty
-      , DTX.dtx_Video         = RTB.empty
+        isUsedChip k _ = elem k usedChips
+    liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX dtxFile
+      { DTX.dtx_WAV    = HM.filterWithKey isUsedChip $ DTX.dtx_WAV    dtxFile
+      , DTX.dtx_VOLUME = HM.filterWithKey isUsedChip $ DTX.dtx_VOLUME dtxFile
+      , DTX.dtx_PAN    = HM.filterWithKey isUsedChip $ DTX.dtx_PAN    dtxFile
       }
+    liftIO $ writeFile outUsedChips $ show usedChips
 
   phony (dir </> "dtx") $ do
     shk $ need
@@ -270,11 +286,20 @@ dtxRules buildInfo dir dtx = do
       , dir </> "dtx/preview.ogg"
       , dir </> "dtx" </> artPath
       , dir </> "dtx/mstr.dtx"
+      , dir </> "used-chips.txt"
       ]
-    -- TODO only output chip audio we actually used
+    usedChips <- shk (readFile' $ dir </> "used-chips.txt") >>=
+      maybe (fatal "Panic! Couldn't parse used-chips file") return . readMaybe
+    let _ = usedChips :: [DTX.Chip]
     (_, template) <- loadMappingTemplate
     forM_ template $ \(templatePath, templateDTX) -> do
-      forM_ (HM.toList $ DTX.dtx_WAV templateDTX) $ \(_, path) -> do
+      let usedPaths
+            = nubOrd
+            $ map snd
+            $ filter ((`elem` usedChips) . fst)
+            $ HM.toList
+            $ DTX.dtx_WAV templateDTX
+      forM_ usedPaths $ \path -> do
         -- again, maybe make sure path is local
         when (path /= "bgm.ogg") $ do
           shk $ copyFile'
