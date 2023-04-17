@@ -171,8 +171,8 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
   srcList = case pd.mode of
-    DrumsReal -> srcReal : srcsRB
-    DrumsFull -> srcFull : srcsRB
+    DrumsReal -> srcsRB <> [srcReal]
+    DrumsFull -> srcsRB <> [srcFull]
     _         -> srcsRB
   src = fromMaybe mempty $ find (not . D.nullDrums) srcList
 
