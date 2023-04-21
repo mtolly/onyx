@@ -281,6 +281,30 @@ data CymbalInstant lc rd = CymbalInstant
   , instantRC :: Bool -- always green
   } deriving (Show)
 
+-- In cases of an open hihat note followed semi-closely by a closed one,
+-- add a foot hihat note. Used for DTX export where it is the norm for readability
+addExplicitStomps :: (NNC.C t) => t -> RTB.T t (FullDrumNote FlamStatus) -> RTB.T t (FullDrumNote FlamStatus)
+addExplicitStomps threshold trk = let
+  hihatNotes = flip RTB.mapMaybe (RTB.collectCoincident trk) $ \instant -> let
+    open   = any (\fdn -> fdn_gem fdn == Hihat && fdn_type fdn == GemHihatOpen  ) instant
+    closed = any (\fdn -> fdn_gem fdn == Hihat && fdn_type fdn == GemHihatClosed) instant
+    pedal  = any (\fdn -> fdn_gem fdn == HihatFoot                              ) instant
+    in guard (open || closed || pedal) >> Just (open, closed, pedal)
+  foot = FullDrumNote
+    { fdn_gem      = HihatFoot
+    , fdn_type     = GemNormal
+    , fdn_velocity = VelocityNormal
+    , fdn_limb     = Nothing
+    , fdn_extra    = NotFlam
+    }
+  go lastOpen = \case
+    RNil -> RNil
+    Wait dt (open, closed, pedal) rest ->
+      if lastOpen && closed && not pedal && dt <= threshold
+        then Wait dt foot $ go open rest
+        else RTB.delay dt $ go open rest
+  in RTB.merge trk $ go False hihatNotes
+
 -- Simple version, hihat = Y, left cymbal = B, right cymbal / ride = G
 placeCymbals :: (NNC.C t) => RTB.T t (FullDrumNote ()) -> RTB.T t (D.RealDrum, DrumVelocity)
 placeCymbals
@@ -512,6 +536,7 @@ autoFDAnimation closeTime fdns = let
 -- TODO hihat pedal
 animationToFD :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (FullDrumNote (), D.Hand)
 animationToFD anims = RTB.flatten $ flip fmap anims $ \case
+  -- TODO need to handle two hits on same drum and turn into flam
   D.Tom1       hand -> pure (FullDrumNote Tom1   GemNormal      VelocityNormal Nothing (), hand)
   D.Tom2       hand -> pure (FullDrumNote Tom2   GemNormal      VelocityNormal Nothing (), hand)
   D.FloorTom   hand -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal Nothing (), hand)
@@ -523,6 +548,7 @@ animationToFD anims = RTB.flatten $ flip fmap anims $ \case
   D.KickRF          -> pure (FullDrumNote Kick   GemNormal      VelocityNormal Nothing (), D.RH)
   D.Crash1RHChokeLH -> pure (FullDrumNote CrashL GemCymbalChoke VelocityNormal Nothing (), D.RH)
   D.Crash2RHChokeLH -> pure (FullDrumNote CrashR GemCymbalChoke VelocityNormal Nothing (), D.RH)
+  -- TODO this should probably go on Tom1/Tom2 as needed, I think it's more behind those in the RB anim kit
   D.PercussionRH    -> pure (FullDrumNote Tom3   GemNormal      VelocityNormal Nothing (), D.RH)
   _                 -> []
   where fromHit D.SoftHit = VelocityGhost

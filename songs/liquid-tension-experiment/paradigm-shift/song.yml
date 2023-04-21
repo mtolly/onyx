@@ -14,6 +14,11 @@ audio:
   album-track:
     md5: 91db93f3eea3c214d6d6f3d09c7eb780
     frames: 23609376
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -24,6 +29,18 @@ plans:
       mix:
       - countin
       - pad: [3.069, album-track]
+  dev:
+    song:
+      pad: [3.069, album-track]
+    parts:
+      bass:
+        pad: [3.069, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.069, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.069, channels: [[4, 5], stems]]
+      other:
+        pad: [3.069, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
@@ -54,17 +71,21 @@ targets:
     game: rb3
     song-id: 1660200025
     version: 3
+    plan: album
     # url: http://www.mediafire.com/file/bif48syrnt35myt/ParadigmShift_1x_v3_rb3con
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200026
     version: 3
+    plan: album
     # url: http://www.mediafire.com/file/laqfggnz78lc8s7/ParadigmShift_2x_v3_rb3con
   ps:
     game: ps
+    plan: album
     # url: http://www.mediafire.com/file/57jesm0rnya64sg/ParadigmShift_v3_ps.zip
   rs:
     game: rs
+    plan: album
     arrangements:
     - [bonus-rhythm, bass]

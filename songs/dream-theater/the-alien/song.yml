@@ -10,10 +10,9 @@ metadata:
   file-album-art: ../../../covers/a-view-from-the-top-of-the-world.jpg
   preview-start: prc_prechorus_1
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube V462IsOV3js 140
+  album-track:
+    md5: 59aae14a1aaf9fc61a98f617d22f54b5
+    frames: 27451141
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -23,7 +22,7 @@ plans:
     song:
       mix:
       - countin
-      - pad: [2.499, youtube]
+      - pad: [3.253, album-track]
 parts:
   drums:
     drums:

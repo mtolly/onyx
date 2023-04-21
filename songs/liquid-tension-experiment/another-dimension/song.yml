@@ -12,6 +12,11 @@ audio:
   album-track:
     md5: 979287af96bd996ae64e35728a77590f
     frames: 26041344
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -24,6 +29,18 @@ plans:
       - pad:
         - 4.067
         - fade: [0.5, album-track]
+  dev:
+    song:
+      pad: [4.067, album-track]
+    parts:
+      bass:
+        pad: [4.067, channels: [[0, 1], stems]]
+      drums:
+        pad: [4.067, channels: [[2, 3], stems]]
+      vocal:
+        pad: [4.067, channels: [[4, 5], stems]]
+      other:
+        pad: [4.067, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
@@ -55,10 +72,13 @@ targets:
     game: rb3
     song-id: 1660200107
     version: 3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200108
     version: 3
+    plan: album
   ps:
     game: ps
+    plan: album

@@ -225,6 +225,7 @@ dtxRules buildInfo dir dtx = do
               fullNotes
                 = applyLongStatus (FD.fdChipOverride track)
                 $ FD.splitFlams (F.s_tempos mid)
+                $ FD.addExplicitStomps (4 :: U.Beats)
                 $ FD.getDifficulty Nothing track
               toDTXNotes = fmap $ \(currentOverrides, fdn) -> let
                 lane = case FD.fdn_gem fdn of

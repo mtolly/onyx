@@ -9,6 +9,11 @@ audio:
   album-track:
     md5: 48787c042b0cb542ca3f414ae44ae990
     frames: 11668272
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -19,6 +24,18 @@ plans:
       mix:
       - countin
       - pad: [2.640, album-track]
+  dev:
+    song:
+      pad: [2.640, album-track]
+    parts:
+      bass:
+        pad: [2.640, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.640, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.640, channels: [[4, 5], stems]]
+      other:
+        pad: [2.640, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
