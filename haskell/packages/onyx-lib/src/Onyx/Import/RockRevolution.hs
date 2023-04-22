@@ -462,7 +462,7 @@ importRRDrums diffs = mempty
 importRRTrueDrums :: RRDrumDifficulty U.Beats -> TD.TrueDrumDifficulty U.Beats
 importRRTrueDrums rr = mempty
   { TD.tdGems
-    = fmap (\gem -> (gem, D.VelocityNormal))
+    = fmap (\gem -> (gem, TD.TBDefault, D.VelocityNormal))
     $ RTB.mapMaybe (rrChannel7Lane . snd)
     $ rrdGems rr
   }

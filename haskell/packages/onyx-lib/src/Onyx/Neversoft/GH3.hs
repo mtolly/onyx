@@ -431,7 +431,7 @@ gh3DrumsToFull toBeats notes = let
     { tdSticking = RTB.empty -- TODO
     , tdDifficulties = Map.singleton Expert mempty
       { tdGems
-        = fmap (\fgem -> (fgem, D.VelocityNormal))
+        = fmap (\fgem -> (fgem, TBDefault, D.VelocityNormal))
         $ RTB.merge (Kick <$ RTB.filter id kicks)
         $ RTB.flatten
         $ fmap nubOrd handsNoSticking

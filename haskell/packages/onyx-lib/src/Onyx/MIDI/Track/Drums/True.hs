@@ -58,7 +58,7 @@ instance TraverseTrack TrueDrumTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
 
 data TrueDrumDifficulty t = TrueDrumDifficulty
-  { tdGems        :: RTB.T t (TrueGem, DrumVelocity)
+  { tdGems        :: RTB.T t (TrueGem, TrueBasic, DrumVelocity)
   , tdKick2       :: RTB.T t () -- TODO (gem type ?) and velocity
   , tdFlam        :: RTB.T t ()
   , tdHihatOpen   :: RTB.T t Bool
@@ -95,6 +95,14 @@ data TrueGemType
   | GemRim
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+data TrueBasic
+  = TBDefault
+  | TBRed
+  | TBYellow
+  | TBBlue
+  | TBGreen
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
 nullTrueDrums :: TrueDrumTrack t -> Bool
 nullTrueDrums = all (RTB.null . tdGems) . toList . tdDifficulties
 
@@ -127,14 +135,25 @@ instance ParseTrack TrueDrumTrack where
             Medium -> 24
             Hard   -> 48
             Expert -> 72
-          decodeCV (drum, (_, v)) = let
+          decodeCV (drum, (c, v)) = let
+            basic = case c of
+              1 -> TBRed
+              2 -> TBYellow
+              3 -> TBBlue
+              4 -> TBGreen
+              _ -> TBDefault
             vel = case v of
               1   -> VelocityGhost
               127 -> VelocityAccent
               _   -> VelocityNormal
-            in (drum, vel)
-          encodeCV (drum, vel) = let
-            c = 0
+            in (drum, basic, vel)
+          encodeCV (drum, basic, vel) = let
+            c = case basic of
+              TBDefault -> 0
+              TBRed     -> 1
+              TBYellow  -> 2
+              TBBlue    -> 3
+              TBGreen   -> 4
             v = case vel of
               VelocityGhost  -> 1
               VelocityNormal -> 96
@@ -294,15 +313,15 @@ getDifficulty diff trk = let
       Nothing -> [fmap MergedNote2 $ tdKick2 base]
       _       -> []
   processSlice (types, evts) = let
-    notKick = [ trio | MergedNote trio@(gem, _) <- evts, gem /= Kick ]
-    kick = [ trio | MergedNote trio@(Kick, _) <- evts ]
+    notKick = [ trio | MergedNote trio@(gem, _, _) <- evts, gem /= Kick ]
+    kick = [ trio | MergedNote trio@(Kick, _, _) <- evts ]
     flam = any (\case MergedFlam -> True; _ -> False) evts
     kick2 = any (\case MergedNote2 () -> True; _ -> False) evts
     foot = listToMaybe [ f | MergedFooting f <- evts ]
     hihatType  = fromMaybe GemNormal $ listToMaybe $ filter (`elem` [GemHihatOpen, GemHihatClosed]) types
     drumType   = fromMaybe GemNormal $ listToMaybe $ filter (== GemRim) types
     cymbalType = fromMaybe GemNormal $ listToMaybe $ filter (== GemCymbalChoke) types
-    outputNotKick = flip fmap notKick $ \(gem, vel) -> TrueDrumNote
+    outputNotKick = flip fmap notKick $ \(gem, _, vel) -> TrueDrumNote
       { tdn_gem      = gem
       , tdn_type     = case gem of
         Hihat  -> hihatType
@@ -326,7 +345,7 @@ getDifficulty diff trk = let
         , tdn_limb     = Just $ fromMaybe D.LH foot
         , tdn_extra    = NotFlam
         }
-      _          -> flip fmap kick $ \(gem, vel) -> TrueDrumNote
+      _          -> flip fmap kick $ \(gem, _, vel) -> TrueDrumNote
         { tdn_gem      = gem
         , tdn_type     = GemNormal
         , tdn_velocity = vel
@@ -677,7 +696,7 @@ makeTrueDifficulty gems = let
     (\(m', b) -> guard (m == m') >> Just b)
     types
   in TrueDrumDifficulty
-    { tdGems        = (\(gem, _, vel) -> (gem, vel)) <$> gems
+    { tdGems        = (\(gem, _, vel) -> (gem, TBDefault, vel)) <$> gems
     , tdKick2       = RTB.empty
     , tdFlam        = RTB.empty
     , tdHihatOpen   = getModifier GemHihatOpen

@@ -306,7 +306,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         xCenter = x1 + (x2 - x1) / 2
         (x1', x2') = case tdn_velocity note of
           D.VelocityGhost -> let
-            adjustX v = xCenter + (v - xCenter) * 0.7
+            adjustX v = xCenter + (v - xCenter) * 0.8
             in (adjustX x1, adjustX x2)
           _ -> (x1, x2)
         reference = case tdn_gem note of
