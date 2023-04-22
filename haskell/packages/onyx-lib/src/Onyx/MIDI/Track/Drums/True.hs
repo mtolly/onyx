@@ -18,6 +18,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
@@ -661,13 +662,27 @@ fullToTrue (F.Cons typ dvn trks) = let
     else Nothing
 
 makeTrueDifficulty :: RTB.T U.Beats (TrueGem, TrueGemType, DrumVelocity) -> TrueDrumDifficulty U.Beats
-makeTrueDifficulty gems = TrueDrumDifficulty
-  { tdGems        = (\(gem, _, vel) -> (gem, vel)) <$> gems
-  , tdKick2       = RTB.empty
-  , tdFlam        = RTB.empty
-  , tdHihatOpen   = RTB.empty -- TODO generate from types
-  , tdHihatClosed = RTB.empty -- TODO generate from types
-  , tdDisco       = RTB.empty
-  , tdRim         = RTB.empty -- TODO generate from types
-  , tdChoke       = RTB.empty -- TODO generate from types
-  }
+makeTrueDifficulty gems = let
+  types = U.trackJoin $ go $ RTB.collectCoincident gems
+  go = \case
+    Wait dt1 gems1 rest -> let
+      mods = nubOrd $ filter (/= GemNormal) [ typ | (_, typ, _) <- gems1 ]
+      len = case rest of
+        RNil         -> 1/8
+        Wait dt2 _ _ -> min (1/8) dt2
+      modEdges = RTB.flatten $ Wait 0 (map (, True) mods) $ Wait len (map (, False) mods) RNil
+      in Wait dt1 modEdges $ go rest
+    RNil -> RNil
+  getModifier m = RTB.mapMaybe
+    (\(m', b) -> guard (m == m') >> Just b)
+    types
+  in TrueDrumDifficulty
+    { tdGems        = (\(gem, _, vel) -> (gem, vel)) <$> gems
+    , tdKick2       = RTB.empty
+    , tdFlam        = RTB.empty
+    , tdHihatOpen   = getModifier GemHihatOpen
+    , tdHihatClosed = getModifier GemHihatClosed
+    , tdDisco       = RTB.empty
+    , tdRim         = getModifier GemRim
+    , tdChoke       = getModifier GemCymbalChoke
+    }

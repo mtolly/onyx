@@ -48,7 +48,7 @@ dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
 dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
   importTrueDrums notes = mempty
     { TD.tdDifficulties = Map.singleton Expert $ let
-      diff = TD.makeTrueDifficulty $ flip RTB.mapMaybe notes $ \case
+      gems = flip RTB.mapMaybe notes $ \case
         HihatClose -> Just (TD.Hihat    , TD.GemHihatClosed, VelocityNormal)
         Snare      -> Just (TD.Snare    , TD.GemNormal     , VelocityNormal)
         BassDrum   -> Just (TD.Kick     , TD.GemNormal     , VelocityNormal)
@@ -61,7 +61,12 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
         LeftCymbal -> Just (TD.CrashL   , TD.GemNormal     , VelocityNormal)
         LeftPedal  -> Just (TD.HihatFoot, TD.GemNormal     , VelocityNormal)
         LeftBass   -> Nothing
-      in diff
+      -- if no open hihat, assume hihats are unmarked
+      hasOpenHihat = any (\(_, typ, _) -> typ == TD.GemHihatOpen) gems
+      gems' = if hasOpenHihat
+        then gems
+        else fmap (\(gem, _, vel) -> (gem, TD.GemNormal, vel)) gems
+      in (TD.makeTrueDifficulty gems')
         { TD.tdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
         }
     }
