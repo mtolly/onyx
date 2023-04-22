@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
@@ -39,6 +40,7 @@ import           Onyx.Guitar                      (applyStatus)
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.Drums            as Drums
+import           Onyx.MIDI.Track.Drums.True       as TD
 import           Onyx.MIDI.Track.File             (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -513,6 +515,7 @@ importFoF src dir level = do
             $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS)
             && guardDifficulty FoF.diffDrums
           let mode = let
+                isTrue = isnt TD.nullTrueDrums F.fixedPartTrueDrums
                 isFiveLane = FoF.fiveLaneDrums song == Just True || any
                   (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) $ drumGems dd)
                   (Map.toList $ drumDifficulties $ F.fixedPartDrums outputFixed)
@@ -521,10 +524,12 @@ importFoF src dir level = do
                   Just b  -> b
                   Nothing -> not (RTB.null $ drumToms $ F.fixedPartDrums outputFixed)
                     || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
-                in if isFiveLane then Drums5
-                  else if isReal then DrumsReal
-                    else if isPro then DrumsPro
-                      else Drums4
+                in if
+                  | isTrue     -> DrumsTrue
+                  | isFiveLane -> Drums5
+                  | isReal     -> DrumsReal
+                  | isPro      -> DrumsPro
+                  | otherwise  -> Drums4
           Just (emptyPartDrums mode hasKicks)
             { difficulty = toTier $ FoF.diffDrums song
             , fallback = if fromMaybe False $ FoF.drumFallbackBlue song

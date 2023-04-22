@@ -57,8 +57,9 @@ import qualified Onyx.MIDI.Track.FiveFret     as Five
 import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
                                                readPreferences)
-import           Onyx.Project                 (TrueDrumLayout (..),
-                                               PartMania (..), VideoInfo (..))
+import           Onyx.Project                 (PartMania (..),
+                                               TrueDrumLayout (..),
+                                               VideoInfo (..))
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace              (QueueLog, SendMessage,
                                                StackTraceT, fatal, getQueueLog,

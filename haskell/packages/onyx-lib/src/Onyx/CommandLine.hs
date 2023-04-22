@@ -113,9 +113,9 @@ import qualified Onyx.MIDI.Script.Base                as MS
 import qualified Onyx.MIDI.Script.Parse               as MS
 import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
+import qualified Onyx.MIDI.Track.Drums.True           as TD
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
-import qualified Onyx.MIDI.Track.Drums.True as TD
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
 import           Onyx.Neversoft.Crypt                 (decryptFSB, gh3Encrypt,
                                                        ghworEncrypt,

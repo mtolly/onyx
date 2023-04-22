@@ -465,6 +465,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       }
   let fixedPartDrums2x      = mempty
       fixedPartRealDrumsPS  = mempty
+      fixedPartTrueDrums    = mempty
       fixedPartRealGuitar   = mempty
       fixedPartRealGuitar22 = mempty
       fixedPartRealBass     = mempty

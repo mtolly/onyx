@@ -256,7 +256,7 @@ buildDrums
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> SongYaml f
-  -> Maybe (DrumTrack U.Beats)
+  -> Maybe (DrumTrack U.Beats, Maybe (TD.TrueDrumTrack U.Beats))
 buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
   bd <- getPart drumsPart songYaml >>= anyDrums
 
@@ -270,7 +270,8 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
         , events = F.getEventsTrack trks
         , part   = F.getFlexPart drumsPart trks
         }
-      src = drumResultToTrack $ bd drumTarget modeInput
+      drumResult = bd drumTarget modeInput
+      src = drumResultToTrack drumResult
 
       sections = fmap snd $ eventsSections $ F.onyxEvents trks
 
@@ -298,13 +299,15 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
         { drumEnableDynamics = if hasDynamics dt then RTB.singleton 0 () else RTB.empty
         }
 
-  return
-    $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
-    $ drumsRemoveBRE
-    $ addMoods
-    $ enableDynamics
-    $ drumsComplete mmap sections
-    $ src
+      mainResult
+        = (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
+        $ drumsRemoveBRE
+        $ addMoods
+        $ enableDynamics
+        $ drumsComplete mmap sections
+        $ src
+
+  return (mainResult, drumResult.trueDrums)
 
 data BRERemover t = BRERemover
   { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)
@@ -532,9 +535,20 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
         }
       drumsPart = either (.drums) (.drums) target
-      drumsTrack = case buildDrums drumsPart target input timing songYaml of
-        Nothing -> mempty
-        Just dt -> setDrumMix mixMode dt
+      (drumsTrack, trueDrumsTrack) = case buildDrums drumsPart target input timing songYaml of
+        Nothing        -> (mempty, Nothing)
+        Just (dt, mtd) -> let
+          -- remove nonstandardized parts of true drums spec
+          mtd' = flip fmap mtd $ \td -> td
+            { TD.tdSticking     = RTB.empty
+            , TD.tdChipOverride = RTB.empty
+            , TD.tdFooting      = RTB.empty
+            , TD.tdDifficulties = flip fmap (TD.tdDifficulties td) $ \diff -> diff
+              { TD.tdRim   = RTB.empty
+              , TD.tdChoke = RTB.empty
+              }
+            }
+          in (setDrumMix mixMode dt, mtd')
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
       guitarPart = either (.guitar) (.guitar) target
@@ -820,6 +834,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
     , F.fixedPartDrums = drumsTrack'
     , F.fixedPartDrums2x = mempty
     , F.fixedPartRealDrumsPS = mempty
+    , F.fixedPartTrueDrums = if isPS then fromMaybe mempty trueDrumsTrack else mempty
     , F.fixedPartGuitar = guitar
     , F.fixedPartGuitarGHL = if isPS then guitarGHL else mempty
     , F.fixedPartBass = bass

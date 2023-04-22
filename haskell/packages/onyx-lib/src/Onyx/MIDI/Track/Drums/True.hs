@@ -26,15 +26,15 @@ import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DeriveHelpers
+import           Onyx.Guitar                      (applyStatus)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
 import qualified Onyx.MIDI.Track.Drums            as D
-import Onyx.Guitar (applyStatus)
 import qualified Sound.MIDI.Util                  as U
 
-import qualified Sound.MIDI.File as F
-import qualified Data.ByteString as B
+import qualified Data.ByteString                  as B
+import qualified Sound.MIDI.File                  as F
 
 data TrueDrumTrack t = TrueDrumTrack
   { tdDifficulties :: Map.Map Difficulty (TrueDrumDifficulty t)
@@ -93,6 +93,9 @@ data TrueGemType
   | GemCymbalChoke
   | GemRim
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+nullTrueDrums :: TrueDrumTrack t -> Bool
+nullTrueDrums = all (RTB.null . tdGems) . toList . tdDifficulties
 
 instance ParseTrack TrueDrumTrack where
   parseTrack = do
@@ -630,7 +633,7 @@ fullToTrue (F.Cons typ dvn trks) = let
     Just "PART FULL DRUMS" -> (True,) $ RTB.flatten $ flip fmap trk $ \e ->
       case isNoteEdgeCPV e of
         Nothing -> case U.readTrackName e of
-          Just _ -> [U.showTrackName "PART TRUE_DRUMS"]
+          Just _  -> [U.showTrackName "PART TRUE_DRUMS"]
           Nothing -> [e]
         Just (c, p, mv) -> let
           newPitches

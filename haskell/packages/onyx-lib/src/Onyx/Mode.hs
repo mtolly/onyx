@@ -150,6 +150,7 @@ data DrumResult = DrumResult
   , hasRBMarks :: Bool -- True if `other` includes correct tom markers and mix events
   , source     :: T.Text
   , autochart  :: Bool
+  , trueDrums  :: Maybe (TD.TrueDrumTrack U.Beats)
   }
 
 data DrumTarget
@@ -230,6 +231,9 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , hasRBMarks = not isBasicSource
     , source = "drum chart"
     , autochart = False
+    , trueDrums = do
+      guard $ pd.mode == DrumsTrue
+      Just $ F.onyxPartTrueDrums input.part
     }
 
 anyDrums :: Part f -> Maybe BuildDrums
@@ -652,6 +656,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       :: RTB.T U.Beats D.Animation
     , source = "converted dance chart to drums"
     , autochart = False
+    , trueDrums = Nothing
     }
 
 maniaToDrums :: Part f -> Maybe BuildDrums
@@ -698,6 +703,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
       :: RTB.T U.Beats D.Animation
     , source = "converted Mania chart to drums"
     , autochart = pm.keys > laneCount
+    , trueDrums = Nothing
     }
 
 drumResultToTrack :: DrumResult -> D.DrumTrack U.Beats

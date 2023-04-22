@@ -469,7 +469,7 @@ data TrueDrumPlayState t = TrueDrumPlayState
 data TrueDrumGameState t = TrueDrumGameState
   { tdScore       :: Int
   , tdCombo       :: Int
-  , tdIsHihatOpen   :: Bool
+  , tdIsHihatOpen :: Bool
   , tdNoteResults :: [(t, Map.Map (TrueDrumNote FlamStatus) (NoteResult t))] -- times are of notes
   , tdOverhits    :: [(t, TrueDrumHit)] -- times are of inputs
   } deriving (Show)

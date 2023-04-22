@@ -20,7 +20,8 @@ import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty               as NE
 import           Data.List.Split                  (chunksOf)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, listToMaybe, fromMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                   listToMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           GHC.ByteOrder

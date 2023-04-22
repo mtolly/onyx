@@ -130,6 +130,7 @@ data FixedFile t = FixedFile
   { fixedPartDrums        :: DrumTrack t
   , fixedPartDrums2x      :: DrumTrack t
   , fixedPartRealDrumsPS  :: DrumTrack t
+  , fixedPartTrueDrums    :: TrueDrumTrack t
   , fixedPartGuitar       :: FiveTrack t
   , fixedPartBass         :: FiveTrack t
   , fixedPartKeys         :: FiveTrack t
@@ -173,7 +174,7 @@ instance HasEvents FixedFile where
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
-    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa bb cc dd ee ff gg hh ii jj)
+    (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa bb cc dd ee ff gg hh ii jj kk)
     = FixedFile
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -193,12 +194,14 @@ instance TraverseTrack FixedFile where
       <*> traverseTrack fn hh
       <*> traverseTrack fn ii
       <*> traverseTrack fn jj
+      <*> traverseTrack fn kk
 
 instance ParseFile FixedFile where
   parseFile = do
     fixedPartDrums        <- fixedPartDrums        =. fileTrack ("PART DRUMS"          :| ["PART DRUM"])
     fixedPartDrums2x      <- fixedPartDrums2x      =. fileTrack ("PART DRUMS_2X"       :| [])
     fixedPartRealDrumsPS  <- fixedPartRealDrumsPS  =. fileTrack ("PART REAL_DRUMS_PS"  :| [])
+    fixedPartTrueDrums    <- fixedPartTrueDrums    =. fileTrack ("PART TRUE_DRUMS"     :| [])
     fixedPartGuitar       <- fixedPartGuitar       =. fileTrack ("PART GUITAR"         :| ["T1 GEMS", "Click"])
     fixedPartBass         <- fixedPartBass         =. fileTrack ("PART BASS"           :| [])
     fixedPartKeys         <- fixedPartKeys         =. fileTrack ("PART KEYS"           :| [])
@@ -844,6 +847,7 @@ onyxToFixed o = FixedFile
   { fixedPartDrums        = inPart FlexDrums                 onyxPartDrums
   , fixedPartDrums2x      = inPart FlexDrums                 onyxPartDrums2x
   , fixedPartRealDrumsPS  = inPart FlexDrums                 onyxPartRealDrumsPS
+  , fixedPartTrueDrums    = inPart FlexDrums                 onyxPartTrueDrums
   , fixedPartGuitar       = inPart FlexGuitar                onyxPartGuitar
   , fixedPartBass         = inPart FlexBass                  onyxPartGuitar
   , fixedPartKeys         = inPart FlexKeys                  onyxPartKeys
@@ -907,6 +911,7 @@ fixedToOnyx f = OnyxFile
       { onyxPartDrums       = fixedPartDrums       f
       , onyxPartDrums2x     = fixedPartDrums2x     f
       , onyxPartRealDrumsPS = fixedPartRealDrumsPS f
+      , onyxPartTrueDrums   = fixedPartTrueDrums   f
       })
     , (FlexVocal, mempty
       { onyxPartVocals = fixedPartVocals f
