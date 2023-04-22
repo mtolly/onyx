@@ -65,8 +65,8 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: full
-      full-layout: open-hand
+      mode: 'true'
+      true-layout: open-hand
       difficulty: 7
   # bass:
   #   pro-guitar:

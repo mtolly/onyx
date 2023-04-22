@@ -11,7 +11,7 @@ metadata:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: both
 audio:
   album-track:

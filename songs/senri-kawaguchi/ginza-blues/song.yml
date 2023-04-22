@@ -2,7 +2,7 @@ parts:
   drums:
     drums:
       kicks: 2
-      mode: full
+      mode: 'true'
 audio:
   album-intro:
     frames: 1100736

@@ -35,7 +35,7 @@ parts:
       kicks: both
       difficulty:
         tier: 6
-      mode: full
+      mode: 'true'
 global:
   anim-tempo: 64
 audio:

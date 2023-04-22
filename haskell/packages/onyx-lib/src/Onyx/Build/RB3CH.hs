@@ -35,7 +35,7 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                    (mapTrack)
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums             as Drums
-import qualified Onyx.MIDI.Track.Drums.Full        as FD
+import qualified Onyx.MIDI.Track.Drums.True        as TD
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import           Onyx.MIDI.Track.FiveFret          as RBFive
@@ -448,7 +448,7 @@ deleteBRE song = song
       { F.onyxPartDrums       = deleteNormal $ F.onyxPartDrums       opart
       , F.onyxPartDrums2x     = deleteNormal $ F.onyxPartDrums2x     opart
       , F.onyxPartRealDrumsPS = deleteNormal $ F.onyxPartRealDrumsPS opart
-      , F.onyxPartFullDrums   = deleteFull   $ F.onyxPartFullDrums   opart
+      , F.onyxPartTrueDrums   = deleteTrue   $ F.onyxPartTrueDrums   opart
       , F.onyxPartGuitar       = (F.onyxPartGuitar    opart) { RBFive.fiveBRE = RTB.empty }
       , F.onyxPartKeys         = (F.onyxPartKeys      opart) { RBFive.fiveBRE = RTB.empty }
       , F.onyxPartGuitarExt    = (F.onyxPartGuitarExt opart) { RBFive.fiveBRE = RTB.empty }
@@ -467,8 +467,8 @@ deleteBRE song = song
     deleteNormal drums = drums
       { drumActivation = applyCoda $ drumActivation drums
       }
-    deleteFull fd = fd
-      { FD.fdActivation = applyCoda $ FD.fdActivation fd
+    deleteTrue fd = fd
+      { TD.tdActivation = applyCoda $ TD.tdActivation fd
       }
 
 processMIDI

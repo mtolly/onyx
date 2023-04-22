@@ -58,7 +58,7 @@ parts:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: 1
 targets:
   rs:

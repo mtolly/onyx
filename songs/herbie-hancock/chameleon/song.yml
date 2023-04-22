@@ -13,7 +13,7 @@ metadata:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: 1
 audio:
   album-track: # 1997 remaster

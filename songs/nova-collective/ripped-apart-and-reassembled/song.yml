@@ -53,7 +53,7 @@ parts:
     drums:
       difficulty: 7
       kicks: both
-      mode: full
+      mode: 'true'
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
       difficulty-dtx: 9.00
   bass:

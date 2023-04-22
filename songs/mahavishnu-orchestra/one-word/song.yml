@@ -32,8 +32,8 @@ parts:
       difficulty: 7
       kit: VintageKit
       kicks: both
-      mode: full
-      full-layout: open-hand
+      mode: 'true'
+      true-layout: open-hand
 targets:
   rb3:
     game: rb3

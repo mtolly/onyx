@@ -34,7 +34,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DTXMania.XA                 (sourceXA)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.Full       as FD
+import qualified Onyx.MIDI.Track.Drums.True       as TD
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.StackTrace
 import           Onyx.Util.Files                  (fixFileCase)
@@ -631,14 +631,14 @@ makeDTX DTX{..} = T.unlines $ execWriter $ do
     bar barNumber "54" $ makeBar chips
   gap
 
--- System for hooking up a template (e.g. from APPROVED) to auto-keysound Full Drums
+-- System for hooking up a template (e.g. from APPROVED) to auto-keysound True Drums
 
 data DTXMapping = DTXMapping FilePath [DTXCondition] [DTXOverride]
   deriving (Read)
 
 data DTXCondition
-  = MatchNote     FD.FullGem     DTXCondition
-  | MatchType     FD.FullGemType DTXCondition
+  = MatchNote     TD.TrueGem     DTXCondition
+  | MatchType     TD.TrueGemType DTXCondition
   | MatchVelocity D.DrumVelocity DTXCondition
   | Chip          Chip
   | Branch        [DTXCondition]
@@ -647,10 +647,10 @@ data DTXCondition
 data DTXOverride = DTXOverride T.Text [DTXCondition]
   deriving (Read)
 
-lookupDTXMapping :: [DTXCondition] -> FD.FullDrumNote a -> Maybe Chip
-lookupDTXMapping conds fdn = go $ Branch conds where
+lookupDTXMapping :: [DTXCondition] -> TD.TrueDrumNote a -> Maybe Chip
+lookupDTXMapping conds tdn = go $ Branch conds where
   go (Chip chip)           = Just chip
-  go (MatchNote     n sub) = if n == FD.fdn_gem      fdn then go sub else Nothing
-  go (MatchType     t sub) = if t == FD.fdn_type     fdn then go sub else Nothing
-  go (MatchVelocity v sub) = if v == FD.fdn_velocity fdn then go sub else Nothing
+  go (MatchNote     n sub) = if n == TD.tdn_gem      tdn then go sub else Nothing
+  go (MatchType     t sub) = if t == TD.tdn_type     tdn then go sub else Nothing
+  go (MatchVelocity v sub) = if v == TD.tdn_velocity tdn then go sub else Nothing
   go (Branch subs)         = listToMaybe $ mapMaybe go subs

@@ -1,7 +1,7 @@
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: 1
       difficulty: 7
       file-dtx-kit: ../../../sound/approved-dtx/Jazz Template/onyx-mapping.hs

@@ -33,7 +33,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
 import qualified Onyx.MIDI.Common                 as RB
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.Full       as FD
+import qualified Onyx.MIDI.Track.Drums.True       as TD
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -166,13 +166,13 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
   src1x   =                                         F.onyxPartDrums       input.part
   src2x   =                                         F.onyxPartDrums2x     input.part
   srcReal = D.psRealToPro                         $ F.onyxPartRealDrumsPS input.part
-  srcFull = FD.convertFullDrums False input.tempo $ F.onyxPartFullDrums   input.part
+  srcTrue = TD.convertTrueDrums False input.tempo $ F.onyxPartTrueDrums   input.part
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
   srcList = case pd.mode of
     DrumsReal -> srcsRB <> [srcReal]
-    DrumsFull -> srcsRB <> [srcFull]
+    DrumsTrue -> srcsRB <> [srcTrue]
     _         -> srcsRB
   src = fromMaybe mempty $ find (not . D.nullDrums) srcList
 
@@ -250,8 +250,8 @@ buildDrumAnimation pd tmap opart = let
   in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
-      DrumsFull -> inRealTime (FD.autoFDAnimation closeTime)
-        $ FD.getDifficulty (Just Expert) $ F.onyxPartFullDrums opart
+      DrumsTrue -> inRealTime (TD.trueDrumsToAnimation closeTime)
+        $ TD.getDifficulty (Just Expert) $ F.onyxPartTrueDrums opart
       -- TODO this could be made better for modes other than pro
       _ -> inRealTime (D.autoDrumAnimation closeTime)
         $ fmap fst $ D.computePro (Just Expert)
@@ -638,7 +638,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       , layout      = StandardLayout
       , fallback    = FallbackGreen
       , fileDTXKit  = Nothing
-      , fullLayout  = FDStandard
+      , trueLayout  = TDStandard
       , difficultyDTX = Nothing
       }
     , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes

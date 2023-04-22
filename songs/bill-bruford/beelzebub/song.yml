@@ -41,7 +41,7 @@ plans:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: 1
 
 # xxx..xxx..xxxx.xxxx.xxxxxxxx

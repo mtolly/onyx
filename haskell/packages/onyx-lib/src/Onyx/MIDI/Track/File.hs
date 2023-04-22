@@ -49,7 +49,7 @@ import           Onyx.MIDI.Parse                   (getMIDI)
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums
-import           Onyx.MIDI.Track.Drums.Full        (FullDrumTrack)
+import           Onyx.MIDI.Track.Drums.True        (TrueDrumTrack)
 import           Onyx.MIDI.Track.Events
 import           Onyx.MIDI.Track.FiveFret
 import qualified Onyx.MIDI.Track.FiveFret          as Five
@@ -293,7 +293,7 @@ data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
   , onyxPartDrums2x      :: DrumTrack t
   , onyxPartRealDrumsPS  :: DrumTrack t
-  , onyxPartFullDrums    :: FullDrumTrack t
+  , onyxPartTrueDrums    :: TrueDrumTrack t
   , onyxPartGuitar       :: FiveTrack t
   , onyxPartKeys         :: FiveTrack t
   , onyxPartGuitarExt    :: FiveTrack t
@@ -379,7 +379,7 @@ parseOnyxPart partName = do
   onyxPartDrums        <- onyxPartDrums        =. names (pure (FlexDrums, "PART DRUMS"))
   onyxPartDrums2x      <- onyxPartDrums2x      =. names (pure (FlexDrums, "PART DRUMS_2X"))
   onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (pure (FlexDrums, "PART REAL_DRUMS_PS"))
-  onyxPartFullDrums    <- onyxPartFullDrums    =. names (pure (FlexDrums, "PART FULL DRUMS"))
+  onyxPartTrueDrums    <- onyxPartTrueDrums    =. names (pure (FlexDrums, "PART TRUE_DRUMS"))
   onyxPartGuitar       <- onyxPartGuitar       =. names
     ( (FlexGuitar, "PART GUITAR") :|
     [ (FlexBass, "PART BASS")
@@ -778,7 +778,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopTake t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopTake t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopTake t               $ onyxPartRealDrumsPS  op
-    , onyxPartFullDrums    = mapTrack (U.trackTake t) $ onyxPartFullDrums    op -- TODO
+    , onyxPartTrueDrums    = mapTrack (U.trackTake t) $ onyxPartTrueDrums    op -- TODO
     , onyxPartGuitar       = mapTrack (U.trackTake t) $ onyxPartGuitar       op -- TODO
     , onyxPartKeys         = mapTrack (U.trackTake t) $ onyxPartKeys         op -- TODO
     , onyxPartGuitarExt    = mapTrack (U.trackTake t) $ onyxPartGuitarExt    op -- TODO
@@ -810,7 +810,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopDrop t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopDrop t               $ onyxPartRealDrumsPS  op
-    , onyxPartFullDrums    = mapTrack (U.trackDrop t) $ onyxPartFullDrums    op -- TODO
+    , onyxPartTrueDrums    = mapTrack (U.trackDrop t) $ onyxPartTrueDrums    op -- TODO
     , onyxPartGuitar       = mapTrack (U.trackDrop t) $ onyxPartGuitar       op -- TODO
     , onyxPartKeys         = mapTrack (U.trackDrop t) $ onyxPartKeys         op -- TODO
     , onyxPartGuitarExt    = mapTrack (U.trackDrop t) $ onyxPartGuitarExt    op -- TODO

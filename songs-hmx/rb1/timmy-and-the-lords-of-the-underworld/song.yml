@@ -3,7 +3,7 @@ global:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       fix-freeform: false
       kicks: 1
       difficulty:

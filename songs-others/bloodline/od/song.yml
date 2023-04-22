@@ -19,7 +19,7 @@ parts:
       difficulty:
         tier: 7
       kicks: 1
-      mode: full
+      mode: 'true'
 plans:
   mogg:
     parts:

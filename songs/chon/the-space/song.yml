@@ -2,7 +2,7 @@ parts:
   drums:
     drums:
       kicks: 1
-      mode: full
+      mode: 'true'
       difficulty: 4
 audio:
   album-track:

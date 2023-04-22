@@ -23,7 +23,7 @@ import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Onyx.MIDI.Track.Drums            as D
-import           Onyx.MIDI.Track.Drums.Full
+import           Onyx.MIDI.Track.Drums.True
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -374,7 +374,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
         , mempty { F.onyxPartGuitar = trackCoop }
         )
       , ( F.FlexDrums
-        , mempty { F.onyxPartFullDrums = drums }
+        , mempty { F.onyxPartTrueDrums = drums }
         )
       ]
     , F.onyxEvents = events
@@ -389,7 +389,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , F.s_tracks = fixed
     }
 
-gh3DrumMapping :: [(Word32, (FullGem, D.Hand))]
+gh3DrumMapping :: [(Word32, (TrueGem, D.Hand))]
 gh3DrumMapping =
   [ (36, (Kick  , D.LH)) -- second kick drum
   , (37, (Tom3  , D.LH))
@@ -414,7 +414,7 @@ gh3DrumMapping =
   , (57, (CrashR, D.RH))
   ]
 
-gh3DrumsToFull :: (Word32 -> U.Beats) -> [[Word32]] -> FullDrumTrack U.Beats
+gh3DrumsToFull :: (Word32 -> U.Beats) -> [[Word32]] -> TrueDrumTrack U.Beats
 gh3DrumsToFull toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   allGems = flip mapMaybe notes $ \case
@@ -428,15 +428,15 @@ gh3DrumsToFull toBeats notes = let
     allGems
   handsNoSticking = fmap (map fst) hands
   in mempty
-    { fdKick2 = void $ RTB.filter not kicks
-    , fdSticking = RTB.empty -- TODO
-    , fdDifficulties = Map.singleton Expert FullDrumDifficulty
-      { fdGems
-        = fmap (\fgem -> (fgem, GemNormal, D.VelocityNormal))
+    { tdSticking = RTB.empty -- TODO
+    , tdDifficulties = Map.singleton Expert mempty
+      { tdGems
+        = fmap (\fgem -> (fgem, D.VelocityNormal))
         $ RTB.merge (Kick <$ RTB.filter id kicks)
         $ RTB.flatten
         $ fmap nubOrd handsNoSticking
-      , fdFlam = flip RTB.mapMaybe handsNoSticking $ \case
+      , tdKick2 = void $ RTB.filter not kicks
+      , tdFlam = flip RTB.mapMaybe handsNoSticking $ \case
         [x, y] | x == y -> Just ()
         _               -> Nothing
       }

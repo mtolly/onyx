@@ -36,7 +36,7 @@ parts:
       # kicks are checked against audio (quantized.mid is from before edits) + rest up to bar 102
       # need to check rest of notes
       # then make RB version
-      mode: full
+      mode: 'true'
       kicks: both
 audio:
   song.ogg:

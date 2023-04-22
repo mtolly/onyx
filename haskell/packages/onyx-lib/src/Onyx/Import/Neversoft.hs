@@ -20,7 +20,7 @@ import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty               as NE
 import           Data.List.Split                  (chunksOf)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, listToMaybe)
+import           Data.Maybe                       (catMaybes, listToMaybe, fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           GHC.ByteOrder
@@ -33,8 +33,8 @@ import           Onyx.Genre                       (displayWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import           Onyx.MIDI.Track.Drums.Full       (fdDifficulties, fdGems,
-                                                   fdKick2)
+import           Onyx.MIDI.Track.Drums.True       (tdDifficulties, tdGems,
+                                                   tdKick2)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
@@ -384,7 +384,7 @@ importGH3Song gh3i = let
     let hasCoopGems = maybe False (not . nullFive . F.onyxPartGuitar)
           $ Map.lookup coopPart $ F.onyxParts $ F.s_tracks midiOnyx
         drums
-          = maybe mempty F.onyxPartFullDrums
+          = maybe mempty F.onyxPartTrueDrums
           $ Map.lookup F.FlexDrums
           $ F.onyxParts
           $ F.s_tracks midiOnyx
@@ -484,9 +484,10 @@ importGH3Song gh3i = let
         [ Just (F.FlexGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
-          guard $ maybe False (not . RTB.null . fdGems) $ Map.lookup Expert $ fdDifficulties drums
+          let expert = fromMaybe mempty $ Map.lookup Expert $ tdDifficulties drums
+          guard $ not $ RTB.null $ tdGems expert
           Just (F.FlexDrums, emptyPart
-            { drums = Just $ emptyPartDrums DrumsFull (if RTB.null $ fdKick2 drums then Kicks1x else KicksBoth)
+            { drums = Just $ emptyPartDrums DrumsTrue (if RTB.null $ tdKick2 expert then Kicks1x else KicksBoth)
             })
         ]
       }

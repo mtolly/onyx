@@ -27,7 +27,7 @@ parts:
   drums:
     drums:
       kicks: 1
-      mode: full
+      mode: 'true'
       difficulty: 2
 targets:
   rb3:

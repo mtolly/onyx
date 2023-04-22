@@ -692,7 +692,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               Drums5    -> "5-Lane Drums"
               DrumsPro  -> "Pro Drums"
               DrumsReal -> "Phase Shift Real Drums"
-              DrumsFull -> "Onyx Full Drums"
+              DrumsTrue -> "True Drums"
             getKicks <- makeChoice itemCheck pd.kicks $ \case
               Kicks1x   -> "1x Bass Pedal"
               Kicks2x   -> "2x Bass Pedal"

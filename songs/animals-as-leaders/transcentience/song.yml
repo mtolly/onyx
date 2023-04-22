@@ -1,7 +1,7 @@
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: both
       difficulty: 6
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs

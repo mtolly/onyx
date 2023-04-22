@@ -2,7 +2,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: full
+      mode: 'true'
 audio:
   album-track: # Traced in Air Remixed
     md5: 6f75c7f260c127da02a372dafdaa8745

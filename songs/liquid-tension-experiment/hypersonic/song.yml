@@ -44,7 +44,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: full
+      mode: 'true'
       difficulty: 7
   bass:
     pro-guitar:

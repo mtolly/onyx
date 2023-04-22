@@ -12,7 +12,7 @@ metadata:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: both
       difficulty: 7
 audio:

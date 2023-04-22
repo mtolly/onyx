@@ -32,7 +32,7 @@ import           Onyx.Guitar
 import           Onyx.MIDI.Common
 import qualified Onyx.MIDI.Track.Beat             as Beat
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.Full       as FD
+import qualified Onyx.MIDI.Track.Drums.True       as TD
 import           Onyx.MIDI.Track.Events           (eventsCoda, eventsSections)
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -56,7 +56,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsFull FullDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState (FD.FullDrumNote FD.FlamStatus) FD.FullGem)))
+  | PreviewDrumsTrue TrueDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
@@ -190,8 +190,8 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     -- TODO if kicks = 2, don't emit an X track, only X+
     drumSrc   = maybe mempty F.onyxPartDrums   $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
     drumSrc2x = maybe mempty F.onyxPartDrums2x $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
-    thisSrc = if pdrums.mode == DrumsFull && D.nullDrums drumSrc && D.nullDrums drumSrc2x
-      then maybe mempty (FD.convertFullDrums False tempos . F.onyxPartFullDrums)
+    thisSrc = if pdrums.mode == DrumsTrue && D.nullDrums drumSrc && D.nullDrums drumSrc2x
+      then maybe mempty (TD.convertTrueDrums False tempos . F.onyxPartTrueDrums)
         $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
       else case diff of
         Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
@@ -208,7 +208,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           ddiff
         DrumsPro  -> D.computePro diff thisSrc
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
-        DrumsFull -> D.computePro diff thisSrc -- TODO support convert from full track
+        DrumsTrue -> D.computePro diff thisSrc -- TODO support convert from true track
     hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
       Nothing   -> (D.drumActivation thisSrc, RTB.empty)
@@ -234,29 +234,29 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           `PNF.zipStateMaps` toggle (D.drumSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
-  drumTrackFull fpart pdrums diff = let
+  drumTrackTrue fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
-    thisSrc = maybe mempty F.onyxPartFullDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
-    drumMap :: Map.Map Double [FD.FullDrumNote FD.FlamStatus]
-    drumMap = rtbToMap $ RTB.collectCoincident $ FD.getDifficulty diff thisSrc
+    thisSrc = maybe mempty F.onyxPartTrueDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+    drumMap :: Map.Map Double [TD.TrueDrumNote TD.FlamStatus]
+    drumMap = rtbToMap $ RTB.collectCoincident $ TD.getDifficulty diff thisSrc
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
-      Nothing   -> (FD.fdActivation thisSrc, RTB.empty)
+      Nothing   -> (TD.tdActivation thisSrc, RTB.empty)
       Just coda ->
-        ( U.trackTake coda $ FD.fdActivation thisSrc
-        , RTB.delay coda $ U.trackDrop coda $ FD.fdActivation thisSrc
+        ( U.trackTake coda $ TD.tdActivation thisSrc
+        , RTB.delay coda $ U.trackDrop coda $ TD.tdActivation thisSrc
         )
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
-        `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ FD.fdLanes thisSrc)
+        `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ TD.tdLanes thisSrc)
         `PNF.zipStateMaps` toggle acts
     in do
       guard $ not $ Map.null drumMap
       guard $ not $ diff == Nothing && pdrums.kicks == Kicks1x
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         drumStates
-          `PNF.zipStateMaps` toggle (FD.fdOverdrive thisSrc)
+          `PNF.zipStateMaps` toggle (TD.tdOverdrive thisSrc)
           `PNF.zipStateMaps` toggle bres
-          `PNF.zipStateMaps` toggle (FD.fdSolo thisSrc)
+          `PNF.zipStateMaps` toggle (TD.tdSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
   fiveTrack diff result = let
@@ -498,24 +498,24 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             Drums5    -> "Drums"
             DrumsPro  -> "Pro Drums"
             DrumsReal -> "Pro Drums"
-            DrumsFull -> "Pro Drums"
+            DrumsTrue -> "Pro Drums"
           _           -> displayPartName fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
           Just trk -> let
             standard = [(name <> " (" <> letter <> ")", PreviewDrums trk)]
-            full = case pdrums.mode of
-              DrumsFull -> case drumTrackFull fpart pdrums diff of
+            true = case pdrums.mode of
+              DrumsTrue -> case drumTrackTrue fpart pdrums diff of
                 Nothing -> []
-                Just trkFull ->
+                Just trkTrue ->
                   [ ( case fpart of
-                      F.FlexDrums -> "DTXMania Drums (" <> letter <> ")"
-                      _           -> displayPartName fpart <> " [Full Drums] (" <> letter <> ")"
-                    , PreviewDrumsFull pdrums.fullLayout trkFull
+                      F.FlexDrums -> "True Drums (" <> letter <> ")"
+                      _           -> displayPartName fpart <> " [True Drums] (" <> letter <> ")"
+                    , PreviewDrumsTrue pdrums.trueLayout trkTrue
                     )
                   ]
               _         -> []
-            in full <> standard
+            in true <> standard
     mania = case part.mania of
       Nothing -> []
       Just pm -> let

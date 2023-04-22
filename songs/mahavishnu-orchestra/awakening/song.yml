@@ -2,9 +2,9 @@ parts:
   drums:
     drums:
       kicks: 1
-      mode: full
+      mode: 'true'
       difficulty: 7
-      full-layout: open-hand
+      true-layout: open-hand
 audio:
   album-track: # Mobile Fidelity Sound Lab (1999) UDCD 744
     frames: 9189264

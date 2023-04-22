@@ -140,7 +140,7 @@ instance A.ToJSON (Drums U.Seconds) where
       C.Drums5    -> "5"
       C.DrumsPro  -> "pro"
       C.DrumsReal -> "real"
-      C.DrumsFull -> "full"
+      C.DrumsTrue -> "true"
     , (,) "disco" $ eventList (drumDisco x) A.toJSON
     ]
 
@@ -411,7 +411,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     C.Drums5    -> fmap Right $ nonPro True
     C.DrumsPro  -> fmap (Right . fst) $ D.computePro diff trk
     C.DrumsReal -> fmap fst $ D.computePSReal diff trk
-    C.DrumsFull -> fmap (Right . fst) $ D.computePro diff trk -- TODO generate pro if needed
+    C.DrumsTrue -> fmap (Right . fst) $ D.computePro diff trk -- TODO generate pro if needed
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes
   solo   = realTrack tmap $ D.drumSolo trk
@@ -440,7 +440,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     guard $ not $ RTB.null notes
     guard $ diff /= Nothing || has2x
     let mode' = case mode of
-          C.DrumsFull -> C.DrumsPro
+          C.DrumsTrue -> C.DrumsPro
           _           -> mode
     Just $ Drums notesS solo energy lanes bre mode' disco
 

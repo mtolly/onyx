@@ -713,31 +713,31 @@ instance StackJSON DrumLayout where
     StandardLayout -> is A.Null |?> is "standard-layout"
     FlipYBToms     -> is "flip-yb-toms"
 
-data FullDrumLayout
-  = FDStandard -- snare, hihat, left crash
-  | FDOpenHand -- left crash, hihat, snare
+data TrueDrumLayout
+  = TDStandard -- snare, hihat, left crash
+  | TDOpenHand -- left crash, hihat, snare
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance StackJSON FullDrumLayout where
-  stackJSON = enumCodec "a full drums layout" $ \case
-    FDStandard -> "standard"
-    FDOpenHand -> "open-hand"
+instance StackJSON TrueDrumLayout where
+  stackJSON = enumCodec "a true drums layout" $ \case
+    TDStandard -> "standard"
+    TDOpenHand -> "open-hand"
 
 data DrumMode
   = Drums4
   | Drums5
   | DrumsPro
   | DrumsReal
-  | DrumsFull
+  | DrumsTrue
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumMode where
-  stackJSON = enumCodec "a drum mode (4, 5, pro, real, full)" $ \case
+  stackJSON = enumCodec "a drum mode (4, 5, pro, real, true)" $ \case
     Drums4    -> A.Number 4
     Drums5    -> A.Number 5
     DrumsPro  -> "pro"
     DrumsReal -> "real"
-    DrumsFull -> "full"
+    DrumsTrue -> "true"
 
 data OrangeFallback = FallbackBlue | FallbackGreen
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -765,7 +765,7 @@ data PartDrums f = PartDrums
   , layout        :: DrumLayout
   , fallback      :: OrangeFallback
   , fileDTXKit    :: Maybe f
-  , fullLayout    :: FullDrumLayout
+  , trueLayout    :: TrueDrumLayout
   , difficultyDTX :: Maybe Centi
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -779,7 +779,7 @@ instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
     layout        <- (.layout       ) =. opt     StandardLayout "layout"         stackJSON
     fallback      <- (.fallback     ) =. opt     FallbackGreen  "fallback"       stackJSON
     fileDTXKit    <- (.fileDTXKit   ) =. opt     Nothing        "file-dtx-kit"   stackJSON
-    fullLayout    <- (.fullLayout   ) =. opt     FDStandard     "full-layout"    stackJSON
+    trueLayout    <- (.trueLayout   ) =. opt     TDStandard     "true-layout"    stackJSON
     difficultyDTX <- (.difficultyDTX) =. opt     Nothing        "difficulty-dtx" stackJSON
     return PartDrums{..}
 
@@ -793,7 +793,7 @@ emptyPartDrums mode kicks = PartDrums
   , layout        = StandardLayout
   , fallback      = FallbackGreen
   , fileDTXKit    = Nothing
-  , fullLayout    = FDStandard
+  , trueLayout    = TDStandard
   , difficultyDTX = Nothing
   }
 

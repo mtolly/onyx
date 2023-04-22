@@ -39,7 +39,7 @@ parts:
       kit: Trashy Kit
       difficulty:
         rank: 345
-      mode: full
+      mode: 'true'
 plans:
   mogg:
     parts:

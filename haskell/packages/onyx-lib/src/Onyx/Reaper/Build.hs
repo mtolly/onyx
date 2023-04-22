@@ -35,7 +35,7 @@ import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Onyx.FeedBack.Load                    (loadRawMIDIOrChart)
 import           Onyx.MIDI.Common                      (Key (..), showKey)
-import           Onyx.MIDI.Track.Drums.Full            (fullDrumNoteNames)
+import           Onyx.MIDI.Track.Drums.True            (trueDrumNoteNames)
 import           Onyx.MIDI.Track.File                  (FlexPartName (..),
                                                         identifyFlexTrack)
 import           Onyx.MIDI.Track.ProGuitar             (GtrBase (..),
@@ -344,7 +344,7 @@ track tunings lenTicks lenSecs resn trk = let
           [ ("PART DRUMS", "colormap_drums.png")
           , ("PART DRUMS_2X", "colormap_drums.png")
           , ("PART REAL_DRUMS_PS", "colormap_drums.png")
-          , ("PART FULL DRUMS", "colormap_fulldrums.png")
+          , ("PART TRUE_DRUMS", "colormap_truedrums.png")
           , ("PART GUITAR", "colormap_grybo.png")
           , ("PART GUITAR EXT", "colormap_grybo.png")
           , ("PART BASS", "colormap_grybo.png")
@@ -372,7 +372,7 @@ track tunings lenTicks lenSecs resn trk = let
       [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
       , (("PART DRUMS_2X" `T.isSuffixOf`), drumNoteNames)
       , (("PART REAL_DRUMS_PS" `T.isSuffixOf`), drumNoteNames)
-      , (("PART FULL DRUMS" `T.isSuffixOf`), fullDrumNoteNames)
+      , (("PART TRUE_DRUMS" `T.isSuffixOf`), trueDrumNoteNames)
       , (("PART GUITAR" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART GUITAR EXT" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART BASS" `T.isSuffixOf`), gryboNoteNames False)
@@ -1287,7 +1287,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rs.png"    -> colorMapRS    >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rslow.png" -> colorMapRSLow >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
-    "colormap_fulldrums.png" -> getResourcesPath "fulldrums.png" >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_truedrums.png" -> getResourcesPath "true-drums.png" >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

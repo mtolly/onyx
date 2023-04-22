@@ -5,7 +5,7 @@ parts:
     drums: # Onyxite
       kicks: both
       difficulty: 6
-      mode: full
+      mode: 'true'
   guitar:
     # PART GUITAR is RBN, PART GUITAR EXT is CyclopsDragon (Carpal Tunnel Hero 2)
     grybo:

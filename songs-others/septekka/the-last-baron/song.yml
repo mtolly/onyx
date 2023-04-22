@@ -3,7 +3,7 @@ global:
 parts:
   drums:
     drums:
-      mode: full
+      mode: 'true'
       kicks: both
       difficulty:
         tier: 7

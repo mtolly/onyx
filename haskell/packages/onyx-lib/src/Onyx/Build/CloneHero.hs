@@ -128,7 +128,7 @@ psRules buildInfo dir ps = do
       , FoF.proDrums         = flip fmap dmode $ \case
         DrumsPro  -> True
         DrumsReal -> True
-        DrumsFull -> True
+        DrumsTrue -> True
         Drums4    -> False
         Drums5    -> False
       , FoF.fiveLaneDrums    = Nothing
@@ -149,7 +149,7 @@ psRules buildInfo dir ps = do
       , FoF.diffDrumsReal    = Just $ case dmode of
         Just DrumsPro  -> fromIntegral $ rb3DrumsTier - 1
         Just DrumsReal -> fromIntegral $ rb3DrumsTier - 1
-        Just DrumsFull -> fromIntegral $ rb3DrumsTier - 1
+        Just DrumsTrue -> fromIntegral $ rb3DrumsTier - 1
         _              -> -1
       , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
       , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1

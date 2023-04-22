@@ -17,7 +17,6 @@ extra-deps:
 - caerbannog-1.0.0.2
 - RtMidi-0.5.0.2
 # local folders
-- packages/onyx-exe-game
 - packages/onyx-arktool
 - packages/onyx-kakasi
 - packages/onyx-gamecube-dsp

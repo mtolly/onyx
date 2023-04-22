@@ -32,7 +32,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
-import qualified Onyx.MIDI.Track.Drums.Full       as FD
+import qualified Onyx.MIDI.Track.Drums.True       as TD
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Project                     hiding (TargetDTX (..))
@@ -46,27 +46,27 @@ import           System.FilePath                  (takeDirectory, takeExtension,
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
   :: DTX -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
-  importFullDrums notes = mempty
-    { FD.fdDifficulties = Map.singleton Expert FD.FullDrumDifficulty
-      { FD.fdGems = flip RTB.mapMaybe notes $ \case
-        HihatClose -> Just (FD.Hihat    , FD.GemHihatClosed, VelocityNormal)
-        Snare      -> Just (FD.Snare    , FD.GemNormal     , VelocityNormal)
-        BassDrum   -> Just (FD.Kick     , FD.GemNormal     , VelocityNormal)
-        HighTom    -> Just (FD.Tom1     , FD.GemNormal     , VelocityNormal)
-        LowTom     -> Just (FD.Tom2     , FD.GemNormal     , VelocityNormal)
-        Cymbal     -> Just (FD.CrashR   , FD.GemNormal     , VelocityNormal)
-        FloorTom   -> Just (FD.Tom3     , FD.GemNormal     , VelocityNormal)
-        HihatOpen  -> Just (FD.Hihat    , FD.GemHihatOpen  , VelocityNormal)
-        RideCymbal -> Just (FD.Ride     , FD.GemNormal     , VelocityNormal)
-        LeftCymbal -> Just (FD.CrashL   , FD.GemNormal     , VelocityNormal)
-        LeftPedal  -> Just (FD.HihatFoot, FD.GemNormal     , VelocityNormal)
+  importTrueDrums notes = mempty
+    { TD.tdDifficulties = Map.singleton Expert $ let
+      diff = TD.makeTrueDifficulty $ flip RTB.mapMaybe notes $ \case
+        HihatClose -> Just (TD.Hihat    , TD.GemHihatClosed, VelocityNormal)
+        Snare      -> Just (TD.Snare    , TD.GemNormal     , VelocityNormal)
+        BassDrum   -> Just (TD.Kick     , TD.GemNormal     , VelocityNormal)
+        HighTom    -> Just (TD.Tom1     , TD.GemNormal     , VelocityNormal)
+        LowTom     -> Just (TD.Tom2     , TD.GemNormal     , VelocityNormal)
+        Cymbal     -> Just (TD.CrashR   , TD.GemNormal     , VelocityNormal)
+        FloorTom   -> Just (TD.Tom3     , TD.GemNormal     , VelocityNormal)
+        HihatOpen  -> Just (TD.Hihat    , TD.GemHihatOpen  , VelocityNormal)
+        RideCymbal -> Just (TD.Ride     , TD.GemNormal     , VelocityNormal)
+        LeftCymbal -> Just (TD.CrashL   , TD.GemNormal     , VelocityNormal)
+        LeftPedal  -> Just (TD.HihatFoot, TD.GemNormal     , VelocityNormal)
         LeftBass   -> Nothing
-      , FD.fdFlam = RTB.empty
-      }
-    , FD.fdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
+      in diff
+        { TD.tdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
+        }
     }
   in F.Song tmap mmap $ F.editOnyxPart F.FlexDrums
-    (\opart -> opart { F.onyxPartFullDrums = importFullDrums $ fmap fst $ dtx_Drums dtx })
+    (\opart -> opart { F.onyxPartTrueDrums = importTrueDrums $ fmap fst $ dtx_Drums dtx })
     onyx
 dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> F.editOnyxPart
   F.FlexGuitar
@@ -392,7 +392,7 @@ importSetDef setDefPath song level = do
               kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
                 then KicksBoth
                 else Kicks1x
-              in (emptyPartDrums DrumsFull kicks)
+              in (emptyPartDrums DrumsTrue kicks)
                 { difficulty = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
                 }
             })

@@ -55,7 +55,7 @@ import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.Full       as FD
+import qualified Onyx.MIDI.Track.Drums.True       as TD
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Mode
 import           Onyx.Overdrive                   (calculateUnisons,
@@ -217,41 +217,41 @@ dtxRules buildInfo dir dtx = do
             Nothing          -> RTB.empty
             Just (part, _pd) -> let
               track
-                = maybe mempty F.onyxPartFullDrums
+                = maybe mempty F.onyxPartTrueDrums
                 $ Map.lookup part
                 $ F.onyxParts
                 $ F.s_tracks mid
               -- TODO need to properly handle blip overrides on flams!
-              fullNotes
-                = applyLongStatus (FD.fdChipOverride track)
-                $ FD.splitFlams (F.s_tempos mid)
-                $ FD.addExplicitStomps (4 :: U.Beats)
-                $ FD.getDifficulty Nothing track
-              toDTXNotes = fmap $ \(currentOverrides, fdn) -> let
-                lane = case FD.fdn_gem fdn of
-                  FD.Kick      -> case FD.fdn_limb fdn of
+              trueNotes
+                = applyLongStatus (TD.tdChipOverride track)
+                $ TD.splitFlams (F.s_tempos mid)
+                $ TD.addExplicitStomps (4 :: U.Beats)
+                $ TD.getDifficulty Nothing track
+              toDTXNotes = fmap $ \(currentOverrides, tdn) -> let
+                lane = case TD.tdn_gem tdn of
+                  TD.Kick      -> case TD.tdn_limb tdn of
                     Just D.LH -> DTX.LeftBass
                     _         -> DTX.BassDrum
-                  FD.Snare     -> DTX.Snare
-                  FD.Hihat     -> case FD.fdn_type fdn of
-                    FD.GemHihatOpen -> DTX.HihatOpen
+                  TD.Snare     -> DTX.Snare
+                  TD.Hihat     -> case TD.tdn_type tdn of
+                    TD.GemHihatOpen -> DTX.HihatOpen
                     _               -> DTX.HihatClose
-                  FD.HihatFoot -> DTX.LeftPedal
-                  FD.CrashL    -> DTX.LeftCymbal
-                  FD.Tom1      -> DTX.HighTom
-                  FD.Tom2      -> DTX.LowTom
-                  FD.Tom3      -> DTX.FloorTom
-                  FD.CrashR    -> DTX.Cymbal
-                  FD.Ride      -> DTX.RideCymbal
+                  TD.HihatFoot -> DTX.LeftPedal
+                  TD.CrashL    -> DTX.LeftCymbal
+                  TD.Tom1      -> DTX.HighTom
+                  TD.Tom2      -> DTX.LowTom
+                  TD.Tom3      -> DTX.FloorTom
+                  TD.CrashR    -> DTX.Cymbal
+                  TD.Ride      -> DTX.RideCymbal
                 chip = fromMaybe emptyChip $ do
                   (_, DTX.DTXMapping _ conds allOverrides) <- mapping
                   let addedConds = do
                         DTX.DTXOverride tag extraConds <- allOverrides
                         guard $ elem tag currentOverrides
                         extraConds
-                  DTX.lookupDTXMapping (addedConds <> conds) fdn
+                  DTX.lookupDTXMapping (addedConds <> conds) tdn
                 in (lane, chip)
-              in toDTXNotes fullNotes
+              in toDTXNotes trueNotes
           , DTX.dtx_DrumsDummy    = RTB.empty
           , DTX.dtx_Guitar        = gtrNotes
           , DTX.dtx_GuitarWailing = RTB.empty

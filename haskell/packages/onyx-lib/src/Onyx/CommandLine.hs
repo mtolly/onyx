@@ -115,6 +115,7 @@ import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
+import qualified Onyx.MIDI.Track.Drums.True as TD
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
 import           Onyx.Neversoft.Crypt                 (decryptFSB, gh3Encrypt,
                                                        ghworEncrypt,
@@ -1315,6 +1316,21 @@ commands =
           } :: SongYaml FilePath)
         return [dir]
       _ -> fatal "Expected at least 1 arg (flac or wav files)"
+    }
+
+  , Command
+    { commandWord = "full-to-true"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandList = False
+    , commandRun = \args _ -> forM args $ \arg -> do
+      mid <- F.loadMIDIBytes $ fileReadable arg
+      case TD.fullToTrue mid of
+        Nothing -> return ()
+        Just mid' -> do
+          lg "Updated track."
+          stackIO $ Save.toFile arg mid'
+      return arg
     }
 
   ]

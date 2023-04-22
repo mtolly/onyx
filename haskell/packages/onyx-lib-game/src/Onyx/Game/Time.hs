@@ -30,7 +30,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common                 (StrumHOPOTap, pattern RNil,
                                                    pattern Wait)
 import           Onyx.MIDI.Track.Beat
-import           Onyx.MIDI.Track.Drums.Full
+import           Onyx.MIDI.Track.Drums.True
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import qualified Sound.MIDI.Util                  as U
 
@@ -449,76 +449,76 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
 ----------------------------
 
 -- Inputs from the player (minus opening the hihat pedal)
-data FullDrumHit = FullDrumHit
-  { fdh_gem      :: FullGem
-  , fdh_rim      :: Bool
-  , fdh_velocity :: Double -- 0 to 1
+data TrueDrumHit = TrueDrumHit
+  { tdh_gem      :: TrueGem
+  , tdh_rim      :: Bool
+  , tdh_velocity :: Double -- 0 to 1
   } deriving (Show)
 
-data FullDrumInput
-  = FDInputHit FullDrumHit
-  | FDInputHihatOpen
+data TrueDrumInput
+  = TDInputHit TrueDrumHit
+  | TDInputHihatOpen
   deriving (Show)
 
-data FullDrumPlayState t = FullDrumPlayState
-  { fdEvents    :: [(t, (Maybe FullDrumInput, FullDrumGameState t))]
-  , fdTrack     :: Map.Map t (CommonState (DrumState (FullDrumNote FlamStatus) FullGem))
-  , fdNoteTimes :: Set.Set t
+data TrueDrumPlayState t = TrueDrumPlayState
+  { tdEvents    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
+  , tdTrack     :: Map.Map t (CommonState (DrumState (TrueDrumNote FlamStatus) TrueGem))
+  , tdNoteTimes :: Set.Set t
   } deriving (Show)
 
-data FullDrumGameState t = FullDrumGameState
-  { fdScore       :: Int
-  , fdCombo       :: Int
-  , fdHihatOpen   :: Bool
-  , fdNoteResults :: [(t, Map.Map (FullDrumNote FlamStatus) (NoteResult t))] -- times are of notes
-  , fdOverhits    :: [(t, FullDrumHit)] -- times are of inputs
+data TrueDrumGameState t = TrueDrumGameState
+  { tdScore       :: Int
+  , tdCombo       :: Int
+  , tdIsHihatOpen   :: Bool
+  , tdNoteResults :: [(t, Map.Map (TrueDrumNote FlamStatus) (NoteResult t))] -- times are of notes
+  , tdOverhits    :: [(t, TrueDrumHit)] -- times are of inputs
   } deriving (Show)
 
 data NoteResult t
-  = FDMissed
-  | FDHit t
-  | FDHitPendingHihat Bool -- once hihat open = bool, changes to hit
-  | FDTwoHits t -- flam that has been hit twice
-  | FDTwoHitsPendingHihat Bool
+  = TDMissed
+  | TDHit t
+  | TDHitPendingHihat Bool -- once hihat open = bool, changes to hit
+  | TDTwoHits t -- flam that has been hit twice
+  | TDTwoHitsPendingHihat Bool
   deriving (Eq, Show)
 
-initialFDState :: FullDrumGameState t
-initialFDState = FullDrumGameState
-  { fdScore       = 0
-  , fdCombo       = 0
-  , fdHihatOpen   = False
-  , fdNoteResults = []
-  , fdOverhits    = []
+initialTDState :: TrueDrumGameState t
+initialTDState = TrueDrumGameState
+  { tdScore       = 0
+  , tdCombo       = 0
+  , tdIsHihatOpen   = False
+  , tdNoteResults = []
+  , tdOverhits    = []
   }
 
-fullNoteStatus :: (Ord t) => t -> FullDrumNote FlamStatus -> [(t, (Maybe FullDrumInput, FullDrumGameState t))] -> NoteStatus t
-fullNoteStatus noteTime note events = let
+trueNoteStatus :: (Ord t) => t -> TrueDrumNote FlamStatus -> [(t, (Maybe TrueDrumInput, TrueDrumGameState t))] -> NoteStatus t
+trueNoteStatus noteTime note events = let
   slices = case events of
     []                      -> []
-    (_, (_, gameState)) : _ -> fdNoteResults gameState
+    (_, (_, gameState)) : _ -> tdNoteResults gameState
   in case dropWhile ((> noteTime) . fst) slices of
     (sliceTime, slice) : _ -> if noteTime == sliceTime
       then case Map.lookup note slice of
         Nothing                        -> NoteFuture
-        Just FDMissed                  -> NoteMissed
-        Just (FDHit t)                 -> NoteHitAt t
-        Just (FDHitPendingHihat _)     -> NoteFuture
-        Just (FDTwoHits t)             -> NoteHitAt t
-        Just (FDTwoHitsPendingHihat _) -> NoteFuture
+        Just TDMissed                  -> NoteMissed
+        Just (TDHit t)                 -> NoteHitAt t
+        Just (TDHitPendingHihat _)     -> NoteFuture
+        Just (TDTwoHits t)             -> NoteHitAt t
+        Just (TDTwoHitsPendingHihat _) -> NoteFuture
       else NoteFuture
     [] -> NoteFuture
 
-applyFullDrumEvent
+applyTrueDrumEvent
   :: (Show t, Ord t, Num t)
   => t
-  -> Maybe FullDrumInput
+  -> Maybe TrueDrumInput
   -> t
-  -> FullDrumPlayState t
-  -> FullDrumPlayState t
-applyFullDrumEvent tNew mpadNew halfWindow dps = let
+  -> TrueDrumPlayState t
+  -> TrueDrumPlayState t
+applyTrueDrumEvent tNew mpadNew halfWindow dps = let
   applyNoRewind (t, maybeInput) evts = let
     mClosestTime = do
-      ct <- case (Set.lookupLE t $ fdNoteTimes dps, Set.lookupGE t $ fdNoteTimes dps) of
+      ct <- case (Set.lookupLE t $ tdNoteTimes dps, Set.lookupGE t $ tdNoteTimes dps) of
         (x, Nothing)     -> x
         (Nothing, y)     -> y
         (Just x, Just y) -> Just $ if t - x < y - t then x else y
@@ -526,14 +526,14 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
       return ct
     originalSlices = case evts of
       []                      -> []
-      (_, (_, gameState)) : _ -> fdNoteResults gameState
+      (_, (_, gameState)) : _ -> tdNoteResults gameState
 
     -- determine misses
     missRemainingNotesInSlice sliceTime slice = let
-      sliceNotes = maybe [] (Set.toList . drumNotes . commonState) $ Map.lookup sliceTime $ fdTrack dps
-      allMisses = Map.fromList $ map (, FDMissed) sliceNotes
-      combineStatus (FDHitPendingHihat     _) miss = miss
-      combineStatus (FDTwoHitsPendingHihat _) miss = miss
+      sliceNotes = maybe [] (Set.toList . drumNotes . commonState) $ Map.lookup sliceTime $ tdTrack dps
+      allMisses = Map.fromList $ map (, TDMissed) sliceNotes
+      combineStatus (TDHitPendingHihat     _) miss = miss
+      combineStatus (TDTwoHitsPendingHihat _) miss = miss
       combineStatus current                   _    = current
       in (sliceTime, Map.unionWith combineStatus slice allMisses)
     -- first, if the top status is out of scope, all non-hit notes should be missed
@@ -547,14 +547,14 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
     missMinBound = case missRestOfTopStatus of
       (lastSliceTime, _) : _ -> Exclusive lastSliceTime
       []                     -> Unbounded
-    missableTimes = zoomSetList missMinBound missMaxBound $ fdNoteTimes dps
+    missableTimes = zoomSetList missMinBound missMaxBound $ tdNoteTimes dps
     missSkippedSlices = foldr (\time slices -> missRemainingNotesInSlice time Map.empty : slices) missRestOfTopStatus missableTimes
     didMiss = take 1 missSkippedSlices /= take 1 originalSlices
 
     -- The closest notes, which could be hit at this moment
-    targetNotes = mClosestTime >>= \t' -> Map.lookup t' $ fdTrack dps
+    targetNotes = mClosestTime >>= \t' -> Map.lookup t' $ tdTrack dps
     previousState = case evts of
-      []              -> initialFDState
+      []              -> initialTDState
       (_, (_, s)) : _ -> s
     -- The existing status of the target notes
     currentSlice = case mClosestTime of
@@ -567,48 +567,48 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
       state <- targetNotes
       input <- maybeInput
       case input of
-        FDInputHihatOpen -> Nothing
-        FDInputHit hit -> let
-          match note = fdn_gem note == fdh_gem hit
+        TDInputHihatOpen -> Nothing
+        TDInputHit hit -> let
+          match note = tdn_gem note == tdh_gem hit
           in find match $ drumNotes $ commonState state
     normalHitData = case matchingHit of
       Nothing -> Nothing
       Just note -> case Map.lookup note currentSlice of
         Nothing -> let
-          newStatus = case fdn_type note of
-            GemHihatOpen -> if fdHihatOpen previousState then FDHit t else FDHitPendingHihat True
-            GemHihatClosed -> if fdHihatOpen previousState then FDHitPendingHihat False else FDHit t
-            _ -> FDHit t
+          newStatus = case tdn_type note of
+            GemHihatOpen -> if tdIsHihatOpen previousState then TDHit t else TDHitPendingHihat True
+            GemHihatClosed -> if tdIsHihatOpen previousState then TDHitPendingHihat False else TDHit t
+            _ -> TDHit t
           in Just (note, newStatus)
-        Just FDMissed -> Nothing -- probably shouldn't happen?
-        Just (FDHit _) -> case fdn_extra note of
-          Flam    -> Just (note, FDTwoHits t)
+        Just TDMissed -> Nothing -- probably shouldn't happen?
+        Just (TDHit _) -> case tdn_extra note of
+          Flam    -> Just (note, TDTwoHits t)
           NotFlam -> Nothing
-        Just (FDHitPendingHihat b) -> case fdn_extra note of
-          Flam    -> Just (note, FDTwoHitsPendingHihat b)
+        Just (TDHitPendingHihat b) -> case tdn_extra note of
+          Flam    -> Just (note, TDTwoHitsPendingHihat b)
           NotFlam -> Nothing
-        Just (FDTwoHits _) -> Nothing
-        Just (FDTwoHitsPendingHihat _) -> Nothing
+        Just (TDTwoHits _) -> Nothing
+        Just (TDTwoHitsPendingHihat _) -> Nothing
     isNormalHit = case normalHitData of
       Nothing                           -> False
-      Just (_, FDHitPendingHihat     _) -> False
-      Just (_, FDTwoHitsPendingHihat _) -> False
+      Just (_, TDHitPendingHihat     _) -> False
+      Just (_, TDTwoHitsPendingHihat _) -> False
       Just _                            -> True
     -- determine if hihat pedal to make existing hit not pending
     hihatStatusChange = case maybeInput of
-      Just FDInputHihatOpen                            -> Just True
-      Just (FDInputHit hit) | fdh_gem hit == HihatFoot -> Just False
+      Just TDInputHihatOpen                            -> Just True
+      Just (TDInputHit hit) | tdh_gem hit == HihatFoot -> Just False
       _                                                -> Nothing
     hihatFixData = case hihatStatusChange of
       Nothing -> []
       Just newHihatOpen -> let
         canFinalizeNote (note, status) = case status of
-          FDHitPendingHihat b -> do
+          TDHitPendingHihat b -> do
             guard $ b == newHihatOpen
-            Just (note, FDHit t)
-          FDTwoHitsPendingHihat b -> do
+            Just (note, TDHit t)
+          TDTwoHitsPendingHihat b -> do
             guard $ b == newHihatOpen
-            Just (note, FDTwoHits t)
+            Just (note, TDTwoHits t)
           _ -> Nothing
         in mapMaybe canFinalizeNote $ Map.toList currentSlice
     countNewHits = (if isNormalHit then 1 else 0) + length hihatFixData
@@ -616,9 +616,9 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
     overhitData = case normalHitData of
       Just _ -> Nothing
       Nothing -> case maybeInput of
-        Just FDInputHihatOpen -> Nothing
-        Just (FDInputHit hit) -> do
-          guard $ fdh_gem hit /= HihatFoot
+        Just TDInputHihatOpen -> Nothing
+        Just (TDInputHit hit) -> do
+          guard $ tdh_gem hit /= HihatFoot
           Just (t, hit)
         Nothing -> Nothing
 
@@ -638,17 +638,17 @@ applyFullDrumEvent tNew mpadNew halfWindow dps = let
     newState = let
       comboBase = if didMiss || isJust overhitData
         then 0
-        else fdCombo previousState
-      in FullDrumGameState
-        { fdScore = fdScore previousState + 25 * countNewHits -- TODO apply multiplier
-        , fdCombo = comboBase + countNewHits
-        , fdHihatOpen = fromMaybe (fdHihatOpen previousState) hihatStatusChange
-        , fdNoteResults = newSlices
-        , fdOverhits = maybe id (:) overhitData $ fdOverhits previousState
+        else tdCombo previousState
+      in TrueDrumGameState
+        { tdScore = tdScore previousState + 25 * countNewHits -- TODO apply multiplier
+        , tdCombo = comboBase + countNewHits
+        , tdIsHihatOpen = fromMaybe (tdIsHihatOpen previousState) hihatStatusChange
+        , tdNoteResults = newSlices
+        , tdOverhits = maybe id (:) overhitData $ tdOverhits previousState
         }
     in (t, (maybeInput, newState)) : evts
-  in case span ((> tNew) . fst) $ fdEvents dps of
+  in case span ((> tNew) . fst) $ tdEvents dps of
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind $ \(t, (hit, _)) -> (t, hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
-      in dps { fdEvents = newEvents }
+      in dps { tdEvents = newEvents }
