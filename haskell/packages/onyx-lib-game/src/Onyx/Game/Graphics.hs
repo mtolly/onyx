@@ -258,8 +258,8 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
       highwayParts = case layout of
-        TDStandard -> [TD.Snare , TD.Hihat, TD.CrashL, TD.Tom1, TD.Tom2, TD.Tom3, TD.CrashR, TD.Ride]
-        TDOpenHand -> [TD.CrashL, TD.Hihat, TD.Snare , TD.Tom1, TD.Tom2, TD.Tom3, TD.CrashR, TD.Ride]
+        TDStandard -> [TD.Snare , TD.Hihat, TD.CrashL, TD.Tom1, TD.Tom2, TD.Tom3, TD.Ride, TD.CrashR]
+        TDOpenHand -> [TD.CrashL, TD.Hihat, TD.Snare , TD.Tom1, TD.Tom2, TD.Tom3, TD.Ride, TD.CrashR]
       partWidth = \case
         TD.Snare  -> 0.15
         TD.Hihat  -> 0.125
@@ -353,10 +353,10 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         , ([TD.Hihat ], TextureTargetYellow      , TextureTargetYellowLight      , Just $ V4 1 1 1 0.2)
         , ([TD.CrashL], TextureTargetBlue        , TextureTargetBlueLight        , Just $ V4 0 0 0 0.2)
         , ([TD.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
-        , ([TD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.2)
-        , ([TD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.2)
-        , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ V4 0 0 0 0.2)
-        , ([TD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 1 1 1 0.2)
+        , ([TD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.15)
+        , ([TD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.1)
+        , ([TD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 0 0 0 0.2)
+        , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ V4 1 1 1 0.2)
         ]
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
@@ -381,7 +381,6 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
       1
       globalLight
   glDepthFunc GL_ALWAYS
-  -- TODO fix this making the track transparent
   forM_ targets $ \(pads, _, _, mtint) -> forM_ mtint $ \tint -> do
     let x1 = minimum $ map (fst . gemBounds) pads
         x2 = maximum $ map (snd . gemBounds) pads

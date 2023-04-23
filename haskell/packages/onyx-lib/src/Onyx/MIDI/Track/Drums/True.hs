@@ -121,8 +121,8 @@ instance ParseTrack TrueDrumTrack where
         Tom1      -> edges $ 110 + 4
         Tom2      -> edges $ 110 + 5
         Tom3      -> edges $ 110 + 6
-        CrashR    -> edges $ 110 + 7
-        Ride      -> edges $ 110 + 8
+        Ride      -> edges $ 110 + 7
+        CrashR    -> edges $ 110 + 8
     tdSticking <- (tdSticking =.) $ condenseMap_ $ eachKey each $ blip . \case
       D.RH -> 100
       D.LH -> 99
@@ -170,8 +170,8 @@ instance ParseTrack TrueDrumTrack where
             Tom1      -> 6
             Tom2      -> 7
             Tom3      -> 8
-            CrashR    -> 9
-            Ride      -> 10
+            Ride      -> 9
+            CrashR    -> 10
       tdKick2       <- tdKick2       =. blip  (base + 1)
       tdFlam        <- tdFlam        =. blip  (base + 15)
       tdHihatClosed <- tdHihatClosed =. edges (base + 16)
@@ -198,8 +198,8 @@ instance Command ChipOverrideEvent where
 
 trueDrumNoteNames :: [(Int, T.Text)]
 trueDrumNoteNames = execWriter $ do
-  o 118 "Roll/Swell Ride"
-  o 117 "Roll/Swell Crash 2"
+  o 118 "Roll/Swell Crash 2"
+  o 117 "Roll/Swell Ride"
   o 116 "Roll/Swell Tom 3"
   o 115 "Roll/Swell Tom 2"
   o 114 "Roll/Swell Tom 1"
@@ -217,12 +217,12 @@ trueDrumNoteNames = execWriter $ do
   o 88 "X Hihat Closed Phrase"
   o 87 "X Flam"
   x 83
-  o 82 "X Ride"
-  o 81 "X Crash R"
+  o 82 "X Crash 2"
+  o 81 "X Ride"
   o 80 "X Tom 3"
   o 79 "X Tom 2"
   o 78 "X Tom 1"
-  o 77 "X Crash L"
+  o 77 "X Crash 1"
   o 76 "X Hihat"
   o 75 "X Snare"
   o 74 "X Kick"
@@ -234,12 +234,12 @@ trueDrumNoteNames = execWriter $ do
   o 64 "H Hihat Closed Phrase"
   o 63 "H Flam"
   x 59
-  o 58 "H Ride"
-  o 57 "H Crash R"
+  o 58 "H Crash 2"
+  o 57 "H Ride"
   o 56 "H Tom 3"
   o 55 "H Tom 2"
   o 54 "H Tom 1"
-  o 53 "H Crash L"
+  o 53 "H Crash 1"
   o 52 "H Hihat"
   o 51 "H Snare"
   o 50 "H Kick"
@@ -251,12 +251,12 @@ trueDrumNoteNames = execWriter $ do
   o 40 "M Hihat Closed Phrase"
   o 39 "M Flam"
   x 35
-  o 34 "M Ride"
-  o 33 "M Crash R"
+  o 34 "M Crash 2"
+  o 33 "M Ride"
   o 32 "M Tom 3"
   o 31 "M Tom 2"
   o 30 "M Tom 1"
-  o 29 "M Crash L"
+  o 29 "M Crash 1"
   o 28 "M Hihat"
   o 27 "M Snare"
   o 26 "M Kick"
@@ -268,12 +268,12 @@ trueDrumNoteNames = execWriter $ do
   o 16 "E Hihat Closed Phrase"
   o 15 "E Flam"
   x 11
-  o 10 "E Ride"
-  o 9 "E Crash R"
+  o 10 "E Crash 2"
+  o 9 "E Ride"
   o 8 "E Tom 3"
   o 7 "E Tom 2"
   o 6 "E Tom 1"
-  o 5 "E Crash L"
+  o 5 "E Crash 1"
   o 4 "E Hihat"
   o 3 "E Snare"
   o 2 "E Kick"
@@ -647,34 +647,22 @@ animationToTrueDrums anims = RTB.flatten $ flip fmap anims $ \case
   where fromHit D.SoftHit = VelocityGhost
         fromHit D.HardHit = VelocityNormal
 
-fullToTrue :: F.T B.ByteString -> Maybe (F.T B.ByteString)
-fullToTrue (F.Cons typ dvn trks) = let
+swapGreenPurple :: F.T B.ByteString -> Maybe (F.T B.ByteString)
+swapGreenPurple (F.Cons typ dvn trks) = let
   results = flip map trks $ \trk -> case U.trackName trk of
-    Just "PART FULL DRUMS" -> (True,) $ RTB.flatten $ flip fmap trk $ \e ->
+    Just "PART TRUE_DRUMS" -> (True,) $ RTB.flatten $ flip fmap trk $ \e ->
       case isNoteEdgeCPV e of
-        Nothing -> case U.readTrackName e of
-          Just _  -> [U.showTrackName "PART TRUE_DRUMS"]
-          Nothing -> [e]
+        Nothing -> [e]
         Just (c, p, mv) -> let
           newPitches
-            | p == 120 = [105] -- drum fill
-            | p == 116 = [104] -- overdrive
-            | p == 115 = [103] -- solo
-            | p == 112 = [100] -- sticking
-            | p == 111 = [99] -- sticking
-            | p == 109 = [97] -- footing
-            | p == 108 = [96] -- footing
-            | 84 <= p && p <= 92 = [p + 26] -- swells
-            | 94 <= p && p <= 104 = concat
-              [ [p - 22]
-              , [89 | c == 1]
-              , [88 | c == 2]
-              , [93 | c == 3]
-              , [92 | c == 4]
-              ]
-            | p == 106 = [87] -- flam
+            -- swells
+            | p == 117 = [118]
+            | p == 118 = [117]
+            -- expert
+            | p == 81 = [82]
+            | p == 82 = [81]
             | otherwise = [p]
-          in map (\p' -> makeEdgeCPV 0 p' mv) newPitches
+          in map (\p' -> makeEdgeCPV c p' mv) newPitches
     _ -> (False, trk)
   in if any fst results
     then Just $ F.Cons typ dvn $ map snd results

@@ -154,6 +154,7 @@ psRules buildInfo dir ps = do
       , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
       , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
       , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
+      -- TODO fix this! should be -1 if no harmonies
       , FoF.diffVocalsHarm   = Just $ fromIntegral $ rb3VocalTier     - 1
       , FoF.diffDance        = Just $ fromIntegral $ psDanceTier      - 1
       , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
