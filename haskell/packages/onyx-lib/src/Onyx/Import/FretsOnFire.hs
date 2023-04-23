@@ -359,6 +359,7 @@ importFoF src dir level = do
       hasKicks = if isJust maybe2x
         || not (RTB.null $ drumKick2x $ F.fixedPartDrums       $ F.s_tracks parsed)
         || not (RTB.null $ drumKick2x $ F.fixedPartRealDrumsPS $ F.s_tracks parsed)
+        || not (maybe False (RTB.null . TD.tdKick2) $ Map.lookup Expert $ TD.tdDifficulties $ F.fixedPartTrueDrums $ F.s_tracks parsed)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 
@@ -512,7 +513,7 @@ importFoF src dir level = do
       [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = do
           guard
-            $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS)
+            $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS || isnt nullTrueDrums F.fixedPartTrueDrums)
             && guardDifficulty FoF.diffDrums
           let mode = let
                 isTrue = isnt TD.nullTrueDrums F.fixedPartTrueDrums

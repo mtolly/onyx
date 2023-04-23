@@ -90,7 +90,7 @@ psRules buildInfo dir ps = do
   dir </> "ps/song.ini" %> \out -> do
     raw <- shakeMIDI $ planDir </> "raw.mid"
     song <- shakeMIDI $ dir </> "ps/notes.mid"
-    (DifficultyPS{..}, _) <- loadEditedParts
+    (DifficultyPS{..}, vocalCount) <- loadEditedParts
     let (pstart, _) = previewBounds songYaml (raw :: F.Song (F.OnyxFile U.Beats)) 0 False
         len = F.songLengthMS song
         pd = getPart ps.drums songYaml >>= (.drums)
@@ -154,8 +154,11 @@ psRules buildInfo dir ps = do
       , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
       , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
       , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
-      -- TODO fix this! should be -1 if no harmonies
-      , FoF.diffVocalsHarm   = Just $ fromIntegral $ rb3VocalTier     - 1
+      , FoF.diffVocalsHarm   = Just $ case vocalCount of
+        Nothing     -> -1
+        Just Vocal1 -> -1
+        Just Vocal2 -> fromIntegral $ rb3VocalTier - 1
+        Just Vocal3 -> fromIntegral $ rb3VocalTier - 1
       , FoF.diffDance        = Just $ fromIntegral $ psDanceTier      - 1
       , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
       , FoF.diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1

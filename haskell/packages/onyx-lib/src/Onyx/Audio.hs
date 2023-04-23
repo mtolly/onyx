@@ -101,7 +101,9 @@ import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
                                                    stackIO, stackProcess,
                                                    tempDir)
-import           Onyx.Util.Handle                 (Readable, fileReadable)
+import           Onyx.Util.Handle                 (Readable, fileReadable,
+                                                   handleToByteString,
+                                                   useHandle)
 import           Onyx.Xbox.STFS                   (runGetM)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
@@ -443,6 +445,22 @@ standardRate src = if rate src == 44100
     then silent (Seconds 0) 44100 (channels src)
     else resampleTo 44100 SincMediumQuality $ reorganize chunkSize src
 
+-- FFMPEG appears to just return 0 for the length of an .xma stream.
+-- * First I just hacked it to '1 frame', to fix padAudio thinking it was empty and not padding.
+-- * But now we get the real length so that CH export doesn't think it needs to add
+--   the entire song's length of silence to the end until it reaches the [end] event...
+sourceXMA2CorrectLength
+  :: (MonadResource m, MonadIO f, MonadFail f)
+  => Readable
+  -> f (AudioSource m Float)
+sourceXMA2CorrectLength r = do
+  -- TODO don't read the whole file, just get the one thing from the header
+  n <- fmap xma2Samples $ liftIO (useHandle r handleToByteString) >>= parseXMA2
+  src <- liftIO $ ffSourceFrom (Frames 0) (Left r)
+  return src
+    { frames = n
+    }
+
 buildSource' :: (MonadResource m, MonadIO f, MonadFail f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
@@ -465,7 +483,7 @@ buildSource' aud = case aud of
     ".xma" -> do
       bs <- BL.fromStrict <$> B.readFile fin
       (choppedXMA, restFrames) <- seekXMA bs t
-      dropStart (Frames restFrames) <$> ffSourceFrom (Frames 0) (Left choppedXMA)
+      dropStart (Frames restFrames) <$> sourceXMA2CorrectLength choppedXMA
     -- there may be a problem in our ffmpeg seek code with mp3s.
     -- in osu import, seeking to e.g. 0.02s seems to not work right, only seeking ~0.001s.
     -- for now let's just drop those small amounts manually.
@@ -513,15 +531,7 @@ buildSource' aud = case aud of
     -- need to actually figure out what's going on!
     -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
     ".wav" -> sourceSnd fin
-    ".xma" -> do
-      -- NOTE: this is a hack so that padAudio actually pads the audio from an .xma file.
-      -- (since we check if frames is 0 and don't pad if so)
-      -- ffmpeg apparently does not bother setting the correct length, just sets it to 0.
-      -- we could get it ourselves though?
-      src <- ffSourceFixPath (Frames 0) fin
-      return src
-        { frames = if frames src == 0 then 1 else 0
-        }
+    ".xma" -> sourceXMA2CorrectLength $ fileReadable fin
     _      -> ffSourceFixPath (Frames 0) fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
