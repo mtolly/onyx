@@ -33,7 +33,7 @@ parts:
       kit: VintageKit
       kicks: both
       mode: 'true'
-      true-layout: open-hand
+      true-layout: [open-hand]
 targets:
   rb3:
     game: rb3

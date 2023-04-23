@@ -642,7 +642,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       , layout      = StandardLayout
       , fallback    = FallbackGreen
       , fileDTXKit  = Nothing
-      , trueLayout  = TDStandard
+      , trueLayout  = []
       , difficultyDTX = Nothing
       }
     , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes

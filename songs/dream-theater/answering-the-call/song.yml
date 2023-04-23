@@ -14,7 +14,7 @@ parts:
     drums:
       kicks: both
       mode: 'true'
-      true-layout: open-hand
+      true-layout: [open-hand]
       # difficulty:
 audio:
   album-track:

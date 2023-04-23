@@ -33,7 +33,7 @@ parts:
     drums:
       kicks: 1 # technically he uses 2 kick drums, but can just be one version
       mode: 'true'
-      true-layout: open-hand
+      true-layout: [open-hand]
       difficulty: 6
 targets:
   rb3:

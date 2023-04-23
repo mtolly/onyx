@@ -27,7 +27,8 @@ import           Data.IORef                   (IORef, newIORef, readIORef,
 import           Data.List                    (findIndex, partition, sort)
 import           Data.List.HT                 (partitionMaybe)
 import qualified Data.Map.Strict              as Map
-import           Data.Maybe                   (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
+                                               listToMaybe, mapMaybe)
 import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
 import qualified Data.Vector                  as V
@@ -56,10 +57,9 @@ import qualified Onyx.MIDI.Track.Drums.True   as TD
 import qualified Onyx.MIDI.Track.FiveFret     as Five
 import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
+                                               TrueDrumLayoutHint (..),
                                                readPreferences)
-import           Onyx.Project                 (PartMania (..),
-                                               TrueDrumLayout (..),
-                                               VideoInfo (..))
+import           Onyx.Project                 (PartMania (..), VideoInfo (..))
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace              (QueueLog, SendMessage,
                                                StackTraceT, fatal, getQueueLog,
@@ -203,7 +203,7 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawTrueDrums :: GLStuff -> Double -> Double -> TrueDrumLayout -> Map.Map Double (CommonState (DrumState (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
+drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (DrumState (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
 drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
   { tdEvents = let
     -- dummy game state with no inputs, but all notes marked as hit on time
@@ -217,7 +217,7 @@ drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTim
   , tdNoteTimes = Set.empty -- not used
   }
 
-drawTrueDrumPlay :: GLStuff -> Double -> Double -> TrueDrumLayout -> TrueDrumPlayState Double -> IO ()
+drawTrueDrumPlay :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> TrueDrumPlayState Double -> IO ()
 drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
@@ -257,9 +257,19 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         z1 = gfxConfig.track.targets.z_past
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
-      highwayParts = case layout of
-        TDStandard -> [TD.Snare , TD.Hihat, TD.CrashL, TD.Tom1, TD.Tom2, TD.Tom3, TD.Ride, TD.CrashR]
-        TDOpenHand -> [TD.CrashL, TD.Hihat, TD.Snare , TD.Tom1, TD.Tom2, TD.Tom3, TD.Ride, TD.CrashR]
+      layoutLeftOpenHand = fromMaybe False $ listToMaybe $ flip mapMaybe layout $ \case
+        TDLeftCrossHand -> Just False
+        TDLeftOpenHand  -> Just True
+        _               -> Nothing
+      layoutRightNearCrash = fromMaybe False $ listToMaybe $ flip mapMaybe layout $ \case
+        TDRightFarCrash  -> Just False
+        TDRightNearCrash -> Just True
+        _                -> Nothing
+      highwayParts = concat
+        [ if layoutLeftOpenHand then [TD.CrashL, TD.Hihat, TD.Snare] else [TD.Snare, TD.Hihat, TD.CrashL]
+        , [TD.Tom1, TD.Tom2, TD.Tom3]
+        , if layoutRightNearCrash then [TD.CrashR, TD.Ride] else [TD.Ride, TD.CrashR]
+        ]
       partWidth = \case
         TD.Snare  -> 0.15
         TD.Hihat  -> 0.125
@@ -356,8 +366,8 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         , ([TD.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
         , ([TD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.15)
         , ([TD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.1)
-        , ([TD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 0 0 0 0.2)
-        , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ V4 1 1 1 0.2)
+        , ([TD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ if layoutRightNearCrash then V4 1 1 1 0.2 else V4 0 0 0 0.2)
+        , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ if layoutRightNearCrash then V4 0 0 0 0.2 else V4 1 1 1 0.2)
         ]
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
@@ -2369,7 +2379,7 @@ drawDrumPlayFull
   -> WindowDims
   -> Double
   -> Double
-  -> TrueDrumLayout
+  -> [TrueDrumLayoutHint]
   -> TrueDrumPlayState Double
   -> IO ()
 drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed layout dps = do
@@ -2466,9 +2476,10 @@ drawTracks
   -> Double
   -> Double
   -> (Maybe PreviewBG)
+  -> [TrueDrumLayoutHint]
   -> [PreviewTrack]
   -> IO ()
-drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trks = do
+drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg userLayout trks = do
   glBindFramebuffer GL_FRAMEBUFFER 0
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   case bg of
@@ -2533,7 +2544,7 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg trk
     setUpTrackView glStuff (WindowDims w h)
     case trk of
       PreviewDrums m            -> drawDrums glStuff time speed   m
-      PreviewDrumsTrue layout m -> drawTrueDrums glStuff time speed layout m
+      PreviewDrumsTrue layout m -> drawTrueDrums glStuff time speed (userLayout <> layout) m
       PreviewFive  m            -> drawFive  glStuff time speed   m
       PreviewPG  t m            -> drawPG    glStuff time speed t m
       PreviewMania p m          -> drawMania glStuff time speed p m

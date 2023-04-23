@@ -58,7 +58,8 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
-import           Onyx.Preferences                     (MagmaSetting (..))
+import           Onyx.Preferences                     (MagmaSetting (..),
+                                                       TrueDrumLayoutHint (..))
 import           Onyx.StackTrace
 import qualified Sound.Jammit.Base                    as J
 import qualified Sound.MIDI.Util                      as U
@@ -713,16 +714,6 @@ instance StackJSON DrumLayout where
     StandardLayout -> is A.Null |?> is "standard-layout"
     FlipYBToms     -> is "flip-yb-toms"
 
-data TrueDrumLayout
-  = TDStandard -- snare, hihat, left crash
-  | TDOpenHand -- left crash, hihat, snare
-  deriving (Eq, Ord, Show, Enum, Bounded)
-
-instance StackJSON TrueDrumLayout where
-  stackJSON = enumCodec "a true drums layout" $ \case
-    TDStandard -> "standard"
-    TDOpenHand -> "open-hand"
-
 data DrumMode
   = Drums4
   | Drums5
@@ -765,7 +756,7 @@ data PartDrums f = PartDrums
   , layout        :: DrumLayout
   , fallback      :: OrangeFallback
   , fileDTXKit    :: Maybe f
-  , trueLayout    :: TrueDrumLayout
+  , trueLayout    :: [TrueDrumLayoutHint]
   , difficultyDTX :: Maybe Centi
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -779,7 +770,7 @@ instance (Eq f, StackJSON f) => StackJSON (PartDrums f) where
     layout        <- (.layout       ) =. opt     StandardLayout "layout"         stackJSON
     fallback      <- (.fallback     ) =. opt     FallbackGreen  "fallback"       stackJSON
     fileDTXKit    <- (.fileDTXKit   ) =. opt     Nothing        "file-dtx-kit"   stackJSON
-    trueLayout    <- (.trueLayout   ) =. opt     TDStandard     "true-layout"    stackJSON
+    trueLayout    <- (.trueLayout   ) =. opt     []             "true-layout"    stackJSON
     difficultyDTX <- (.difficultyDTX) =. opt     Nothing        "difficulty-dtx" stackJSON
     return PartDrums{..}
 
@@ -793,7 +784,7 @@ emptyPartDrums mode kicks = PartDrums
   , layout        = StandardLayout
   , fallback      = FallbackGreen
   , fileDTXKit    = Nothing
-  , trueLayout    = TDStandard
+  , trueLayout    = []
   , difficultyDTX = Nothing
   }
 

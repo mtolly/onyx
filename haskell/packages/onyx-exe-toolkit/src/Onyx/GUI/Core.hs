@@ -29,6 +29,7 @@ import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (newIORef, readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (findIndex)
+import qualified Data.List.NonEmpty                        as NE
 import           Data.Maybe                                (catMaybes,
                                                             listToMaybe)
 import           Data.Monoid                               (Endo (..))
@@ -384,6 +385,24 @@ makePresetDropdown rect opts = do
   menu <- FL.menuButtonNew rect $ Just initialLabel
   ref <- newIORef initialOpt
   forM_ opts $ \(label, opt) -> do
+    -- need to escape in menu items (but not button label) to not make submenus
+    let label' = T.replace "/" "\\/" label
+    FL.add menu label' Nothing
+      ((Just $ \_ -> do
+        writeIORef ref opt
+        FL.setLabel menu label
+      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+      (FL.MenuItemFlags [])
+  return $ readIORef ref
+
+makeDropdown :: Rectangle -> NE.NonEmpty (T.Text, a, Bool) -> IO (IO a)
+makeDropdown rect opts = do
+  let (initialLabel, initialOpt, _) = case NE.filter (\(_, _, b) -> b) opts of
+        opt : _ -> opt
+        []      -> NE.head opts
+  menu <- FL.menuButtonNew rect $ Just initialLabel
+  ref <- newIORef initialOpt
+  forM_ opts $ \(label, opt, _) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
     FL.add menu label' Nothing

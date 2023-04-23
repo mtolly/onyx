@@ -44,6 +44,7 @@ data Preferences = Preferences
   , prefThreads       :: Maybe Int
   , prefDetectMuted   :: Bool
   , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modfiy tempos to be in Magma-legal range
+  , prefTrueLayout    :: [TrueDrumLayoutHint]
   }
 
 instance StackJSON Preferences where
@@ -72,6 +73,7 @@ instance StackJSON Preferences where
     prefThreads       <- prefThreads       =. opt  Nothing      "threads"         stackJSON
     prefDetectMuted   <- prefDetectMuted   =. opt  True         "detect-muted"    stackJSON
     prefLegalTempos   <- prefLegalTempos   =. opt  True         "legal-tempos"    stackJSON
+    prefTrueLayout    <- prefTrueLayout    =. opt  []           "true-layout"     stackJSON
     return Preferences{..}
 
 instance Default Preferences where
@@ -122,3 +124,17 @@ applyThreads prefs = do
   setNumCapabilities $ case prefThreads prefs of
     Nothing -> procs
     Just n  -> min n procs
+
+data TrueDrumLayoutHint
+  = TDLeftCrossHand  -- L to R: snare, hihat, left crash
+  | TDLeftOpenHand   -- L to R: left crash, hihat, snare
+  | TDRightFarCrash  -- L to R: ride, right crash
+  | TDRightNearCrash -- L to R: right crash, ride
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+instance StackJSON TrueDrumLayoutHint where
+  stackJSON = enumCodec "a true drums layout hint" $ \case
+    TDLeftCrossHand  -> "cross-hand"
+    TDLeftOpenHand   -> "open-hand"
+    TDRightFarCrash  -> "far-crash"
+    TDRightNearCrash -> "near-crash"

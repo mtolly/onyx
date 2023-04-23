@@ -41,6 +41,7 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Mode
 import           Onyx.PhaseShift.Dance
+import           Onyx.Preferences                 (TrueDrumLayoutHint)
 import           Onyx.Project
 import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
@@ -56,7 +57,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsTrue TrueDrumLayout (Map.Map Double (PNF.CommonState (PNF.DrumState (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
+  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.DrumState (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))

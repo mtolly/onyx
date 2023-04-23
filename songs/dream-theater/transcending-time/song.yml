@@ -17,6 +17,7 @@ parts:
       mode: 'true'
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
       difficulty-dtx: 8.90
+      true-layout: [open-hand]
   bass:
     pro-guitar:
       tuning:

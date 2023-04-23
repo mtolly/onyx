@@ -140,6 +140,7 @@ import           Onyx.MIDI.Track.File                      (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.Preferences                          (MagmaSetting (..),
                                                             Preferences (..),
+                                                            TrueDrumLayoutHint (..),
                                                             applyThreads,
                                                             readPreferences,
                                                             savePreferences)
@@ -2683,7 +2684,8 @@ _launchTimeServer sink varTime inputPort button label = do
 data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 
 previewGroup
-  :: (Event -> IO ())
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
   -> Rectangle
   -> IO PreviewSong
   -> IO Double
@@ -2763,7 +2765,7 @@ previewGroup sink rect getSong getTime getSpeed = do
           w <- FL.pixelW wind
           h <- FL.pixelH wind
           let flatTrks = concat trks
-          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg
+          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg (prefTrueLayout ?preferences)
             $ mapMaybe (`lookup` flatTrks) selected
   -- TODO add an option to use `FLTK.setUseHighResGL True`
   -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
@@ -2789,7 +2791,7 @@ previewGroup sink rect getSong getTime getSpeed = do
   FL.setResizable wholeGroup $ Just glwindow
   return (wholeGroup, FL.redraw glwindow, deleteGL)
 
-_launchPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
+_launchPreview :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 _launchPreview sink makeMenuBar mid = mdo
   (getTracks, stopWatch) <- _watchSong (sink $ EventIO redraw) mid
   redraw <- liftIO $ do
@@ -2854,7 +2856,7 @@ _launchPreview sink makeMenuBar mid = mdo
     return redrawGL
   return ()
 
-_promptPreview :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
+_promptPreview :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> IO ()
 _promptPreview sink makeMenuBar = sink $ EventIO $ do
   picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
   FL.setTitle picker "Load MIDI, .chart, or REAPER project"
@@ -3407,6 +3409,41 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox $ \box -> FL.checkButtonNew box $ Just "FXAA"
             void $ FL.setValue check $ prefFXAA loadedPrefs
             return $ (\b prefs -> prefs { prefFXAA = b }) <$> FL.getValue check
+          , lineBox $ \box -> do
+            let [trimClock 0 5 0 0 -> box1, trimClock 0 0 0 5 -> box2] = splitHorizN 2 box
+                layoutLeftOpenHand = listToMaybe $ flip mapMaybe (prefTrueLayout loadedPrefs) $ \case
+                  TDLeftCrossHand -> Just False
+                  TDLeftOpenHand  -> Just True
+                  _               -> Nothing
+                layoutRightNearCrash = listToMaybe $ flip mapMaybe (prefTrueLayout loadedPrefs) $ \case
+                  TDRightFarCrash  -> Just False
+                  TDRightNearCrash -> Just True
+                  _                -> Nothing
+            getLeftSide <- makeDropdown box1
+              $ ("True drums hihat side: default"   , Nothing   , layoutLeftOpenHand == Nothing   ) NE.:|
+              [ ("True drums hihat side: cross hand", Just False, layoutLeftOpenHand == Just False)
+              , ("True drums hihat side: open hand" , Just True , layoutLeftOpenHand == Just True )
+              ]
+            getRightSide <- makeDropdown box2
+              $ ("True drums ride side: default"   , Nothing   , layoutRightNearCrash == Nothing   ) NE.:|
+              [ ("True drums ride side: far crash" , Just False, layoutRightNearCrash == Just False)
+              , ("True drums ride side: near crash", Just True , layoutRightNearCrash == Just True )
+              ]
+            return $ do
+              leftSide  <- getLeftSide
+              rightSide <- getRightSide
+              return $ \prefs -> prefs
+                { prefTrueLayout = concat
+                  [ case leftSide of
+                    Nothing    -> []
+                    Just False -> [TDLeftCrossHand]
+                    Just True  -> [TDLeftOpenHand ]
+                  , case rightSide of
+                    Nothing    -> []
+                    Just False -> [TDRightFarCrash ]
+                    Just True  -> [TDRightNearCrash]
+                  ]
+                }
           -- TODO lefty flip
           ]
         FL.end pack
