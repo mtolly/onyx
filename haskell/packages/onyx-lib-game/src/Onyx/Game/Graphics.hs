@@ -281,21 +281,22 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         gem          -> lookupGemBounds gem
       drawGem t _od note alpha = let
         (texid, obj) = case (tdn_gem note, tdn_type note) of
-          (TD.Kick     , _              ) -> (TextureLongKick    , Model ModelDrumKick     )
-          (TD.Snare    , TD.GemRim      ) -> (TextureRedGem      , Model ModelDrumRim      )
-          (TD.Snare    , _              ) -> (TextureRedGem      , Model ModelDrumTom      )
-          (TD.Hihat    , TD.GemHihatOpen) -> (TextureYellowCymbal, Model ModelDrumHihatOpen)
-          (TD.Hihat    , _              ) -> (TextureYellowCymbal, Model ModelDrumCymbal   )
-          (TD.HihatFoot, _              ) -> (TextureHihatFoot   , Model ModelDrumHihatFoot)
-          (TD.CrashL   , _              ) -> (TextureBlueCymbal  , Model ModelDrumCymbal   )
-          (TD.Tom1     , TD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (TD.Tom1     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (TD.Tom2     , TD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (TD.Tom2     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (TD.Tom3     , TD.GemRim      ) -> (TextureOrangeGem   , Model ModelDrumRim      )
-          (TD.Tom3     , _              ) -> (TextureOrangeGem   , Model ModelDrumTom      )
-          (TD.CrashR   , _              ) -> (TextureGreenCymbal , Model ModelDrumCymbal   )
-          (TD.Ride     , _              ) -> (TexturePurpleCymbal, Model ModelDrumCymbal   )
+          (TD.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
+          (TD.Snare    , TD.GemRim        ) -> (TextureRedGem      , Model ModelDrumRim       )
+          (TD.Snare    , _                ) -> (TextureRedGem      , Model ModelDrumTom       )
+          (TD.Hihat    , TD.GemHihatOpen  ) -> (TextureYellowCymbal, Model ModelDrumHihatOpen )
+          (TD.Hihat    , TD.GemHihatClosed) -> (TextureYellowCymbal, Model ModelDrumCymbalFlat)
+          (TD.Hihat    , _                ) -> (TextureYellowCymbal, Model ModelDrumCymbal    )
+          (TD.HihatFoot, _                ) -> (TextureHihatFoot   , Model ModelDrumHihatFoot )
+          (TD.CrashL   , _                ) -> (TextureBlueCymbal  , Model ModelDrumCymbal    )
+          (TD.Tom1     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (TD.Tom1     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (TD.Tom2     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (TD.Tom2     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (TD.Tom3     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (TD.Tom3     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (TD.CrashR   , _                ) -> (TextureGreenCymbal , Model ModelDrumCymbal    )
+          (TD.Ride     , _                ) -> (TexturePurpleCymbal, Model ModelDrumCymbal    )
         shade = case alpha of
           Nothing -> case tdn_velocity note of
             D.VelocityNormal -> CSImage texid
@@ -1790,6 +1791,7 @@ data ModelID
   = ModelDrumTom
   | ModelDrumRim
   | ModelDrumCymbal
+  | ModelDrumCymbalFlat
   | ModelDrumHihatOpen
   | ModelDrumKick
   | ModelDrumHihatFoot
@@ -2062,16 +2064,17 @@ loadGLStuff scaleUI previewSong = do
 
   models <- forM [minBound .. maxBound] $ \modID -> do
     path <- liftIO $ getResourcesPath $ case modID of
-      ModelDrumTom       -> "models/drum-tom.obj"
-      ModelDrumRim       -> "models/drum-rim.obj"
-      ModelDrumCymbal    -> "models/drum-cymbal.obj"
-      ModelDrumHihatOpen -> "models/drum-hihat-open.obj"
-      ModelDrumKick      -> "models/drum-kick.obj"
-      ModelDrumHihatFoot -> "models/drum-hihat-foot.obj"
-      ModelGuitarStrum   -> "models/gtr-strum.obj"
-      ModelGuitarHOPOTap -> "models/gtr-hopotap.obj"
-      ModelGuitarOpen    -> "models/gtr-open.obj"
-      ModelPGNote        -> "models/pg-note.obj"
+      ModelDrumTom        -> "models/drum-tom.obj"
+      ModelDrumRim        -> "models/drum-rim.obj"
+      ModelDrumCymbal     -> "models/drum-cymbal.obj"
+      ModelDrumCymbalFlat -> "models/drum-cymbal-flat.obj"
+      ModelDrumHihatOpen  -> "models/drum-hihat-open.obj"
+      ModelDrumKick       -> "models/drum-kick.obj"
+      ModelDrumHihatFoot  -> "models/drum-hihat-foot.obj"
+      ModelGuitarStrum    -> "models/gtr-strum.obj"
+      ModelGuitarHOPOTap  -> "models/gtr-hopotap.obj"
+      ModelGuitarOpen     -> "models/gtr-open.obj"
+      ModelPGNote         -> "models/pg-note.obj"
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
