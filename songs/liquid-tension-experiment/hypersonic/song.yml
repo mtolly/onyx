@@ -55,11 +55,14 @@ targets:
     game: rb3
     version: 2
     plan: album
+    bass: none
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     version: 2
     plan: album
+    bass: none
   ps:
     game: ps
     plan: album
+    bass: none

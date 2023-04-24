@@ -36,9 +36,12 @@ targets:
   rb3:
     game: rb3
     version: 2
+    bass: none
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     version: 2
+    bass: none
   ps:
     game: ps
+    bass: none
