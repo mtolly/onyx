@@ -1,5 +1,23 @@
 # Version history
 
+## 20230423
+
+* Fix songs using Xbox 360 XMA audio to not produce audio files twice as long
+  as they should be when converting to Clone Hero format
+* Fix CH `song.ini` to have `diff_vocals_harm` set to -1 if there are vocals
+  but no harmonies
+* Fixes to importing DTX files
+  * Adjust tempos to match a DTXMania quirk in songs with many tempo changes
+  * Better drum lane polyphony that more closely matches DTXMania
+    behavior and spec (#142)
+* First test of a work-in-progress MIDI spec for DTXMania-like drums,
+  subject to change
+  * New MIDI track is included with CH format export when present
+  * Note names and color map are included in generated Reaper projects
+  * "True Drums" imported from: Clone Hero (new track format as above),
+    DTXMania, Rock Revolution (7-lane format), Guitar Hero III
+    (drummer animations)
+
 ## 20230402
 
 * Fix an error when converting StepMania to Rock Band due to difficulty tier
