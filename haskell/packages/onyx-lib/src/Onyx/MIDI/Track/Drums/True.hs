@@ -110,7 +110,7 @@ instance ParseTrack TrueDrumTrack where
   parseTrack = do
     tdSolo <- tdSolo =. edges 103
     tdOverdrive <- tdOverdrive =. edges 104
-    tdActivation <- tdActivation =. edges 105
+    tdActivation <- tdActivation =. edges 106
     tdLanes <- (tdLanes =.) $ translateEdges
       $ condenseMap $ eachKey each $ \drum -> case drum of
         Kick      -> edges $ 110 + 0
@@ -208,7 +208,7 @@ trueDrumNoteNames = execWriter $ do
   o 111 "Roll/Swell Snare"
   o 110 "Roll/Swell Kick"
   x 107
-  o 105 "Drum Fill (Activation / BRE)"
+  o 106 "Activation/BRE"
   o 104 "Overdrive"
   o 103 "Solo"
   x 95
@@ -647,20 +647,15 @@ animationToTrueDrums anims = RTB.flatten $ flip fmap anims $ \case
   where fromHit D.SoftHit = VelocityGhost
         fromHit D.HardHit = VelocityNormal
 
-swapGreenPurple :: F.T B.ByteString -> Maybe (F.T B.ByteString)
-swapGreenPurple (F.Cons typ dvn trks) = let
+swapActivation :: F.T B.ByteString -> Maybe (F.T B.ByteString)
+swapActivation (F.Cons typ dvn trks) = let
   results = flip map trks $ \trk -> case U.trackName trk of
     Just "PART TRUE_DRUMS" -> (True,) $ RTB.flatten $ flip fmap trk $ \e ->
       case isNoteEdgeCPV e of
         Nothing -> [e]
         Just (c, p, mv) -> let
           newPitches
-            -- swells
-            | p == 117 = [118]
-            | p == 118 = [117]
-            -- expert
-            | p == 81 = [82]
-            | p == 82 = [81]
+            | p == 105 = [106]
             | otherwise = [p]
           in map (\p' -> makeEdgeCPV c p' mv) newPitches
     _ -> (False, trk)

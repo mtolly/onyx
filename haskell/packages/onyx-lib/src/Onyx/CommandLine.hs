@@ -1319,13 +1319,13 @@ commands =
     }
 
   , Command
-    { commandWord = "swap-gp"
+    { commandWord = "swap-act"
     , commandDesc = ""
     , commandUsage = ""
     , commandList = False
     , commandRun = \args _ -> forM args $ \arg -> do
       mid <- F.loadMIDIBytes $ fileReadable arg
-      case TD.swapGreenPurple mid of
+      case TD.swapActivation mid of
         Nothing -> return ()
         Just mid' -> do
           lg "Updated track."
