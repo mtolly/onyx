@@ -113,6 +113,7 @@ import           Onyx.Build                                (NameRule (..),
 import           Onyx.Build.RB3CH                          (BasicTiming (..))
 import           Onyx.Codec.JSON                           (toJSON,
                                                             yamlEncodeFile)
+import           Onyx.CommandLine                          (recursiveChartToMidi)
 import           Onyx.FeedBack.Load                        (loadMIDIOrChart,
                                                             loadRawMIDIOrChart)
 import           Onyx.Game.Audio                           (AudioHandle (..),
@@ -2375,9 +2376,12 @@ miscPageMIDI sink rect tab startTasks = do
               in startTasks [("Make REAPER project: " <> input, task)]
         _ -> return ()
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Clean convert .chart to MIDI"
-    taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+
+    let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
+
+    btn1 <- FL.buttonNew rectLeft $ Just "Clean convert .chart to MIDI"
+    taskColor >>= FL.setColor btn1
+    FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
       input <- pickedFile
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save MIDI file"
@@ -2398,6 +2402,16 @@ miscPageMIDI sink rect tab startTasks = do
                 return [f']
               in startTasks [("Convert to MIDI: " <> input, task)]
         _ -> return ()
+
+    btn2 <- FL.buttonNew rectRight $ Just "Batch"
+    taskColor >>= FL.setColor btn2
+    FL.setCallback btn2 $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
+      sink $ EventOnyx $ let
+        task = do
+          results <- recursiveChartToMidi dir
+          when (null results) $ lg "No .chart files found."
+          return results
+        in startTasks [("Convert .chart to MIDI (batch): " <> dir, task)]
 
   FL.end pack
   FL.setResizable tab $ Just pack

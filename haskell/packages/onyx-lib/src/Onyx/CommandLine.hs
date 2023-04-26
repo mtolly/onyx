@@ -12,6 +12,7 @@ module Onyx.CommandLine
 ( commandLine
 , identifyFile'
 , FileType(..)
+, recursiveChartToMidi
 ) where
 
 import           Codec.Picture                        (writePng)
@@ -72,6 +73,7 @@ import           Onyx.CloneHero.SNG
 import           Onyx.Codec.Binary
 import           Onyx.Codec.JSON                      (loadYaml, toJSON,
                                                        yamlEncodeFile)
+import           Onyx.FeedBack.Load                   (loadRawMIDIOrChart)
 import           Onyx.GuitarHero.IOS                  (loadIGA)
 import qualified Onyx.Harmonix.Ark                    as Ark
 import           Onyx.Harmonix.Ark.Amplitude          as AmpArk
@@ -113,7 +115,6 @@ import qualified Onyx.MIDI.Script.Base                as MS
 import qualified Onyx.MIDI.Script.Parse               as MS
 import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
-import qualified Onyx.MIDI.Track.Drums.True           as TD
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
@@ -1319,18 +1320,11 @@ commands =
     }
 
   , Command
-    { commandWord = "swap-act"
+    { commandWord = "chart-to-midi"
     , commandDesc = ""
     , commandUsage = ""
     , commandList = False
-    , commandRun = \args _ -> forM args $ \arg -> do
-      mid <- F.loadMIDIBytes $ fileReadable arg
-      case TD.swapActivation mid of
-        Nothing -> return ()
-        Just mid' -> do
-          lg "Updated track."
-          stackIO $ Save.toFile arg mid'
-      return arg
+    , commandRun = \args _ -> concat <$> mapM recursiveChartToMidi args
     }
 
   ]
@@ -1848,3 +1842,19 @@ midiOptions opts = MS.Options
   , MS.separateLines = elem OptSeparateLines opts
   , MS.matchNoteOff = elem OptMatchNotes opts
   }
+
+recursiveChartToMidi :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m [FilePath]
+recursiveChartToMidi f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True -> do
+    contents <- stackIO $ Dir.listDirectory f
+    concat <$> mapM (recursiveChartToMidi . (f </>)) contents
+  False -> case map toLower $ takeExtension f of
+    ".chart" -> do
+      let midPath = f -<.> "mid"
+          bakPath = f <> ".bak"
+      mid <- loadRawMIDIOrChart f
+      stackIO $ Save.toFile midPath $ TE.encodeUtf8 <$> mid
+      stackIO $ Dir.renameFile f bakPath
+      lg $ "Converted: " <> takeDirectory f
+      return [midPath]
+    _ -> return []
