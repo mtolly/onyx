@@ -1,5 +1,11 @@
 # Version history
 
+## 20230425
+
+* Add a function to convert all .chart files in a folder to MIDI
+* Use in-order MIDI format for 5-lane drums when exporting to CH format
+  for better compatibility
+
 ## 20230423
 
 * Fix songs using Xbox 360 XMA audio to not produce audio files twice as long
