@@ -34,7 +34,7 @@ plans:
         snare: [2, 3]
         kit: [4, 5]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 877cec6546dbd3b0d70f105358715dce
+    file-mogg: gunsofsummer.mogg
     multitrack: true
     vols: [-1.5, -1.5, -2, -2, -2.5, -2.5, -2.5, -2.5, -4.5, -4.5, -3.5, -3.5, -4.5, -4.5]
 targets:

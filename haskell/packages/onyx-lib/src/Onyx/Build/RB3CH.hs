@@ -14,7 +14,6 @@ module Onyx.Build.RB3CH
 , magmaLegalTempos
 , basicTiming, BasicTiming(..)
 , makeMoods
-, drumsToFive
 , buildDrums
 ) where
 
@@ -299,8 +298,23 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
         { drumEnableDynamics = if hasDynamics dt then RTB.singleton 0 () else RTB.empty
         }
 
+      -- For better compatibility (Moonscraper, YARG) and a nicer looking MIDI output,
+      -- we use the five_lane_drums format, which has RYBOG in order
+      -- instead of RYBGO.
+      flipGreenOrange = case (target, drumResult.settings.mode) of
+        (Right _ps, Drums5) -> drumEachDiff $ \dd -> dd
+          { drumGems = flip fmap (drumGems dd) $ \(gem, vel) -> let
+            gem' = case gem of
+              Drums.Pro Drums.Green () -> Drums.Orange
+              Drums.Orange             -> Drums.Pro Drums.Green ()
+              _                        -> gem
+            in (gem', vel)
+          }
+        _ -> id
+
       mainResult
         = (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
+        $ flipGreenOrange
         $ drumsRemoveBRE
         $ addMoods
         $ enableDynamics
@@ -348,40 +362,6 @@ addFiveMoods tempos timing ft = ft
       expert = fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties ft
       in splitEdges $ (\(_, len) -> ((), (), len)) <$> edgeBlips_ minSustainLengthRB (fiveGems expert)
     else fiveMood ft
-  }
-
-drumsToFive
-  :: F.Song (F.OnyxFile U.Beats)
-  -> DrumTrack U.Beats
-  -> FiveTrack U.Beats
-drumsToFive song drums = FiveTrack
-  -- Simple conversion of drums chart to 5-fret
-  { fiveDifficulties = flip fmap (drumDifficulties drums) $ \dd ->
-    emit5' $ strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap (drumGems dd) $ \(gem, _velocity) -> let
-      color = case gem of
-        Drums.Kick               -> RBFive.Green
-        Drums.Red                -> RBFive.Red
-        Drums.Pro Drums.Yellow _ -> RBFive.Yellow
-        Drums.Pro Drums.Blue   _ -> RBFive.Blue
-        Drums.Pro Drums.Green  _ -> RBFive.Orange
-        Drums.Orange             -> RBFive.Orange -- won't happen because we called buildDrums with RB3 target
-      in (Just color, Nothing)
-  , fiveMood         = drumMood drums
-  , fiveHandMap      = RTB.empty
-  , fiveStrumMap     = RTB.empty
-  , fiveFretPosition = RTB.empty
-  , fiveTremolo      = RTB.empty -- TODO include these sometimes?
-  , fiveTrill        = RTB.empty -- TODO include these sometimes?
-  , fiveOverdrive    = drumOverdrive drums
-  , fiveBRE          = let
-    -- only copy over a fill that is actually a BRE
-    coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song
-    in case coda of
-      Nothing -> RTB.empty
-      Just c  -> RTB.delay c $ U.trackDrop c $ drumActivation drums
-  , fiveSolo         = drumSolo drums
-  , fivePlayer1      = drumPlayer1 drums
-  , fivePlayer2      = drumPlayer2 drums
   }
 
 buildFive

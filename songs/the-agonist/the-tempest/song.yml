@@ -49,6 +49,11 @@ audio:
   album-track:
     md5: bfacc282cb6b9c92edb8561c16a10cb5
     frames: 12629652
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -59,6 +64,18 @@ plans:
       mix:
       - countin
       - pad: [3.587, album-track]
+  dev:
+    song:
+      pad: [3.587, album-track]
+    parts:
+      bass:
+        pad: [3.587, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.587, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.587, channels: [[4, 5], stems]]
+      other:
+        pad: [3.587, channels: [[6, 7], stems]]
 targets:
   # visualizer: http://i.imgur.com/SUGoZcv.jpg
   # download: http://www.mediafire.com/download/4ycndc3eaf348vm/TheTempest_1p_v2_rb3con
@@ -68,10 +85,13 @@ targets:
     game: rb3
     song-id: 1660200011
     version: 2
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200012
     version: 2
+    plan: album
   ps:
     game: ps
+    plan: album

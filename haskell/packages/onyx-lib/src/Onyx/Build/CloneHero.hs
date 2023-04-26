@@ -131,9 +131,12 @@ psRules buildInfo dir ps = do
         DrumsTrue -> True
         Drums4    -> False
         Drums5    -> False
-      , FoF.fiveLaneDrums    = Nothing
-      -- for consistency we will just use the flipped midi layout,
-      -- where 100 is green and 101 is orange
+      , FoF.fiveLaneDrums    = case dmode of
+        Just Drums5 -> Just True
+        _           -> Nothing
+      -- we use to not use five_lane_drums for easier MIDI output.
+      -- but now we set it to true for 5-lane output for better compatibility
+      -- (Moonscraper, YARG) and a nicer looking MIDI output (RYBOG in order)
       , FoF.drumFallbackBlue = pd >>= \case
         PartDrums{ mode = Drums5, fallback = FallbackBlue } -> Just True
         _                                                   -> Nothing
