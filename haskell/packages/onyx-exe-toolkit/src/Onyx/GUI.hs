@@ -27,7 +27,6 @@ import           Control.Concurrent                        (MVar, ThreadId,
                                                             newChan, newMVar,
                                                             putMVar, readChan,
                                                             readMVar, takeMVar,
-                                                            threadDelay,
                                                             withMVar, writeChan)
 import           Control.Concurrent.Async                  (async,
                                                             waitAnyCancel)
@@ -82,7 +81,9 @@ import           Data.Time                                 (getCurrentTime)
 import           Data.Time.Clock.System                    (SystemTime (..))
 import           Data.Version                              (showVersion)
 import           Data.Word                                 (Word32)
-import           Foreign                                   (Ptr, alloca, peek)
+import           Foreign                                   (Ptr, alloca,
+                                                            freeHaskellFunPtr,
+                                                            peek)
 import           Foreign.C                                 (CString)
 import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
@@ -368,23 +369,18 @@ getTimeMonotonic = alloca $ \psecs -> alloca $ \pnsecs -> do
     , systemNanoseconds = nsecs
     }
 
-startAnimation :: IO () -> IO (IO ())
-startAnimation redraw = do
+startAnimation :: Double -> IO () -> IO (IO ())
+startAnimation frameTime redraw = mdo
   stopper <- newIORef False
-  let loop = do
-        t1 <- getTimeMonotonic
+  let loop fp = do
+        freeHaskellFunPtr fp
         readIORef stopper >>= \case
-          True -> return ()
-          False -> do
+          True  -> return ()
+          False -> mdo
             redraw
-            t2 <- getTimeMonotonic
-            let nanoDiff = fromIntegral (systemSeconds t2 - systemSeconds t1) * 1000000000
-                  + fromIntegral (systemNanoseconds t2) - fromIntegral (systemNanoseconds t1)
-                microDiff = quot nanoDiff 1000
-                microFrame = 16666
-            when (microDiff < microFrame) $ threadDelay $ microFrame - microDiff
-            loop
-  _ <- forkIO loop
+            fp2 <- FLTK.repeatTimeout frameTime $ loop fp2
+            return ()
+  fp1 <- FLTK.addTimeout frameTime $ loop fp1
   return $ writeIORef stopper True
 
 data Playing = Playing
@@ -880,11 +876,12 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               , audioSetGain = \_ -> return ()
               }
           curTime <- getTimeMonotonic
-          stopAnim <- startAnimation $ do
+          stopAnim <- startAnimation (recip $ realToFrac $ prefPreviewFPS ?preferences) $ do
+            _ <- FLTK.lock
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
-            sink $ EventIO $ do
-              void $ FL.setValue scrubber t'
-              redrawGL
+            void $ FL.setValue scrubber t'
+            redrawGL
+            FLTK.unlock
           let ps = Playing
                 { playStarted = curTime
                 , playSpeed = speed
@@ -3423,6 +3420,16 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox $ \box -> FL.checkButtonNew box $ Just "FXAA"
             void $ FL.setValue check $ prefFXAA loadedPrefs
             return $ (\b prefs -> prefs { prefFXAA = b }) <$> FL.getValue check
+          , lineBox $ \box -> do
+            let [_, middleBox, _] = splitHorizN 3 box
+            fpsCounter <- FL.counterNew middleBox $ Just "Frames per second"
+            FL.setLabeltype fpsCounter FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+            FL.setAlign fpsCounter $ FLE.Alignments [FLE.AlignTypeLeft]
+            FL.setStep fpsCounter 1
+            FL.setLstep fpsCounter 10
+            FL.setMinimum fpsCounter 1
+            void $ FL.setValue fpsCounter $ fromIntegral $ prefPreviewFPS loadedPrefs
+            return $ (\n prefs -> prefs { prefPreviewFPS = round n }) <$> FL.getValue fpsCounter
           , lineBox $ \box -> do
             let [trimClock 0 5 0 0 -> box1, trimClock 0 0 0 5 -> box2] = splitHorizN 2 box
                 layoutLeftOpenHand = listToMaybe $ flip mapMaybe (prefTrueLayout loadedPrefs) $ \case
