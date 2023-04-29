@@ -27,9 +27,19 @@ audio:
   rbn:
     file-path: audio.ogg
     channels: 14
-  album-track: # Traced in Air Remixed
+  album-original-track: # Traced in Air
+    md5: e1ee9511112e453046303d9c68c08fd8
+    frames: 15289176
+  album-remixed-track: # Traced in Air Remixed
     md5: 1ebcfef9396c9f026b17eb37c9abadc1
     frames: 15289851
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  hihat-soft:
+    expr:
+      gain: [0.5, hihat]
+  countin:
+    samples: {}
 plans:
   mogg:
     parts:
@@ -102,9 +112,15 @@ plans:
             tag: keep
         - channels: [[12, 13], rbn]
       vols: [-3, -3]
-  album:
+  album-remixed:
+    # note, this has a new recorded bass part that diverges from the original
     song:
-      pad: [4.376, album-track]
+      pad: [4.376, album-remixed-track]
+  album-original:
+    song:
+      mix:
+      - countin
+      - pad: [4.380, album-original-track]
 targets:
   rb3:
     game: rb3
@@ -122,7 +138,13 @@ targets:
   ps:
     game: ps
     label: (O)
-    plan: edited
+    plan: album-original
+  ps-tourney:
+    game: ps
+    plan: album-original
+    guitar: none
+    bass: none
+    loading-phrase: "Edited/updated chart for tournament use"
   rs:
     game: rs
     plan: edited

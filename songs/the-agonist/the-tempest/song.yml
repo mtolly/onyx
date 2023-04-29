@@ -95,3 +95,10 @@ targets:
   ps:
     game: ps
     plan: album
+  ps-tourney:
+    game: ps
+    plan: album
+    guitar: none
+    bass: none
+    keys: none
+    loading-phrase: "Edited/updated chart for tournament use"

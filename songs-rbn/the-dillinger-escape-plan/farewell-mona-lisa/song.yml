@@ -61,18 +61,34 @@ plans:
     vols: [-0.5, -0.5, -0.5, -0.5, -0.3, -0.3, 0, 0, 0, 0, -0.5, -0.5, 0, 0, 0, 0]
     multitrack: true
     file-mogg: audio.mogg
+  mogg-no-stems:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -0.5, -0.5, -0.5, -0.3, -0.3, 0, 0, 0, 0, -0.5, -0.5, 0, 0, 0, 0]
+    multitrack: true
+    file-mogg: audio.mogg
 targets:
   rb3:
     song-id: 1660299993
     game: rb3
     # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     song-id: 1660299992
     game: rb3
     # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
     label: (O)
+    plan: mogg-no-stems
+  ps-tourney:
+    game: ps
+    plan: mogg-no-stems
+    guitar: none
+    bass: none
+    keys: none
+    loading-phrase: "Edited/updated chart for tournament use"

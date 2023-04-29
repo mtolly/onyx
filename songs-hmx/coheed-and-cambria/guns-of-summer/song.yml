@@ -26,28 +26,43 @@ parts:
 plans:
   mogg:
     parts:
-      vocal: [10, 11]
-      bass: [6, 7]
-      guitar: [8, 9]
       drums:
         kick: [0, 1]
         snare: [2, 3]
         kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-1.5, -1.5, -2, -2, -2.5, -2.5, -2.5, -2.5, -4.5, -4.5, -3.5, -3.5, -4.5, -4.5]
     file-mogg: gunsofsummer.mogg
     multitrack: true
+  mogg-no-stems:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-1.5, -1.5, -2, -2, -2.5, -2.5, -2.5, -2.5, -4.5, -4.5, -3.5, -3.5, -4.5, -4.5]
+    file-mogg: gunsofsummer.mogg
+    multitrack: true
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
     label: (O)
+    plan: mogg-no-stems
+  ps-tourney:
+    game: ps
+    plan: mogg-no-stems
+    guitar: none
+    bass: none
+    loading-phrase: "Edited/updated chart for tournament use"
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: mogg
 metadata:
   rating: Family Friendly
   preview-start: 1:05.944
