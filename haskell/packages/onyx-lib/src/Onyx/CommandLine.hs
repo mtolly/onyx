@@ -18,7 +18,8 @@ module Onyx.CommandLine
 import           Codec.Picture                        (writePng)
 import           Control.Applicative                  ((<|>))
 import           Control.Monad.Extra                  (concatMapM, filterM,
-                                                       forM, forM_, guard, when)
+                                                       forM, forM_, guard, void,
+                                                       when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource         (MonadResource,
                                                        runResourceT)
@@ -38,6 +39,7 @@ import           Data.Default.Class                   (def)
 import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor.Identity                (Identity (..))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (find, isPrefixOf,
                                                        stripPrefix, stripSuffix,
@@ -376,8 +378,8 @@ buildTarget yamlPath opts = do
         RS    {} -> undefined -- TODO
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
-  shakeBuildFiles audioDirs yamlPath [built]
-  return (target, takeDirectory yamlPath </> built)
+  Identity built' <- shakeBuildFiles audioDirs yamlPath $ Identity built
+  return (target, takeDirectory yamlPath </> built')
 
 getMaybePlan :: [OnyxOption] -> Maybe T.Text
 getMaybePlan opts = listToMaybe [ p | OptPlan p <- opts ]
@@ -465,8 +467,8 @@ commands =
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
           audioDirs <- withProject (optIndex opts) yml getAudioDirs
-          shakeBuildFiles audioDirs yml' builds
-          return $ map (takeDirectory yml' </>) builds
+          builds' <- shakeBuildFiles audioDirs yml' builds
+          return $ map (takeDirectory yml' </>) builds'
         (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -520,9 +522,9 @@ commands =
           let rpp = "notes-" <> T.unpack planName <> ".RPP"
           when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
           audioDirs <- withProject Nothing yamlPath getAudioDirs
-          shakeBuildFiles audioDirs yamlPath [rpp]
+          Identity rpp' <- shakeBuildFiles audioDirs yamlPath $ Identity rpp
           let rppFull = yamlDir </> "notes.RPP"
-          stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
+          stackIO $ Dir.renameFile (yamlDir </> rpp') rppFull
           return [rppFull]
     }
 
@@ -1345,7 +1347,7 @@ _oldCommands =
         -- TODO: handle non-RB3 targets
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
         audioDirs <- withProject (optIndex opts) yamlPath getAudioDirs
-        shakeBuildFiles audioDirs yamlPath [built]
+        void $ shakeBuildFiles audioDirs yamlPath [built]
         return []
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadRBProj rbprojPath

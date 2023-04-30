@@ -81,12 +81,11 @@ gh3Rules :: BuildInfo -> FilePath -> TargetGH3 -> QueueLog Rules ()
 gh3Rules buildInfo dir gh3 = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
 
   (planName, plan) <- case getPlan gh3.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   -- short name doesn't have to be "dlc*", so we add title/artist snippets by default.
   -- makeShortName applies max of 27 chars which works with GH3 max of 26.

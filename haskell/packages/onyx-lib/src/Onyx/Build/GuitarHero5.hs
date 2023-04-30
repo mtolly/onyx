@@ -69,12 +69,11 @@ gh5Rules :: BuildInfo -> FilePath -> TargetGH5 -> QueueLog Rules ()
 gh5Rules buildInfo dir gh5 = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
 
   (planName, plan) <- case getPlan gh5.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   let hashed = hashGH5 songYaml gh5
       songID = fromMaybe hashed gh5.songID

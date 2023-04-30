@@ -293,12 +293,11 @@ gh1Rules :: BuildInfo -> FilePath -> TargetGH1 -> QueueLog Rules ()
 gh1Rules buildInfo dir gh1 = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
 
   (planName, plan) <- case getPlan gh1.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh1
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
       defaultID = hashGH1 songYaml gh1
       key = fromMaybe (makeShortName defaultID songYaml) gh1.key
       pkg = T.unpack key

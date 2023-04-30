@@ -50,12 +50,11 @@ rsRules :: BuildInfo -> FilePath -> TargetRS -> QueueLog Rules ()
 rsRules buildInfo dir rs = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
 
   (planName, plan) <- case getPlan rs.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rs
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   let isBass = \case
         RSArrSlot _ RSBass -> True
@@ -302,7 +301,7 @@ rsRules buildInfo dir rs = do
           $ Drop Start (fromMS pstart)
           $ Input (planDir </> "everything.wav")
     buildAudio previewExpr out
-  rsArt %> shk . copyFile' (rel "gen/cover-full.png")
+  rsArt %> shk . copyFile' (biGen buildInfo "cover-full.png")
   let getRSKey = case rs.songKey of
         Nothing -> stackIO $ T.pack . ("OnyxCST" <>) . show <$> randomRIO (0, maxBound :: Int32)
         -- TODO maybe autogenerate a CST-like key, e.g. OnyASAMACrimsonRoseandaGinToni

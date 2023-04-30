@@ -11,6 +11,7 @@ preview-audio.*
 *.rba
 *_rb2con
 songs*/*/*/gen/
+songs*/*/*/gen-*/
 *.[Rr][Pp][Pp]
 *.[Rr][Pp][Pp]-bak
 *.reapeaks

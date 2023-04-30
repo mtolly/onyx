@@ -100,7 +100,6 @@ import           System.IO                             (IOMode (ReadMode),
 rbRules :: BuildInfo -> FilePath -> TargetRB3 -> Maybe TargetRB2 -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
       thisFullGenre = fullGenre songYaml
 
   let pkg :: (IsString a) => a
@@ -108,7 +107,7 @@ rbRules buildInfo dir rb3 mrb2 = do
   (planName, plan) <- case getPlan rb3.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   let pathMagmaKick        = dir </> "magma/kick.wav"
       pathMagmaSnare       = dir </> "magma/snare.wav"
@@ -222,7 +221,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
   pathMagmaDummyMono   %> buildAudio (Silence 1 $ Seconds 31) -- we set preview start to 0:00 so these can be short
   pathMagmaDummyStereo %> buildAudio (Silence 2 $ Seconds 31)
-  pathMagmaCover %> shk . copyFile' (rel "gen/cover.bmp")
+  pathMagmaCover %> shk . copyFile' (biGen buildInfo "cover.bmp")
   pathMagmaCoverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
   let title = targetTitle songYaml $ RB3 rb3
   pathMagmaProj %> \out -> do
@@ -487,7 +486,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     StandardPlan _ -> do
       shk $ need [pathOgg]
       mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
-  pathPng  %> shk . copyFile' (rel "gen/cover.png_xbox")
+  pathPng  %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
   pathMilo %> \out -> case getPart rb3.vocal songYaml >>= (.vocal) of
     -- TODO apply segment boundaries
     -- TODO add member assignments and anim style in BandSongPref, and anim style
@@ -562,7 +561,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       fout <- shortWindowsPath True  out
       stackIO $ packNPData rb3ps3EDATConfig fin fout $ B8.pack pkg <> ".mid.edat"
     else shk $ copyFile' pathMid out
-  rb3ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
+  rb3ps3Art %> shk . copyFile' (biGen buildInfo "cover.png_ps3")
   rb3ps3Mogg %> \out -> do
     -- PS3 RB3 can't play unencrypted moggs
     shk $ need [pathMogg]
@@ -908,7 +907,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           if ex
             then stackIO $ Magma.getRBAFile 5 pathMagmaRbaV1 out
             else stackIO emptyWeightsRB2 >>= \mt -> shk $ copyFile' mt out
-        rb2Art %> shk . copyFile' (rel "gen/cover.png_xbox")
+        rb2Art %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
         rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
         rb2CON %> \out -> do
           shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
@@ -940,7 +939,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             fout <- shortWindowsPath True  out
             stackIO $ packNPData rb2ps3EDATConfig fin fout $ B8.pack pkg <> ".mid.edat"
           else shk $ copyFile' rb2Mid out
-        rb2ps3Art %> shk . copyFile' (rel "gen/cover.png_ps3")
+        rb2ps3Art %> shk . copyFile' (biGen buildInfo "cover.png_ps3")
         rb2ps3Mogg %> \out -> do
           -- PS3 RB3 can't play unencrypted moggs (RB2 might be fine, but we may as well be compatible)
           shk $ need [rb2Mogg]

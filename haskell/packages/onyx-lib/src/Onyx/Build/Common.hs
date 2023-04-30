@@ -59,7 +59,11 @@ data BuildInfo = BuildInfo
   , biAudioLib        :: AudioLibrary
   , biAudioDependPath :: T.Text -> FilePath
   , biOggWavForPlan   :: T.Text -> Int -> FilePath
+  , biGenFolder       :: FilePath -- should just be "gen" or similar
   }
+
+biGen :: BuildInfo -> FilePath -> FilePath
+biGen bi f = biRelative bi $ biGenFolder bi </> f
 
 shk :: Action a -> StackTraceT (QueueLog Action) a
 shk = lift . lift
@@ -198,7 +202,7 @@ applyTargetLength tgt mid = let
 getAudioLength :: BuildInfo -> T.Text -> Plan f -> Staction U.Seconds
 getAudioLength buildInfo planName = \case
   MoggPlan _ -> do
-    let ogg = biRelative buildInfo $ "gen/plan" </> T.unpack planName </> "audio.ogg"
+    let ogg = biGen buildInfo $ "plan" </> T.unpack planName </> "audio.ogg"
     shk $ need [ogg]
     liftIO $ audioSeconds ogg
   StandardPlan x -> let

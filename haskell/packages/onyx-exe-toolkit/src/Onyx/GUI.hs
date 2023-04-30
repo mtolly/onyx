@@ -244,12 +244,12 @@ continueImport makeMenuBar hasAudio imp = do
   sink <- getEventSink
   -- TODO this can potentially not clean up the temp folder if interrupted during import
   proj <- importWithPreferences imp
-  void $ shakeBuild1 proj [] "gen/cover.png"
+  albumArt <- shakeBuild1 proj [] "gen/cover.png"
   -- quick hack to select an audio plan on my projects
   let withPlan k = do
         let planMidi = "gen/plan" </> T.unpack k </> "processed.mid"
-        void $ shakeBuild1 proj [] planMidi
-        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> planMidi
+        planMidi' <- shakeBuild1 proj [] planMidi
+        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> planMidi'
         void $ forkOnyx $ projectAudio k proj >>= withAudio song
       withNoPlan = do
         song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
@@ -257,7 +257,7 @@ continueImport makeMenuBar hasAudio imp = do
       withAudio song maybeAudio = stackIO $ sink $ EventOnyx $ do
         prefs <- readPreferences
         let ?preferences = prefs
-        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio
+        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio albumArt
       selectPlan [] = withNoPlan
       selectPlan [k] = withPlan k
       selectPlan (k : ks) = stackIO $ sink $ EventIO $ do
@@ -403,9 +403,16 @@ currentSongTime stime ss = case songPlaying ss of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
 
-launchWindow :: (?preferences :: Preferences)
-  => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Project -> PreviewSong -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle) -> IO ()
-launchWindow sink makeMenuBar proj song maybeAudio = mdo
+launchWindow
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> (Width -> Bool -> IO Int)
+  -> Project
+  -> PreviewSong
+  -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle)
+  -> FilePath
+  -> IO ()
+launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -511,7 +518,7 @@ launchWindow sink makeMenuBar proj song maybeAudio = mdo
               FL.setImage cover $ Just png
               return (png, guard (not defaultImage) >> Just f)
         currentImage <- liftIO
-          $ setPNG True (takeDirectory (projectLocation proj) </> "gen/cover.png")
+          $ setPNG True (takeDirectory (projectLocation proj) </> albumArt)
           >>= newMVar
         let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning $ do
               inside ("Loading image: " <> f) $ do
@@ -1274,10 +1281,7 @@ windowCloser finalize window = do
 saveProject :: Project -> SongYaml FilePath -> IO Project
 saveProject proj song = do
   yamlEncodeFile (projectLocation proj) $ toJSON song
-  let genDir = takeDirectory (projectLocation proj) </> "gen"
-  Dir.doesDirectoryExist genDir >>= \b -> do
-    -- squash warnings about shake version difference
-    when b $ Dir.removeDirectoryRecursive genDir
+  -- don't need to delete gen folder anymore now that it's a newly created one
   return proj { projectSongYaml = song }
 
 makePS3PackPresetDropdown :: (Event -> IO ()) -> Rectangle -> IO (IO QuickPS3Folder)

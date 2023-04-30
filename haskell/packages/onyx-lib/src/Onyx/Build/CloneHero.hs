@@ -41,11 +41,12 @@ psRules buildInfo dir ps = do
 
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
+      gen = biGen buildInfo
 
   (planName, plan) <- case getPlan ps.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = gen $ "plan" </> T.unpack planName
       pathPSEditedParts = dir </> "edited-parts.txt"
       loadEditedParts :: Staction (DifficultyPS, Maybe VocalCount)
       loadEditedParts = shk $ read <$> readFile' pathPSEditedParts
@@ -81,7 +82,7 @@ psRules buildInfo dir ps = do
           Nothing  -> stackIO $ BL.writeFile out $ encodeJpegAtQuality 85 $ convertImage imageData
       return True
     _ -> return False
-  dir </> "ps/album.png"   %> shk . copyFile' (rel "gen/cover-full.png")
+  dir </> "ps/album.png"   %> shk . copyFile' (gen "cover-full.png")
   bgimg <- forM songYaml.global.fileBackgroundImage $ \f -> do
     let psImage = "background" <> takeExtension f
     dir </> "ps" </> psImage %> shk . copyFile' (rel f)

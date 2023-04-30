@@ -18,7 +18,6 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (isAlpha, toLower)
-import           Data.Foldable                (toList)
 import           Data.Functor                 (void)
 import           Data.Functor.Identity
 import           Data.Hashable
@@ -444,12 +443,12 @@ shakeBuild1 :: (MonadIO m) =>
   Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
 shakeBuild1 proj extraTargets = fmap runIdentity . shakeBuildMany proj extraTargets . Identity
 
-shakeBuildMany :: (MonadIO m, Functor f, Foldable f) =>
+shakeBuildMany :: (MonadIO m, Traversable f) =>
   Project -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
-  shakeBuild audioDirs (projectLocation proj) extraTargets $ toList buildables
-  return $ fmap (takeDirectory (projectLocation proj) </>) buildables
+  buildables' <- shakeBuild audioDirs (projectLocation proj) extraTargets buildables
+  return $ fmap (takeDirectory (projectLocation proj) </>) buildables'
 
 buildCommon :: (MonadIO m) => Target -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do

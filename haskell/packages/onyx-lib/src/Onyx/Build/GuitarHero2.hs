@@ -66,12 +66,11 @@ gh2Rules :: BuildInfo -> FilePath -> TargetGH2 -> QueueLog Rules ()
 gh2Rules buildInfo dir gh2 = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
 
   (planName, plan) <- case getPlan gh2.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
       defaultID = hashGH2 songYaml gh2
       defaultLBP = defaultID + 1
       defaultLBW = defaultID + 2

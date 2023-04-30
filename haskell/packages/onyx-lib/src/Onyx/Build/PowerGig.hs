@@ -52,7 +52,6 @@ pgRules :: BuildInfo -> FilePath -> TargetPG -> QueueLog Rules ()
 pgRules buildInfo dir pg = do
 
   let songYaml      = biSongYaml buildInfo
-      rel           = biRelative buildInfo
       key           = fromMaybe "TodoAutoSongKey" pg.key -- TODO generate automatic
       k             = T.unpack key
 
@@ -75,7 +74,7 @@ pgRules buildInfo dir pg = do
   (planName, _plan) <- case getPlan pg.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show pg
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   objSTFS %> \out -> do
     let files = [objAddContent, objDataHdr, objDataPk]

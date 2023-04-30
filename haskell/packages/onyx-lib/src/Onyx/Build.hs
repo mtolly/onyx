@@ -31,6 +31,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import           Data.Time                        (defaultTimeLocale,
+                                                   formatTime)
 import           Development.Shake                hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
@@ -102,11 +104,12 @@ dtxRules buildInfo dir dtx = do
 
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
+      gen = biGen buildInfo
 
   (planName, _plan) <- case getPlan dtx.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = gen $ "plan" </> T.unpack planName
 
   -- TODO use Onyx.Mode to fetch drums
   let dtxPartDrums  = case getPart dtx.drums songYaml >>= (.drums) of
@@ -125,7 +128,7 @@ dtxRules buildInfo dir dtx = do
   dir </> "dtx/preview.ogg" %> \out -> do
     let planPreviewDir = case dtx.planPreview of
           Nothing   -> planDir
-          Just name -> rel $ "gen/plan" </> T.unpack name
+          Just name -> gen $ "plan" </> T.unpack name
     -- not supporting different tempo maps (so we don't need to use planPreviewDir for midi load)
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
@@ -143,7 +146,7 @@ dtxRules buildInfo dir dtx = do
       dir </> "dtx/cover.jpg" %> shk . copyFile' img
       return "cover.jpg"
     _ -> return "cover.png"
-  dir </> "dtx/cover.png" %> shk . copyFile' (rel "gen/cover-full.png")
+  dir </> "dtx/cover.png" %> shk . copyFile' (gen "cover-full.png")
 
   let loadMapping = forM (dtxPartDrums >>= \(_, pd) -> pd.fileDTXKit) $ \f -> do
         shk $ need [f]
@@ -314,12 +317,12 @@ _melodyRules :: BuildInfo -> FilePath -> TargetPart -> QueueLog Rules ()
 _melodyRules buildInfo dir tgt = do
 
   let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
+      gen = biGen buildInfo
 
   (planName, _) <- case getPlan tgt.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show tgt
     Just pair -> return pair
-  let planDir = rel $ "gen/plan" </> T.unpack planName
+  let planDir = gen $ "plan" </> T.unpack planName
       midraw = planDir </> "raw.mid"
 
   -- Melody's Escape customs
@@ -354,10 +357,10 @@ _melodyRules buildInfo dir tgt = do
 
 ------------------------------------------------------------------------------
 
-shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
+shakeBuildFiles :: (MonadIO m, Traversable f) => [FilePath] -> FilePath -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
-shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT (QueueLog m) ()
+shakeBuild :: (MonadIO m, Traversable f) => [FilePath] -> FilePath -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   yamlPath <- stackIO $ Dir.canonicalizePath yamlPathRel
@@ -367,7 +370,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   exeTime <- stackIO $ getExecutablePath >>= Dir.getModificationTime
   yamlTime <- stackIO $ Dir.getModificationTime yamlPath
-  let projVersion = show exeTime ++ "," ++ show yamlTime
 
   audioLib <- newAudioLibrary
   forM_ audioDirs $ \dir -> do
@@ -376,26 +378,38 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   writeMsg <- lift $ QueueLog ask
   let yamlDir = takeDirectory yamlPath
+      genFolder = concat
+        [ "gen-"
+        , formatTime defaultTimeLocale "%s" exeTime
+        , "-"
+        , formatTime defaultTimeLocale "%s" yamlTime
+        ]
       rel f = yamlDir </> f
+      gen f = rel $ genFolder </> f
       ourShakeOptions = shakeOptions
         { shakeThreads = 0
-        , shakeFiles = rel "gen"
-        , shakeVersion = projVersion
+        , shakeFiles = rel genFolder
         , shakeOutput = \verb str -> if verb <= Warn
           then writeMsg (MessageWarning, Message str [])
           else if verb <= Info
             then writeMsg (MessageLog, Message str [])
             else return ()
         }
-      audioDependPath name = rel $ "gen/audio" </> T.unpack name <.> "wav"
+      audioDependPath name = rel $ genFolder </> "audio" </> T.unpack name <.> "wav"
       buildInfo = BuildInfo
         { biSongYaml = songYaml
         , biYamlDir  = yamlDir
         , biRelative = rel
         , biAudioLib = audioLib
         , biAudioDependPath = audioDependPath
-        , biOggWavForPlan = \planName i -> rel $ "gen/plan" </> T.unpack planName </> ("channel-" <> show i <> ".wav")
+        , biOggWavForPlan = \planName i -> rel $ genFolder </> "plan" </> T.unpack planName </> ("channel-" <> show i <> ".wav")
+        , biGenFolder = genFolder
         }
+
+  let isSlash c = c == '/' || c == '\\'
+  buildables' <- forM buildables $ \buildable -> case break isSlash buildable of
+    ("gen", rest) -> return $ genFolder </> dropWhile isSlash rest
+    _             -> return buildable
 
   do
 
@@ -423,22 +437,22 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 []       -> fail "Couldn't find a necessary Jammit track"
 
       -- Cover art
-      rel "gen/cover.bmp"      %> \out -> loadRGB8 songYaml >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
-      rel "gen/cover.png"      %> \out -> loadRGB8 songYaml >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
-      rel "gen/cover-full.png" %> \out -> loadRGB8 songYaml >>= stackIO . writePng     out
+      gen "cover.bmp"      %> \out -> loadRGB8 songYaml >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
+      gen "cover.png"      %> \out -> loadRGB8 songYaml >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
+      gen "cover-full.png" %> \out -> loadRGB8 songYaml >>= stackIO . writePng     out
       let hmxImageTypes =
             [ (".png_xbox", PNGXbox)
             , (".png_ps3" , PNGPS3 )
             , (".png_wii" , PNGWii )
             ]
       forM_ hmxImageTypes $ \(ext, pngType) -> do
-        rel ("gen/cover" <> ext) %> \out -> case songYaml.metadata.fileAlbumArt of
+        gen ("cover" <> ext) %> \out -> case songYaml.metadata.fileAlbumArt of
           Just f | takeExtension f == ext -> do
             shk $ copyFile' f out
             forceRW out
           _      -> loadRGB8 songYaml >>= stackIO . BL.writeFile out . toDXT1File pngType
 
-      rel "gen/notes.mid" %> \out -> shk $ do
+      gen "notes.mid" %> \out -> shk $ do
         let f = rel songYaml.global.fileMidi
         doesFileExist f >>= \b -> if b
           then copyFile' f out
@@ -455,7 +469,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           buildAudio src out
 
       forM_ (extraTargets <> HM.toList songYaml.targets) $ \(targetName, target) -> do
-        let dir = rel $ "gen/target" </> T.unpack targetName
+        let dir = gen $ "target" </> T.unpack targetName
         case target of
           RB3 rb3 -> rbRules buildInfo dir rb3 Nothing
           RB2 rb2 -> let
@@ -486,7 +500,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
       forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
 
-        let dir = rel $ "gen/plan" </> T.unpack planName
+        let dir = gen $ "plan" </> T.unpack planName
 
         -- plan audio, currently only used for REAPER project
         let allPlanParts :: [(F.FlexPartName, PartAudio ())]
@@ -548,7 +562,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         -- REAPER project
         rel ("notes-" ++ T.unpack planName ++ ".RPP") %> \out -> do
-          let tempo = rel $ fromMaybe "gen/notes.mid" $ getFileTempo plan
+          let tempo = rel $ fromMaybe (genFolder </> "notes.mid") $ getFileTempo plan
               tunings = TuningInfo
                 { guitars = do
                   (fpart, part) <- HM.toList songYaml.parts.getParts
@@ -556,7 +570,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                   return (fpart, pg.tuning)
                 , cents = getTuningCents plan
                 }
-          makeReaperShake tunings (rel "gen/notes.mid") tempo allPlanAudio out
+          makeReaperShake tunings (gen "notes.mid") tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"
@@ -604,7 +618,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             display = dir </> "display.json"
         midraw %> \out -> do
           lg "Loading the MIDI file..."
-          input <- F.shakeMIDI $ rel "gen/notes.mid"
+          input <- F.shakeMIDI $ gen "notes.mid"
           let _ = input :: F.Song (F.RawFile U.Beats)
           tempos <- fmap F.s_tempos $ case getFileTempo plan of
             Nothing -> return input
@@ -694,4 +708,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             unless (null problems) $ fail "At least 1 problem was found in the MIDI."
         -}
 
-      lift $ want $ map rel buildables
+      lift $ want $ map rel $ toList buildables'
+
+  return buildables'
