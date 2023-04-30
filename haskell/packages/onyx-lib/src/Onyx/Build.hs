@@ -674,7 +674,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 (Nothing, Nothing ) -> fatal "No file path or MD5 hash specified for MOGG file"
                 (Just f , _       ) -> return f -- TODO maybe check md5 if it is specified
                 (Nothing, Just md5) -> toFilePath <$> searchMOGG audioLib md5
-              lg $ "Found the MOGG file: " <> p
+              lg $ "MOGG file location: " <> p
               -- TODO: check if it's actually an OGG (starts with OggS)
               shk $ copyFile' p out
               forceRW out

@@ -26,6 +26,16 @@ parts:
       kicks: 2
   guitar:
     grybo: {}
+  bass:
+    grybo: {} # TODO
+    pro-guitar:
+      # I have not tested string choices too closely, just got correct pitches down
+      tuning:
+        base: bass-5
+        # Drop G# (G# D# G# C# F#)
+        offsets: [-2, 0, 0, 0, 0]
+        global: -1
+      picked-bass: true
 plans:
   mogg:
     file-mogg: audio.mogg

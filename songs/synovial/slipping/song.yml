@@ -3,7 +3,7 @@ global:
 metadata:
   album: Metronome
   artist: Synovial
-  author: Xane60, Onyxite
+  author: Xane60, Onyxite, HopH2O
   difficulty:
     tier: 1
   expert-only: true
@@ -25,7 +25,9 @@ parts:
       fix-freeform: false
       kicks: 2
   guitar:
-    grybo: {}
+    grybo: {} # onyx
+  bass:
+    grybo: {} # hop
 plans:
   mogg:
     file-mogg: audio.mogg

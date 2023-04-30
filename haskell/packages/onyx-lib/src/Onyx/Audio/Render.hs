@@ -30,7 +30,8 @@ import           Data.List.Extra              (nubOrd)
 import qualified Data.List.NonEmpty           as NE
 import           Data.Maybe                   (fromMaybe, listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
-import           Development.Shake            (need)
+import           Development.Shake            (getShakeOptions, need,
+                                               shakeFiles)
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Search
@@ -224,9 +225,13 @@ loadSamplesFromBuildDirShake
   -> T.Text -- plan
   -> Staction [(T.Text, [(Double, T.Text, T.Text)])]
 loadSamplesFromBuildDirShake rel = loadSamplesFromBuildDir $ \f -> do
-  let frel = rel </> f
-  lift $ lift $ need [frel]
-  return frel
+  opts <- lift $ lift getShakeOptions
+  let isSlash c = c == '/' || c == '\\'
+      realPath = rel </> case break isSlash f of
+        ("gen", rest) -> shakeFiles opts </> dropWhile isSlash rest
+        _             -> f
+  lift $ lift $ need [realPath]
+  return realPath
 
 buildAudioToSpec
   :: (MonadResource m)
