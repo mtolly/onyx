@@ -28,8 +28,6 @@ parts:
       kicks: 2
   guitar:
     grybo: {} # emh
-  keys: {}
-  vocal: {}
 plans:
   mogg:
     file-mogg: audio.mogg
@@ -54,3 +52,5 @@ targets:
     2x-bass-pedal: true
     game: rb3
     song-id: neiboltidx4
+  ps:
+    game: ps

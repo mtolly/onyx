@@ -408,15 +408,15 @@ rbRules buildInfo dir rb3 mrb2 = do
         input' = input { F.s_tracks = adjustEvents $ F.s_tracks input }
     (output, diffs, vc, pad) <- case plan of
       MoggPlan _ -> do
-        (output, diffs, vc) <- RB3.processRB3
-          rb3
+        (output, diffs, vc) <- RB3.processRB
+          (rb3, mrb2)
           songYaml
           (applyTargetMIDI rb3.common input')
           mixMode
           (applyTargetLength rb3.common input <$> getAudioLength buildInfo planName plan)
         return (output, diffs, vc, 0)
-      StandardPlan _ -> RB3.processRB3Pad
-        rb3
+      StandardPlan _ -> RB3.processRBPad
+        (rb3, mrb2)
         songYaml
         (applyTargetMIDI rb3.common input')
         mixMode
@@ -437,7 +437,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       pathCon = dir </> "rb3con"
 
   pathDta %> \out -> do
-    song <- F.shakeMIDI pathMid
+    song <- F.shakeMIDI pathMagmaMid
     editedParts <- loadEditedParts
     pad <- shk $ read <$> readFile' pathMagmaPad
     songPkg <- makeRB3DTA songYaml plan rb3 False editedParts song pkg pad
@@ -610,6 +610,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     Nothing -> return ()
     Just rb2 -> do
 
+      -- TODO just call processRB here and integrate RB2.convertMIDI into it
       pathMagmaMidV1 %> \out -> F.shakeMIDI pathMagmaMid >>= RB2.convertMIDI >>= F.saveMIDILatin1 out
 
       pathMagmaProjV1 %> \out -> do
@@ -839,6 +840,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     }
               liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments songYaml.metadata plan rb3
         rb2DTA %> writeRB2DTA False
+        -- TODO don't get mid out of rba, just use the one we made
         rb2Mid %> \out -> do
           ex <- doesRBAExist
           F.Song tempos sigs trks <- if ex

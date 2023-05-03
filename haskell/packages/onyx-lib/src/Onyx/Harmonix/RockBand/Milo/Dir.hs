@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -27,16 +28,18 @@ breakMilo b = case B.breakSubstring (B.pack magicBarrier) b of
     else x : breakMilo (B.drop 4 y)
 
 parseFileADDE :: Get BL.ByteString
-parseFileADDE = do
-  -- this could be made way more efficient
-  magic <- lookAhead $ getByteString 4
-  if B.unpack magic == magicBarrier
-    then do
-      skip 4
-      return BL.empty
-    else do
-      b <- getWord8
-      BL.cons b <$> parseFileADDE
+parseFileADDE = let
+  barrier = B.pack magicBarrier
+  lookAheadADDE !n = do
+    magic <- lookAhead $ getByteString 4
+    if magic == barrier
+      then return n
+      else skip 1 >> lookAheadADDE (n + 1)
+  in do
+    fileLength <- lookAhead $ lookAheadADDE 0
+    bs <- getLazyByteString fileLength
+    skip 4 -- skip the ADDE
+    return bs
 
 data MiloDir = MiloDir
   { miloVersion      :: Word32

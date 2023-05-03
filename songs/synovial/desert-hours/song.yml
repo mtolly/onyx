@@ -35,10 +35,10 @@ parts:
       kicks: 2
   guitar:
     grybo: {}
-  vocal:
-    vocal: # WIP
-      gender: male
-      count: 3
+  # vocal:
+  #   vocal: # WIP
+  #     gender: male
+  #     count: 3
 plans:
   mogg:
     file-mogg: audio.mogg
@@ -67,3 +67,5 @@ targets:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+  ps:
+    game: ps

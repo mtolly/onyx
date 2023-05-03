@@ -6,11 +6,10 @@ module Onyx.Build.RockBand2 (convertMIDI, dryVoxAudio) where
 import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Foldable                    (toList)
 import           Data.List                        (inits, tails)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe, mapMaybe)
+import           Data.Maybe                       (mapMaybe)
 import qualified Data.Set                         as Set
 import           Onyx.Guitar                      (guitarify')
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
@@ -21,7 +20,6 @@ import           Onyx.MIDI.Track.Drums            as Drums
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         as Five
-import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.Overdrive                   (fixPartialUnisons)
 import           Onyx.StackTrace
@@ -66,18 +64,10 @@ convertMIDI mid = fixUnisons mid
       }
     , F.fixedEvents = (F.fixedEvents $ F.s_tracks mid) { eventsSections = RTB.empty }
     , F.fixedBeat = F.fixedBeat $ F.s_tracks mid
-    , F.fixedVenue = let
-      v2 = compileVenueRB2 $ F.fixedVenue $ F.s_tracks mid
-      in case endPosn of
-        Nothing  -> v2 -- shouldn't happen
-        Just end -> mapTrack (U.trackTake end) v2
-        -- the trackTake is because otherwise new blips
-        -- introduced in rb3->rb2 can go past the end event
+    -- We now compile venue for RB2 already in Onyx.Build.RB3CH
+    , F.fixedVenue = F.fixedVenue $ F.s_tracks mid
     }
   } where
-    endPosn :: Maybe U.Beats
-    endPosn = listToMaybe $ toList $ fmap (fst . fst) $ RTB.viewL
-      $ eventsEnd $ F.fixedEvents $ F.s_tracks mid
     fixGB hasSolos t = t
       { fiveTremolo = RTB.empty
       , fiveTrill = RTB.empty

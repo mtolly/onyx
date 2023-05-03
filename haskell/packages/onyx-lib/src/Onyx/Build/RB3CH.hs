@@ -8,7 +8,7 @@ Shared logic used by the build processes for RB3 and CH targets.
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.RB3CH
-( processRB3Pad, processRB3, processPS, processTiming
+( processRBPad, processRB, processPS, processTiming
 , findProblems
 , TrackAdjust(..)
 , magmaLegalTempos
@@ -54,31 +54,35 @@ import           Onyx.Sections                     (makePSSection)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                   as U
 
-processRB3Pad
+data SharedTarget
+  = SharedTargetRB TargetRB3 (Maybe TargetRB2)
+  | SharedTargetPS TargetPS
+
+processRBPad
   :: (SendMessage m, MonadIO m)
-  => TargetRB3
+  => (TargetRB3, Maybe TargetRB2)
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (F.Song (F.FixedFile U.Beats), DifficultyRB3, Maybe VocalCount, Int)
-processRB3Pad a b c d e = do
-  (mid, diffs, vc) <- processMIDI (Left a) b c d e
+processRBPad (a, b) c d e f = do
+  (mid, diffs, vc) <- processMIDI (SharedTargetRB a b) c d e f
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
   (mid', pad) <- fixNotelessOD legal >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
   return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc, pad)
 
-processRB3
+processRB
   :: (SendMessage m, MonadIO m)
-  => TargetRB3
+  => (TargetRB3, Maybe TargetRB2)
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (F.Song (F.FixedFile U.Beats), DifficultyRB3, Maybe VocalCount)
-processRB3 a b c d e = do
-  (mid, diffs, vc) <- processMIDI (Left a) b c d e
+processRB (a, b) c d e f = do
+  (mid, diffs, vc) <- processMIDI (SharedTargetRB a b) c d e f
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
   mid' <- fmap fixBeatTrack' $ fixNotelessOD legal >>= fixBrokenUnisons
@@ -93,7 +97,7 @@ processPS
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (F.Song (F.FixedFile U.Beats), DifficultyPS, Maybe VocalCount)
 processPS a b c d e = do
-  (mid, diffs, vc) <- processMIDI (Right a) b c d e
+  (mid, diffs, vc) <- processMIDI (SharedTargetPS a) b c d e
   return (proKeysODAllDifficulties mid, diffs, vc)
 
 proKeysODOnlyExpert :: F.Song (F.FixedFile U.Beats) -> F.Song (F.FixedFile U.Beats)
@@ -251,7 +255,7 @@ makeMoods tmap timing
 
 buildDrums
   :: F.FlexPartName
-  -> Either TargetRB3 TargetPS
+  -> SharedTarget
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> SongYaml f
@@ -260,10 +264,10 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
   bd <- getPart drumsPart songYaml >>= anyDrums
 
   let drumTarget = case target of
-        Left rb3 -> if rb3.is2xBassPedal
+        SharedTargetRB rb3 _ -> if rb3.is2xBassPedal
           then DrumTargetRB2x
           else DrumTargetRB1x
-        Right _ps -> DrumTargetCH
+        SharedTargetPS _ -> DrumTargetCH
       modeInput = ModeInput
         { tempo  = tempos
         , events = F.getEventsTrack trks
@@ -302,7 +306,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
       -- we use the five_lane_drums format, which has RYBOG in order
       -- instead of RYBGO.
       flipGreenOrange = case (target, drumResult.settings.mode) of
-        (Right _ps, Drums5) -> drumEachDiff $ \dd -> dd
+        (SharedTargetPS{}, Drums5) -> drumEachDiff $ \dd -> dd
           { drumGems = flip fmap (drumGems dd) $ \(gem, vel) -> let
             gem' = case gem of
               Drums.Pro Drums.Green () -> Drums.Orange
@@ -332,8 +336,8 @@ data BRERemover t = BRERemover
 
 -- TODO make this more resilient, probably based on the "chop" functions
 -- so it can correctly handle stuff beyond just removing notes
-removeBRE :: (NNC.C t) => Either TargetRB3 TargetPS -> EventsTrack t -> Maybe (BRERemover t)
-removeBRE (Left _rb3) evts = case (eventsCoda evts, eventsCodaResume evts) of
+removeBRE :: (NNC.C t) => SharedTarget -> EventsTrack t -> Maybe (BRERemover t)
+removeBRE SharedTargetRB{} evts = case (eventsCoda evts, eventsCodaResume evts) of
   (Wait t1 () _, Wait t2 () _) -> Just $ let
     blips xs = trackGlue t2 (U.trackTake t1 xs) (U.trackDrop t2 xs)
     in BRERemover
@@ -349,7 +353,7 @@ removeBRE (Left _rb3) evts = case (eventsCoda evts, eventsCodaResume evts) of
         . fmap (\case Just ld -> EdgeOn ld (); Nothing -> EdgeOff ())
       }
   _                            -> Nothing
-removeBRE (Right _ps) _ = Nothing
+removeBRE SharedTargetPS{} _ = Nothing
 
 addFiveMoods
   :: U.TempoMap
@@ -366,7 +370,7 @@ addFiveMoods tempos timing ft = ft
 
 buildFive
   :: F.FlexPartName
-  -> Either TargetRB3 TargetPS
+  -> SharedTarget
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> Bool
@@ -376,9 +380,9 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
   Nothing -> Nothing
   Just getFive -> Just $ let
     gtrType = case (target, toKeys) of
-      (_         , True ) -> FiveTypeKeys
-      (Left  _rb3, False) -> FiveTypeGuitar
-      (Right _ps , False) -> FiveTypeGuitarExt
+      (_               , True ) -> FiveTypeKeys
+      (SharedTargetRB{}, False) -> FiveTypeGuitar
+      (SharedTargetPS{}, False) -> FiveTypeGuitarExt
     result = completeFiveResult toKeys mmap $ getFive gtrType ModeInput
       { tempo  = tempos
       , events = F.onyxEvents trks
@@ -400,7 +404,7 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
       . addFiveMoods tempos timing
     in finalSteps FiveTrack
       { fiveDifficulties = fmap
-        (case target of Left _rb3 -> makeDifficultyRB3; Right _ps -> makeDifficultyPS)
+        (case target of SharedTargetRB{} -> makeDifficultyRB3; SharedTargetPS{} -> makeDifficultyPS)
         result.notes
       , fiveMood = result.other.fiveMood
       , fiveHandMap = result.other.fiveHandMap
@@ -456,7 +460,7 @@ deleteBRE song = song
 
 processMIDI
   :: (SendMessage m, MonadIO m)
-  => Either TargetRB3 TargetPS
+  => SharedTarget
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
@@ -464,18 +468,18 @@ processMIDI
   -> StackTraceT m (F.Song (F.FixedFile U.Beats), DifficultyPS, Maybe VocalCount) -- ^ output midi, filtered difficulties, vocal count
 processMIDI target songYaml origInput mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let input@(F.Song tempos mmap trks) = case target of
-        Right ps | not $ ps.bigRockEnding -> deleteBRE origInput
-        _                                 -> origInput
+        SharedTargetPS ps | not $ ps.bigRockEnding -> deleteBRE origInput
+        _                                          -> origInput
   timing@BasicTiming{..} <- basicTiming input getAudioLength
   let targetPS = case target of
-        Right tps -> tps
-        Left trb3 -> TargetPS
-          { common        = trb3.common
-          , guitar        = trb3.guitar
-          , bass          = trb3.bass
-          , drums         = trb3.drums
-          , keys          = trb3.keys
-          , vocal         = trb3.vocal
+        SharedTargetPS ps    -> ps
+        SharedTargetRB rb3 _ -> TargetPS
+          { common        = rb3.common
+          , guitar        = rb3.guitar
+          , bass          = rb3.bass
+          , drums         = rb3.drums
+          , keys          = rb3.keys
+          , vocal         = rb3.vocal
           , rhythm        = F.FlexExtra "undefined"
           , guitarCoop    = F.FlexExtra "undefined"
           , dance         = F.FlexExtra "undefined"
@@ -514,7 +518,9 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       eventsTrackPS = eventsTrack
         { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
         }
-      drumsPart = either (.drums) (.drums) target
+      drumsPart = case target of
+        SharedTargetRB rb3 _ -> rb3.drums
+        SharedTargetPS ps    -> ps.drums
       (drumsTrack, trueDrumsTrack) = case buildDrums drumsPart target input timing songYaml of
         Nothing        -> (mempty, Nothing)
         Just (dt, mtd) -> let
@@ -531,8 +537,12 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           in (setDrumMix mixMode dt, mtd')
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
 
-      guitarPart = either (.guitar) (.guitar) target
-      bassPart = either (.bass) (.bass) target
+      guitarPart = case target of
+        SharedTargetRB rb3 _ -> rb3.guitar
+        SharedTargetPS ps    -> ps.guitar
+      bassPart = case target of
+        SharedTargetRB rb3 _ -> rb3.bass
+        SharedTargetPS ps    -> ps.bass
 
       -- TODO: pgHopoThreshold
       makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= (.proGuitar) of
@@ -583,10 +593,14 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   let guitar = makeGRYBOTrack False guitarPart
       bass   = makeGRYBOTrack False bassPart
 
-      rhythmPart = either (const $ F.FlexExtra "undefined") (.rhythm) target
+      rhythmPart = case target of
+        SharedTargetRB {} -> F.FlexExtra "undefined"
+        SharedTargetPS ps -> ps.rhythm
       rhythmPS = makeGRYBOTrack False rhythmPart
 
-      guitarCoopPart = either (const $ F.FlexExtra "undefined") (.guitarCoop) target
+      guitarCoopPart = case target of
+        SharedTargetRB {} -> F.FlexExtra "undefined"
+        SharedTargetPS ps -> ps.guitarCoop
       guitarCoopPS = makeGRYBOTrack False guitarCoopPart
 
       sixEachDiff f st = st
@@ -613,7 +627,9 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           $ sixGems sd
           ) $ F.onyxPartSix $ F.getFlexPart bassPart trks
 
-      keysPart = either (.keys) (.keys) target
+      keysPart = case target of
+        SharedTargetRB rb3 _ -> rb3.keys
+        SharedTargetPS ps    -> ps.keys
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
         Just part -> if isNothing (anyFiveFret part) && isNothing (anyProKeys part)
@@ -676,7 +692,9 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                 , keysEasy
                 )
 
-  let vocalPart = either (.vocal) (.vocal) target
+  let vocalPart = case target of
+        SharedTargetRB rb3 _ -> rb3.vocal
+        SharedTargetPS ps    -> ps.vocal
       voxCount = fmap (.count) $ getPart vocalPart songYaml >>= (.vocal)
       partVox = F.onyxPartVocals $ F.getFlexPart vocalPart trks
       harm1   = F.onyxHarm1 $ F.getFlexPart vocalPart trks
@@ -788,8 +806,13 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         , [Vocal  | not $ nullVox   trkVox'    ]
         ]
   camera <- stackIO $ buildCamera partsForVenue $ F.onyxCamera trks
-  let isPS = case target of Left _rb3 -> False; Right _ps -> True
-      venue = compileVenueRB3 $ mconcat
+  let isPS = case target of SharedTargetRB{} -> False; SharedTargetPS{} -> True
+      compileVenue = case target of
+        SharedTargetRB _rb3 (Just _rb2) -> mapTrack (U.trackTake timingEnd) . compileVenueRB2
+        -- the trackTake is because otherwise new blips
+        -- introduced in rb3->rb2 can go past the end event
+        _                               -> compileVenueRB3
+      venue = compileVenue $ mconcat
         [ F.onyxVenue trks
         , buildLighting $ F.onyxLighting trks
         , camera
@@ -802,11 +825,13 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             }
           }
         Just _ -> originalRanks
-      dance = case either (const Nothing) (Just . (.dance)) target of
-        Nothing -> mempty
-        Just fpart -> case getPart fpart songYaml >>= (.dance) of
-          Nothing  -> mempty
-          Just _pd -> F.onyxPartDance $ F.getFlexPart fpart trks
+      dance = case target of
+        SharedTargetRB {} -> mempty
+        SharedTargetPS ps -> let
+          fpart = ps.dance
+          in case getPart fpart songYaml >>= (.dance) of
+            Nothing  -> mempty
+            Just _pd -> F.onyxPartDance $ F.getFlexPart fpart trks
   return (F.Song tempos' mmap' F.FixedFile
     { F.fixedBeat = timingBeat
     , F.fixedEvents = if isPS then eventsTrackPS else eventsTrack
