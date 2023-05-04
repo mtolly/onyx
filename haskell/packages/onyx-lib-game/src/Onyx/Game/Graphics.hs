@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NegativeLiterals      #-}
@@ -24,7 +25,8 @@ import           Data.Foldable                (toList, traverse_)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
                                                writeIORef)
-import           Data.List                    (findIndex, partition, sort)
+import           Data.List.Extra              (findIndex, nubOrd, partition,
+                                               sort)
 import           Data.List.HT                 (partitionMaybe)
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
@@ -203,13 +205,13 @@ drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPla
   , drumNoteTimes = Set.empty -- not used
   }
 
-drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (DrumState (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
+drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
 drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
   { tdEvents = let
     -- dummy game state with no inputs, but all notes marked as hit on time
     hitResults = do
       (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
-      let notes = Set.toList $ drumNotes $ commonState cs
+      let notes = Set.toList $ tdNotes $ commonState cs
       guard $ not $ null notes
       return (cst, Map.fromList $ map (, TDHit cst) notes)
     in [(nowTime, (Nothing, initialTDState { tdNoteResults = hitResults }))]
@@ -352,7 +354,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
           ToggleEnd   -> False
           _           -> True
         fadeTime = gfxConfig.objects.gems.secs_fade
-        in forM_ (drumNotes $ commonState cs) $ \gem ->
+        in forM_ (tdNotes $ commonState cs) $ \gem ->
           case trueNoteStatus t gem $ tdEvents tdps of
             NoteFuture -> drawGem t od gem Nothing
             NoteMissed -> drawGem t od gem Nothing
@@ -402,6 +404,28 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         (V3 x2 gfxConfig.track.y farZ)
       )
       (CSColor tint)
+      1
+      globalLight
+  -- draw hihat open zones
+  -- TODO this could be more efficient by drawing sections of zones at a time
+  let hihatZones = nubOrd $ do
+        (_, cs) <- Map.toList zoomed
+        let zone = tdHihatZone $ commonState cs
+        toList (getPast zone) <> toList (getFuture zone)
+      hihatZoneBounds = map gemBounds [TD.Snare, TD.Hihat, TD.CrashL]
+      hihatZoneX1 = minimum $ map fst hihatZoneBounds
+      hihatZoneX2 = maximum $ map snd hihatZoneBounds
+  forM_ hihatZones $ \zone -> let
+    (tex, zoneT1, zoneT2) = case zone of
+      TrueHihatZoneSolid t1 t2 -> (TextureHihatZoneSolid, t1, t2)
+      TrueHihatZoneFade  t1 t2 -> (TextureHihatZoneFade , t1, t2)
+    in drawObject'
+      Flat
+      (ObjectStretch
+        (V3 hihatZoneX1 gfxConfig.track.y $ timeToZ zoneT2)
+        (V3 hihatZoneX2 gfxConfig.track.y $ timeToZ zoneT1)
+      )
+      (CSImage tex)
       1
       globalLight
   glDepthFunc GL_LESS
@@ -458,7 +482,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
-        let lanes = Map.toList $ drumLanes $ commonState cs
+        let lanes = Map.toList $ tdLanes $ commonState cs
             bre = commonBRE cs
         -- draw following lanes
         forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
@@ -494,6 +518,51 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   glDepthFunc GL_LESS
   -- draw notes
   traverseDescWithKey_ drawNotes zoomed
+  -- draw side hihat stomp indicators
+  let stompWidth = case gemBounds TD.Hihat of
+        (x1, x2) -> (x2 - x1) / 2
+      outsideRailLeft  = adjustedLeft  - rail.x_width
+      outsideRailRight = adjustedRight + rail.x_width
+      drawStomps t cs = forM_ cs.commonState.tdHihatStomp $ \stomp -> do
+        let stompColor = if t >= nowTime
+              then V4 1 1 1 1
+              else V4 0 0 0 1
+            stompZ = timeToZ $ max nowTime t
+            stompTypeAlpha = case stomp of
+              TrueHihatStompNotated  -> 1
+              TrueHihatStompImplicit -> 0.3
+            stompAlpha = stompTypeAlpha * if t >= nowTime
+              then 1
+              else max 0 $ 1 - realToFrac (nowTime - t) / gfxConfig.objects.gems.secs_fade
+        drawObject' Box
+          (ObjectStretch
+            (V3
+              (outsideRailLeft - stompWidth)
+              rail.y_top
+              (stompZ - stompWidth / 2)
+            )
+            (V3
+              outsideRailLeft
+              (rail.y_top - stompWidth)
+              (stompZ + stompWidth / 2)
+            )
+          )
+          (CSColor stompColor) stompAlpha (LightOffset gfxConfig.objects.gems.light)
+        drawObject' Box
+          (ObjectStretch
+            (V3
+              outsideRailRight
+              rail.y_top
+              (stompZ - stompWidth / 2)
+            )
+            (V3
+              (outsideRailRight + stompWidth)
+              (rail.y_top - stompWidth)
+              (stompZ + stompWidth / 2)
+            )
+          )
+          (CSColor stompColor) stompAlpha (LightOffset gfxConfig.objects.gems.light)
+  traverseDescWithKey_ drawStomps zoomed
 
 drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType) -> IO ()
 drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
@@ -1695,6 +1764,8 @@ data TextureID
   | TextureLongEnergyHopo
   | TextureLongEnergyTap
   | TextureHihatFoot
+  | TextureHihatZoneSolid
+  | TextureHihatZoneFade
   | TextureGreenGem
   | TextureRedGem
   | TextureYellowGem
@@ -1949,6 +2020,8 @@ loadGLStuff scaleUI previewSong = do
           TextureLongEnergyHopo          -> "long-energy-hopo"
           TextureLongEnergyTap           -> "long-energy-tap"
           TextureHihatFoot               -> "hihat-foot"
+          TextureHihatZoneSolid          -> "hihat-zone-solid"
+          TextureHihatZoneFade           -> "hihat-zone-fade"
           TextureGreenGem                -> "box-green"
           TextureRedGem                  -> "box-red"
           TextureYellowGem               -> "box-yellow"

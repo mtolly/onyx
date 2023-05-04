@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -57,7 +58,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.DrumState (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
+  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
@@ -87,6 +88,12 @@ displayPartName = \case
   F.FlexVocal   -> "Vocal"
   F.FlexExtra t -> T.unwords $ map T.toTitle $ T.words $ T.replace "-" " " t
 
+data HihatEvent
+  = HihatEventHitOpen
+  | HihatEventHitClosed
+  | HihatEventFoot
+  deriving (Eq)
+
 computeTracks
   :: (SendMessage m)
   => SongYaml FilePath
@@ -99,10 +106,12 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     = rtbToMapSecs
     . U.applyTempoTrack tempos
   rtbToMapSecs
+    = atbToMapSecs
+    . RTB.toAbsoluteEventList 0
+  atbToMapSecs
     = Map.fromList
     . map (first realToFrac)
     . ATB.toPairList
-    . RTB.toAbsoluteEventList 0
   tempos = F.s_tempos song
   toggle
     = PNF.makeToggle
@@ -238,18 +247,71 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
   drumTrackTrue fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
     thisSrc = maybe mempty F.onyxPartTrueDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+    thisDiff = TD.getDifficulty diff thisSrc
     drumMap :: Map.Map Double [TD.TrueDrumNote TD.FlamStatus]
-    drumMap = rtbToMap $ RTB.collectCoincident $ TD.getDifficulty diff thisSrc
+    drumMap = rtbToMap $ RTB.collectCoincident thisDiff
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
       Nothing   -> (TD.tdActivation thisSrc, RTB.empty)
       Just coda ->
         ( U.trackTake coda $ TD.tdActivation thisSrc
         , RTB.delay coda $ U.trackDrop coda $ TD.tdActivation thisSrc
         )
-    drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
+    maxSolidOpenTime = 1   :: U.Seconds
+    fadeOpenTime     = 0.5 :: U.Seconds
+    hihatEvents
+      = RTB.collectCoincident
+      $ RTB.mapMaybe (\tdn -> case TD.tdn_gem tdn of
+        TD.HihatFoot                                    -> Just HihatEventFoot
+        TD.Hihat | TD.tdn_type tdn == TD.GemHihatClosed -> Just HihatEventHitClosed
+        TD.Hihat | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventHitOpen
+        _                                               -> Nothing
+        ) thisDiff
+    stomps = Map.union notatedStomps implicitStomps -- Map.union prefers left values in conflict
+    notatedStomps
+      = rtbToMap
+      $ fmap (const $ Just PNF.TrueHihatStompNotated)
+      $ RTB.filter (\tdn -> TD.tdn_gem tdn == TD.HihatFoot) thisDiff
+    implicitStomps
+      = rtbToMapSecs
+      $ makeImplicitStomps
+      $ U.applyTempoTrack tempos hihatEvents
+    makeImplicitStomps = \case
+      Wait dt1 events1 rest@(Wait dt2 events2 _) -> let
+        isImplicitStomp
+          =  dt2 <= maxSolidOpenTime
+          && elem HihatEventHitOpen   events1
+          && elem HihatEventHitClosed events2
+          && notElem HihatEventFoot   events2
+        in if isImplicitStomp
+          then RTB.delay dt1 $ RTB.insert dt2 (Just PNF.TrueHihatStompImplicit) $ makeImplicitStomps rest
+          else RTB.delay dt1 $ makeImplicitStomps rest
+      _ -> RNil
+    openZones
+      = rtbToMapSecs
+      $ PNF.buildPNF
+      $ makeOpenZones 0
+      $ U.applyTempoTrack tempos
+      $ fmap (elem HihatEventHitOpen) hihatEvents
+    makeOpenZones !passedTime = \case
+      Wait dt1 True rest -> let
+        timeStart :: Double
+        timeStart = realToFrac $ passedTime <> dt1
+        timeEnd :: U.Seconds -> Double
+        timeEnd len = timeStart + realToFrac len
+        thisZone = case rest of
+          Wait dt2 _ _ -> if dt2 > maxSolidOpenTime
+            then (PNF.TrueHihatZoneFade  timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
+            else (PNF.TrueHihatZoneSolid timeStart $ timeEnd dt2         , dt2         )
+          RNil -> (PNF.TrueHihatZoneFade timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
+        in Wait dt1 ((), Just thisZone) $ makeOpenZones (passedTime <> dt1) rest
+      Wait dt1 False rest -> RTB.delay dt1 $ makeOpenZones (passedTime <> dt1) rest
+      RNil -> RNil
+    drumStates = (\((((a, b), c), d), e) -> PNF.TrueDrumState a b c d e) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ TD.tdLanes thisSrc)
         `PNF.zipStateMaps` toggle acts
+        `PNF.zipStateMaps` stomps
+        `PNF.zipStateMaps` openZones
     in do
       guard $ not $ Map.null drumMap
       guard $ not $ diff == Nothing && pdrums.kicks == Kicks1x

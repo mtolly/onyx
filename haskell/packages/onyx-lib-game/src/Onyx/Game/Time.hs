@@ -130,6 +130,25 @@ data DrumState pad lane = DrumState
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (DrumState pad lane)
 
+data TrueDrumState t pad lane = TrueDrumState
+  { tdNotes      :: Set.Set pad
+  , tdLanes      :: Map.Map lane Toggle
+  , tdActivation :: Toggle
+  , tdHihatStomp :: Maybe TrueHihatStomp
+  , tdHihatZone  :: PNF (TrueHihatZone t) ()
+  } deriving (Show, Generic)
+    deriving (TimeState) via GenericTimeState (TrueDrumState t pad lane)
+
+data TrueHihatStomp
+  = TrueHihatStompNotated
+  | TrueHihatStompImplicit
+  deriving (Eq, Ord, Show)
+
+data TrueHihatZone t
+  = TrueHihatZoneSolid t t -- start/end times maybe not necessary but just in case
+  | TrueHihatZoneFade  t t -- here we need times to draw fade correctly
+  deriving (Eq, Ord, Show)
+
 data GuitarState fret = GuitarState
   { guitarNotes   :: Map.Map fret (PNF IsOverdrive StrumHOPOTap)
   , guitarTremolo :: Map.Map fret Toggle
@@ -462,7 +481,7 @@ data TrueDrumInput
 
 data TrueDrumPlayState t = TrueDrumPlayState
   { tdEvents    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
-  , tdTrack     :: Map.Map t (CommonState (DrumState (TrueDrumNote FlamStatus) TrueGem))
+  , tdTrack     :: Map.Map t (CommonState (TrueDrumState t (TrueDrumNote FlamStatus) TrueGem))
   , tdNoteTimes :: Set.Set t
   } deriving (Show)
 
@@ -530,7 +549,7 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
 
     -- determine misses
     missRemainingNotesInSlice sliceTime slice = let
-      sliceNotes = maybe [] (Set.toList . drumNotes . commonState) $ Map.lookup sliceTime $ tdTrack dps
+      sliceNotes = maybe [] (Set.toList . tdNotes . commonState) $ Map.lookup sliceTime $ tdTrack dps
       allMisses = Map.fromList $ map (, TDMissed) sliceNotes
       combineStatus (TDHitPendingHihat     _) miss = miss
       combineStatus (TDTwoHitsPendingHihat _) miss = miss
@@ -570,7 +589,7 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
         TDInputHihatOpen -> Nothing
         TDInputHit hit -> let
           match note = tdn_gem note == tdh_gem hit
-          in find match $ drumNotes $ commonState state
+          in find match $ tdNotes $ commonState state
     normalHitData = case matchingHit of
       Nothing -> Nothing
       Just note -> case Map.lookup note currentSlice of

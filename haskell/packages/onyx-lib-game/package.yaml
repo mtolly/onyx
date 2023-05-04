@@ -43,3 +43,4 @@ library:
   - stm
   - freetype2
   - split
+  - extra
