@@ -291,6 +291,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         TD.Kick      -> (fracToX 0, fracToX 1)
         TD.HihatFoot -> lookupGemBounds TD.Hihat
         gem          -> lookupGemBounds gem
+      drawGem _ _ note _ | tdn_gem note == TD.HihatFoot = return () -- only draw side stomps for now
       drawGem t _od note alpha = let
         (texid, obj) = case (tdn_gem note, tdn_type note) of
           (TD.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
@@ -525,12 +526,14 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
       outsideRailRight = adjustedRight + rail.x_width
       drawStomps t cs = forM_ cs.commonState.tdHihatStomp $ \stomp -> do
         let stompColor = if t >= nowTime
-              then V4 1 1 1 1
+              then case stomp of
+                TrueHihatStompNotated  -> V4 1 0.8 0.6 1
+                TrueHihatStompImplicit -> V4 0.7 0.7 1 1
               else V4 0 0 0 1
             stompZ = timeToZ $ max nowTime t
             stompTypeAlpha = case stomp of
               TrueHihatStompNotated  -> 1
-              TrueHihatStompImplicit -> 0.3
+              TrueHihatStompImplicit -> 0.5
             stompAlpha = stompTypeAlpha * if t >= nowTime
               then 1
               else max 0 $ 1 - realToFrac (nowTime - t) / gfxConfig.objects.gems.secs_fade
