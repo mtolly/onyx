@@ -291,7 +291,10 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         TD.Kick      -> (fracToX 0, fracToX 1)
         TD.HihatFoot -> lookupGemBounds TD.Hihat
         gem          -> lookupGemBounds gem
-      drawGem _ _ note _ | tdn_gem note == TD.HihatFoot = return () -- only draw side stomps for now
+      hihatZoneBounds = map gemBounds [TD.Snare, TD.Hihat, TD.CrashL]
+      hihatZoneX1 = minimum $ map fst hihatZoneBounds
+      hihatZoneX2 = maximum $ map snd hihatZoneBounds
+      -- drawGem _ _ note _ | tdn_gem note == TD.HihatFoot = return ()
       drawGem t _od note alpha = let
         (texid, obj) = case (tdn_gem note, tdn_type note) of
           (TD.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
@@ -316,7 +319,9 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
             D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor gfxConfig.objects.gems.color_hit
-        (x1, x2) = gemBounds $ tdn_gem note
+        (x1, x2) = case tdn_gem note of
+          TD.HihatFoot -> (hihatZoneX1, hihatZoneX2)
+          _            -> gemBounds $ tdn_gem note
         xCenter = x1 + (x2 - x1) / 2
         (x1', x2') = case tdn_velocity note of
           D.VelocityGhost -> let
@@ -413,9 +418,6 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         (_, cs) <- Map.toList zoomed
         let zone = tdHihatZone $ commonState cs
         toList (getPast zone) <> toList (getFuture zone)
-      hihatZoneBounds = map gemBounds [TD.Snare, TD.Hihat, TD.CrashL]
-      hihatZoneX1 = minimum $ map fst hihatZoneBounds
-      hihatZoneX2 = maximum $ map snd hihatZoneBounds
   forM_ hihatZones $ \zone -> let
     (tex, zoneT1, zoneT2) = case zone of
       TrueHihatZoneSolid t1 t2 -> (TextureHihatZoneSolid, t1, t2)
@@ -519,7 +521,8 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   glDepthFunc GL_LESS
   -- draw notes
   traverseDescWithKey_ drawNotes zoomed
-  -- draw side hihat stomp indicators
+  -- draw side hihat stomp indicators (disabled at the moment)
+  {-
   let stompWidth = case gemBounds TD.Hihat of
         (x1, x2) -> (x2 - x1) / 2
       outsideRailLeft  = adjustedLeft  - rail.x_width
@@ -566,6 +569,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
           )
           (CSColor stompColor) stompAlpha (LightOffset gfxConfig.objects.gems.light)
   traverseDescWithKey_ drawStomps zoomed
+  -}
 
 drawDrumPlay :: GLStuff -> Double -> Double -> DrumPlayState Double (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType) -> IO ()
 drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do

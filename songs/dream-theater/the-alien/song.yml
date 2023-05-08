@@ -28,6 +28,7 @@ parts:
     drums:
       kicks: both
       mode: 'true'
+      true-layout: [open-hand]
       difficulty: 6
 targets:
   rb3:
