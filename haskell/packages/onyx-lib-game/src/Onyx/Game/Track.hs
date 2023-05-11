@@ -91,7 +91,8 @@ displayPartName = \case
 data HihatEvent
   = HihatEventHitOpen
   | HihatEventHitClosed
-  | HihatEventFoot
+  | HihatEventStomp
+  | HihatEventSplash
   deriving (Eq)
 
 computeTracks
@@ -261,10 +262,13 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     hihatEvents
       = RTB.collectCoincident
       $ RTB.mapMaybe (\tdn -> case TD.tdn_gem tdn of
-        TD.HihatFoot                                    -> Just HihatEventFoot
-        TD.Hihat | TD.tdn_type tdn == TD.GemHihatClosed -> Just HihatEventHitClosed
-        TD.Hihat | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventHitOpen
-        _                                               -> Nothing
+        TD.HihatFoot
+          | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventSplash
+          | otherwise                            -> Just HihatEventStomp
+        TD.Hihat
+          | TD.tdn_type tdn == TD.GemHihatClosed -> Just HihatEventHitClosed
+          | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventHitOpen
+        _                                        -> Nothing
         ) thisDiff
     stomps = Map.union notatedStomps implicitStomps -- Map.union prefers left values in conflict
     notatedStomps
@@ -281,7 +285,8 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
           =  dt2 <= maxSolidOpenTime
           && elem HihatEventHitOpen   events1
           && elem HihatEventHitClosed events2
-          && notElem HihatEventFoot   events2
+          && notElem HihatEventStomp  events2
+          && notElem HihatEventSplash events2
         in if isImplicitStomp
           then RTB.delay dt1 $ RTB.insert dt2 (Just PNF.TrueHihatStompImplicit) $ makeImplicitStomps rest
           else RTB.delay dt1 $ makeImplicitStomps rest
@@ -291,7 +296,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ PNF.buildPNF
       $ makeOpenZones 0
       $ U.applyTempoTrack tempos
-      $ fmap (elem HihatEventHitOpen) hihatEvents
+      $ fmap (\xs -> elem HihatEventHitOpen xs || elem HihatEventSplash xs) hihatEvents
     makeOpenZones !passedTime = \case
       Wait dt1 True rest -> let
         timeStart :: Double

@@ -324,15 +324,18 @@ getDifficulty diff trk = let
     outputNotKick = flip fmap notKick $ \(gem, _, vel) -> TrueDrumNote
       { tdn_gem      = gem
       , tdn_type     = case gem of
-        Hihat  -> hihatType
-        Snare  -> drumType
-        Tom1   -> drumType
-        Tom2   -> drumType
-        Tom3   -> drumType
-        CrashL -> cymbalType
-        CrashR -> cymbalType
-        Ride   -> cymbalType
-        _      -> GemNormal
+        Hihat     -> hihatType
+        HihatFoot -> case hihatType of
+          GemHihatOpen -> GemHihatOpen
+          _            -> GemHihatClosed
+        Snare     -> drumType
+        Tom1      -> drumType
+        Tom2      -> drumType
+        Tom3      -> drumType
+        CrashL    -> cymbalType
+        CrashR    -> cymbalType
+        Ride      -> cymbalType
+        Kick      -> GemNormal
       , tdn_velocity = vel
       , tdn_limb     = Nothing -- TODO
       , tdn_extra    = if flam && gem /= HihatFoot then Flam else NotFlam
