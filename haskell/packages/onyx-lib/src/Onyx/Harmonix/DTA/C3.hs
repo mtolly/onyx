@@ -14,6 +14,7 @@ import           Control.Monad.Trans.Writer.Strict
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
+import qualified Data.ByteString.Lazy.Char8           as BL8
 import           Data.Char                            (isSpace)
 import           Data.Default.Class                   (Default (..))
 import           Data.Foldable                        (forM_)
@@ -32,7 +33,8 @@ import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Project
 import           Onyx.Resources                       (missingSongData)
 import           Onyx.StackTrace
-import           Onyx.Util.Text.Decode                (decodeGeneral)
+import           Onyx.Util.Text.Decode                (decodeGeneral,
+                                                       encodeLatin1)
 import           Paths_onyx_lib                       (version)
 
 writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
@@ -240,3 +242,12 @@ prettyDTA name pkg c3 = let
   in T.unlines $ case reverse dtaLines of
     ")" : dtaLines' -> reverse dtaLines' ++ c3Lines ++ [")"]
     _               -> dtaLines ++ c3Lines -- I don't think this works but it shouldn't happen
+
+-- same logic as above but used for quick convert
+insertCommentsBytes :: D.DTA B.ByteString -> [B.ByteString] -> BL.ByteString
+insertCommentsBytes dta comments = let
+  comments' = map BL.fromStrict comments
+  dtaLines = filter (BL8.any $ not . isSpace) $ BL8.lines $ BL.fromStrict $ encodeLatin1 $ D.showDTA $ fmap TE.decodeLatin1 dta
+  in BL8.unlines $ case reverse dtaLines of
+    ")" : dtaLines' -> reverse dtaLines' <> comments' <> [")"]
+    _               -> dtaLines <> comments' -- shouldn't happen

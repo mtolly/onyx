@@ -30,6 +30,7 @@ parts:
     drums:
       kicks: both
       difficulty: 6
+      mode: 'true'
   keys:
     grybo:
       difficulty: 4

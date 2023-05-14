@@ -25,6 +25,7 @@ import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
 import           Data.Char                            (isAlphaNum, isAscii,
+                                                       isLower, isUpper,
                                                        toLower)
 import qualified Data.Conduit.Audio                   as CA
 import           Data.Conduit.Audio.Sndfile           (sinkSnd, sourceSndFrom)
@@ -53,6 +54,7 @@ import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
                                                        readDTA_latin1, showDTA)
 import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        DTASingle (..),
+                                                       insertCommentsBytes,
                                                        readDTASingles,
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
@@ -98,15 +100,16 @@ data QuickSong = QuickSong
   }
 
 data QuickDTA = QuickDTA
-  { qdtaRaw     :: B.ByteString
-  , qdtaParsed  :: Chunk B.ByteString
-  , qdtaFolder  :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
-  , qdtaRB3     :: Bool
-  , qdtaTitle   :: T.Text
-  , qdtaArtist  :: Maybe T.Text
-  , qdtaPreview :: (Int32, Int32)
-  , qdtaPans    :: [Float]
-  , qdtaVols    :: [Float]
+  { qdtaOriginal :: B.ByteString -- not used for output anymore, may get out of sync with parsed/comments
+  , qdtaParsed   :: Chunk B.ByteString
+  , qdtaComments :: [B.ByteString] -- c3 style extra comments
+  , qdtaFolder   :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
+  , qdtaRB3      :: Bool
+  , qdtaTitle    :: T.Text
+  , qdtaArtist   :: Maybe T.Text
+  , qdtaPreview  :: (Int32, Int32)
+  , qdtaPans     :: [Float]
+  , qdtaVols     :: [Float]
   }
 
 data QuickConvertFormat
@@ -144,7 +147,8 @@ data QuickFile a
   deriving (Eq, Show, Foldable)
 
 pattern Key :: s -> [Chunk s] -> Chunk s
-pattern Key k v <- Parens (Tree _ (Sym k : v))
+pattern Key k v <- Parens (Tree _ (Sym k : v)) where
+  Key k v = Parens $ Tree 0 $ Sym k : v
 
 splitSongsDTA :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [QuickDTA]
 splitSongsDTA r = do
@@ -194,16 +198,18 @@ splitSongsDTA r = do
         vols <- case concat [x | Key "vols" x <- data2] of
           Parens (Tree _ xs) : _ -> getFloats xs
           _                      -> fatal "Couldn't get vols list"
+        let comments = filter (\s -> B.take 1 s == ";") $ map B8.strip $ B8.lines bytes
         return QuickDTA
-          { qdtaRaw     = bytes
-          , qdtaParsed  = chunk
-          , qdtaFolder  = folder
-          , qdtaRB3     = rb3
-          , qdtaTitle   = readString title
-          , qdtaArtist  = readString <$> artist
-          , qdtaPreview = preview
-          , qdtaPans    = pans
-          , qdtaVols    = vols
+          { qdtaOriginal = bytes
+          , qdtaParsed   = chunk
+          , qdtaComments = comments
+          , qdtaFolder   = folder
+          , qdtaRB3      = rb3
+          , qdtaTitle    = readString title
+          , qdtaArtist   = readString <$> artist
+          , qdtaPreview  = preview
+          , qdtaPans     = pans
+          , qdtaVols     = vols
           }
       _ -> return Nothing
 
@@ -571,8 +577,9 @@ saveQuickSongsSTFS qsongs opts fout = do
         { folderSubfolders = [("songs", songsFolder)]
         , folderFiles = []
         }
-      songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle
-        $ BL.intercalate "\n" $ map (BL.fromStrict . qdtaRaw . quickSongDTA) qsongs
+      songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
+        qsong <- qsongs
+        return (qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
   stackIO $ makeCONReadable opts topFolder fout
 
 data QuickPS3Folder
@@ -595,14 +602,14 @@ discardSize (t, (_, x)) = (t, x)
 saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
 saveQuickSongsPKG qsongs settings fout = do
   let oneFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-        $ "O" <> take 6 (show $ hash $ map (qdtaRaw . quickSongDTA) qsongs) <> case qsongs of
+        $ "O" <> take 6 (show $ hash $ map (qdtaOriginal . quickSongDTA) qsongs) <> case qsongs of
           []        -> "" -- shouldn't happen
           qsong : _ -> T.unpack (qdtaTitle $ quickSongDTA qsong)
       contentID = npdContentID
         $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
   qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs $ \qsong -> do
     let separateFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-          $ "O" <> take 6 (show $ hash $ qdtaRaw $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
+          $ "O" <> take 6 (show $ hash $ qdtaOriginal $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
         chosenFolder = case qcPS3Folder settings of
           Nothing -> case quickSongPS3Folder qsong of
             Just dir -> dir -- came from ps3, keep the same subfolder
@@ -615,8 +622,9 @@ saveQuickSongsPKG qsongs settings fout = do
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
   let rootFolder = container "USRDIR" $ mconcat $ do
         (usrdirSub, songs) <- Map.toList qsongMapping
-        let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle
-              $ glueDTA $ map (makePS3DTA . qdtaParsed . quickSongDTA . fst) songs
+        let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
+              (qsong, _) <- songs
+              return (qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
         return $ container (TE.decodeLatin1 usrdirSub) $ container "songs" Folder
           { folderFiles = [("songs.dta", songsDTA)]
           , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs
@@ -703,7 +711,7 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
         songContents = container "songs" $ container (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
           (WiiSong, r) -> Just r
           _            -> Nothing
-    return (dta, metaContents <> previewContents, songContents)
+    return ((dta, qdtaComments $ quickSongDTA qsong), metaContents <> previewContents, songContents)
   let dta = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ map fst3 triples
       dtaFolder = container "songs" Folder
         { folderSubfolders = []
@@ -717,10 +725,9 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
   stackIO $ packU8Folder song out2
   return [out1, out2]
 
-glueDTA :: [Chunk B.ByteString] -> BL.ByteString
+glueDTA :: [(Chunk B.ByteString, [B.ByteString])] -> BL.ByteString
 glueDTA = let
-  chunkLatin1 chunk = BL.fromStrict $ B8.pack $ T.unpack $ showDTA
-    $ DTA 0 $ Tree 0 [TE.decodeLatin1 <$> chunk]
+  chunkLatin1 (chunk, comments) = insertCommentsBytes (DTA 0 $ Tree 0 [chunk]) comments
   in BL.intercalate "\n" . map chunkLatin1
 
 -- Useful processors for modifying songs
@@ -903,6 +910,56 @@ decompressMilos = mapMFilesWithName $ \(name, (size, qfile)) -> do
             return (fromIntegral $ BL.length newMilo, QFMilo $ makeHandle (T.unpack name) $ byteStringSimpleHandle newMilo)
     _ -> return (size, qfile)
   return (name, newFileSized)
+
+-- Fills in the Deluxe author DTA tag from the C3 comment
+transferAuthorToTag :: QuickSong -> QuickSong
+transferAuthorToTag qsong = let
+  qdta = quickSongDTA qsong
+  isAuthorTag = \case
+    Key "author" _ -> True
+    _              -> False
+  in case mapMaybe (B8.stripPrefix ";Song authored by ") $ qdtaComments qdta of
+    []         -> qsong
+    author : _ -> case qdtaParsed qdta of
+      Parens (Tree w children@(_ : rest)) -> if any isAuthorTag rest
+        then qsong -- existing author tag
+        else qsong
+          { quickSongDTA = qdta
+            { qdtaParsed = Parens $ Tree w $ children <> [Key "author" [String author]]
+            }
+          }
+      _ -> qsong -- warn?
+
+-- Strips 2x Bass Pedal labels and BirdmanExe author tags like (B) (X) (Z) (O) (Rh) (I) etc.
+stripTitleTags :: QuickSong -> QuickSong
+stripTitleTags qsong = let
+  qdta = quickSongDTA qsong
+  strippableTag s = or
+    [ elem (B8.map toLower s) ["2x bass pedal", "2x", "x+"]
+    , case B8.unpack s of
+      [x]    | isUpper x              -> True -- single letter author tags
+      [x, y] | isUpper x && isLower y -> True -- double letter like (Rh)
+      _                               -> False
+    ]
+  stripper title1 = case B.stripSuffix ")" title1 of
+    Just title2 -> case B8.breakEnd (== '(') title2 of
+      (title3, inParens) -> case B.stripSuffix " (" title3 of
+        Just title4 -> if strippableTag inParens
+          then stripper title4
+          else title1
+        Nothing -> title1
+    Nothing -> title1
+  eachChild = \case
+    Key "name" [String s] -> Key "name" [String $ stripper s]
+    x                     -> x
+  in case qdtaParsed qdta of
+    Parens (Tree w (k : rest)) -> qsong
+      { quickSongDTA = qdta
+        { qdtaParsed = Parens $ Tree w $ k : map eachChild rest
+        -- could also strip from qdtaTitle but doesn't really matter
+        }
+      }
+    _ -> qsong -- warn?
 
 ------------------------
 

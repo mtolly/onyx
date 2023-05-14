@@ -41,6 +41,7 @@ parts:
     drums:
       kicks: 1
       kit: VintageKit
+      mode: 'true'
 targets:
   rb3:
     game: rb3

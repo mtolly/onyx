@@ -6,6 +6,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Util.Handle where
 
+import           Control.Concurrent.MVar       (modifyMVar, newMVar)
 import           Control.Exception             (bracket, throwIO)
 import           Control.Monad                 (forM, forM_, guard, unless)
 import           Data.Bifunctor                (Bifunctor (..))
@@ -290,3 +291,15 @@ traverseFiles :: (Applicative f) => (t -> a -> f b) -> Folder t a -> f (Folder t
 traverseFiles g folder = Folder
   <$> traverse (traverse $ traverseFiles g) (folderSubfolders folder)
   <*> traverse (\(name, x) -> (name,) <$> g name x) (folderFiles folder)
+
+generateCachedReadable :: IO Readable -> IO Readable
+generateCachedReadable generate = do
+  v <- newMVar Nothing
+  return Readable
+    { rFilePath = Nothing
+    , rOpen = do
+      r <- modifyMVar v $ \mr -> do
+        r <- maybe generate return mr
+        return (Just r, r)
+      rOpen r
+    }

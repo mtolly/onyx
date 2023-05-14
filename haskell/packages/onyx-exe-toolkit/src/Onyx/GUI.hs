@@ -1761,6 +1761,8 @@ pageQuickConvert sink rect tab startTasks = mdo
         , (,) "Force 22-fret protar" $ procFolder $ applyToMIDI mustang22
         , (,) "Unmute >22-fret protar" $ procFolder $ applyToMIDI unmuteOver22
         , (,) "Decompress .milo_*" $ procFolder decompressMilos
+        , (,) "Author to DTA tag" $ return . transferAuthorToTag
+        , (,) "Strip title tags" $ return . stripTitleTags
         ]
   processorGetters <- forM processors $ \(label, proc) -> do
     check <- FL.checkButtonNew processorBox $ Just label
