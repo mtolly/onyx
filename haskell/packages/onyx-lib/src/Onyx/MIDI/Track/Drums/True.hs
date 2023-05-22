@@ -423,6 +423,7 @@ placeCymbals
     }
 
   emitCymbals (CymbalInstant hh lc rd rc) = let
+    -- TODO probably switch ride to default to B, and left crash maybe default to Y?
     yellow = toList hh
     blue = [Right $ D.Pro D.Blue D.Cymbal | isJust lc || (isJust rd && rc)]
     green = [Right $ D.Pro D.Green D.Cymbal | isJust rd || rc]

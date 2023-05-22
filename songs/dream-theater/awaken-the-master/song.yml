@@ -15,7 +15,7 @@ parts:
       kicks: both
       mode: 'true'
       true-layout: [open-hand]
-      # difficulty:
+      difficulty: 7
 audio:
   album-track:
     frames: 28183405

@@ -55,6 +55,7 @@ plans:
     - 0
     - 0
     - 0
+  # stems offset: 1.726
 targets:
   rb3-2x:
     2x-bass-pedal: true

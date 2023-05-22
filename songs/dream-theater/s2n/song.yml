@@ -15,6 +15,7 @@ parts:
       kicks: both
       mode: 'true'
       true-layout: [open-hand]
+      difficulty: 6
 audio:
   album-track:
     md5: 8f465b7a94d9f3a0d9b63baccca69173

@@ -319,9 +319,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
             D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor gfxConfig.objects.gems.color_hit
-        (x1, x2) = case tdn_gem note of
-          TD.HihatFoot -> (hihatZoneX1, hihatZoneX2)
-          _            -> gemBounds $ tdn_gem note
+        (x1, x2) = gemBounds $ tdn_gem note
         xCenter = x1 + (x2 - x1) / 2
         (x1', x2') = case tdn_velocity note of
           D.VelocityGhost -> let
@@ -332,7 +330,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
           TD.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
         xPairs = case tdn_extra note of
-          TD.Flam -> case tdn_gem note of
+          TD.Flam -> map (, obj) $ case tdn_gem note of
             TD.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _       -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
@@ -344,12 +342,18 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
                 | snd noteRight > adjustedRight = adjustedRight - snd noteRight
                 | otherwise = 0
               in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
-          TD.NotFlam -> [(x1', x2')]
+          TD.NotFlam -> case tdn_gem note of
+            TD.HihatFoot ->
+              [ (gemBounds TD.Snare , Model ModelDrumHihatFootWings)
+              , ((x1', x2'), obj)
+              , (gemBounds TD.CrashL, Model ModelDrumHihatFootWings)
+              ]
+            _            -> [((x1', x2'), obj)]
         (y1, y2) = (y - reference, y + reference)
         y = gfxConfig.track.y
         (z1, z2) = (z - reference, z + reference)
         z = timeToZ t
-        in forM_ xPairs $ \(thisX1, thisX2) -> drawObject' obj
+        in forM_ xPairs $ \((thisX1, thisX2), obj') -> drawObject' obj'
           (ObjectStretch (V3 thisX1 y1 z1) (V3 thisX2 y2 z2))
           shade
           (fromMaybe 1 alpha)
@@ -1883,6 +1887,7 @@ data ModelID
   | ModelDrumHihatOpen
   | ModelDrumKick
   | ModelDrumHihatFoot
+  | ModelDrumHihatFootWings
   | ModelGuitarStrum
   | ModelGuitarHOPOTap
   | ModelGuitarOpen
@@ -2154,17 +2159,18 @@ loadGLStuff scaleUI previewSong = do
 
   models <- forM [minBound .. maxBound] $ \modID -> do
     path <- liftIO $ getResourcesPath $ case modID of
-      ModelDrumTom        -> "models/drum-tom.obj"
-      ModelDrumRim        -> "models/drum-rim.obj"
-      ModelDrumCymbal     -> "models/drum-cymbal.obj"
-      ModelDrumCymbalFlat -> "models/drum-cymbal-flat.obj"
-      ModelDrumHihatOpen  -> "models/drum-hihat-open.obj"
-      ModelDrumKick       -> "models/drum-kick.obj"
-      ModelDrumHihatFoot  -> "models/drum-hihat-foot.obj"
-      ModelGuitarStrum    -> "models/gtr-strum.obj"
-      ModelGuitarHOPOTap  -> "models/gtr-hopotap.obj"
-      ModelGuitarOpen     -> "models/gtr-open.obj"
-      ModelPGNote         -> "models/pg-note.obj"
+      ModelDrumTom            -> "models/drum-tom.obj"
+      ModelDrumRim            -> "models/drum-rim.obj"
+      ModelDrumCymbal         -> "models/drum-cymbal.obj"
+      ModelDrumCymbalFlat     -> "models/drum-cymbal-flat.obj"
+      ModelDrumHihatOpen      -> "models/drum-hihat-open.obj"
+      ModelDrumKick           -> "models/drum-kick.obj"
+      ModelDrumHihatFoot      -> "models/drum-hihat-foot.obj"
+      ModelDrumHihatFootWings -> "models/drum-hihat-foot-wings.obj"
+      ModelGuitarStrum        -> "models/gtr-strum.obj"
+      ModelGuitarHOPOTap      -> "models/gtr-hopotap.obj"
+      ModelGuitarOpen         -> "models/gtr-open.obj"
+      ModelPGNote             -> "models/pg-note.obj"
     obj <- loadObj path >>= loadObject
     return (modID, obj)
 
