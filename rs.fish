@@ -6,8 +6,7 @@ rm -rf rsproj
 mkdir rsproj
 
 function build
-  onyx shake $argv[1] gen/target/rs/cst
-  and cp -R $argv[1]/gen/target/rs/cst rsproj/(basename $argv[1])
+  onyx build $argv[1] --target rs --to rsproj/(basename $argv[1])
 end
 
 # released:
@@ -111,9 +110,7 @@ end
 # build songs-hmx/whitechapel/this-is-exile
 # build songs-rbn/the-dillinger-escape-plan/widower
 # build songs-rbn/cynic/the-space-for-this
-# build songs-others/cyclopsdragon/good-neighbor
 # build songs-others/bloodline/circus
-# build songs-others/cyclopsdragon/when-i-lost-my-bet
 # build songs/billy-cobham/stratus
 # build songs/tormented-brutality/dominate
 # build songs-hmx/metallica/ride-the-lightning
@@ -128,8 +125,15 @@ end
 # build songs-others/inventor211/the-sin-and-the-sentence
 # build songs/trivium/of-all-these-yesterdays
 # build songs-others/guitar-hero/we-three-kings
-build songs-others/guitar-hero/that-was-just-your-life
-build songs/hiromi-uehara/caravan
+# build songs-others/guitar-hero/that-was-just-your-life
+# build songs/hiromi-uehara/caravan
+build songs-others/guitar-hero/dyers-eve
+build songs/metallica/blackened
+build songs/metallica/fight-fire-with-fire
+build songs/synovial/desert-hours
+build songs-others/cyclopsdragon/good-neighbor
+build songs/john-petrucci/jaws-of-life
+# build songs-others/cyclopsdragon/when-i-lost-my-bet # this needs fixes
 
 # phrases unknown:
 

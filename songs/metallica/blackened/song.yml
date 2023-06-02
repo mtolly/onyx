@@ -1,0 +1,129 @@
+global:
+  anim-tempo: fast
+metadata:
+  album: '...And Justice for All'
+  artist: Metallica
+  author: MMSRhino, Harmonix, Onyxite
+  difficulty:
+    rank: 450
+  file-album-art: cover.png_xbox
+  genre: metal
+  subgenre: metal
+  preview-end: 2:12.700
+  preview-start: 1:42.700
+  rating: Supervision Recommended
+  title: Blackened
+  track-number: 1
+  year: 1988
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
+    plan: mogg-stems
+parts:
+  bass:
+    grybo:
+      difficulty:
+        tier: 1
+      fix-freeform: false
+    pro-guitar: # Onyxite
+      tuning:
+        base: bass-4
+  drums:
+    drums: # MMSRhino
+      difficulty:
+        tier: 1
+      fix-freeform: false
+      kicks: 1
+  guitar:
+    grybo:
+      difficulty:
+        tier: 1
+      fix-freeform: false
+  vocal:
+    vocal:
+      difficulty:
+        tier: 1
+      gender: female
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+plans:
+  mogg-stemless: # not sure mixing on rhino's mogg is right
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: false
+    tuning-cents: 25 # this may be a bit too high for bass
+    pans:
+    - -1
+    - 1
+    - 0
+    - 0
+    - 0
+    - -1
+    - 1
+    parts:
+      bass:
+      - 2
+      drums:
+      - 0
+      - 1
+      guitar:
+      - 3
+      vocal:
+      - 4
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+  mogg-stems:
+    file-mogg: stems.mogg
+    karaoke: false
+    multitrack: true
+    pans:
+    - 0
+    - 0
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      bass:
+      - 4
+      drums:
+        kick:
+        - 0
+        kit:
+        - 2
+        - 3
+        snare:
+        - 1
+      guitar:
+      - 5
+      - 6
+      vocal:
+      - 7
+      - 8
+    tuning-cents: 25 # this may be a bit too high for bass
+    vols:
+    - 0
+    - -1
+    - -1.5
+    - -1.5
+    - -4.5
+    - -2.5
+    - -2.5
+    - -4.5
+    - -4.5
+    - -3
+    - -3

@@ -473,6 +473,10 @@ ghToMidi bank pak = let
     -- Slides use a note connecting the two flat notes with special pitch 2,
     -- so we just remove those and put a + lyric at the end of each one
     (slideNotes, notSlides) = partition (\vn -> vnPitch vn == 2) vox
+    -- TODO problem on Fight Fire With Fire (Metallica):
+    -- several "fire" in choruses have a slide between "fi" and "re",
+    -- so the "re" gets a "+" and messes things up.
+    -- probably we should just ignore the slide (remove "+")
     pluses = flip map slideNotes $ \vn ->
       ( toBeats $ vnTimeOffset vn + fromIntegral (vnDuration vn)
       , "+"

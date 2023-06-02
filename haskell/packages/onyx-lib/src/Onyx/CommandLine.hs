@@ -375,7 +375,7 @@ buildTarget yamlPath opts = do
         GH1   {} -> undefined -- TODO
         GH3   {} -> undefined -- TODO
         GH5   {} -> undefined -- TODO
-        RS    {} -> undefined -- TODO
+        RS    {} -> "gen/target" </> T.unpack targetName </> "cst"
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
   Identity built' <- shakeBuildFiles audioDirs yamlPath $ Identity built
@@ -450,7 +450,10 @@ commands =
       (FileSongYaml, yamlPath) -> do
         out <- outputFile opts $ fatal "onyx build (yaml) requires --to, none given"
         (_, built) <- buildTarget yamlPath opts
-        stackIO $ Dir.copyFile built out
+        -- most targets make a file but rocksmith makes a project folder
+        stackIO $ Dir.doesDirectoryExist built >>= \case
+          True  -> copyDirRecursive built out
+          False -> Dir.copyFile built out
         return [out]
       (ftype, fpath) -> unrecognized ftype fpath
     }

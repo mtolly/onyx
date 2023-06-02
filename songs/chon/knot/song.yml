@@ -1,0 +1,13 @@
+audio:
+  album-track:
+    frames: 8055846
+    md5: 05ad0c56eef72e6d8040e0e49b0a6244
+plans:
+  album:
+    song:
+      pad: [3.024, album-track]
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: 1

@@ -1,0 +1,66 @@
+audio:
+  adlc370_1.fsb.xen.0.xma:
+    file-path: adlc370_1.fsb.xen.0.xma
+  adlc370_1.fsb.xen.1.xma:
+    file-path: adlc370_1.fsb.xen.1.xma
+  adlc370_1.fsb.xen.2.xma:
+    file-path: adlc370_1.fsb.xen.2.xma
+  adlc370_1.fsb.xen.3.xma:
+    file-path: adlc370_1.fsb.xen.3.xma
+  adlc370_2.fsb.xen.0.xma:
+    file-path: adlc370_2.fsb.xen.0.xma
+  adlc370_2.fsb.xen.1.xma:
+    file-path: adlc370_2.fsb.xen.1.xma
+  adlc370_2.fsb.xen.2.xma:
+    file-path: adlc370_2.fsb.xen.2.xma
+  adlc370_3.fsb.xen.0.xma:
+    file-path: adlc370_3.fsb.xen.0.xma
+  adlc370_3.fsb.xen.1.xma:
+    file-path: adlc370_3.fsb.xen.1.xma
+metadata:
+  artist: Metallica
+  author: null
+  difficulty:
+    tier: 1
+  genre: Metal
+  title: Fuel
+  year: 1997
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 300
+    pro-guitar:
+      tuning:
+        base: bass-4
+        global: -1 # Eb standard
+  drums:
+    drums:
+      difficulty:
+        rank: 350
+      fix-freeform: false
+      kicks: both
+      mode: 5
+  guitar:
+    grybo:
+      difficulty:
+        rank: 250
+  vocal:
+    vocal:
+      difficulty:
+        rank: 250
+plans:
+  gh:
+    crowd: adlc370_3.fsb.xen.1.xma
+    parts:
+      bass: adlc370_2.fsb.xen.1.xma
+      drums:
+        kick: adlc370_1.fsb.xen.0.xma
+        kit:
+          mix:
+          - adlc370_1.fsb.xen.2.xma
+          - adlc370_1.fsb.xen.3.xma
+        snare: adlc370_1.fsb.xen.1.xma
+      guitar: adlc370_2.fsb.xen.0.xma
+      vocal: adlc370_2.fsb.xen.2.xma
+    song: adlc370_3.fsb.xen.0.xma

@@ -7,14 +7,32 @@ audio:
   album-track:
     md5: 35915c095b582d76a0dae34d41e7a445
     frames: 17287200
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
 plans:
-  plan:
+  album:
     song:
       pad: [2.968, album-track]
+  dev:
+    song:
+      pad: [2.968, album-track]
+    parts:
+      bass:
+        pad: [2.968, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.968, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.968, channels: [[4, 5], stems]]
+      other:
+        pad: [2.968, channels: [[6, 7], stems]]
 metadata:
   title: XYG
   artist: Hiromi's Sonicbloom
   album: Beyond Standard
   track-number: 8
   author: Onyxite
-
+  genre: jazz
+  year: 2008

@@ -1,8 +1,13 @@
 audio:
-  youtube:
-    file-path: audio-youtube.wav
+  # this is slightly slower than the youtube audio I used earlier, may want to double check tempo map adjustments
+  album-track:
+    md5: 99b75d1675dffed398b651626c66f1bc
+    frames: 28864000
+  stems:
+    file-path: audio-stems.wav
     commands:
-    - ../../../scripts/youtube waOcqbpGsak 140
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -13,35 +18,51 @@ parts:
       difficulty:
         tier: 6
   drums:
-    drums:
+    drums: # TODO this needs to be fixed up, e.g. too many kicks in intro and probably other errors
       difficulty:
         tier: 7
       kicks: both
   bass:
     pro-guitar:
       tuning:
-        base: bass-4
+        base: bass-5 # one part with weird D# notes, no idea how he recorded it
 plans:
   album:
     song:
       mix:
       - countin
-      - pad: [3.603, youtube]
+      - pad: [3.638, album-track]
+  dev:
+    song:
+      pad: [3.638, album-track]
+    parts:
+      bass:
+        pad: [3.638, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.638, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.638, channels: [[4, 5], stems]]
+      other:
+        pad: [3.638, channels: [[6, 7], stems]]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: album
   ps:
     game: ps
     label: (O)
+    plan: album
   rs:
     game: rs
+    plan: album
     arrangements:
-    - [bass, bass]
+    - [bonus-rhythm, bass]
 metadata:
   preview-start: 48
   file-album-art: ../../../covers/option-paralysis.png_xbox

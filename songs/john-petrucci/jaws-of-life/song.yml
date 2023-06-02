@@ -41,3 +41,10 @@ metadata:
   year: 2005
   genre: metal
   subgenre: prog
+  file-album-art: cover.jpg
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bonus-rhythm, bass]
+    plan: album

@@ -21,11 +21,12 @@ metadata:
   album: "...And Justice For All"
   artist: Metallica
   author: Neversoft, Onyxite
-  difficulty:
-    tier: 1
-  genre: Metal
+  genre: metal
+  subgenre: metal
   title: Dyers Eve
   year: 1988
+  track-number: 9
+  file-album-art: cover.png_xbox
 parts:
   bass:
     grybo:

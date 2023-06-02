@@ -1,0 +1,72 @@
+audio:
+  adlc367_1.fsb.xen.0.xma:
+    file-path: adlc367_1.fsb.xen.0.xma
+  adlc367_1.fsb.xen.1.xma:
+    file-path: adlc367_1.fsb.xen.1.xma
+  adlc367_1.fsb.xen.2.xma:
+    file-path: adlc367_1.fsb.xen.2.xma
+  adlc367_1.fsb.xen.3.xma:
+    file-path: adlc367_1.fsb.xen.3.xma
+  adlc367_2.fsb.xen.0.xma:
+    file-path: adlc367_2.fsb.xen.0.xma
+  adlc367_2.fsb.xen.1.xma:
+    file-path: adlc367_2.fsb.xen.1.xma
+  adlc367_2.fsb.xen.2.xma:
+    file-path: adlc367_2.fsb.xen.2.xma
+  adlc367_3.fsb.xen.0.xma:
+    file-path: adlc367_3.fsb.xen.0.xma
+  adlc367_3.fsb.xen.1.xma:
+    file-path: adlc367_3.fsb.xen.1.xma
+metadata:
+  album: Ride the Lightning
+  artist: Metallica
+  author: Neversoft, Onyxite
+  genre: metal
+  subgenre: metal
+  title: Fight Fire with Fire
+  year: 1984
+  file-album-art: cover.png_xbox
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 500
+    pro-guitar:
+      tuning:
+        base: bass-4
+  drums:
+    drums:
+      difficulty:
+        rank: 450
+      fix-freeform: false
+      kicks: both
+      mode: 5
+  guitar:
+    grybo:
+      difficulty:
+        rank: 500
+  vocal:
+    vocal:
+      difficulty:
+        rank: 350
+plans:
+  gh:
+    crowd: adlc367_3.fsb.xen.1.xma
+    parts:
+      bass: adlc367_2.fsb.xen.1.xma
+      drums:
+        kick: adlc367_1.fsb.xen.0.xma
+        kit:
+          mix:
+          - adlc367_1.fsb.xen.2.xma
+          - adlc367_1.fsb.xen.3.xma
+        snare: adlc367_1.fsb.xen.1.xma
+      guitar: adlc367_2.fsb.xen.0.xma
+      vocal: adlc367_2.fsb.xen.2.xma
+    song: adlc367_3.fsb.xen.0.xma
+    # TODO do we need a cents offset
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

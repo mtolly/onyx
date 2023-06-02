@@ -27,11 +27,11 @@ parts:
   guitar:
     grybo: {}
   bass:
-    pro-guitar:
+    pro-guitar: # TODO some stuff still missing, need to check from demucs stem
       tuning:
         base: bass-4
   drums:
-    drums:
+    drums: # TODO RB drums not done yet (midi still has cyclops')
       kicks: both
       difficulty:
         tier: 6

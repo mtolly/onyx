@@ -499,6 +499,7 @@ buildSource' aud = case aud of
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs
   Drop edge t (Gain d x) -> buildSource' $ Gain d $ Drop edge t x
   Drop edge t (Channels cs x) -> buildSource' $ Channels cs $ Drop edge t x
+  Channels chans (Resample x) -> buildSource' $ Resample $ Channels chans x
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
     chans <- liftIO $ readVGS fin
     case map (standardRate . mapSamples fractionalSample . (chans !!)) cs of

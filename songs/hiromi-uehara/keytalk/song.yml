@@ -19,6 +19,7 @@ audio:
     md5: c3050d4980b202f95dcf3b79f5f97733
     frames: 57852160
     channels: 6
+    rate: 96000
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -29,19 +30,22 @@ plans:
       mix:
       - countin
       - pad: [4.315, gain: [1.7, album-track]]
-    # parts:
-    #   ch1:
-    #     pad: [4.567, channels: [[0], surround]]
-    #   ch2:
-    #     pad: [4.567, channels: [[1], surround]]
-    #   ch3:
-    #     pad: [4.567, channels: [[2], surround]]
-    #   ch4:
-    #     pad: [4.567, channels: [[3], surround]]
-    #   ch5:
-    #     pad: [4.567, channels: [[4], surround]]
-    #   ch6:
-    #     pad: [4.567, channels: [[5], surround]]
+  dev:
+    song:
+      pad: [4.315, album-track]
+    parts:
+      ch1:
+        pad: [4.567, channels: [[0], surround]]
+      ch2:
+        pad: [4.567, channels: [[1], surround]]
+      ch3:
+        pad: [4.567, channels: [[2], surround]]
+      ch4:
+        pad: [4.567, channels: [[3], surround]]
+      ch5:
+        pad: [4.567, channels: [[4], surround]]
+      ch6:
+        pad: [4.567, channels: [[5], surround]]
 parts:
   # OD by mazegeek999
   drums:
@@ -61,5 +65,7 @@ targets:
     game: rb3
     song-id: 1660200070
     version: 1
+    plan: album
   ps:
     game: ps
+    plan: album
