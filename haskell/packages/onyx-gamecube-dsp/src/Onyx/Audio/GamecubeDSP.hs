@@ -4,10 +4,10 @@ import           Control.Exception
 import           Foreign
 import           Foreign.C
 
-foreign import ccall unsafe "dsper_main"
+foreign import ccall safe "dsper_main"
   dsper_main :: CInt -> Ptr CString -> IO CInt
 
-foreign import ccall unsafe "dkdsp_main"
+foreign import ccall safe "dkdsp_main"
   dkdsp_main :: CInt -> Ptr CString -> IO CInt
 
 -- | Encode a mono WAV to a DSP.

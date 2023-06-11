@@ -15,7 +15,8 @@ askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
 
 #ifdef WINDOWS
 
-foreign import ccall unsafe "OnyxPickFolder"
+-- seems this has to be 'safe'! 'unsafe' crashes occasionally
+foreign import ccall safe "OnyxPickFolder"
   c_PickFolder :: CWString -> IO CWString
 
 askFolderResult initial = maybe ($ nullPtr) withCWString initial $ \ws -> do

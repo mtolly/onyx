@@ -98,11 +98,12 @@ shortWindowsPath :: (MonadIO m) => Bool -> FilePath -> m FilePath
 
 #ifdef WINDOWS
 
--- TODO this should be ccall on 64-bit, see Win32 package
-foreign import stdcall unsafe "ShellExecuteW"
+-- note, on 32-bit this needed to be stdcall (Win32 package uses CPP to switch this)
+-- but we're not supporting 32-bit anymore
+foreign import ccall safe "ShellExecuteW"
   c_ShellExecute :: HWND -> LPCWSTR -> LPCWSTR -> LPCWSTR -> LPCWSTR -> INT -> IO HINSTANCE
 
-foreign import ccall unsafe "onyx_ShowFiles"
+foreign import ccall safe "onyx_ShowFiles"
   c_ShowFiles :: CWString -> Ptr CWString -> CInt -> IO ()
 
 osOpenFile f = liftIO $ withCWString f $ \wstr -> do
@@ -135,7 +136,7 @@ shortWindowsPath create f = liftIO $ do
 
 osOpenFile f = liftIO $ callProcess "open" [f]
 
-foreign import ccall unsafe "onyx_ShowFiles"
+foreign import ccall safe "onyx_ShowFiles"
   c_ShowFiles :: Ptr CString -> CInt -> IO ()
 
 osShowFolder dir [] = osOpenFile dir
