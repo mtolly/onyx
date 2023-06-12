@@ -1,0 +1,30 @@
+audio:
+  album-track:
+    frames: 8439030
+    md5: bf86944f5b69637fd37d0af67e834478
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: 1
+plans:
+  album:
+    song:
+      pad: [5.031, album-track]
+  dev:
+    song:
+      pad: [5.031, album-track]
+    parts:
+      bass:
+        pad: [5.031, channels: [[0, 1], stems]]
+      drums:
+        pad: [5.031, channels: [[2, 3], stems]]
+      vocal:
+        pad: [5.031, channels: [[4, 5], stems]]
+      other:
+        pad: [5.031, channels: [[6, 7], stems]]

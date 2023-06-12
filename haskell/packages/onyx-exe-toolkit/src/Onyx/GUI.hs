@@ -800,6 +800,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     FL.deactivate playButton
     filledColor <- FLE.rgbColorWithRgb (13, 131, 216)
     emptyColor <- FLE.rgbColorWithRgb (75, 75, 75)
+    scrubberDragResume <- newIORef Nothing
     scrubber <- FL.sliderCustom scrubberArea Nothing
       (Just $ \s -> do
         scrubberRect@(Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) <- FL.getRectangle s
@@ -832,7 +833,51 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
         case Map.keys $ previewSections song of
           []    -> return ()
           times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
-      ) Nothing
+      ) $ Just FL.defaultCustomWidgetFuncs
+        { FL.handleCustom = Just $ \ref evt -> let
+          updateTime = do
+            Rectangle (Position (X x) _) (Size (Width w) _) <- FL.getRectangle ref
+            X mouseX <- FLTK.eventX
+            timeMin <- FL.getMinimum ref
+            timeMax <- FL.getMaximum ref
+            let newTime = max timeMin $ min timeMax $ timeMin +
+                  (timeMax - timeMin) * (fromIntegral (mouseX - x) / fromIntegral w)
+            _ <- FL.setValue ref newTime
+            return newTime
+          in case evt of
+            FLE.Push -> do
+              -- stop if playing, set position
+              secs <- updateTime
+              ss <- takeState
+              case songPlaying ss of
+                Nothing -> writeIORef scrubberDragResume $ Just False
+                Just ps -> do
+                  writeIORef scrubberDragResume $ Just True
+                  void $ stopPlaying (songTime ss) ps
+              putState $ SongState secs Nothing
+              redrawGL
+              FLTK.setFocus ref
+              return $ Right ()
+            FLE.Drag -> do
+              -- set position
+              secs <- updateTime
+              ss <- takeState
+              putState ss { songTime = secs }
+              redrawGL
+              return $ Right ()
+            FLE.Release -> do
+              -- set position, resume if was playing
+              secs <- updateTime
+              ss <- takeState
+              ss' <- readIORef scrubberDragResume >>= \case
+                Just True -> startPlaying secs
+                _         -> return ss { songTime = secs }
+              writeIORef scrubberDragResume Nothing
+              putState ss'
+              redrawGL
+              return $ Right ()
+            _ -> FL.handleSliderBase (FL.safeCast ref) evt
+        }
     FL.setType scrubber FL.HorFillSliderType
     -- FL.setSelectionColor scrubber FLE.cyanColor
     homeTabColor >>= FL.setColor scrubber
@@ -897,6 +942,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
                 }
           return SongState { songTime = t, songPlaying = Just ps }
     FL.setCallback scrubber $ \_ -> do
+      -- we no longer fire the callback for mouse events, so this is just for keyboard arrows
       secs <- FL.getValue scrubber
       ss <- takeState
       ss' <- case songPlaying ss of
@@ -906,20 +952,22 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
           startPlaying secs
       putState ss'
       redrawGL
-    let togglePlay = do
-          ss <- takeState
-          ss' <- case songPlaying ss of
-            Nothing -> do
-              -- should probably rework this, since the square label is not
-              -- applied until after we start playing. really we should have
-              -- a "loading" label in between
-              sink $ EventIO $ FL.setLabel playButton "@square"
-              startPlaying $ songTime ss
-            Just ps -> do
-              sink $ EventIO $ FL.setLabel playButton "@>"
-              t <- stopPlaying (songTime ss) ps
-              return $ SongState t Nothing
-          putState ss'
+    let togglePlay = readIORef scrubberDragResume >>= \case
+          Just _  -> return () -- we are dragging the scrubber, ignore this space press
+          Nothing -> do
+            ss <- takeState
+            ss' <- case songPlaying ss of
+              Nothing -> do
+                -- should probably rework this, since the square label is not
+                -- applied until after we start playing. really we should have
+                -- a "loading" label in between
+                sink $ EventIO $ FL.setLabel playButton "@square"
+                startPlaying $ songTime ss
+              Just ps -> do
+                sink $ EventIO $ FL.setLabel playButton "@>"
+                t <- stopPlaying (songTime ss) ps
+                return $ SongState t Nothing
+            putState ss'
     FL.setCallback playButton $ \_ -> togglePlay
     FL.setCallback counter $ \_ -> do
       ss <- takeState
