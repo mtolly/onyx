@@ -1,0 +1,15 @@
+audio:
+  album-track:
+    frames: 11594184
+    md5: d80848430e42e41796e9cb72f71992b9
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+plans:
+  plan:
+    song:
+      pad: [2.836, album-track]
+metadata:
+  title: Funky Lizard

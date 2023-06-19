@@ -1,0 +1,68 @@
+audio:
+  adlc381_1.fsb.xen.0.xma:
+    file-path: adlc381_1.fsb.xen.0.xma
+  adlc381_1.fsb.xen.1.xma:
+    file-path: adlc381_1.fsb.xen.1.xma
+  adlc381_1.fsb.xen.2.xma:
+    file-path: adlc381_1.fsb.xen.2.xma
+  adlc381_1.fsb.xen.3.xma:
+    file-path: adlc381_1.fsb.xen.3.xma
+  adlc381_2.fsb.xen.0.xma:
+    file-path: adlc381_2.fsb.xen.0.xma
+  adlc381_2.fsb.xen.1.xma:
+    file-path: adlc381_2.fsb.xen.1.xma
+  adlc381_2.fsb.xen.2.xma:
+    file-path: adlc381_2.fsb.xen.2.xma
+  adlc381_3.fsb.xen.0.xma:
+    file-path: adlc381_3.fsb.xen.0.xma
+  adlc381_3.fsb.xen.1.xma:
+    file-path: adlc381_3.fsb.xen.1.xma
+metadata:
+  album: Placeholder
+  artist: Metallica
+  author: null
+  difficulty:
+    tier: 1
+  genre: Metal
+  title: One
+  year: 1988
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 400
+    pro-guitar:
+      tuning:
+        base: bass-4
+      picked-bass: true
+  drums:
+    drums:
+      difficulty:
+        rank: 350
+      fix-freeform: false
+      kicks: both
+      mode: 5
+  guitar:
+    grybo:
+      difficulty:
+        rank: 450
+  vocal:
+    vocal:
+      difficulty:
+        rank: 200
+plans:
+  gh:
+    crowd: adlc381_3.fsb.xen.1.xma
+    parts:
+      bass: adlc381_2.fsb.xen.1.xma
+      drums:
+        kick: adlc381_1.fsb.xen.0.xma
+        kit:
+          mix:
+          - adlc381_1.fsb.xen.2.xma
+          - adlc381_1.fsb.xen.3.xma
+        snare: adlc381_1.fsb.xen.1.xma
+      guitar: adlc381_2.fsb.xen.0.xma
+      vocal: adlc381_2.fsb.xen.2.xma
+    song: adlc381_3.fsb.xen.0.xma
+    tuning-cents: 10 # slightly sharp, guessing for now

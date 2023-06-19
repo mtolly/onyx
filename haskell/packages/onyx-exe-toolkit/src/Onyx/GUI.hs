@@ -890,9 +890,11 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     FL.end topControls
     FL.setResizable topControls $ Just scrubber
     -- the following used to be done in a thread, to call loadTracks after window launch
-    FL.setMaximum scrubber $ fromInteger $ ceiling $ U.applyTempoMap
-      (previewTempo song)
-      (timingEnd $ previewTiming song)
+    let songLength :: Double
+        songLength = realToFrac $ U.applyTempoMap
+          (previewTempo song)
+          (timingEnd $ previewTiming song)
+    FL.setMaximum scrubber songLength
     FL.activate scrubber
     FL.activate playButton
     -- end separate thread section
@@ -929,11 +931,22 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               }
           curTime <- getTimeMonotonic
           stopAnim <- startAnimation (recip $ realToFrac $ prefPreviewFPS ?preferences) $ do
-            _ <- FLTK.lock
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
+            -- first draw a new frame
+            _ <- FLTK.lock
             void $ FL.setValue scrubber t'
             redrawGL
             FLTK.unlock
+            -- then check if time is past song end, and stop if so
+            when (t' >= songLength) $ do
+              ss <- takeState
+              ss' <- case songPlaying ss of
+                Nothing -> return ss -- probably shouldn't happen?
+                Just ps -> do
+                  _ <- stopPlaying songLength ps
+                  return $ SongState songLength Nothing
+              putState ss'
+              sink $ EventIO $ FL.setLabel playButton "@>"
           let ps = Playing
                 { playStarted = curTime
                 , playSpeed = speed

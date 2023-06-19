@@ -1,0 +1,67 @@
+audio:
+  adlc390_1.fsb.xen.0.xma:
+    file-path: adlc390_1.fsb.xen.0.xma
+  adlc390_1.fsb.xen.1.xma:
+    file-path: adlc390_1.fsb.xen.1.xma
+  adlc390_1.fsb.xen.2.xma:
+    file-path: adlc390_1.fsb.xen.2.xma
+  adlc390_1.fsb.xen.3.xma:
+    file-path: adlc390_1.fsb.xen.3.xma
+  adlc390_2.fsb.xen.0.xma:
+    file-path: adlc390_2.fsb.xen.0.xma
+  adlc390_2.fsb.xen.1.xma:
+    file-path: adlc390_2.fsb.xen.1.xma
+  adlc390_2.fsb.xen.2.xma:
+    file-path: adlc390_2.fsb.xen.2.xma
+  adlc390_3.fsb.xen.0.xma:
+    file-path: adlc390_3.fsb.xen.0.xma
+  adlc390_3.fsb.xen.1.xma:
+    file-path: adlc390_3.fsb.xen.1.xma
+metadata:
+  album: Placeholder
+  artist: Metallica
+  author: null
+  difficulty:
+    tier: 1
+  genre: Metal
+  title: The Shortest Straw
+  year: 1988
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 350
+    pro-guitar:
+      tuning:
+        base: bass-4
+      picked-bass: true
+  drums:
+    drums:
+      difficulty:
+        rank: 400
+      fix-freeform: false
+      kicks: both
+      mode: 5
+  guitar:
+    grybo:
+      difficulty:
+        rank: 400
+  vocal:
+    vocal:
+      difficulty:
+        rank: 250
+plans:
+  gh:
+    crowd: adlc390_3.fsb.xen.1.xma
+    parts:
+      bass: adlc390_2.fsb.xen.1.xma
+      drums:
+        kick: adlc390_1.fsb.xen.0.xma
+        kit:
+          mix:
+          - adlc390_1.fsb.xen.2.xma
+          - adlc390_1.fsb.xen.3.xma
+        snare: adlc390_1.fsb.xen.1.xma
+      guitar: adlc390_2.fsb.xen.0.xma
+      vocal: adlc390_2.fsb.xen.2.xma
+    song: adlc390_3.fsb.xen.0.xma
