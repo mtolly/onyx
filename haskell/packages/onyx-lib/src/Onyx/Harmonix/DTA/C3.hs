@@ -28,6 +28,7 @@ import           Data.Version                         (showVersion)
 import           Onyx.Codec.Common                    (makeValue)
 import qualified Onyx.Harmonix.DTA                    as D
 import qualified Onyx.Harmonix.DTA.Crypt              as D
+import           Onyx.Harmonix.DTA.Run
 import           Onyx.Harmonix.DTA.Serialize
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Project
@@ -169,10 +170,14 @@ readDTASingle :: (SendMessage m) => (B.ByteString, D.Chunk B.ByteString) -> Stac
 readDTASingle (bytes, chunk) = do
   let readTextChunk = \case
         D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
+          -- run dta preprocessing so we don't choke on Deluxe custom sources.
+          -- currently we do not then run full dta evaluation.
+          -- if we did, we could maybe remove skipScripting below.
+          chunks' <- runPreprocess chunks
           let missingChunks = fromMaybe [] $ HM.lookup k missingMapping
           pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
             $ removeOldDTAKeys $ fixTracksCount $ skipScripting
-            $ applyUpdate chunks missingChunks
+            $ applyUpdate chunks' missingChunks
           return (k, pkg)
         _ -> fatal "Not a valid song chunk in the format (topkey ...)"
   (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk

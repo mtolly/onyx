@@ -310,6 +310,8 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
   let (songsInnerArea, _) = chopRight barSize songsArea
   pack <- FL.packNew songsInnerArea Nothing
   checks <- forM imps $ \imp -> do
+    -- TODO ampersands in the label text here turn into "underline next character".
+    -- need to figure out how to escape
     let entry = T.concat
           [ fromMaybe "Untitled" $ impTitle imp
           , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
