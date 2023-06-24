@@ -18,11 +18,8 @@ audio:
   adlc381_3.fsb.xen.1.xma:
     file-path: adlc381_3.fsb.xen.1.xma
 metadata:
-  album: Placeholder
   artist: Metallica
-  author: null
-  difficulty:
-    tier: 1
+  author: Neversoft, Onyxite
   genre: Metal
   title: One
   year: 1988
@@ -66,3 +63,8 @@ plans:
       vocal: adlc381_2.fsb.xen.2.xma
     song: adlc381_3.fsb.xen.0.xma
     tuning-cents: 10 # slightly sharp, guessing for now
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

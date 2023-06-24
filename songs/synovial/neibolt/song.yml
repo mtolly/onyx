@@ -28,6 +28,9 @@ parts:
       kicks: 2
   guitar:
     grybo: {} # emh
+  vocal:
+    vocal: # WIP
+      count: 1 # change when harmonies done
 plans:
   mogg:
     file-mogg: audio.mogg

@@ -19,9 +19,7 @@ audio:
     file-path: adlc370_3.fsb.xen.1.xma
 metadata:
   artist: Metallica
-  author: null
-  difficulty:
-    tier: 1
+  author: Neversoft, Onyxite
   genre: Metal
   title: Fuel
   year: 1997
@@ -65,3 +63,8 @@ plans:
       guitar: adlc370_2.fsb.xen.0.xma
       vocal: adlc370_2.fsb.xen.2.xma
     song: adlc370_3.fsb.xen.0.xma
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

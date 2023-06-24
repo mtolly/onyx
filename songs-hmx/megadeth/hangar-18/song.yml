@@ -4,6 +4,9 @@ parts:
       gender: male
       difficulty:
         rank: 193
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
   bass:
     grybo:
       difficulty:
@@ -41,7 +44,6 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync.milo_xbox
     label: (Rh)
   rs:
     game: rs

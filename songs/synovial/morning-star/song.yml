@@ -3,7 +3,7 @@ global:
 metadata:
   album: Metronome
   artist: Synovial
-  author: Xane60, Onyxite
+  author: Xane60
   difficulty:
     tier: 1
   expert-only: true
@@ -14,32 +14,20 @@ metadata:
   preview-end: 1:00.000
   preview-start: 30
   subgenre: core
-  title: Confetti
-  track-number: 5
+  title: Morning Star
+  track-number: 2
   year: 2022
 parts:
+  bass: {}
   drums:
     drums:
       difficulty:
         tier: 7
       fix-freeform: false
       kicks: 2
-  guitar:
-    grybo: {}
-  bass:
-    grybo: {}
-    pro-guitar:
-      # I have not tested string choices too closely, just got correct pitches down
-      tuning:
-        base: bass-5
-        # Drop G# (G# D# G# C# F#)
-        offsets: [-2, 0, 0, 0, 0]
-        global: -1
-      picked-bass: true
-  vocal:
-    vocal: # WIP
-      count: 1 # change when harmonies are done
-      gender: male
+  guitar: {}
+  keys: {}
+  vocal: {}
 plans:
   mogg:
     file-mogg: audio.mogg
@@ -59,11 +47,8 @@ plans:
     - 0
     - 0
     - 0
-  # stems offset: 1.726
 targets:
   rb3-2x:
     2x-bass-pedal: true
     game: rb3
-    song-id: SynovialConfettiidx3
-  ps:
-    game: ps
+    song-id: SynovialMorningStaridx3

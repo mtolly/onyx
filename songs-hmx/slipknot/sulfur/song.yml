@@ -1,0 +1,103 @@
+metadata:
+  album: All Hope Is Gone
+  artist: Slipknot
+  author: Harmonix, Grinnz, Onyxite
+  difficulty:
+    rank: 415
+  file-album-art: cover.png_xbox
+  genre: numetal
+  preview-end: 2:00.500
+  preview-start: 1:30.500
+  rating: Supervision Recommended
+  title: Sulfur
+  track-number: 3
+  year: 2008
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 390
+      fix-freeform: false
+    pro-guitar:
+      tuning:
+        # C# Drop B
+        base: bass-4
+        global: -3
+        offsets: [-2, 0, 0, 0]
+  drums:
+    drums: # grinnz
+      difficulty:
+        rank: 434
+      fix-freeform: false
+      kicks: 2
+  guitar:
+    grybo:
+      difficulty:
+        rank: 412
+      fix-freeform: false
+  keys: {}
+  vocal:
+    vocal:
+      difficulty:
+        rank: 251
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: true
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      bass:
+      - 5
+      drums:
+        kick:
+        - 0
+        kit:
+        - 3
+        - 4
+        snare:
+        - 1
+        - 2
+      guitar:
+      - 6
+      - 7
+      vocal:
+      - 8
+      - 9
+    vols:
+    - -2
+    - -5
+    - -5
+    - -5
+    - -5
+    - -2
+    - -5
+    - -5
+    - -5
+    - -5
+    - -5
+    - -5
+targets:
+  rb3:
+    game: rb3
+    song-id: 1005854
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

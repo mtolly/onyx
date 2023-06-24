@@ -35,10 +35,10 @@ parts:
       kicks: 2
   guitar:
     grybo: {}
-  # vocal:
-  #   vocal: # WIP
-  #     gender: male
-  #     count: 3
+  vocal:
+    vocal: # WIP
+      gender: male
+      count: 1 # change when harmonies done
 plans:
   mogg:
     file-mogg: audio.mogg

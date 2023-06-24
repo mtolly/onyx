@@ -127,13 +127,16 @@ end
 # build songs-others/guitar-hero/we-three-kings
 # build songs-others/guitar-hero/that-was-just-your-life
 # build songs/hiromi-uehara/caravan
-build songs-others/guitar-hero/dyers-eve
-build songs/metallica/blackened
-build songs/metallica/fight-fire-with-fire
-build songs/synovial/desert-hours
-build songs-others/cyclopsdragon/good-neighbor
-build songs/john-petrucci/jaws-of-life
+# build songs-others/guitar-hero/dyers-eve
+# build songs/metallica/blackened
+# build songs/metallica/fight-fire-with-fire
+# build songs/synovial/desert-hours
+# build songs-others/cyclopsdragon/good-neighbor
+# build songs/john-petrucci/jaws-of-life
 # build songs-others/cyclopsdragon/when-i-lost-my-bet # this needs fixes
+build songs-hmx/slipknot/sulfur
+build songs/metallica/fuel
+build songs/metallica/one
 
 # phrases unknown:
 
