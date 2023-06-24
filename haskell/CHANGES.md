@@ -1,5 +1,13 @@
 # Version history
 
+## 20230625
+
+* Smoother 3D preview framerate + adjustable FPS in preferences
+* Fix a crash when starting a conversion while 3D preview is running
+* Fix occasional crashes/freezes when using the folder select dialog on Windows
+* Fix import of RB songs that use DTA preprocessing commands
+  such as RB3 Deluxe custom sources
+
 ## 20230425
 
 * Add a function to convert all .chart files in a folder to MIDI
