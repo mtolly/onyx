@@ -17,12 +17,16 @@ audio:
     file-path: adlc370_3.fsb.xen.0.xma
   adlc370_3.fsb.xen.1.xma:
     file-path: adlc370_3.fsb.xen.1.xma
+  # TODO set up CD audio, since GHM is censored!
 metadata:
   artist: Metallica
   author: Neversoft, Onyxite
   genre: Metal
   title: Fuel
   year: 1997
+  album: Reload
+  file-album-art: cover.jpg
+  track-number: 1
 parts:
   bass:
     grybo:

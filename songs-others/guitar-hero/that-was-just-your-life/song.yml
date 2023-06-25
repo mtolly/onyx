@@ -15,6 +15,7 @@ metadata:
   album: Death Magnetic
   genre: Thrash Metal
   file-album-art: ../my-apocalypse/album.png
+  track-number: 1
 parts:
   bass:
     grybo: {}

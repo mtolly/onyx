@@ -134,9 +134,11 @@ end
 # build songs-others/cyclopsdragon/good-neighbor
 # build songs/john-petrucci/jaws-of-life
 # build songs-others/cyclopsdragon/when-i-lost-my-bet # this needs fixes
-build songs-hmx/slipknot/sulfur
+# build songs-hmx/slipknot/sulfur
 build songs/metallica/fuel
-build songs/metallica/one
+# build songs/metallica/one
+build songs-hmx/rb3/before-i-forget
+build songs-others/guitar-hero/all-nightmare-long
 
 # phrases unknown:
 

@@ -23,6 +23,9 @@ metadata:
   genre: Metal
   title: One
   year: 1988
+  file-album-art: cover.png_xbox
+  album: "...And Justice for All"
+  track-number: 4
 parts:
   bass:
     grybo:

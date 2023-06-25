@@ -5,6 +5,9 @@ parts:
       gender: male
       difficulty:
         rank: 124
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
   bass:
     pro-guitar:
       fix-freeform: false
@@ -59,19 +62,22 @@ plans:
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -4.5, -4.5, -4.5, -4.5, -1.5, -4.5, -4.5, -4.7, -4.7, -4.2, -4.2, -4.5, -4.5]
-    mogg-md5: ee0b3e5d3f679c7adaef703e249edbfb
+    # mogg-md5: ee0b3e5d3f679c7adaef703e249edbfb
+    file-mogg: audio.mogg
 targets:
   rb3: # barely changed
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
   rb3-2x:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
     2x-bass-pedal: true
     harmonix: true
     label: (2x Bass Pedal) (O)
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
 metadata:
   rating: SupervisionRecommended
   preview-start: 1:12.454
@@ -87,3 +93,5 @@ metadata:
   difficulty:
     rank: 344
   artist: Slipknot
+global:
+  file-song-anim: song.anim

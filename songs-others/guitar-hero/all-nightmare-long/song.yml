@@ -14,6 +14,8 @@ metadata:
   title: All Nightmare Long
   year: 2008
   album: Death Magnetic
+  file-album-art: ../my-apocalypse/album.png
+  track-number: 5
 parts:
   bass:
     grybo: {}
@@ -37,3 +39,8 @@ plans:
         expr: audio.0.xma
     song:
       expr: audio.3.xma
+targets:
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass] # only needs 4 strings

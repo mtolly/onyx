@@ -51,6 +51,7 @@ metadata:
     tier: 6
   artist: Metallica
   file-album-art: album.png
+  track-number: 10
 plans:
   fof:
     parts:
