@@ -924,7 +924,7 @@ commands =
       , "- Harmonix .hdr/.ark (versions 2-6)"
       , "- Neversoft .pak.*"
       , "- Wii .wad"
-      , "- Clone Hero .sng"
+      , "- Clone Hero .sng (unencrypted)"
       ]
     , commandUsage = T.unlines
       [ "onyx extract file_in [--to folder_out]"
