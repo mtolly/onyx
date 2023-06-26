@@ -2851,7 +2851,7 @@ previewGroup sink rect getSong getTime getSpeed = do
             -- Just get scale factor (both hidpi and fltk's ctrl +/-) once at load.
             -- TODO support changing it after load
             scale <- FL.pixelsPerUnit wind
-            embedOnyx sink (RGGraphics.loadGLStuff scale initSong) >>= \case
+            embedOnyx sink (RGGraphics.loadGLStuff scale $ Just initSong) >>= \case
               Nothing -> return (GLFailed, Nothing)
               Just s  -> return (GLLoaded s, Just s)
           loaded@(GLLoaded s) -> return (loaded, Just s)

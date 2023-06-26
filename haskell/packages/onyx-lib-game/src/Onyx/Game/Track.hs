@@ -59,7 +59,7 @@ import           System.FilePath                  (takeExtension)
 data PreviewTrack
   = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
   | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
-  | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState (Maybe Five.Color))))
+  | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
   deriving (Show)
@@ -78,6 +78,8 @@ data PreviewSong = PreviewSong
   , previewBG       :: [(T.Text, PreviewBG)]
   , previewSections :: Map.Map Double T.Text
   } deriving (Show)
+
+type IsOverdrive = Bool
 
 displayPartName :: F.FlexPartName -> T.Text
 displayPartName = \case
@@ -102,17 +104,18 @@ computeTracks
   -> StackTraceT m PreviewSong
 computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
 
+  secondsToDouble :: U.Seconds -> Double
+  secondsToDouble = realToFrac
+
   parts = songYaml.parts
   rtbToMap
     = rtbToMapSecs
     . U.applyTempoTrack tempos
   rtbToMapSecs
-    = atbToMapSecs
-    . RTB.toAbsoluteEventList 0
-  atbToMapSecs
     = Map.fromList
-    . map (first realToFrac)
+    . map (first secondsToDouble)
     . ATB.toPairList
+    . RTB.toAbsoluteEventList 0
   tempos = F.s_tempos song
   toggle
     = PNF.makeToggle
@@ -335,35 +338,43 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       $ fmap (\(a, (b, c)) -> (a, b, c))
       $ applyStatus1 False (RTB.normalize $ Five.fiveOverdrive result.other)
       $ thisDiff
-    assignedMap :: Map.Map Double (Map.Map (Maybe Five.Color) (PNF.PNF PNF.IsOverdrive StrumHOPOTap))
+    assignedMap :: Map.Map Double (Map.Map (Maybe Five.Color) (PNF.PNF (PNF.GuitarSustain Double) StrumHOPOTap))
     assignedMap
       = rtbToMap
+      $ RTB.fromAbsoluteEventList
       $ buildFiveStatus PNF.empty
+      $ RTB.toAbsoluteEventList 0
       $ RTB.collectCoincident
       $ assigned
-    buildFiveStatus _    RNil                 = RNil
-    buildFiveStatus prev (Wait dt edges rest) = let
+    buildFiveStatus _    ANil              = ANil
+    buildFiveStatus prev (At t edges rest) = let
       applyEdge edge = case edge of
         Blip _ (color, sht) -> Map.alter (\case
-          Nothing             -> Just $ PNF.N sht
-          Just PNF.Empty      -> Just $ PNF.N sht
-          Just (PNF.P  wasOD) -> Just $ PNF.PN wasOD sht
-          Just (PNF.PF wasOD) -> Just $ PNF.PN wasOD sht
-          x                   -> x -- shouldn't happen
+          Nothing                   -> Just $ PNF.N sht
+          Just PNF.Empty            -> Just $ PNF.N sht
+          Just (PNF.P  prevSustain) -> Just $ PNF.PN prevSustain sht
+          Just (PNF.PF prevSustain) -> Just $ PNF.PN prevSustain sht
+          x                         -> x -- shouldn't happen
           ) color
-        NoteOn od (color, sht) -> Map.alter (\case
-          Nothing             -> Just $ PNF.NF sht od
-          Just PNF.Empty      -> Just $ PNF.NF sht od
-          Just (PNF.P  wasOD) -> Just $ PNF.PNF wasOD sht od
-          Just (PNF.PF wasOD) -> Just $ PNF.PNF wasOD sht od
-          x                   -> x -- shouldn't happen
-          ) color
+        NoteOn od (color, sht) -> let
+          sustain = PNF.GuitarSustain
+            { startTime = secondsToDouble $ U.applyTempoMap tempos t
+            , extended  = True -- TODO
+            , overdrive = od
+            }
+          in Map.alter (\case
+            Nothing                   -> Just $ PNF.NF sht sustain
+            Just PNF.Empty            -> Just $ PNF.NF sht sustain
+            Just (PNF.P  prevSustain) -> Just $ PNF.PNF prevSustain sht sustain
+            Just (PNF.PF prevSustain) -> Just $ PNF.PNF prevSustain sht sustain
+            x                         -> x -- shouldn't happen
+            ) color
         NoteOff (color, _) -> Map.update (\case
-          PNF.PF wasOD -> Just $ PNF.P wasOD
-          x            -> Just x -- could happen if Blip or NoteOn was applied first
+          PNF.PF prevSustain -> Just $ PNF.P prevSustain
+          x                  -> Just x -- could happen if Blip or NoteOn was applied first
           ) color
       this = foldr applyEdge (PNF.after prev) edges
-      in Wait dt this $ buildFiveStatus this rest
+      in At t this $ buildFiveStatus this rest
     fiveStates = (\((a, b), c) -> PNF.GuitarState a b c) <$> do
       assignedMap
         `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ Five.fiveTremolo result.other)
@@ -380,12 +391,12 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
   pgRocksmith rso = let
     notes = let
       eachString str = let
-        stringNotes :: RTB.T U.Seconds (PNF.IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Seconds, Maybe PG.Slide)))
+        stringNotes :: RTB.T U.Seconds (IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Seconds, Maybe PG.Slide)))
         stringNotes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
           note <- V.toList (lvl_notes $ rso_level rso) <> do
             V.toList (lvl_chords $ rso_level rso) >>= V.toList . chd_chordNotes
           guard $ PG.getStringIndex 6 str == n_string note
-          let time = realToFrac $ n_time note
+          let time = n_time note
               sht = if n_tap note then Tap
                 else if n_hammerOn note || n_pullOff note then HOPO
                   else Strum
@@ -409,8 +420,8 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             sust = case msust of
               Just (len, Nothing) -> Just (PNF.PGSustain Nothing od, len)
               Just (len, Just slide) -> let
-                secsStart = realToFrac t
-                secsEnd = realToFrac $ t <> len
+                secsStart = secondsToDouble   t
+                secsEnd   = secondsToDouble $ t <> len
                 in Just (PNF.PGSustain (Just (slide, secsStart, secsEnd)) od, len)
               Nothing -> Nothing
             in (t, (now, sust))
@@ -423,9 +434,9 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty strSingletons
     pgStates = (\(((a, b), c), d) -> PNF.PGState a b c d) <$> do
       notes
-        `PNF.zipStateMaps` Map.empty -- TODO pgArea :: Maybe PG.StrumArea
-        `PNF.zipStateMaps` Map.empty -- TODO pgChords :: PNF T.Text T.Text
-        `PNF.zipStateMaps` Map.empty -- TODO pgArpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
+        `PNF.zipStateMaps` Map.empty -- TODO area :: Maybe PG.StrumArea
+        `PNF.zipStateMaps` Map.empty -- TODO chords :: PNF T.Text T.Text
+        `PNF.zipStateMaps` Map.empty -- TODO arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
     in (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
       pgStates
         `PNF.zipStateMaps` Map.empty
@@ -472,7 +483,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       thisDiff
     notes = let
       eachString str = let
-        stringNotes :: RTB.T U.Beats (PNF.IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Beats, Maybe PG.Slide)))
+        stringNotes :: RTB.T U.Beats (IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Beats, Maybe PG.Slide)))
         stringNotes = applyStatus1 False (RTB.normalize $ PG.pgOverdrive src) $
           flip RTB.mapMaybe computed $ \(sht, trips, sust) ->
             case [ (fret, ntype) | (str', fret, ntype) <- trips, str == str' ] of
@@ -487,8 +498,8 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
             sust = case msust of
               Just (len, Nothing) -> Just (PNF.PGSustain Nothing od, len)
               Just (len, Just slide) -> let
-                secsStart = realToFrac $ U.applyTempoMap tempos t
-                secsEnd = realToFrac $ U.applyTempoMap tempos $ t <> len
+                secsStart = secondsToDouble $ U.applyTempoMap tempos   t
+                secsEnd   = secondsToDouble $ U.applyTempoMap tempos $ t <> len
                 in Just (PNF.PGSustain (Just (slide, secsStart, secsEnd)) od, len)
               Nothing -> Nothing
             in (t, (now, sust))
@@ -501,9 +512,9 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty strSingletons
     pgStates = (\(((a, b), c), d) -> PNF.PGState a b c d) <$> do
       notes
-        `PNF.zipStateMaps` Map.empty -- TODO pgArea :: Maybe PG.StrumArea
-        `PNF.zipStateMaps` Map.empty -- TODO pgChords :: PNF T.Text T.Text
-        `PNF.zipStateMaps` Map.empty -- TODO pgArpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
+        `PNF.zipStateMaps` Map.empty -- TODO area :: Maybe PG.StrumArea
+        `PNF.zipStateMaps` Map.empty -- TODO chords :: PNF T.Text T.Text
+        `PNF.zipStateMaps` Map.empty -- TODO arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
     in do
       guard $ not $ RTB.null $ PG.pgNotes thisDiff
       Just $ (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
@@ -528,7 +539,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
         $ makeBeats True
         $ Wait (t -| 0.5) e rest
     in Map.fromList
-      $ map (first $ realToFrac . U.applyTempoMap tempos)
+      $ map (first $ secondsToDouble . U.applyTempoMap tempos)
       $ ATB.toPairList
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source

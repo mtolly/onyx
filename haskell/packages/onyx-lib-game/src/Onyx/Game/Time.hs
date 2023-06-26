@@ -1,36 +1,43 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE DerivingStrategies   #-}
-{-# LANGUAGE DerivingVia          #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE MultiWayIf           #-}
-{-# LANGUAGE PatternSynonyms      #-}
-{-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
+{-# LANGUAGE DuplicateRecordFields      #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE NoFieldSelectors           #-}
+{-# LANGUAGE OverloadedRecordDot        #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Game.Time where
 
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (guard)
 import           Control.Monad.Trans.State        (evalState, get, put)
+import           Data.Bits
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Foldable                    (find)
+import           Data.Foldable                    (find, toList)
 import qualified Data.Map.Strict.Internal         as Map
-import           Data.Maybe                       (fromMaybe, isJust,
+import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Set.Internal                as Set
 import qualified Data.Text                        as T
 import           GHC.Generics
 import           GHC.TypeLits
 import qualified Numeric.NonNegative.Class        as NNC
-import           Onyx.MIDI.Common                 (StrumHOPOTap, pattern RNil,
-                                                   pattern Wait)
+import           Onyx.MIDI.Common                 (StrumHOPOTap (..),
+                                                   pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums.True
+import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import qualified Sound.MIDI.Util                  as U
 
@@ -112,30 +119,28 @@ makeToggle m = let
       (True, True)   -> ToggleRestart
   in evalState (traverse go m) False
 
-type IsOverdrive = Bool
-
 data CommonState a = CommonState
-  { commonState     :: a
-  , commonOverdrive :: Toggle
-  , commonBRE       :: Toggle
-  , commonSolo      :: Toggle
-  , commonBeats     :: Maybe (Maybe BeatEvent)
+  { inner     :: a
+  , overdrive :: Toggle
+  , bre       :: Toggle
+  , solo      :: Toggle
+  , beats     :: Maybe (Maybe BeatEvent)
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (CommonState a)
 
 data DrumState pad lane = DrumState
-  { drumNotes      :: Set.Set pad
-  , drumLanes      :: Map.Map lane Toggle
-  , drumActivation :: Toggle
+  { notes      :: Set.Set pad
+  , lanes      :: Map.Map lane Toggle
+  , activation :: Toggle
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (DrumState pad lane)
 
 data TrueDrumState t pad lane = TrueDrumState
-  { tdNotes      :: Set.Set pad
-  , tdLanes      :: Map.Map lane Toggle
-  , tdActivation :: Toggle
-  , tdHihatStomp :: Maybe TrueHihatStomp
-  , tdHihatZone  :: PNF (TrueHihatZone t) ()
+  { notes      :: Set.Set pad
+  , lanes      :: Map.Map lane Toggle
+  , activation :: Toggle
+  , hihatStomp :: Maybe TrueHihatStomp
+  , hihatZone  :: PNF (TrueHihatZone t) ()
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (TrueDrumState t pad lane)
 
@@ -149,36 +154,42 @@ data TrueHihatZone t
   | TrueHihatZoneFade  t t -- here we need times to draw fade correctly
   deriving (Eq, Ord, Show)
 
-data GuitarState fret = GuitarState
-  { guitarNotes   :: Map.Map fret (PNF IsOverdrive StrumHOPOTap)
-  , guitarTremolo :: Map.Map fret Toggle
-  , guitarTrill   :: Map.Map fret Toggle
+data GuitarSustain t = GuitarSustain
+  { startTime :: t
+  , extended  :: Bool
+  , overdrive :: Bool
+  } deriving (Eq, Ord, Show)
+
+data GuitarState t fret = GuitarState
+  { notes   :: Map.Map fret (PNF (GuitarSustain t) StrumHOPOTap)
+  , tremolo :: Map.Map fret Toggle
+  , trill   :: Map.Map fret Toggle
   } deriving (Show, Generic)
-    deriving (TimeState) via GenericTimeState (GuitarState fret)
+    deriving (TimeState) via GenericTimeState (GuitarState t fret)
 
 data PGSustain t = PGSustain
-  { pgSlide     :: Maybe (PG.Slide, t, t) -- start and end times of the slide
-  , pgSustainOD :: IsOverdrive
+  { slide     :: Maybe (PG.Slide, t, t) -- start and end times of the slide
+  , overdrive :: Bool
   -- TODO probably also add fret and notetype
   } deriving (Eq, Ord, Show)
 
 data PGNote = PGNote
-  { pgFret :: PG.GtrFret
-  , pgType :: PG.NoteType
-  , pgSHT  :: StrumHOPOTap
+  { fret  :: PG.GtrFret
+  , type_ :: PG.NoteType
+  , sht   :: StrumHOPOTap
   } deriving (Eq, Ord, Show)
 
 data PGState t = PGState
-  { pgNotes    :: Map.Map PG.GtrString (PNF (PGSustain t) PGNote)
-  , pgArea     :: Maybe PG.StrumArea
-  , pgChords   :: PNF T.Text T.Text
-  , pgArpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
+  { notes    :: Map.Map PG.GtrString (PNF (PGSustain t) PGNote)
+  , area     :: Maybe PG.StrumArea
+  , chords   :: PNF T.Text T.Text
+  , arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
   -- TODO tremolo, trill
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState (PGState t)
 
 newtype ManiaState = ManiaState
-  { maniaNotes :: Map.Map Int (PNF () ())
+  { notes :: Map.Map Int (PNF () ())
   } deriving (Show, Generic)
     deriving (TimeState) via GenericTimeState ManiaState
 
@@ -320,25 +331,25 @@ instance TimeState t => TimeStateProduct (S1 m (Rec0 t)) where
 -- drum gameplay
 
 data EventResult t pad = EventResult
-  { eventHit    :: Maybe (pad, Maybe t) -- Just if a note was correctly hit
-  , eventMissed :: [(t, pad)]
+  { hit    :: Maybe (pad, Maybe t) -- Just if a note was correctly hit
+  , missed :: [(t, pad)]
   } deriving (Show)
 
 data GamePlayState = GamePlayState
-  { gameScore :: Int
-  , gameCombo :: Int
+  { score :: Int
+  , combo :: Int
   } deriving (Show)
 
 initialState :: GamePlayState
 initialState = GamePlayState
-  { gameScore = 0
-  , gameCombo = 0
+  { score = 0
+  , combo = 0
   }
 
 data DrumPlayState t pad lane = DrumPlayState
-  { drumEvents    :: [(t, (EventResult t pad, GamePlayState))]
-  , drumTrack     :: Map.Map t (CommonState (DrumState pad lane))
-  , drumNoteTimes :: Set.Set t
+  { events    :: [(t, (EventResult t pad, GamePlayState))]
+  , track     :: Map.Map t (CommonState (DrumState pad lane))
+  , noteTimes :: Set.Set t
   } deriving (Show)
 
 data NoteStatus t
@@ -349,10 +360,10 @@ data NoteStatus t
 
 processedNotes :: [(t, (EventResult t pad, GamePlayState))] -> [(t, pad, NoteStatus t)]
 processedNotes = concatMap $ \(eventTime, (res, _)) -> let
-  hit = case eventHit res of
+  hit = case res.hit of
     Just (pad, Just t) -> [(t, pad, NoteHitAt eventTime)]
     _                  -> []
-  misses = [ (t, pad, NoteMissed) | (t, pad) <- eventMissed res ]
+  misses = [ (t, pad, NoteMissed) | (t, pad) <- res.missed ]
   in hit ++ misses
 
 lookupNote :: (Ord t, Eq pad) => t -> pad -> [(t, pad, NoteStatus t)] -> NoteStatus t
@@ -399,22 +410,22 @@ zoomSetList boundMin boundMax = let
 applyDrumEvent :: (Show t, Ord t, Num t, Ord pad) => t -> Maybe pad -> t -> DrumPlayState t pad lane -> DrumPlayState t pad lane
 applyDrumEvent tNew mpadNew halfWindow dps = let
   applyNoRewind (t, mpad) evts = let
-    mClosestTime = case (Set.lookupLE t $ drumNoteTimes dps, Set.lookupGE t $ drumNoteTimes dps) of
+    mClosestTime = case (Set.lookupLE t dps.noteTimes, Set.lookupGE t dps.noteTimes) of
       (x, Nothing)     -> x
       (Nothing, y)     -> y
       (Just x, Just y) -> Just $ if t - x < y - t then x else y
     mClosestTime' = mClosestTime >>= \ct -> do
       guard $ abs (ct - t) < halfWindow
       return ct
-    eventHit = flip fmap mpad $ \pad -> let
+    hit = flip fmap mpad $ \pad -> let
       hitNote = mClosestTime' >>= \closestTime -> do
-        guard $ case Map.lookup closestTime $ drumTrack dps of
+        guard $ case Map.lookup closestTime dps.track of
           Nothing -> False
-          Just cs -> Set.member pad $ drumNotes $ commonState cs
+          Just cs -> Set.member pad cs.inner.notes
         guard $ noteStatus closestTime pad evts == NoteFuture
         Just closestTime
       in (pad, hitNote)
-    eventMissed = let
+    missed = let
       -- earliest missable time is the last processed note time
       -- latest missable time is t
       -- for each time, miss a note if we didn't process it already and:
@@ -425,10 +436,10 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
         (lastTime, _, _) : _ -> lastTime
       lastPossibleMiss = t
       in do
-        (cst, cs) <- zoomMapList firstPossibleMiss lastPossibleMiss $ drumTrack dps
-        notePad <- Set.toList $ drumNotes $ commonState cs
+        (cst, cs) <- zoomMapList firstPossibleMiss lastPossibleMiss dps.track
+        notePad <- Set.toList cs.inner.notes
         let isFuture = noteStatus cst notePad evts == NoteFuture
-            beforeCurrentHit = case eventHit of
+            beforeCurrentHit = case hit of
               Just (_, Just hitTime) -> cst < hitTime
               _                      -> False
             beforeWindow = cst <= t - halfWindow
@@ -438,40 +449,40 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
       prevState = case evts of
         []              -> initialState
         (_, (_, s)) : _ -> s
-      comboPlus = case eventHit of
+      comboPlus = case hit of
         Just (_, Just _) -> 1 -- hit a note
         _                -> 0
-      comboBase = case eventHit of
+      comboBase = case hit of
         Just (_, Nothing) -> 0 -- overhit
-        _                 -> case eventMissed of
+        _                 -> case missed of
           _ : _ -> 0 -- missed a note
-          []    -> gameCombo prevState
+          []    -> prevState.combo
       scorePlus = comboPlus * 25 * if
         | comboBase < 9  -> 1
         | comboBase < 19 -> 2
         | comboBase < 29 -> 3
         | otherwise      -> 4
       in GamePlayState
-        { gameScore = gameScore prevState + scorePlus
-        , gameCombo = comboBase + comboPlus
+        { score = prevState.score + scorePlus
+        , combo = comboBase + comboPlus
         }
-    in case (eventHit, eventMissed) of
+    in case (hit, missed) of
       (Nothing, []) -> evts -- time passed but nothing happened
       _             -> (t, (EventResult{..}, newState)) : evts
-  in case span ((> tNew) . fst) $ drumEvents dps of
+  in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind $ \(t, (res, _)) ->
-        (t, fmap fst $ eventHit res)
+        (t, fmap fst res.hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
-      in dps { drumEvents = newEvents }
+      in dps { events = newEvents }
 
 ----------------------------
 
 -- Inputs from the player (minus opening the hihat pedal)
 data TrueDrumHit = TrueDrumHit
-  { tdh_gem      :: TrueGem
-  , tdh_rim      :: Bool
-  , tdh_velocity :: Double -- 0 to 1
+  { gem      :: TrueGem
+  , rim      :: Bool
+  , velocity :: Double -- 0 to 1
   } deriving (Show)
 
 data TrueDrumInput
@@ -480,17 +491,17 @@ data TrueDrumInput
   deriving (Show)
 
 data TrueDrumPlayState t = TrueDrumPlayState
-  { tdEvents    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
-  , tdTrack     :: Map.Map t (CommonState (TrueDrumState t (TrueDrumNote FlamStatus) TrueGem))
-  , tdNoteTimes :: Set.Set t
+  { events    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
+  , track     :: Map.Map t (CommonState (TrueDrumState t (TrueDrumNote FlamStatus) TrueGem))
+  , noteTimes :: Set.Set t
   } deriving (Show)
 
 data TrueDrumGameState t = TrueDrumGameState
-  { tdScore       :: Int
-  , tdCombo       :: Int
-  , tdIsHihatOpen :: Bool
-  , tdNoteResults :: [(t, Map.Map (TrueDrumNote FlamStatus) (NoteResult t))] -- times are of notes
-  , tdOverhits    :: [(t, TrueDrumHit)] -- times are of inputs
+  { score       :: Int
+  , combo       :: Int
+  , hihatOpen   :: Bool
+  , noteResults :: [(t, Map.Map (TrueDrumNote FlamStatus) (NoteResult t))] -- times are of notes
+  , overhits    :: [(t, TrueDrumHit)] -- times are of inputs
   } deriving (Show)
 
 data NoteResult t
@@ -503,18 +514,18 @@ data NoteResult t
 
 initialTDState :: TrueDrumGameState t
 initialTDState = TrueDrumGameState
-  { tdScore       = 0
-  , tdCombo       = 0
-  , tdIsHihatOpen   = False
-  , tdNoteResults = []
-  , tdOverhits    = []
+  { score       = 0
+  , combo       = 0
+  , hihatOpen   = False
+  , noteResults = []
+  , overhits    = []
   }
 
 trueNoteStatus :: (Ord t) => t -> TrueDrumNote FlamStatus -> [(t, (Maybe TrueDrumInput, TrueDrumGameState t))] -> NoteStatus t
 trueNoteStatus noteTime note events = let
   slices = case events of
     []                      -> []
-    (_, (_, gameState)) : _ -> tdNoteResults gameState
+    (_, (_, gameState)) : _ -> gameState.noteResults
   in case dropWhile ((> noteTime) . fst) slices of
     (sliceTime, slice) : _ -> if noteTime == sliceTime
       then case Map.lookup note slice of
@@ -537,7 +548,7 @@ applyTrueDrumEvent
 applyTrueDrumEvent tNew mpadNew halfWindow dps = let
   applyNoRewind (t, maybeInput) evts = let
     mClosestTime = do
-      ct <- case (Set.lookupLE t $ tdNoteTimes dps, Set.lookupGE t $ tdNoteTimes dps) of
+      ct <- case (Set.lookupLE t dps.noteTimes, Set.lookupGE t dps.noteTimes) of
         (x, Nothing)     -> x
         (Nothing, y)     -> y
         (Just x, Just y) -> Just $ if t - x < y - t then x else y
@@ -545,11 +556,11 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
       return ct
     originalSlices = case evts of
       []                      -> []
-      (_, (_, gameState)) : _ -> tdNoteResults gameState
+      (_, (_, gameState)) : _ -> gameState.noteResults
 
     -- determine misses
     missRemainingNotesInSlice sliceTime slice = let
-      sliceNotes = maybe [] (Set.toList . tdNotes . commonState) $ Map.lookup sliceTime $ tdTrack dps
+      sliceNotes = maybe [] (Set.toList . (.inner.notes)) $ Map.lookup sliceTime dps.track
       allMisses = Map.fromList $ map (, TDMissed) sliceNotes
       combineStatus (TDHitPendingHihat     _) miss = miss
       combineStatus (TDTwoHitsPendingHihat _) miss = miss
@@ -566,19 +577,19 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
     missMinBound = case missRestOfTopStatus of
       (lastSliceTime, _) : _ -> Exclusive lastSliceTime
       []                     -> Unbounded
-    missableTimes = zoomSetList missMinBound missMaxBound $ tdNoteTimes dps
+    missableTimes = zoomSetList missMinBound missMaxBound dps.noteTimes
     missSkippedSlices = foldr (\time slices -> missRemainingNotesInSlice time Map.empty : slices) missRestOfTopStatus missableTimes
     didMiss = take 1 missSkippedSlices /= take 1 originalSlices
 
     -- The closest notes, which could be hit at this moment
-    targetNotes = mClosestTime >>= \t' -> Map.lookup t' $ tdTrack dps
+    targetNotes = mClosestTime >>= \t' -> Map.lookup t' dps.track
     previousState = case evts of
       []              -> initialTDState
       (_, (_, s)) : _ -> s
     -- The existing status of the target notes
     currentSlice = case mClosestTime of
       Nothing -> Map.empty
-      Just sliceTime -> case originalSlices of
+      Just sliceTime -> case originalSlices of -- should this be missSkippedSlices? maybe doesn't matter
         (lastSliceTime, slice) : _ | sliceTime == lastSliceTime -> slice
         _                                                       -> Map.empty
     -- determine if normal note hit
@@ -588,15 +599,15 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
       case input of
         TDInputHihatOpen -> Nothing
         TDInputHit hit -> let
-          match note = tdn_gem note == tdh_gem hit
-          in find match $ tdNotes $ commonState state
+          match note = note.tdn_gem == hit.gem
+          in find match state.inner.notes
     normalHitData = case matchingHit of
       Nothing -> Nothing
       Just note -> case Map.lookup note currentSlice of
         Nothing -> let
           newStatus = case tdn_type note of
-            GemHihatOpen -> if tdIsHihatOpen previousState then TDHit t else TDHitPendingHihat True
-            GemHihatClosed -> if tdIsHihatOpen previousState then TDHitPendingHihat False else TDHit t
+            GemHihatOpen -> if previousState.hihatOpen then TDHit t else TDHitPendingHihat True
+            GemHihatClosed -> if previousState.hihatOpen then TDHitPendingHihat False else TDHit t
             _ -> TDHit t
           in Just (note, newStatus)
         Just TDMissed -> Nothing -- probably shouldn't happen?
@@ -615,9 +626,9 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
       Just _                            -> True
     -- determine if hihat pedal to make existing hit not pending
     hihatStatusChange = case maybeInput of
-      Just TDInputHihatOpen                            -> Just True
-      Just (TDInputHit hit) | tdh_gem hit == HihatFoot -> Just False
-      _                                                -> Nothing
+      Just TDInputHihatOpen                        -> Just True
+      Just (TDInputHit hit) | hit.gem == HihatFoot -> Just False
+      _                                            -> Nothing
     hihatFixData = case hihatStatusChange of
       Nothing -> []
       Just newHihatOpen -> let
@@ -637,7 +648,7 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
       Nothing -> case maybeInput of
         Just TDInputHihatOpen -> Nothing
         Just (TDInputHit hit) -> do
-          guard $ tdh_gem hit /= HihatFoot
+          guard $ hit.gem /= HihatFoot
           Just (t, hit)
         Nothing -> Nothing
 
@@ -657,17 +668,252 @@ applyTrueDrumEvent tNew mpadNew halfWindow dps = let
     newState = let
       comboBase = if didMiss || isJust overhitData
         then 0
-        else tdCombo previousState
+        else previousState.combo
       in TrueDrumGameState
-        { tdScore = tdScore previousState + 25 * countNewHits -- TODO apply multiplier
-        , tdCombo = comboBase + countNewHits
-        , tdIsHihatOpen = fromMaybe (tdIsHihatOpen previousState) hihatStatusChange
-        , tdNoteResults = newSlices
-        , tdOverhits = maybe id (:) overhitData $ tdOverhits previousState
+        { score = previousState.score + 25 * countNewHits -- TODO apply multiplier
+        , combo = comboBase + countNewHits
+        , hihatOpen = fromMaybe previousState.hihatOpen hihatStatusChange
+        , noteResults = newSlices
+        , overhits = maybe id (:) overhitData previousState.overhits
         }
     in (t, (maybeInput, newState)) : evts
-  in case span ((> tNew) . fst) $ tdEvents dps of
+  in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind $ \(t, (hit, _)) -> (t, hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
-      in dps { tdEvents = newEvents }
+      in dps { events = newEvents }
+
+----------------------------------------------------
+
+data GuitarGameState t = GuitarGameState
+  { score       :: Int
+  , combo       :: Int
+  , heldFrets   :: FretSet
+  , sustaining  :: Map.Map (Maybe Five.Color) (GuitarGameSustain t)
+  , inputs      :: [(t, GuitarInput)]
+  , overstrums  :: [t]
+  , noteResults :: [(t, GuitarResult t)] -- times are of notes
+  } deriving (Eq, Show)
+
+newtype FretSet = FretSet Int
+  deriving (Eq, Bits)
+
+instance Show FretSet where
+  show (FretSet n) = let
+    chars = do
+      (i, c) <- zip [0..] "GRYBO"
+      guard $ testBit n i
+      return c
+    in "FretSet{" <> chars <> "}"
+
+data GuitarGameSustain t = GuitarGameSustain
+  { startTime    :: t
+  , requireFrets :: Maybe FretSet
+  } deriving (Eq, Show)
+
+initialGuitarState :: GuitarGameState t
+initialGuitarState = GuitarGameState
+  { score       = 0
+  , combo       = 0
+  , heldFrets   = FretSet 0
+  , sustaining  = Map.empty
+  , inputs      = []
+  , overstrums  = []
+  , noteResults = []
+  }
+
+data GuitarResult t
+  = GuitarMissed
+  | GuitarHitStrum t -- note that has been hit with a strum
+  | GuitarHitHOPO t -- hopo/tap that has been hit and not strummed
+  | GuitarPendingFrets -- note has been strummed but not fretted right
+  deriving (Eq, Show)
+
+data GuitarPlayState t = GuitarPlayState
+  { events    :: [(t, (Maybe GuitarInput, GuitarGameState t))]
+  , track     :: Map.Map t (CommonState (GuitarState t (Maybe Five.Color)))
+  , noteTimes :: Set.Set t
+  } deriving (Show)
+
+data GuitarInput
+  = GuitarFret Five.Color Bool
+  | GuitarStrum
+  deriving (Eq, Show)
+
+getLastAccuracy :: (Num t) => GuitarGameState t -> Maybe t
+getLastAccuracy gs = listToMaybe $ gs.noteResults >>= \case
+  (t1, GuitarHitStrum t2) -> return $ t2 - t1
+  (t1, GuitarHitHOPO  t2) -> return $ t2 - t1
+  _                       -> []
+
+guitarNoteStatus :: (Ord t) => t -> [(t, (Maybe GuitarInput, GuitarGameState t))] -> NoteStatus t
+guitarNoteStatus noteTime events = let
+  results = case events of
+    []                      -> []
+    (_, (_, gameState)) : _ -> gameState.noteResults
+  in case dropWhile ((> noteTime) . fst) results of
+    (resultTime, result) : _ -> if noteTime == resultTime
+      then case result of
+        GuitarMissed       -> NoteMissed
+        GuitarHitStrum t   -> NoteHitAt t
+        GuitarHitHOPO  t   -> NoteHitAt t
+        GuitarPendingFrets -> NoteFuture
+      else NoteFuture
+    [] -> NoteFuture
+
+matchFrets :: FretSet -> FretSet -> Bool
+matchFrets (FretSet target) (FretSet held) = case popCount target of
+  1 -> let
+    removed = held .&. complement target
+    in removed /= held && removed < target
+  _ -> target == held
+
+makeFretSet :: [Five.Color] -> FretSet
+makeFretSet = foldr (.|.) (FretSet 0) . map (FretSet . bit . fromEnum)
+
+applyGuitarEvent :: (Show t, Ord t, Num t) => t -> Maybe GuitarInput -> t -> GuitarPlayState t -> GuitarPlayState t
+applyGuitarEvent tNew minputNew halfWindow gps = let
+  applyNoRewind (t, maybeInput) evts = let
+
+    mClosestTime = do
+      ct <- case (Set.lookupLE t gps.noteTimes, Set.lookupGE t gps.noteTimes) of
+        (x, Nothing)     -> x
+        (Nothing, y)     -> y
+        (Just x, Just y) -> Just $ if t - x < y - t then x else y
+      guard $ abs (ct - t) < halfWindow
+      return ct
+    originalResults = case evts of
+      []                      -> []
+      (_, (_, gameState)) : _ -> gameState.noteResults
+
+    -- first, if the top status is out of scope, should be a miss if we didn't hit it fully
+    missTopStatusIfNotHit = case originalResults of
+      results@((lastResultTime, result) : restResults) -> if Just lastResultTime == mClosestTime
+        then results
+        else (lastResultTime, case result of GuitarPendingFrets -> GuitarMissed; x -> x) : restResults
+      [] -> []
+    -- then, any times greater than it but less than `fromMaybe t mClosestTime` should be misses
+    missMaxBound = Exclusive $ fromMaybe t mClosestTime
+    missMinBound = case missTopStatusIfNotHit of
+      (lastResultTime, _) : _ -> Exclusive lastResultTime
+      []                      -> Unbounded
+    missableTimes = zoomSetList missMinBound missMaxBound gps.noteTimes
+    missSkippedResults = foldr (\time results -> (time, GuitarMissed) : results) missTopStatusIfNotHit missableTimes
+    didMiss = take 1 missSkippedResults /= take 1 originalResults
+
+    -- The closest note, which could be hit at this moment
+    targetNote = mClosestTime >>= \t' -> Map.lookup t' gps.track
+    previousState = case evts of
+      []              -> initialGuitarState
+      (_, (_, s)) : _ -> s
+    -- The existing status of the target note
+    currentResult = mClosestTime >>= \resultTime -> case missSkippedResults of
+      (lastResultTime, result) : _ | resultTime == lastResultTime -> Just result
+      _                                                           -> Nothing
+
+    canHitHOPO = not didMiss && previousState.combo /= 0
+
+    newHeldFrets = case maybeInput of
+      Just (GuitarFret fret b)
+        -> (if b then setBit else clearBit) previousState.heldFrets (fromEnum fret)
+      _ -> previousState.heldFrets
+    newResult = case targetNote of
+      Nothing     -> currentResult
+      Just common -> let
+        newHeldFretsMinusExtSustains = (.&.) newHeldFrets $ complement $ makeFretSet $ do
+          (Just fret, pnf) <- Map.toList common.inner.notes
+          guard $ isNothing (getNow pnf) && isJust (getFuture pnf)
+          return fret
+        targetFrets = makeFretSet $ do
+          (Just fret, pnf) <- Map.toList common.inner.notes
+          guard $ isJust $ getNow pnf
+          return fret
+        matchesFrets = matchFrets targetFrets newHeldFretsMinusExtSustains
+        in case currentResult of
+          Just (GuitarHitStrum _) -> currentResult
+          Just (GuitarHitHOPO hopoTime) -> case maybeInput of
+            Just GuitarStrum | matchesFrets -> Just $ GuitarHitStrum hopoTime
+            _                               -> currentResult
+          Just GuitarMissed       -> currentResult -- can this happen?
+          Just GuitarPendingFrets -> case maybeInput of
+            Just (GuitarFret _ _) -> if matchesFrets
+              then Just $ GuitarHitStrum t
+              else currentResult
+            _                     -> currentResult
+          Nothing                 -> let
+            sht = case mapMaybe getNow $ Map.elems common.inner.notes of
+              x : _ -> x
+              []    -> Strum -- shouldn't happen!
+            in case maybeInput of
+              Just GuitarStrum -> if matchesFrets
+                then Just $ GuitarHitStrum t
+                else Just GuitarPendingFrets -- think this makes sense even for hopo/tap, once we deal with ghosting
+              Just (GuitarFret _ _) -> case sht of
+                Strum -> currentResult
+                _ -> if matchesFrets && (sht == Tap || canHitHOPO)
+                  then Just $ GuitarHitHOPO t
+                  else currentResult
+              Nothing -> currentResult
+
+    newHit = case (currentResult, newResult) of
+      (Just (GuitarHitStrum _), _) -> False
+      (Just (GuitarHitHOPO _), _)  -> False
+      (_, Just (GuitarHitStrum _)) -> True
+      (_, Just (GuitarHitHOPO _))  -> True
+      _                            -> False
+    newOverstrum = case (currentResult == newResult, maybeInput) of
+      (True, Just GuitarStrum) -> True
+      _                        -> False
+
+    newSustains = if newHit
+      then Map.fromList $ do
+        -- both of these should succeed
+        common <- toList targetNote
+        time <- toList mClosestTime
+        (mfret, pnf) <- Map.toList common.inner.notes
+        guard $ isJust (getNow pnf) && isJust (getFuture pnf)
+        return (mfret, GuitarGameSustain
+          { startTime    = time
+          , requireFrets = Nothing -- TODO
+          })
+      else Map.empty
+    -- TODO break sustains if fret requirements are no longer met
+    allNewSustains =
+      (case maybeInput of Just (GuitarFret c False) -> Map.delete $ Just c; _ -> id)
+      (Map.union newSustains previousState.sustaining)
+
+    newResults = case (mClosestTime, newResult) of
+      (Just time, Just res) -> case missSkippedResults of
+        []                     -> [(time, res)]
+        (resultTime, _) : rest -> if time == resultTime
+          then (time, res) : rest
+          else (time, res) : missSkippedResults
+      _ -> missSkippedResults
+
+    newState = let
+      comboBase = if didMiss || newOverstrum
+        then 0
+        else previousState.combo
+      in GuitarGameState
+        { score = previousState.score + if newHit then 25 else 0 -- TODO apply multiplier, give more points for chords
+        , combo = comboBase + if newHit then 1 else 0
+        , heldFrets = newHeldFrets
+        , sustaining = allNewSustains
+        , noteResults = newResults
+        , overstrums = if newOverstrum
+          then t : previousState.overstrums
+          else previousState.overstrums
+        , inputs = case maybeInput of
+          Nothing -> previousState.inputs
+          Just x  -> (t, x) : previousState.inputs
+        }
+
+    in if isNothing maybeInput && newState == previousState
+      then evts -- time passed but nothing happened
+      else (t, (maybeInput, newState)) : evts
+
+  in case span ((> tNew) . fst) gps.events of
+    (eventsToRewind, rest) -> let
+      eventsToRewind' = flip map eventsToRewind $ \(t, (input, _)) -> (t, input)
+      newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, minputNew)]
+      in gps { events = newEvents }

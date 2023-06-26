@@ -193,30 +193,30 @@ makeToggleBounds t1 t2 m = let
 
 drawDrums :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))) -> IO ()
 drawDrums glStuff nowTime speed trk = drawDrumPlay glStuff nowTime speed DrumPlayState
-  { drumEvents = do
+  { events = do
     (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
-    pad <- Set.toList $ drumNotes $ commonState cs
+    pad <- Set.toList cs.inner.notes
     let res = EventResult
-          { eventHit = Just (pad, Just cst)
-          , eventMissed = []
+          { hit = Just (pad, Just cst)
+          , missed = []
           }
     return (cst, (res, initialState)) -- score/combo state not used
-  , drumTrack = trk
-  , drumNoteTimes = Set.empty -- not used
+  , track = trk
+  , noteTimes = Set.empty -- not used
   }
 
 drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
 drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
-  { tdEvents = let
+  { events = let
     -- dummy game state with no inputs, but all notes marked as hit on time
     hitResults = do
       (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
-      let notes = Set.toList $ tdNotes $ commonState cs
+      let notes = Set.toList cs.inner.notes
       guard $ not $ null notes
       return (cst, Map.fromList $ map (, TDHit cst) notes)
-    in [(nowTime, (Nothing, initialTDState { tdNoteResults = hitResults }))]
-  , tdTrack = trk
-  , tdNoteTimes = Set.empty -- not used
+    in [(nowTime, (Nothing, initialTDState { noteResults = hitResults }))]
+  , track = trk
+  , noteTimes = Set.empty -- not used
   }
 
 drawTrueDrumPlay :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> TrueDrumPlayState Double -> IO ()
@@ -232,12 +232,12 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = zoomMap nearTime farTime $ tdTrack tdps
+      zoomed = zoomMap nearTime farTime tdps.track
       adjustedLeft = gfxConfig.track.note_area.x_left * 1.3
       adjustedRight = gfxConfig.track.note_area.x_right * 1.3
       trackWidth = adjustedRight - adjustedLeft
       fracToX f = adjustedLeft + trackWidth * f
-      drawBeat t cs = case commonBeats cs of
+      drawBeat t cs = case cs.beats of
         Nothing -> return ()
         Just e -> let
           tex = case e of
@@ -359,13 +359,13 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
           (fromMaybe 1 alpha)
           (LightOffset gfxConfig.objects.gems.light)
       drawNotes t cs = let
-        od = case commonOverdrive cs of
+        od = case cs.overdrive of
           ToggleEmpty -> False
           ToggleEnd   -> False
           _           -> True
         fadeTime = gfxConfig.objects.gems.secs_fade
-        in forM_ (tdNotes $ commonState cs) $ \gem ->
-          case trueNoteStatus t gem $ tdEvents tdps of
+        in forM_ cs.inner.notes $ \gem ->
+          case trueNoteStatus t gem tdps.events of
             NoteFuture -> drawGem t od gem Nothing
             NoteMissed -> drawGem t od gem Nothing
             NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
@@ -382,7 +382,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ if layoutRightNearCrash then V4 0 0 0 0.2 else V4 1 1 1 0.2)
         ]
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gfxConfig.track.color
@@ -420,7 +420,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   -- TODO this could be more efficient by drawing sections of zones at a time
   let hihatZones = nubOrd $ do
         (_, cs) <- Map.toList zoomed
-        let zone = tdHihatZone $ commonState cs
+        let zone = cs.inner.hihatZone
         toList (getPast zone) <> toList (getFuture zone)
   forM_ hihatZones $ \zone -> let
     (tex, zoneT1, zoneT2) = case zone of
@@ -489,8 +489,8 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
-        let lanes = Map.toList $ tdLanes $ commonState cs
-            bre = commonBRE cs
+        let lanes = Map.toList cs.inner.lanes
+            bre = cs.bre
         -- draw following lanes
         forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
           drawLane thisTime nextTime pad
@@ -512,7 +512,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   let drawLights [] _ = return ()
       drawLights _ [] = return ()
       drawLights ((t, note) : states) colors = let
-        pad = tdh_gem note
+        pad = note.gem
         (colorsYes, colorsNo) = partition (\(pads, _, _, _) -> elem pad pads) colors
         alpha = 1 - realToFrac (nowTime - t) / gfxConfig.track.targets.secs_light
         in when (t > nearTime) $ do
@@ -521,7 +521,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             x2 = minimum $ map (snd . gemBounds) pads
             in drawTargetSquare x1 x2 light alpha
           drawLights states colorsNo
-  drawLights [ (t, hit) | (t, (Just (TDInputHit hit), _)) <- tdEvents tdps ] targets
+  drawLights [ (t, hit) | (t, (Just (TDInputHit hit), _)) <- tdps.events ] targets
   glDepthFunc GL_LESS
   -- draw notes
   traverseDescWithKey_ drawNotes zoomed
@@ -588,7 +588,7 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = zoomMap nearTime farTime $ drumTrack dps
+      zoomed = zoomMap nearTime farTime dps.track
       trackWidth
         = gfxConfig.track.note_area.x_right
         - gfxConfig.track.note_area.x_left
@@ -634,19 +634,19 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         in drawObject' obj posn shade (fromMaybe 1 alpha) $ LightOffset
           $ gfxConfig.objects.gems.light
       drawNotes t cs = let
-        od = case commonOverdrive cs of
+        od = case cs.overdrive of
           ToggleEmpty -> False
           ToggleEnd   -> False
           _           -> True
         fadeTime = gfxConfig.objects.gems.secs_fade
-        in forM_ (drumNotes $ commonState cs) $ \gem ->
-          case noteStatus t gem $ drumEvents dps of
+        in forM_ cs.inner.notes $ \gem ->
+          case noteStatus t gem dps.events of
             NoteFuture -> drawGem t od gem Nothing
             NoteMissed -> drawGem t od gem Nothing
             NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
               then drawGem nowTime od gem $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
               else return ()
-      drawBeat t cs = case commonBeats cs of
+      drawBeat t cs = case cs.beats of
         Nothing -> return ()
         Just e -> let
           tex = case e of
@@ -671,7 +671,7 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gfxConfig.track.color
@@ -747,8 +747,8 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
-        let lanes = Map.toList $ drumLanes $ commonState cs
-            bre = commonBRE cs
+        let lanes = Map.toList cs.inner.lanes
+            bre = cs.bre
         -- draw following lanes
         forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
           drawLane thisTime nextTime pad
@@ -773,7 +773,7 @@ drawDrumPlay glStuff@GLStuff{..} nowTime speed dps = do
         in when (t > nearTime) $ do
           forM_ colorsYes $ \(i, light, _) -> drawTargetSquare i light alpha
           drawLights states colorsNo
-  drawLights [ (t, pad) | (t, (res, _)) <- drumEvents dps, Just ((pad, _vel), _) <- [eventHit res] ]
+  drawLights [ (t, pad) | (t, (res, _)) <- dps.events, Just ((pad, _vel), _) <- [res.hit] ]
     [ (0, TextureTargetRedLight   , [D.Red                                        ])
     , (1, TextureTargetYellowLight, [D.Pro D.Yellow D.Tom, D.Pro D.Yellow D.Cymbal])
     , (2, TextureTargetBlueLight  , [D.Pro D.Blue   D.Tom, D.Pro D.Blue   D.Cymbal])
@@ -798,8 +798,21 @@ zoomMap t1 t2 m = let
     then maybe Map.empty (Map.singleton $ t1 + (t2 + t1) / 2) generated
     else zoomed
 
-drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState (Maybe Five.Color))) -> IO ()
-drawFive glStuff@GLStuff{..} nowTime speed trk = do
+drawFive :: GLStuff -> Double -> Double -> Map.Map Double (CommonState (GuitarState Double (Maybe Five.Color))) -> IO ()
+drawFive glStuff nowTime speed trk = drawFivePlay glStuff nowTime speed GuitarPlayState
+  { events = let
+    hitResults = do
+      (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
+      guard $ any (isJust . getNow) cs.inner.notes
+      return (cst, GuitarHitStrum cst)
+    -- TODO we need to generate fretting events for proper target light-up (especially sustains)
+    in [(nowTime, (Nothing, initialGuitarState { noteResults = hitResults }))]
+  , track = trk
+  , noteTimes = Set.empty -- not used
+  }
+
+drawFivePlay :: GLStuff -> Double -> Double -> GuitarPlayState Double -> IO ()
+drawFivePlay glStuff@GLStuff{..} nowTime speed gps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff
@@ -811,7 +824,10 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
       timeToZ t = nowZ + (farZ - nowZ) * realToFrac ((t - nowTime) / (farTime - nowTime))
       zToTime z = nowTime + (farTime - nowTime) * realToFrac ((z - nowZ) / (farZ - nowZ))
       nearTime = zToTime nearZ
-      zoomed = zoomMap nearTime farTime trk
+      zoomed = zoomMap nearTime farTime gps.track
+      currentState = case gps.events of
+        (_, (_, s)) : _ -> s
+        _               -> initialGuitarState
       trackWidth
         = gfxConfig.track.note_area.x_right
         - gfxConfig.track.note_area.x_left
@@ -848,24 +864,24 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
           in drawObject' Box (ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)) (CSColor boxColor) 1 globalLight
       drawGem t od color sht alpha = let
         (texid, obj) = case (color, sht) of
-          (Nothing      , Strum) -> (if od then TextureLongEnergy else TextureLongOpen , Model ModelGuitarOpen)
-          (Just Five.Green , Strum) -> (if od then TextureEnergyGem  else TextureGreenGem , Model ModelGuitarStrum)
-          (Just Five.Red   , Strum) -> (if od then TextureEnergyGem  else TextureRedGem   , Model ModelGuitarStrum)
-          (Just Five.Yellow, Strum) -> (if od then TextureEnergyGem  else TextureYellowGem, Model ModelGuitarStrum)
-          (Just Five.Blue  , Strum) -> (if od then TextureEnergyGem  else TextureBlueGem  , Model ModelGuitarStrum)
-          (Just Five.Orange, Strum) -> (if od then TextureEnergyGem  else TextureOrangeGem, Model ModelGuitarStrum)
-          (Nothing      , HOPO) -> (if od then TextureLongEnergyHopo else TextureLongOpenHopo , Model ModelGuitarOpen)
-          (Just Five.Green , HOPO) -> (if od then TextureEnergyHopo  else TextureGreenHopo , Model ModelGuitarHOPOTap)
-          (Just Five.Red   , HOPO) -> (if od then TextureEnergyHopo  else TextureRedHopo   , Model ModelGuitarHOPOTap)
-          (Just Five.Yellow, HOPO) -> (if od then TextureEnergyHopo  else TextureYellowHopo, Model ModelGuitarHOPOTap)
-          (Just Five.Blue  , HOPO) -> (if od then TextureEnergyHopo  else TextureBlueHopo  , Model ModelGuitarHOPOTap)
-          (Just Five.Orange, HOPO) -> (if od then TextureEnergyHopo  else TextureOrangeHopo, Model ModelGuitarHOPOTap)
-          (Nothing      , Tap) -> (if od then TextureLongEnergyTap else TextureLongOpenTap , Model ModelGuitarOpen)
-          (Just Five.Green , Tap) -> (if od then TextureEnergyTap  else TextureGreenTap , Model ModelGuitarHOPOTap)
-          (Just Five.Red   , Tap) -> (if od then TextureEnergyTap  else TextureRedTap   , Model ModelGuitarHOPOTap)
-          (Just Five.Yellow, Tap) -> (if od then TextureEnergyTap  else TextureYellowTap, Model ModelGuitarHOPOTap)
-          (Just Five.Blue  , Tap) -> (if od then TextureEnergyTap  else TextureBlueTap  , Model ModelGuitarHOPOTap)
-          (Just Five.Orange, Tap) -> (if od then TextureEnergyTap  else TextureOrangeTap, Model ModelGuitarHOPOTap)
+          (Nothing         , Strum) -> (if od then TextureLongEnergy     else TextureLongOpen    , Model ModelGuitarOpen   )
+          (Just Five.Green , Strum) -> (if od then TextureEnergyGem      else TextureGreenGem    , Model ModelGuitarStrum  )
+          (Just Five.Red   , Strum) -> (if od then TextureEnergyGem      else TextureRedGem      , Model ModelGuitarStrum  )
+          (Just Five.Yellow, Strum) -> (if od then TextureEnergyGem      else TextureYellowGem   , Model ModelGuitarStrum  )
+          (Just Five.Blue  , Strum) -> (if od then TextureEnergyGem      else TextureBlueGem     , Model ModelGuitarStrum  )
+          (Just Five.Orange, Strum) -> (if od then TextureEnergyGem      else TextureOrangeGem   , Model ModelGuitarStrum  )
+          (Nothing         , HOPO ) -> (if od then TextureLongEnergyHopo else TextureLongOpenHopo, Model ModelGuitarOpen   )
+          (Just Five.Green , HOPO ) -> (if od then TextureEnergyHopo     else TextureGreenHopo   , Model ModelGuitarHOPOTap)
+          (Just Five.Red   , HOPO ) -> (if od then TextureEnergyHopo     else TextureRedHopo     , Model ModelGuitarHOPOTap)
+          (Just Five.Yellow, HOPO ) -> (if od then TextureEnergyHopo     else TextureYellowHopo  , Model ModelGuitarHOPOTap)
+          (Just Five.Blue  , HOPO ) -> (if od then TextureEnergyHopo     else TextureBlueHopo    , Model ModelGuitarHOPOTap)
+          (Just Five.Orange, HOPO ) -> (if od then TextureEnergyHopo     else TextureOrangeHopo  , Model ModelGuitarHOPOTap)
+          (Nothing         , Tap  ) -> (if od then TextureLongEnergyTap  else TextureLongOpenTap , Model ModelGuitarOpen   )
+          (Just Five.Green , Tap  ) -> (if od then TextureEnergyTap      else TextureGreenTap    , Model ModelGuitarHOPOTap)
+          (Just Five.Red   , Tap  ) -> (if od then TextureEnergyTap      else TextureRedTap      , Model ModelGuitarHOPOTap)
+          (Just Five.Yellow, Tap  ) -> (if od then TextureEnergyTap      else TextureYellowTap   , Model ModelGuitarHOPOTap)
+          (Just Five.Blue  , Tap  ) -> (if od then TextureEnergyTap      else TextureBlueTap     , Model ModelGuitarHOPOTap)
+          (Just Five.Orange, Tap  ) -> (if od then TextureEnergyTap      else TextureOrangeTap   , Model ModelGuitarHOPOTap)
         shade = case alpha of
           Nothing -> CSImage texid
           Just _  -> CSColor gfxConfig.objects.gems.color_hit
@@ -875,27 +891,29 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
           $ gfxConfig.objects.gems.light
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
-        let notes = Map.toList $ guitarNotes $ commonState cs
+        let notes = Map.toList cs.inner.notes
         -- draw following sustain
-        forM_ notes $ \(color, pnf) -> forM_ (getFuture pnf) $ \od -> do
-          drawSustain thisTime nextTime od color
+        forM_ notes $ \(color, pnf) -> forM_ (getFuture pnf) $ \sust -> do
+          drawSustain thisTime nextTime sust.overdrive color
         -- draw note
-        let thisOD = case commonOverdrive cs of
+        let thisOD = case cs.overdrive of
               ToggleEmpty -> False
               ToggleEnd   -> False
               _           -> True
             fadeTime = gfxConfig.objects.gems.secs_fade
-        forM_ notes $ \(color, pnf) -> forM_ (getNow pnf) $ \sht -> if nowTime <= thisTime
-          then drawGem thisTime thisOD color sht Nothing
-          else if nowTime - thisTime < realToFrac fadeTime
-            then drawGem nowTime thisOD color sht $ Just $ 1 - realToFrac (nowTime - thisTime) / fadeTime
-            else return ()
+        forM_ notes $ \(color, pnf) -> forM_ (getNow pnf) $ \sht ->
+          case guitarNoteStatus thisTime gps.events of
+            NoteFuture        -> drawGem thisTime thisOD color sht Nothing
+            NoteMissed        -> drawGem thisTime thisOD color sht Nothing
+            NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
+              then drawGem nowTime thisOD color sht $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
+              else return ()
         -- draw past sustain if rest is empty
         when (null rest) $ do
-          forM_ notes $ \(color, pnf) -> forM_ (getPast pnf) $ \od -> do
-            drawSustain nearTime thisTime od color
+          forM_ notes $ \(color, pnf) -> forM_ (getPast pnf) $ \sust -> do
+            drawSustain nearTime thisTime sust.overdrive color
         drawNotes thisTime rest
-      drawBeat t cs = case commonBeats cs of
+      drawBeat t cs = case cs.beats of
         Nothing -> return ()
         Just e -> let
           tex = case e of
@@ -920,7 +938,7 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gfxConfig.track.color
@@ -993,9 +1011,10 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
-        let tremolo = Map.toList $ guitarTremolo $ commonState cs
-            trill   = Map.toList $ guitarTrill   $ commonState cs
-            bre     = commonBRE cs
+        let tremolo = Map.toList cs.inner.tremolo
+            trill   = Map.toList cs.inner.trill
+            bre     = cs.bre
+            _ = cs :: CommonState (GuitarState Double (Maybe Five.Color))
         -- draw following lanes
         forM_ tremolo $ \(color, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
           drawLane thisTime nextTime color
@@ -1014,38 +1033,16 @@ drawFive glStuff@GLStuff{..} nowTime speed trk = do
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
   -- draw target
-  mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $
-    zip [0..] [TextureTargetGreen, TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetOrange]
-  let drawLights [] _ = return ()
-      drawLights _ [] = return ()
-      drawLights ((t, cs) : states) colors = let
-        getLightAlpha gem = do
-          pnf <- Map.lookup gem $ guitarNotes $ commonState cs
-          case getFuture pnf of
-            Just _ -> Just 1 -- gem is being sustained
-            Nothing -> do
-              guard $ isJust (getNow pnf) || isJust (getPast pnf)
-              Just alpha
-        (colorsYes, colorsNo) = flip partitionMaybe colors $ \(i, light, gem) ->
-          fmap (\thisAlpha -> (i, light, thisAlpha))
-            $ getLightAlpha gem
-        alpha = 1 - realToFrac (nowTime - t) / gfxConfig.track.targets.secs_light
-        in do
-          forM_ colorsYes $ \(i, light, thisAlpha) -> drawTargetSquare i light thisAlpha
-          drawLights states colorsNo
-      lookPast = case Map.split nowTime zoomed of
-        (past, future)
-          | Map.null past -> case Map.lookupMin future of
-            Nothing      -> []
-            Just (_, cs) -> [(nowTime, before cs)]
-          | otherwise     -> Map.toDescList past
-  drawLights lookPast
-    [ (0, TextureTargetGreenLight , Just Five.Green )
-    , (1, TextureTargetRedLight   , Just Five.Red   )
-    , (2, TextureTargetYellowLight, Just Five.Yellow)
-    , (3, TextureTargetBlueLight  , Just Five.Blue  )
-    , (4, TextureTargetOrangeLight, Just Five.Orange)
-    ]
+  let targets =
+        [ (0, Five.Green , TextureTargetGreen , TextureTargetGreenLight )
+        , (1, Five.Red   , TextureTargetRed   , TextureTargetRedLight   )
+        , (2, Five.Yellow, TextureTargetYellow, TextureTargetYellowLight)
+        , (3, Five.Blue  , TextureTargetBlue  , TextureTargetBlueLight  )
+        , (4, Five.Orange, TextureTargetOrange, TextureTargetOrangeLight)
+        ]
+  forM_ targets $ \(i, fret, dark, light) -> if testBit currentState.heldFrets $ fromEnum fret
+    then drawTargetSquare i light 1
+    else drawTargetSquare i dark  1 -- TODO fade out light texture
   glDepthFunc GL_LESS
   -- draw notes
   drawNotes farTime $ Map.toDescList zoomed
@@ -1122,8 +1119,8 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
         texid1 = case lookup str allStrings of
           Nothing             -> TextureRSRed -- shouldn't happen
           Just (_, _, _, tex) -> tex
-        texid2 = toEnum $ fromEnum TextureRS0 + pgFret note
-        texid3 = case pgSHT note of
+        texid2 = toEnum $ fromEnum TextureRS0 + note.fret
+        texid3 = case note.sht of
           Strum -> Nothing
           HOPO  -> Just TextureRSHopo
           Tap   -> Just TextureRSTap
@@ -1135,12 +1132,12 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
           in normalLight { C.position = V3 0 0 0.5 }
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
-        let notes = Map.toList $ pgNotes $ commonState cs
+        let notes = Map.toList cs.inner.notes
         -- draw following sustain
         forM_ notes $ \(str, pnf) -> forM_ (getFuture pnf) $ \sust -> do
-          drawSustain thisTime nextTime (pgSustainOD sust) str
+          drawSustain thisTime nextTime sust.overdrive str
         -- draw note
-        let thisOD = case commonOverdrive cs of
+        let thisOD = case cs.overdrive of
               ToggleEmpty -> False
               ToggleEnd   -> False
               _           -> True
@@ -1153,9 +1150,9 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
         -- draw past sustain if rest is empty
         when (null rest) $ do
           forM_ notes $ \(str, pnf) -> forM_ (getPast pnf) $ \sust -> do
-            drawSustain nearTime thisTime (pgSustainOD sust) str
+            drawSustain nearTime thisTime sust.overdrive str
         drawNotes thisTime rest
-      drawBeat t cs = case commonBeats cs of
+      drawBeat t cs = case cs.beats of
         Nothing -> return ()
         Just e -> let
           tex = case e of
@@ -1180,7 +1177,7 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gfxConfig.track.color
@@ -1241,7 +1238,7 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
       drawLights _ [] = return ()
       drawLights ((t, cs) : states) colors = let
         getLightAlpha str = do
-          pnf <- Map.lookup str $ pgNotes $ commonState cs
+          pnf <- Map.lookup str cs.inner.notes
           case getFuture pnf of
             Just _ -> Just 1 -- str is being sustained
             Nothing -> do
@@ -1286,7 +1283,7 @@ drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
         - gfxConfig.track.note_area.x_left
       fracToX f = gfxConfig.track.note_area.x_left + trackWidth * f
       sc = gfxConfig.objects.sustains.colors
-      drawBeat t cs = case commonBeats cs of
+      drawBeat t cs = case cs.beats of
         Nothing -> return ()
         Just e -> let
           tex = case e of
@@ -1347,7 +1344,7 @@ drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
           in normalLight { C.position = V3 0 0 0.5 }
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
-        let notes = Map.toList $ maniaNotes $ commonState cs
+        let notes = Map.toList cs.inner.notes
         -- draw following sustain
         forM_ notes $ \(key, pnf) -> forM_ (getFuture pnf) $ \() -> do
           drawSustain thisTime nextTime (keyColor key) key
@@ -1370,7 +1367,7 @@ drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap commonSolo zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gfxConfig.track.color
@@ -1436,7 +1433,7 @@ drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
       drawLights _ [] = return ()
       drawLights ((t, cs) : states) colors = let
         getLightAlpha i = do
-          pnf <- Map.lookup i $ maniaNotes $ commonState cs
+          pnf <- Map.lookup i cs.inner.notes
           case getFuture pnf of
             Just _ -> Just 1 -- key is being sustained
             Nothing -> do
@@ -1737,7 +1734,7 @@ data GLStuff = GLStuff
   , fontFace     :: FT_Face
   , fontSlot     :: FT_GlyphSlot
   , fontGlyphs   :: IORef (HM.HashMap Char (FT_GlyphSlotRec, Texture))
-  , previewSong  :: PreviewSong
+  , previewSong  :: Maybe PreviewSong
   , scaleUI      :: Float -- TODO allow changing this during runtime
   }
 
@@ -1927,7 +1924,7 @@ sortVertices = let
   sumZ = sum . map (getZ . vertexPosition)
   in concatMap snd . sort . map (\tri -> (sumZ tri, tri)) . getTris
 
-loadGLStuff :: (MonadIO m) => Float -> PreviewSong -> StackTraceT (QueueLog m) GLStuff
+loadGLStuff :: (MonadIO m) => Float -> Maybe PreviewSong -> StackTraceT (QueueLog m) GLStuff
 loadGLStuff scaleUI previewSong = do
 
   gfxConfig <- load3DConfig
@@ -2249,7 +2246,7 @@ loadGLStuff scaleUI previewSong = do
     _              -> setupSimple
   let fxaaEnabled = prefFXAA prefs
 
-  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (map snd $ previewBG previewSong) $ \case
+  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) $ \case
     PreviewBGVideo vi -> do
       writeMsg <- getQueueLog
       frameLoader <- stackIO $ forkFrameLoader writeMsg vi
@@ -2260,7 +2257,7 @@ loadGLStuff scaleUI previewSong = do
         , videoFilePath    = vi.fileVideo
         })
     _ -> return Nothing
-  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (map snd $ previewBG previewSong) $ \case
+  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) $ \case
     PreviewBGImage f -> do
       tex <- stackIO (readImage f) >>= either fatal return >>= loadTexture True . convertRGBA8
       return $ Just (f, tex)
@@ -2474,27 +2471,54 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
     V4 r g b a -> glClearColor r g b a
   glClear GL_COLOR_BUFFER_BIT
 
+  glDepthFunc GL_LESS
   setUpTrackView glStuff dims
   drawTrueDrumPlay glStuff time speed layout dps
 
-  glClear GL_DEPTH_BUFFER_BIT
-  let tdgs = case tdEvents dps of
+  glDepthFunc GL_ALWAYS
+  let tdgs = case dps.events of
         (_, (_, s)) : _ -> s
         _               -> initialTDState
-      digitScale = 2
-      digitWidth = 14
-      digitHeight = 18
-      drawNumber = drawNumber' True
-      drawNumber' write0 n x y = case quotRem n 10 of
-        (q, r) -> when (q /= 0 || r /= 0 || write0) $ do
-          case drop r [TextureNumber0 .. TextureNumber9] of
-            texid : _ -> case lookup texid textures of
-              Just tex -> drawTexture glStuff dims tex (V2 x y) digitScale
-              Nothing  -> return ()
-            [] -> return ()
-          drawNumber' False q (x - digitWidth * digitScale) y
-  drawNumber (tdScore tdgs) (wWhole - digitWidth * digitScale) (hWhole - digitHeight * digitScale)
-  drawNumber (tdCombo tdgs) (quot wWhole 2) 0
+  drawTimeBox glStuff dims
+    [ "Score: " <> T.pack (show tdgs.score)
+    , "Combo: " <> T.pack (show tdgs.combo)
+    ]
+
+drawFivePlayFull
+  :: GLStuff
+  -> WindowDims
+  -> Double
+  -> Double
+  -> GuitarPlayState Double
+  -> IO ()
+drawFivePlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed gps = do
+  glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
+  case gfxConfig.view.background of
+    V4 r g b a -> glClearColor r g b a
+  glClear GL_COLOR_BUFFER_BIT
+
+  glDepthFunc GL_LESS
+  setUpTrackView glStuff dims
+  drawFivePlay glStuff time speed gps
+
+  glDepthFunc GL_ALWAYS
+  let ggs = case gps.events of
+        (_, (_, s)) : _ -> s
+        _               -> initialGuitarState
+  drawTimeBox glStuff dims
+    [ "Score: " <> T.pack (show ggs.score)
+    , "Combo: " <> T.pack (show ggs.combo)
+    , "Accuracy: " <> let
+      offsets = take 50 $ ggs.noteResults >>= \case
+        (t1, GuitarHitStrum t2) -> return $ t2 - t1
+        (t1, GuitarHitHOPO  t2) -> return $ t2 - t1
+        _                       -> []
+      in case offsets of
+        []    -> ""
+        _ : _ -> let
+          acc = sum offsets / fromIntegral (length offsets)
+          in T.pack (show (round (acc * 1000) :: Int)) <> " ms"
+    ]
 
 getGlyph :: GLStuff -> Char -> IO (Maybe (FT_GlyphSlotRec, Texture))
 getGlyph GLStuff{..} c = do
@@ -2599,15 +2623,16 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg use
     PreviewBGImage f -> forM_ (Map.lookup f imageBGs) $ drawBackground glStuff dims BackgroundFit
 
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-  let songLength = U.applyTempoMap (previewTempo previewSong) $ timingEnd $ previewTiming previewSong
-      currentMB = showPosition (previewMeasures previewSong)
-        $ U.unapplyTempoMap (previewTempo previewSong) $ realToFrac time
-      lengthMB = showPosition (previewMeasures previewSong) $ timingEnd $ previewTiming previewSong
-  drawTimeBox glStuff dims $ concat
-    [ [showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength]
-    , [T.pack $ currentMB <> " / " <> lengthMB]
-    , toList $ fmap snd $ Map.lookupLE time $ previewSections previewSong
-    ]
+  forM_ previewSong $ \psong -> let
+    songLength = U.applyTempoMap (previewTempo psong) $ timingEnd $ previewTiming psong
+    currentMB = showPosition (previewMeasures psong)
+      $ U.unapplyTempoMap (previewTempo psong) $ realToFrac time
+    lengthMB = showPosition (previewMeasures psong) $ timingEnd $ previewTiming psong
+    in drawTimeBox glStuff dims $ concat
+      [ [showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength]
+      , [T.pack $ currentMB <> " / " <> lengthMB]
+      , toList $ fmap snd $ Map.lookupLE time $ previewSections psong
+      ]
 
   glDepthFunc GL_LESS
   glClear GL_DEPTH_BUFFER_BIT
