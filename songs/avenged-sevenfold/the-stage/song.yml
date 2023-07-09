@@ -1,0 +1,50 @@
+audio:
+  song.ogg:
+    file-path: song.ogg
+metadata:
+  album: The Stage
+  artist: Avenged Sevenfold
+  author: xX760Xx, Boo, Onyxite
+  difficulty:
+    tier: 1
+  file-album-art: album.png
+  genre: Progressive Metal
+  preview-start: 48.677
+  title: The Stage
+  track-number: 1
+  year: 2016
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        # drop D
+        base: bass-4
+        offsets: [-2, 0, 0, 0]
+  drums:
+    drums:
+      difficulty:
+        tier: 6
+      fix-freeform: false
+      kicks: both
+  guitar:
+    grybo:
+      difficulty:
+        tier: 6
+      fix-freeform: false
+  vocal:
+    vocal: # not pitched
+      difficulty:
+        tier: 1
+plans:
+  fof:
+    song: song.ogg
+targets:
+  ps:
+    game: ps
+    loading-phrase: <color=#ffb300>Originally appeared as Rock Band DLC</color><br>
+      <i>The Stage</i> was the first Avenged Sevenfold song to feature drummer Brooks
+      Wackerman, who replaced the bands previous drummer, Arin Ilejay.
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

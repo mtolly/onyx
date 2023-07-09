@@ -1,0 +1,60 @@
+metadata:
+  title: Monolith of Hate
+  artist: Demonstealer
+  album: The Propaganda Machine
+  genre: metal
+  subgenre: death
+  year: 2023
+  author: Onyxite
+  difficulty: 7
+  file-album-art: ../../../covers/the-propaganda-machine.jpg
+  track-number: 2
+  preview-start: prc_verse_2
+audio:
+  album-track:
+    md5: 68a41119a373e13c3341ade8b1068cd9
+    frames: 14937552
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  china:
+    file-path: ../../../sound/china-cymbal.wav
+  countin:
+    samples: {}
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.518, album-track]
+  dev:
+    song:
+      pad: [3.518, album-track]
+    parts:
+      bass:
+        pad: [3.518, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.518, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.518, channels: [[4, 5], stems]]
+      other:
+        pad: [3.518, channels: [[6, 7], stems]]
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

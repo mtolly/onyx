@@ -1,0 +1,70 @@
+global:
+  file-song-anim: song.anim
+metadata:
+  album: Three Cheers for Sweet Revenge
+  artist: My Chemical Romance
+  author: Harmonix, Angevil, Onyxite
+  difficulty:
+    rank: 236
+  file-album-art: cover.png_xbox
+  genre: emo
+  key: E major
+  preview-end: 1:20.714
+  preview-start: 50.714
+  rating: Family Friendly
+  title: Helena
+  track-number: 1
+  year: 2004
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 220
+  drums:
+    drums:
+      difficulty:
+        rank: 249
+      kicks: 1
+  guitar:
+    grybo:
+      difficulty:
+        rank: 245
+  keys:
+    grybo:
+      difficulty:
+        rank: 212
+    pro-keys:
+      difficulty:
+        rank: 215
+  vocal:
+    vocal:
+      count: 2
+      difficulty:
+        rank: 249
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: true
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    parts:
+      drums:
+        kick: [0]
+        kit: [1, 2]
+      bass: [3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    vols: [-2, -4, -4, -1, -3.7, -3.7, -4, -4, -4, -4, -4, -4]
+targets:
+  rb3:
+    game: rb3
+    harmonix: true
+    label: (O)
+  ps:
+    game: ps
+    loading-phrase: "Original RB3 DLC by Harmonix, guitar chart by Angevil, minor edits to drums and bass by Onyxite."
