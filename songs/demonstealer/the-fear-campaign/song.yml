@@ -1,0 +1,9 @@
+audio:
+  album-track:
+    frames: 17615304
+    md5: ff031675c85f671668eb8cec6fd1f848
+parts: {}
+plans:
+  album:
+    song:
+      pad: [3.036, album-track]

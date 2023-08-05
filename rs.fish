@@ -140,6 +140,7 @@ end
 # build songs-hmx/rb3/before-i-forget
 # build songs-others/guitar-hero/all-nightmare-long
 build songs/avenged-sevenfold/the-stage
+build songs-rbn/benighted/let-the-blood-spill-between-my-broken-teeth
 
 # phrases unknown:
 

@@ -41,6 +41,7 @@ parts:
   drums:
     drums:
       mode: 'true'
+      kicks: both
 metadata:
   title: Pokémon Diamond & Pearl Music Medley
   artist: Dr. Pez

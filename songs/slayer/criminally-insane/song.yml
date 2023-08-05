@@ -1,0 +1,31 @@
+audio:
+  album-track:
+    # 1998 release
+    frames: 6306300
+    md5: 18aa456138e2c36ce68206a3d27cec13
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+plans:
+  album:
+    song:
+      pad: [4.461, album-track]
+  dev:
+    song:
+      pad: [4.461, album-track]
+    parts:
+      bass:
+        pad: [4.461, channels: [[0, 1], stems]]
+      drums:
+        pad: [4.461, channels: [[2, 3], stems]]
+      vocal:
+        pad: [4.461, channels: [[4, 5], stems]]
+      other:
+        pad: [4.461, channels: [[6, 7], stems]]

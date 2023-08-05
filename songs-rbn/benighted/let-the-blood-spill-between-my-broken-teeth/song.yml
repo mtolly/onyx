@@ -1,0 +1,74 @@
+global:
+  anim-tempo: 64
+metadata:
+  album: Asylum Cave
+  artist: Benighted
+  author: ThatAuthoringGroup, Onyxite
+  difficulty:
+    tier: 7
+  file-album-art: cover.png_xbox
+  genre: metal
+  preview-end: 59
+  preview-start: 29
+  subgenre: death
+  title: Let the Blood Spill Between My Broken Teeth
+  track-number: 2
+  year: 2011
+parts:
+  bass:
+    grybo:
+      difficulty:
+        tier: 5
+      fix-freeform: false
+    # original bassist (charting to this): jCRK3WC8o4Y
+    # newer bassist: 38DsH2t5CLI
+    pro-guitar:
+      tuning:
+        # B standard
+        base: bass-4
+        global: -5
+  drums:
+    # TODO replace with Chris's chart
+    drums:
+      difficulty:
+        tier: 7
+      fix-freeform: false
+      kicks: 2
+  guitar:
+    grybo:
+      difficulty:
+        tier: 7
+      fix-freeform: false
+  vocal:
+    vocal:
+      count: 2
+      difficulty:
+        tier: 1
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+        - file-lipsync: part2.lipsync
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: true
+    pans: [0, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    parts:
+      drums:
+        kick: [0]
+        kit: [1, 2]
+      bass: [3, 4]
+      guitar: [5, 6]
+      vocal: [7, 8]
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
+targets:
+  rb3-2x:
+    2x-bass-pedal: true
+    game: rb3
+    song-id: 5010998
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]
