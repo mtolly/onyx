@@ -243,15 +243,15 @@ mapMaybeFolder f dir = Folder
 
 loadQuickSongsPS3 :: (MonadIO m, SendMessage m) => B.ByteString -> Folder T.Text Readable -> StackTraceT m [QuickSong]
 loadQuickSongsPS3 packageName packageFolder = do
-  songsFolder <- case findFolder ["songs"] packageFolder of
+  songsFolder <- case findFolderCI ["songs"] packageFolder of
     Just dir -> return dir
     Nothing -> fatal $ "No songs folder found inside .pkg for: " <> show packageName
-  dta <- case findFile (pure "songs.dta") songsFolder of
+  dta <- case findFileCI (pure "songs.dta") songsFolder of
     Just r -> return r
     Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
   songRefs <- splitSongsDTA dta
   forM songRefs $ \qdta -> do
-    songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
       Just dir -> return dir
       Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
     let identifyFile (name, r) = do
@@ -271,15 +271,15 @@ loadQuickSongsPS3 packageName packageFolder = do
 
 loadQuickSongsXbox :: (MonadIO m, SendMessage m) => Folder T.Text Readable -> StackTraceT m [QuickSong]
 loadQuickSongsXbox folder = do
-  songsFolder <- case findFolder ["songs"] folder of
+  songsFolder <- case findFolderCI ["songs"] folder of
     Just dir -> return dir
     Nothing  -> fatal "No songs folder found inside CON/LIVE"
-  dta <- case findFile (pure "songs.dta") songsFolder of
+  dta <- case findFileCI (pure "songs.dta") songsFolder of
     Just r  -> return r
     Nothing -> fatal "No songs.dta found inside CON/LIVE"
   songRefs <- splitSongsDTA dta
   forM songRefs $ \qdta -> do
-    songFolder <- case findFolder [qdtaFolder qdta] songsFolder of
+    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
       Just dir -> return dir
       Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
     let identifyFile (name, r) = do

@@ -865,6 +865,7 @@ commands =
               upper = T.toUpper name
               in case T.stripSuffix ".FSB.XEN" upper of
                 Just audioName -> return $ return
+                  -- TODO need to check if it's already an MP3 FSB, and if so, just keep it as is
                   ( audioName <> ".FSB.PS3.REPLACEME"
                   , makeHandle "(empty file)" $ byteStringSimpleHandle BL.empty
                   )

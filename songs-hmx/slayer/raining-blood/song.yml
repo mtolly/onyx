@@ -5,11 +5,22 @@ targets:
     game: rb3
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+audio:
+  album-track:
+    # 1998 release
+    frames: 11253732
+    md5: 28bf454f14d4770c7d1186ce722fce5a
+  album-prev:
+    # Postmortem
+    frames: 9149280
+    md5: eb6e6e1069f8faea73c3d6258cc0b83d
 plans:
   mogg:
     file-mogg: audio.mogg
@@ -23,6 +34,17 @@ plans:
       bass: [5]
       guitar: [6, 7]
       vocal: [8, 9]
+  # hack to put the 1998 audio on the RB tempo map
+  album:
+    song:
+      fade:
+      - start
+      - 5.850
+      - stretch:
+        - 1.0007605780393098
+        - concatenate:
+          - take: [end, 8.468, album-prev]
+          - album-track
 metadata:
   rating: SupervisionRecommended
   preview-start: 2:46.088

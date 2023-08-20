@@ -217,7 +217,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
       ddiff = D.getDrumDifficulty diff thisSrc
       in case pdrums.mode of
         Drums4    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
-        Drums5    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> D.fiveToFour
+        Drums5    -> D.fiveToPro
           (case pdrums.fallback of FallbackBlue -> D.Blue; FallbackGreen -> D.Green)
           ddiff
         DrumsPro  -> D.computePro diff thisSrc

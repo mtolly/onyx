@@ -18,6 +18,10 @@ parts:
       mode: 'true'
       kicks: both
 plans:
+  # TODO there's a weird audio hiccup at 1:47.440.
+  # it appears to be accurately ripped - most youtube versions have it.
+  # but not all (see 09-WxH79X28 at 4:34). presumably the original release was ok, just 1998 messed up.
+  # can we fix it? or get another audio source?
   album:
     song:
       concatenate:

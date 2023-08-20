@@ -293,16 +293,20 @@ instance ParseTrack DrumTrack where
       }
     return DrumTrack{..}
 
-fiveToFour :: (NNC.C t) => ProColor -> RTB.T t (Gem (), DrumVelocity) -> RTB.T t (Gem (), DrumVelocity)
-fiveToFour fallback = let
+fiveToPro :: (NNC.C t) => ProColor -> RTB.T t (Gem (), DrumVelocity) -> RTB.T t (Gem ProType, DrumVelocity)
+fiveToPro fallback = let
   eachInstant instant = flip map instant $ \case
-    (Orange, vel) -> let
+    (Kick         , vel) -> (Kick             , vel)
+    (Red          , vel) -> (Red              , vel)
+    (Pro Yellow (), vel) -> (Pro Yellow Cymbal, vel)
+    (Pro Blue   (), vel) -> (Pro Blue   Tom   , vel)
+    (Pro Green  (), vel) -> (Pro Green  Tom   , vel)
+    (Orange       , vel) -> let
       color = if
         | any (\(gem, _vel) -> gem == Pro Blue  ()) instant -> Green
         | any (\(gem, _vel) -> gem == Pro Green ()) instant -> Blue
         | otherwise                                         -> fallback
-      in (Pro color (), vel)
-    x -> x
+      in (Pro color Cymbal, vel)
   in RTB.flatten . fmap eachInstant . RTB.collectCoincident
 
 getDrumDifficulty :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem (), DrumVelocity)

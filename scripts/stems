@@ -8,6 +8,8 @@ script_dir=`readlink -f "$(dirname "$0")"`
 hash=`md5sum "$file_in" | awk '{print $1}'`
 temp_file="audio-$hash"
 model=htdemucs_ft
+# external system to run demucs on
+remote=192.168.1.142
 
 if [[ -f "$file_out" ]]; then
   # output already exists, no need to rerun
@@ -18,9 +20,18 @@ demucs_in="/tmp/$temp_file.wav"
 demucs_out="$script_dir/demucs/$model/$temp_file"
 if [[ ! -d "$demucs_out" ]]; then
   # stems don't already exist, so we need to run demucs
-  cp "$file_in" "$demucs_in"
-  demucs -n "$model" "$demucs_in" -o "$script_dir/demucs"
-  rm -f "$demucs_in"
+  if [[ -z "$remote" ]]; then
+    # local version
+    cp "$file_in" "$demucs_in"
+    demucs -n "$model" "$demucs_in" -o "$script_dir/demucs"
+    rm -f "$demucs_in"
+  else
+    # remote version
+    rsync "$file_in" "$remote":"$demucs_in"
+    ssh "$remote" "demucs -n $model "$demucs_in" -o /tmp/demucs"
+    mkdir -p "$script_dir/demucs/$model"
+    rsync -r "$remote":"/tmp/demucs/$model/$temp_file" "$script_dir/demucs/$model/"
+  fi
 fi
 rm -f "$file_out"
 # merge the 4 input files together channelwise, to make an 8-channel file

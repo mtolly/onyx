@@ -1364,9 +1364,9 @@ makePack inputs@(input : _) applyOpts fout = do
 findGH2DXAlbumArt :: Folder T.Text Readable -> Maybe (Folder T.Text Readable)
 findGH2DXAlbumArt root = let
   art = do
-    songs <- toList $ findFolder (return "songs") root
+    songs <- toList $ findFolderCI (return "songs") root
     (songName, song) <- folderSubfolders songs
-    gen <- toList $ findFolder (return "gen") song
+    gen <- toList $ findFolderCI (return "gen") song
     return (songName, do
       bmp@(bmpName, _) <- folderFiles gen
       guard $ ".bmp_xbox" `T.isSuffixOf` bmpName

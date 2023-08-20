@@ -219,6 +219,13 @@ findFolder (dir : rest) folder = do
   sub <- lookup dir $ folderSubfolders folder
   findFolder rest sub
 
+-- Case-insensitive
+findFolderCI :: [T.Text] -> Folder T.Text a -> Maybe (Folder T.Text a)
+findFolderCI []           folder = Just folder
+findFolderCI (dir : rest) folder = do
+  sub <- lookup (T.toCaseFold dir) $ map (first T.toCaseFold) $ folderSubfolders folder
+  findFolderCI rest sub
+
 findFile :: (Eq p) => NE.NonEmpty p -> Folder p a -> Maybe a
 findFile spath folder = case NE.uncons spath of
   (dir, Just rest) -> do

@@ -105,6 +105,7 @@ data RBImport = RBImport
 
 importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importSTFSFolder src folder = do
+  -- TODO some lookups like findByteString, we may want to make case-insensitive
   packSongs <- stackIO (findByteString ("songs" :| ["songs.dta"]) folder) >>= \case
     Just bs -> readDTASingles $ BL.toStrict bs
     Nothing -> stackIO (findByteString ("songs" :| ["gen", "songs.dtb"]) folder) >>= \case

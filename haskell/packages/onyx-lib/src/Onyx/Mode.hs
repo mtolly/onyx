@@ -191,17 +191,11 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     DrumTargetRB2x -> rockBand2x
     _              -> id
 
-  drumEachDiff f dt = dt { D.drumDifficulties = fmap f $ D.drumDifficulties dt }
-  step5to4 = if pd.mode == Drums5 && isRBTarget
-    then drumEachDiff $ \dd -> dd
-      { D.drumGems = D.fiveToFour
-        (case pd.fallback of
-          FallbackBlue  -> D.Blue
-          FallbackGreen -> D.Green
-        )
-        (D.drumGems dd)
-      }
-    else id
+  diffFiveToPro = D.fiveToPro
+    (case pd.fallback of
+      FallbackBlue  -> D.Blue
+      FallbackGreen -> D.Green
+    ) . D.drumGems
 
   isBasicSource = case pd.mode of
     Drums4 -> True
@@ -210,11 +204,11 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
   src'
     = (if pd.fixFreeform then F.fixFreeformDrums else id)
-    $ step5to4 $ stepRBKicks $ stepAddKicks src
+    $ stepRBKicks $ stepAddKicks src
 
-  modifyProType ptype = if isBasicSource
-    then if isRBTarget then D.Tom else D.Cymbal
-    else ptype
+  -- for RB3 we want to mark all notes as tom.
+  -- however for CH/PS output we want no tom markers as they will handle as non-pro correctly.
+  basicToProType = if isRBTarget then D.Tom else D.Cymbal
 
   -- TODO pro to 5 conversion (for GH target)
   -- Move logic from Neversoft.Export to here
@@ -223,7 +217,10 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     { settings = void pd
     , notes = Map.fromList $ do
       diff <- [minBound .. maxBound]
-      let gems = first (fmap modifyProType) <$> D.computePro (Just diff) src'
+      let gems = case pd.mode of
+            Drums4 -> first (basicToProType <$) <$> D.computePro (Just diff) src'
+            Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
+            _      -> D.computePro (Just diff) src'
       guard $ not $ RTB.null gems
       return (diff, gems)
     , other = src'
