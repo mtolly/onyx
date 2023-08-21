@@ -1,0 +1,263 @@
+metadata:
+  title: Reign in Blood
+  artist: Slayer
+  album: Reign in Blood
+  year: 1986
+  file-album-art: cover.jpg
+  genre: metal
+  subgenre: thrash
+  author: Onyxite, Inventor211
+  track-number: 13 # come after the 10 tracks + 2 bonus tracks even though not charting them
+
+audio:
+
+  # 1998 release
+  album-01:
+    md5: c202d414e3ce039366320871373e6378
+    frames: 12867204
+  album-02:
+    md5: 92953ccbf86406e3dd80a1a5602752bd
+    frames: 5404896
+  album-03:
+    md5: a7dd717ad33e4130929c82d66451b544
+    frames: 4432344
+  album-04:
+    md5: 0d9fae39395d93486a95f069c0ad2e2d
+    frames: 7517580
+  album-05:
+    md5: c6d76cad209af4cff9b43cd91e1d3971
+    frames: 7680456
+  album-06:
+    md5: 18aa456138e2c36ce68206a3d27cec13
+    frames: 6306300
+  album-07:
+    md5: b8ce6444f0b24289747a615afb33697b
+    frames: 5800620
+  album-08:
+    md5: e5ce2b04972db713a28d1279b7453ae2
+    frames: 6308064
+  album-09:
+    md5: eb6e6e1069f8faea73c3d6258cc0b83d
+    frames: 9149280
+  album-10:
+    md5: 28bf454f14d4770c7d1186ce722fce5a
+    frames: 11253732
+
+  stems-01:
+    file-path: audio-stems-01.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-01) audio-stems-01.wav
+    channels: 8
+  stems-02:
+    file-path: audio-stems-02.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-02) audio-stems-02.wav
+    channels: 8
+  stems-03:
+    file-path: audio-stems-03.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-03) audio-stems-03.wav
+    channels: 8
+  stems-04:
+    file-path: audio-stems-04.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-04) audio-stems-04.wav
+    channels: 8
+  stems-05:
+    file-path: audio-stems-05.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-05) audio-stems-05.wav
+    channels: 8
+  stems-06:
+    file-path: audio-stems-06.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-06) audio-stems-06.wav
+    channels: 8
+  stems-07:
+    file-path: audio-stems-07.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-07) audio-stems-07.wav
+    channels: 8
+  stems-08:
+    file-path: audio-stems-08.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-08) audio-stems-08.wav
+    channels: 8
+  stems-09:
+    file-path: audio-stems-09.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-09) audio-stems-09.wav
+    channels: 8
+  stems-10:
+    file-path: audio-stems-10.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-10) audio-stems-10.wav
+    channels: 8
+
+jammit:
+  jammit-01:
+    title: Angel of Death
+  jammit-10:
+    title: Raining Blood
+
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+plans:
+  # note: Angel of Death tempo map from Inventor, but all tempos sped up
+  # at rate of 0.998538 to sync with 1998 audio
+  album:
+    song:
+      pad:
+      - 3.014
+      - concatenate:
+        - album-01
+        - album-02
+        - album-03
+        - album-04
+        - album-05
+        - album-06
+        - album-07
+        - album-08
+        - album-09
+        - album-10
+  dev:
+    song:
+      pad:
+      - 3.014
+      - concatenate:
+        - album-01
+        - album-02
+        - album-03
+        - album-04
+        - album-05
+        - album-06
+        - album-07
+        - album-08
+        - album-09
+        - album-10
+    parts:
+
+      demucs-bass:
+        pad:
+        - 3.014
+        - concatenate:
+          - channels: [[0, 1], stems-01]
+          - channels: [[0, 1], stems-02]
+          - channels: [[0, 1], stems-03]
+          - channels: [[0, 1], stems-04]
+          - channels: [[0, 1], stems-05]
+          - channels: [[0, 1], stems-06]
+          - channels: [[0, 1], stems-07]
+          - channels: [[0, 1], stems-08]
+          - channels: [[0, 1], stems-09]
+          - channels: [[0, 1], stems-10]
+      demucs-drums:
+        pad:
+        - 3.014
+        - concatenate:
+          - channels: [[2, 3], stems-01]
+          - channels: [[2, 3], stems-02]
+          - channels: [[2, 3], stems-03]
+          - channels: [[2, 3], stems-04]
+          - channels: [[2, 3], stems-05]
+          - channels: [[2, 3], stems-06]
+          - channels: [[2, 3], stems-07]
+          - channels: [[2, 3], stems-08]
+          - channels: [[2, 3], stems-09]
+          - channels: [[2, 3], stems-10]
+      demucs-vocal:
+        pad:
+        - 3.014
+        - concatenate:
+          - channels: [[4, 5], stems-01]
+          - channels: [[4, 5], stems-02]
+          - channels: [[4, 5], stems-03]
+          - channels: [[4, 5], stems-04]
+          - channels: [[4, 5], stems-05]
+          - channels: [[4, 5], stems-06]
+          - channels: [[4, 5], stems-07]
+          - channels: [[4, 5], stems-08]
+          - channels: [[4, 5], stems-09]
+          - channels: [[4, 5], stems-10]
+      demucs-other:
+        pad:
+        - 3.014
+        - concatenate:
+          - channels: [[6, 7], stems-01]
+          - channels: [[6, 7], stems-02]
+          - channels: [[6, 7], stems-03]
+          - channels: [[6, 7], stems-04]
+          - channels: [[6, 7], stems-05]
+          - channels: [[6, 7], stems-06]
+          - channels: [[6, 7], stems-07]
+          - channels: [[6, 7], stems-08]
+          - channels: [[6, 7], stems-09]
+          - channels: [[6, 7], stems-10]
+
+      jammit-01-guitar-1:
+        pad: [2.345, stretch: [0.9985369, only: [Guitar 1, jammit-01]]]
+      jammit-01-guitar-2:
+        pad: [2.345, stretch: [0.9985369, only: [Guitar 2, jammit-01]]]
+      jammit-01-bass:
+        pad: [2.345, stretch: [0.9985369, only: [Bass, jammit-01]]]
+      jammit-01-drums:
+        pad: [2.345, stretch: [0.9985369, only: [Drums, jammit-01]]]
+      jammit-01-vocal:
+        pad: [2.345, stretch: [0.9985369, only: [Vocal, jammit-01]]]
+      jammit-01-backing:
+        pad:
+        - 2.345
+        - stretch:
+          - 0.9985369
+          - mix:
+            - without: [drums, jammit-01]
+            - gain:
+              - -1
+              - mix:
+                - only: [Guitar 1, jammit-01]
+                - only: [Guitar 2, jammit-01]
+                - only: [Bass, jammit-01]
+                - only: [Vocal, jammit-01]
+
+      jammit-10-guitar-1:
+        pad: ['24:46.149', stretch: [0.998152, only: [Guitar 1, jammit-10]]]
+      jammit-10-guitar-2:
+        pad: ['24:46.149', stretch: [0.998152, only: [Guitar 2, jammit-10]]]
+      jammit-10-bass:
+        pad: ['24:46.149', stretch: [0.998152, only: [Bass, jammit-10]]]
+      jammit-10-drums:
+        pad: ['24:46.149', stretch: [0.998152, only: [Drums, jammit-10]]]
+      jammit-10-vocal:
+        pad: ['24:46.149', stretch: [0.998152, only: [Vocal, jammit-10]]]
+      jammit-10-backing:
+        pad:
+        - '24:46.149'
+        - stretch:
+          - 0.998152
+          - mix:
+            - without: [drums, jammit-10]
+            - gain:
+              - -1
+              - mix:
+                - only: [Guitar 1, jammit-10]
+                - only: [Guitar 2, jammit-10]
+                - only: [Bass, jammit-10]
+                - only: [Vocal, jammit-10]
+
+targets:
+
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album
+
+  # TODO individual songs
