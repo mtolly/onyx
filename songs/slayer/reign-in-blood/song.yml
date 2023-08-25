@@ -43,6 +43,38 @@ audio:
     md5: 28bf454f14d4770c7d1186ce722fce5a
     frames: 11253732
 
+  countin-01:
+    samples: {}
+  countin-02:
+    samples: {}
+  countin-03:
+    samples: {}
+  countin-04:
+    samples: {}
+  countin-05:
+    samples: {}
+  countin-06:
+    samples: {}
+  countin-07:
+    samples: {}
+  countin-08:
+    samples: {}
+  countin-09:
+    samples: {}
+  countin-leo:
+    file-path: countin-leo.ogg
+  countin-hit:
+    # TODO find something better
+    file-path: ../../../sound/hihat-foot.wav
+  countin-stick:
+    # TODO find something better
+    file-path: ../../../sound/onyx-dtx/output/chip-snare-rim.ogg
+
+  # this uses a modified version of the RB3 DLC ending, which has a nice final snare hit.
+  # also fades out the end thunderstorm a bit.
+  album-10-edited:
+    file-path: raining-blood-edit.wav
+
   stems-01:
     file-path: audio-stems-01.wav
     commands:
@@ -106,23 +138,81 @@ parts:
       mode: 'true'
       kicks: both
 plans:
+
   # note: Angel of Death tempo map from Inventor, but all tempos sped up
   # at rate of 0.998538 to sync with 1998 audio
+
+  # TODO there's a weird audio hiccup in Jesus Saves at about 1:47.
+  # it appears to be accurately ripped - most youtube versions have it.
+  # but not all (see 09-WxH79X28 at 4:34). presumably the original release was ok, just 1998 messed up.
+  # can we fix it? or get another audio source?
+
+  # full album audio, only countin in the beginning
   album:
     song:
-      pad:
-      - 3.014
-      - concatenate:
-        - album-01
-        - album-02
-        - album-03
-        - album-04
-        - album-05
-        - album-06
-        - album-07
-        - album-08
-        - album-09
-        - album-10
+      mix:
+      - countin-01
+      - pad:
+        - 3.014
+        - concatenate:
+          - album-01
+          - album-02
+          - album-03
+          - album-04
+          - album-05
+          - album-06
+          - album-07
+          - album-08
+          - album-09
+          - album-10-edited
+
+  # per-song audio
+  album-01:
+    song:
+      mix:
+      - countin-01
+      - pad: [3.014, album-01]
+  album-02:
+    song:
+      mix:
+      - countin-02
+      - pad: [294.787, album-02]
+  album-03:
+    song:
+      mix:
+      - countin-03
+      - pad: [417.347, album-03]
+  album-04:
+    song:
+      mix:
+      - countin-04
+      - pad: [517.854, album-04]
+  album-05:
+    song:
+      mix:
+      - countin-05
+      - pad: [517.854, concatenate: [album-04, album-05]]
+  album-06:
+    song:
+      mix:
+      - countin-06
+      - pad: [862.480, album-06]
+  album-07:
+    song:
+      mix:
+      - countin-07
+      - pad: [1005.480, album-07]
+  album-08:
+    song:
+      mix:
+      - countin-08
+      - pad: [1137.014, album-08]
+  album-09-10:
+    song:
+      mix:
+      - countin-09
+      - pad: [1280.054, concatenate: [album-09, album-10-edited]]
+
   dev:
     song:
       pad:
@@ -137,9 +227,10 @@ plans:
         - album-07
         - album-08
         - album-09
-        - album-10
+        - album-10-edited
     parts:
 
+      # DIY stems
       demucs-bass:
         pad:
         - 3.014
@@ -197,67 +288,395 @@ plans:
           - channels: [[6, 7], stems-09]
           - channels: [[6, 7], stems-10]
 
-      jammit-01-guitar-1:
-        pad: [2.345, stretch: [0.9985369, only: [Guitar 1, jammit-01]]]
-      jammit-01-guitar-2:
-        pad: [2.345, stretch: [0.9985369, only: [Guitar 2, jammit-01]]]
-      jammit-01-bass:
-        pad: [2.345, stretch: [0.9985369, only: [Bass, jammit-01]]]
-      jammit-01-drums:
-        pad: [2.345, stretch: [0.9985369, only: [Drums, jammit-01]]]
-      jammit-01-vocal:
-        pad: [2.345, stretch: [0.9985369, only: [Vocal, jammit-01]]]
-      jammit-01-backing:
-        pad:
-        - 2.345
-        - stretch:
-          - 0.9985369
-          - mix:
-            - without: [drums, jammit-01]
-            - gain:
-              - -1
-              - mix:
-                - only: [Guitar 1, jammit-01]
-                - only: [Guitar 2, jammit-01]
-                - only: [Bass, jammit-01]
-                - only: [Vocal, jammit-01]
-
-      jammit-10-guitar-1:
-        pad: ['24:46.149', stretch: [0.998152, only: [Guitar 1, jammit-10]]]
-      jammit-10-guitar-2:
-        pad: ['24:46.149', stretch: [0.998152, only: [Guitar 2, jammit-10]]]
-      jammit-10-bass:
-        pad: ['24:46.149', stretch: [0.998152, only: [Bass, jammit-10]]]
-      jammit-10-drums:
-        pad: ['24:46.149', stretch: [0.998152, only: [Drums, jammit-10]]]
-      jammit-10-vocal:
-        pad: ['24:46.149', stretch: [0.998152, only: [Vocal, jammit-10]]]
-      jammit-10-backing:
-        pad:
-        - '24:46.149'
-        - stretch:
-          - 0.998152
-          - mix:
-            - without: [drums, jammit-10]
-            - gain:
-              - -1
-              - mix:
-                - only: [Guitar 1, jammit-10]
-                - only: [Guitar 2, jammit-10]
-                - only: [Bass, jammit-10]
-                - only: [Vocal, jammit-10]
+      # jammit stems for Angel of Death and Raining Blood
+      jammit-guitar-1:
+        mix:
+        - pad: [2.345, stretch: [0.9985369, only: [Guitar 1, jammit-01]]]
+        - pad: ['24:46.149', stretch: [0.998152, only: [Guitar 1, jammit-10]]]
+      jammit-guitar-2:
+        mix:
+        - pad: [2.345, stretch: [0.9985369, only: [Guitar 2, jammit-01]]]
+        - pad: ['24:46.149', stretch: [0.998152, only: [Guitar 2, jammit-10]]]
+      jammit-bass:
+        mix:
+        - pad: [2.345, stretch: [0.9985369, only: [Bass, jammit-01]]]
+        - pad: ['24:46.149', stretch: [0.998152, only: [Bass, jammit-10]]]
+      jammit-drums:
+        mix:
+        - pad: [2.345, stretch: [0.9985369, only: [Drums, jammit-01]]]
+        - pad: ['24:46.149', stretch: [0.998152, only: [Drums, jammit-10]]]
+      jammit-vocal:
+        mix:
+        - pad: [2.345, stretch: [0.9985369, only: [Vocal, jammit-01]]]
+        - pad: ['24:46.149', stretch: [0.998152, only: [Vocal, jammit-10]]]
+      jammit-backing:
+        mix:
+        - pad:
+          - 2.345
+          - stretch:
+            - 0.9985369
+            - mix:
+              - without: [drums, jammit-01]
+              - gain:
+                - -1
+                - mix:
+                  - only: [Guitar 1, jammit-01]
+                  - only: [Guitar 2, jammit-01]
+                  - only: [Bass, jammit-01]
+                  - only: [Vocal, jammit-01]
+        - pad:
+          - '24:46.149'
+          - stretch:
+            - 0.998152
+            - mix:
+              - without: [drums, jammit-10]
+              - gain:
+                - -1
+                - mix:
+                  - only: [Guitar 1, jammit-10]
+                  - only: [Guitar 2, jammit-10]
+                  - only: [Bass, jammit-10]
+                  - only: [Vocal, jammit-10]
 
 targets:
 
   rb3:
     game: rb3
+    magma: false
     plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    magma: false
     plan: album
   ps:
     game: ps
     plan: album
 
-  # TODO individual songs
+  01-rb3:
+    title: Angel of Death
+    # track-number: 1
+    # author: Inventor211
+    game: rb3
+    plan: album-01
+    magma: false
+    end:
+      &end-01
+      notes: 245|0
+      fade-start: 246|0
+      fade-end: 246|0
+  01-rb3-2x:
+    title: Angel of Death
+    # track-number: 1
+    # author: Inventor211
+    game: rb3
+    plan: album-01
+    magma: false
+    2x-bass-pedal: true
+    end: *end-01
+  01-ps:
+    title: Angel of Death
+    # track-number: 1
+    # author: Inventor211
+    game: ps
+    plan: album-01
+    end: *end-01
+
+  02-rb3:
+    title: Piece by Piece
+    # track-number: 2
+    # author: Onyxite
+    game: rb3
+    plan: album-02
+    start:
+      &start-02
+      fade-start: 246|0
+      fade-end: 246|0
+      notes: 246|0
+    end:
+      &end-02
+      notes: 346|0
+      fade-start: 347|0
+      fade-end: 347|0
+  02-rb3-2x:
+    title: Piece by Piece
+    # track-number: 2
+    # author: Onyxite
+    game: rb3
+    plan: album-02
+    2x-bass-pedal: true
+    start: *start-02
+    end: *end-02
+  02-ps:
+    title: Piece by Piece
+    # track-number: 2
+    # author: Onyxite
+    game: ps
+    plan: album-02
+    start: *start-02
+    end: *end-02
+
+  03-rb3:
+    title: Necrophobic
+    # track-number: 3
+    # author: Onyxite
+    game: rb3
+    plan: album-03
+    start:
+      &start-03
+      fade-start: 346|0
+      fade-end: 346|0
+      notes: 346|0
+    end:
+      &end-03
+      notes: 441|0
+      fade-start: 442|0
+      fade-end: 442|0
+  03-rb3-2x:
+    title: Necrophobic
+    # track-number: 3
+    # author: Onyxite
+    game: rb3
+    plan: album-03
+    2x-bass-pedal: true
+    start: *start-03
+    end: *end-03
+  03-ps:
+    title: Necrophobic
+    # track-number: 3
+    # author: Onyxite
+    game: ps
+    plan: album-03
+    start: *start-03
+    end: *end-03
+
+  04-rb3:
+    title: Altar of Sacrifice
+    # track-number: 4
+    # author: Onyxite
+    game: rb3
+    plan: album-04
+    start:
+      &start-04
+      fade-start: 441|0
+      fade-end: 441|0
+      notes: 441|0
+    end:
+      &end-04
+      notes: 617|3
+      fade-start: 616|4
+      fade-end: 617|3
+  04-rb3-2x:
+    title: Altar of Sacrifice
+    # track-number: 4
+    # author: Onyxite
+    game: rb3
+    plan: album-04
+    2x-bass-pedal: true
+    start: *start-04
+    end: *end-04
+  04-ps:
+    title: Altar of Sacrifice
+    # track-number: 4
+    # author: Onyxite
+    game: ps
+    plan: album-04
+    start: *start-04
+    end: *end-04
+
+  05-rb3:
+    title: Jesus Saves
+    # track-number: 5
+    # author: Onyxite
+    game: rb3
+    plan: album-05
+    start:
+      &start-05
+      fade-start: 616|4
+      fade-end: 617|3
+      notes: 617|3
+    end:
+      &end-05
+      notes: 752|4
+      fade-start: 752|4
+      fade-end: 752|4
+  05-rb3-2x:
+    title: Jesus Saves
+    # track-number: 5
+    # author: Onyxite
+    game: rb3
+    plan: album-05
+    2x-bass-pedal: true
+    start: *start-05
+    end: *end-05
+  05-ps:
+    title: Jesus Saves
+    # track-number: 5
+    # author: Onyxite
+    game: ps
+    plan: album-05
+    start: *start-05
+    end: *end-05
+
+  06-rb3:
+    title: Criminally Insane
+    # track-number: 6
+    # author: Onyxite
+    game: rb3
+    plan: album-06
+    start:
+      &start-06
+      fade-start: 752|1
+      fade-end: 752|1
+      notes: 752|1
+    end:
+      &end-06
+      notes: 841|4
+      fade-start: 841|4
+      fade-end: 841|4
+  06-rb3-2x:
+    title: Criminally Insane
+    # track-number: 6
+    # author: Onyxite
+    game: rb3
+    plan: album-06
+    2x-bass-pedal: true
+    start: *start-06
+    end: *end-06
+  06-ps:
+    title: Criminally Insane
+    # track-number: 6
+    # author: Onyxite
+    game: ps
+    plan: album-06
+    start: *start-06
+    end: *end-06
+
+  07-rb3:
+    title: Reborn
+    # track-number: 7
+    # author: Onyxite
+    game: rb3
+    plan: album-07
+    start:
+      &start-07
+      fade-start: 841|1
+      fade-end: 841|1
+      notes: 841|1
+    end:
+      &end-07
+      notes: 957|3
+      fade-start: 957|3
+      fade-end: 957|3
+  07-rb3-2x:
+    title: Reborn
+    # track-number: 7
+    # author: Onyxite
+    game: rb3
+    plan: album-07
+    2x-bass-pedal: true
+    start: *start-07
+    end: *end-07
+  07-ps:
+    title: Reborn
+    # track-number: 7
+    # author: Onyxite
+    game: ps
+    plan: album-07
+    start: *start-07
+    end: *end-07
+
+  08-rb3:
+    title: Epidemic
+    # track-number: 8
+    # author: Onyxite
+    game: rb3
+    plan: album-08
+    start:
+      &start-08
+      fade-start: 957|0
+      fade-end: 957|0
+      notes: 957|0
+    end:
+      &end-08
+      notes: 1071|2
+      fade-start: 1071|2
+      fade-end: 1071|2
+  08-rb3-2x:
+    title: Epidemic
+    # track-number: 8
+    # author: Onyxite
+    game: rb3
+    plan: album-08
+    2x-bass-pedal: true
+    start: *start-08
+    end: *end-08
+  08-ps:
+    title: Epidemic
+    # track-number: 8
+    # author: Onyxite
+    game: ps
+    plan: album-08
+    start: *start-08
+    end: *end-08
+
+  09-rb3:
+    title: Postmortem
+    # track-number: 9
+    # author: Onyxite
+    game: rb3
+    plan: album-09-10
+    start:
+      &start-09
+      fade-start: 1071|0
+      fade-end: 1071|0
+      notes: 1071|0
+    end:
+      &end-09
+      notes: 1211|2
+      fade-start: 1211|2
+      fade-end: 1215|0
+  09-rb3-2x:
+    title: Postmortem
+    # track-number: 9
+    # author: Onyxite
+    game: rb3
+    plan: album-09-10
+    2x-bass-pedal: true
+    start: *start-09
+    end: *end-09
+  09-ps:
+    title: Postmortem
+    # track-number: 9
+    # author: Onyxite
+    game: ps
+    plan: album-09-10
+    start: *start-09
+    end: *end-09
+
+  10-rb3:
+    title: Raining Blood
+    # track-number: 10
+    # author: Onyxite
+    game: rb3
+    plan: album-09-10
+    start:
+      &start-10
+      fade-start: 1207|0
+      fade-end: 1209|3.5
+      notes: 1210|0
+  10-rb3-2x:
+    title: Raining Blood
+    # track-number: 10
+    # author: Onyxite
+    game: rb3
+    plan: album-09-10
+    2x-bass-pedal: true
+    start: *start-10
+  10-ps:
+    title: Raining Blood
+    # track-number: 10
+    # author: Onyxite
+    game: ps
+    plan: album-09-10
+    start: *start-10

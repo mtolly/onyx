@@ -164,7 +164,7 @@ applyTargetMIDI tgt mid = let
               in if barRemainder == 0
                 then U.trackGlueZero [sig] keep -- cut point is on an existing barline
                 else let
-                  partial = barRemainder * len
+                  partial = (1 - barRemainder) * len
                   afterPartial = U.trackDrop partial keep
                   in U.trackGlueZero [U.measureLengthToTimeSig partial] $
                     case U.trackTakeZero afterPartial of

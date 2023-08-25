@@ -205,9 +205,10 @@ psRules buildInfo dir ps = do
       loadPSMidi = do
         (diffs, _) <- loadEditedParts
         mid <- shakeMIDI $ planDir </> "processed.mid"
+        let midSegment = applyTargetMIDI ps.common mid
         -- should just retrieve the events already there
-        timing <- RB3.basicTiming mid $ getAudioLength buildInfo planName plan
-        let endSecs = U.applyTempoMap (F.s_tempos mid) $ RB3.timingEnd timing
+        timing <- RB3.basicTiming midSegment $ getAudioLength buildInfo planName plan
+        let endSecs = U.applyTempoMap (F.s_tempos midSegment) $ RB3.timingEnd timing
         return (mid, diffs, psDifficultyRB3 diffs, endSecs)
   -- TODO for mix mode 4 (kick + kit), we should create only
   --   drums_1 (kick) and drums_2 (kit). currently we create
