@@ -58,7 +58,7 @@ extra-deps:
 #   - Cabal
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
-resolver: nightly-2022-09-17
+resolver: lts-20.26
 flags:
   fltkhs:
     bundled: true
