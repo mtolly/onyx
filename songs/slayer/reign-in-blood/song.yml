@@ -75,6 +75,17 @@ audio:
   album-10-edited:
     file-path: raining-blood-edit.wav
 
+  # this is a small edited snippet from
+  # Slayer-Reign_In_Blood-24-192-WEB-FLAC-REMASTERED-2015-OBZEN
+  # which we use to fix a hiccup in the 1998 audio
+  album-05-patch:
+    file-path: jesus-saves-patch.wav
+  album-05-edited:
+    expr:
+      mix:
+      - album-05
+      - pad: ['1:43.969', album-05-patch]
+
   stems-01:
     file-path: audio-stems-01.wav
     commands:
@@ -142,11 +153,6 @@ plans:
   # note: Angel of Death tempo map from Inventor, but all tempos sped up
   # at rate of 0.998538 to sync with 1998 audio
 
-  # TODO there's a weird audio hiccup in Jesus Saves at about 1:47.
-  # it appears to be accurately ripped - most youtube versions have it.
-  # but not all (see 09-WxH79X28 at 4:34). presumably the original release was ok, just 1998 messed up.
-  # can we fix it? or get another audio source?
-
   # full album audio, only countin in the beginning
   album:
     song:
@@ -160,7 +166,7 @@ plans:
           - album-02
           - album-03
           - album-04
-          - album-05
+          - album-05-edited
           - album-06
           - album-07
           - album-08
@@ -192,7 +198,7 @@ plans:
     song:
       mix:
       - countin-05
-      - pad: [517.854, concatenate: [album-04, album-05]]
+      - pad: [517.854, concatenate: [album-04, album-05-edited]]
   album-06:
     song:
       mix:
@@ -223,7 +229,7 @@ plans:
         - album-02
         - album-03
         - album-04
-        - album-05
+        - album-05-edited
         - album-06
         - album-07
         - album-08
@@ -343,12 +349,10 @@ targets:
 
   rb3:
     game: rb3
-    magma: false
     plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    magma: false
     plan: album
   ps:
     game: ps
@@ -360,7 +364,6 @@ targets:
     author: Inventor211
     game: rb3
     plan: album-01
-    magma: false
     end:
       &end-01
       notes: 245|0
@@ -372,7 +375,6 @@ targets:
     author: Inventor211
     game: rb3
     plan: album-01
-    magma: false
     2x-bass-pedal: true
     end: *end-01
   01-ps:
