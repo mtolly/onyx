@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveFoldable        #-}
@@ -559,7 +560,7 @@ instance StackJSON F.FlexPartName where
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
   | Rank Integer -- ^ [1..]
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance StackJSON Difficulty where
   stackJSON = Codec
@@ -889,7 +890,7 @@ data Rating
   | SupervisionRecommended
   | Mature
   | Unrated
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackJSON Rating where
   stackJSON = enumCodecFull "a valid content rating or null" $ \case
@@ -956,7 +957,7 @@ data Metadata f = Metadata
   , expertOnly   :: Bool
   , cover        :: Bool
   , difficulty   :: Difficulty
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 parseAnimTempo :: (SendMessage m) => ValueCodec m A.Value (Either AnimTempo Integer)
 parseAnimTempo = eitherCodec
@@ -968,36 +969,41 @@ parseAnimTempo = eitherCodec
   stackJSON
 
 instance (Eq f, StackJSON f) => StackJSON (Metadata f) where
-  stackJSON = asStrictObject "Metadata" $ do
-    let stripped = fmap (fmap T.strip) stackJSON
-    title        <- (.title       ) =. warning Nothing  "title"          stripped
-    titleJP      <- (.titleJP     ) =. opt     Nothing  "title-jp"       stripped
-    artist       <- (.artist      ) =. warning Nothing  "artist"         stripped
-    artistJP     <- (.artistJP    ) =. opt     Nothing  "artist-jp"      stripped
-    album        <- (.album       ) =. opt     Nothing  "album"          stripped
-    genre        <- (.genre       ) =. warning Nothing  "genre"          stripped
-    subgenre     <- (.subgenre    ) =. opt     Nothing  "subgenre"       stripped
-    year         <- (.year        ) =. warning Nothing  "year"           stackJSON
-    fileAlbumArt <- (.fileAlbumArt) =. opt     Nothing  "file-album-art" stackJSON
-    trackNumber  <- (.trackNumber ) =. opt     Nothing  "track-number"   stackJSON
-    comments     <- (.comments    ) =. opt     []       "comments"       stackJSON
-    key          <- (.key         ) =. opt     Nothing  "key"            (maybeCodec parseSongKey)
-    author       <- (.author      ) =. warning Nothing  "author"         stripped
-    rating       <- (.rating      ) =. opt     Unrated  "rating"         stackJSON
-    previewStart <- (.previewStart) =. opt     Nothing  "preview-start"  stackJSON
-    previewEnd   <- (.previewEnd  ) =. opt     Nothing  "preview-end"    stackJSON
-    languages    <- (.languages   ) =. opt     []       "languages"      stackJSON
-    convert      <- (.convert     ) =. opt     False    "convert"        stackJSON
-    rhythmKeys   <- (.rhythmKeys  ) =. opt     False    "rhythm-keys"    stackJSON
-    rhythmBass   <- (.rhythmBass  ) =. opt     False    "rhythm-bass"    stackJSON
-    catEMH       <- (.catEMH      ) =. opt     False    "cat-emh"        stackJSON
-    expertOnly   <- (.expertOnly  ) =. opt     False    "expert-only"    stackJSON
-    cover        <- (.cover       ) =. opt     False    "cover"          stackJSON
-    difficulty   <- (.difficulty  ) =. fill    (Tier 1) "difficulty"     stackJSON
-    return Metadata{..}
+  stackJSON = asStrictObject "Metadata" $ parseMetadata True
 
-instance (Eq f, StackJSON f) => Default (Metadata f) where
-  def = fromEmptyObject
+parseMetadata :: (SendMessage m, Eq f, StackJSON f) => Bool -> ObjectCodec m A.Value (Metadata f)
+parseMetadata warnings = do
+  let stripped = fmap (fmap T.strip) stackJSON
+      core :: (SendMessage m, Show v, Eq a) => a -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
+      core = if warnings then warning else opt
+  title        <- (.title       ) =. core Nothing  "title"          stripped
+  titleJP      <- (.titleJP     ) =. opt  Nothing  "title-jp"       stripped
+  artist       <- (.artist      ) =. core Nothing  "artist"         stripped
+  artistJP     <- (.artistJP    ) =. opt  Nothing  "artist-jp"      stripped
+  album        <- (.album       ) =. opt  Nothing  "album"          stripped
+  genre        <- (.genre       ) =. core Nothing  "genre"          stripped
+  subgenre     <- (.subgenre    ) =. opt  Nothing  "subgenre"       stripped
+  year         <- (.year        ) =. core Nothing  "year"           stackJSON
+  fileAlbumArt <- (.fileAlbumArt) =. opt  Nothing  "file-album-art" stackJSON
+  trackNumber  <- (.trackNumber ) =. opt  Nothing  "track-number"   stackJSON
+  comments     <- (.comments    ) =. opt  []       "comments"       stackJSON
+  key          <- (.key         ) =. opt  Nothing  "key"            (maybeCodec parseSongKey)
+  author       <- (.author      ) =. core Nothing  "author"         stripped
+  rating       <- (.rating      ) =. opt  Unrated  "rating"         stackJSON
+  previewStart <- (.previewStart) =. opt  Nothing  "preview-start"  stackJSON
+  previewEnd   <- (.previewEnd  ) =. opt  Nothing  "preview-end"    stackJSON
+  languages    <- (.languages   ) =. opt  []       "languages"      stackJSON
+  convert      <- (.convert     ) =. opt  False    "convert"        stackJSON
+  rhythmKeys   <- (.rhythmKeys  ) =. opt  False    "rhythm-keys"    stackJSON
+  rhythmBass   <- (.rhythmBass  ) =. opt  False    "rhythm-bass"    stackJSON
+  catEMH       <- (.catEMH      ) =. opt  False    "cat-emh"        stackJSON
+  expertOnly   <- (.expertOnly  ) =. opt  False    "expert-only"    stackJSON
+  cover        <- (.cover       ) =. opt  False    "cover"          stackJSON
+  difficulty   <- (.difficulty  ) =. fill (Tier 1) "difficulty"     stackJSON
+  return Metadata{..}
+
+instance Default (Metadata f) where
+  def = (fromEmptyObject :: Metadata String) { fileAlbumArt = Nothing }
 
 data Global f = Global
   { fileMidi            :: f
@@ -1046,29 +1052,29 @@ getYear, getTrackNumber :: Metadata f -> Int
 getYear        = fromMaybe 1960 . (.year)
 getTrackNumber = fromMaybe 1    . (.trackNumber)
 
-data TargetCommon = TargetCommon
-  { speed   :: Maybe Double
-  , plan    :: Maybe T.Text
-  , title   :: Maybe T.Text -- override base song title
-  , label_  :: Maybe T.Text -- suffix after title
-  , label2x :: Bool -- if automatic label and 2x drums, should we add (2x Bass Pedal)
-  , start   :: Maybe SegmentEdge
-  , end     :: Maybe SegmentEdge
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+data TargetCommon f = TargetCommon
+  { speed    :: Maybe Double
+  , plan     :: Maybe T.Text
+  , override :: Metadata f
+  , label_   :: Maybe T.Text -- suffix after title
+  , label2x  :: Bool -- if automatic label and 2x drums, should we add (2x Bass Pedal)
+  , start    :: Maybe SegmentEdge
+  , end      :: Maybe SegmentEdge
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetCommon :: (SendMessage m) => ObjectCodec m A.Value TargetCommon
+parseTargetCommon :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetCommon f)
 parseTargetCommon = do
-  speed   <- (.speed  ) =. opt Nothing "speed"    stackJSON
-  plan    <- (.plan   ) =. opt Nothing "plan"     stackJSON
-  title   <- (.title  ) =. opt Nothing "title"    stackJSON
-  label_  <- (.label_ ) =. opt Nothing "label"    stackJSON
-  label2x <- (.label2x) =. opt True    "label-2x" stackJSON
-  start   <- (.start  ) =. opt Nothing "start"    stackJSON
-  end     <- (.end    ) =. opt Nothing "end"      stackJSON
+  speed    <- (.speed   ) =. opt Nothing "speed"    stackJSON
+  plan     <- (.plan    ) =. opt Nothing "plan"     stackJSON
+  override <- (.override) =. parseMetadata False
+  label_   <- (.label_  ) =. opt Nothing "label"    stackJSON
+  label2x  <- (.label2x ) =. opt True    "label-2x" stackJSON
+  start    <- (.start   ) =. opt Nothing "start"    stackJSON
+  end      <- (.end     ) =. opt Nothing "end"      stackJSON
   return TargetCommon{..}
 
-instance Default TargetCommon where
-  def = TargetCommon Nothing Nothing Nothing Nothing True Nothing Nothing
+instance Default (TargetCommon f) where
+  def = TargetCommon Nothing Nothing def Nothing True Nothing Nothing
 
 data SegmentEdge = SegmentEdge
   { fadeStart :: PreviewTime
@@ -1109,8 +1115,8 @@ instance StackJSON RBSongID where
       SongIDInt n      -> A.Number $ fromIntegral n
     }
 
-data TargetRB3 = TargetRB3
-  { common        :: TargetCommon
+data TargetRB3 f = TargetRB3
+  { common        :: TargetCommon f
   , is2xBassPedal :: Bool
   , songID        :: RBSongID
   , version       :: Maybe Integer
@@ -1123,9 +1129,9 @@ data TargetRB3 = TargetRB3
   , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
   , legalTempos   :: Bool -- should tempos be kept in Magma-legal range of 40-300 BPM
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
+parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
 parseTargetRB3 = do
   common        <- (.common       ) =. parseTargetCommon
   is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
@@ -1142,11 +1148,11 @@ parseTargetRB3 = do
   legalTempos   <- (.legalTempos  ) =. opt  True             "legal-tempos"  stackJSON
   return TargetRB3{..}
 
-instance StackJSON TargetRB3 where
+instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where
   stackJSON = asStrictObject "TargetRB3" parseTargetRB3
 
-instance Default TargetRB3 where
-  def = fromEmptyObject
+instance Default (TargetRB3 f) where
+  def = (fromEmptyObject :: TargetRB3 String) { common = def }
 
 data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -1206,8 +1212,8 @@ instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
       LipsyncFile f -> OneKey "file-lipsync" $ makeValue stackJSON f
     }
 
-data TargetRB2 = TargetRB2
-  { common        :: TargetCommon
+data TargetRB2 f = TargetRB2
+  { common        :: TargetCommon f
   , is2xBassPedal :: Bool
   , songID        :: RBSongID
   , labelRB2      :: Bool
@@ -1219,9 +1225,9 @@ data TargetRB2 = TargetRB2
   , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
   , legalTempos   :: Bool -- should tempos be kept in Magma-legal range of 40-300 BPM
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
+parseTargetRB2 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB2 f)
 parseTargetRB2 = do
   common        <- (.common       ) =. parseTargetCommon
   is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
@@ -1237,14 +1243,14 @@ parseTargetRB2 = do
   legalTempos   <- (.legalTempos  ) =. opt  True             "legal-tempos"  stackJSON
   return TargetRB2{..}
 
-instance StackJSON TargetRB2 where
+instance (Eq f, StackJSON f) => StackJSON (TargetRB2 f) where
   stackJSON = asStrictObject "TargetRB2" parseTargetRB2
 
-instance Default TargetRB2 where
-  def = fromEmptyObject
+instance Default (TargetRB2 f) where
+  def = (fromEmptyObject :: TargetRB2 String) { common = def }
 
-data TargetPS = TargetPS
-  { common        :: TargetCommon
+data TargetPS f = TargetPS
+  { common        :: TargetCommon f
   , guitar        :: F.FlexPartName
   , bass          :: F.FlexPartName
   , drums         :: F.FlexPartName
@@ -1255,9 +1261,9 @@ data TargetPS = TargetPS
   , dance         :: F.FlexPartName
   , loadingPhrase :: Maybe T.Text
   , bigRockEnding :: Bool
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
+parseTargetPS :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetPS f)
 parseTargetPS = do
   common        <- (.common       ) =. parseTargetCommon
   guitar        <- (.guitar       ) =. opt F.FlexGuitar                "guitar"          stackJSON
@@ -1272,14 +1278,14 @@ parseTargetPS = do
   bigRockEnding <- (.bigRockEnding) =. opt True                        "big-rock-ending" stackJSON
   return TargetPS{..}
 
-instance StackJSON TargetPS where
+instance (Eq f, StackJSON f) => StackJSON (TargetPS f) where
   stackJSON = asStrictObject "TargetPS" parseTargetPS
 
-instance Default TargetPS where
-  def = fromEmptyObject
+instance Default (TargetPS f) where
+  def = (fromEmptyObject :: TargetPS String) { common = def }
 
-data TargetGH1 = TargetGH1
-  { common        :: TargetCommon
+data TargetGH1 f = TargetGH1
+  { common        :: TargetCommon f
   , guitar        :: F.FlexPartName
   , bass          :: F.FlexPartName
   , drums         :: F.FlexPartName
@@ -1288,9 +1294,9 @@ data TargetGH1 = TargetGH1
   , key           :: Maybe T.Text -- top symbol
   , loadingPhrase :: Maybe T.Text -- these go in ghui/eng/gen/locale.dtb, loading_tip_thesongkey
   , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetGH1 :: (SendMessage m) => ObjectCodec m A.Value TargetGH1
+parseTargetGH1 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH1 f)
 parseTargetGH1 = do
   common        <- (.common       ) =. parseTargetCommon
   guitar        <- (.guitar       ) =. opt F.FlexGuitar "guitar"         stackJSON
@@ -1303,11 +1309,11 @@ parseTargetGH1 = do
   offset        <- (.offset       ) =. opt 0          "offset"         stackJSON
   return TargetGH1{..}
 
-instance StackJSON TargetGH1 where
+instance (Eq f, StackJSON f) => StackJSON (TargetGH1 f) where
   stackJSON = asStrictObject "TargetGH1" parseTargetGH1
 
-instance Default TargetGH1 where
-  def = fromEmptyObject
+instance Default (TargetGH1 f) where
+  def = (fromEmptyObject :: TargetGH1 String) { common = def }
 
 data GH2Coop = GH2Bass | GH2Rhythm
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
@@ -1317,8 +1323,8 @@ instance StackJSON GH2Coop where
     GH2Bass   -> is "bass" |?> is A.Null
     GH2Rhythm -> is "rhythm"
 
-data TargetGH2 = TargetGH2
-  { common        :: TargetCommon
+data TargetGH2 f = TargetGH2
+  { common        :: TargetCommon f
   , guitar        :: F.FlexPartName
   , bass          :: F.FlexPartName
   , rhythm        :: F.FlexPartName
@@ -1334,9 +1340,9 @@ data TargetGH2 = TargetGH2
   , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
   , gh2Deluxe     :: Bool -- enables gh2dx features: drum chart, extra metadata sets, album art, future hopo/strum/tap markers
   , is2xBassPedal :: Bool
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
+parseTargetGH2 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH2 f)
 parseTargetGH2 = do
   common        <- (.common       ) =. parseTargetCommon
   guitar        <- (.guitar       ) =. opt F.FlexGuitar           "guitar"         stackJSON
@@ -1356,15 +1362,15 @@ parseTargetGH2 = do
   is2xBassPedal <- (.is2xBassPedal) =. opt False                "2x-bass-pedal"  stackJSON
   return TargetGH2{..}
 
-instance StackJSON TargetGH2 where
+instance (Eq f, StackJSON f) => StackJSON (TargetGH2 f) where
   stackJSON = asStrictObject "TargetGH2" parseTargetGH2
 
-instance Default TargetGH2 where
-  def = fromEmptyObject
+instance Default (TargetGH2 f) where
+  def = (fromEmptyObject :: TargetGH2 String) { common = def }
 
 -- gh5 or ghwor, mostly same formats
-data TargetGH5 = TargetGH5
-  { common :: TargetCommon
+data TargetGH5 f = TargetGH5
+  { common :: TargetCommon f
   , guitar :: F.FlexPartName
   , bass   :: F.FlexPartName
   , drums  :: F.FlexPartName
@@ -1372,9 +1378,9 @@ data TargetGH5 = TargetGH5
   , songID :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
   , cdl    :: Maybe Int -- like 511 in "cdl511"
   , proTo4 :: Bool -- true if pro drums should just use RYBG
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetGH5 :: (SendMessage m) => ObjectCodec m A.Value TargetGH5
+parseTargetGH5 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH5 f)
 parseTargetGH5 = do
   common <- (.common) =. parseTargetCommon
   guitar <- (.guitar) =. opt F.FlexGuitar "guitar"   stackJSON
@@ -1386,14 +1392,14 @@ parseTargetGH5 = do
   proTo4 <- (.proTo4) =. opt False      "pro-to-4" stackJSON
   return TargetGH5{..}
 
-instance StackJSON TargetGH5 where
+instance (Eq f, StackJSON f) => StackJSON (TargetGH5 f) where
   stackJSON = asStrictObject "TargetGH5" parseTargetGH5
 
-instance Default TargetGH5 where
-  def = fromEmptyObject
+instance Default (TargetGH5 f) where
+  def = (fromEmptyObject :: TargetGH5 String) { common = def }
 
-data TargetGH3 = TargetGH3
-  { common :: TargetCommon
+data TargetGH3 f = TargetGH3
+  { common :: TargetCommon f
   , guitar :: F.FlexPartName
   , bass   :: F.FlexPartName
   , rhythm :: F.FlexPartName
@@ -1403,9 +1409,9 @@ data TargetGH3 = TargetGH3
   , keys   :: F.FlexPartName
   , songID :: Maybe (Either Int T.Text) -- Int gets title/artist added, Text is exact
   , dl     :: Maybe Int -- like 15 in "dl15"
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetGH3 :: (SendMessage m) => ObjectCodec m A.Value TargetGH3
+parseTargetGH3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH3 f)
 parseTargetGH3 = do
   common <- (.common) =. parseTargetCommon
   guitar <- (.guitar) =. opt F.FlexGuitar           "guitar"  stackJSON
@@ -1419,21 +1425,21 @@ parseTargetGH3 = do
   dl     <- (.dl    ) =. opt Nothing              "dl"      stackJSON
   return TargetGH3{..}
 
-instance StackJSON TargetGH3 where
+instance (Eq f, StackJSON f) => StackJSON (TargetGH3 f) where
   stackJSON = asStrictObject "TargetGH3" parseTargetGH3
 
-instance Default TargetGH3 where
-  def = fromEmptyObject
+instance Default (TargetGH3 f) where
+  def = (fromEmptyObject :: TargetGH3 String) { common = def }
 
-data TargetDTX = TargetDTX
-  { common      :: TargetCommon
+data TargetDTX f = TargetDTX
+  { common      :: TargetCommon f
   , drums       :: F.FlexPartName
   , guitar      :: F.FlexPartName
   , bass        :: F.FlexPartName
   , planPreview :: Maybe T.Text -- used for preview snippet, since .plan will usually be drumless
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetDTX :: (SendMessage m) => ObjectCodec m A.Value TargetDTX
+parseTargetDTX :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetDTX f)
 parseTargetDTX = do
   common      <- (.common     ) =. parseTargetCommon
   guitar      <- (.guitar     ) =. opt F.FlexGuitar "guitar"       stackJSON
@@ -1442,11 +1448,11 @@ parseTargetDTX = do
   planPreview <- (.planPreview) =. opt Nothing      "plan-preview" stackJSON
   return TargetDTX{..}
 
-instance StackJSON TargetDTX where
+instance (Eq f, StackJSON f) => StackJSON (TargetDTX f) where
   stackJSON = asStrictObject "TargetDTX" parseTargetDTX
 
-instance Default TargetDTX where
-  def = fromEmptyObject
+instance Default (TargetDTX f) where
+  def = (fromEmptyObject :: TargetDTX String) { common = def }
 
 data RSArrModifier
   = RSDefault
@@ -1466,13 +1472,13 @@ data RSArrSlot = RSArrSlot RSArrModifier RSArrType
   deriving (Eq, Ord, Show, Generic, Hashable)
   deriving (Enum, Bounded) via GenericFullEnum RSArrSlot
 
-data TargetRS = TargetRS
-  { common       :: TargetCommon
+data TargetRS f = TargetRS
+  { common       :: TargetCommon f
   , arrangements :: [(RSArrSlot, F.FlexPartName)]
   , vocal        :: F.FlexPartName
   , songKey      :: Maybe T.Text
   , version      :: Maybe T.Text
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 rsArrSlot :: RSArrSlot -> T.Text
 rsArrSlot (RSArrSlot arrmod arrtype) = let
@@ -1503,7 +1509,7 @@ parseRSArr = let
       (slot, fpart) -> A.toJSON [makeValue' slotCodec slot, makeValue' partCodec fpart]
     }
 
-parseTargetRS :: (SendMessage m) => ObjectCodec m A.Value TargetRS
+parseTargetRS :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRS f)
 parseTargetRS = do
   common       <- (.common      ) =. parseTargetCommon
   arrangements <- (.arrangements) =. opt [] "arrangements" (listCodec parseRSArr)
@@ -1512,22 +1518,22 @@ parseTargetRS = do
   version      <- (.version     ) =. opt Nothing "version" stackJSON
   return TargetRS{..}
 
-instance StackJSON TargetRS where
+instance (Eq f, StackJSON f) => StackJSON (TargetRS f) where
   stackJSON = asStrictObject "TargetRS" parseTargetRS
 
-instance Default TargetRS where
-  def = fromEmptyObject
+instance Default (TargetRS f) where
+  def = (fromEmptyObject :: TargetRS String) { common = def }
 
-data TargetPG = TargetPG
-  { common        :: TargetCommon
+data TargetPG f = TargetPG
+  { common        :: TargetCommon f
   , is2xBassPedal :: Bool
   , guitar        :: F.FlexPartName
   , drums         :: F.FlexPartName
   , vocal         :: F.FlexPartName
   , key           :: Maybe T.Text
-  } deriving (Eq, Ord, Show, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-parseTargetPG :: (SendMessage m) => ObjectCodec m A.Value TargetPG
+parseTargetPG :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetPG f)
 parseTargetPG = do
   common        <- (.common       ) =. parseTargetCommon
   is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
@@ -1537,43 +1543,43 @@ parseTargetPG = do
   key           <- (.key          ) =. opt Nothing      "key"           stackJSON
   return TargetPG{..}
 
-instance StackJSON TargetPG where
+instance (Eq f, StackJSON f) => StackJSON (TargetPG f) where
   stackJSON = asStrictObject "TargetPG" parseTargetPG
 
-instance Default TargetPG where
-  def = fromEmptyObject
+instance Default (TargetPG f) where
+  def = (fromEmptyObject :: TargetPG String) { common = def }
 
-data TargetPart = TargetPart
-  { common :: TargetCommon
+data TargetPart f = TargetPart
+  { common :: TargetCommon f
   , part   :: F.FlexPartName
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
-parseTargetPart :: (SendMessage m) => ObjectCodec m A.Value TargetPart
+parseTargetPart :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetPart f)
 parseTargetPart = do
   common <- (.common) =. parseTargetCommon
   part   <- (.part  ) =. opt (F.FlexExtra "global") "part" stackJSON
   return TargetPart{..}
 
-instance StackJSON TargetPart where
+instance (Eq f, StackJSON f) => StackJSON (TargetPart f) where
   stackJSON = asStrictObject "TargetPart" parseTargetPart
 
-instance Default TargetPart where
-  def = fromEmptyObject
+instance Default (TargetPart f) where
+  def = (fromEmptyObject :: TargetPart String) { common = def }
 
-data Target
-  = RB3    TargetRB3
-  | RB2    TargetRB2
-  | PS     TargetPS
-  | GH1    TargetGH1
-  | GH2    TargetGH2
-  | GH3    TargetGH3
-  | GH5    TargetGH5
-  | RS     TargetRS
-  | DTX    TargetDTX
-  | PG     TargetPG
-  deriving (Eq, Ord, Show, Generic, Hashable)
+data Target f
+  = RB3 (TargetRB3 f)
+  | RB2 (TargetRB2 f)
+  | PS  (TargetPS  f)
+  | GH1 (TargetGH1 f)
+  | GH2 (TargetGH2 f)
+  | GH3 (TargetGH3 f)
+  | GH5 (TargetGH5 f)
+  | RS  (TargetRS  f)
+  | DTX (TargetDTX f)
+  | PG  (TargetPG  f)
+  deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
-targetCommon :: Target -> TargetCommon
+targetCommon :: Target f -> TargetCommon f
 targetCommon = \case
   RB3    x -> x.common
   RB2    x -> x.common
@@ -1589,7 +1595,7 @@ targetCommon = \case
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x
 
-instance StackJSON Target where
+instance (Eq f, StackJSON f) => StackJSON (Target f) where
   stackJSON = Codec
     { codecIn = object $ do
       target <- requiredKey "game" fromJSON
@@ -1624,7 +1630,7 @@ data SongYaml f = SongYaml
   , audio    :: HM.HashMap T.Text (AudioFile f)
   , jammit   :: HM.HashMap T.Text JammitTrack
   , plans    :: HM.HashMap T.Text (Plan f)
-  , targets  :: HM.HashMap T.Text Target
+  , targets  :: HM.HashMap T.Text (Target f)
   , parts    :: Parts (Part f)
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
@@ -1645,12 +1651,12 @@ getPart fpart = HM.lookup fpart . (.getParts) . (.parts)
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds
   :: (F.HasEvents f)
-  => SongYaml file
+  => Metadata file
   -> F.Song (f U.Beats) -- Midi used to evaluate midi timestamps and section boundaries
   -> U.Seconds -- Padding added to the project midi to produce the game midi
   -> Bool -- Is the given midi file already padded?
   -> (Int, Int)
-previewBounds syaml song padding prepadded = let
+previewBounds metadata song padding prepadded = let
   len = F.songLengthMS song
   secsToMS s = floor $ s * 1000
   evalTime t = secsToMS <$> evalPreviewTime True (Just F.getEventsTrack) song padding prepadded t
@@ -1658,7 +1664,7 @@ previewBounds syaml song padding prepadded = let
   defStartTime = max 0 $ case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> quot len 2 - 15000
     t : _ -> min (len - 30000) t
-  in case (syaml.metadata.previewStart, syaml.metadata.previewEnd) of
+  in case (metadata.previewStart, metadata.previewEnd) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)

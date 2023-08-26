@@ -50,6 +50,7 @@ import           Onyx.Build                                (NameRule (..),
                                                             targetTitle,
                                                             validFileName,
                                                             validFileNamePiece)
+import           Onyx.Build.Common                         (getTargetMetadata)
 import           Onyx.FretsOnFire                          (stripTags)
 import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.Ark.GH2                     (GH2InstallLocation (..))
@@ -149,18 +150,21 @@ data GHWORCreate
   = GHWORLIVE FilePath
   | GHWORPKG FilePath
 
-templateApplyInput :: Project -> Maybe Target -> T.Text -> T.Text
+templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
   , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
   , T.intercalate (validFileNamePiece NameRulePC title) . T.splitOn "%title%"
-  , T.intercalate (validFileNamePiece NameRulePC $ getArtist (projectSongYaml proj).metadata) . T.splitOn "%artist%"
-  , T.intercalate (validFileNamePiece NameRulePC $ getAlbum (projectSongYaml proj).metadata) . T.splitOn "%album%"
-  , T.intercalate (validFileNamePiece NameRulePC $ getAuthor (projectSongYaml proj).metadata) . T.splitOn "%author%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getArtist metadata) . T.splitOn "%artist%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getAlbum metadata) . T.splitOn "%album%"
+  , T.intercalate (validFileNamePiece NameRulePC $ getAuthor metadata) . T.splitOn "%author%"
   , T.intercalate (validFileNamePiece NameRulePC songID) . T.splitOn "%song_id%"
   ] where
+    metadata = case mtgt of
+      Nothing  -> (projectSongYaml proj).metadata
+      Just tgt -> getTargetMetadata (projectSongYaml proj) tgt
     title = case mtgt of
-      Nothing  -> getTitle (projectSongYaml proj).metadata
+      Nothing  -> getTitle metadata
       Just tgt -> targetTitle (projectSongYaml proj) tgt
     songID = case mtgt of
       Just (RB3 rb3) -> case rb3.songID of

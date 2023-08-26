@@ -19,6 +19,7 @@ import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        isJust, isNothing)
 import qualified Data.Text                            as T
 import qualified Numeric.NonNegative.Class            as NNC
+import           Onyx.Build.Common                    (getTargetMetadata)
 import           Onyx.Build.RB3CH                     (BasicTiming (..),
                                                        basicTiming)
 import qualified Onyx.Build.RB3CH                     as RB3
@@ -107,7 +108,7 @@ data GH2Audio = GH2Audio
 computeGH2Audio
   :: (Monad m)
   => SongYaml f
-  -> TargetGH2
+  -> TargetGH2 f
   -> Bool -- xbox 360
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
@@ -201,7 +202,7 @@ makeSoloEdges = void . RTB.filter (odd . length) . RTB.collectCoincident
 midiRB3toGH2
   :: (SendMessage m)
   => SongYaml f
-  -> TargetGH2
+  -> TargetGH2 f
   -> GH2Audio
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
@@ -401,11 +402,11 @@ getDefaultHOPOThreshold song audio = fmap (fromIntegral . (.hopoThreshold))
   -- could support other converted modes I guess but this is realistically
   -- the only place weird thresholds would come from
 
-makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
+makeGH2DTA :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 f -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA song key preview target audio title = D.SongPackage
   { D.name = adjustSongText title
-  , D.artist = adjustSongText $ getArtist song.metadata
-  , D.caption = guard (not song.metadata.cover) >> Just "performed_by"
+  , D.artist = adjustSongText $ getArtist metadata
+  , D.caption = guard (not metadata.cover) >> Just "performed_by"
   , D.song = makeSong target.gh2Deluxe
   , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
@@ -418,6 +419,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
   , D.songPractice3 = Just $ prac 60
   , D.band = bandMembers song audio
   } where
+    metadata = getTargetMetadata song $ GH2 target
     coop = case audio.coopType of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     prac :: Int -> D.Song
     prac speed = D.Song
@@ -466,11 +468,11 @@ makeGH2DTA song key preview target audio title = D.SongPackage
       }
     threshold = getDefaultHOPOThreshold song audio
 
-makeGH2DTA360 :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 -> GH2Audio -> T.Text -> D.SongPackage
+makeGH2DTA360 :: SongYaml f -> T.Text -> (Int, Int) -> TargetGH2 f -> GH2Audio -> T.Text -> D.SongPackage
 makeGH2DTA360 song key preview target audio title = D.SongPackage
   { D.name = adjustSongText title
-  , D.artist = adjustSongText $ getArtist song.metadata
-  , D.caption = guard (not song.metadata.cover) >> Just "performed_by"
+  , D.artist = adjustSongText $ getArtist metadata
+  , D.caption = guard (not metadata.cover) >> Just "performed_by"
   , D.song = makeSong target.gh2Deluxe
   , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
@@ -483,6 +485,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.songPractice3 = Nothing
   , D.band = bandMembers song audio
   } where
+    metadata = getTargetMetadata song $ GH2 target
     coop = case target.coop of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
     makeSong includeTrack3 = D.Song
       { D.songName      = "songs/" <> key <> "/" <> key

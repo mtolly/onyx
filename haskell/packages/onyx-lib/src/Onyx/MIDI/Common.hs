@@ -1,6 +1,8 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
+{-# LANGUAGE DeriveAnyClass         #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -20,6 +22,7 @@ import           Data.Hashable                    (Hashable (..))
 import           Data.List                        (stripPrefix)
 import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -115,7 +118,7 @@ instance Command (Trainer, T.Text) where
   toCommand _ = Nothing
 
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 showKey :: Bool -> Key -> T.Text
 showKey False k = T.pack $ map (\case 's' -> '#'; c -> c) $ show k
@@ -128,12 +131,12 @@ showKey True  k = case k of
   _  -> T.pack $ show k
 
 data Tonality = Major | Minor
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 data SongKey = SongKey
   { songKey      :: Key
   , songTonality :: Tonality
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 -- | Matches the default accidental chosen by RB3's Pro Guitar chord names.
 songKeyUsesFlats :: SongKey -> Bool

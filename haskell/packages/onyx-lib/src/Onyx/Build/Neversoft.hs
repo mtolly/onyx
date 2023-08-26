@@ -230,7 +230,7 @@ pullBackTapEnds' notes taps = let
 makeGHWoRNote
   :: (SendMessage m)
   => SongYaml f
-  -> TargetGH5
+  -> TargetGH5 f
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds -- ^ get longest audio length
   -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text)

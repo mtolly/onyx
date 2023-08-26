@@ -54,7 +54,7 @@ batchPageRB3
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml FilePath)) -> IO ())
+  -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -81,7 +81,7 @@ batchPageRB3 sink rect tab build = do
         kicks <- stackIO getKicks
         newPreferences <- readPreferences
         return $ \proj -> let
-          defRB3 = def :: TargetRB3
+          defRB3 = def :: TargetRB3 FilePath
           tgt = preset yaml defRB3
             { common = defRB3.common
               { speed = Just speed
@@ -114,7 +114,7 @@ batchPageRB3 sink rect tab build = do
             = (if toms then id else forceProDrums)
             $ projectSongYaml proj
           in
-            ( [ ((tgt :: TargetRB3) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB3 FilePath) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -143,7 +143,7 @@ batchPageGH1
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetGH1, GH1Create)) -> IO ())
+  -> ((Project -> (TargetGH1 FilePath, GH1Create)) -> IO ())
   -> IO ()
 batchPageGH1 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -161,8 +161,8 @@ batchPageGH1 sink rect tab build = do
             , FlexDrums
             , FlexExtra "dance"
             ]
-          tgt = (def :: TargetGH1)
-            { common = (def :: TargetGH1).common
+          tgt = (def :: TargetGH1 FilePath)
+            { common = (def :: TargetGH1 FilePath).common
               { speed = Just speed
               }
             , guitar = fromMaybe (FlexExtra "undefined") leadPart
@@ -209,7 +209,7 @@ batchPageGH3
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetGH3, GH3Create)) -> IO ())
+  -> ((Project -> (TargetGH3 FilePath, GH3Create)) -> IO ())
   -> IO ()
 batchPageGH3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -236,20 +236,20 @@ batchPageGH3 sink rect tab build = do
             , (FlexDrums         , GH2Rhythm)
             , (FlexExtra "dance" , GH2Rhythm)
             ]
-          tgt = (def :: TargetGH3)
-            { common = (def :: TargetGH3).common
+          tgt = (def :: TargetGH3 FilePath)
+            { common = (def :: TargetGH3 FilePath).common
               { speed = Just speed
               }
             , guitar = fromMaybe (FlexExtra "undefined") leadPart
             , bass = case coopPart of
               Just (x, GH2Bass) -> x
-              _                 -> (def :: TargetGH3).bass
+              _                 -> (def :: TargetGH3 FilePath).bass
             , rhythm = case coopPart of
               Just (x, GH2Rhythm) -> x
-              _                   -> (def :: TargetGH3).rhythm
+              _                   -> (def :: TargetGH3 FilePath).rhythm
             , coop = case coopPart of
               Just (_, coop) -> coop
-              _              -> (def :: TargetGH3).coop
+              _              -> (def :: TargetGH3 FilePath).coop
             }
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
@@ -279,7 +279,7 @@ batchPageGH2
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetGH2, GH2Create)) -> IO ())
+  -> ((Project -> (TargetGH2 FilePath, GH2Create)) -> IO ())
   -> IO ()
 batchPageGH2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -296,7 +296,7 @@ batchPageGH2 sink rect tab build = do
         practiceAudio <- getPracticeAudio
         deluxe2x <- getDeluxe
         go $ \proj -> let
-          defGH2 = def :: TargetGH2
+          defGH2 = def :: TargetGH2 FilePath
           hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
           leadPart = find hasPart
             [ FlexGuitar
@@ -379,7 +379,7 @@ batchPageGHWOR
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ((TargetGH5, GHWORCreate), SongYaml FilePath)) -> IO ())
+  -> ((Project -> ((TargetGH5 FilePath, GHWORCreate), SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageGHWOR sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -410,7 +410,7 @@ batchPageGHWOR sink rect tab build = do
             , FlexBass
             , FlexKeys
             ]
-          defGH5 = def :: TargetGH5
+          defGH5 = def :: TargetGH5 FilePath
           tgt = defGH5
             { common = defGH5.common
               { speed = Just speed
@@ -450,7 +450,7 @@ batchPageRB2
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB2, RB2Create)], SongYaml FilePath)) -> IO ())
+  -> ((Project -> ([(TargetRB2 FilePath, RB2Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -473,7 +473,7 @@ batchPageRB2 sink rect tab build = do
         newPreferences <- readPreferences
         return $ \proj -> let
           tgt = preset yaml def
-            { common      = (def :: TargetRB2).common
+            { common      = (def :: TargetRB2 FilePath).common
               { speed   = Just speed
               , label2x = prefLabel2x newPreferences
               }
@@ -505,7 +505,7 @@ batchPageRB2 sink rect tab build = do
             = forceProDrums
             $ projectSongYaml proj
           in
-            ( [ ((tgt :: TargetRB2) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB2 FilePath) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -529,7 +529,7 @@ batchPagePS
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetPS, PSCreate)) -> IO ())
+  -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -542,7 +542,7 @@ batchPagePS sink rect tab build = do
         speed <- getSpeed
         preset <- getPreset
         return $ \proj -> let
-          defPS = def :: TargetPS
+          defPS = def :: TargetPS FilePath
           tgt = preset (projectSongYaml proj) defPS
             { common = defPS.common
               { speed = Just speed
@@ -595,7 +595,7 @@ getDrumsOrDance song
     = FlexExtra "dance"
   | otherwise = FlexDrums
 
-batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 -> TargetRB3)]
+batchPartPresetsRB3 :: [(T.Text, SongYaml f -> TargetRB3 f -> TargetRB3 f)]
 batchPartPresetsRB3 =
   [ ("Default part configuration", \song tgt -> tgt
     { drums = getDrumsOrDance song
@@ -630,7 +630,7 @@ batchPartPresetsRB3 =
     )
   ]
 
-batchPartPresetsRB2 :: [(T.Text, SongYaml f -> TargetRB2 -> TargetRB2)]
+batchPartPresetsRB2 :: [(T.Text, SongYaml f -> TargetRB2 f -> TargetRB2 f)]
 batchPartPresetsRB2 =
   [ ("Default part configuration", \song tgt -> tgt
     { drums = getDrumsOrDance song
@@ -674,7 +674,7 @@ batchPartPresetsRB2 =
     )
   ]
 
-batchPartPresetsCH :: [(T.Text, SongYaml f -> TargetPS -> TargetPS)]
+batchPartPresetsCH :: [(T.Text, SongYaml f -> TargetPS f -> TargetPS f)]
 batchPartPresetsCH =
   [ ("Default part configuration", \song tgt -> tgt
     { drums = getDrumsOrDance song

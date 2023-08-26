@@ -97,10 +97,10 @@ import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
 
-rbRules :: BuildInfo -> FilePath -> TargetRB3 -> Maybe TargetRB2 -> QueueLog Rules ()
+rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe (TargetRB2 FilePath) -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do
   let songYaml = biSongYaml buildInfo
-      thisFullGenre = fullGenre songYaml
+      thisFullGenre = fullGenre songYaml.metadata
 
   let pkg :: (IsString a) => a
       pkg = fromString $ T.unpack $ makeShortName (hashRB3 songYaml rb3) songYaml
@@ -221,6 +221,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
   pathMagmaDummyMono   %> buildAudio (Silence 1 $ Seconds 31) -- we set preview start to 0:00 so these can be short
   pathMagmaDummyStereo %> buildAudio (Silence 2 $ Seconds 31)
+  -- TODO support target-specific album art
   pathMagmaCover %> shk . copyFile' (biGen buildInfo "cover.bmp")
   pathMagmaCoverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
   let title = targetTitle songYaml $ RB3 rb3
@@ -486,6 +487,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     StandardPlan _ -> do
       shk $ need [pathOgg]
       mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
+  -- TODO support target-specific album art
   pathPng  %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
   pathMilo %> \out -> case getPart rb3.vocal songYaml >>= (.vocal) of
     -- TODO apply segment boundaries
@@ -965,14 +967,15 @@ rbRules buildInfo dir rb3 mrb2 = do
           stackIO $ makePKG rb2ps3ContentID (main <> extra) out
 
 -- Magma RBProj rules
-makeMagmaProj :: SongYaml f -> TargetRB3 -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Int -> Staction Magma.RBProj
+makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> Int -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle pad = do
   song <- F.shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart rb3.drums plan songYaml
   let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-      (pstart, _) = previewBounds songYaml song padSeconds True
+      (pstart, _) = previewBounds metadata song padSeconds True
       maxPStart = 570000 :: Int -- 9:30.000
-      thisFullGenre = fullGenre songYaml
+      metadata = getTargetMetadata songYaml $ RB3 rb3
+      thisFullGenre = fullGenre metadata
       perctype = F.getPercType song
       silentDryVox :: Int -> Magma.DryVoxPart
       silentDryVox n = Magma.DryVoxPart
@@ -1005,8 +1008,8 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       return maxPStart
     else return pstart
   songName <- replaceCharsRB True title
-  artistName <- replaceCharsRB True $ getArtist songYaml.metadata
-  albumName <- replaceCharsRB True $ getAlbum songYaml.metadata
+  artistName <- replaceCharsRB True $ getArtist metadata
+  albumName <- replaceCharsRB True $ getAlbum metadata
   let fixString = T.strip . T.map (\case '"' -> '\''; c -> c)
   return Magma.RBProj
     { Magma.project = Magma.Project
@@ -1020,15 +1023,15 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.artistName = T.strip $ T.take 74 $ fixString artistName
         , Magma.genre = rbn2Genre thisFullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre thisFullGenre
-        , Magma.yearReleased = fromIntegral $ max 1960 $ getYear songYaml.metadata
+        , Magma.yearReleased = fromIntegral $ max 1960 $ getYear metadata
         -- "album_name: This field must be less than 75 characters."
         , Magma.albumName = T.strip $ T.take 74 $ fixString albumName
         -- "author: This field must be less than 75 characters."
-        , Magma.author = T.strip $ T.take 74 $ fixString $ getAuthor songYaml.metadata
+        , Magma.author = T.strip $ T.take 74 $ fixString $ getAuthor metadata
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"
         , Magma.price = 160
-        , Magma.trackNumber = fromIntegral $ getTrackNumber songYaml.metadata
+        , Magma.trackNumber = fromIntegral $ getTrackNumber metadata
         , Magma.hasAlbum = True
         }
       , Magma.gamedata = Magma.Gamedata
@@ -1056,7 +1059,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.guidePitchVolume = -3
         }
       , Magma.languages = let
-        lang s = elem s songYaml.metadata.languages
+        lang s = elem s metadata.languages
         eng = lang "English"
         fre = lang "French"
         ita = lang "Italian"
@@ -1124,15 +1127,16 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       }
     }
 
-makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 -> Bool -> (DifficultyRB3, Maybe VocalCount) -> F.Song (F.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
+makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> F.Song (F.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename pad = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart rb3.drums plan songYaml
   let thresh = 170 -- everything gets forced anyway
+      metadata = getTargetMetadata songYaml $ RB3 rb3
       padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-      (pstart, pend) = previewBounds songYaml midi padSeconds True
+      (pstart, pend) = previewBounds metadata midi padSeconds True
       len = F.songLengthMS midi
       perctype = F.getPercType midi
-      thisFullGenre = fullGenre songYaml
+      thisFullGenre = fullGenre metadata
       lookupPart :: Integer -> F.FlexPartName -> Parts a -> Maybe a
       lookupPart rank part parts = guard (rank /= 0) >> HM.lookup part parts.getParts
       -- all the following are only used for Plan, not MoggPlan.
@@ -1164,12 +1168,12 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       -- Leaving off pan/vol/core for the last channel is fine in RB3, but may cause issues with RB4 (ForgeTool).
       extend6 seven xs = if length xs == 6 then xs <> [seven] else xs
   songName <- replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
-  artistName <- replaceCharsRB False $ getArtist songYaml.metadata
-  albumName <- mapM (replaceCharsRB False) songYaml.metadata.album
+  artistName <- replaceCharsRB False $ getArtist metadata
+  albumName <- mapM (replaceCharsRB False) metadata.album
   return D.SongPackage
     { D.name = songName
     , D.artist = Just artistName
-    , D.master = not songYaml.metadata.cover
+    , D.master = not metadata.cover
     , D.songId = Just $ case rb3.songID of
       SongIDSymbol s   -> Right s
       SongIDInt i      -> Left $ fromIntegral i
@@ -1278,7 +1282,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.fake = Nothing
     , D.gameOrigin = Just $ if rb3.harmonix then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
-    , D.rating = case (isPS3, fromIntegral $ fromEnum songYaml.metadata.rating + 1) of
+    , D.rating = case (isPS3, fromIntegral $ fromEnum metadata.rating + 1) of
       (True, 4) -> 2 -- Unrated (on RB2 at least) causes it to be locked in game on PS3
       (_   , x) -> x
     , D.genre = Just $ rbn2Genre thisFullGenre
@@ -1286,16 +1290,16 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart rb3.vocal songYaml >>= (.vocal) >>= (.gender)
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
-    , D.yearReleased = Just $ fromIntegral $ getYear songYaml.metadata
+    , D.yearReleased = Just $ fromIntegral $ getYear metadata
     , D.yearRecorded = Nothing
     -- confirmed: you can have (album_art 1) with no album_name/album_track_number
-    , D.albumArt = Just $ isJust songYaml.metadata.fileAlbumArt
+    , D.albumArt = Just $ isJust metadata.fileAlbumArt
     -- haven't tested behavior if you have album_name but no album_track_number
     , D.albumName = albumName
-    , D.albumTrackNumber = fromIntegral <$> songYaml.metadata.trackNumber
+    , D.albumTrackNumber = fromIntegral <$> metadata.trackNumber
     , D.packName = Nothing
-    , D.vocalTonicNote = songKey      <$> songYaml.metadata.key
-    , D.songTonality   = songTonality <$> songYaml.metadata.key
+    , D.vocalTonicNote = songKey      <$> metadata.key
+    , D.songTonality   = songTonality <$> metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
     , D.realGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) $ \pg ->
@@ -1313,14 +1317,15 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.videoVenues = Nothing
     , D.dateReleased = Nothing
     , D.dateRecorded = Nothing
-    , D.author = songYaml.metadata.author
+    , D.author = metadata.author
     , D.video = False
     }
 
-makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 -> F.Song (F.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3
+makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> F.Song (F.FixedFile U.Beats) -> T.Text -> Int -> StackTraceT m C3.C3
 makeC3 songYaml plan rb3 midi pkg pad = do
   let padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-      (pstart, _) = previewBounds songYaml midi padSeconds True
+      (pstart, _) = previewBounds metadata midi padSeconds True
+      metadata = getTargetMetadata songYaml $ RB3 rb3
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       title = targetTitle songYaml $ RB3 rb3
       numSongID = case rb3.songID of
@@ -1330,22 +1335,22 @@ makeC3 songYaml plan rb3 midi pkg pad = do
         MoggPlan     x -> not $ null x.crowd
         StandardPlan x -> isJust x.crowd
   return C3.C3
-    { C3.song = fromMaybe (getTitle songYaml.metadata) rb3.common.title
-    , C3.artist = getArtist songYaml.metadata
-    , C3.album = getAlbum songYaml.metadata
+    { C3.song = getTitle metadata
+    , C3.artist = getArtist metadata
+    , C3.album = getAlbum metadata
     , C3.customID = pkg
     , C3.version = fromIntegral $ fromMaybe 1 rb3.version
-    , C3.isMaster = not songYaml.metadata.cover
+    , C3.isMaster = not metadata.cover
     , C3.encodingQuality = 5
     , C3.crowdAudio = guard hasCrowd >> Just "crowd.wav"
     , C3.crowdVol = guard hasCrowd >> Just 0
     , C3.is2xBass = rb3.is2xBassPedal
-    , C3.rhythmKeys = songYaml.metadata.rhythmKeys
-    , C3.rhythmBass = songYaml.metadata.rhythmBass
+    , C3.rhythmKeys = metadata.rhythmKeys
+    , C3.rhythmBass = metadata.rhythmBass
     , C3.karaoke = getKaraoke plan
     , C3.multitrack = getMultitrack plan
-    , C3.convert = songYaml.metadata.convert
-    , C3.expertOnly = songYaml.metadata.expertOnly
+    , C3.convert = metadata.convert
+    , C3.expertOnly = metadata.expertOnly
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
     , C3.proBassTuning4 = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) $ \pg -> T.concat
       [ "(real_bass_tuning ("
@@ -1361,9 +1366,9 @@ makeC3 songYaml plan rb3 midi pkg pad = do
     , C3.disableProKeys = case getPart rb3.keys songYaml of
       Nothing   -> False
       Just part -> isJust part.grybo && isNothing part.proKeys
-    , C3.tonicNote = fmap songKey songYaml.metadata.key
+    , C3.tonicNote = fmap songKey metadata.key
     , C3.tuningCents = 0
-    , C3.songRating = fromEnum songYaml.metadata.rating + 1
+    , C3.songRating = fromEnum metadata.rating + 1
     , C3.drumKitSFX = maybe 0 (fromEnum . (.kit)) $ getPart rb3.drums songYaml >>= (.drums)
     , C3.hopoThresholdIndex = 2 -- 170 ticks (everything gets forced anyway)
     , C3.muteVol = -96
@@ -1377,7 +1382,7 @@ makeC3 songYaml plan rb3 midi pkg pad = do
     , C3.checkTempoMap = True
     , C3.wiiMode = False
     , C3.doDrumMixEvents = True -- is this a good idea?
-    , C3.packageDisplay = getArtist songYaml.metadata <> " - " <> title
+    , C3.packageDisplay = getArtist metadata <> " - " <> title
     , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and ONYX (git.io/onyx)."
     , C3.songAlbumArt = "cover.bmp"
     , C3.packageThumb = ""

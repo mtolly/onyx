@@ -85,7 +85,7 @@ data GH1Audio = GH1Audio
 computeGH1Audio
   :: (Monad m)
   => SongYaml f
-  -> TargetGH1
+  -> TargetGH1 f
   -> (F.FlexPartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH1Audio
 computeGH1Audio song target hasAudio = do
@@ -244,10 +244,10 @@ bandMembers song audio = let
       , [D.DRUMMER_METAL  | drums]
       ]
 
-makeGH1DTA :: SongYaml f -> T.Text -> (Int, Int) -> GH1Audio -> T.Text -> D.SongPackage
-makeGH1DTA song key preview audio title = D.SongPackage
-  { D.name = adjustSongText title
-  , D.artist = adjustSongText $ getArtist song.metadata
+makeGH1DTA :: SongYaml f -> T.Text -> (Int, Int) -> GH1Audio -> TargetGH1 f -> D.SongPackage
+makeGH1DTA song key preview audio gh1 = D.SongPackage
+  { D.name = adjustSongText $ targetTitle song $ GH1 gh1
+  , D.artist = adjustSongText $ getArtist $ getTargetMetadata song $ GH1 gh1
   , D.song = D.Song
     { D.songName = "songs/" <> key <> "/" <> key
     , D.tracks = 1
@@ -280,7 +280,7 @@ makeGH1DTA song key preview audio title = D.SongPackage
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   }
 
-hashGH1 :: (Hashable f) => SongYaml f -> TargetGH1 -> Int
+hashGH1 :: (Hashable f) => SongYaml f -> TargetGH1 f -> Int
 hashGH1 songYaml gh1 = let
   hashed =
     ( gh1
@@ -289,7 +289,7 @@ hashGH1 songYaml gh1 = let
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
-gh1Rules :: BuildInfo -> FilePath -> TargetGH1 -> QueueLog Rules ()
+gh1Rules :: BuildInfo -> FilePath -> TargetGH1 FilePath -> QueueLog Rules ()
 gh1Rules buildInfo dir gh1 = do
 
   let songYaml = biSongYaml buildInfo
@@ -367,9 +367,9 @@ gh1Rules buildInfo dir gh1 = do
         inner = D.serialize (valueId D.stackChunks) $ makeGH1DTA
           songYaml
           key
-          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
+          (previewBounds songYaml.metadata (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           audio
-          (targetTitle songYaml $ GH1 gh1)
+          gh1
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
       [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree inner) ]
     stackIO $ D.writeFileDTA_latin1 outInner inner

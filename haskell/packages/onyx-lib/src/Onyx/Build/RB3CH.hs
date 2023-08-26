@@ -54,13 +54,13 @@ import           Onyx.Sections                     (makePSSection)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                   as U
 
-data SharedTarget
-  = SharedTargetRB TargetRB3 (Maybe TargetRB2)
-  | SharedTargetPS TargetPS
+data SharedTarget f
+  = SharedTargetRB (TargetRB3 f) (Maybe (TargetRB2 f))
+  | SharedTargetPS (TargetPS f)
 
 processRBPad
   :: (SendMessage m, MonadIO m)
-  => (TargetRB3, Maybe TargetRB2)
+  => (TargetRB3 f, Maybe (TargetRB2 f))
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
@@ -75,7 +75,7 @@ processRBPad (a, b) c d e f = do
 
 processRB
   :: (SendMessage m, MonadIO m)
-  => (TargetRB3, Maybe TargetRB2)
+  => (TargetRB3 f, Maybe (TargetRB2 f))
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
@@ -90,7 +90,7 @@ processRB (a, b) c d e f = do
 
 processPS
   :: (SendMessage m, MonadIO m)
-  => TargetPS
+  => TargetPS f
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio
@@ -255,7 +255,7 @@ makeMoods tmap timing
 
 buildDrums
   :: F.FlexPartName
-  -> SharedTarget
+  -> SharedTarget f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> SongYaml f
@@ -336,7 +336,7 @@ data BRERemover t = BRERemover
 
 -- TODO make this more resilient, probably based on the "chop" functions
 -- so it can correctly handle stuff beyond just removing notes
-removeBRE :: (NNC.C t) => SharedTarget -> EventsTrack t -> Maybe (BRERemover t)
+removeBRE :: (NNC.C t) => SharedTarget f -> EventsTrack t -> Maybe (BRERemover t)
 removeBRE SharedTargetRB{} evts = case (eventsCoda evts, eventsCodaResume evts) of
   (Wait t1 () _, Wait t2 () _) -> Just $ let
     blips xs = trackGlue t2 (U.trackTake t1 xs) (U.trackDrop t2 xs)
@@ -370,7 +370,7 @@ addFiveMoods tempos timing ft = ft
 
 buildFive
   :: F.FlexPartName
-  -> SharedTarget
+  -> SharedTarget f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> Bool
@@ -460,7 +460,7 @@ deleteBRE song = song
 
 processMIDI
   :: (SendMessage m, MonadIO m)
-  => SharedTarget
+  => SharedTarget f
   -> SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> Drums.Audio

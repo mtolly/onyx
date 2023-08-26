@@ -440,17 +440,17 @@ getAudioDirs proj = do
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
 shakeBuild1 :: (MonadIO m) =>
-  Project -> [(T.Text, Target)] -> FilePath -> StackTraceT (QueueLog m) FilePath
+  Project -> [(T.Text, Target FilePath)] -> FilePath -> StackTraceT (QueueLog m) FilePath
 shakeBuild1 proj extraTargets = fmap runIdentity . shakeBuildMany proj extraTargets . Identity
 
 shakeBuildMany :: (MonadIO m, Traversable f) =>
-  Project -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
+  Project -> [(T.Text, Target FilePath)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
   buildables' <- shakeBuild audioDirs (projectLocation proj) extraTargets buildables
   return $ fmap (takeDirectory (projectLocation proj) </>) buildables'
 
-buildCommon :: (MonadIO m) => Target -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
+buildCommon :: (MonadIO m) => Target FilePath -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do
   let targetHash = show $ hash target `mod` 100000000
       buildable = getBuildable targetHash
@@ -459,61 +459,61 @@ buildCommon target getBuildable proj = do
 randomRBSongID :: (MonadIO m) => m Int32
 randomRBSongID = liftIO $ randomRIO (10000000, 1000000000)
 
-buildRB3CON :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB3CON :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3CON rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = (rb3 :: TargetRB3) { songID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3con") proj
 
-buildRB3PKG :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB3PKG :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3PKG rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = (rb3 :: TargetRB3) { songID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg") proj
 
-buildRB2CON :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB2CON :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = (rb2 :: TargetRB2) { songID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2con") proj
 
-buildRB2PKG :: (MonadIO m) => TargetRB2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildRB2PKG :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2PKG rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = (rb2 :: TargetRB2) { songID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
 
-buildMagmaV2 :: (MonadIO m) => TargetRB3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
 
-buildPSDir :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSDir :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps"
 
-buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSZip :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
-buildGH1Dir :: (MonadIO m) => TargetGH1 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH1Dir :: (MonadIO m) => TargetGH1 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH1Dir gh1 = buildCommon (GH1 gh1) $ \targetHash -> "gen/target" </> targetHash </> "gh1"
 
-buildGH2Dir :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH2Dir :: (MonadIO m) => TargetGH2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH2Dir gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2"
 
-buildGH2LIVE :: (MonadIO m) => TargetGH2 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH2LIVE :: (MonadIO m) => TargetGH2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH2LIVE gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2live"
 
-buildGH3LIVE :: (MonadIO m) => TargetGH3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH3LIVE :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH3LIVE gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "gh3live"
 
-buildGH3PKG :: (MonadIO m) => TargetGH3 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGH3PKG :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH3PKG gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
-buildGHWORLIVE :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGHWORLIVE :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ghworlive"
 
-buildGHWORPKG :: (MonadIO m) => TargetGH5 -> Project -> StackTraceT (QueueLog m) FilePath
+buildGHWORPKG :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
-installGH1 :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+installGH1 :: (MonadIO m) => TargetGH1 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH1 gh1 proj gen = do
   stackIO (crawlFolder gen >>= detectGameGH) >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
@@ -552,7 +552,7 @@ installGH1 gh1 proj gen = do
     , gh2Deluxe        = False
     }
 
-installGH2 :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+installGH2 :: (MonadIO m) => TargetGH2 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH2 gh2 proj gen = do
   stackIO (crawlFolder gen >>= detectGameGH) >>= \case
     Nothing         -> fatal "Couldn't detect what game this ARK is for."
@@ -602,7 +602,7 @@ installGH2 gh2 proj gen = do
     , gh2Deluxe        = gh2.gh2Deluxe
     }) >>= mapM_ warn
 
-makeGH1DIY :: (MonadIO m) => TargetGH1 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+makeGH1DIY :: (MonadIO m) => TargetGH1 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 makeGH1DIY gh1 proj dout = do
   dir <- buildGH1Dir gh1 proj
   stackIO $ Dir.createDirectoryIfMissing False dout
@@ -627,7 +627,7 @@ makeGH1DIY gh1 proj dout = do
     -- TODO also mention loading tip in locale.dtb?
     ]
 
-makeGH2DIY :: (MonadIO m) => TargetGH2 -> Project -> FilePath -> StackTraceT (QueueLog m) ()
+makeGH2DIY :: (MonadIO m) => TargetGH2 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 makeGH2DIY gh2 proj dout = do
   dir <- buildGH2Dir gh2 proj
   stackIO $ Dir.createDirectoryIfMissing False dout

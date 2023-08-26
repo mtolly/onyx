@@ -138,7 +138,7 @@ importMagma fin level = do
         Just c3file -> (C3.song c3file, C3.is2xBass c3file)
       -- TODO support dual 1x+2x projects
       targetName = if is2x then "rb3-2x" else "rb3"
-      target = (def :: TargetRB3)
+      target = (def :: TargetRB3 SoftFile)
         { is2xBassPedal = is2x
         , songID = case c3 of
           Nothing -> SongIDAutoSymbol

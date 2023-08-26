@@ -53,7 +53,7 @@ import           Onyx.Xbox.STFS                   (gh2pkg)
 import           Paths_onyx_lib                   (version)
 import qualified Sound.MIDI.Util                  as U
 
-hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 -> Int
+hashGH2 :: (Hashable f) => SongYaml f -> TargetGH2 f -> Int
 hashGH2 songYaml gh2 = let
   hashed =
     ( gh2
@@ -62,7 +62,7 @@ hashGH2 songYaml gh2 = let
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
-gh2Rules :: BuildInfo -> FilePath -> TargetGH2 -> QueueLog Rules ()
+gh2Rules :: BuildInfo -> FilePath -> TargetGH2 FilePath -> QueueLog Rules ()
 gh2Rules buildInfo dir gh2 = do
 
   let songYaml = biSongYaml buildInfo
@@ -186,7 +186,7 @@ gh2Rules buildInfo dir gh2 = do
 
   let addExtraIfDX :: F.Song (F.OnyxFile U.Beats) -> GH2Audio -> [D.Chunk T.Text] -> [D.Chunk T.Text]
       addExtraIfDX input audio = let
-        difficulty = difficultyPS (def :: TargetPS)
+        difficulty = difficultyPS (def :: TargetPS FilePath)
           { guitar = audio.leadTrack
           , bass   = case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.FlexExtra "undefined"
           , rhythm = case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.FlexExtra "undefined"
@@ -195,12 +195,13 @@ gh2Rules buildInfo dir gh2 = do
         translateDiff = \case
           0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later
           n -> fromIntegral n
+        metadata = getTargetMetadata songYaml $ GH2 gh2
         in if gh2.gh2Deluxe
           then addDXExtra GH2DXExtra
-            { songalbum      = songYaml.metadata.album
-            , author         = songYaml.metadata.author
-            , songyear       = T.pack . show <$> songYaml.metadata.year
-            , songgenre      = songYaml.metadata.genre
+            { songalbum      = metadata.album
+            , author         = metadata.author
+            , songyear       = T.pack . show <$> metadata.year
+            , songgenre      = metadata.genre
             , songorigin     = Nothing
             , songduration   = Just $ fromIntegral $ F.songLengthMS input
             , songguitarrank = Just $ translateDiff $ rb3GuitarTier $ psDifficultyRB3 difficulty
@@ -220,7 +221,7 @@ gh2Rules buildInfo dir gh2 = do
         inner = addExtraIfDX input audio $ makeValue (valueId D.stackChunks) $ makeGH2DTA
           songYaml
           key
-          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
+          (previewBounds songYaml.metadata (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml $ GH2 gh2)
@@ -297,7 +298,7 @@ gh2Rules buildInfo dir gh2 = do
         songPackage = makeGH2DTA360
           songYaml
           key
-          (previewBounds songYaml (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
+          (previewBounds songYaml.metadata (input :: F.Song (F.OnyxFile U.Beats)) padSeconds False)
           gh2
           audio
           (targetTitle songYaml (GH2 gh2))

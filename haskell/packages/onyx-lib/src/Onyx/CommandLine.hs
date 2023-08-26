@@ -356,7 +356,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
 optIndex :: [OnyxOption] -> Maybe Int
 optIndex opts = listToMaybe [ i | OptIndex i <- opts ]
 
-buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
+buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target FilePath, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   let _ = songYaml :: SongYaml FilePath

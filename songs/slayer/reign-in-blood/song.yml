@@ -152,6 +152,7 @@ plans:
     song:
       mix:
       - countin-01
+      - countin-08 # useful for Epidemic intro fill
       - pad:
         - 3.014
         - concatenate:
@@ -355,8 +356,8 @@ targets:
 
   01-rb3:
     title: Angel of Death
-    # track-number: 1
-    # author: Inventor211
+    track-number: 1
+    author: Inventor211
     game: rb3
     plan: album-01
     magma: false
@@ -367,8 +368,8 @@ targets:
       fade-end: 246|0
   01-rb3-2x:
     title: Angel of Death
-    # track-number: 1
-    # author: Inventor211
+    track-number: 1
+    author: Inventor211
     game: rb3
     plan: album-01
     magma: false
@@ -376,16 +377,16 @@ targets:
     end: *end-01
   01-ps:
     title: Angel of Death
-    # track-number: 1
-    # author: Inventor211
+    track-number: 1
+    author: Inventor211
     game: ps
     plan: album-01
     end: *end-01
 
   02-rb3:
     title: Piece by Piece
-    # track-number: 2
-    # author: Onyxite
+    track-number: 2
+    author: Onyxite
     game: rb3
     plan: album-02
     start:
@@ -400,8 +401,8 @@ targets:
       fade-end: 347|0
   02-rb3-2x:
     title: Piece by Piece
-    # track-number: 2
-    # author: Onyxite
+    track-number: 2
+    author: Onyxite
     game: rb3
     plan: album-02
     2x-bass-pedal: true
@@ -409,8 +410,8 @@ targets:
     end: *end-02
   02-ps:
     title: Piece by Piece
-    # track-number: 2
-    # author: Onyxite
+    track-number: 2
+    author: Onyxite
     game: ps
     plan: album-02
     start: *start-02
@@ -418,8 +419,8 @@ targets:
 
   03-rb3:
     title: Necrophobic
-    # track-number: 3
-    # author: Onyxite
+    track-number: 3
+    author: Onyxite
     game: rb3
     plan: album-03
     start:
@@ -434,8 +435,8 @@ targets:
       fade-end: 442|0
   03-rb3-2x:
     title: Necrophobic
-    # track-number: 3
-    # author: Onyxite
+    track-number: 3
+    author: Onyxite
     game: rb3
     plan: album-03
     2x-bass-pedal: true
@@ -443,8 +444,8 @@ targets:
     end: *end-03
   03-ps:
     title: Necrophobic
-    # track-number: 3
-    # author: Onyxite
+    track-number: 3
+    author: Onyxite
     game: ps
     plan: album-03
     start: *start-03
@@ -452,8 +453,8 @@ targets:
 
   04-rb3:
     title: Altar of Sacrifice
-    # track-number: 4
-    # author: Onyxite
+    track-number: 4
+    author: Onyxite
     game: rb3
     plan: album-04
     start:
@@ -468,8 +469,8 @@ targets:
       fade-end: 617|3
   04-rb3-2x:
     title: Altar of Sacrifice
-    # track-number: 4
-    # author: Onyxite
+    track-number: 4
+    author: Onyxite
     game: rb3
     plan: album-04
     2x-bass-pedal: true
@@ -477,8 +478,8 @@ targets:
     end: *end-04
   04-ps:
     title: Altar of Sacrifice
-    # track-number: 4
-    # author: Onyxite
+    track-number: 4
+    author: Onyxite
     game: ps
     plan: album-04
     start: *start-04
@@ -486,8 +487,8 @@ targets:
 
   05-rb3:
     title: Jesus Saves
-    # track-number: 5
-    # author: Onyxite
+    track-number: 5
+    author: Onyxite
     game: rb3
     plan: album-05
     start:
@@ -502,8 +503,8 @@ targets:
       fade-end: 752|4
   05-rb3-2x:
     title: Jesus Saves
-    # track-number: 5
-    # author: Onyxite
+    track-number: 5
+    author: Onyxite
     game: rb3
     plan: album-05
     2x-bass-pedal: true
@@ -511,8 +512,8 @@ targets:
     end: *end-05
   05-ps:
     title: Jesus Saves
-    # track-number: 5
-    # author: Onyxite
+    track-number: 5
+    author: Onyxite
     game: ps
     plan: album-05
     start: *start-05
@@ -520,8 +521,8 @@ targets:
 
   06-rb3:
     title: Criminally Insane
-    # track-number: 6
-    # author: Onyxite
+    track-number: 6
+    author: Onyxite
     game: rb3
     plan: album-06
     start:
@@ -536,8 +537,8 @@ targets:
       fade-end: 841|4
   06-rb3-2x:
     title: Criminally Insane
-    # track-number: 6
-    # author: Onyxite
+    track-number: 6
+    author: Onyxite
     game: rb3
     plan: album-06
     2x-bass-pedal: true
@@ -545,8 +546,8 @@ targets:
     end: *end-06
   06-ps:
     title: Criminally Insane
-    # track-number: 6
-    # author: Onyxite
+    track-number: 6
+    author: Onyxite
     game: ps
     plan: album-06
     start: *start-06
@@ -554,8 +555,8 @@ targets:
 
   07-rb3:
     title: Reborn
-    # track-number: 7
-    # author: Onyxite
+    track-number: 7
+    author: Onyxite
     game: rb3
     plan: album-07
     start:
@@ -570,8 +571,8 @@ targets:
       fade-end: 957|3
   07-rb3-2x:
     title: Reborn
-    # track-number: 7
-    # author: Onyxite
+    track-number: 7
+    author: Onyxite
     game: rb3
     plan: album-07
     2x-bass-pedal: true
@@ -579,8 +580,8 @@ targets:
     end: *end-07
   07-ps:
     title: Reborn
-    # track-number: 7
-    # author: Onyxite
+    track-number: 7
+    author: Onyxite
     game: ps
     plan: album-07
     start: *start-07
@@ -588,8 +589,8 @@ targets:
 
   08-rb3:
     title: Epidemic
-    # track-number: 8
-    # author: Onyxite
+    track-number: 8
+    author: Onyxite
     game: rb3
     plan: album-08
     start:
@@ -604,8 +605,8 @@ targets:
       fade-end: 1071|2
   08-rb3-2x:
     title: Epidemic
-    # track-number: 8
-    # author: Onyxite
+    track-number: 8
+    author: Onyxite
     game: rb3
     plan: album-08
     2x-bass-pedal: true
@@ -613,8 +614,8 @@ targets:
     end: *end-08
   08-ps:
     title: Epidemic
-    # track-number: 8
-    # author: Onyxite
+    track-number: 8
+    author: Onyxite
     game: ps
     plan: album-08
     start: *start-08
@@ -622,8 +623,8 @@ targets:
 
   09-rb3:
     title: Postmortem
-    # track-number: 9
-    # author: Onyxite
+    track-number: 9
+    author: Onyxite
     game: rb3
     plan: album-09-10
     start:
@@ -638,8 +639,8 @@ targets:
       fade-end: 1215|0
   09-rb3-2x:
     title: Postmortem
-    # track-number: 9
-    # author: Onyxite
+    track-number: 9
+    author: Onyxite
     game: rb3
     plan: album-09-10
     2x-bass-pedal: true
@@ -647,8 +648,8 @@ targets:
     end: *end-09
   09-ps:
     title: Postmortem
-    # track-number: 9
-    # author: Onyxite
+    track-number: 9
+    author: Onyxite
     game: ps
     plan: album-09-10
     start: *start-09
@@ -656,8 +657,8 @@ targets:
 
   10-rb3:
     title: Raining Blood
-    # track-number: 10
-    # author: Onyxite
+    track-number: 10
+    author: Onyxite
     game: rb3
     plan: album-09-10
     start:
@@ -667,16 +668,16 @@ targets:
       notes: 1210|0
   10-rb3-2x:
     title: Raining Blood
-    # track-number: 10
-    # author: Onyxite
+    track-number: 10
+    author: Onyxite
     game: rb3
     plan: album-09-10
     2x-bass-pedal: true
     start: *start-10
   10-ps:
     title: Raining Blood
-    # track-number: 10
-    # author: Onyxite
+    track-number: 10
+    author: Onyxite
     game: ps
     plan: album-09-10
     start: *start-10

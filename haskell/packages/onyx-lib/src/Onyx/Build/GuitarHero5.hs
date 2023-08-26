@@ -56,7 +56,7 @@ import           Onyx.Xbox.STFS                  (CreateOptions (..),
                                                   makeCONReadable)
 import qualified Sound.MIDI.Util                 as U
 
-hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 -> Int
+hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 f -> Int
 hashGH5 songYaml gh5 = let
   hashed =
     ( gh5
@@ -65,7 +65,7 @@ hashGH5 songYaml gh5 = let
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
-gh5Rules :: BuildInfo -> FilePath -> TargetGH5 -> QueueLog Rules ()
+gh5Rules :: BuildInfo -> FilePath -> TargetGH5 FilePath-> QueueLog Rules ()
 gh5Rules buildInfo dir gh5 = do
 
   let songYaml = biSongYaml buildInfo
@@ -80,9 +80,10 @@ gh5Rules buildInfo dir gh5 = do
       cdl = "cdl" <> show (fromMaybe hashed gh5.cdl)
       songKey = "dlc" <> show songID
       songKeyQB = qbKeyCRC $ B8.pack songKey
+      metadata = getTargetMetadata songYaml $ GH5 gh5
       -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
       packageInfo = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
-        $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist songYaml.metadata <> ")"
+        $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist metadata <> ")"
       -- We put the cdl in as well, otherwise 2 titles that share the first 42 chars can conflict
       -- (for example, a long-title song converted to 2 different speeds)
       packageTitle = T.pack cdl <> " " <> packageInfo
@@ -118,13 +119,13 @@ gh5Rules buildInfo dir gh5 = do
         makeQSPair s = let s' = worMetadataString s in (qsKey s', s')
         -- not sure what the \L does; it works without it but we'll just match official songs
         titleQS  = makeQSPair $ "\\L" <> targetTitle songYaml (GH5 gh5)
-        artistQS = makeQSPair $ "\\L" <> getArtist songYaml.metadata
-        albumQS  = makeQSPair $ getAlbum songYaml.metadata
+        artistQS = makeQSPair $ "\\L" <> getArtist metadata
+        albumQS  = makeQSPair $ getAlbum metadata
         qs = makeQS [titleQS, artistQS, albumQS]
         difficulties = difficultyGH5 gh5 songYaml
         genre = worGenre $ interpretGenre
-          songYaml.metadata.genre
-          songYaml.metadata.subgenre
+          metadata.genre
+          metadata.subgenre
         qb =
           [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
@@ -139,7 +140,7 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemQbKeyString (qbKeyCRC "artist_text") (qbKeyCRC "artist_text_by") -- TODO change if cover?
               , QBStructItemInteger (qbKeyCRC "original_artist") 1 -- TODO change if cover?
               -- TODO can we omit year, or pick a better default than 1960
-              , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear songYaml.metadata
+              , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear metadata
               , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
               , QBStructItemQbKey (qbKeyCRC "singer") (qbKeyCRC "female") -- TODO change if male
               , QBStructItemQbKey (qbKeyCRC "genre") $ qbWoRGenre genre
@@ -264,7 +265,7 @@ gh5Rules buildInfo dir gh5 = do
 
   dir </> "preview.wav" %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
+    let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
     src <- shk $ buildSource
       $ Gain 0.5 -- just guessing at this. without it previews are too loud

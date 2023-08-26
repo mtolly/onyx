@@ -10,7 +10,7 @@ module Onyx.Build.Common where
 import           Codec.Picture
 import           Codec.Picture.Types              (dropTransparency,
                                                    promotePixel)
-import           Control.Applicative              (liftA2)
+import           Control.Applicative              (liftA2, (<|>))
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class        (lift)
@@ -78,19 +78,42 @@ makePS3Name num songYaml
     <> getTitle  songYaml.metadata
     <> getArtist songYaml.metadata
 
-targetTitle :: SongYaml f -> Target -> T.Text
+targetTitle :: SongYaml f -> Target f -> T.Text
 targetTitle songYaml target = let
-  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).title
+  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).override.title
   in addTitleSuffix target base
 
-targetTitleJP :: SongYaml f -> Target -> Maybe T.Text
-targetTitleJP songYaml target = case (targetCommon target).title of
+targetTitleJP :: SongYaml f -> Target f -> Maybe T.Text
+targetTitleJP songYaml target = case (targetCommon target).override.title of
   Just _  -> Nothing -- TODO do we need JP title on targets also
   Nothing -> case songYaml.metadata.titleJP of
     Nothing   -> Nothing
     Just base -> Just $ addTitleSuffix target base
 
-addTitleSuffix :: Target -> T.Text -> T.Text
+getTargetMetadata :: SongYaml f -> Target f -> Metadata f
+getTargetMetadata songYaml target = metadata
+  { title        = override.title <|> metadata.title
+  , titleJP      = override.titleJP <|> metadata.titleJP
+  , artist       = override.artist <|> metadata.artist
+  , artistJP     = override.artistJP <|> metadata.artistJP
+  , album        = override.album <|> metadata.album
+  , genre        = override.genre <|> metadata.genre
+  , subgenre     = override.subgenre <|> metadata.subgenre
+  , year         = override.year <|> metadata.year
+  , fileAlbumArt = override.fileAlbumArt <|> metadata.fileAlbumArt
+  , trackNumber  = override.trackNumber <|> metadata.trackNumber
+  -- , comments     :: [T.Text]
+  , key          = override.key <|> metadata.key
+  , author       = override.author <|> metadata.author
+  -- , rating       :: Rating
+  , previewStart = override.previewStart <|> metadata.previewStart
+  , previewEnd   = override.previewEnd <|> metadata.previewEnd
+  -- , languages    :: [T.Text]
+  -- , difficulty   :: Difficulty -- TODO difficulty should be a Maybe, for other cases as well
+  } where metadata = songYaml.metadata
+          override = (targetCommon target).override
+
+addTitleSuffix :: Target f -> T.Text -> T.Text
 addTitleSuffix target base = let
   common = targetCommon target
   segments = base : case target of
@@ -112,7 +135,7 @@ addTitleSuffix target base = let
       ]
   in T.intercalate " " segments
 
-hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 -> Int
+hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
 hashRB3 songYaml rb3 = let
   hashed =
     ( rb3
@@ -128,7 +151,7 @@ hashRB3 songYaml rb3 = let
 crawlFolderBytes :: (MonadIO m) => FilePath -> StackTraceT m (Folder B.ByteString Readable)
 crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 
-applyTargetMIDI :: TargetCommon -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
+applyTargetMIDI :: TargetCommon f -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
   eval = fmap (U.unapplyTempoMap $ F.s_tempos mid) . evalPreviewTime False (Just F.getEventsTrack) mid 0 False
   applyEnd = case tgt.end >>= eval . (.notes) of
@@ -187,7 +210,7 @@ lastEvent (Wait !t x RNil) = Just (t, x)
 lastEvent (Wait !t _ xs  ) = lastEvent $ RTB.delay t xs
 lastEvent RNil             = Nothing
 
-applyTargetLength :: TargetCommon -> F.Song (f U.Beats) -> U.Seconds -> U.Seconds
+applyTargetLength :: TargetCommon g -> F.Song (f U.Beats) -> U.Seconds -> U.Seconds
 applyTargetLength tgt mid = let
   -- TODO get Events track to support sections as segment boundaries
   applyEnd = case tgt.end >>= evalPreviewTime False Nothing mid 0 False . (.fadeEnd) of
@@ -227,7 +250,7 @@ audioDepend buildInfo name = do
 
 sourceKick, sourceSnare, sourceKit, sourceSimplePart
   :: (MonadResource m)
-  => BuildInfo -> [F.FlexPartName] -> TargetCommon -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
+  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
   -> Staction (AudioSource m Float)
 
 sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
@@ -308,7 +331,7 @@ getPartSource buildInfo spec planName plan fpart rank = case plan of
 
 sourceStereoParts
   :: (MonadResource m)
-  => BuildInfo -> [F.FlexPartName] -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
+  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
   let spec = [(-1, 0), (1, 0)]
@@ -327,7 +350,7 @@ sourceSimplePart buildInfo gameParts tgt mid pad supportsOffMono planName plan f
 
 sourceCrowd
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath
+  => BuildInfo -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath
   -> Staction (AudioSource m Float)
 sourceCrowd buildInfo tgt mid pad planName plan = do
   src <- case plan of
@@ -339,7 +362,7 @@ sourceCrowd buildInfo tgt mid pad planName plan = do
 
 sourceBacking
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
+  => BuildInfo -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceBacking buildInfo tgt mid pad planName plan fparts = do
   let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
@@ -404,10 +427,8 @@ zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
   _ : _ : _ -> takeStart (Frames 0) src
   _         -> src
 
-fullGenre :: SongYaml f -> FullGenre
-fullGenre songYaml = interpretGenre
-  songYaml.metadata.genre
-  songYaml.metadata.subgenre
+fullGenre :: Metadata f -> FullGenre
+fullGenre metadata = interpretGenre metadata.genre metadata.subgenre
 
 -- Second element is a JPEG if it is reasonably square and can be used in CH/PS as is.
 loadSquareArtOrJPEG :: SongYaml FilePath -> Staction (Image PixelRGB8, Maybe FilePath)
@@ -468,7 +489,7 @@ backgroundColor bg img = let
     (imageWidth img)
     (imageHeight img)
 
-applyTargetAudio :: (MonadResource m) => TargetCommon -> F.Song f -> AudioSource m Float -> AudioSource m Float
+applyTargetAudio :: (MonadResource m) => TargetCommon g -> F.Song f -> AudioSource m Float -> AudioSource m Float
 applyTargetAudio tgt mid = let
   eval = evalPreviewTime False Nothing mid 0 False -- TODO get Events track to support sections as segment boundaries
   bounds :: SegmentEdge -> Maybe (U.Seconds, U.Seconds)
@@ -484,7 +505,7 @@ applyTargetAudio tgt mid = let
   applySpeed = applySpeedAudio tgt
   in applySpeed . applyStart . applyEnd
 
-applySpeedAudio :: (MonadResource m) => TargetCommon -> AudioSource m Float -> AudioSource m Float
+applySpeedAudio :: (MonadResource m) => TargetCommon f -> AudioSource m Float -> AudioSource m Float
 applySpeedAudio tgt = case fromMaybe 1 tgt.speed of
   1 -> id
   n -> stretchFull (1 / n) 1

@@ -46,10 +46,11 @@ import           Paths_onyx_lib                   (version)
 import qualified Sound.MIDI.Util                  as U
 import           System.Random                    (randomRIO)
 
-rsRules :: BuildInfo -> FilePath -> TargetRS -> QueueLog Rules ()
+rsRules :: BuildInfo -> FilePath -> TargetRS FilePath -> QueueLog Rules ()
 rsRules buildInfo dir rs = do
 
   let songYaml = biSongYaml buildInfo
+      metadata = getTargetMetadata songYaml $ RS rs
 
   (planName, plan) <- case getPlan rs.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rs
@@ -197,10 +198,10 @@ rsRules buildInfo dir rs = do
               , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
               }
             , Arr.arr_capo                   = gtrCapo tuning0
-            , Arr.arr_artistName             = getArtist songYaml.metadata
-            , Arr.arr_artistNameSort         = getArtist songYaml.metadata -- TODO
-            , Arr.arr_albumName              = getAlbum songYaml.metadata
-            , Arr.arr_albumYear              = songYaml.metadata.year
+            , Arr.arr_artistName             = getArtist metadata
+            , Arr.arr_artistNameSort         = getArtist metadata -- TODO
+            , Arr.arr_albumName              = getAlbum metadata
+            , Arr.arr_albumYear              = metadata.year
             , Arr.arr_crowdSpeed             = 1
             , Arr.arr_arrangementProperties  = Arr.ArrangementProperties
               { Arr.ap_represent         = True -- this is always true in arrangement xmls, but false for bonus (+ vocal/lights) in the project xml?
@@ -292,7 +293,7 @@ rsRules buildInfo dir rs = do
       _ -> buildAudio (Pad Start (Seconds pad) $ Input wav) out
   rsPreview %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
+    let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)
@@ -388,23 +389,23 @@ rsRules buildInfo dir rs = do
           }
     let dlc = DLC.RS2DLC
           { version            = fromMaybe "1.0" rs.version
-          , author             = fromMaybe "" songYaml.metadata.author
+          , author             = fromMaybe "" metadata.author
           , dlcKey             = key
           , artistName         = DLC.Sortable
-            { value     = getArtist songYaml.metadata
-            , sortValue = getArtist songYaml.metadata -- TODO
+            { value     = getArtist metadata
+            , sortValue = getArtist metadata -- TODO
             }
-          , japaneseArtistName = songYaml.metadata.artistJP
-          , japaneseTitle      = songYaml.metadata.titleJP
+          , japaneseArtistName = metadata.artistJP
+          , japaneseTitle      = metadata.titleJP
           , title              = DLC.Sortable
             { value     = targetTitle songYaml $ RS rs
             , sortValue = targetTitle songYaml $ RS rs -- TODO
             }
           , albumName          = DLC.Sortable
-            { value     = fromMaybe "" songYaml.metadata.album
-            , sortValue = fromMaybe "" songYaml.metadata.album -- TODO
+            { value     = fromMaybe "" metadata.album
+            , sortValue = fromMaybe "" metadata.album -- TODO
             }
-          , year               = getYear songYaml.metadata
+          , year               = getYear metadata
           , albumArtFile       = "cover.png"
           , audioFile          = DLC.AudioFile
             { path   = "audio.wav"
@@ -646,18 +647,18 @@ rsRules buildInfo dir rs = do
         -- not sure why brackets aren't allowed, CST removes them on compile
         textReplace = T.replace "[" "(" . T.replace "]" ")"
         in CST.SongInfo
-          { CST.si_Album               = textReplace $ getAlbum songYaml.metadata
-          , CST.si_AlbumSort           = textReplace $ getAlbum songYaml.metadata -- TODO
-          , CST.si_Artist              = textReplace $ getArtist songYaml.metadata
-          , CST.si_ArtistSort          = textReplace $ getArtist songYaml.metadata -- TODO
+          { CST.si_Album               = textReplace $ getAlbum metadata
+          , CST.si_AlbumSort           = textReplace $ getAlbum metadata -- TODO
+          , CST.si_Artist              = textReplace $ getArtist metadata
+          , CST.si_ArtistSort          = textReplace $ getArtist metadata -- TODO
           , CST.si_AverageTempo        = maybe 120 {- shouldn't happen -} ((round :: U.BPS -> Int) . (* 60)) averageTempo
-          , CST.si_JapaneseArtistName  = case songYaml.metadata.artistJP of
+          , CST.si_JapaneseArtistName  = case metadata.artistJP of
             Nothing -> ""
             Just s  -> textReplace s
           , CST.si_JapaneseSongName    = maybe "" textReplace $ targetTitleJP songYaml $ RS rs
           , CST.si_SongDisplayName     = textReplace $ targetTitle songYaml $ RS rs
           , CST.si_SongDisplayNameSort = textReplace $ targetTitle songYaml $ RS rs
-          , CST.si_SongYear            = fromMaybe 1960 songYaml.metadata.year -- TODO see if this can be empty
+          , CST.si_SongYear            = fromMaybe 1960 metadata.year -- TODO see if this can be empty
           }
           {-
             Info from CST source on sortable text (might not need to do this though, CST appears to edit them itself):

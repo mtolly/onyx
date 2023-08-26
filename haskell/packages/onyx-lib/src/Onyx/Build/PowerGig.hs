@@ -48,12 +48,13 @@ import qualified Sound.MIDI.Util                  as U
 import           Text.Mustache                    (compileMustacheFile,
                                                    renderMustache)
 
-pgRules :: BuildInfo -> FilePath -> TargetPG -> QueueLog Rules ()
+pgRules :: BuildInfo -> FilePath -> TargetPG FilePath -> QueueLog Rules ()
 pgRules buildInfo dir pg = do
 
   let songYaml      = biSongYaml buildInfo
       key           = fromMaybe "TodoAutoSongKey" pg.key -- TODO generate automatic
       k             = T.unpack key
+      metadata      = getTargetMetadata songYaml $ PG pg
 
       objSTFS       = dir </> "pglive"
       objAddContent = dir </> "stfs/AddContent.lua"
@@ -86,7 +87,7 @@ pgRules buildInfo dir pg = do
     thumb <- stackIO $ powerGigThumbnail >>= B.readFile
     titleThumb <- stackIO $ powerGigTitleThumbnail >>= B.readFile
     stackIO $ makeCONReadable CreateOptions
-      { createNames = [getTitle songYaml.metadata]
+      { createNames = [getTitle metadata]
       , createDescriptions = [""]
       , createTitleID = 0x5A4607D1
       , createTitleName = "Power Gig: Rise of the Six String"
@@ -107,7 +108,7 @@ pgRules buildInfo dir pg = do
   objAddContent %> \out -> do
     template <- stackIO (getResourcesPath "power-gig/AddContent.lua") >>= compileMustacheFile
     stackIO $ B.writeFile out $ renderMustacheUTF8 template $ A.object
-      [ "package_name" .= escapeLuaString (getTitle songYaml.metadata)
+      [ "package_name" .= escapeLuaString (getTitle metadata)
       , "song_key" .= escapeLuaString key
       ]
 
@@ -248,13 +249,13 @@ pgRules buildInfo dir pg = do
           }
         song = PG.Song
           { song_info   = PG.Info
-            { info_title            = getTitle songYaml.metadata
+            { info_title            = getTitle metadata
             , info_title_short      = Nothing
             , info_title_shorter    = Nothing
-            , info_artist           = getArtist songYaml.metadata
+            , info_artist           = getArtist metadata
             , info_artist_short     = Nothing
-            , info_year             = getYear songYaml.metadata -- xsd claims this can only go 1900 to 2020?
-            , info_album            = getAlbum songYaml.metadata
+            , info_year             = getYear metadata -- xsd claims this can only go 1900 to 2020?
+            , info_album            = getAlbum metadata
             , info_composer         = ""
             , info_lyricist         = ""
             , info_genre            = "Rock and Roll" -- TODO either translate to valid genre, or check if any genre works
@@ -284,7 +285,7 @@ pgRules buildInfo dir pg = do
               }
             , audio_count_off      = Nothing
             , audio_preview        = V.singleton $ let
-              (pstart, pend) = previewBounds songYaml mid 0 False
+              (pstart, pend) = previewBounds metadata mid 0 False
               in PG.Preview
                 { preview_start_position   = Just $ fromIntegral pstart / 1000
                 , preview_attack_time      = Just 1

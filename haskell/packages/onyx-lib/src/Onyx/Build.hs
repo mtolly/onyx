@@ -99,12 +99,13 @@ printOverdrive mid = do
 
 ------------------------------------------------------------------------------
 
-dtxRules :: BuildInfo -> FilePath -> TargetDTX -> QueueLog Rules ()
+dtxRules :: BuildInfo -> FilePath -> TargetDTX FilePath -> QueueLog Rules ()
 dtxRules buildInfo dir dtx = do
 
   let songYaml = biSongYaml buildInfo
       rel = biRelative buildInfo
       gen = biGen buildInfo
+      metadata = getTargetMetadata songYaml $ DTX dtx
 
   (planName, _plan) <- case getPlan dtx.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show dtx
@@ -131,7 +132,7 @@ dtxRules buildInfo dir dtx = do
           Just name -> gen $ "plan" </> T.unpack name
     -- not supporting different tempo maps (so we don't need to use planPreviewDir for midi load)
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
+    let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
         previewExpr
           = Fade End (Seconds 5)
@@ -141,7 +142,7 @@ dtxRules buildInfo dir dtx = do
           $ Input (planPreviewDir </> "everything.wav")
     buildAudio previewExpr out
 
-  artPath <- case songYaml.metadata.fileAlbumArt of
+  artPath <- case metadata.fileAlbumArt of
     Just img | elem (takeExtension img) [".jpg", ".jpeg"] -> do
       dir </> "dtx/cover.jpg" %> shk . copyFile' img
       return "cover.jpg"
@@ -192,10 +193,10 @@ dtxRules buildInfo dir dtx = do
           Nothing              -> Nothing -- translate RB rank/tier?
         dtxFile = DTX.DTX
           { DTX.dtx_TITLE         = Just $ targetTitle songYaml $ DTX dtx
-          , DTX.dtx_ARTIST        = Just $ getArtist songYaml.metadata
+          , DTX.dtx_ARTIST        = Just $ getArtist metadata
           , DTX.dtx_PREIMAGE      = Just artPath
           , DTX.dtx_COMMENT       = Nothing
-          , DTX.dtx_GENRE         = songYaml.metadata.genre
+          , DTX.dtx_GENRE         = metadata.genre
           , DTX.dtx_PREVIEW       = Just "preview.ogg"
           , DTX.dtx_STAGEFILE     = Nothing
           , DTX.dtx_DLEVEL        = fst <$> drumDifficulty
@@ -313,7 +314,7 @@ dtxRules buildInfo dir dtx = do
 ------------------------------------------------------------------------------
 
 -- Not used at the moment (removed Melody's Escape target types)
-_melodyRules :: BuildInfo -> FilePath -> TargetPart -> QueueLog Rules ()
+_melodyRules :: BuildInfo -> FilePath -> TargetPart FilePath -> QueueLog Rules ()
 _melodyRules buildInfo dir tgt = do
 
   let songYaml = biSongYaml buildInfo
@@ -360,7 +361,7 @@ _melodyRules buildInfo dir tgt = do
 shakeBuildFiles :: (MonadIO m, Traversable f) => [FilePath] -> FilePath -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
-shakeBuild :: (MonadIO m, Traversable f) => [FilePath] -> FilePath -> [(T.Text, Target)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
+shakeBuild :: (MonadIO m, Traversable f) => [FilePath] -> FilePath -> [(T.Text, Target FilePath)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
   yamlPath <- stackIO $ Dir.canonicalizePath yamlPathRel

@@ -68,7 +68,7 @@ import qualified Sound.MIDI.Util                   as U
 import           System.IO                         (IOMode (..), hFileSize,
                                                     withBinaryFile)
 
-hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 -> Int
+hashGH3 :: (Hashable f) => SongYaml f -> TargetGH3 f -> Int
 hashGH3 songYaml gh3 = let
   hashed =
     ( gh3
@@ -77,7 +77,7 @@ hashGH3 songYaml gh3 = let
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
-gh3Rules :: BuildInfo -> FilePath -> TargetGH3 -> QueueLog Rules ()
+gh3Rules :: BuildInfo -> FilePath -> TargetGH3 FilePath -> QueueLog Rules ()
 gh3Rules buildInfo dir gh3 = do
 
   let songYaml = biSongYaml buildInfo
@@ -140,8 +140,9 @@ gh3Rules buildInfo dir gh3 = do
   pathPreview %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     -- Pad passed as 0 because we are just applying it to the unpadded audio
-    let (pstart, pend) = previewBounds songYaml (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
+    let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+        metadata = getTargetMetadata songYaml $ GH3 gh3
         previewExpr
           = Fade End (Seconds 5)
           $ Fade Start (Seconds 2)
@@ -209,7 +210,8 @@ gh3Rules buildInfo dir gh3 = do
   pathDL %> \out -> gh3MysteryScript (B8.pack dl) >>= stackIO . BL.writeFile out
   pathText %> \out -> do
     -- section names would also go in here, but we'll try to use the embedded section name format
-    let nodes =
+    let metadata = getTargetMetadata songYaml $ GH3 gh3
+        nodes =
           [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = unk2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB
               [ QBSectionStruct (qbKeyCRC "GH3_Download_Songs") unk1
@@ -232,12 +234,12 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemQbKey8D0000 (qbKeyCRC "checksum") (qbKeyCRC dlcID)
                   , QBStructItemString830000 (qbKeyCRC "name") dlcID
                   , QBStructItemStringW (qbKeyCRC "title") $ targetTitle songYaml (GH3 gh3)
-                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist songYaml.metadata
+                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist metadata
                   -- Need to have a year string, even if empty. Otherwise it glitches out and takes other strings' values
-                  , QBStructItemStringW (qbKeyCRC "year") $ case songYaml.metadata.year of
+                  , QBStructItemStringW (qbKeyCRC "year") $ case metadata.year of
                     Nothing   -> ""
                     Just year -> T.pack $ ", " <> show year
-                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if songYaml.metadata.cover
+                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if metadata.cover
                     then qbKeyCRC "artist_text_as_made_famous_by"
                     else qbKeyCRC "artist_text_by"
                   , QBStructItemInteger810000 (qbKeyCRC "original_artist") 0 -- TODO what is this? doesn't mean cover/master
@@ -312,7 +314,7 @@ gh3Rules buildInfo dir gh3 = do
           , folderFiles = map (\(dest, src) -> (T.pack dest, fileReadable src)) files
           }
         title = targetTitle songYaml (GH3 gh3)
-        artist = getArtist songYaml.metadata
+        artist = getArtist $ getTargetMetadata songYaml $ GH3 gh3
         packageTitles =
           [ title <> " by " <> artist
           , ""
