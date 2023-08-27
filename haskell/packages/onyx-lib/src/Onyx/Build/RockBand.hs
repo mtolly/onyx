@@ -77,9 +77,12 @@ import           Onyx.Reaper.Build                     (TuningInfo (..),
 import           Onyx.Resources                        (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
                                                         getResourcesPath)
-import           Onyx.Sections                         (makeRB2Section,
+import           Onyx.Sections                         (Section,
+                                                        makeDisplaySection,
+                                                        makeRB2Section,
                                                         makeRB3Section,
-                                                        makeRBN2Sections)
+                                                        makeRBN2Sections,
+                                                        sectionBody)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                       (shortWindowsPath)
 import           Onyx.Util.Handle                      (Folder (..))
@@ -316,13 +319,13 @@ rbRules buildInfo dir rb3 mrb2 = do
             fallback
           Just () -> return ()
       MagmaDisable -> fallback
-  let midRealSections :: F.Song (F.OnyxFile U.Beats) -> Staction (RTB.T U.Beats T.Text)
-      midRealSections = notSingleSection . fmap snd . eventsSections . F.onyxEvents . F.s_tracks
+  let midRealSections :: F.Song (F.OnyxFile U.Beats) -> Staction (RTB.T U.Beats Section)
+      midRealSections = notSingleSection . eventsSections . F.onyxEvents . F.s_tracks
       -- also applies the computed pad + tempo hacks
-      getRealSections' :: Staction (RTB.T U.Beats T.Text)
+      getRealSections' :: Staction (RTB.T U.Beats Section)
       getRealSections' = do
         raw <- fmap (applyTargetMIDI rb3.common) $ F.shakeMIDI $ planDir </> "raw.mid"
-        let sects = fmap snd $ eventsSections $ F.onyxEvents $ F.s_tracks raw
+        let sects = eventsSections $ F.onyxEvents $ F.s_tracks raw
         maybeAdjuster <- if rb3.legalTempos
           then do
             (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
@@ -426,7 +429,8 @@ rbRules buildInfo dir rb3 mrb2 = do
     liftIO $ writeFile pathMagmaEditedParts $ show (diffs, vc)
     case invalid of
       [] -> return ()
-      _  -> lg $ "The following sections were swapped out for Magma (but will be readded in CON output): " ++ show invalid
+      _  -> lg $ "The following sections were swapped out for Magma (but will be readded in CON output): "
+        <> show (map (sectionBody . makeDisplaySection) invalid)
     F.saveMIDILatin1 pathMagmaMid output
 
   let pathDta = dir </> "stfs/songs/songs.dta"

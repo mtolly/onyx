@@ -48,7 +48,8 @@ import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
 import qualified Onyx.Reaper.Scan                 as RPP
 import           Onyx.Rocksmith.ArrangementXML
-import           Onyx.Sections                    (makePSSection)
+import           Onyx.Sections                    (makeDisplaySection,
+                                                   sectionBody)
 import           Onyx.StackTrace
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import           Onyx.WebPlayer                   (findTremolos, findTrills,
@@ -644,7 +645,7 @@ computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
     , previewTracks   = trk
     , previewBG       = bgs
     , previewSections = rtbToMap
-      $ fmap (snd . makePSSection . snd)
+      $ fmap (sectionBody . makeDisplaySection)
       $ eventsSections $ F.onyxEvents $ F.s_tracks song
     }
 

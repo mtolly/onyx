@@ -60,7 +60,8 @@ import qualified Onyx.MIDI.Track.Events           as RB
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as RB
 import           Onyx.Project
-import           Onyx.Sections                    (fromGH2Section)
+import           Onyx.Sections                    (fromGH2Section,
+                                                   simpleSection)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                  as U
@@ -132,7 +133,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
       , RB.eventsCodaResume = RTB.empty
       , RB.eventsCrowd      = RTB.empty -- TODO
       , RB.eventsCrowdClap  = RTB.empty -- TODO
-      , RB.eventsSections   = (\s -> (RB.SectionRB2, fromGH2Section s)) <$> eventsSections (gh2Events gh2)
+      , RB.eventsSections   = (\s -> simpleSection $ fromGH2Section s) <$> eventsSections (gh2Events gh2)
       , RB.eventsBacking    = triggersBacking $ gh2Triggers gh2
       }
     , F.fixedPartGuitar = convertPart $ case mode of

@@ -42,9 +42,11 @@ import           Onyx.Image.DXT
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as Drums
+import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.Resources                   (onyxAlbum)
+import           Onyx.Sections                    (Section (..), simpleSection)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Folder (..), Readable,
                                                    crawlFolder)
@@ -203,7 +205,25 @@ applyTargetMIDI tgt mid = let
         $ U.tempoMapToBPS
         $ F.s_tempos m
       }
-  in applySpeed . applyStart . applyEnd $ mid
+  applySections m = case tgt.sections of
+    SectionsFull       -> m
+    SectionsMinimal    -> modifySections m
+      $ makeMinimalSections . RTB.mapMaybe (\s -> simpleSection <$> s.segment)
+    SectionsIndividual -> modifySections m
+      $ fmap $ \s -> s { segment = Nothing }
+  makeMinimalSections = \case
+    Wait t1 s1 rest1@(Wait t2 s2 rest2) -> if s1.name == s2.name
+      then makeMinimalSections $ Wait t1 s1 $ RTB.delay t2 rest2
+      else Wait t1 s1 $ makeMinimalSections rest1
+    sections -> sections
+  modifySections m f = m
+    { F.s_tracks = (F.s_tracks m)
+      { F.onyxEvents = (F.onyxEvents $ F.s_tracks m)
+        { eventsSections = f $ eventsSections $ F.onyxEvents $ F.s_tracks m
+        }
+      }
+    }
+  in applySections . applySpeed . applyStart . applyEnd $ mid
 
 lastEvent :: (NNC.C t) => RTB.T t a -> Maybe (t, a)
 lastEvent (Wait !t x RNil) = Just (t, x)

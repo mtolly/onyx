@@ -47,6 +47,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Project                     hiding (Difficulty)
+import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                  as U
@@ -265,7 +266,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
                 })
               ]
             , F.onyxEvents = mempty
-              { eventsSections = (SectionRB2,) <$> sectionNames
+              { eventsSections = simpleSection <$> sectionNames
               }
             }
           }

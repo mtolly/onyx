@@ -62,7 +62,8 @@ import           Onyx.Project
 import           Onyx.Reductions                  (completeFiveResult)
 import           Onyx.Resources                   (getResourcesPath,
                                                    ghWoRThumbnail)
-import           Onyx.Sections                    (makePSSection)
+import           Onyx.Sections                    (makeDisplaySection,
+                                                   sectionBody)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    errorToWarning, stackIO)
 import           Onyx.Util.Handle
@@ -442,8 +443,8 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap (eventsSections $ F.onyxEvents ofile) $ \(_, section) -> let
-          (_, sectionPrint) = makePSSection section
+        sections = flip fmap (eventsSections $ F.onyxEvents ofile) $ \section -> let
+          sectionPrint = sectionBody $ makeDisplaySection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)
         sections' = RTB.merge sections $ let

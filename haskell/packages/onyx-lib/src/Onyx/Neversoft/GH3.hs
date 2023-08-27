@@ -30,6 +30,7 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Metadata          (SongInfoGH3 (..))
 import           Onyx.Neversoft.QB
+import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                  as U
 
@@ -362,7 +363,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
             Left  n -> case HM.lookup n bank of
               Just s  -> s
               Nothing -> T.pack $ show n
-      return (toBeats t, (SectionRB2, str))
+      return (toBeats t, simpleSection str)
     }
   drums = gh3DrumsToFull toBeats $ gh3Drums $ gh3BackgroundNotes gh3
   fixed = mempty

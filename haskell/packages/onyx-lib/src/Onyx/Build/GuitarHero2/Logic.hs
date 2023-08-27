@@ -51,7 +51,8 @@ import           Onyx.Mode
 import           Onyx.Overdrive                       (removeNotelessOD)
 import           Onyx.Project
 import           Onyx.Reductions                      (completeFiveResult)
-import           Onyx.Sections                        (makeGH2Section)
+import           Onyx.Sections                        (makeGH2Section,
+                                                       sectionBody)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                      as U
 
@@ -331,7 +332,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           $ RB.vocalNotes trk
         in mempty { singerIdle = idle, singerPlay = play }
       events = mempty
-        { eventsSections      = fmap (makeGH2Section . snd)
+        { eventsSections      = fmap (makeGH2Section . sectionBody)
           $ RB.eventsSections $ F.onyxEvents onyx
         , eventsOther         = foldr RTB.merge RTB.empty
           [ RTB.cons (timingMusicStart timing) MusicStart RTB.empty

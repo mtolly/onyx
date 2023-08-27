@@ -61,6 +61,7 @@ import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.Preferences                     (MagmaSetting (..),
                                                        TrueDrumLayoutHint (..))
+import           Onyx.Sections                        (Section (..))
 import           Onyx.StackTrace
 import qualified Sound.Jammit.Base                    as J
 import qualified Sound.MIDI.Util                      as U
@@ -1060,21 +1061,46 @@ data TargetCommon f = TargetCommon
   , label2x  :: Bool -- if automatic label and 2x drums, should we add (2x Bass Pedal)
   , start    :: Maybe SegmentEdge
   , end      :: Maybe SegmentEdge
+  , sections :: SectionsStyle
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetCommon :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetCommon f)
 parseTargetCommon = do
-  speed    <- (.speed   ) =. opt Nothing "speed"    stackJSON
-  plan     <- (.plan    ) =. opt Nothing "plan"     stackJSON
+  speed    <- (.speed   ) =. opt Nothing      "speed"    stackJSON
+  plan     <- (.plan    ) =. opt Nothing      "plan"     stackJSON
   override <- (.override) =. parseMetadata False
-  label_   <- (.label_  ) =. opt Nothing "label"    stackJSON
-  label2x  <- (.label2x ) =. opt True    "label-2x" stackJSON
-  start    <- (.start   ) =. opt Nothing "start"    stackJSON
-  end      <- (.end     ) =. opt Nothing "end"      stackJSON
+  label_   <- (.label_  ) =. opt Nothing      "label"    stackJSON
+  label2x  <- (.label2x ) =. opt True         "label-2x" stackJSON
+  start    <- (.start   ) =. opt Nothing      "start"    stackJSON
+  end      <- (.end     ) =. opt Nothing      "end"      stackJSON
+  sections <- (.sections) =. opt SectionsFull "sections" stackJSON
   return TargetCommon{..}
 
 instance Default (TargetCommon f) where
-  def = TargetCommon Nothing Nothing def Nothing True Nothing Nothing
+  def = TargetCommon
+    { speed    = Nothing
+    , plan     = Nothing
+    , override = def
+    , label_   = Nothing
+    , label2x  = True
+    , start    = Nothing
+    , end      = Nothing
+    , sections = SectionsFull
+    }
+
+-- How to emit compound section names which have a song name attached.
+-- Used for full album projects with targets for the album and individual songs
+data SectionsStyle
+  = SectionsFull -- emit all sections with the song name attached (e.g. full album for CH)
+  | SectionsMinimal -- emit one section for each song (e.g. full album for RB3 due to end screen crash if too many sections)
+  | SectionsIndividual -- strip the song name from emitted sections (e.g. individual song targets)
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON SectionsStyle where
+  stackJSON = enumCodecFull "full, minimal, or individual" $ \case
+    SectionsFull       -> is "full"
+    SectionsMinimal    -> is "minimal"
+    SectionsIndividual -> is "individual"
 
 data SegmentEdge = SegmentEdge
   { fadeStart :: PreviewTime
@@ -1689,6 +1715,7 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
   where addLeadin = if leadin then (NNC.-| 0.6) else id
         addMIDIPadding = if prepadded then id else (+ padding)
         -- TODO make this more reliable in matching section formatting
+        -- TODO support segment names
         findSection sect = getEvents >>= \f ->
-          fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
+          fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . (.name))
             $ eventsSections $ f $ F.s_tracks song

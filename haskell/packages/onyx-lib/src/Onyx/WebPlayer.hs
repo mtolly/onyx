@@ -54,7 +54,8 @@ import qualified Onyx.MIDI.Track.Vocal.Legacy     as Vox
 import           Onyx.Mode
 import qualified Onyx.PhaseShift.Dance            as Dance
 import qualified Onyx.Project                     as C
-import           Onyx.Sections                    (makePSSection)
+import           Onyx.Sections                    (makeDisplaySection,
+                                                   sectionBody)
 import           Onyx.Util.Text.Transform         (showTimestamp)
 import qualified Sound.MIDI.Util                  as U
 
@@ -828,6 +829,6 @@ makeDisplay songYaml song = let
   artist = fromMaybe "" songYaml.metadata.artist
   author = fromMaybe "" songYaml.metadata.author
   sections = U.applyTempoTrack (F.s_tempos song)
-    $ fmap (snd . makePSSection . snd)
+    $ fmap (sectionBody . makeDisplaySection . makeDisplaySection)
     $ eventsSections $ F.onyxEvents $ F.s_tracks song
   in A.encode $ Processed title artist author beat end sections parts

@@ -50,7 +50,7 @@ import           Onyx.Mode
 import           Onyx.Overdrive
 import           Onyx.Project
 import           Onyx.Reductions
-import           Onyx.Sections                     (makePSSection)
+import           Onyx.Sections                     (makeDisplaySection)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                   as U
 
@@ -276,7 +276,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
       drumResult = bd drumTarget modeInput
       src = drumResultToTrack drumResult
 
-      sections = fmap snd $ eventsSections $ F.onyxEvents trks
+      sections = eventsSections $ F.onyxEvents trks
 
       drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
       drumsRemoveBRE = case removeBRE target $ F.onyxEvents trks of
@@ -516,7 +516,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           else eventsBacking eventsInput
         }
       eventsTrackPS = eventsTrack
-        { eventsSections = makePSSection . snd <$> eventsSections eventsTrack
+        { eventsSections = makeDisplaySection <$> eventsSections eventsTrack
         }
       drumsPart = case target of
         SharedTargetRB rb3 _ -> rb3.drums

@@ -8,14 +8,13 @@
 {-# LANGUAGE TupleSections      #-}
 module Onyx.MIDI.Track.Events where
 
-import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
+import           Onyx.Sections
 import qualified Sound.MIDI.Util                  as U
 
 data CrowdMood
@@ -31,11 +30,6 @@ data Backing
   | BackingHihat
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-data SectionType
-  = SectionRB2 -- @[section foo]@
-  | SectionRB3 -- @[prc_foo]@
-  deriving (Eq, Ord, Show, Enum, Bounded)
-
 data EventsTrack t = EventsTrack
   { eventsMusicStart :: RTB.T t ()
   , eventsMusicEnd   :: RTB.T t ()
@@ -44,7 +38,7 @@ data EventsTrack t = EventsTrack
   , eventsCodaResume :: RTB.T t () -- onyx event: if present, notes between [coda] and [coda_resume] are removed for RB but not CH
   , eventsCrowd      :: RTB.T t CrowdMood
   , eventsCrowdClap  :: RTB.T t Bool
-  , eventsSections   :: RTB.T t (SectionType, T.Text)
+  , eventsSections   :: RTB.T t Section
   , eventsBacking    :: RTB.T t Backing
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
@@ -82,14 +76,7 @@ instance ParseTrack EventsTrack where
     eventsCrowdClap <- (eventsCrowdClap =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       False -> ["crowd_noclap"]
       True  -> ["crowd_clap"]
-    eventsSections <- eventsSections =. let
-      fp = toCommand >=> \case
-        ("section" : s) -> Just (SectionRB2, T.unwords s)
-        [s]             -> (SectionRB3 ,) <$> T.stripPrefix "prc_" s
-        _               -> Nothing
-      fs (SectionRB2, t) = ["section", t]
-      fs (SectionRB3, t) = ["prc_" <> t]
-      in commandMatch' fp fs
+    eventsSections <- eventsSections =. commandMatch' parseSection (pure . emitSection)
     eventsBacking <- (eventsBacking =.) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24
       BackingSnare -> 25

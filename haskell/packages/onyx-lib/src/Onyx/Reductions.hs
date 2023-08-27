@@ -13,7 +13,6 @@ import           Data.List.Extra                  (nubOrd, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
-import qualified Data.Text                        as T
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.FeedBack.Load               (loadMIDIOrChart)
@@ -31,6 +30,7 @@ import           Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys          as PK
 import           Onyx.Mode
+import           Onyx.Sections                    (Section)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                  as U
 
@@ -367,7 +367,7 @@ pkReduce diff   mmap od diffEvents = let
 
 drumsComplete
   :: U.MeasureMap
-  -> RTB.T U.Beats T.Text -- ^ Practice sections
+  -> RTB.T U.Beats Section
   -> D.DrumTrack U.Beats
   -> D.DrumTrack U.Beats
 drumsComplete mmap sections trk = let
@@ -420,8 +420,8 @@ ensureODNotes = go . RTB.normalize where
 drumsReduce
   :: Difficulty
   -> U.MeasureMap
-  -> RTB.T U.Beats Bool                      -- ^ Overdrive phrases
-  -> RTB.T U.Beats T.Text                    -- ^ Practice sections
+  -> RTB.T U.Beats Bool              -- ^ Overdrive phrases
+  -> RTB.T U.Beats Section
   -> RTB.T U.Beats (D.Gem D.ProType) -- ^ The source difficulty, one level up
   -> RTB.T U.Beats (D.Gem D.ProType) -- ^ The target difficulty
 drumsReduce Expert _    _  _        trk = trk
@@ -518,7 +518,7 @@ drumsReduce diff   mmap od sections trk = let
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
-  let sections = fmap snd $ eventsSections $ F.onyxEvents onyx
+  let sections = eventsSections $ F.onyxEvents onyx
   stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
     { F.onyxParts = flip fmap (F.onyxParts onyx) $ \trks -> let
       pkX = F.onyxPartRealKeysX trks

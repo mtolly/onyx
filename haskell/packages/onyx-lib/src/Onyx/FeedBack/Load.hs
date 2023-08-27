@@ -37,7 +37,7 @@ import           Onyx.MIDI.Track.File
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.MIDI.Track.SixFret
 import           Onyx.MIDI.Track.Vocal
-import           Onyx.Sections                    (makeRB2Section)
+import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
 import           Onyx.Util.Handle                 (Readable, handleToByteString,
@@ -438,7 +438,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartGuitarCoop   <- parseGRYBO "DoubleGuitar" -- ExpertDoubleGuitar etc.
   fixedPartDrums        <- parseDrums "Drums" -- ExpertDrums etc.
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
-    { eventsSections = fmap makeRB2Section $ flip RTB.mapMaybe trk $ \case
+    { eventsSections = fmap simpleSection $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
     }

@@ -40,6 +40,7 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.Vocal            as V
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Pak
+import           Onyx.Sections                    (simpleSection)
 import           Onyx.Xbox.STFS                   (runGetM)
 import qualified Sound.MIDI.Util                  as U
 
@@ -521,7 +522,7 @@ ghToMidi bank pak = let
       mevent = case HM.lookup qsID bank of
         Nothing  -> Nothing
         Just str -> case T.stripPrefix "\\u[m]" str of
-          Just sect -> Just $ Right (SectionRB2, sect)
+          Just sect -> Just $ Right $ simpleSection sect
           Nothing -> case str of
             "\\L_ENDOFSONG" -> Just $ Left ()
             _               -> Nothing

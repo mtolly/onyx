@@ -55,7 +55,8 @@ import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (completeFiveResult)
 import           Onyx.Resources                    (getResourcesPath,
                                                     gh3Thumbnail)
-import           Onyx.Sections                     (makePSSection)
+import           Onyx.Sections                     (makeDisplaySection,
+                                                    sectionBody)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
 import           Onyx.Util.Handle                  (Folder (..), fileReadable)
@@ -483,7 +484,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     (F.s_signatures song)
     (timingEnd timing)
   sections
-    = map (\(secs, (_, sect)) -> (fromSeconds secs, Right $ snd $ makePSSection sect))
+    = map (\(secs, sect) -> (fromSeconds secs, Right $ sectionBody $ makeDisplaySection sect))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
     $ U.applyTempoTrack (F.s_tempos song)
