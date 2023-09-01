@@ -61,7 +61,11 @@ import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.Preferences                     (MagmaSetting (..),
                                                        TrueDrumLayoutHint (..))
-import           Onyx.Sections                        (Section (..))
+import           Onyx.Sections                        (Section (..),
+                                                       emitSection,
+                                                       makeDisplaySection,
+                                                       parseSection,
+                                                       simpleSection)
 import           Onyx.StackTrace
 import qualified Sound.Jammit.Base                    as J
 import qualified Sound.MIDI.Util                      as U
@@ -901,7 +905,7 @@ instance StackJSON Rating where
     Unrated                -> fuzzy "Unrated"                 |?> fuzzy "UR"
 
 data PreviewTime
-  = PreviewSection T.Text
+  = PreviewSection Section
   | PreviewMIDI    U.MeasureBeats
   | PreviewSeconds U.Seconds
   deriving (Eq, Ord, Show, Generic)
@@ -920,14 +924,14 @@ instance StackJSON PreviewTime where
         return $ PreviewSeconds $ realToFrac (d :: Double)
       traceStr = do
         str <- fromJSON
-        case T.stripPrefix "prc_" str of
+        case parseSection $ T.words str of
           Just prc -> return $ PreviewSection prc
           Nothing -> let
             p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseTimestamp
             in p `catchError` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
       in traceNum `catchError` \_ -> traceStr
     , codecOut = makeOut $ \case
-      PreviewSection str  -> A.toJSON $ "prc_" <> str
+      PreviewSection sect -> A.toJSON $ emitSection sect
       PreviewMIDI mb      -> A.toJSON $ showMeasureBeats mb
       PreviewSeconds secs -> showTimestamp $ realToFrac secs
     }
@@ -1687,9 +1691,11 @@ previewBounds metadata song padding prepadded = let
   secsToMS s = floor $ s * 1000
   evalTime t = secsToMS <$> evalPreviewTime True (Just F.getEventsTrack) song padding prepadded t
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
-  defStartTime = max 0 $ case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
-    []    -> quot len 2 - 15000
-    t : _ -> min (len - 30000) t
+  defStartTime = max 0 $
+    case mapMaybe (evalTime . PreviewSection . simpleSection) defaultPreviewSections of
+      []    -> quot len 2 - 15000
+      t : _ -> min (len - 30000) t
+  defaultPreviewSections = ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
   in case (metadata.previewStart, metadata.previewEnd) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
@@ -1710,12 +1716,12 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
     $ addMIDIPadding
     $ U.applyTempoMap (F.s_tempos song)
     $ U.unapplyMeasureMap (F.s_signatures song) mb
-  PreviewSection str -> addLeadin . addMIDIPadding . U.applyTempoMap (F.s_tempos song)
-    <$> findSection str
+  PreviewSection sect -> addLeadin . addMIDIPadding . U.applyTempoMap (F.s_tempos song)
+    <$> findSection sect
   where addLeadin = if leadin then (NNC.-| 0.6) else id
         addMIDIPadding = if prepadded then id else (+ padding)
-        -- TODO make this more reliable in matching section formatting
-        -- TODO support segment names
-        findSection sect = getEvents >>= \f ->
-          fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . (.name))
-            $ eventsSections $ f $ F.s_tracks song
+        findSection sect = let
+          sectDisplay = makeDisplaySection sect
+          in getEvents >>= \f ->
+            fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sectDisplay) . makeDisplaySection)
+              $ eventsSections $ f $ F.s_tracks song

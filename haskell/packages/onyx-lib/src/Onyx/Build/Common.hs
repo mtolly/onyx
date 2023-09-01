@@ -225,6 +225,16 @@ applyTargetMIDI tgt mid = let
     }
   in applySections . applySpeed . applyStart . applyEnd $ mid
 
+previewBoundsTarget
+  :: Metadata file -- this should be project info overridden with target info
+  -> F.Song (F.OnyxFile U.Beats) -- this should be "gen*/events.mid", no speed/pad/segment edits
+  -> TargetCommon file -- used to apply speed and segment edits
+  -> U.Seconds -- padding for early notes, calculated after target edits
+  -> (Int, Int) -- start and end in milliseconds
+previewBoundsTarget meta song tgt pad = let
+  song' = applyTargetMIDI tgt { sections = SectionsFull } song
+  in previewBounds meta song' pad False
+
 lastEvent :: (NNC.C t) => RTB.T t a -> Maybe (t, a)
 lastEvent (Wait !t x RNil) = Just (t, x)
 lastEvent (Wait !t _ xs  ) = lastEvent $ RTB.delay t xs

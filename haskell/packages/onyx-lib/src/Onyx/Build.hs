@@ -614,6 +614,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         -- MIDI files
 
         let midprocessed = dir </> "processed.mid"
+            midevents = dir </> "events.mid"
             midraw = dir </> "raw.mid"
             sampleTimes = dir </> "samples.txt"
             display = dir </> "display.json"
@@ -625,11 +626,17 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             Nothing -> return input
             Just m  -> F.shakeMIDI m
           F.saveMIDIUtf8 out input { F.s_tempos = tempos }
-        midprocessed %> \out -> do
+        (midprocessed, midevents) %> \_ -> do
           -- basically just autogen a BEAT track
           input <- F.shakeMIDI midraw
           output <- RB3.processTiming input $ getAudioLength buildInfo planName plan
-          F.saveMIDIUtf8 out output
+          F.saveMIDIUtf8 midprocessed output
+          -- save a separate midi with only EVENTS track
+          F.saveMIDIUtf8 midevents output
+            { F.s_tracks = mempty
+              { F.onyxEvents = F.onyxEvents $ F.s_tracks output
+              }
+            }
 
         sampleTimes %> \out -> do
           input <- F.shakeMIDI midraw

@@ -125,7 +125,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
     go b    (Wait t () rest) = Wait t b $ go (not b) rest
     go _    RNil             = RNil
   in F.fixedToOnyx mempty
-    { F.fixedEvents = RB.EventsTrack
+    { F.fixedEvents = mempty
       { RB.eventsMusicStart = void $ RTB.filter (== MusicStart) $ eventsOther $ gh2Events gh2
       , RB.eventsMusicEnd   = RTB.empty
       , RB.eventsEnd        = void $ RTB.filter (== End) $ eventsOther $ gh2Events gh2

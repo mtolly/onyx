@@ -495,12 +495,11 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           , RTB.singleton timingMusicStart False
           )
         else (eventsCrowd eventsInput, eventsCrowdClap eventsInput)
-      eventsTrack = EventsTrack
+      eventsTrack = mempty
         { eventsMusicStart = RTB.singleton timingMusicStart ()
         , eventsMusicEnd   = RTB.singleton timingMusicEnd ()
         , eventsEnd        = RTB.singleton timingEnd ()
         , eventsCoda       = eventsCoda eventsInput
-        , eventsCodaResume = RTB.empty
         , eventsCrowd      = crowd
         , eventsCrowdClap  = crowdClap
         , eventsSections   = eventsSections eventsInput

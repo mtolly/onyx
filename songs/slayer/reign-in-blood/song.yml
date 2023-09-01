@@ -9,6 +9,7 @@ metadata:
   author: Onyxite, Inventor211
   track-number: 13 # come after the 10 tracks + 2 bonus tracks even though not charting them
   difficulty: 7
+  preview-start: "28:10.754" # The Aftermath, exact time avoids starting too early
 
 audio:
 
@@ -64,12 +65,12 @@ audio:
     samples: {}
   countin-leo:
     file-path: countin-leo.ogg
+  # hihat countin from RB3 DLC Raining Blood
+  countin-hit-orig:
+    file-path: countin-rb.wav
   countin-hit:
-    # TODO find something better
-    file-path: ../../../sound/hihat-foot.wav
-  countin-stick:
-    # TODO find something better
-    file-path: ../../../sound/onyx-dtx/output/chip-snare-rim.ogg
+    expr:
+      gain: [2.5, countin-hit-orig]
 
   # this uses a modified version of the RB3 DLC ending, which has a nice final snare hit.
   # also fades out the end thunderstorm a bit.
@@ -150,6 +151,7 @@ parts:
       mode: 'true'
       kicks: both
       difficulty: 7
+      # TODO may want to support per-target difficulty so certain songs can be lower
 plans:
 
   # note: Angel of Death tempo map from Inventor, but all tempos sped up
@@ -370,6 +372,7 @@ targets:
     game: rb3
     plan: album-01
     sections: individual
+    preview-start: "section <1. Angel of Death> chorus_2"
     end:
       &end-01
       notes: 245|0
@@ -382,6 +385,7 @@ targets:
     game: rb3
     plan: album-01
     sections: individual
+    preview-start: "section <1. Angel of Death> chorus_2"
     2x-bass-pedal: true
     end: *end-01
   01-ps:
@@ -391,6 +395,7 @@ targets:
     game: ps
     plan: album-01
     sections: individual
+    preview-start: "section <1. Angel of Death> chorus_2"
     end: *end-01
 
   02-rb3:
@@ -400,6 +405,7 @@ targets:
     game: rb3
     plan: album-02
     sections: individual
+    preview-start: "section <2. Piece by Piece> chorus_2"
     start:
       &start-02
       fade-start: 246|0
@@ -417,6 +423,7 @@ targets:
     game: rb3
     plan: album-02
     sections: individual
+    preview-start: "section <2. Piece by Piece> chorus_2"
     2x-bass-pedal: true
     start: *start-02
     end: *end-02
@@ -427,6 +434,7 @@ targets:
     game: ps
     plan: album-02
     sections: individual
+    preview-start: "section <2. Piece by Piece> chorus_2"
     start: *start-02
     end: *end-02
 
@@ -437,6 +445,7 @@ targets:
     game: rb3
     plan: album-03
     sections: individual
+    preview-start: "section <3. Necrophobic> verse_2b"
     start:
       &start-03
       fade-start: 346|0
@@ -454,6 +463,7 @@ targets:
     game: rb3
     plan: album-03
     sections: individual
+    preview-start: "section <3. Necrophobic> verse_2b"
     2x-bass-pedal: true
     start: *start-03
     end: *end-03
@@ -464,6 +474,7 @@ targets:
     game: ps
     plan: album-03
     sections: individual
+    preview-start: "section <3. Necrophobic> verse_2b"
     start: *start-03
     end: *end-03
 
@@ -474,6 +485,7 @@ targets:
     game: rb3
     plan: album-04
     sections: individual
+    preview-start: "section <4. Altar of Sacrifice> chorus_1"
     start:
       &start-04
       fade-start: 441|0
@@ -491,6 +503,7 @@ targets:
     game: rb3
     plan: album-04
     sections: individual
+    preview-start: "section <4. Altar of Sacrifice> chorus_1"
     2x-bass-pedal: true
     start: *start-04
     end: *end-04
@@ -501,6 +514,7 @@ targets:
     game: ps
     plan: album-04
     sections: individual
+    preview-start: "section <4. Altar of Sacrifice> chorus_1"
     start: *start-04
     end: *end-04
 
@@ -511,6 +525,7 @@ targets:
     game: rb3
     plan: album-05
     sections: individual
+    preview-start: "section <5. Jesus Saves> chorus_1"
     start:
       &start-05
       fade-start: 616|4
@@ -528,6 +543,7 @@ targets:
     game: rb3
     plan: album-05
     sections: individual
+    preview-start: "section <5. Jesus Saves> chorus_1"
     2x-bass-pedal: true
     start: *start-05
     end: *end-05
@@ -538,6 +554,7 @@ targets:
     game: ps
     plan: album-05
     sections: individual
+    preview-start: "section <5. Jesus Saves> chorus_1"
     start: *start-05
     end: *end-05
 
@@ -548,6 +565,7 @@ targets:
     game: rb3
     plan: album-06
     sections: individual
+    preview-start: "section <6. Criminally Insane> verse_2"
     start:
       &start-06
       fade-start: 752|1
@@ -565,6 +583,7 @@ targets:
     game: rb3
     plan: album-06
     sections: individual
+    preview-start: "section <6. Criminally Insane> verse_2"
     2x-bass-pedal: true
     start: *start-06
     end: *end-06
@@ -575,6 +594,7 @@ targets:
     game: ps
     plan: album-06
     sections: individual
+    preview-start: "section <6. Criminally Insane> verse_2"
     start: *start-06
     end: *end-06
 
@@ -585,6 +605,7 @@ targets:
     game: rb3
     plan: album-07
     sections: individual
+    preview-start: "section <7. Reborn> verse_2b"
     start:
       &start-07
       fade-start: 841|1
@@ -602,6 +623,7 @@ targets:
     game: rb3
     plan: album-07
     sections: individual
+    preview-start: "section <7. Reborn> verse_2b"
     2x-bass-pedal: true
     start: *start-07
     end: *end-07
@@ -612,6 +634,7 @@ targets:
     game: ps
     plan: album-07
     sections: individual
+    preview-start: "section <7. Reborn> verse_2b"
     start: *start-07
     end: *end-07
 
@@ -622,6 +645,7 @@ targets:
     game: rb3
     plan: album-08
     sections: individual
+    preview-start: "section <8. Epidemic> verse_2c"
     start:
       &start-08
       fade-start: 957|0
@@ -639,6 +663,7 @@ targets:
     game: rb3
     plan: album-08
     sections: individual
+    preview-start: "section <8. Epidemic> verse_2c"
     2x-bass-pedal: true
     start: *start-08
     end: *end-08
@@ -649,6 +674,7 @@ targets:
     game: ps
     plan: album-08
     sections: individual
+    preview-start: "section <8. Epidemic> verse_2c"
     start: *start-08
     end: *end-08
 
@@ -659,6 +685,7 @@ targets:
     game: rb3
     plan: album-09-10
     sections: individual
+    preview-start: "section <9. Postmortem> verse_2b"
     start:
       &start-09
       fade-start: 1071|0
@@ -676,6 +703,7 @@ targets:
     game: rb3
     plan: album-09-10
     sections: individual
+    preview-start: "section <9. Postmortem> verse_2b"
     2x-bass-pedal: true
     start: *start-09
     end: *end-09
@@ -686,6 +714,7 @@ targets:
     game: ps
     plan: album-09-10
     sections: individual
+    preview-start: "section <9. Postmortem> verse_2b"
     start: *start-09
     end: *end-09
 
@@ -696,6 +725,7 @@ targets:
     game: rb3
     plan: album-09-10
     sections: individual
+    preview-start: "section <10. Raining Blood> verse_1a"
     start:
       &start-10
       fade-start: 1207|0
@@ -708,6 +738,7 @@ targets:
     game: rb3
     plan: album-09-10
     sections: individual
+    preview-start: "section <10. Raining Blood> verse_1a"
     2x-bass-pedal: true
     start: *start-10
   10-ps:
@@ -717,4 +748,5 @@ targets:
     game: ps
     plan: album-09-10
     sections: individual
+    preview-start: "section <10. Raining Blood> verse_1a"
     start: *start-10

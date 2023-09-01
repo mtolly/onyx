@@ -91,10 +91,14 @@ psRules buildInfo dir ps = do
     return psImage
 
   dir </> "ps/song.ini" %> \out -> do
-    raw <- shakeMIDI $ planDir </> "raw.mid"
+    midEvents <- shakeMIDI $ planDir </> "events.mid"
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     (DifficultyPS{..}, vocalCount) <- loadEditedParts
-    let (pstart, _) = previewBounds metadata (raw :: F.Song (F.OnyxFile U.Beats)) 0 False
+    let (pstart, _) = previewBoundsTarget
+          metadata
+          midEvents
+          ps.common
+          0 -- padding
         len = F.songLengthMS song
         pd = getPart ps.drums songYaml >>= (.drums)
         dmode = (.mode) <$> pd
@@ -107,7 +111,7 @@ psRules buildInfo dir ps = do
           , F.fixedPartGuitarCoop $ F.s_tracks song
           ]
         emptyModeInput = ModeInput
-          { tempo = F.s_tempos raw
+          { tempo = F.s_tempos midEvents
           , events = mempty
           , part = mempty
           }
@@ -206,12 +210,15 @@ psRules buildInfo dir ps = do
       loadPSMidi :: Staction (F.Song (F.OnyxFile U.Beats), DifficultyPS, DifficultyRB3, U.Seconds)
       loadPSMidi = do
         (diffs, _) <- loadEditedParts
-        mid <- shakeMIDI $ planDir </> "processed.mid"
-        let midSegment = applyTargetMIDI ps.common mid
-        -- should just retrieve the events already there
-        timing <- RB3.basicTiming midSegment $ getAudioLength buildInfo planName plan
+        -- we need to do applyTargetMIDI on the raw midi, not processed,
+        -- because otherwise if we are zooming in on a segment, the basic timing
+        -- events will be placed according to the whole song and not the segment
+        midRaw <- shakeMIDI $ planDir </> "raw.mid"
+        let midSegment = applyTargetMIDI ps.common midRaw
+        timing <- RB3.basicTiming midSegment $
+          applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
         let endSecs = U.applyTempoMap (F.s_tempos midSegment) $ RB3.timingEnd timing
-        return (mid, diffs, psDifficultyRB3 diffs, endSecs)
+        return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)
   -- TODO for mix mode 4 (kick + kit), we should create only
   --   drums_1 (kick) and drums_2 (kit). currently we create
   --   drums_1 (kick) drums_2 (snare, empty) drums_3 (kit)

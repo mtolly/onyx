@@ -40,6 +40,7 @@ data EventsTrack t = EventsTrack
   , eventsCrowdClap  :: RTB.T t Bool
   , eventsSections   :: RTB.T t Section
   , eventsBacking    :: RTB.T t Backing
+  , eventsPreview    :: RTB.T t () -- seen in DLC, probably internal event that is used to calculate for songs.dta
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
 
@@ -55,11 +56,12 @@ instance ChopTrack EventsTrack where
     , eventsCrowdClap  = chopDropStatus t $ eventsCrowdClap  trk
     , eventsSections   = chopDropStatus t $ eventsSections   trk
     , eventsBacking    = U.trackDrop    t $ eventsBacking    trk
+    , eventsPreview    = U.trackDrop    t $ eventsPreview    trk
     }
 
 instance TraverseTrack EventsTrack where
-  traverseTrack fn (EventsTrack a b c d e f g h i) = EventsTrack
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i
+  traverseTrack fn (EventsTrack a b c d e f g h i j) = EventsTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j
 
 instance ParseTrack EventsTrack where
   parseTrack = do
@@ -81,4 +83,5 @@ instance ParseTrack EventsTrack where
       BackingKick  -> 24
       BackingSnare -> 25
       BackingHihat -> 26
+    eventsPreview <- eventsPreview =. commandMatch ["preview"]
     return EventsTrack{..}
