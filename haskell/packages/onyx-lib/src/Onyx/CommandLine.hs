@@ -60,9 +60,13 @@ import           Onyx.Audio                           (Audio (Input),
                                                        buildSource', makeFSB4,
                                                        makeFSB4', makeXMAFSB3,
                                                        runAudio)
-import           Onyx.Audio.FSB                       (emitFSB,
+import           Onyx.Audio.FSB                       (FSBExtraMP3 (..),
+                                                       FSBExtraXMA (..),
+                                                       emitFSB, fsb3Songs,
+                                                       fsb4Songs, fsbExtra,
+                                                       fsbHeader,
                                                        ghBandMP3sToFSB4,
-                                                       parseXMA,
+                                                       parseFSB, parseXMA,
                                                        splitFSBStreamsToDir,
                                                        writeXMA2, xma1To2)
 import           Onyx.Audio.VGS                       (readVGS)
@@ -120,8 +124,8 @@ import qualified Onyx.MIDI.Script.Scan                as MS
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
-import           Onyx.Neversoft.Crypt                 (decryptFSB, gh3Encrypt,
-                                                       ghworEncrypt,
+import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
+                                                       gh3Encrypt, ghworEncrypt,
                                                        ghwtEncrypt)
 import           Onyx.Neversoft.Note                  (loadNoteFile)
 import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
@@ -148,9 +152,11 @@ import           Onyx.Util.Files                      (copyDirRecursive,
 import           Onyx.Util.Handle                     (Folder (..),
                                                        byteStringSimpleHandle,
                                                        crawlFolder,
-                                                       fileReadable, makeHandle,
+                                                       fileReadable,
+                                                       handleToByteString,
+                                                       makeHandle,
                                                        saveHandleFolder,
-                                                       saveReadable)
+                                                       saveReadable, useHandle)
 import           Onyx.Util.Text.Decode                (decodeGeneral)
 import           Onyx.Xbox.ISO                        (loadXboxISO)
 import           Onyx.Xbox.STFS
@@ -864,11 +870,32 @@ commands =
             newFiles <- flip concatMapM (folderFiles folder) $ \(name, r) -> let
               upper = T.toUpper name
               in case T.stripSuffix ".FSB.XEN" upper of
-                Just audioName -> return $ return
-                  -- TODO need to check if it's already an MP3 FSB, and if so, just keep it as is
-                  ( audioName <> ".FSB.PS3.REPLACEME"
-                  , makeHandle "(empty file)" $ byteStringSimpleHandle BL.empty
-                  )
+                Just audioName -> do
+                  bs <- stackIO $ BL.toStrict <$> useHandle r handleToByteString
+                  isMP3 <- case decryptFSB' (T.unpack audioName) bs of
+                    Nothing -> do
+                      warn $ "Couldn't decrypt .fsb to determine audio codec: " <> show name
+                      return False
+                    Just dec -> case parseFSB dec of
+                      Nothing -> do
+                        warn $ "Couldn't parse .fsb to determine audio codec: " <> show name
+                        return False
+                      Just fsb -> case map fsbExtra $ either fsb3Songs fsb4Songs $ fsbHeader fsb of
+                        [] -> do
+                          warn $ ".fsb has no song tracks? " <> show name
+                          return True
+                        Left FSBExtraXMA{} : _ -> do
+                          lg $ "Detected XMA .fsb file, provide MP3 file for PS3: " <> show name
+                          return False
+                        Right FSBExtraMP3{} : _ -> do
+                          lg $ "Detected MP3 .fsb file, passing through: " <> show name
+                          return True
+                  let result = if isMP3
+                        then (audioName <> ".FSB.PS3", r)
+                        else ( audioName <> ".FSB.PS3.REPLACEME"
+                             , makeHandle "(empty file)" $ byteStringSimpleHandle BL.empty
+                             )
+                  return [result]
                 Nothing -> case T.stripSuffix ".XEN" upper of
                   Just baseName -> case T.stripSuffix ".PAK" baseName of
                     Just pakName -> case T.stripPrefix "B" pakName of
