@@ -137,7 +137,11 @@ loadSong r = do
   -- TODO make all keys lowercase before lookup
 
   let str :: T.Text -> Maybe T.Text
-      str k = either (const Nothing) Just $ lookupValue "song" k ini <|> lookupValue "Song" k ini
+      str k = case lookupValue "song" k ini of
+        Right x -> Just x
+        Left _ -> case lookupValue "Song" k ini of
+          Right x -> Just x
+          Left _ -> Nothing
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       milli :: T.Text -> Maybe Milli

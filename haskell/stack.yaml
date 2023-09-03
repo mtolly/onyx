@@ -46,8 +46,8 @@ extra-deps:
   commit: e58affa31251cec0d50f9b0588acfa514edd58ae # string-param branch
 - git: https://github.com/mtolly/OpenAL
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
-- git: https://github.com/mtolly/codec # ghc 8.8+ and aeson patches
-  commit: 7aedc9534afb996cb11a557eeadc74462e49e8de
+- git: https://github.com/mtolly/codec # ghc 8.8+ (to 9.6) and aeson patches
+  commit: a6b98bbc1e37a7835b6c59a4425aa57600cf386e
 - git: https://github.com/mtolly/mpg123-haskell-binding
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: https://github.com/kaoskorobase/hsndfile # unreleased past 0.8.0, switches to pkg-config
@@ -58,7 +58,7 @@ extra-deps:
 #   - Cabal
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
-resolver: lts-20.26
+resolver: nightly-2023-08-29
 flags:
   fltkhs:
     bundled: true
