@@ -31,8 +31,7 @@ parts:
     drums:
 
       # EDIT PROGRESS
-      # kicks edited
-      # snares edited up to m75 (bass solo)
+      # kicks + snares edited
 
       difficulty: 7
       kicks: 1

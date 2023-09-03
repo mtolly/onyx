@@ -26,7 +26,7 @@ import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
                                                writeIORef)
 import           Data.List.Extra              (findIndex, nubOrd, partition,
-                                               sort)
+                                               sort, isPrefixOf)
 import           Data.List.HT                 (partitionMaybe)
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
@@ -1463,15 +1463,36 @@ drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
 fillPtr :: (Storable a, MonadIO m) => (Ptr a -> IO ()) -> m a
 fillPtr f = liftIO $ alloca $ \p -> f p >> peek p
 
-loadProgram :: (MonadIO m) => [(GLenum, FilePath)] -> StackTraceT m GLuint
-loadProgram shaderPairs = mapStackTraceT (liftIO . runResourceT) $ do
-  shaders <- forM shaderPairs $ \(shaderType, f) -> do
-    inside ("compiling shader: " <> f) $ do
-      source <- stackIO $ B.readFile f
-      shader <- stackIO (compileShader shaderType source) >>= either fatal return
-      void $ register $ glDeleteShader shader
-      return shader
-  stackIO (compileProgram shaders) >>= either fatal return
+getStringGL :: (MonadIO m) => GLenum -> m String
+getStringGL name = let
+  cast :: Ptr GLubyte -> Ptr CChar
+  cast = castPtr
+  -- actually should always decode utf-8 instead of system encoding, but probably fine
+  -- "String queries return pointers to UTF-8 encoded, NULL-terminated static strings"
+  in liftIO $ glGetString name >>= peekCString . cast
+
+-- Some Chromebook model (ChromeOS, loading Linux build) failed shader compile with:
+-- "GLSL 3.30 is not supported. Supported versions: 1.10, 1.20, 1.30, 1.40, 1.00 es and 3.00 es"
+-- 3.00 es is based on 3.30 core, just with extra precision statement needed
+hackShaderGLES :: B.ByteString -> B.ByteString
+hackShaderGLES bs = case B.stripPrefix "#version" bs of
+  Just bs' -> "#version 300 es\nprecision highp float;\n" <> B.dropWhile (\c -> c /= 0xA && c /= 0xD) bs'
+  Nothing  -> bs
+
+loadProgram :: (MonadIO m, SendMessage m) => [(GLenum, FilePath)] -> StackTraceT m GLuint
+loadProgram shaderPairs = do
+  versionGL <- getStringGL GL_VERSION
+  let isGLES = "OpenGL ES" `isPrefixOf` versionGL
+  when isGLES $ warn "Loading shaders as GLSL ES. Please report if an error occurs"
+  mapStackTraceT (liftIO . runResourceT) $ do
+    shaders <- forM shaderPairs $ \(shaderType, f) -> do
+      inside ("compiling shader: " <> f) $ do
+        source <- stackIO $ B.readFile f
+        let source' = if isGLES then hackShaderGLES source else source
+        shader <- stackIO (compileShader shaderType source') >>= either fatal return
+        void $ register $ glDeleteShader shader
+        return shader
+    stackIO (compileProgram shaders) >>= either fatal return
 
 compileShader :: GLenum -> B.ByteString -> IO (Either String GLuint)
 compileShader shaderType source = do
