@@ -59,11 +59,6 @@ import           System.FilePath                  (dropExtension,
                                                    splitExtension,
                                                    takeExtension, (<.>))
 
--- TODO this swell fix breaks things like gravity blasts, where people
--- correctly use the single lane over something that may look like it
--- should be a double lane. we should probably restrict it to only try to fix
--- all-cymbals lanes
-
 generateSwells
   :: (Eq a)
   => RTB.T U.Seconds (Bool, [a])
@@ -118,15 +113,37 @@ redoSwells (F.Song tmap mmap ps) = let
     notes = RTB.collectCoincident
       $ RTB.filter (\(gem, _vel) -> gem /= Drums.Kick) $ drumGems $ fromMaybe mempty
       $ Map.lookup Expert $ drumDifficulties trk
+
+    -- for single rolls, don't process ones that include snares.
+    -- otherwise we will mess up single rolls under gravity blasts
+    allSingleRolls = joinEdgesSimple $ fmap
+      (\case Just _ -> EdgeOn () (); Nothing -> EdgeOff ())
+      (drumSingleRoll trk)
+    allSingleRollsWithAbsTime
+      = RTB.fromAbsoluteEventList
+      $ ATB.fromPairList
+      $ map (\(t, ((), (), len)) -> (t, (t, len)))
+      $ ATB.toPairList
+      $ RTB.toAbsoluteEventList 0 allSingleRolls
+    (singleRollsEdit, singleRollsLeave) = flip RTB.partition allSingleRollsWithAbsTime
+      $ \(t, len) -> let
+        thisLaneNotes = U.trackTake len $ U.trackDrop t notes
+        isSnare (Drums.Red, _vel) = True
+        isSnare _                 = False
+        in all (all $ not . isSnare) thisLaneNotes
+    singleRollsEditBools = splitEdgesBool $ snd <$> singleRollsEdit
+    singleRollsLeaveBools = splitEdgesBool $ snd <$> singleRollsLeave
+
     notesWithLanes = fmap (first $ not . null)
       $ flip applyStatus notes $ RTB.merge
-        (fmap (('s',) . isJust) $ drumSingleRoll trk)
-        (fmap (('d',) . isJust) $ drumDoubleRoll trk)
+        (('s',)          <$> singleRollsEditBools)
+        (('d',) . isJust <$> drumDoubleRoll trk  )
     (lanes1, lanes2) = generateSwells
       $ U.applyTempoTrack tmap notesWithLanes
     in trk
       { drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert)
         $ F.fixFreeform (void notes)
+        $ RTB.merge singleRollsLeaveBools
         $ U.unapplyTempoTrack tmap lanes1
       , drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert)
         $ F.fixFreeform (void notes)

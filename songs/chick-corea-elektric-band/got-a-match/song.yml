@@ -21,11 +21,19 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
 parts:
   drums:
     drums:
-      # still not sure of kicks from m43 to m62
-      # and kicks and snares from m115 to m130
+
+      # EDIT PROGRESS
+      # kicks edited
+      # snares edited up to m75 (bass solo)
+
       difficulty: 7
       kicks: 1
   bass:
@@ -48,10 +56,23 @@ plans:
       - pad:
         - 2.710
         - gain: [2.2, album-track]
+  dev:
+    song:
+      pad: [2.710, album-track]
+    parts:
+      bass:
+        pad: [2.710, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.710, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.710, channels: [[4, 5], stems]]
+      other:
+        pad: [2.710, channels: [[6, 7], stems]]
 targets:
   rb3:
     game: rb3
     song-id: 1660200109
-    version: 2
+    plan: album
   ps:
     game: ps
+    plan: album

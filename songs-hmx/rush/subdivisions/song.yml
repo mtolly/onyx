@@ -45,60 +45,37 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      keys:
-      - 8
-      - 9
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    mogg-md5: 8703e0399ead61e8ac01659506d17621
-    vols:
-    - -8
-    - -8
-    - -8
-    - -8
-    - -7
-    - -7
-    - -7
-    - -7
-    - -8
-    - -8
-    - -8
-    - -8
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    # mogg-md5: 8703e0399ead61e8ac01659506d17621
+    file-mogg: audio.mogg
+    vols: [-8, -8, -8, -8, -7, -7, -7, -7, -8, -8, -8, -8]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: audio.mogg
+    vols: [-8, -8, -8, -8, -7, -7, -7, -7, -8, -8, -8, -8]
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: FamilyFriendly
   preview-start: 1:44.452

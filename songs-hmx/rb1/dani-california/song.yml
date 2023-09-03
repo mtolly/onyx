@@ -29,7 +29,15 @@ plans:
       guitar: [7, 8]
       vocal: [9, 10]
     pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
-    mogg-md5: 8f2cedd34b227b0f68576431174955bf
+    # mogg-md5: 8f2cedd34b227b0f68576431174955bf
+    file-mogg: audio.mogg
+    multitrack: true
+    crowd: [13, 14]
+    vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -5, -5]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
+    file-mogg: audio.mogg
     multitrack: true
     crowd: [13, 14]
     vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -5, -5]
@@ -37,9 +45,10 @@ targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Supervision Recommended
   preview-start: 39.45
