@@ -1334,11 +1334,7 @@ commands =
             in (T.pack $ "audio-" <> show (i :: Int), ainfo)
           , jammit   = HM.empty
           , plans    = HM.singleton "plan" $ StandardPlan StandardPlanInfo
-            { song        = Just PlanAudio
-              { expr = Input $ Named "audio-1"
-              , pans = []
-              , vols = []
-              }
+            { song        = Just $ Input $ Named "audio-1"
             , parts       = Parts HM.empty
             , crowd       = Nothing
             , comments    = []

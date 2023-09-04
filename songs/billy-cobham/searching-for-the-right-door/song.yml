@@ -22,12 +22,12 @@ plans:
     song: countin
     parts:
       drums:
-        expr:
-          pad:
+        pans-vols:
+        - [1, -1]
+        - [8, 8]
+        - pad:
           - 3.754
           - take: ['1:24.438', album-track]
-        pans: [1, -1]
-        vols: [8, 8]
 parts:
   drums:
     drums:

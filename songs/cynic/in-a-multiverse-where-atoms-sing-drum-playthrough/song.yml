@@ -20,11 +20,10 @@ audio:
 plans:
   album:
     song:
-      expr:
+      flip:
         mix:
         - countin
         - pad: [2.266, fade: [start, 1.776, youtube]]
-      pans: [1, -1]
 parts:
   drums:
     drums:

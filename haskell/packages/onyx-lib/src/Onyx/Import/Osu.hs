@@ -219,11 +219,11 @@ importOsu separateSongs f = do
           -- skipping MP3 encoder delay. But .ogg also appears to need adjustment?
           -- Also see Onyx.Audio.buildSource' for note about something wrong in our ffmpeg seek code
           mp3Delay = Drop Start (CA.Seconds 0.02)
-          in PlanAudio (mp3Delay $ Input $ Named key) [] []
+          in mp3Delay $ Input $ Named key
         , parts = Parts $ HM.fromList $ do
           (partName, _, track) <- convertedTracks
           case track of
-            Left  _drums -> [(partName, PartSingle $ PlanAudio (Input $ Named $ keySamplesForPart partName) [] [])]
+            Left  _drums -> [(partName, PartSingle $ Input $ Named $ keySamplesForPart partName)]
             Right _mania -> []
         , crowd = Nothing
         , comments = []

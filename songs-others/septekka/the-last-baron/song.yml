@@ -68,26 +68,21 @@ plans:
     pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # flipped pans for drums
   dev:
     song:
-      expr:
+      flip:
         pad: [3.533, album-track]
-      pans: [1, -1]
     parts:
       bass:
-        expr:
+        flip:
           pad: [3.533, channels: [[0, 1], stems]]
-        pans: [1, -1]
       drums:
-        expr:
+        flip:
           pad: [3.533, channels: [[2, 3], stems]]
-        pans: [1, -1]
       vocal:
-        expr:
+        flip:
           pad: [3.533, channels: [[4, 5], stems]]
-        pans: [1, -1]
       other:
-        expr:
+        flip:
           pad: [3.533, channels: [[6, 7], stems]]
-        pans: [1, -1]
 targets:
   rb3:
     game: rb3

@@ -387,11 +387,10 @@ importPowerGigSong key song folder level = do
             fixNegativeInfinity = max (-99)
         case nonEmpty channels of
           Nothing -> return Nothing
-          Just ne -> return $ Just PlanAudio
-            { expr = Merge ne
-            , pans = map realToFrac pans
-            , vols = map (fixNegativeInfinity . realToFrac) vols
-            }
+          Just ne -> return $ Just $ PansVols
+            (map realToFrac pans)
+            (map (fixNegativeInfinity . realToFrac) vols)
+            (Merge ne)
 
   audioBacking <- getPlanAudio audio_backing_track
   audioGuitar  <- fmap PartSingle <$> getPlanAudio audio_guitar

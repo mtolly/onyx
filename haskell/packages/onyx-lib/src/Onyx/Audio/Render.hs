@@ -10,7 +10,7 @@ module Onyx.Audio.Render
 , manualLeaf
 , computeSimplePart, computeDrumsPart
 , computeChannelsPlan
-, completePlanAudio
+, completeAudio
 , buildAudioToSpec
 , buildPartAudioToSpec
 , channelsToSpec
@@ -60,6 +60,7 @@ computeChannels = \case
   StretchSimple _ aud -> computeChannels aud
   StretchFull _ _ aud -> computeChannels aud
   Mask _ _ aud        -> computeChannels aud
+  PansVols _ _ _      -> 2
   Samples _ _         -> 2
 
 -- | make sure all audio leaves are defined, catch typos
@@ -147,26 +148,21 @@ computeSimplePart fpart plan songYaml = case plan of
       _  -> map (\i -> (x.pans !! i, x.vols !! i)) inds
   StandardPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> [(0, 0)]
-    Just (PartSingle pa) -> case computeChannelsPlan songYaml pa.expr of
-      1 -> [(fromMaybe 0 $ listToMaybe pa.pans, 0)]
+    Just (PartSingle aud) -> case computeChannelsPlan songYaml aud of
+      1 -> [(0, 0)]
       _ -> [(-1, 0), (1, 0)]
     Just (PartDrumKit _ _ _) -> [(-1, 0), (1, 0)]
 
-completePlanAudio :: (Monad m) => SongYaml f -> PlanAudio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
-completePlanAudio songYaml pa = do
-  let chans = computeChannelsPlan songYaml pa.expr
-      vols = map realToFrac $ case pa.vols of
-        []  -> replicate chans 0
-        [x] -> replicate chans x
-        xs  -> xs
-  pans <- case pa.pans of
-    [] -> case chans of
-      0 -> return []
-      1 -> return [0]
-      2 -> return [-1, 1]
-      n -> fatal $ "No automatic pan choice for " ++ show n ++ " channels"
-    xs -> return $ map realToFrac xs
-  return (pa.expr, pans, vols)
+completeAudio :: (Monad m) => SongYaml f -> Audio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
+completeAudio songYaml aud = do
+  let chans = computeChannelsPlan songYaml aud
+      vols = replicate chans 0
+  pans <- case chans of
+    0 -> return []
+    1 -> return [0]
+    2 -> return [-1, 1]
+    n -> fatal $ "No automatic pan choice for " ++ show n ++ " channels"
+  return (aud, pans, vols)
 
 fitToSpec
   :: (Monad m, MonadResource r)
@@ -241,11 +237,11 @@ buildAudioToSpec
   -> SongYaml FilePath
   -> [(Double, Double)]
   -> T.Text -- plan
-  -> Maybe (PlanAudio Duration AudioInput)
+  -> Maybe (Audio Duration AudioInput)
   -> Staction (AudioSource m Float)
-buildAudioToSpec rel alib buildDependency songYaml pvOut planName mpa = inside "conforming audio file to output spec" $ do
-  (expr, pans, vols) <- completePlanAudio songYaml
-    $ fromMaybe (PlanAudio (Silence 1 $ Frames 0) [] []) mpa
+buildAudioToSpec rel alib buildDependency songYaml pvOut planName maud = inside "conforming audio file to output spec" $ do
+  (expr, pans, vols) <- completeAudio songYaml
+    $ fromMaybe (Silence 1 $ Frames 0) maud
   let loadSamples = loadSamplesFromBuildDirShake rel planName
   src <- mapM (manualLeaf rel alib buildDependency loadSamples songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
@@ -258,7 +254,7 @@ buildPartAudioToSpec
   -> SongYaml FilePath
   -> [(Double, Double)]
   -> T.Text -- plan
-  -> Maybe (PartAudio (PlanAudio Duration AudioInput))
+  -> Maybe (PartAudio (Audio Duration AudioInput))
   -> Staction (AudioSource m Float)
 buildPartAudioToSpec rel alib buildDependency songYaml specPV planName = \case
   Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV planName Nothing
@@ -297,20 +293,20 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
     Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
     Just (PartDrumKit kick snare kit) -> do
       maybeMix <- lookupSplit
-        ( maybe 0 (computeChannelsPlan songYaml . (.expr)) kick
-        , maybe 0 (computeChannelsPlan songYaml . (.expr)) snare
-        , computeChannelsPlan songYaml kit.expr
+        ( maybe 0 (computeChannelsPlan songYaml) kick
+        , maybe 0 (computeChannelsPlan songYaml) snare
+        , computeChannelsPlan songYaml kit
         )
       case maybeMix of
         Nothing -> return stereo
         Just mixMode -> do
           kickPV <- case kick of
             Nothing -> return []
-            Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
+            Just aud -> (\(_, pans, _) -> map (, 0) pans) <$> completeAudio songYaml aud
           snarePV <- case snare of
             Nothing -> return []
-            Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
-          kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml kit
+            Just aud -> (\(_, pans, _) -> map (, 0) pans) <$> completeAudio songYaml aud
+          kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completeAudio songYaml kit
           return ((kickPV, snarePV, kitPV), mixMode)
   where lookupSplit = \case
           (0, 0, 2) -> return $ Just Drums.D0

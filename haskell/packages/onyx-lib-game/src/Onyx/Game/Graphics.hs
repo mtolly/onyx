@@ -25,8 +25,8 @@ import           Data.Foldable                (toList, traverse_)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
                                                writeIORef)
-import           Data.List.Extra              (findIndex, nubOrd, partition,
-                                               sort, isPrefixOf)
+import           Data.List.Extra              (findIndex, isPrefixOf, nubOrd,
+                                               partition, sort)
 import           Data.List.HT                 (partitionMaybe)
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   (catMaybes, fromMaybe, isJust,

@@ -25,30 +25,25 @@ plans:
   album:
     song:
       &song
-      expr:
+      flip:
         mix:
         - countin
         - pad: [3.102, youtube]
-      pans: [1, -1]
   dev:
     song: *song
     parts:
       bass:
-        expr:
+        flip:
           pad: [3.102, channels: [[0, 1], stems]]
-        pans: [1, -1]
       drums:
-        expr:
+        flip:
           pad: [3.102, channels: [[2, 3], stems]]
-        pans: [1, -1]
       vocal:
-        expr:
+        flip:
           pad: [3.102, channels: [[4, 5], stems]]
-        pans: [1, -1]
       other:
-        expr:
+        flip:
           pad: [3.102, channels: [[6, 7], stems]]
-        pans: [1, -1]
 parts:
   bass:
     pro-guitar:

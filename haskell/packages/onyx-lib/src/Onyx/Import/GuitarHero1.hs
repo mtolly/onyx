@@ -222,16 +222,14 @@ importGH1Song pkg path gen level = do
         -- return Nothing if all channels are silenced by vols
         guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
         Just $ case cs' of
-          c :| [] -> PlanAudio
-            { expr = Input $ Named $ T.pack $ fst $ namedChans !! c
-            , pans = map realToFrac [pans (song pkg) !! c]
-            , vols = map realToFrac [volumesDecibels !! c]
-            }
-          _ -> PlanAudio
-            { expr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-            , pans = map realToFrac [ pans (song pkg) !! c | c <- cs ]
-            , vols = map realToFrac [ volumesDecibels !! c | c <- cs ]
-            }
+          c :| [] -> PansVols
+            (map realToFrac [pans (song pkg) !! c])
+            (map realToFrac [volumesDecibels !! c])
+            (Input $ Named $ T.pack $ fst $ namedChans !! c)
+          _ -> PansVols
+            (map realToFrac [ pans (song pkg) !! c | c <- cs ])
+            (map realToFrac [ volumesDecibels !! c | c <- cs ])
+            (Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
       in StandardPlan StandardPlanInfo
         { song = mixChans songChans
         , parts = Parts $ HM.fromList $ catMaybes

@@ -259,7 +259,7 @@ getAudioLength buildInfo planName = \case
     shk $ need [ogg]
     liftIO $ audioSeconds ogg
   StandardPlan x -> let
-    parts = (.expr) <$> concat
+    parts = concat
       [ toList x.song
       , toList x.crowd
       , toList x.parts >>= toList

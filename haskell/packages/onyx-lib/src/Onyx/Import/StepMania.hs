@@ -306,11 +306,7 @@ importSM src level = do
     , plans = HM.singleton "sm" $ StandardPlan StandardPlanInfo
       { song = do
         guard $ not $ HM.null audio
-        return PlanAudio
-          { expr = delayAudio $ Input $ Named "audio-file"
-          , pans = []
-          , vols = []
-          }
+        return $ delayAudio $ Input $ Named "audio-file"
       , parts = Parts HM.empty
       , crowd = Nothing
       , comments = []

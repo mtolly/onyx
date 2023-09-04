@@ -92,33 +92,26 @@ plans:
     song: countin
     parts:
       drums:
-        kick:
-          expr: mogg-channel-0
+        kick: mogg-channel-0
         snare:
-          expr:
-            merge: [mogg-channel-1, mogg-channel-2]
+          merge: [mogg-channel-1, mogg-channel-2]
         kit:
-          expr:
-            merge: [mogg-channel-3, mogg-channel-4]
+          merge: [mogg-channel-3, mogg-channel-4]
       bass:
-        expr: mogg-channel-5
-        vols: [-2.5]
+        vol: [-2.5, mogg-channel-5]
       guitar:
-        expr:
-          merge: [mogg-channel-6, mogg-channel-7]
-        vols: [-3.5, -3.5]
+        vol: [-3.5, merge: [mogg-channel-6, mogg-channel-7]]
       vocal:
-        expr:
-          merge: [mogg-channel-8, mogg-channel-9]
+        merge: [mogg-channel-8, mogg-channel-9]
       keys:
-        expr:
-          # get rid of hmx countin
-          pad:
+        vol:
+        - -1
+        # get rid of hmx countin
+        - pad:
           - 8
           - drop:
             - 8
             - merge: [mogg-channel-10, mogg-channel-11]
-        vols: [-1, -1]
 parts:
   drums:
     drums:

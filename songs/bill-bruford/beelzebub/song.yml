@@ -21,11 +21,10 @@ audio:
 plans:
   album:
     song:
-      expr:
+      flip:
         mix:
         - countin
         - pad: [2.318, album-track]
-      pans: [1, -1]
   dev:
     song:
       pad: [2.318, album-track]

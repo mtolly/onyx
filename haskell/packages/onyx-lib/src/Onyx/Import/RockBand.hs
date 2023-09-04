@@ -482,16 +482,14 @@ importRB rbi level = do
           mixChans cs = do
             cs' <- NE.nonEmpty cs
             Just $ case cs' of
-              c :| [] -> PlanAudio
-                { expr = audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c
-                , pans = map realToFrac [D.pans (D.song pkg) !! c]
-                , vols = map realToFrac [D.vols (D.song pkg) !! c]
-                }
-              _ -> PlanAudio
-                { expr = audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-                , pans = map realToFrac [D.pans (D.song pkg) !! c | c <- cs]
-                , vols = map realToFrac [D.vols (D.song pkg) !! c | c <- cs]
-                }
+              c :| [] -> PansVols
+                (map realToFrac [D.pans (D.song pkg) !! c])
+                (map realToFrac [D.vols (D.song pkg) !! c])
+                (audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c)
+              _ -> PansVols
+                (map realToFrac [D.pans (D.song pkg) !! c | c <- cs])
+                (map realToFrac [D.vols (D.song pkg) !! c | c <- cs])
+                (audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
           in StandardPlan StandardPlanInfo
             { song = mixChans songChans
             , parts = Parts $ HM.fromList $ catMaybes

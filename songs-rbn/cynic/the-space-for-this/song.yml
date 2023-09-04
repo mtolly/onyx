@@ -76,33 +76,34 @@ plans:
       drums:
         # flipping the drums so they are drummer panned
         kick:
-          expr:
-            channels: [[1, 0], rbn]
-          vols: [-1, -1]
+          vol:
+          - -1
+          - channels: [[1, 0], rbn]
         snare:
-          expr:
-            channels: [[3, 2], rbn]
-          vols: [-1, -1]
+          vol:
+          - -1
+          - channels: [[3, 2], rbn]
         kit:
-          expr:
-            channels: [[5, 4], rbn]
-          vols: [-1, -1]
+          vol:
+          - -1
+          - channels: [[5, 4], rbn]
       bass:
-        expr:
-          channels: [[6, 7], rbn]
-        vols: [-1, -1]
+        vol:
+        - -1
+        - channels: [[6, 7], rbn]
       guitar:
-        expr:
-          channels: [[8, 9], rbn]
-        vols: [-1, -1]
+        vol:
+        - -1
+        - channels: [[8, 9], rbn]
       vocal:
-        expr:
-          channels: [[10, 11], rbn]
-        vols: [-1, -1]
+        vol:
+        - -1
+        - channels: [[10, 11], rbn]
     song:
-      expr:
-        # get rid of duplicated harsh vocal line
-        mask:
+      vol:
+      - -3
+      # get rid of duplicated harsh vocal line
+      - mask:
         - [keep]
         - - center: 0
             tag: keep
@@ -111,7 +112,6 @@ plans:
           - center: '2:33'
             tag: keep
         - channels: [[12, 13], rbn]
-      vols: [-3, -3]
   album-remixed:
     # note, this has a new recorded bass part that diverges from the original
     song:

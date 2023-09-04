@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -274,14 +277,20 @@ oggSecsSpeed pos mspeed ogg = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
+data PlanAudio t a = PlanAudio
+  { expr :: Audio t a
+  , pans :: [Double]
+  , vols :: [Double]
+  } deriving (Functor, Foldable, Traversable)
+
 splitPlanSources
   :: (MonadIO m)
   => T.Text
   -> Project
   -> AudioLibrary
-  -> [PlanAudio CA.Duration AudioInput]
+  -> [Audio CA.Duration AudioInput]
   -> StackTraceT (QueueLog m) [PlanAudio CA.Duration FilePath]
-splitPlanSources planName proj lib planAudios = let
+splitPlanSources planName proj lib audios = let
   evalAudioInput = \case
     Named name -> do
       afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name (projectSongYaml proj).audio
@@ -300,22 +309,18 @@ splitPlanSources planName proj lib planAudios = let
           (projectSongYaml proj)
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
-  in fmap concat $ forM planAudios $ \planAudio -> do
-    let chans = computeChannelsPlan (projectSongYaml proj) planAudio.expr
-        pans = case planAudio.pans of
-          [] -> case chans of
-            1 -> [0]
-            2 -> [-1, 1]
-            _ -> replicate chans 0
-          pansSpecified -> pansSpecified
-        vols = case planAudio.vols of
-          []            -> replicate chans 0
-          volsSpecified -> volsSpecified
-    evaled <- forM planAudio $ \aud -> do
+  in fmap concat $ forM audios $ \audio -> do
+    let chans = computeChannelsPlan (projectSongYaml proj) audio
+        pans = case chans of
+          1 -> [0]
+          2 -> [-1, 1]
+          _ -> replicate chans 0
+        vols = replicate chans 0
+    evaled <- forM audio $ \aud -> do
       aud' <- evalAudioInput aud
       return (aud, aud')
     -- for mix and merge, split into multiple AL sources
-    case evaled.expr of
+    case evaled of
       -- mix: same pans and vols for each input
       Mix parts -> return [PlanAudio (join $ fmap snd partExpr) pans vols | partExpr <- NE.toList parts]
       -- merge: split pans and vols to go with the appropriate input
@@ -335,14 +340,14 @@ projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
     ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
     return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
   Just (StandardPlan x) -> errorToWarning $ do
-    let planAudios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
+    let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
     audioDirs <- getAudioDirs proj
     forM_ audioDirs $ \dir -> do
       p <- parseAbsDir dir
       addAudioDir lib p
-    planAudios' <- splitPlanSources k proj lib planAudios
-    case NE.nonEmpty planAudios' of
+    planAudios <- splitPlanSources k proj lib audios
+    case NE.nonEmpty planAudios of
       Nothing -> fatal "No audio in plan"
       Just ne -> return $ \t mspeed gain -> do
         inputs <- forM ne $ \paudio -> do

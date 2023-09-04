@@ -61,14 +61,14 @@ plans:
       - pad: [2.054, without: [bass, jammit-track]]
   album:
     song:
-      expr:
-        mix:
+      pans-vols:
+      - [1, -1]
+      - [2, 2]
+      - mix:
         - countin
         - stretch:
           - 0.9987984454700994
           - drop: [7.732, album-track]
-      pans: [1, -1]
-      vols: [2, 2]
 parts:
   drums:
     drums:

@@ -213,16 +213,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     }
   extraResults = flip map (HM.toList $ dtx_BGMExtra dtx) $ \(chan, chips) ->
     audioForChipGroups 1 ("audio-extra-" <> chan) [("", chips)]
-  audioExpr name = PlanAudio
-    { expr = Input $ Named name
-    , pans = []
-    , vols = []
-    }
-  audiosExpr names = PlanAudio
-    { expr = Mix $ fmap (Input . Named) names
-    , pans = []
-    , vols = []
-    }
+  audioExpr name = Input $ Named name
+  audiosExpr names = Mix $ fmap (Input . Named) names
   songYaml' = songYaml
     { audio = HM.union songYaml.audio $ HM.fromList $ catMaybes
       $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio, hihatSilencer]

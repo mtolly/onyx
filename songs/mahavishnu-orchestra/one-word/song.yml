@@ -20,12 +20,12 @@ audio:
 plans:
   album:
     song:
-      expr:
-        mix:
+      pans-vols:
+      - [1, -1]
+      - [2, 2]
+      - mix:
         - countin
         - pad: [3.655, album-track]
-      pans: [1, -1]
-      vols: [2, 2]
 parts:
   drums:
     drums:

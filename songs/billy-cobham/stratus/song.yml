@@ -23,46 +23,39 @@ plans:
   jammit:
     parts:
       drums:
-        expr:
+        flip:
           pad:
           - '3:02.116'
           - stretch: [0.9997300728803223, only: [Drums, jammit-track]]
-        pans: [1, -1]
       guitar:
-        expr:
+        flip:
           pad:
           - '3:02.116'
           - stretch: [0.9997300728803223, only: [Guitar, jammit-track]]
-        pans: [1, -1]
       bass:
-        expr:
+        flip:
           pad:
           - '3:02.116'
           - stretch: [0.9997300728803223, only: [Bass, jammit-track]]
-        pans: [1, -1]
       keys-1:
-        expr:
+        flip:
           pad:
           - '3:02.116'
           - stretch: [0.9997300728803223, only: [Keys 1, jammit-track]]
-        pans: [1, -1]
       keys-2:
-        expr:
+        flip:
           pad:
           - '3:02.116'
           - stretch: [0.9997300728803223, only: [Keys 2, jammit-track]]
-        pans: [1, -1]
     song:
-      expr:
+      flip:
         take: ['3:02.116', album-track]
-      pans: [1, -1]
   album:
     song:
-      expr:
+      flip:
         mix:
         - countin
         - album-track
-      pans: [1, -1]
 parts:
   drums:
     drums:

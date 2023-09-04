@@ -32,38 +32,37 @@ plans:
         - 2.634
         - only: [Guitar 1, jammit-track]
       keys:
-        expr:
-          pad:
-          - 2.634
-          - mix:
-            - mask:
-              - [both, only-1]
-              - &keys-mask
-                - center: 0
-                  tag: both
-                - center: 1:11.366
-                  tag: only-2
-                  fade: 0.03
-                - center: 2:00.962
-                  tag: both
-                  fade: 0.03
-                - center: 2:51.104
-                  tag: only-1
-                  fade: 0.03
-                - center: 3:01.366
-                  tag: both
-                  fade: 0.03
-                - center: 4:58.317
-                  tag: only-1
-                  fade: 0.03
-                - center: 5:01.245
-                  tag: both
-                  fade: 0.03
-              - only: [Keys 1, jammit-track]
-            - mask:
-              - [both, only-2]
-              - *keys-mask
-              - only: [Keys 2, jammit-track]
+        pad:
+        - 2.634
+        - mix:
+          - mask:
+            - [both, only-1]
+            - &keys-mask
+              - center: 0
+                tag: both
+              - center: 1:11.366
+                tag: only-2
+                fade: 0.03
+              - center: 2:00.962
+                tag: both
+                fade: 0.03
+              - center: 2:51.104
+                tag: only-1
+                fade: 0.03
+              - center: 3:01.366
+                tag: both
+                fade: 0.03
+              - center: 4:58.317
+                tag: only-1
+                fade: 0.03
+              - center: 5:01.245
+                tag: both
+                fade: 0.03
+            - only: [Keys 1, jammit-track]
+          - mask:
+            - [both, only-2]
+            - *keys-mask
+            - only: [Keys 2, jammit-track]
     song:
       mix:
       - countin

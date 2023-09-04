@@ -36,8 +36,7 @@ plans:
       - countin
       - pad: [3.556, album-track]
     crowd:
-      expr: chant
-      vols: [-1, -1]
+      vol: [-1, chant]
   drumcam:
     comments:
     - "Portnoy's sysDRUMatic Chaos DVD."
@@ -68,8 +67,7 @@ plans:
         - resample:
             pad: [3.261, *drums]
     crowd:
-      expr: chant
-      vols: [-1, -1]
+      vol: [-1, chant]
 parts:
   drums:
     drums:

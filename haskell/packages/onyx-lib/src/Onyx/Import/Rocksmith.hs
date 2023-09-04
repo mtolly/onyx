@@ -699,11 +699,7 @@ importRSSong folder song level = do
       , channels = 2 -- TODO get real count
       }
     , plans = HM.singleton "rs" $ StandardPlan StandardPlanInfo
-      { song        = Just PlanAudio
-        { expr = Input $ Named "song"
-        , pans = []
-        , vols = []
-        }
+      { song        = Just $ Input $ Named "song"
       , parts       = Parts HM.empty
       , crowd       = Nothing
       , comments    = []

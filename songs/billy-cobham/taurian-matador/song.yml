@@ -25,42 +25,36 @@ plans:
     parts:
       # some of these drift a little from album, but we're just using to chart so it's fine
       drums:
-        expr:
+        flip:
           stretch:
           - 1.0020742937881415
           - drop: ['1:39.929', only: [Drums, jammit-track]]
-        pans: [1, -1]
       guitar:
-        expr:
+        flip:
           stretch:
           - 1.0020742937881415
           - drop: ['1:39.929', only: [Guitar, jammit-track]]
-        pans: [1, -1]
       bass:
-        expr:
+        flip:
           stretch:
           - 1.0020742937881415
           - drop: ['1:39.929', only: [Bass, jammit-track]]
-        pans: [1, -1]
       keys-1:
-        expr:
+        flip:
           stretch:
           - 1.0020742937881415
           - drop: ['1:39.929', only: [Keys 1, jammit-track]]
-        pans: [1, -1]
       keys-2:
-        expr:
+        flip:
           stretch:
           - 1.0020742937881415
           - drop: ['1:39.929', only: [Keys 2, jammit-track]]
-        pans: [1, -1]
   album:
     song:
-      expr:
+      flip:
         mix:
         - countin
         - drop: ['1:38.652', album-track]
-      pans: [1, -1]
 parts:
   drums:
     drums:

@@ -29,33 +29,27 @@ audio:
 plans:
   album:
     song:
-      expr:
+      flip:
         mix:
         - pad: [2.478, album-track]
         - countin
-      pans: [1, -1]
   dev:
     song:
-      expr:
+      flip:
         pad: [2.478, album-track]
-      pans: [1, -1]
     parts:
       bass:
-        expr:
+        flip:
           pad: [2.478, channels: [[0, 1], stems]]
-        pans: [1, -1]
       drums:
-        expr:
+        flip:
           pad: [2.478, channels: [[2, 3], stems]]
-        pans: [1, -1]
       vocal:
-        expr:
+        flip:
           pad: [2.478, channels: [[4, 5], stems]]
-        pans: [1, -1]
       other:
-        expr:
+        flip:
           pad: [2.478, channels: [[6, 7], stems]]
-        pans: [1, -1]
 metadata:
   title: Caravan
   artist: Hiromi's Sonicbloom

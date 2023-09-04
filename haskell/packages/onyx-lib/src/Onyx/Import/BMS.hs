@@ -123,11 +123,7 @@ importBMS bmsPath level = do
             $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms_LNOBJ bms) chips
           in (audios, track)
 
-      audioExpr name = PlanAudio
-        { expr = Input $ Named name
-        , pans = []
-        , vols = []
-        }
+      audioExpr name = Input $ Named name
 
       loadManiaTrack chips chipsLong = let
         short = flip fmap (processLongObj (bms_LNOBJ bms) chips)

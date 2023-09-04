@@ -318,16 +318,8 @@ importDKSong chartName isMidi chartFile dsp level = do
     , plans = case audio of
       Nothing -> HM.empty
       Just _ -> HM.singleton "plan" $ StandardPlan StandardPlanInfo
-        { song        = Just $ PlanAudio
-          { expr = Input $ Named "song"
-          , pans = []
-          , vols = [-2, -2]
-          }
-        , parts       = Parts $ HM.singleton F.FlexDrums $ PartSingle PlanAudio
-          { expr = Input $ Named "bongos"
-          , pans = []
-          , vols = []
-          }
+        { song        = Just $ PansVols [-1, 1] [-2, -2] $ Input $ Named "song"
+        , parts       = Parts $ HM.singleton F.FlexDrums $ PartSingle $ Input $ Named "bongos"
         , crowd       = Nothing
         , comments    = []
         , tuningCents = 0

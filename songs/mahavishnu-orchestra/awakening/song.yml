@@ -16,12 +16,12 @@ audio:
 plans:
   album:
     song:
-      expr:
-        mix:
+      pans-vols:
+      - [1, -1]
+      - [2.5, 2.5]
+      - mix:
         - countin
         - pad: [3.171, album-track]
-      pans: [1, -1]
-      vols: [2.5, 2.5]
 metadata:
   title: Awakening
   artist: Mahavishnu Orchestra

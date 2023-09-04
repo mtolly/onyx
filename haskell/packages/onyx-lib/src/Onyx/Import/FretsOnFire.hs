@@ -335,16 +335,8 @@ importFoF src dir level = do
       audioExpr auds = do
         auds' <- NE.nonEmpty $ map fst auds
         Just $ case auds' of
-          aud :| [] -> PlanAudio
-            { expr = delayAudio $ Input $ Named $ T.pack aud
-            , pans = []
-            , vols = []
-            }
-          _ -> PlanAudio
-            { expr = delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
-            , pans = []
-            , vols = []
-            }
+          aud :| [] -> delayAudio $ Input $ Named $ T.pack aud
+          _         -> delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
 
   -- Used to clamp this at 7, but higher ones should be handled OK now
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ fromIntegral n + 1

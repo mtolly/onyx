@@ -39,20 +39,14 @@ plans:
   gh:
     parts:
       guitar:
-        expr: audio.0.xma
-        vols:
+        vol:
         - -1
-        - -1
-        pans: []
+        - audio.0.xma
       rhythm:
-        expr: audio.2.xma
-        vols:
+        vol:
         - -1
-        - -1
-        pans: []
+        - audio.2.xma
     song:
-      expr: audio.3.xma
-      vols:
+      vol:
       - -1
-      - -1
-      pans: []
+      - audio.3.xma

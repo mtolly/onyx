@@ -141,7 +141,7 @@ loadSong r = do
         Right x -> Just x
         Left _ -> case lookupValue "Song" k ini of
           Right x -> Just x
-          Left _ -> Nothing
+          Left _  -> Nothing
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       milli :: T.Text -> Maybe Milli

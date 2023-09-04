@@ -130,6 +130,7 @@ data Audio t a
   | StretchSimple Double      (Audio t a)
   | StretchFull Double Double (Audio t a)
   | Mask [T.Text] [Seam t]    (Audio t a)
+  | PansVols [Float] [Float]  (Audio t a)
   | Samples (Maybe (Int, U.Seconds)) [(t, (T.Text, Audio t a))]
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -162,6 +163,7 @@ instance Monad (Audio t) where
       StretchSimple d aud  -> StretchSimple d $ join_ aud
       StretchFull t p aud  -> StretchFull t p $ join_ aud
       Mask tags seams aud  -> Mask tags seams $ join_ aud
+      PansVols ps vs  aud  -> PansVols ps vs $ join_ aud
       Samples poly samps   -> Samples poly $ map (second $ second join_) samps
     in join_ $ fmap f x
 
@@ -185,6 +187,7 @@ mapTime f aud = case aud of
   StretchSimple d x  -> StretchSimple d $ mapTime f x
   StretchFull t p x  -> StretchFull t p $ mapTime f x
   Mask tags seams x  -> Mask tags (map (fmap f) seams) $ mapTime f x
+  PansVols ps vs  x  -> PansVols ps vs $ mapTime f x
   Samples poly samps -> Samples poly $ map (bimap f $ second $ mapTime f) samps
 
 {- |
@@ -499,6 +502,7 @@ buildSource' aud = case aud of
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs
   Drop edge t (Gain d x) -> buildSource' $ Gain d $ Drop edge t x
   Drop edge t (Channels cs x) -> buildSource' $ Channels cs $ Drop edge t x
+  Drop edge t (PansVols pans vols x) -> buildSource' $ PansVols pans vols $ Drop edge t x
   Channels chans (Resample x) -> buildSource' $ Resample $ Channels chans x
   Channels (sequence -> Just cs) (Input fin) | takeExtension fin == ".vgs" -> do
     chans <- liftIO $ readVGS fin
@@ -551,6 +555,7 @@ buildSource' aud = case aud of
   StretchSimple d x -> stretchSimple d <$> buildSource' x
   StretchFull t p x -> stretchFull t p <$> buildSource' x
   Mask tags seams x -> renderMask tags seams <$> buildSource' x
+  PansVols pans vols x -> applyPansVols pans vols <$> buildSource' x
   Samples poly samps -> do
     sampleToAudio <- fmap Map.fromList $ forM (nubOrd [ sample | (_, (_, sample)) <- samps ]) $ \sample -> do
       -- only cache small files. maybe should (instead or also) cache only files that are reused

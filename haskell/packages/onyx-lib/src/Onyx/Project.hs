@@ -186,32 +186,6 @@ instance StackJSON JammitTrack where
     artist <- (.artist) =. opt Nothing "artist" stackJSON
     return JammitTrack{..}
 
-data PlanAudio t a = PlanAudio
-  { expr :: Audio t a
-  , pans :: [Double]
-  , vols :: [Double]
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-
-instance (StackJSON t, StackJSON a) => StackJSON (PlanAudio t a) where
-  stackJSON = Codec
-    { codecIn = decideKey
-      [ ("expr", object $ do
-        expr <- requiredKey "expr" fromJSON
-        pans <- fromMaybe [] <$> optionalKey "pans" fromJSON
-        vols <- fromMaybe [] <$> optionalKey "vols" fromJSON
-        expectedKeys ["expr", "pans", "vols"]
-        return PlanAudio{..}
-        )
-      ] $ (\expr -> PlanAudio expr [] []) <$> fromJSON
-    , codecOut = makeOut $ \case
-      PlanAudio expr [] [] -> toJSON expr
-      PlanAudio{..} -> A.object $ concat
-        [ ["expr" .= expr]
-        , ["pans" .= pans]
-        , ["vols" .= vols]
-        ]
-    }
-
 data PartAudio a
   = PartSingle a
   | PartDrumKit
@@ -258,9 +232,9 @@ data Plan f
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data StandardPlanInfo f = StandardPlanInfo
-  { song        :: Maybe (PlanAudio Duration AudioInput)
-  , parts       :: Parts (PartAudio (PlanAudio Duration AudioInput))
-  , crowd       :: Maybe (PlanAudio Duration AudioInput)
+  { song        :: Maybe (Audio Duration AudioInput)
+  , parts       :: Parts (PartAudio (Audio Duration AudioInput))
+  , crowd       :: Maybe (Audio Duration AudioInput)
   , comments    :: [T.Text]
   , tuningCents :: Int
   , fileTempo   :: Maybe f
@@ -485,6 +459,11 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
         , ("stretch", algebraic2 "stretch" StretchSimple fromJSON fromJSON)
         , ("stretch-full", algebraic3 "stretch-full" StretchFull fromJSON fromJSON fromJSON)
         , ("mask", algebraic3 "mask" Mask fromJSON fromJSON fromJSON)
+        , ("pans-vols", algebraic3 "pans-vols" PansVols fromJSON fromJSON fromJSON)
+        -- shortcut notation for stereo flip
+        , ("flip", algebraic1 "flip" (Channels [Just 1, Just 0]) fromJSON)
+        -- shortcut notation for gain using dB like harmonix vols
+        , ("vol", algebraic2 "vol" (\volDB -> Gain $ 10 ** (volDB / 20)) fromJSON fromJSON)
         -- TODO samples? probably don't need
         ] (fmap Input fromJSON `catchError` \_ -> expected "an audio expression")
     , codecOut = makeOut $ \case
@@ -503,6 +482,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
       StretchSimple d aud -> A.object ["stretch" .= [toJSON d, toJSON aud]]
       StretchFull t p aud -> A.object ["stretch-full" .= [toJSON t, toJSON p, toJSON aud]]
       Mask tags seams aud -> A.object ["mask" .= [toJSON tags, toJSON seams, toJSON aud]]
+      PansVols pans vols aud -> A.object ["pans-vols" .= [toJSON pans, toJSON vols, toJSON aud]]
       Samples _ _ -> undefined -- TODO but probably don't need
     }
 

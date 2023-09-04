@@ -33,12 +33,9 @@ parts:
 plans:
   gh:
     parts:
-      bass:
-        expr: audio.2.xma
-      guitar:
-        expr: audio.0.xma
-    song:
-      expr: audio.3.xma
+      bass: audio.2.xma
+      guitar: audio.0.xma
+    song: audio.3.xma
 targets:
   rs:
     game: rs

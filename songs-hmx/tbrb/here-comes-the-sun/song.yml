@@ -55,10 +55,10 @@ plans:
     tuning-cents: 40
   recorded-no-stems:
     song:
-      expr:
-        trim: [0.075, recorded]
-      pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-      vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      pans-vols:
+      - [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+      - [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      - trim: [0.075, recorded]
     tuning-cents: 40
 targets:
   rs:

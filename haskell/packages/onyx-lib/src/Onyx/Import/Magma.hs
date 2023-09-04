@@ -78,11 +78,10 @@ importMagma fin level = do
             src <- locate $ T.unpack $ RBProj.audioFile aud
             let dst = s -<.> map toLower (takeExtension src)
             return $ Just
-              ( PlanAudio
-                { expr = Input $ Named $ T.pack s
-                , pans = map realToFrac $ RBProj.pan aud
-                , vols = map realToFrac $ RBProj.vol aud
-                }
+              ( PansVols
+                (map realToFrac $ RBProj.pan aud)
+                (map realToFrac $ RBProj.vol aud)
+                (Input $ Named $ T.pack s)
               , ( T.pack s
                 , AudioFile AudioInfo
                   { md5 = Nothing
@@ -115,11 +114,10 @@ importMagma fin level = do
           warn "Couldn't detect crowd audio channels; assuming 2."
           return 2
       return $ Just
-        ( PlanAudio
-          { expr = Input $ Named $ T.pack s
-          , pans = []
-          , vols = toList $ c3 >>= C3.crowdVol
-          }
+        ( PansVols
+          (case chans of 2 -> [-1, 1]; _ -> replicate chans 0) -- eh
+          (replicate chans $ maybe 0 realToFrac $ c3 >>= C3.crowdVol)
+          (Input $ Named $ T.pack s)
         , ( T.pack s
           , AudioFile AudioInfo
             { md5 = Nothing

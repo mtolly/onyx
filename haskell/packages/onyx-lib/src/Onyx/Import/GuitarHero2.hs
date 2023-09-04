@@ -284,16 +284,14 @@ importGH2Song mode pkg genPath gen level = do
       mixChans v cs = do
         cs' <- NE.nonEmpty cs
         Just $ case cs' of
-          c :| [] -> PlanAudio
-            { expr = Input $ Named $ T.pack $ fst $ namedChans !! c
-            , pans = map realToFrac [pans songChunk !! c]
-            , vols = map realToFrac [(vols songChunk !! c) + v]
-            }
-          _ -> PlanAudio
-            { expr = Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs'
-            , pans = map realToFrac [ pans songChunk !! c | c <- cs ]
-            , vols = map realToFrac [ (vols songChunk !! c) + v | c <- cs ]
-            }
+          c :| [] -> PansVols
+            (map realToFrac [pans songChunk !! c])
+            (map realToFrac [(vols songChunk !! c) + v])
+            (Input $ Named $ T.pack $ fst $ namedChans !! c)
+          _ -> PansVols
+            (map realToFrac [ pans songChunk !! c | c <- cs ])
+            (map realToFrac [ (vols songChunk !! c) + v | c <- cs ])
+            (Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
       in StandardPlan StandardPlanInfo
         { song = mixChans 0 songChans
         , parts = Parts $ HM.fromList $ catMaybes

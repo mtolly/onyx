@@ -34,26 +34,21 @@ plans:
       - countin
   dev:
     song:
-      expr:
+      flip:
         pad: [2.629, album-track]
-      pans: [1, -1]
     parts:
       bass:
-        expr:
+        flip:
           pad: [2.629, channels: [[0, 1], stems]]
-        pans: [1, -1]
       drums:
-        expr:
+        flip:
           pad: [2.629, channels: [[2, 3], stems]]
-        pans: [1, -1]
       vocal:
-        expr:
+        flip:
           pad: [2.629, channels: [[4, 5], stems]]
-        pans: [1, -1]
       other:
-        expr:
+        flip:
           pad: [2.629, channels: [[6, 7], stems]]
-        pans: [1, -1]
   drumless:
     song:
       mix:

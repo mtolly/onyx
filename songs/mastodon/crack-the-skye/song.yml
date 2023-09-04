@@ -54,7 +54,7 @@ plans:
 
   album:
     song:
-      expr:
+      flip:
         mix:
         - countin
         - fade:
@@ -66,72 +66,64 @@ plans:
             - concatenate:
               - take: [end, 3.975, album-prev]
               - album-track
-      pans: [1, -1]
 
   dev:
     song:
-      expr:
+      flip:
         pad: [3.975, album-track]
-      pans: [1, -1]
     parts:
       drums-1:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-0]]]
-        pans: [0]
-        vols: [1.0721001625061035]
+        pans-vols:
+        - [0]
+        - [1.0721001625061035]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-0]]]
       drums-2:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-0]]]
-        pans: [0]
-        vols: [1.0721001625061035]
+        pans-vols:
+        - [0]
+        - [1.0721001625061035]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-0]]]
       drums-3:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-1]]]
-        pans: [-0.3119165301322937]
-        vols: [-0.6028119325637817]
+        pans-vols:
+        - [-0.3119165301322937]
+        - [-0.6028119325637817]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-1]]]
       drums-4:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-1]]]
-        pans: [-0.4096655547618866]
-        vols: [-0.9690996408462524]
+        pans-vols:
+        - [-0.4096655547618866]
+        - [-0.9690996408462524]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-1]]]
       drums-5:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-2]]]
-        pans: [-0.4096655547618866]
-        vols: [-0.9690996408462524]
+        pans-vols:
+        - [-0.4096655547618866]
+        - [-0.9690996408462524]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-2]]]
       drums-6:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-2]]]
-        pans: [0.31191644072532654]
-        vols: [-0.602810263633728]
+        pans-vols:
+        - [0.31191644072532654]
+        - [-0.602810263633728]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-2]]]
       drums-7:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-3]]]
-        pans: [0.4096655249595642]
-        vols: [-0.9690996408462524]
+        pans-vols:
+        - [0.4096655249595642]
+        - [-0.9690996408462524]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[0], stream-3]]]
       drums-8:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-3]]]
-        pans: [0.4096655249595642]
-        vols: [-0.9690996408462524]
+        pans-vols:
+        - [0.4096655249595642]
+        - [-0.9690996408462524]
+        - drop: [0.084, stretch: [0.9958274828468717, channels: [[1], stream-3]]]
       guitar:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, stream-5]]
-        vols:
+        vol:
         - -1.9381994009017944
-        - -1.9381994009017944
+        - drop: [0.084, stretch: [0.9958274828468717, stream-5]]
       vocal:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, stream-4]]
-        vols:
+        vol:
         - -4.436973571777344
-        - -4.436973571777344
+        - drop: [0.084, stretch: [0.9958274828468717, stream-4]]
       backing:
-        expr:
-          drop: [0.084, stretch: [0.9958274828468717, stream-6]]
-        vols:
+        vol:
         - -3.098038673400879
-        - -3.098038673400879
+        - drop: [0.084, stretch: [0.9958274828468717, stream-6]]
 
 targets:
   rb3:
