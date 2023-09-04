@@ -313,24 +313,23 @@ stretchRealtime timeRatio pitchRatio src = AudioSource
         liftIO (interleave <$> RB.retrieve rb (min n chunkSize)) >>= yield
         processAll rb
 
--- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
--- TODO: change this to only do mono->stereo, and use proper volume adjustment (see applyPansVols)
-sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
-sameChannels (a1, a2) = case (channels a1, channels a2) of
-  (1, c2) | c2 /= 1 -> let
-    a1' = foldr merge a1 $ replicate (c2 - 1) a1
-    in (a1', a2)
-  (c1, 1) | c1 /= 1 -> let
-    a2' = foldr merge a2 $ replicate (c1 - 1) a2
-    in (a1, a2')
-  (c1, c2) -> let
-    a1' = case max c1 c2 - c1 of
-      0 -> a1
-      n -> merge a1 $ silent (Frames 0) (rate a1) n
-    a2' = case max c1 c2 - c2 of
-      0 -> a2
-      n -> merge a2 $ silent (Frames 0) (rate a2) n
-    in (a1', a2')
+-- | Converts mono to stereo if we need to mix/concatenate with a stereo source.
+-- If either source has more than 2 channels and they don't match, undefined behavior.
+sameChannels :: (Monad m) => (AudioSource m Float, AudioSource m Float) -> (AudioSource m Float, AudioSource m Float)
+sameChannels (a1, a2) = if channels a1 == channels a2
+  then (a1, a2)
+  else case (channels a1, channels a2) of
+    (1, 2) -> (applyPansVols [0] [0] a1, a2)
+    (2, 1) -> (a1, applyPansVols [0] [0] a2)
+    (c1, c2) -> let
+      -- this case is probably not helpful (should be an error)
+      a1' = case max c1 c2 - c1 of
+        0 -> a1
+        n -> merge a1 $ silent (Frames 0) (rate a1) n
+      a2' = case max c1 c2 - c2 of
+        0 -> a2
+        n -> merge a2 $ silent (Frames 0) (rate a2) n
+      in (a1', a2')
 
 fadeStart :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
 fadeStart dur (AudioSource s r c l) = let

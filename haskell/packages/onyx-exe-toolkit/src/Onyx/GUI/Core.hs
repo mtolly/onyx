@@ -45,6 +45,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Numeric                                   (readHex)
+import           Onyx.Audio                                (Audio (..))
 import           Onyx.Build                                (NameRule (..),
                                                             hashRB3,
                                                             targetTitle,
@@ -827,3 +828,22 @@ partSelectors rect proj slots = let
   in do
     controls <- mapM instSelector $ zip slots rects
     return $ \b -> mapM_ ($ b) controls
+
+mixDownStems :: SongYaml f -> SongYaml f
+mixDownStems song = song
+  { plans = flip fmap song.plans $ \case
+    StandardPlan info -> StandardPlan info
+      { parts = Parts HM.empty
+      , song = let
+        -- Shouldn't need to worry about mono/stereo due to Onyx.Audio.sameChannels
+        allAudio = toList info.song <> (toList info.parts >>= toList)
+        in case allAudio of
+          []     -> Nothing
+          [x]    -> Just x
+          x : xs -> Just $ Mix $ x NE.:| xs
+      , crowd = Nothing -- just drop? dunno what people would want
+      }
+    MoggPlan info -> MoggPlan info
+      { parts = Parts HM.empty
+      }
+  }

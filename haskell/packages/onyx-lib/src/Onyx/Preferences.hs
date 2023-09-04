@@ -46,6 +46,7 @@ data Preferences = Preferences
   , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modfiy tempos to be in Magma-legal range
   , prefTrueLayout    :: [TrueDrumLayoutHint]
   , prefPreviewFPS    :: Int
+  , prefCHDownmix     :: Bool
   }
 
 instance StackJSON Preferences where
@@ -76,6 +77,7 @@ instance StackJSON Preferences where
     prefLegalTempos   <- prefLegalTempos   =. opt  True         "legal-tempos"    stackJSON
     prefTrueLayout    <- prefTrueLayout    =. opt  []           "true-layout"     stackJSON
     prefPreviewFPS    <- prefPreviewFPS    =. fill 60           "preview-fps"     stackJSON
+    prefCHDownmix     <- prefCHDownmix     =. opt  False        "ch-downmix"      stackJSON
     return Preferences{..}
 
 instance Default Preferences where

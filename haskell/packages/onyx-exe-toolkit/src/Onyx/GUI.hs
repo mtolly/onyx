@@ -765,10 +765,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
             }
     FL.setResizable tab $ Just tree
     return (editParts, tab)
-  let fullProjModify :: Project -> IO Project
-      fullProjModify p = do
+  let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
+      fullProjModify extraMods p = do
         modifiers <- sequence [modifyMeta, modifyInsts]
-        let newYaml = foldr ($) (projectSongYaml p) modifiers
+        let newYaml = foldr ($) (projectSongYaml p) $ modifiers <> extraMods
         saveProject p newYaml
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     homeTabColor >>= setTabColor tab
@@ -1110,7 +1110,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB3 sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             RB3CON   _ -> "Building RB3 CON (360)"
             RB3PKG   _ -> "Building RB3 PKG (PS3)"
@@ -1133,7 +1133,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB2 sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             RB2CON _ -> "Building RB2 CON (360)"
             RB2PKG _ -> "Building RB2 PKG (PS3)"
@@ -1150,8 +1150,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     return tab
   psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
-    songPagePS sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+    songPagePS sink rect tab proj $ \tgt create -> sink $ EventOnyx $ do
+      newPreferences <- readPreferences
+      proj' <- stackIO $ fullProjModify [applyDownmix newPreferences] proj
       let name = case create of
             PSDir _ -> "Building CH/PS song folder"
             PSZip _ -> "Building CH/PS zip file"
@@ -1164,12 +1165,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               tmp <- buildPSZip tgt proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
-      sink $ EventOnyx $ startTasks [(name, task)]
+      startTasks [(name, task)]
     return tab
   gh1Tab <- makeTab windowRect "GH1" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH1 sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             GH1ARK{}    -> "Adding to GH1 ARK file"
             GH1DIYPS2{} -> "Creating GH1 DIY folder (PS2)"
@@ -1185,7 +1186,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   gh2Tab <- makeTab windowRect "GH2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH2 sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             GH2LIVE{}   -> "Building GH2 LIVE file"
             GH2ARK{}    -> "Adding to GH2 ARK file"
@@ -1209,7 +1210,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   gh3Tab <- makeTab windowRect "GH3" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH3 sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             GH3LIVE{} -> "Building GH3 LIVE file"
             GH3PKG{}  -> "Building GH3 PKG file"
@@ -1229,7 +1230,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
   worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGHWOR sink rect tab proj $ \tgt create -> do
-      proj' <- fullProjModify proj
+      proj' <- fullProjModify [] proj
       let name = case create of
             GHWORLIVE{} -> "Building GH:WoR LIVE file"
             GHWORPKG{}  -> "Building GH:WoR PKG file"
@@ -1259,7 +1260,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
           FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
             Nothing -> return ()
             Just f  -> do
-              proj' <- fullProjModify proj
+              proj' <- fullProjModify [] proj
               let task = do
                     tmp <- buildPlayer Nothing proj'
                     copyDirRecursive tmp f
@@ -2977,6 +2978,11 @@ _promptPreview sink makeMenuBar = sink $ EventIO $ do
     _                          -> return ()
 -}
 
+applyDownmix :: Preferences -> SongYaml f -> SongYaml f
+applyDownmix prefs song = if prefCHDownmix prefs
+  then mixDownStems song
+  else song
+
 launchBatch'
   :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
 launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx $ do
@@ -3110,9 +3116,10 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPagePS sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
+        newPreferences <- readPreferences
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj . applyDownmix newPreferences
           case creator of
             PSDir dout -> do
               tmp <- buildPSDir target proj'
@@ -3445,6 +3452,10 @@ launchPreferences sink makeMenuBar = do
           [ do
             getDir <- lineBox $ \box -> folderBox box "Default CH folder" $ T.pack $ fromMaybe "" $ prefDirCH loadedPrefs
             return $ (\mdir prefs -> prefs { prefDirCH = mdir }) <$> getDir
+          , do
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Mix down stems in CH output"
+            void $ FL.setValue check $ prefCHDownmix loadedPrefs
+            return $ (\b prefs -> prefs { prefCHDownmix = b }) <$> FL.getValue check
           ]
         FL.end pack
         return fn
