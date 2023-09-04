@@ -53,11 +53,13 @@ extra-deps:
 - git: https://github.com/kaoskorobase/hsndfile # unreleased past 0.8.0, switches to pkg-config
   commit: f532a1fdf119a543d7db20fe21f11ced5cffbb21
 # - git: https://github.com/mtolly/cabal # patch to work around c2hs failing on Windows in onyxite-customs-lib, due to many repeated include dirs in its invocation
-#   commit: f91d35bfdab221b2b6102cf462811994b836c23e
+#   commit: d039ecb4235fc0fe2a85be17df8537ec06e5c8b4
 #   subdirs:
 #   - Cabal
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
+- git: https://github.com/mtolly/tcp-streams # ghc 9.6 patch
+  commit: 0269618e5e73e11026b45bd9e59a677dc89b1c23
 resolver: nightly-2023-08-29
 flags:
   fltkhs:

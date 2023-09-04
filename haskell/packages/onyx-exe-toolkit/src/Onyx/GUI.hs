@@ -58,7 +58,7 @@ import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import           Data.Conduit.Audio                        (integralSample,
                                                             mapSamples)
--- import qualified Data.Connection                           as Conn
+import qualified Data.Connection                           as Conn
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
@@ -174,7 +174,7 @@ import           System.FilePath                           (dropExtension,
 import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
 import qualified System.IO.Streams                         as Streams
--- import qualified System.IO.Streams.TCP                     as TCP
+import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                                 (readMaybe)
 
 #ifdef WINDOWS
@@ -2725,7 +2725,6 @@ _watchSong notify mid = do
     go
   return (readIORef varTrack, sendClose)
 
-{-
 _launchTimeServer
   :: (Event -> IO ())
   -> IORef Double
@@ -2788,7 +2787,6 @@ _launchTimeServer sink varTime inputPort button label = do
             _ -> goConnected dat' port ps pc
     in goOffline
   return $ killThread tid
--}
 
 data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 
@@ -2900,7 +2898,6 @@ previewGroup sink rect getSong getTime getSpeed = do
   FL.setResizable wholeGroup $ Just glwindow
   return (wholeGroup, FL.redraw glwindow, deleteGL)
 
-{-
 _launchPreview :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> FilePath -> Onyx ()
 _launchPreview sink makeMenuBar mid = mdo
   (getTracks, stopWatch) <- _watchSong (sink $ EventIO redraw) mid
@@ -2976,7 +2973,6 @@ _promptPreview sink makeMenuBar = sink $ EventIO $ do
       Nothing -> return ()
       Just f  -> sink $ EventOnyx $ _launchPreview sink makeMenuBar $ T.unpack f
     _                          -> return ()
--}
 
 applyDownmix :: Preferences -> SongYaml f -> SongYaml f
 applyDownmix prefs song = if prefCHDownmix prefs
@@ -3690,7 +3686,7 @@ launchGUI = withAL $ \hasAudio -> do
               {-
               , ( "File/Live Preview"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'p'
-                , Just $ promptPreview sink makeMenuBar
+                , Just $ _promptPreview sink makeMenuBar
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
               -}
