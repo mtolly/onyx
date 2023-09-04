@@ -374,7 +374,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
   in do
-    timing <- basicTiming song getAudioLength
+    timing <- basicTiming False song getAudioLength
     (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.vocal songYaml >>= (.vocal) of
       Just _pv -> do
         let opart = fromMaybe mempty $ Map.lookup target.vocal $ F.onyxParts ofile

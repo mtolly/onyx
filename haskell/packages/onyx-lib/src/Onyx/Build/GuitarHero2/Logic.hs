@@ -209,7 +209,7 @@ midiRB3toGH2
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH2File U.Beats), Int)
 midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
-  timing <- basicTiming inputMid getAudioLength
+  timing <- basicTiming False inputMid getAudioLength
   let makeMoods origMoods gems = let
         moods = if RTB.null origMoods
           then RB3.makeMoods tmap timing gems

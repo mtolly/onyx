@@ -282,7 +282,7 @@ gh3Rules buildInfo dir gh3 = do
   [pathSongPak, pathPad] %> \_ -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let midApplied = applyTargetMIDI gh3.common mid
-    timing <- basicTiming midApplied $ getAudioLength buildInfo planName plan
+    timing <- basicTiming False midApplied $ getAudioLength buildInfo planName plan
     let (gh3Mid, padSeconds) = makeGH3MidQB
           songYaml
           midApplied

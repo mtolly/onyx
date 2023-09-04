@@ -118,7 +118,7 @@ midiRB3toGH1
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH1File U.Beats), Int)
 midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
-  timing <- basicTiming inputMid getAudioLen
+  timing <- basicTiming False inputMid getAudioLen
   let makePlayBools origMoods gems = let
         moods = if RTB.null origMoods
           then makeMoods tmap timing gems

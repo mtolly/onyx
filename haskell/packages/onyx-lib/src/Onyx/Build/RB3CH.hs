@@ -150,7 +150,7 @@ processTiming
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (F.OnyxFile U.Beats))
 processTiming input getAudioLength = do
-  BasicTiming{..} <- basicTiming input getAudioLength
+  BasicTiming{..} <- basicTiming False input getAudioLength
   return input
     { F.s_tracks = (F.s_tracks input)
       { F.onyxBeat = timingBeat
@@ -165,11 +165,13 @@ processTiming input getAudioLength = do
 -- | Retrieves or generates [end], [music_start], [music_end], and the BEAT track.
 basicTiming
   :: (SendMessage m, F.HasEvents f, F.ParseFile f)
-  => F.Song (f U.Beats)
+  => Bool
+  -> F.Song (f U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m BasicTiming
-basicTiming input@(F.Song tempos mmap trks) getAudioLength = do
+basicTiming shouldLog input@(F.Song tempos mmap trks) getAudioLength = do
   let showPosn = showPosition mmap
+      logMaybe = if shouldLog then lg else const $ return ()
   -- If there's no @[end]@, put it after all MIDI events and audio files.
   timingEnd <- case RTB.viewL $ eventsEnd $ F.getEventsTrack trks of
     Just ((t, _), _) -> return t
@@ -183,7 +185,7 @@ basicTiming input@(F.Song tempos mmap trks) getAudioLength = do
             -- (why did I also consider tempos here originally?
             -- maybe beacuse we weren't dropping tempos past [end])
           endPosn = fromInteger $ ceiling $ max thirtySecs $ max audLen lastMIDIEvent + 4
-      lg $ unwords
+      logMaybe $ unwords
         [ "Placing [end] at " <> showPosn endPosn <> "."
         , "Last MIDI event is at " <> showPosn lastMIDIEvent <> ","
         , "longest audio file ends at " <> showPosn audLen <> ","
@@ -194,7 +196,7 @@ basicTiming input@(F.Song tempos mmap trks) getAudioLength = do
     trk = beatLines $ F.getBeatTrack trks
     in if RTB.null trk
       then do
-        lg "No BEAT track found; automatic one generated from time signatures."
+        logMaybe "No BEAT track found; automatic one generated from time signatures."
         return $ BeatTrack $ U.trackTake timingEnd $ makeBeatTrack mmap
       else return $ BeatTrack trk
   -- If [music_start] is before 2 beats,
@@ -207,12 +209,12 @@ basicTiming input@(F.Song tempos mmap trks) getAudioLength = do
         return musicStartMin
       else return t
     Nothing -> do
-      lg $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
+      logMaybe $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
       return musicStartMin
   timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ F.getEventsTrack trks of
     Just ((t, _), _) -> return t
     Nothing -> do
-      lg $ unwords
+      logMaybe $ unwords
         [ "[music_end] is missing. [end] is at"
         , showPosn timingEnd
         , "so [music_end] will be at"
@@ -470,7 +472,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   let input@(F.Song tempos mmap trks) = case target of
         SharedTargetPS ps | not $ ps.bigRockEnding -> deleteBRE origInput
         _                                          -> origInput
-  timing@BasicTiming{..} <- basicTiming input getAudioLength
+  timing@BasicTiming{..} <- basicTiming True input getAudioLength
   let targetPS = case target of
         SharedTargetPS ps    -> ps
         SharedTargetRB rb3 _ -> TargetPS

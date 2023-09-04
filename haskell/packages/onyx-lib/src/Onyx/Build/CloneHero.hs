@@ -215,7 +215,7 @@ psRules buildInfo dir ps = do
         -- events will be placed according to the whole song and not the segment
         midRaw <- shakeMIDI $ planDir </> "raw.mid"
         let midSegment = applyTargetMIDI ps.common midRaw
-        timing <- RB3.basicTiming midSegment $
+        timing <- RB3.basicTiming False midSegment $
           applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
         let endSecs = U.applyTempoMap (F.s_tempos midSegment) $ RB3.timingEnd timing
         return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)

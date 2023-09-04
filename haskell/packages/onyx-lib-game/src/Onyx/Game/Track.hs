@@ -103,7 +103,7 @@ computeTracks
   => SongYaml FilePath
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m PreviewSong
-computeTracks songYaml song = basicTiming song (return 0) >>= \timing -> let
+computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> let
 
   secondsToDouble :: U.Seconds -> Double
   secondsToDouble = realToFrac
