@@ -85,7 +85,9 @@ import           Onyx.Sections                         (Section,
                                                         sectionBody)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                       (shortWindowsPath)
-import           Onyx.Util.Handle                      (Folder (..))
+import           Onyx.Util.Handle                      (Folder (..),
+                                                        fileReadable,
+                                                        saveReadable)
 import           Onyx.Util.Text.Transform              (replaceCharsRB)
 import           Onyx.Vocal.DryVox                     (clipDryVox,
                                                         toDryVoxFormat,
@@ -498,7 +500,10 @@ rbRules buildInfo dir rb3 mrb2 = do
       let speed = fromMaybe 1 rb3.common.speed
       pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
       case (speed, pad :: Int) of
-        (1, 0) -> shk $ copyFile' (planDir </> "audio.mogg") out
+        (1, 0) -> do
+          let origMogg = planDir </> "audio.mogg"
+          shk $ need [origMogg]
+          stackIO $ saveReadable (fixOldC3Mogg $ fileReadable origMogg) out
         _      -> do
           shk $ need [pathOgg]
           mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out

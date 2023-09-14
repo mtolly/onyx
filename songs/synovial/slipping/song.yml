@@ -29,9 +29,9 @@ parts:
   bass:
     grybo: {} # hop
   vocal:
-    vocal: # WIP
+    vocal: # onyx
       gender: male
-      count: 1 # change when harmonies done
+      count: 3
 plans:
   mogg:
     file-mogg: audio.mogg

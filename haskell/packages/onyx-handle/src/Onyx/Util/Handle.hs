@@ -35,7 +35,7 @@ import qualified System.Directory              as Dir
 import           System.FilePath               ((</>))
 import           System.IO                     (IOMode (ReadMode, WriteMode),
                                                 SeekMode (..), hClose,
-                                                hFileSize, hSeek,
+                                                hFileSize, hSeek, hTell,
                                                 openBinaryFile, withBinaryFile)
 
 data SimpleHandle = SimpleHandle
@@ -96,6 +96,18 @@ fileReadable f = Readable
   { rOpen     = openBinaryFile f ReadMode
   , rFilePath = Just f
   }
+
+-- this should only be used on read-only handles
+simplifyHandle :: Handle -> IO SimpleHandle
+simplifyHandle h = do
+  len <- hFileSize h
+  return SimpleHandle
+    { shSize  = len
+    , shSeek  = hSeek h AbsoluteSeek
+    , shTell  = hTell h
+    , shClose = hClose h
+    , shRead  = B.hGet h . fromIntegral
+    }
 
 openSimpleHandle :: String -> SimpleHandle -> IO Handle
 openSimpleHandle str sh = H.mkFileHandle

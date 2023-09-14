@@ -59,7 +59,7 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
-import           Onyx.Harmonix.MOGG                   (encryptRB1,
+import           Onyx.Harmonix.MOGG                   (encryptRB1, fixOldC3Mogg,
                                                        moggToOggHandle,
                                                        oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
@@ -441,7 +441,7 @@ encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO $ do
 
 getXboxFile :: (MonadIO m, SendMessage m) => (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
 getXboxFile (name, qfile) = case qfile of
-  QFEncryptedMOGG r -> return (name, r)
+  QFEncryptedMOGG r -> return (name, fixOldC3Mogg r)
   QFUnencryptedMOGG r -> return (name, r)
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_xbox"
@@ -464,7 +464,7 @@ getXboxFile (name, qfile) = case qfile of
 
 getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
 getPS3File mcrypt (name, qfile) = case qfile of
-  QFEncryptedMOGG r -> return (name, r)
+  QFEncryptedMOGG r -> return (name, fixOldC3Mogg r)
   QFUnencryptedMOGG r -> tempDir "onyxquickconv" $ \tmp -> stackIO $ do
     let tmpIn  = tmp </> "in.mogg"
         tmpOut = tmp </> "out.mogg"
@@ -537,7 +537,7 @@ data WiiDestination = WiiMeta | WiiSong
 
 getWiiFile :: (MonadIO m, SendMessage m) => (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, (WiiDestination, Readable))
 getWiiFile (name, qfile) = case qfile of
-  QFEncryptedMOGG r -> return (name, (WiiSong, r))
+  QFEncryptedMOGG r -> return (name, (WiiSong, fixOldC3Mogg r))
   QFUnencryptedMOGG r -> return (name, (WiiSong, r))
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_wii"

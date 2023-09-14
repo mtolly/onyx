@@ -2,27 +2,31 @@
 module Onyx.Harmonix.MOGG
 ( moggToOgg, moggToOggHandle, oggToMogg, sourceVorbisFile
 , encryptRB1
+, fixOldC3Mogg
 ) where
 
-import           Control.Applicative            (liftA2)
-import           Control.Monad                  (forM_, void, when, forM)
-import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Applicative          (liftA2)
+import           Control.Monad                (forM, forM_, guard, void, when)
+import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource
-import           Onyx.StackTrace
-import           Data.Binary.Get                (getWord32le, runGet)
-import           Data.Binary.Put                (putLazyByteString, putWord32le,
-                                                 runPut)
-import qualified Data.ByteString.Lazy           as BL
-import           Data.Char                      (toUpper)
-import           Foreign                        hiding (void)
+import           Data.Binary.Get              (getWord32le, runGet)
+import           Data.Binary.Put              (putLazyByteString, putWord32le,
+                                               runPut)
+import qualified Data.ByteString              as B
+import qualified Data.ByteString.Lazy         as BL
+import           Data.Char                    (toUpper)
+import qualified Data.Conduit                 as C
+import qualified Data.Conduit.Audio           as CA
+import qualified Data.Vector.Storable         as V
+import qualified Data.Vector.Storable.Mutable as MV
+import           Foreign                      hiding (void)
 import           Foreign.C
-import           Numeric                        (showHex)
-import qualified Data.Vector.Storable.Mutable   as MV
-import qualified Data.Vector.Storable as V
-import qualified Data.Conduit as C
-import qualified Data.Conduit.Audio as CA
-import Onyx.Util.Handle (Readable, useHandle, subHandle, saveReadable, fileReadable)
-import Sound.MOGG.EncryptRB1 (encryptRB1)
+import           Numeric                      (showHex)
+import           Onyx.StackTrace
+import           Onyx.Util.Handle
+import           Onyx.Xbox.STFS               (runGetM)
+import           Sound.MOGG.EncryptRB1        (encryptRB1)
+import           System.IO                    (SeekMode (..), hSeek)
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
@@ -194,3 +198,47 @@ sourceVorbisFile pos ogg = liftIO $ runVorbisFile ogg $ \case
       , CA.channels = fromIntegral chans
       , CA.frames = max 0 $ fromIntegral total - fromIntegral seekTo
       }
+
+-- logic to fix .mogg files encrypted with older versions of C3 CON Tools.
+-- such moggs would work on 360 but not PS3, requiring reencryption,
+-- but it was just because their keymask value was not set correctly.
+
+c3PS3MaskBad, c3PS3MaskGood :: B.ByteString
+c3PS3MaskBad  = B.pack [0xC3, 0xC3, 0xC3, 0xC3, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B]
+c3PS3MaskGood = B.pack [0xA5, 0xCE, 0xFD, 0x06, 0x11, 0x93, 0x23, 0x21, 0xF8, 0x87, 0x85, 0xEA, 0x95, 0xE4, 0x94, 0xD4]
+
+patchPosition :: Int -> B.ByteString -> B.ByteString -> B.ByteString
+patchPosition pos patch origData = if pos >= B.length origData || pos + B.length patch <= 0
+  then origData -- no change, patch is either before or after this chunk
+  else B.take (B.length origData) $ B.concat
+    [ B.take pos origData
+    , B.drop (negate pos) patch
+    , B.drop (pos + B.length patch) origData
+    ]
+
+fixOldC3Mogg :: Readable -> Readable
+fixOldC3Mogg r = Readable
+  { rFilePath = Nothing
+  , rOpen = do
+    -- first figure out if we need to patch
+    patchLocation <- useHandle r $ \h -> do
+      hSeek h AbsoluteSeek 16
+      numEntries <- BL.hGet h 4 >>= runGetM getWord32le
+      let patchLocation = 20 + fromIntegral numEntries * 8 + 16 + 16
+      hSeek h AbsoluteSeek patchLocation
+      mask <- B.hGet h 16
+      return $ guard (mask == c3PS3MaskBad) >> Just patchLocation
+    case patchLocation of
+      -- need to patch, wrap the original handle and modify output
+      Just loc -> do
+        h <- rOpen r
+        sh <- simplifyHandle h
+        openSimpleHandle (handleLabel h <> " | fixOldC3Mogg") sh
+          { shRead = \n -> do
+            pos <- shTell sh
+            origData <- shRead sh n
+            return $ patchPosition (fromIntegral $ loc - pos) c3PS3MaskGood origData
+          }
+      -- don't need to patch, just pass through
+      Nothing -> rOpen r
+  }
