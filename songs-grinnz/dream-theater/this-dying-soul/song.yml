@@ -182,13 +182,11 @@ targets:
     game: rb3
     plan: release # TODO change back to mogg when encrypted moggs remade
     song-id: 1660200094
-    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: release # TODO change back to mogg when encrypted moggs remade
     song-id: 1660200095
-    version: 2
   ps:
     game: ps
     plan: album

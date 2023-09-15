@@ -127,14 +127,12 @@ targets:
     # file-milo: lipsync.milo_xbox
     label: (O)
     plan: edited
-    version: 2
   rb3-2x:
     game: rb3
     # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     plan: edited
-    version: 2
   ps:
     game: ps
     label: (O)

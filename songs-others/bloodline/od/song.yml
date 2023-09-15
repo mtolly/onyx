@@ -57,7 +57,6 @@ targets:
   rb3:
     song-id: 1681602338
     game: rb3
-    version: 30
     label: (Combined Guitar) (B)
   rs:
     game: rs

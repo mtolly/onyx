@@ -49,13 +49,11 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200027
-    version: 5
     # url: http://www.mediafire.com/file/z5a19wz954gn3di/914_1x_v5_rb3con
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200028
-    version: 5
     # url: http://www.mediafire.com/file/ykaefbf5b0i0v74/914_2x_v5_rb3con
   ps:
     game: ps

@@ -148,14 +148,12 @@ targets:
     game: rb3
     plan: final
     song-id: 1660200129
-    version: 2
     label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: final
     song-id: 1660200130
-    version: 2
     label: (2x Bass Pedal) (O)
   ps:
     game: ps

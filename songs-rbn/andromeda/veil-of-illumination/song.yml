@@ -51,12 +51,10 @@ plans:
 targets:
   rb3:
     song-id: 1660299998
-    version: 1
     game: rb3
     plan: stems
   rb3-2x:
     song-id: 1660299997
-    version: 1
     game: rb3
     plan: stems-onyxite-2x
     drums: onyxite-2x

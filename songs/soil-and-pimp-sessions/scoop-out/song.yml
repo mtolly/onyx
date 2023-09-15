@@ -53,7 +53,6 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200117
-    version: 3
     # url: http://www.mediafire.com/file/rc3ujqohmjia6da/OJP1_ScoopOut_v2_ps.zip
   ps:
     game: ps

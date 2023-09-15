@@ -36,7 +36,6 @@ targets:
   rb3:
     song-id: o883402152
     game: rb3
-    version: 1
   rs:
     game: rs
     arrangements:

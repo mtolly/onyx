@@ -46,7 +46,6 @@ targets:
   rb3:
     game: rb3
     plan: album
-    version: 2
     song-id: 1660200171
   ps:
     game: ps

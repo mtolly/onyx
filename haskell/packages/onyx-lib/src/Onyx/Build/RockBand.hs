@@ -1297,7 +1297,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
         ]
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
-    , D.version = fromMaybe 1 rb3.version
+    , D.version = 30 -- necessary for rbn2 venues to work with rb3dx custom sources
     , D.fake = Nothing
     , D.gameOrigin = Just $ if rb3.harmonix then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
@@ -1356,7 +1356,7 @@ makeC3 songYaml plan rb3 midi pkg (pstart, _) = do
     , C3.artist = getArtist metadata
     , C3.album = getAlbum metadata
     , C3.customID = pkg
-    , C3.version = fromIntegral $ fromMaybe 1 rb3.version
+    , C3.version = 1
     , C3.isMaster = not metadata.cover
     , C3.encodingQuality = 5
     , C3.crowdAudio = guard hasCrowd >> Just "crowd.wav"

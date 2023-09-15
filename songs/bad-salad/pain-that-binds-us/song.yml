@@ -133,13 +133,11 @@ parts:
 targets:
   rb3:
     game: rb3
-    version: 1
     plan: pledgemusic
     song-id: 1660200061
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    version: 1
     plan: pledgemusic
     song-id: 1660200062
   ps:

@@ -58,7 +58,6 @@ plans:
 targets:
   rb3:
     game: rb3
-    version: 30
     song-id: 1681602003
     label: (B)
   rs:

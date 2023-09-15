@@ -78,7 +78,6 @@ targets:
     game: rb3
     plan: release
     song-id: 1660200100
-    version: 2
   ps:
     game: ps
     plan: release

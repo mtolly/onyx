@@ -92,7 +92,6 @@ plans:
 targets:
   rb3:
     game: rb3
-    version: 1
     song-id: 1005013
   rs:
     game: rs

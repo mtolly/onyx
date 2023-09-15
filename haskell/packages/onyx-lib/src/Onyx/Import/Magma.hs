@@ -143,7 +143,6 @@ importMagma fin level = do
           Just c3file -> if C3.useNumericID c3file
             then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
             else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
-        , version = fromIntegral . C3.version <$> c3
         }
 
   let readTuning c3fn k = case c3 >>= c3fn of

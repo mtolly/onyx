@@ -53,13 +53,11 @@ targets:
     game: rb3
     label: (O)
     song-id: ChamCarn1xO200215
-    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     song-id: ChamCarn2xO200215
-    version: 2
   ps:
     game: ps
     label: (O)

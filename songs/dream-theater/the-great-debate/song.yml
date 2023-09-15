@@ -74,12 +74,10 @@ plans:
 targets:
   rb3:
     game: rb3
-    version: 1
     song-id: 1660200078
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    version: 1
     song-id: 1660200079
   ps:
     game: ps

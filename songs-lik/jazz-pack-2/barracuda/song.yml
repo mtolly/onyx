@@ -53,6 +53,5 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200044
-    version: 1
   ps:
     game: ps

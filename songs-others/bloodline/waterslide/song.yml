@@ -49,7 +49,6 @@ targets:
   rb3:
     song-id: 1681601027
     game: rb3
-    version: 30
     label: (B)
 metadata:
   rating: Family Friendly

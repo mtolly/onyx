@@ -1129,7 +1129,6 @@ data TargetRB3 f = TargetRB3
   { common        :: TargetCommon f
   , is2xBassPedal :: Bool
   , songID        :: RBSongID
-  , version       :: Maybe Integer
   , harmonix      :: Bool
   , magma         :: MagmaSetting
   , guitar        :: F.FlexPartName
@@ -1146,7 +1145,6 @@ parseTargetRB3 = do
   common        <- (.common       ) =. parseTargetCommon
   is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
   songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"       stackJSON
-  version       <- (.version      ) =. opt  Nothing          "version"       stackJSON
   harmonix      <- (.harmonix     ) =. opt  False            "harmonix"      stackJSON
   magma         <- (.magma        ) =. opt  MagmaRequire     "magma"         stackJSON
   guitar        <- (.guitar       ) =. opt  F.FlexGuitar     "guitar"        stackJSON
@@ -1227,7 +1225,6 @@ data TargetRB2 f = TargetRB2
   , is2xBassPedal :: Bool
   , songID        :: RBSongID
   , labelRB2      :: Bool
-  , version       :: Maybe Integer
   , magma         :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
   , guitar        :: F.FlexPartName
   , bass          :: F.FlexPartName
@@ -1243,7 +1240,6 @@ parseTargetRB2 = do
   is2xBassPedal <- (.is2xBassPedal) =. opt  False            "2x-bass-pedal" stackJSON
   songID        <- (.songID       ) =. fill SongIDAutoSymbol "song-id"       stackJSON
   labelRB2      <- (.labelRB2     ) =. opt  False            "label-rb2"     stackJSON
-  version       <- (.version      ) =. opt  Nothing          "version"       stackJSON
   magma         <- (.magma        ) =. opt  MagmaRequire     "magma"         stackJSON
   guitar        <- (.guitar       ) =. opt  F.FlexGuitar     "guitar"        stackJSON
   bass          <- (.bass         ) =. opt  F.FlexBass       "bass"          stackJSON

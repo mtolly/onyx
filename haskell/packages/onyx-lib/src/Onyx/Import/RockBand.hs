@@ -534,20 +534,16 @@ importRB rbi level = do
       songID2x = if hasKicks == Kicks2x
         then songID1x
         else maybe SongIDAutoSymbol getSongID $ files2x >>= D.songId . fst
-      version1x = guard (songID1x /= SongIDAutoSymbol) >> Just (D.version pkg)
-      version2x = guard (songID2x /= SongIDAutoSymbol) >> fmap (D.version . fst) files2x
       targetShared = def
         { harmonix = dtaIsHarmonixRB3 pkg
         }
       target1x = ("rb3", RB3 targetShared
         { is2xBassPedal = False
         , songID = songID1x
-        , version = version1x
         })
       target2x = ("rb3-2x", RB3 targetShared
         { is2xBassPedal = True
         , songID = songID2x
-        , version = version2x
         })
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList

@@ -16,7 +16,6 @@ metadata:
 targets:
   rb3:
     song-id: b248081195
-    version: 30
     game: rb3
 parts:
   bass:

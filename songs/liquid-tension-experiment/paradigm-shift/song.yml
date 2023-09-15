@@ -70,14 +70,12 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200025
-    version: 3
     plan: album
     # url: http://www.mediafire.com/file/bif48syrnt35myt/ParadigmShift_1x_v3_rb3con
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200026
-    version: 3
     plan: album
     # url: http://www.mediafire.com/file/laqfggnz78lc8s7/ParadigmShift_2x_v3_rb3con
   ps:

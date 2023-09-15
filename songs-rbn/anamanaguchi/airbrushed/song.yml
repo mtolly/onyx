@@ -97,7 +97,6 @@ plans:
 targets:
   rb3:
     game: rb3
-    version: 30
     song-id: 5005691
   rs:
     game: rs

@@ -197,24 +197,20 @@ targets:
     game: rb3
     plan: jammit
     song-id: 1660200112
-    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
     song-id: 1660200113
-    version: 2
   rb3-wii:
     game: rb3
     plan: jammit-wii
     song-id: 1660200112
-    version: 2
   rb3-wii-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit-wii
     song-id: 1660200113
-    version: 2
   ps:
     game: ps
     plan: jammit

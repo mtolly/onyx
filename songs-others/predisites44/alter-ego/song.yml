@@ -80,7 +80,6 @@ targets:
   rb3:
     song-id: 1050200004
     game: rb3
-    version: 30
 metadata:
   rating: FamilyFriendly
   preview-start: 17.777

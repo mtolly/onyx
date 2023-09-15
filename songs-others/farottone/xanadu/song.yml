@@ -48,7 +48,6 @@ targets:
     song-id: far_xanadu_longv2
     game: rb3
     file-milo: lipsync.milo_xbox
-    version: 30
 metadata:
   preview-start: 3:00.000
   file-album-art: cover.png_xbox

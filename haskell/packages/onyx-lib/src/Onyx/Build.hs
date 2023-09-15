@@ -478,7 +478,6 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               { common = rb2.common
               , is2xBassPedal = rb2.is2xBassPedal
               , songID = rb2.songID
-              , version = rb2.version
               , guitar = rb2.guitar
               , bass = rb2.bass
               , drums = rb2.drums

@@ -104,13 +104,11 @@ targets:
     game: rb3
     plan: drumcam
     song-id: 1660200135
-    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: drumcam
     song-id: 1660200136
-    version: 2
   ps:
     game: ps
     plan: drumcam

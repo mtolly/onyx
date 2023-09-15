@@ -32,7 +32,6 @@ targets:
   rb3:
     song-id: o738503235
     game: rb3
-    version: 1
 metadata:
   preview-start: 50.216
   file-album-art: cover.png_xbox

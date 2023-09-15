@@ -16,7 +16,6 @@ targets:
   rb3:
     file-milo: lipsync.milo_xbox
     song-id: 5011713
-    version: 30
     game: rb3
 parts:
   bass:
