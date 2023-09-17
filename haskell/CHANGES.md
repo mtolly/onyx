@@ -1,5 +1,24 @@
 # Version history
 
+## 20230917
+
+* Fix an incorrect case-sensitive file search in Quick Convert
+* When converting 5-lane Drums to 4-lane,
+  correct Pro Drums tom markers are now added
+  * Difficulties below Expert may not always be correct,
+    due to tom markers applying on all difficulties
+* Fix `port-gh-ps3` command to preserve FSB files that already contain MP3 audio
+* Upgraded compiler on Linux to work around a crash on certain kernel versions
+* Fix Clone Hero import to not switch drum lanes over "gravity blasts"
+  and similar patterns from one-pad to two-pad
+* Try to fix 3D Preview shader compilation on some Chromebooks
+  that default to OpenGL ES
+* Option to always mix down stems when exporting to Clone Hero format
+* Automatically fix some MOGG files encrypted by older C3 CON Tools
+  versions which fail to load on PS3
+  * Applied during standard compile and Quick Convert
+* Set `version` to 30 in all RB3 compile output for better RB3DX compatibility
+
 ## 20230625
 
 * Smoother 3D preview framerate + adjustable FPS in preferences

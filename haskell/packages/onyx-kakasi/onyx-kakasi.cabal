@@ -1,6 +1,6 @@
 name:                 onyx-kakasi
 version:              0.1
-homepage:             https://github.com/mtolly/onyxite-customs
+homepage:             https://github.com/mtolly/onyx
 build-type:           Simple
 cabal-version:        >= 1.10
 

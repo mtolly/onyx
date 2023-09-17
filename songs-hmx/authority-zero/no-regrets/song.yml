@@ -1,0 +1,70 @@
+metadata:
+  album: 12:34
+  artist: Authority Zero
+  author: Harmonix, Onyxite
+  difficulty:
+    rank: 378
+  file-album-art: cover.png_xbox
+  genre: punk
+  preview-end: 49
+  preview-start: 22.244
+  rating: Supervision Recommended
+  title: No Regrets
+  track-number: 4
+  year: 2007
+parts:
+  # onyxite: rocksmith bass, true drums, pro drums, new tempo map
+  bass:
+    grybo:
+      difficulty:
+        rank: 352
+      fix-freeform: false
+    pro-guitar:
+      tuning:
+        base: bass-4
+      picked-bass: true
+  drums:
+    drums:
+      mode: 'true'
+      difficulty:
+        rank: 410
+      fix-freeform: false
+      kicks: 1
+  guitar:
+    grybo:
+      difficulty:
+        rank: 265
+      fix-freeform: false
+  vocal:
+    vocal:
+      difficulty:
+        rank: 232
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: true
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
+    vols: [-0.5, -0.5, -0.5, -5, -5, -1.5, -3, -3, -3.5, -3.5, -6, -6]
+targets:
+  rb3:
+    difficulty:
+      tier: 1
+    game: rb3
+    song-id: 1005319
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

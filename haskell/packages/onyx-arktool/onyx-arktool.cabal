@@ -1,6 +1,6 @@
 name:                 onyx-arktool
 version:              0.1
-homepage:             https://github.com/mtolly/onyxite-customs
+homepage:             https://github.com/mtolly/onyx
 author:               xorloser, onyxite
 maintainer:           miketolly@gmail.com
 build-type:           Simple

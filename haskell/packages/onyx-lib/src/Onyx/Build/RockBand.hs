@@ -480,7 +480,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       (_, mixMode) <- computeDrumsPart rb3.drums plan songYaml
       (DifficultyRB3{..}, _) <- loadEditedParts
       -- Edited to match the order some C3 tools expect.
-      -- See https://github.com/mtolly/onyxite-customs/issues/217
+      -- See https://github.com/mtolly/onyx/issues/217
       let parts = NE.prependList (concat
             [ [pathMagmaKick   | rb3DrumsRank  /= 0 && mixMode /= Drums.D0]
             , [pathMagmaSnare  | rb3DrumsRank  /= 0 && notElem mixMode [Drums.D0, Drums.D4]]
@@ -1163,7 +1163,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       -- because no specs will change - we'll just zero out the game parts
       channelIndices before inst = take (length inst) $ drop (length $ concat before) [0..]
       -- Audio channel order edited to match the order some C3 tools expect.
-      -- See https://github.com/mtolly/onyxite-customs/issues/217
+      -- See https://github.com/mtolly/onyx/issues/217
       partChannels, drumChannels, bassChannels, guitarChannels, vocalChannels, keysChannels, songChannels, crowdChannels :: [(Double, Double)]
       partChannels = concat
         [ drumChannels

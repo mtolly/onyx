@@ -3290,8 +3290,8 @@ macOS = os == "darwin"
 
 isNewestRelease :: (Ordering -> IO ()) -> IO ()
 isNewestRelease cb = do
-  let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
-  rsp <- Req.runReq Req.defaultHttpConfig $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
+  let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyx" /: "releases" /: "latest"
+  rsp <- Req.runReq Req.defaultHttpConfig $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyx"
   case Req.responseBody rsp of
     A.Object obj -> case KM.lookup "name" obj of
       Just (A.String str) -> cb $ case (readMaybe $ T.unpack str, readMaybe $ showVersion version) of
@@ -3767,7 +3767,7 @@ launchGUI = withAL $ \hasAudio -> do
     )
     (Just "Homepage")
   FL.setCallback buttonGithub $ \_ ->
-    osOpenFile "https://github.com/mtolly/onyxite-customs/releases"
+    osOpenFile "https://github.com/mtolly/onyx/releases"
   labelLatest <- FL.boxNew
     (Rectangle
       (Position (X 120) (Y $ 10 + menuHeight))

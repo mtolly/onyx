@@ -529,7 +529,7 @@ displayWoRGenre = \case
 qbWoRGenre :: GenreWoR -> Word32
 qbWoRGenre wor = let
   displayed = case wor of
-    WoR_Hip_Hop -> "hip_hop" -- reported by ataeaf in https://github.com/mtolly/onyxite-customs/issues/193
+    WoR_Hip_Hop -> "hip_hop" -- reported by ataeaf in https://github.com/mtolly/onyx/issues/193
     WoR_R_n_B   -> "r&b" -- determined by testing
     _           -> displayWoRGenre wor
   in qbKeyCRC $ TE.encodeUtf8 $ T.toLower displayed

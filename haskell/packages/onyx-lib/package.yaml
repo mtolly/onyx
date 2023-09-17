@@ -1,6 +1,6 @@
 name: onyx-lib
-version: '20230625'
-github: mtolly/onyxite-customs
+version: '20230917'
+github: mtolly/onyx
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
 license: GPL-3

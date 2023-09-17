@@ -52,7 +52,7 @@ extra-deps:
   commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: https://github.com/kaoskorobase/hsndfile # unreleased past 0.8.0, switches to pkg-config
   commit: f532a1fdf119a543d7db20fe21f11ced5cffbb21
-# - git: https://github.com/mtolly/cabal # patch to work around c2hs failing on Windows in onyxite-customs-lib, due to many repeated include dirs in its invocation
+# - git: https://github.com/mtolly/cabal # patch to work around c2hs failing on Windows in onyx-lib, due to many repeated include dirs in its invocation
 #   commit: d039ecb4235fc0fe2a85be17df8537ec06e5c8b4
 #   subdirs:
 #   - Cabal

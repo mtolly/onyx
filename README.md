@@ -3,9 +3,9 @@
 I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm games.
 Along the way, I've written a helpful program to streamline the build process, and do all sorts of useful conversions and transformations.
 
-Download from the [releases page](https://github.com/mtolly/onyxite-customs/releases).
+Download from the [releases page](https://github.com/mtolly/onyx/releases).
 
-![Screenshot of Onyx's song preview tool](https://raw.githubusercontent.com/mtolly/onyxite-customs/master/haskell/screenshot.png)
+![Screenshot of Onyx's song preview tool](https://raw.githubusercontent.com/mtolly/onyx/master/haskell/screenshot.png)
 
 # Onyxite's Custom Songs
 

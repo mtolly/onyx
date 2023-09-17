@@ -1,6 +1,6 @@
 name: onyx-lib-game
 version: '20190209'
-github: mtolly/onyxite-customs
+github: mtolly/onyx
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
 license: GPL-3
