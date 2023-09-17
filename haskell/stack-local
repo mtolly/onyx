@@ -1,5 +1,12 @@
 #!/bin/bash
 BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
+
+case $(uname) in
+  MINGW* )
+    export STACK_YAML=stack-ghc-9.2.yaml
+    ;;
+esac
+
 env PKG_CONFIG_PATH="$BUILD_DIR"/dependencies/root/lib/pkgconfig \
   LD_LIBRARY_PATH="$BUILD_DIR"/dependencies/root/lib \
   stack "$@" \

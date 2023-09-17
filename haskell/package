@@ -19,6 +19,7 @@ case $(uname) in
     stack exec -- onyx-package version-print | xargs -I{} mv Onyx-{}-x86_64.AppImage onyx-{}-linux-x64.AppImage
     ;;
   MINGW* )
+    export STACK_YAML=stack-ghc-9.2.yaml
     rm -rf win/
     mkdir win/
     stack exec which onyx | xargs -I{} cp {} win/

@@ -6,6 +6,6 @@ onyx-*.exe
 /packages/onyx-exe-game/*.cabal
 /packages/onyx-lib-game/*.cabal
 /packages/onyx-exe-toolkit/*.cabal
-stack.yaml.lock
+stack*.yaml.lock
 onyx-20*
 *.AppImage
