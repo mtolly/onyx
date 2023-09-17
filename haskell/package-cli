@@ -7,6 +7,7 @@ case $(uname) in
     # TODO
     ;;
   MINGW* )
+    export STACK_YAML=stack-ghc-9.2.yaml
     rm -rf win/
     mkdir win/
     stack exec which onyx-cli | xargs -I{} cp {} win/onyx.exe
