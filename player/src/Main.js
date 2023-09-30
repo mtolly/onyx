@@ -145,7 +145,7 @@ exports.fillMenu = function(song) {
       });
       tag(menu, 'p', function(p){
         p.className = 'onyx-link';
-        p.innerHTML = '<a target="_blank" href="https://github.com/mtolly/onyxite-customs">Onyx Music Game Toolkit</a>';
+        p.innerHTML = '<a target="_blank" href="https://github.com/mtolly/onyx">Onyx Music Game Toolkit</a>';
       });
       menu.addEventListener('click', function(e){ e.stopPropagation(); });
       menu.addEventListener('touchstart', function(e){ e.stopPropagation(); });

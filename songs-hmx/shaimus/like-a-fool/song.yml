@@ -1,0 +1,97 @@
+global:
+  anim-tempo: fast
+metadata:
+  album: The Sad Thing Is, We Like It Here
+  artist: Shaimus
+  author: null
+  difficulty:
+    rank: 322
+  file-album-art: cover.png_xbox
+  genre: indierock
+  preview-end: 1:08.000
+  preview-start: 45.8
+  rating: Family Friendly
+  title: Like a Fool
+  track-number: 8
+  year: 2008
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 329
+      fix-freeform: false
+  drums:
+    drums:
+      difficulty:
+        rank: 301
+      fix-freeform: false
+      kicks: 1
+  guitar:
+    grybo:
+      difficulty:
+        rank: 290
+      fix-freeform: false
+  keys: {}
+  vocal:
+    vocal:
+      difficulty:
+        rank: 261
+      gender: male
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: true
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      bass:
+      - 5
+      drums:
+        kick:
+        - 0
+        kit:
+        - 3
+        - 4
+        snare:
+        - 1
+        - 2
+      guitar:
+      - 6
+      - 7
+      vocal:
+      - 8
+      - 9
+    vols:
+    - -1
+    - 0
+    - 0
+    - -3
+    - -3
+    - -3
+    - -4.5
+    - -4.5
+    - -3
+    - -3
+    - -2
+    - -2
+targets:
+  rb3:
+    difficulty:
+      tier: 1
+    game: rb3
+    song-id: 1005311
