@@ -6,10 +6,15 @@
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Neversoft where
 
+
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.IO.Class           (MonadIO)
+import           Crypto.Cipher.AES
+import           Crypto.Cipher.Types
+import           Crypto.Error
 import           Data.Bifunctor                   (first)
+import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isDigit)
 import           Data.Default.Class               (def)
@@ -45,7 +50,10 @@ import           Onyx.Neversoft.Metadata
 import           Onyx.Neversoft.Note
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.PS2
-import           Onyx.Neversoft.QB                (QBSection (..), parseQB)
+import           Onyx.Neversoft.QB                (QBSection (..),
+                                                   QBStructItem (..),
+                                                   QSResult (..), parseQB,
+                                                   parseSGHStruct)
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
@@ -492,3 +500,70 @@ importGH3Song gh3i = let
             })
         ]
       }
+
+importGH3SGHFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH3SGHFolder src folder = case findFileCI (pure "songs.info") folder of
+  Nothing -> fatal "No songs.info found in .sgh"
+  Just rSongs -> do
+    songs <- stackIO (useHandle rSongs handleToByteString)
+      >>= decryptSGHSongs . BL.toStrict
+      >>= runGetM parseSGHStruct . BL.fromStrict
+    let platform = (<> ".xen")
+        findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
+    songInfo <- fmap concat $ forM songs $ \case
+      QBStructItemStruct8A0000 _ items -> case parseSongInfoGH3 $ map (first UnknownQS) items of
+        Left  err  -> warn err >> return []
+        Right info -> return [info]
+      _ -> return []
+    fmap concat $ forM songInfo $ \info -> do
+      let pathName  = TE.decodeUtf8 $ gh3Name info
+          songPath  = pathName <> platform "_song.pak"
+          audioPath = pathName <> platform ".fsb"
+          datPath   = pathName <> platform ".dat"
+      case findFolded songPath of
+        Nothing       -> return [] -- song which is listed in the database, but not actually in this package
+        Just rSongPak -> do
+          rAudio <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
+          rDat   <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
+          importGH3Song GH3Import
+            { gh3iSource   = src
+            , gh3iSongInfo = info
+            , gh3iSongPak  = rSongPak
+            , gh3iAudio    = GH3Audio360 rAudio rDat
+            , gh3iText     = []
+            }
+
+{-
+
+Silly AES keys GHTCP uses for songs.info + setlist.info
+
+.NET docs for PasswordDeriveBytes say "This class uses an extension of the
+PBKDF1 algorithm defined in the PKCS#5 v2.0 standard to derive bytes suitable
+for use as key material from a password. The standard is documented in
+IETF RRC 2898."
+
+byte[] PwByteArray = { 73,118,97,110,32,77,101,100,118,101,100,101,118 }; // "Ivan Medvedev"
+String password = isSetlist ? "SET4AES4KEY9MXKR" : "SNG4AES4KEY9MXKR";
+PasswordDeriveBytes passwordDeriveBytes = new PasswordDeriveBytes(password, PwByteArray);
+byte[] key = passwordDeriveBytes.GetBytes(32);
+byte[] initVector = passwordDeriveBytes.GetBytes(16);
+
+-}
+
+sghSetlistKey, sghSetlistIV, sghSongsKey, sghSongsIV :: B.ByteString
+sghSetlistKey = B.pack [61,250,11,73,254,154,8,191,18,188,243,32,246,40,148,145,62,219,250,196,15,63,217,91,29,73,8,22,197,186,176,81]
+sghSetlistIV  = B.pack [18,188,243,32,246,40,148,145,247,74,25,30,94,26,230,111]
+sghSongsKey   = B.pack [45,219,244,185,119,192,19,251,134,93,62,50,245,33,177,178,192,184,16,30,114,253,61,49,248,198,204,123,91,48,188,103]
+sghSongsIV    = B.pack [134,93,62,50,245,33,177,178,239,48,31,166,143,179,180,49]
+
+decryptSGHSetlist :: (MonadFail m) => B.ByteString -> m B.ByteString
+decryptSGHSetlist bs = do
+  Just iv <- return $ makeIV sghSetlistIV
+  CryptoPassed cipher <- return $ cipherInit sghSetlistKey
+  return $ cbcDecrypt (cipher :: AES256) iv bs
+
+decryptSGHSongs :: (MonadFail m) => B.ByteString -> m B.ByteString
+decryptSGHSongs bs = do
+  Just iv <- return $ makeIV sghSongsIV
+  CryptoPassed cipher <- return $ cipherInit sghSongsKey
+  return $ cbcDecrypt (cipher :: AES256) iv bs

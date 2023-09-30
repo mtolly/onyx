@@ -599,6 +599,14 @@ parseQB = do
           else (:) <$> parseQBSection <*> parseSections
   parseSections
 
+-- weird format that looks like a QB but is just the contents of a struct
+parseSGHStruct :: Get [QBStructItem Word32 Word32]
+parseSGHStruct = do
+  let ?endian = BigEndian
+      ?format = QBFormatNew
+  _ <- getByteString 28 -- sort of normal qb header but don't need it
+  parseQBStruct
+
 getW32 :: (?endian :: ByteOrder) => Get Word32
 getW32 = codecIn binEndian
 

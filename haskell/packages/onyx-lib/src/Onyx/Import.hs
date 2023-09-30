@@ -53,6 +53,7 @@ import qualified Onyx.Import.GuitarHero2      as GH2
 import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
 import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
+                                               importGH3SGHFolder,
                                                importNeversoftGH)
 import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
@@ -279,6 +280,11 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                     imps <- importGH3PS2 iso contents
                     foundImports "Guitar Hero III (PS2)" iso imps
                   Nothing -> return ([], [])
+      foundSGHFolder songsInfo = do
+        let loc = takeDirectory songsInfo
+        dir <- stackIO $ crawlFolder loc
+        imps <- importGH3SGHFolder loc dir
+        foundImports "Guitar Hero III (extracted .sgh)" loc imps
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports $ \imp -> do
@@ -351,6 +357,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         , ("main_xbox.hdr", foundHDR)
         -- Needed so we don't also pick up game-specific files like a Harmonix GEN folder or Power Gig Data.hdr.e.2
         , ("default.xex", \xex -> let dir = takeDirectory xex in stackIO (crawlFolder dir) >>= found360Game xex)
+        -- Already-extracted .sgh (decrypted zip contents with password)
+        , ("songs.info", foundSGHFolder)
         ]
     else do
       case map toLower $ takeExtension fp of
