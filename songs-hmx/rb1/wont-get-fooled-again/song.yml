@@ -25,7 +25,7 @@ plans:
       bass: [2]
       guitar: [3, 4]
       vocal: [5, 6]
-    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5] # does 2.5 pan do surround stuff for crowd channels?
     # mogg-md5: 5f40d319bc1baeda20e536c1ddf2213e
     file-mogg: audio.mogg
     multitrack: true
@@ -35,9 +35,8 @@ plans:
     parts: {}
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
     file-mogg: audio.mogg
-    multitrack: true
-    crowd: [9, 10] # TODO do we want to silence/remove crowd?
-    vols: [0, 0, -1.5, -1.5, -1.5, -2.5, -2.5, -4, -4, -5, -5]
+    multitrack: false
+    vols: [0, 0, -1.5, -1.5, -1.5, -2.5, -2.5, -4, -4, -999, -999] # silenced crowd
 targets:
   rb3:
     game: rb3
@@ -46,6 +45,13 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+  ps-tourney:
+    game: ps
+    plan: mogg-stemless
+    guitar: none
+    bass: none
+    vocal: none
+    loading-phrase: "Edited/updated chart for tournament use"
 metadata:
   rating: Family Friendly
   preview-start: 1:15.750

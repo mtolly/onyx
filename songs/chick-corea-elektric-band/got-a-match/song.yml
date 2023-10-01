@@ -76,3 +76,11 @@ targets:
   ps:
     game: ps
     plan: album
+    big-rock-ending: false
+  ps-tourney:
+    game: ps
+    plan: album
+    bass: none
+    keys: none
+    big-rock-ending: false
+    loading-phrase: "Edited/updated chart for tournament use"

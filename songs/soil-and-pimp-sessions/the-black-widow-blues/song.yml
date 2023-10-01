@@ -66,6 +66,13 @@ targets:
     song-id: 1660200118
   ps:
     game: ps
+  ps-tourney:
+    game: ps
+    guitar: none
+    bass: none
+    keys: none
+    vocal: none
+    loading-phrase: "Edited/updated chart for tournament use"
   rs:
     game: rs
     arrangements:

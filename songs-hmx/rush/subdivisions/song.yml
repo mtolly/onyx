@@ -54,11 +54,13 @@ plans:
     # mogg-md5: 8703e0399ead61e8ac01659506d17621
     file-mogg: audio.mogg
     vols: [-8, -8, -8, -8, -7, -7, -7, -7, -8, -8, -8, -8]
+    multitrack: true
   mogg-stemless:
     parts: {}
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     file-mogg: audio.mogg
     vols: [-8, -8, -8, -8, -7, -7, -7, -7, -8, -8, -8, -8]
+    multitrack: false
 targets:
   rb3:
     game: rb3
@@ -76,6 +78,14 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+  ps-tourney:
+    game: ps
+    plan: mogg-stemless
+    guitar: none
+    bass: none
+    keys: none
+    vocal: none
+    loading-phrase: "Edited/updated chart for tournament use"
 metadata:
   rating: FamilyFriendly
   preview-start: 1:44.452

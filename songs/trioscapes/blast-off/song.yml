@@ -59,6 +59,11 @@ targets:
   ps:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Keys (sax), though Bass also has a solo."
+  ps-tourney:
+    game: ps
+    bass: none
+    keys: none
+    loading-phrase: "Edited/updated chart for tournament use"
   rs:
     game: rs
     arrangements:

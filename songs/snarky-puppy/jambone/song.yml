@@ -64,3 +64,7 @@ targets:
   ps:
     game: ps
     plan: album
+  ps-tourney:
+    game: ps
+    plan: album
+    loading-phrase: "Edited/updated chart for tournament use"

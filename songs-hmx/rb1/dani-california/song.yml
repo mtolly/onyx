@@ -38,9 +38,8 @@ plans:
     parts: {}
     pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
     file-mogg: audio.mogg
-    multitrack: true
-    crowd: [13, 14]
-    vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -5, -5]
+    multitrack: false
+    vols: [0, 0, -3, -3, -1.5, -1.5, -1.5, -2.5, -2.5, -3, -3, -4.5, -4.5, -999, -999] # silenced crowd
 targets:
   rb3:
     game: rb3
@@ -49,6 +48,13 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+  ps-tourney:
+    game: ps
+    plan: mogg-stemless
+    guitar: none
+    bass: none
+    vocal: none
+    loading-phrase: "Edited/updated chart for tournament use"
 metadata:
   rating: Supervision Recommended
   preview-start: 39.45
