@@ -3,7 +3,7 @@ global:
 metadata:
   album: The Sad Thing Is, We Like It Here
   artist: Shaimus
-  author: null
+  author: Harmonix, Onyxite
   difficulty:
     rank: 322
   file-album-art: cover.png_xbox
@@ -20,6 +20,9 @@ parts:
       difficulty:
         rank: 329
       fix-freeform: false
+    pro-guitar:
+      tuning:
+        base: bass-4
   drums:
     drums:
       difficulty:
@@ -95,3 +98,7 @@ targets:
       tier: 1
     game: rb3
     song-id: 1005311
+  rs:
+    game: rs
+    arrangements:
+    - [bass, bass]

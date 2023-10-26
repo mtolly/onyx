@@ -142,6 +142,8 @@ end
 # build songs/avenged-sevenfold/the-stage
 # build songs-rbn/benighted/let-the-blood-spill-between-my-broken-teeth
 build songs-hmx/authority-zero/no-regrets
+build songs/system-of-a-down/revenga
+build songs-hmx/shaimus/like-a-fool
 
 # phrases unknown:
 

@@ -36,9 +36,11 @@ rhythmLength r = do
     "Whole"   -> return 4
     "Half"    -> return 2
     "Quarter" -> return 1
-    "Eighth"  -> return 0.5
-    "16th"    -> return 0.25
-    "32nd"    -> return 0.125
+    "Eighth"  -> return (1/2)
+    "16th"    -> return (1/4)
+    "32nd"    -> return (1/8)
+    "64th"    -> return (1/16)
+    "128th"   -> return (1/32)
     _         -> Nothing
   let dots = maybe 0 (.count) r.augmentationDot
       dotRatio = 2 - 2 ^^ (negate dots)

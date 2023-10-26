@@ -324,6 +324,13 @@ importGH2DLC src folder = do
           Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
     moggPath <- split $ base <.> "mogg"
     mogg <- SoftReadable <$> need moggPath
+    art <- case T.splitOn "/" $ songName $ song pkg of
+      [x, y, z] -> do
+        let artPath = x :| [y, "gen", z <> ".bmp_xbox"]
+        return $ fmap (SoftFile "cover.png_xbox" . SoftReadable) $ findFileCI artPath folder
+      _ -> do
+        warn "Couldn't recognize song path format to search for album art"
+        return Nothing
     let modes = case songCoop pkg of
           Nothing -> [ImportSolo]
           Just _  -> [ImportSolo, ImportCoop]
@@ -342,7 +349,8 @@ importGH2DLC src folder = do
           ImportQuick -> return emptyChart
         let instChans :: [(T.Text, [Int])]
             instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
-        return (gh2SongYaml mode pkg (Just extra) songChunk onyxMidi)
+            yaml = gh2SongYaml mode pkg (Just extra) songChunk onyxMidi
+        return yaml
           { plans = HM.singleton "mogg" $ MoggPlan MoggPlanInfo
             { fileMOGG = Just $ SoftFile "audio.mogg" mogg
             , moggMD5 = Nothing
@@ -368,6 +376,9 @@ importGH2DLC src folder = do
             , karaoke = False
             , multitrack = False
             , decryptSilent = False
+            }
+          , metadata = yaml.metadata
+            { fileAlbumArt = art
             }
           }
 

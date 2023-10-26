@@ -22,20 +22,20 @@ plans:
   album:
     song:
       mix:
-      - pad: [2.943, album-track]
+      - pad: [2.943, flip: album-track]
       - countin
   dev:
     song:
-      pad: [2.943, album-track]
+      pad: [2.943, flip: album-track]
     parts:
       bass:
-        pad: [2.943, channels: [[0, 1], stems]]
+        pad: [2.943, flip: {channels: [[0, 1], stems]}]
       drums:
-        pad: [2.943, channels: [[2, 3], stems]]
+        pad: [2.943, flip: {channels: [[2, 3], stems]}]
       vocal:
-        pad: [2.943, channels: [[4, 5], stems]]
+        pad: [2.943, flip: {channels: [[4, 5], stems]}]
       other:
-        pad: [2.943, channels: [[6, 7], stems]]
+        pad: [2.943, flip: {channels: [[6, 7], stems]}]
 parts:
   drums:
     drums:

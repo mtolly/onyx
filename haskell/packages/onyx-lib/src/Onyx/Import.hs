@@ -57,6 +57,7 @@ import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
                                                importNeversoftGH)
 import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
+import           Onyx.Import.Ragnarock        (importRagnarock)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
                                                importSTFSFolder)
 import           Onyx.Import.RockRevolution   (importRR)
@@ -285,6 +286,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         dir <- stackIO $ crawlFolder loc
         imps <- importGH3SGHFolder loc dir
         foundImports "Guitar Hero III (extracted .sgh)" loc imps
+      foundRagnarock loc = foundImport "Ragnaröck" loc $ importRagnarock loc
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports $ \imp -> do
@@ -399,6 +401,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp
+          "info.dat" -> foundRagnarock fp
           "set.def" -> foundDTXSet fp
           "main.hdr" -> foundHDR fp
           "main_ps3.hdr" -> foundHDR fp

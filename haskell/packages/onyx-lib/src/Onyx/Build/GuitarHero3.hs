@@ -474,10 +474,11 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ fromMaybe RTB.empty
       $ Map.lookup diff result.notes
+    starPower = makeGH3Spans (F.s_tempos song) (Five.fiveOverdrive result.other) sht
     in GH3Track
       { gh3Notes       = makeGH3TrackNotes (F.s_tempos song) timeSigs beats sht
-      , gh3StarPower   = makeGH3Spans (F.s_tempos song) (Five.fiveOverdrive result.other) sht
-      , gh3BattleStars = []
+      , gh3StarPower   = starPower
+      , gh3BattleStars = starPower
       }
   (beats, timeSigs) = makeGH3Timing
     (F.s_tempos song)

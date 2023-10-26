@@ -1,0 +1,82 @@
+metadata:
+  album: Mezmerize
+  artist: System of a Down
+  author: Inventor211, Onyxite
+  difficulty:
+    tier: 1
+  file-album-art: cover.png_xbox
+  genre: metal
+  preview-end: 1:00.000
+  preview-start: 30
+  subgenre: alternative
+  title: Revenga
+  track-number: 3
+  year: 2005
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        # drop Db
+        offsets: [-2, 0, 0, 0]
+        global: -1
+      picked-bass: true
+  drums:
+    drums:
+      difficulty:
+        tier: 6
+      fix-freeform: false
+      kicks: 2
+audio:
+  rendered:
+    file-path: rendered-mogg.wav
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(rendered) audio-stems.wav
+    channels: 8
+plans:
+  mogg:
+    file-mogg: audio.mogg
+    karaoke: false
+    multitrack: false
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    parts:
+      drums:
+      - 0
+      - 1
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+  dev:
+    song:
+      rendered
+    parts:
+      bass:
+        channels: [[0, 1], stems]
+      drums:
+        channels: [[2, 3], stems]
+      vocal:
+        channels: [[4, 5], stems]
+      other:
+        channels: [[6, 7], stems]
+targets:
+  rb3-2x:
+    2x-bass-pedal: true
+    difficulty:
+      tier: 1
+    game: rb3
+    song-id: 775240300
+    plan: mogg
+    label: (I)
+  rs:
+    game: rs
+    plan: mogg
+    arrangements:
+    - [bass, bass]

@@ -1,0 +1,59 @@
+metadata:
+  title: Invisible Monster
+  artist: Dream Theater
+  album: A View from the Top of the World
+  year: 2021
+  author: Onyxite
+  genre: metal
+  subgenre: prog
+  track-number: 3
+  file-album-art: ../../../covers/a-view-from-the-top-of-the-world.jpg
+  preview-start: prc_prechorus
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: 'true'
+      true-layout: [open-hand]
+audio:
+  album-track:
+    frames: 18755500
+    md5: 31879efa83b9ecb52059e2b649c9fcad
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [0.554, album-track]
+  dev:
+    song:
+      pad: [0.554, album-track]
+    parts:
+      bass:
+        pad: [0.554, channels: [[0, 1], stems]]
+      drums:
+        pad: [0.554, channels: [[2, 3], stems]]
+      vocal:
+        pad: [0.554, channels: [[4, 5], stems]]
+      other:
+        pad: [0.554, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    plan: album
+    2x-bass-pedal: true
+  ps:
+    game: ps
+    plan: album

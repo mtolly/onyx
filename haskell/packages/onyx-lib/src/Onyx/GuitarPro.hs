@@ -34,7 +34,7 @@ import           Text.XML.Light
 -- .gpx (GP6) is a custom file structure + compression format
 
 data GPIF = GPIF
-  { gpVersion   :: Maybe Int -- not in .gpx
+  { gpVersion   :: Maybe T.Text -- not in .gpx
   -- GPRevision
   -- Encoding
   , score       :: Score
@@ -51,7 +51,7 @@ data GPIF = GPIF
 
 instance IsInside GPIF where
   insideCodec = do
-    gpVersion   <- (.gpVersion) =. childTagOpt "GPVersion" (parseInside' $ intText childText)
+    gpVersion   <- (.gpVersion) =. childTagOpt "GPVersion" (parseInside' childText)
     ignoreChildTag "GPRevision"
     ignoreChildTag "Encoding"
     score       <- (.score) =. childTag "Score" (parseInside' insideCodec)
