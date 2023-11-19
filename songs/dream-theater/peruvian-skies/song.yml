@@ -28,6 +28,36 @@ plans:
       mix:
       - countin
       - pad: [2.273, without: [drums, jammit-track]]
+  dev:
+    song:
+      pad:
+      - 2.273
+      - mix:
+        - without: [drums, jammit-track]
+        - gain: [-1, only: [Guitar 1, jammit-track]]
+        - gain: [-1, only: [Guitar 2, jammit-track]]
+        - gain: [-1, only: [Bass, jammit-track]]
+        - gain: [-1, only: [Keys 1, jammit-track]]
+        - gain: [-1, only: [Keys 2, jammit-track]]
+        - gain: [-1, only: [Vocal, jammit-track]]
+        - gain: [-1, only: [B Vocals, jammit-track]]
+    parts:
+      guitar-1:
+        pad: [2.273, only: [Guitar 1, jammit-track]]
+      guitar-2:
+        pad: [2.273, only: [Guitar 2, jammit-track]]
+      bass:
+        pad: [2.273, only: [Bass, jammit-track]]
+      drums:
+        pad: [2.273, only: [Drums, jammit-track]]
+      keys-1:
+        pad: [2.273, only: [Keys 1, jammit-track]]
+      keys-2:
+        pad: [2.273, only: [Keys 2, jammit-track]]
+      vocal-1:
+        pad: [2.273, only: [Vocal, jammit-track]]
+      vocal-2:
+        pad: [2.273, only: [B Vocals, jammit-track]]
   album:
     song:
       mix:
@@ -39,6 +69,10 @@ parts:
     drums:
       kicks: 2
       difficulty: 4
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
 targets:
   rb3-2x:
     game: rb3

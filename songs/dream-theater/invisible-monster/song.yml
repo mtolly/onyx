@@ -15,6 +15,10 @@ parts:
       kicks: both
       mode: 'true'
       true-layout: [open-hand]
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5 # don't think C string is used
 audio:
   album-track:
     frames: 18755500
@@ -57,3 +61,8 @@ targets:
   ps:
     game: ps
     plan: album
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bonus-rhythm, bass]

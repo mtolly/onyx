@@ -104,7 +104,7 @@ end
 # build songs/dream-theater/anna-lee
 # build songs/dream-theater/trial-of-tears
 # build songs-hmx/billy-joel/piano-man
-# build songs-others/bloodline/sure-shot
+build songs-others/bloodline/sure-shot
 # build songs/trioscapes/stab-wounds
 # build songs-hmx/the-black-dahlia-murder/what-a-horrible-night-to-have-a-curse
 # build songs-hmx/whitechapel/this-is-exile
@@ -141,9 +141,10 @@ end
 # build songs-others/guitar-hero/all-nightmare-long
 # build songs/avenged-sevenfold/the-stage
 # build songs-rbn/benighted/let-the-blood-spill-between-my-broken-teeth
-build songs-hmx/authority-zero/no-regrets
-build songs/system-of-a-down/revenga
-build songs-hmx/shaimus/like-a-fool
+# build songs-hmx/authority-zero/no-regrets
+# build songs/system-of-a-down/revenga
+# build songs-hmx/shaimus/like-a-fool
+build songs/dream-theater/invisible-monster
 
 # phrases unknown:
 

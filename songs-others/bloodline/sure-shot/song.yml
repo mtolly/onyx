@@ -16,16 +16,34 @@ metadata:
   file-album-art: ../../../covers/the-shape-of-colour.png_xbox
   difficulty:
     tier: 1
+audio:
+  album-prev: # I'm Awake
+    md5: 27093963af91aefc53b11eb0b0d47634
+    frames: 10517556
+  album-track:
+    md5: 40cb060f2f8ed6666d733cab29e878f5
+    frames: 10895052
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 targets:
   rb3-2x:
     song-id: 1681600463
     game: rb3
     2x-bass-pedal: true
     label: (B)
+    plan: album
   rs:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+    plan: album
 parts:
   bass:
     pro-guitar:
@@ -39,6 +57,28 @@ parts:
 global:
   anim-tempo: 64
 plans:
+  album:
+    song:
+      mix:
+      - countin
+      - concatenate:
+        - fade:
+          - start
+          - 3
+          - take: [end, 5.985, album-prev]
+        - album-track
+  dev:
+    song:
+      pad: [5.985, album-track]
+    parts:
+      bass:
+        pad: [5.985, channels: [[0, 1], stems]]
+      drums:
+        pad: [5.985, channels: [[2, 3], stems]]
+      vocal:
+        pad: [5.985, channels: [[4, 5], stems]]
+      other:
+        pad: [5.985, channels: [[6, 7], stems]]
   mogg:
     pans:
     - -1
