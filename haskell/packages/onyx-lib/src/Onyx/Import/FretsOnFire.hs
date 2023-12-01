@@ -319,19 +319,18 @@ importFoF src dir level = do
               _       -> (catMaybes [md1, md2, md3, md4], [], []) -- either no drums, or weird configuration
       songAudio = toList $ if onlyGuitar then audio_guitar else audio_song
 
-  let (delayAudio, delayMIDI) = case FoF.delay song of
-        Nothing -> (id, id)
+  let (delayAudio, delayPreview, delayMIDI) = case FoF.delay song of
+        Nothing -> (id, id, id)
         Just n -> case compare n 0 of
-          EQ -> (id, id)
+          EQ -> (id, id, id)
           GT -> let
             secs = fromIntegral n / 1000
             midiDelay = ceiling secs
             audioDelay = fromIntegral midiDelay - secs
-            in (Pad Start $ CA.Seconds audioDelay, F.padFixedFile midiDelay)
-          LT ->
-            ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000
-            , id
-            )
+            in (Pad Start $ CA.Seconds audioDelay, (+ realToFrac audioDelay), F.padFixedFile midiDelay)
+          LT -> let
+            audioDelay = fromIntegral (abs n) / 1000
+            in (Pad Start $ CA.Seconds audioDelay, (+ realToFrac audioDelay), id)
       audioExpr auds = do
         auds' <- NE.nonEmpty $ map fst auds
         Just $ case auds' of
@@ -460,13 +459,13 @@ importFoF src dir level = do
       , trackNumber  = FoF.track song
       , comments     = []
       , author       = FoF.charter song
-      -- TODO this probably needs to be adjusted for delay padding
       , previewStart = case FoF.previewStartTime song of
-        Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
+        Just ms | ms >= 0 -> Just $ PreviewSeconds $ delayPreview $ fromIntegral ms / 1000
         _                 -> Nothing
       , previewEnd   = Nothing
       , difficulty   = toTier $ FoF.diffBand song
       , cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
+      , loadingPhrase = FoF.loadingPhrase song
       }
     , global = def'
       { backgroundVideo = videoInfo
@@ -516,8 +515,6 @@ importFoF src dir level = do
       , fileTempo = Nothing
       }
     , targets = HM.singleton "ps" $ PS def
-      { loadingPhrase = FoF.loadingPhrase song
-      }
     , parts = Parts $ HM.fromList
       [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = do

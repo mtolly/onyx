@@ -809,6 +809,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                     , D.packName = D.packName rb3DTA
                     , D.author = songYaml.metadata.author
+                    , D.loadingPhrase = songYaml.metadata.loadingPhrase
                     -- not present
                     , D.drumBank = Nothing
                     , D.bandFailCue = Nothing
@@ -862,6 +863,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                       (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
                       (_   , x) -> x
                     , D.author = D.author rb3DTA
+                    , D.loadingPhrase = D.loadingPhrase rb3DTA
                     }
               liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments songYaml.metadata plan rb3
         rb2DTA %> writeRB2DTA False
@@ -1337,6 +1339,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.dateReleased = Nothing
     , D.dateRecorded = Nothing
     , D.author = metadata.author
+    , D.loadingPhrase = metadata.loadingPhrase
     , D.video = False
     }
 

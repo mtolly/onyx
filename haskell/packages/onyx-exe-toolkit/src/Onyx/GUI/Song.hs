@@ -607,7 +607,6 @@ songPageGH1 sink rect tab proj build = mdo
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
   let initTarget prefs = (def :: TargetGH1 FilePath)
         { offset = prefGH2Offset prefs
-        , loadingPhrase = loadingPhraseCHtoGH2 proj
         }
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling
@@ -731,7 +730,6 @@ songPageGH2 sink rect tab proj build = mdo
         Just is2x -> gh2 { gh2Deluxe = True , is2xBassPedal = is2x  }
   let initTarget prefs = (def :: TargetGH2 FilePath)
         { offset = prefGH2Offset prefs
-        , loadingPhrase = loadingPhraseCHtoGH2 proj
         }
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling

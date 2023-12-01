@@ -426,13 +426,6 @@ trimXbox prefs f = if prefTrimXbox prefs
   then validFileName NameRuleXbox f
   else f
 
-loadingPhraseCHtoGH2
-  :: Project
-  -> Maybe T.Text
-loadingPhraseCHtoGH2 proj = listToMaybe $ catMaybes $ do
-  PS ps <- toList (projectSongYaml proj).targets
-  return $ stripTags <$> ps.loadingPhrase
-
 gh2DeluxeSelector
   :: (Event -> IO ())
   -> Rectangle

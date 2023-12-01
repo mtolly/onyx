@@ -918,30 +918,31 @@ instance StackJSON PreviewTime where
 
 -- | Extra information with no gameplay effect.
 data Metadata f = Metadata
-  { title        :: Maybe T.Text
-  , titleJP      :: Maybe T.Text
-  , artist       :: Maybe T.Text
-  , artistJP     :: Maybe T.Text
-  , album        :: Maybe T.Text
-  , genre        :: Maybe T.Text
-  , subgenre     :: Maybe T.Text
-  , year         :: Maybe Int
-  , fileAlbumArt :: Maybe f
-  , trackNumber  :: Maybe Int
-  , comments     :: [T.Text]
-  , key          :: Maybe SongKey
-  , author       :: Maybe T.Text
-  , rating       :: Rating
-  , previewStart :: Maybe PreviewTime
-  , previewEnd   :: Maybe PreviewTime
-  , languages    :: [T.Text]
-  , convert      :: Bool
-  , rhythmKeys   :: Bool -- should be in target!
-  , rhythmBass   :: Bool -- should be in target!
-  , catEMH       :: Bool
-  , expertOnly   :: Bool
-  , cover        :: Bool
-  , difficulty   :: Difficulty
+  { title         :: Maybe T.Text
+  , titleJP       :: Maybe T.Text
+  , artist        :: Maybe T.Text
+  , artistJP      :: Maybe T.Text
+  , album         :: Maybe T.Text
+  , genre         :: Maybe T.Text
+  , subgenre      :: Maybe T.Text
+  , year          :: Maybe Int
+  , fileAlbumArt  :: Maybe f
+  , trackNumber   :: Maybe Int
+  , comments      :: [T.Text]
+  , key           :: Maybe SongKey
+  , author        :: Maybe T.Text
+  , rating        :: Rating
+  , previewStart  :: Maybe PreviewTime
+  , previewEnd    :: Maybe PreviewTime
+  , languages     :: [T.Text]
+  , convert       :: Bool
+  , rhythmKeys    :: Bool -- should be in target!
+  , rhythmBass    :: Bool -- should be in target!
+  , catEMH        :: Bool
+  , expertOnly    :: Bool
+  , cover         :: Bool
+  , difficulty    :: Difficulty
+  , loadingPhrase :: Maybe T.Text
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
 parseAnimTempo :: (SendMessage m) => ValueCodec m A.Value (Either AnimTempo Integer)
@@ -961,30 +962,31 @@ parseMetadata warnings = do
   let stripped = fmap (fmap T.strip) stackJSON
       core :: (SendMessage m, Show v, Eq a) => a -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
       core = if warnings then warning else opt
-  title        <- (.title       ) =. core Nothing  "title"          stripped
-  titleJP      <- (.titleJP     ) =. opt  Nothing  "title-jp"       stripped
-  artist       <- (.artist      ) =. core Nothing  "artist"         stripped
-  artistJP     <- (.artistJP    ) =. opt  Nothing  "artist-jp"      stripped
-  album        <- (.album       ) =. opt  Nothing  "album"          stripped
-  genre        <- (.genre       ) =. core Nothing  "genre"          stripped
-  subgenre     <- (.subgenre    ) =. opt  Nothing  "subgenre"       stripped
-  year         <- (.year        ) =. core Nothing  "year"           stackJSON
-  fileAlbumArt <- (.fileAlbumArt) =. opt  Nothing  "file-album-art" stackJSON
-  trackNumber  <- (.trackNumber ) =. opt  Nothing  "track-number"   stackJSON
-  comments     <- (.comments    ) =. opt  []       "comments"       stackJSON
-  key          <- (.key         ) =. opt  Nothing  "key"            (maybeCodec parseSongKey)
-  author       <- (.author      ) =. core Nothing  "author"         stripped
-  rating       <- (.rating      ) =. opt  Unrated  "rating"         stackJSON
-  previewStart <- (.previewStart) =. opt  Nothing  "preview-start"  stackJSON
-  previewEnd   <- (.previewEnd  ) =. opt  Nothing  "preview-end"    stackJSON
-  languages    <- (.languages   ) =. opt  []       "languages"      stackJSON
-  convert      <- (.convert     ) =. opt  False    "convert"        stackJSON
-  rhythmKeys   <- (.rhythmKeys  ) =. opt  False    "rhythm-keys"    stackJSON
-  rhythmBass   <- (.rhythmBass  ) =. opt  False    "rhythm-bass"    stackJSON
-  catEMH       <- (.catEMH      ) =. opt  False    "cat-emh"        stackJSON
-  expertOnly   <- (.expertOnly  ) =. opt  False    "expert-only"    stackJSON
-  cover        <- (.cover       ) =. opt  False    "cover"          stackJSON
-  difficulty   <- (.difficulty  ) =. fill (Tier 1) "difficulty"     stackJSON
+  title         <- (.title        ) =. core Nothing  "title"          stripped
+  titleJP       <- (.titleJP      ) =. opt  Nothing  "title-jp"       stripped
+  artist        <- (.artist       ) =. core Nothing  "artist"         stripped
+  artistJP      <- (.artistJP     ) =. opt  Nothing  "artist-jp"      stripped
+  album         <- (.album        ) =. opt  Nothing  "album"          stripped
+  genre         <- (.genre        ) =. core Nothing  "genre"          stripped
+  subgenre      <- (.subgenre     ) =. opt  Nothing  "subgenre"       stripped
+  year          <- (.year         ) =. core Nothing  "year"           stackJSON
+  fileAlbumArt  <- (.fileAlbumArt ) =. opt  Nothing  "file-album-art" stackJSON
+  trackNumber   <- (.trackNumber  ) =. opt  Nothing  "track-number"   stackJSON
+  comments      <- (.comments     ) =. opt  []       "comments"       stackJSON
+  key           <- (.key          ) =. opt  Nothing  "key"            (maybeCodec parseSongKey)
+  author        <- (.author       ) =. core Nothing  "author"         stripped
+  rating        <- (.rating       ) =. opt  Unrated  "rating"         stackJSON
+  previewStart  <- (.previewStart ) =. opt  Nothing  "preview-start"  stackJSON
+  previewEnd    <- (.previewEnd   ) =. opt  Nothing  "preview-end"    stackJSON
+  languages     <- (.languages    ) =. opt  []       "languages"      stackJSON
+  convert       <- (.convert      ) =. opt  False    "convert"        stackJSON
+  rhythmKeys    <- (.rhythmKeys   ) =. opt  False    "rhythm-keys"    stackJSON
+  rhythmBass    <- (.rhythmBass   ) =. opt  False    "rhythm-bass"    stackJSON
+  catEMH        <- (.catEMH       ) =. opt  False    "cat-emh"        stackJSON
+  expertOnly    <- (.expertOnly   ) =. opt  False    "expert-only"    stackJSON
+  cover         <- (.cover        ) =. opt  False    "cover"          stackJSON
+  difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
+  loadingPhrase <- (.loadingPhrase) =. opt  Nothing  "loading-phrase" stackJSON
   return Metadata{..}
 
 instance Default (Metadata f) where
@@ -1265,7 +1267,6 @@ data TargetPS f = TargetPS
   , rhythm        :: F.FlexPartName
   , guitarCoop    :: F.FlexPartName
   , dance         :: F.FlexPartName
-  , loadingPhrase :: Maybe T.Text
   , bigRockEnding :: Bool
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
@@ -1280,7 +1281,6 @@ parseTargetPS = do
   rhythm        <- (.rhythm       ) =. opt (F.FlexExtra "rhythm"     ) "rhythm"          stackJSON
   guitarCoop    <- (.guitarCoop   ) =. opt (F.FlexExtra "guitar-coop") "guitar-coop"     stackJSON
   dance         <- (.dance        ) =. opt (F.FlexExtra "dance"      ) "dance"           stackJSON
-  loadingPhrase <- (.loadingPhrase) =. opt Nothing                     "loading-phrase"  stackJSON
   bigRockEnding <- (.bigRockEnding) =. opt True                        "big-rock-ending" stackJSON
   return TargetPS{..}
 
@@ -1291,28 +1291,26 @@ instance Default (TargetPS f) where
   def = (fromEmptyObject :: TargetPS String) { common = def }
 
 data TargetGH1 f = TargetGH1
-  { common        :: TargetCommon f
-  , guitar        :: F.FlexPartName
-  , bass          :: F.FlexPartName
-  , drums         :: F.FlexPartName
-  , vocal         :: F.FlexPartName
-  , keys          :: F.FlexPartName
-  , key           :: Maybe T.Text -- top symbol
-  , loadingPhrase :: Maybe T.Text -- these go in ghui/eng/gen/locale.dtb, loading_tip_thesongkey
-  , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
+  { common :: TargetCommon f
+  , guitar :: F.FlexPartName
+  , bass   :: F.FlexPartName
+  , drums  :: F.FlexPartName
+  , vocal  :: F.FlexPartName
+  , keys   :: F.FlexPartName
+  , key    :: Maybe T.Text -- top symbol
+  , offset :: Double -- in seconds, positive means pull audio earlier, negative means push later
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetGH1 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH1 f)
 parseTargetGH1 = do
-  common        <- (.common       ) =. parseTargetCommon
-  guitar        <- (.guitar       ) =. opt F.FlexGuitar "guitar"         stackJSON
-  bass          <- (.bass         ) =. opt F.FlexBass   "bass"           stackJSON
-  drums         <- (.drums        ) =. opt F.FlexDrums  "drums"          stackJSON
-  keys          <- (.keys         ) =. opt F.FlexKeys   "keys"           stackJSON
-  vocal         <- (.vocal        ) =. opt F.FlexVocal  "vocal"          stackJSON
-  key           <- (.key          ) =. opt Nothing    "key"            stackJSON
-  loadingPhrase <- (.loadingPhrase) =. opt Nothing    "loading-phrase" stackJSON
-  offset        <- (.offset       ) =. opt 0          "offset"         stackJSON
+  common <- (.common) =. parseTargetCommon
+  guitar <- (.guitar) =. opt F.FlexGuitar "guitar" stackJSON
+  bass   <- (.bass  ) =. opt F.FlexBass   "bass"   stackJSON
+  drums  <- (.drums ) =. opt F.FlexDrums  "drums"  stackJSON
+  keys   <- (.keys  ) =. opt F.FlexKeys   "keys"   stackJSON
+  vocal  <- (.vocal ) =. opt F.FlexVocal  "vocal"  stackJSON
+  key    <- (.key   ) =. opt Nothing      "key"    stackJSON
+  offset <- (.offset) =. opt 0            "offset" stackJSON
   return TargetGH1{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetGH1 f) where
@@ -1342,7 +1340,6 @@ data TargetGH2 f = TargetGH2
   , context       :: Maybe Int -- contexts.dta for 360 DLC
   , leaderboard   :: Maybe (Int, Int) -- leaderboards.dta for 360 DLC
   , practiceAudio :: Bool -- should we make slow audio for PS2
-  , loadingPhrase :: Maybe T.Text
   , offset        :: Double -- in seconds, positive means pull audio earlier, negative means push later
   , gh2Deluxe     :: Bool -- enables gh2dx features: drum chart, extra metadata sets, album art, future hopo/strum/tap markers
   , is2xBassPedal :: Bool
@@ -1362,7 +1359,6 @@ parseTargetGH2 = do
   context       <- (.context      ) =. opt Nothing              "context"        stackJSON
   leaderboard   <- (.leaderboard  ) =. opt Nothing              "leaderboard"    stackJSON
   practiceAudio <- (.practiceAudio) =. opt True                 "practice-audio" stackJSON
-  loadingPhrase <- (.loadingPhrase) =. opt Nothing              "loading-phrase" stackJSON
   offset        <- (.offset       ) =. opt 0                    "offset"         stackJSON
   gh2Deluxe     <- (.gh2Deluxe    ) =. opt False                "gh2-deluxe"     stackJSON
   is2xBassPedal <- (.is2xBassPedal) =. opt False                "2x-bass-pedal"  stackJSON

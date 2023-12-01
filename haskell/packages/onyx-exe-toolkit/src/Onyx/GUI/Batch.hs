@@ -167,7 +167,6 @@ batchPageGH1 sink rect tab build = do
               }
             , guitar = fromMaybe (FlexExtra "undefined") leadPart
             , offset = prefGH2Offset newPrefs
-            , loadingPhrase = loadingPhraseCHtoGH2 proj
             }
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH1 tgt
@@ -330,7 +329,6 @@ batchPageGH2 sink rect tab build = do
               Just (_, coop) -> coop
               _              -> defGH2.coop
             , offset = prefGH2Offset newPrefs
-            , loadingPhrase = loadingPhraseCHtoGH2 proj
             , gh2Deluxe = isJust deluxe2x
             , is2xBassPedal = fromMaybe False deluxe2x
             }

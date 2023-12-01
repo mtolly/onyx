@@ -30,6 +30,7 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import qualified Data.Text.Encoding           as TE
 import           Onyx.Build
+import           Onyx.Build.Common            (getTargetMetadata)
 import           Onyx.Build.GuitarHero2.Logic (adjustSongText)
 import           Onyx.CloneHero.SNG           (getSNGFolder, readSNGHeader)
 import           Onyx.Codec.JSON              (loadYaml)
@@ -548,6 +549,7 @@ installGH1 gh1 proj gen = do
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
+  let meta = getTargetMetadata (projectSongYaml proj) $ GH1 gh1
   stackIO $ addBonusSongGH1 GH2Installation
     { gen              = gen
     , symbol           = sym
@@ -555,9 +557,9 @@ installGH1 gh1 proj gen = do
     , coop_max_scores  = [] -- not used
     , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH1 gh1 -- not used
     , shop_description = Just $ toBytes $ T.unlines
-      [ "Artist: " <> getArtist (projectSongYaml proj).metadata
-      , "Album: "  <> getAlbum  (projectSongYaml proj).metadata
-      , "Author: " <> getAuthor (projectSongYaml proj).metadata
+      [ "Artist: " <> getArtist meta
+      , "Album: "  <> getAlbum  meta
+      , "Author: " <> getAuthor meta
       ]
     , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
     , album_art        = Nothing -- not used
@@ -565,7 +567,7 @@ installGH1 gh1 proj gen = do
     , sort_            = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , loading_phrase   = toBytes <$> gh1.loadingPhrase
+    , loading_phrase   = toBytes <$> meta.loadingPhrase
     , gh2Deluxe        = False
     }
 
@@ -598,6 +600,7 @@ installGH2 gh2 proj gen = do
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
+  let meta = getTargetMetadata (projectSongYaml proj) $ GH2 gh2
   stackIO (addBonusSongGH2 GH2Installation
     { gen              = gen
     , symbol           = sym
@@ -605,17 +608,17 @@ installGH2 gh2 proj gen = do
     , coop_max_scores  = coopNums
     , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2
     , shop_description = Just $ toBytes $ T.unlines
-      [ "Artist: " <> getArtist (projectSongYaml proj).metadata
-      , "Album: "  <> getAlbum  (projectSongYaml proj).metadata
-      , "Author: " <> getAuthor (projectSongYaml proj).metadata
+      [ "Artist: " <> getArtist meta
+      , "Album: "  <> getAlbum  meta
+      , "Author: " <> getAuthor meta
       ]
-    , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
+    , author           = toBytes . adjustSongText <$> meta.author
     , album_art        = Just $ dir </> "cover.png_ps2"
     , files            = filePairs <> filePairsDX
     , sort_            = guard (prefSortGH2 prefs) >> if prefArtistSort prefs
       then Just SongSortArtistTitle
       else Just SongSortTitleArtist
-    , loading_phrase   = toBytes <$> gh2.loadingPhrase
+    , loading_phrase   = toBytes <$> meta.loadingPhrase
     , gh2Deluxe        = gh2.gh2Deluxe
     }) >>= mapM_ warn
 

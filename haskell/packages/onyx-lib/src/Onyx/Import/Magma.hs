@@ -197,6 +197,7 @@ importMagma fin level = do
       , catEMH       = False -- not stored in .c3 file
       , expertOnly   = maybe False C3.expertOnly c3
       , cover        = maybe False (not . C3.isMaster) c3
+      , loadingPhrase = Nothing
       }
     , global = Global
       { fileMidi = midi

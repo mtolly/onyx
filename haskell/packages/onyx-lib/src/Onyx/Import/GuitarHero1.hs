@@ -192,6 +192,7 @@ importGH1Song pkg path gen level = do
       , fileAlbumArt = Nothing
       , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
       , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
+      -- TODO import loadingPhrase
       }
     , global = def'
       { fileMidi            = SoftFile "notes.mid" $ SoftChart convmid

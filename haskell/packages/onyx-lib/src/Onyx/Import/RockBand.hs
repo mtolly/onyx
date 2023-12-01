@@ -446,6 +446,7 @@ importRB rbi level = do
       , catEMH       = fromMaybe False $ c3dtaCATemh rbi.comments
       , expertOnly   = fromMaybe False $ c3dtaExpertOnly rbi.comments
       , cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
+      , loadingPhrase = D.loadingPhrase pkg
       }
     , global = def'
       { animTempo           = D.animTempo pkg
@@ -735,6 +736,7 @@ importRB4 fdta level = do
         , D.dateReleased      = Nothing
         , D.dateRecorded      = Nothing
         , D.author            = Nothing
+        , D.loadingPhrase     = Nothing
         , D.video             = False
         }
 

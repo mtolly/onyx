@@ -188,6 +188,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     , author = extra >>= (.author)
     , year = extra >>= (.songyear) >>= readMaybe . T.unpack
     , genre = extra >>= (.songgenre)
+    -- TODO import loadingPhrase
     }
   , global = def'
     { fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi

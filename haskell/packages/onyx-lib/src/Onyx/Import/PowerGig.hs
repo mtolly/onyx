@@ -423,6 +423,7 @@ importPowerGigSong key song folder level = do
       , expertOnly = False
       , cover = False
       , difficulty = Tier 1
+      , loadingPhrase = Nothing
       }
     , jammit = HM.empty
     , audio = HM.fromList audio
