@@ -1,0 +1,50 @@
+metadata:
+  title: The Killing Hand
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 4
+  author: Onyxite
+audio:
+  album-track:
+    md5: 63830a12ae5b23f62bd8f7cb8e242a57
+    frames: 23015496
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+plans:
+  album:
+    song:
+      pad: [3.697, album-track]
+  dev:
+    song:
+      pad: [3.697, album-track]
+    parts:
+      bass:
+        pad: [3.697, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.697, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.697, channels: [[4, 5], stems]]
+      other:
+        pad: [3.697, channels: [[6, 7], stems]]
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

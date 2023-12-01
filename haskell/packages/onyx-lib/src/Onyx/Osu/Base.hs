@@ -7,15 +7,11 @@
 {-# LANGUAGE StrictData            #-}
 module Onyx.Osu.Base where
 
-import qualified Codec.Archive.Zip                as Zip
 import           Control.Monad                    (forM, when)
-import           Control.Monad.IO.Class           (MonadIO)
-import qualified Data.ByteString                  as B
 import           Data.Char                        (isAlphaNum)
 import           Data.Default.Class
 import           Data.Either
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.Map                         as Map
 import           Data.Maybe
 import           Data.Scientific
 import qualified Data.Text                        as T
@@ -23,16 +19,8 @@ import qualified Data.Vector                      as V
 import           Onyx.MIDI.Track.Beat             (BeatEvent (..))
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.StackTrace
-import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
-
-loadZipTree :: (MonadIO m) => FilePath -> m (Folder T.Text (IO B.ByteString))
-loadZipTree f = Zip.withArchive f $ do
-  ents <- Zip.getEntries
-  return $ fromFiles $ flip mapMaybe (Map.keys ents) $ \selector ->
-    flip fmap (splitPath $ Zip.getEntryName selector) $ \ne ->
-      (ne, Zip.withArchive f $ Zip.getEntry selector)
 
 data OsuFile = OsuFile
   { general      :: OsuGeneral

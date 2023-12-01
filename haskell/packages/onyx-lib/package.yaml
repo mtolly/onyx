@@ -55,7 +55,6 @@ library:
   - prettyprinter
   - monad-loops
   - time
-  - ini
   - executable-path
   - split
   - data-default-class
@@ -64,7 +63,6 @@ library:
   - template-haskell
   - MonadRandom
   - random
-  - zip
   - silently
   - codec
   - deepseq
@@ -104,6 +102,7 @@ library:
   - onyx-npdata
   - onyx-mogg-encrypt
   - onyx-autochart
+  - onyx-libzip
 
   ghc-options: -O
   build-tools:

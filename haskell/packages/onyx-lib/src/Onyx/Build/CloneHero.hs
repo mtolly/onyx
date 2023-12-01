@@ -5,7 +5,6 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.CloneHero (psRules) where
 
-import qualified Codec.Archive.Zip                as Zip
 import           Codec.Picture                    (encodeJpegAtQuality)
 import           Codec.Picture.Types              (convertImage)
 import           Control.Applicative              ((<|>))
@@ -34,6 +33,8 @@ import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Mode
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
+import           Onyx.Util.Handle                 (Folder (..))
+import           Onyx.Zip.Load                    (makeZipFile)
 import qualified Sound.MIDI.Util                  as U
 
 psRules :: BuildInfo -> FilePath -> TargetPS FilePath -> QueueLog Rules ()
@@ -321,9 +322,13 @@ psRules buildInfo dir ps = do
     let d = dir </> "ps"
     shk $ need [d]
     files <- shk $ getDirectoryContents d
-    let folderInZip = T.unpack $ validFileNamePiece NameRulePC
+    let folderInZip = validFileNamePiece NameRulePC
           $ getArtist metadata <> " - " <> targetTitle songYaml (PS ps)
-    Zip.createArchive out $ do
-      forM_ files $ \file -> do
-        sel <- Zip.mkEntrySelector $ folderInZip </> file
-        Zip.loadEntry Zip.Deflate sel $ d </> file
+        songFolder = Folder
+          { folderSubfolders = []
+          , folderFiles = [ (T.pack name, d </> name) | name <- files ]
+          }
+    stackIO $ makeZipFile out Folder
+      { folderFiles = []
+      , folderSubfolders = [(folderInZip, songFolder)]
+      }

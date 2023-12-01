@@ -355,12 +355,19 @@ computePSReal diff trk = let
 
 encodePSReal :: (NNC.C t) => t -> Difficulty -> RTB.T t (RealDrum, DrumVelocity) -> DrumTrack t
 encodePSReal blipTime diff real = let
-  toms = U.trackJoin $ flip fmap real $ \case
-    (Right (Pro color Tom), _) -> Wait NNC.zero (color, Tom) $ Wait blipTime (color, Cymbal) RNil
-    _                          -> RNil
-  psmods = U.trackJoin $ flip fmap real $ \case
-    (Left ps, _) -> Wait NNC.zero (ps, True) $ Wait blipTime (ps, False) RNil
-    (Right _, _) -> RNil
+  modifiers = U.trackJoin $ RTB.flatten $ go $ RTB.collectCoincident real
+  go (Wait dt xs rest) = let
+    thisBlipTime = case rest of
+      Wait dt2 _ _ -> min blipTime dt2
+      RNil         -> blipTime
+    events = flip map xs $ \case
+      (Left ps, _)               -> Wait NNC.zero (Left (ps, True)) $ Wait thisBlipTime (Left (ps, False)) RNil
+      (Right (Pro color Tom), _) -> Wait NNC.zero (Right (color, Tom)) $ Wait thisBlipTime (Right (color, Cymbal)) RNil
+      _                          -> RNil
+    in Wait dt events $ go rest
+  go RNil = RNil
+  psmods = RTB.mapMaybe (\case Left x -> Just x; _ -> Nothing) modifiers
+  toms = RTB.mapMaybe (\case Right x -> Just x; _ -> Nothing) modifiers
   gems = flip fmap real $ \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of

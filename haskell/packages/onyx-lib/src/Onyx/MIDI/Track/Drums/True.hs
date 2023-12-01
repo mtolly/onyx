@@ -1,19 +1,20 @@
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE MultiWayIf         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Drums.True where
 
 import           Control.Monad                    (guard, void, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer       (execWriter, tell)
-import           Data.Bifunctor                   (first)
+import           Data.Bifunctor                   (first, second)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -23,6 +24,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
 import           Data.Profunctor                  (dimap)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -401,142 +403,86 @@ addExplicitStomps threshold trk = let
         else RTB.delay dt $ go open rest
   in RTB.merge trk $ go False hihatNotes
 
--- Simple version, hihat = Y, left cymbal = B, right cymbal / ride = G
-placeCymbals :: (NNC.C t) => RTB.T t (TrueDrumNote ()) -> RTB.T t (D.RealDrum, DrumVelocity)
-placeCymbals
-  -- TODO actually preserve the velocities
-  = fmap (, VelocityNormal)
-  . RTB.flatten . fmap (emitCymbals . makeInstant) . RTB.collectCoincident
-  . fmap (\tdn -> (tdn_gem tdn, tdn_type tdn))
-  where
-
-  makeInstant notes = CymbalInstant
-    { instantHH = if
-      | elem (Hihat, GemHihatClosed) notes -> Just $ Left D.HHSizzle
-      | elem (Hihat, GemHihatOpen) notes  -> Just $ Left D.HHOpen
-      | any (\case (Hihat, _) -> True; _ -> False) notes  -> Just $ Right $ D.Pro D.Yellow D.Cymbal
-      | any (\case (HihatFoot, _) -> True; _ -> False) notes  -> Just $ Left D.HHPedal
-      | otherwise             -> Nothing
-    , instantLC = guard (any (\case (CrashL, _) -> True; _ -> False) notes) >> Just ()
-    , instantRD = guard (any (\case (Ride, _) -> True; _ -> False) notes) >> Just ()
-    , instantRC = any (\case (CrashR, _) -> True; _ -> False) notes
-    }
-
-  emitCymbals (CymbalInstant hh lc rd rc) = let
-    -- TODO probably switch ride to default to B, and left crash maybe default to Y?
-    yellow = toList hh
-    blue = [Right $ D.Pro D.Blue D.Cymbal | isJust lc || (isJust rd && rc)]
-    green = [Right $ D.Pro D.Green D.Cymbal | isJust rd || rc]
-    in yellow <> blue <> green
-
--- Not used anymore. Might have as an option in the future
-placeCymbalsFancy :: (NNC.C t) => RTB.T t (TrueGem, TrueGemType, DrumVelocity) -> RTB.T t (D.RealDrum, DrumVelocity)
-placeCymbalsFancy
-  -- TODO actually preserve the velocities
-  = fmap (, VelocityNormal)
-  . RTB.flatten . fmap emitCymbals . assignTrue . RTB.filter hasCymbals . fmap makeInstant . RTB.collectCoincident
-  . fmap (\(gem, gtype, _vel) -> (gem, gtype))
-  where
-
-  makeInstant notes = CymbalInstant
-    { instantHH = if
-      | elem (Hihat, GemHihatClosed) notes -> Just $ Left D.HHSizzle
-      | elem (Hihat, GemHihatOpen) notes  -> Just $ Left D.HHOpen
-      | any (\case (Hihat, _) -> True; _ -> False) notes  -> Just $ Right $ D.Pro D.Yellow D.Cymbal
-      | any (\case (HihatFoot, _) -> True; _ -> False) notes  -> Just $ Left D.HHPedal
-      | otherwise             -> Nothing
-    , instantLC = guard (any (\case (CrashL, _) -> True; _ -> False) notes) >> Just Nothing
-    , instantRD = guard (any (\case (Ride, _) -> True; _ -> False) notes) >> Just Nothing
-    , instantRC = any (\case (CrashR, _) -> True; _ -> False) notes
-    }
-  hasCymbals = \case
-    CymbalInstant Nothing Nothing Nothing False -> False
-    _                                           -> True
-
-  -- first, assign all the cymbals that only have one option due to other simultaneous cymbals.
-  -- any LC with HH is blue, any RD with RC is blue (or drop it if also LC)
-  assignInstant
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-  assignInstant = fmap $ \now -> let
-    newLC = case (instantHH now, instantLC now) of
-      (Just _, Just Nothing) -> Just $ Just D.Blue
-      _                      -> instantLC now
-    newRD = case (newLC, instantRD now, instantRC now) of
-      (Just (Just D.Blue), Just _      , True ) -> Nothing -- already blue and green taken
-      (Just (Just D.Blue), Just Nothing, False) -> Just $ Just D.Green -- green because LC is blue
-      (_                 , Just Nothing, True ) -> Just $ Just D.Blue -- blue because RC is green
-      _                                         -> instantRD now
-    in now { instantLC = newLC, instantRD = newRD }
-
-  -- then, propagate info forward to do more cymbal assignments.
-  -- this gets run both forward and backward
-  propagatePass _    []           = []
-  propagatePass prev (now : rest) = let
-    newLC = case (prev >>= instantHH, prev >>= instantLC, instantLC now) of
-      (_, Just (Just prevLC), Just Nothing) -> Just $ Just prevLC -- match previous LC color
-      (Just _, _, Just Nothing)             -> Just $ Just D.Blue -- make LC blue because there's a hihat previously
-      _                                     -> instantLC now
-    newRD = case (newLC, instantRD now) of
-      (Just (Just D.Blue), Just Nothing) -> Just $ Just D.Green -- green because now there's a blue LC
-      _ -> case (prev >>= instantLC, prev >>= instantRD, instantRD now) of
-        (_, Just (Just prevRD), Just Nothing) -> Just $ Just prevRD -- match previous RD color
-        (Just (Just D.Blue), _, Just Nothing) -> Just $ Just D.Green -- green because there's a blue LC previously
-        _                                     -> instantRD now
-    newNow = now { instantLC = newLC, instantRD = newRD }
-    in newNow : propagatePass (Just newNow) rest
-  assignPropagate
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-  assignPropagate rtb = let
-    times = RTB.getTimes rtb
-    bodies = reverse $ propagatePass Nothing $ reverse $ propagatePass Nothing $ RTB.getBodies rtb
-    in RTB.fromPairList $ zip times bodies
-
-  -- finally, default to putting LC on yellow and RD on blue
-  assignFinal
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
-  assignFinal = fmap $ \now -> now
-    { instantLC = fromMaybe D.Yellow <$> instantLC now
-    , instantRD = fromMaybe D.Blue   <$> instantRD now
-    }
-
-  assignTrue
-    :: RTB.T t (CymbalInstant (Maybe D.ProColor) (Maybe D.ProColor))
-    -> RTB.T t (CymbalInstant D.ProColor D.ProColor)
-  assignTrue = assignFinal . assignPropagate . assignInstant
-
-  emitCymbals now = catMaybes
-    [ instantHH now
-    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantLC now
-    , (\color -> Right $ D.Pro color D.Cymbal) <$> instantRD now
-    , guard (instantRC now) >> Just (Right $ D.Pro D.Green D.Cymbal)
-    ]
-
-placeToms :: (NNC.C t) => RTB.T t (D.RealDrum, DrumVelocity) -> RTB.T t (TrueDrumNote ()) -> RTB.T t (D.RealDrum, DrumVelocity)
-placeToms cymbals notes = let
-  basicGem = \case
-    Left D.Rimshot -> D.Red
-    Left _         -> D.Pro D.Yellow ()
-    Right rb       -> void rb
-  conflict x y = basicGem x == basicGem y
-  tomsInstant stuff = let
-    thisCymbals = lefts stuff
-    thisNotes = rights stuff
-    add x choices = when (any (\(y, _) -> x == y) thisNotes) $ modify $ \cur ->
-      case filter (\y -> all (not . conflict y) $ thisCymbals <> cur) choices of
-        []    -> cur -- no options!
-        y : _ -> y : cur
-    in flip execState [] $ do
-      add Tom1 $ map (\c -> Right $ D.Pro c D.Tom) [D.Yellow, D.Blue, D.Green]
-      add Tom2 $ map (\c -> Right $ D.Pro c D.Tom) [D.Blue, D.Yellow, D.Green]
-      add Tom3 $ map (\c -> Right $ D.Pro c D.Tom) [D.Green, D.Blue, D.Yellow]
-  -- TODO actually preserve the velocities
-  in fmap (, VelocityNormal)
-    $ RTB.flatten $ fmap tomsInstant $ RTB.collectCoincident $ RTB.merge
-      (Left . fst <$> cymbals)
-      (Right . (\tdn -> (tdn_gem tdn, tdn_type tdn)) <$> notes)
+-- TODO this does not handle kick flams right!
+-- TODO this does not translate or warn about roll/swell lanes!
+trueDrumsToPSWithWarnings
+  :: U.TempoMap
+  -> RTB.T U.Beats (TrueDrumNote FlamStatus)
+  -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.RealDrum, DrumVelocity))
+trueDrumsToPSWithWarnings tmap input = let
+  noFlams = splitFlams tmap input
+  allResults = RTB.flatten $ fmap eachInstant $ RTB.collectCoincident noFlams
+  warnings = RTB.mapMaybe (either Just (const Nothing)) allResults
+  results = RTB.mapMaybe (either (const Nothing) Just) allResults
+  eachInstant :: [TrueDrumNote ()] -> [Either T.Text (D.RealDrum, DrumVelocity)]
+  eachInstant tdns = let
+    hands = filter (\tdn -> tdn.tdn_gem /= Kick && tdn.tdn_gem /= HihatFoot) tdns
+    warnTooMany = guard (not $ null $ drop 2 hands) >> ["More than 2 hand-played gems at this position!"]
+    pushCrashLBlue = any (\other -> elem other.tdn_gem [Hihat, HihatFoot, Tom1]) tdns
+    hasCrashL = any (\other -> other.tdn_gem == CrashL) tdns
+    blueCymbal = any (\other -> other.tdn_gem == Ride) tdns || (hasCrashL && pushCrashLBlue)
+    instantResults = tdns >>= \tdn -> case tdn.tdn_gem of
+      Snare     -> [Right (Right D.Red, tdn.tdn_velocity)]
+      Hihat     -> let
+        hh = case tdn.tdn_type of
+          GemHihatClosed -> Left D.HHSizzle
+          GemHihatOpen   -> Left D.HHOpen
+          _              -> Right $ D.Pro D.Yellow D.Cymbal
+        in [Right (hh, tdn.tdn_velocity)]
+      CrashL    -> if pushCrashLBlue
+        then
+          [ Right (Right $ D.Pro D.Blue D.Cymbal, tdn.tdn_velocity)
+          , Left "Left crash moved from yellow to blue due to conflict with other yellow gem"
+          ]
+        else [Right (Right $ D.Pro D.Yellow D.Cymbal, tdn.tdn_velocity)]
+      Tom1      -> if any (\other -> elem other.tdn_gem [Hihat, HihatFoot]) tdns
+        then
+          [ Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)
+          , Left "Tom 1 moved from yellow to blue due to conflict with yellow cymbal"
+          ]
+        else [Right (Right $ D.Pro D.Yellow D.Tom, tdn.tdn_velocity)]
+      Tom2      -> if blueCymbal
+        then
+          [ Right (Right $ D.Pro D.Yellow D.Tom, tdn.tdn_velocity)
+          , Left "Tom 2 moved from blue to yellow due to conflict with blue cymbal"
+          ]
+        else [Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)]
+      Tom3      -> if any (\other -> other.tdn_gem == CrashR) tdns
+        then
+          [ Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)
+          , Left "Tom 3 moved from green to blue due to conflict with green cymbal"
+          ]
+        else [Right (Right $ D.Pro D.Green D.Tom, tdn.tdn_velocity)]
+      Ride      -> if hasCrashL && pushCrashLBlue
+        then
+          [ Right (Right $ D.Pro D.Green D.Cymbal, tdn.tdn_velocity)
+          , Left "Ride moved from blue to green due to conflict with left crash on blue"
+          ]
+        else [Right (Right $ D.Pro D.Blue D.Cymbal, tdn.tdn_velocity)]
+      CrashR    -> [Right (Right $ D.Pro D.Green D.Cymbal, tdn.tdn_velocity)]
+      Kick      -> [Right (Right D.Kick, tdn.tdn_velocity)]
+      HihatFoot -> if any (\other -> other.tdn_gem == Hihat) tdns
+        then [Left "Dropping hihat foot gem due to hihat hand gem"]
+        else [Right (Left D.HHPedal, tdn.tdn_velocity)]
+    in concat
+      [ Left <$> warnTooMany
+      , instantResults
+      ]
+  flamWarnings = flip RTB.mapMaybe input $ \tdn -> case tdn.tdn_extra of
+    Flam    -> Just "Flam note split into two notes"
+    NotFlam -> Nothing
+  leftCrashWarnings = let
+    conflictWindow = 4 :: U.Beats
+    absTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
+    hihatPositions = absTimes $ RTB.filter (\tdn -> tdn.tdn_gem == Hihat) noFlams
+    crashLPositions = absTimes $ RTB.filter (\tdn -> tdn.tdn_gem == CrashL) noFlams
+    hihatCrashLConflicts = flip Set.filter crashLPositions $ \posn ->
+      case Set.lookupLT (posn + conflictWindow) hihatPositions of
+        Nothing -> False
+        Just t  -> (posn NNC.-| conflictWindow) < t
+    warningText = "Left crash near hihats; check whether this should be on yellow or blue"
+    in RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (, warningText) $ Set.toList hihatCrashLConflicts
+  in (RTB.merge warnings $ RTB.merge flamWarnings leftCrashWarnings, results)
 
 splitFlams :: U.TempoMap -> RTB.T U.Beats (TrueDrumNote FlamStatus) -> RTB.T U.Beats (TrueDrumNote ())
 splitFlams tmap tdns = let
@@ -566,21 +512,13 @@ splitFlams tmap tdns = let
     in (t, mainNotes) : [ (flamTime, flamNotes) | not $ null flamNotes ]
   in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList step3
 
-trueDrumsToPS :: U.TempoMap -> RTB.T U.Beats (TrueDrumNote FlamStatus) -> RTB.T U.Beats (D.RealDrum, DrumVelocity)
-trueDrumsToPS tmap input = let
-  notes = splitFlams tmap input
-  cymbals = placeCymbals notes
-  kicksSnares = flip RTB.mapMaybe notes $ \tdn -> case tdn_gem tdn of
-    Kick  -> Just (Right D.Kick, tdn_velocity tdn)
-    Snare -> Just (Right D.Red , tdn_velocity tdn)
-    _     -> Nothing
-  toms = placeToms cymbals notes
-  in RTB.merge cymbals $ RTB.merge kicksSnares toms
-
-trueDrumsToRB :: U.TempoMap -> RTB.T U.Beats (TrueDrumNote FlamStatus) -> RTB.T U.Beats (D.Gem D.ProType, DrumVelocity)
-trueDrumsToRB tmap gems = let
-  real = trueDrumsToPS tmap $ RTB.filter (\note -> tdn_gem note /= HihatFoot) gems
-  in flip fmap real $ \(gem, vel) -> let
+trueDrumsToRBWithWarnings
+  :: U.TempoMap
+  -> RTB.T U.Beats (TrueDrumNote FlamStatus)
+  -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.Gem D.ProType, DrumVelocity))
+trueDrumsToRBWithWarnings tmap gems = let
+  (warnings, real) = trueDrumsToPSWithWarnings tmap $ RTB.filter (\note -> tdn_gem note /= HihatFoot) gems
+  in (warnings,) $ flip fmap real $ \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of
         D.Rimshot  -> D.Red
@@ -590,18 +528,20 @@ trueDrumsToRB tmap gems = let
       Right rb -> rb
     in (gem', vel)
 
-convertTrueDrums :: Bool -> U.TempoMap -> TrueDrumTrack U.Beats -> D.DrumTrack U.Beats
+convertTrueDrums :: Bool -> U.TempoMap -> TrueDrumTrack U.Beats -> (RTB.T U.Beats T.Text, D.DrumTrack U.Beats)
 convertTrueDrums isPS tmap trk = let
   expert = getDifficulty (Just Expert) trk
-  encoded = D.encodePSReal (1/32) Expert $ if isPS
-    then trueDrumsToPS tmap expert
-    else fmap (first Right) $ trueDrumsToRB tmap expert
-  in encoded
+  (warnings, ps) = if isPS
+    then trueDrumsToPSWithWarnings tmap expert
+    else case trueDrumsToRBWithWarnings tmap expert of
+      (ws, rb) -> (ws, fmap (first Right) rb)
+  encoded = D.encodePSReal (1/8) Expert ps
+  in (warnings, encoded
     { D.drumOverdrive  = tdOverdrive trk
     , D.drumActivation = tdActivation trk
     , D.drumSolo       = tdSolo trk
     , D.drumKick2x     = maybe RTB.empty tdKick2 $ Map.lookup Expert $ tdDifficulties trk
-    }
+    })
 
 trueDrumsToAnimation :: (NNC.C t) => t -> RTB.T t (TrueDrumNote FlamStatus) -> RTB.T t D.Animation
 trueDrumsToAnimation closeTime tdns = let

@@ -7,7 +7,6 @@
 {-# LANGUAGE StrictData            #-}
 module Onyx.GuitarPro where
 
-import qualified Codec.Archive.Zip          as Zip
 import           Control.Monad              (forM, guard, void)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class     (MonadIO (..))
@@ -18,6 +17,7 @@ import           Control.Monad.Trans.Writer
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
 import           Data.Functor.Identity      (Identity)
+import qualified Data.List.NonEmpty         as NE
 import           Data.Maybe                 (isJust)
 import           Data.Profunctor            (dimap)
 import qualified Data.Text                  as T
@@ -26,6 +26,8 @@ import qualified Data.Vector                as V
 import           Onyx.Codec.XML
 import           Onyx.GuitarPro.GPX         (gpxFiles)
 import           Onyx.StackTrace
+import           Onyx.Util.Handle           (findFile)
+import           Onyx.Zip.Load              (loadZipStrictBytes)
 import           Text.Read                  (readMaybe)
 import           Text.XML.Light
 
@@ -524,11 +526,14 @@ listOfInts = Codec
   , codecOut = undefined
   }
 
--- `zip-archive` package fails to parse .gp zip for some reason. `zip` is fine.
+-- `zip-archive` package fails to parse .gp zip for some reason. `zip` and libzip are fine.
 -- does not handle edit-locked files (score.gpif is encrypted somehow, via 'editLocked' file)
 parseGP :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
 parseGP f = inside ("Loading: " <> f) $ do
-  gpif <- Zip.withArchive f $ Zip.mkEntrySelector "Content/score.gpif" >>= Zip.getEntry
+  folder <- stackIO $ loadZipStrictBytes Nothing f
+  gpif <- case findFile ("Content" NE.:| pure "score.gpif") folder of
+    Nothing   -> fatal "Couldn't find Content/score.gpif in .gp zip file"
+    Just load -> stackIO load
   parseGPIF gpif
 
 parseGPIF :: (SendMessage m) => B.ByteString -> StackTraceT m GPIF

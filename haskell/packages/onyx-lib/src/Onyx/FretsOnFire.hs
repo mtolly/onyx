@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Onyx.FretsOnFire where
 
 import           Control.Applicative        ((<|>))
-import           Control.Monad              ((>=>))
+import           Control.Monad              (when, (>=>))
 import           Control.Monad.IO.Class     (MonadIO (liftIO))
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
+import           Data.Char                  (isSpace)
 import           Data.Default.Class         (Default (..))
 import           Data.Fixed                 (Milli)
 import qualified Data.HashMap.Strict        as HM
-import           Data.Ini
 import           Data.List                  (stripPrefix)
 import           Data.Maybe                 (mapMaybe)
 import qualified Data.Text                  as T
@@ -120,28 +121,15 @@ stripTags = let
     after : _ -> go after
   in T.pack . go . T.unpack
 
-loadSong :: (MonadIO m) => Readable -> StackTraceT m Song
+loadSong :: (MonadIO m, SendMessage m) => Readable -> StackTraceT m Song
 loadSong r = do
-  -- We should just parse the ini lines ourselves instead of ini library,
-  -- so we can ignore unrecognized lines instead of failing altogether
-  let readIniUTF8
-        =   parseIni . noComments . decodeGeneral . BL.toStrict
-        <$> useHandle r handleToByteString
-      -- C3 CON Tools (new at some point?) puts comments at the bottom
-      -- which the ini library chokes on. Not sure if just removing blindly like
-      -- this is totally okay (can ini strings extend onto multiple lines?)
-      -- but it seems fine
-      isComment ln = any (`T.isPrefixOf` ln) [";", "//"]
-      noComments = T.unlines . filter (not . isComment) . T.lines
-  ini <- inside "Parsing song.ini" $ liftIO readIniUTF8 >>= either fatal return
-  -- TODO make all keys lowercase before lookup
+
+  Ini ini <- inside "Parsing song.ini" $ do
+    bs <- liftIO $ decodeGeneral . BL.toStrict <$> useHandle r handleToByteString
+    readPSIni bs
 
   let str :: T.Text -> Maybe T.Text
-      str k = case lookupValue "song" k ini of
-        Right x -> Just x
-        Left _ -> case lookupValue "Song" k ini of
-          Right x -> Just x
-          Left _  -> Nothing
+      str k = HM.lookup k ini
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       milli :: T.Text -> Maybe Milli
@@ -204,64 +192,100 @@ loadSong r = do
   return Song{..}
 
 saveSong :: (MonadIO m) => FilePath -> Song -> m ()
-saveSong fp Song{..} = writePSIni fp $ flip Ini []
-  $ HM.singleton "song" $ execWriter $ do
-    let str k = maybe (return ()) $ \v -> tell [(k, v)]
-        shown k = str k . fmap (T.pack . show)
-        milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
-    str "name" name
-    str "artist" artist
-    str "album" album
-    str "charter" charter
-    str "frets" charter
-    shown "year" year
-    str "genre" genre
-    shown "pro_drums" proDrums
-    shown "song_length" songLength
-    shown "preview_start_time" previewStartTime
-    shown "diff_band" diffBand
-    shown "diff_guitar" diffGuitar
-    shown "diff_guitarghl" diffGuitarGHL
-    shown "diff_bass" diffBass
-    shown "diff_bassghl" diffBassGHL
-    shown "diff_drums" diffDrums
-    shown "diff_drums_real" diffDrumsReal
-    shown "diff_keys" diffKeys
-    shown "diff_keys_real" diffKeysReal
-    shown "diff_vocals" diffVocals
-    shown "diff_vocals_harm" diffVocalsHarm
-    shown "diff_dance" diffDance
-    shown "diff_bass_real" diffBassReal
-    shown "diff_guitar_real" diffGuitarReal
-    shown "diff_bass_real_22" diffBassReal22
-    shown "diff_guitar_real_22" diffGuitarReal22
-    shown "diff_guitar_coop" diffGuitarCoop
-    shown "diff_rhythm" diffRhythm
-    shown "diff_drums_real_ps" diffDrumsRealPS
-    shown "diff_keys_real_ps" diffKeysRealPS
-    shown "delay" delay
-    shown "star_power_note" starPowerNote
-    shown "multiplier_note" starPowerNote
-    shown "eighthnote_hopo" eighthNoteHOPO
-    shown "track" track
-    shown "album_track" track
-    shown "sysex_slider" sysexSlider
-    shown "sysex_open_bass" sysexOpenBass
-    shown "five_lane_drums" fiveLaneDrums
-    shown "drum_fallback_blue" drumFallbackBlue
-    str "loading_phrase" loadingPhrase
-    str "video" $ fmap T.pack video
-    milli "video_start_time" videoStartTime
-    milli "video_end_time" videoEndTime
-    shown "video_loop" videoLoop
-    str "cassettecolor" cassetteColor
-    str "tags" tags
-    str "background" $ fmap T.pack background
+saveSong fp Song{..} = writePSIni fp $ execWriter $ do
+  let str k = maybe (return ()) $ \v -> tell [(k, v)]
+      shown k = str k . fmap (T.pack . show)
+      milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
+  str "name" name
+  str "artist" artist
+  str "album" album
+  str "charter" charter
+  str "frets" charter
+  shown "year" year
+  str "genre" genre
+  shown "pro_drums" proDrums
+  shown "song_length" songLength
+  shown "preview_start_time" previewStartTime
+  shown "diff_band" diffBand
+  shown "diff_guitar" diffGuitar
+  shown "diff_guitarghl" diffGuitarGHL
+  shown "diff_bass" diffBass
+  shown "diff_bassghl" diffBassGHL
+  shown "diff_drums" diffDrums
+  shown "diff_drums_real" diffDrumsReal
+  shown "diff_keys" diffKeys
+  shown "diff_keys_real" diffKeysReal
+  shown "diff_vocals" diffVocals
+  shown "diff_vocals_harm" diffVocalsHarm
+  shown "diff_dance" diffDance
+  shown "diff_bass_real" diffBassReal
+  shown "diff_guitar_real" diffGuitarReal
+  shown "diff_bass_real_22" diffBassReal22
+  shown "diff_guitar_real_22" diffGuitarReal22
+  shown "diff_guitar_coop" diffGuitarCoop
+  shown "diff_rhythm" diffRhythm
+  shown "diff_drums_real_ps" diffDrumsRealPS
+  shown "diff_keys_real_ps" diffKeysRealPS
+  shown "delay" delay
+  shown "star_power_note" starPowerNote
+  shown "multiplier_note" starPowerNote
+  shown "eighthnote_hopo" eighthNoteHOPO
+  shown "track" track
+  shown "album_track" track
+  shown "sysex_slider" sysexSlider
+  shown "sysex_open_bass" sysexOpenBass
+  shown "five_lane_drums" fiveLaneDrums
+  shown "drum_fallback_blue" drumFallbackBlue
+  str "loading_phrase" loadingPhrase
+  str "video" $ fmap T.pack video
+  milli "video_start_time" videoStartTime
+  milli "video_end_time" videoEndTime
+  shown "video_loop" videoLoop
+  str "cassettecolor" cassetteColor
+  str "tags" tags
+  str "background" $ fmap T.pack background
 
-writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
-writePSIni fp (Ini hmap _) = let
-  txt = T.intercalate "\r\n" $ map section $ HM.toList hmap
-  section (title, pairs) = T.intercalate "\r\n" $
-    T.concat ["[", title, "]"] : map line pairs
+-- simple, only stores [song] section
+newtype Ini = Ini (HM.HashMap T.Text T.Text)
+
+data IniLine
+  = IniSection T.Text
+  | IniKeyValue T.Text T.Text
+  | IniContinue T.Text
+
+readPSIni :: (SendMessage m) => T.Text -> StackTraceT m Ini
+readPSIni = fmap Ini . go HM.empty False . mapMaybe interpretLine . zip [1..] . T.lines where
+  interpretLine :: (Int, T.Text) -> Maybe (Int, IniLine)
+  interpretLine (i, T.strip -> line) = if ";" `T.isPrefixOf` line || "//" `T.isPrefixOf` line
+    then Nothing
+    else case T.stripPrefix "[" line >>= T.stripSuffix "]" of
+      Just newSection -> Just (i, IniSection $ T.strip newSection)
+      Nothing         -> case T.break (== '=') line of
+        (x, y) -> case T.stripPrefix "=" y of
+          Just y' -> Just (i, IniKeyValue (T.strip x) (T.strip y'))
+          Nothing -> Just (i, IniContinue line)
+  go hm          _             []                 = return hm
+  go hm inSongSection ((i, line) : rest) = case line of
+    IniSection newSection -> if T.toCaseFold newSection == "song"
+      then go hm True rest
+      else do
+        inside ("song.ini line " <> show i) $ warn $ "Unrecognized section (not [song]) in song.ini: " <> show newSection
+        go hm False rest
+    IniContinue x -> do
+      when (T.any (not . isSpace) x) $ inside ("song.ini line " <> show i)
+        $ warn $ "Unrecognized song.ini line: " <> T.unpack x
+      go hm inSongSection rest
+    IniKeyValue x y -> let
+      (fullValue, rest') = pullContinues y rest
+      hm' = if inSongSection
+        then HM.insert (T.toCaseFold x) (T.strip fullValue) hm
+        else hm
+      in go hm' inSongSection rest'
+  pullContinues value ((_, IniContinue next) : rest) = pullContinues (value <> "\n" <> next) rest
+  pullContinues value rest                           = (value, rest)
+
+writePSIni :: (MonadIO m) => FilePath -> [(T.Text, T.Text)] -> m ()
+writePSIni fp pairs = let
+  txt = T.intercalate "\r\n" $ "[song]" : map line pairs
   line (k, v) = T.concat [k, " = ", v]
   in liftIO $ B.writeFile fp $ TE.encodeUtf8 $ T.append txt "\r\n"

@@ -39,6 +39,7 @@ import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode            (decodeGeneral)
+import           Onyx.Zip.Load                    (loadZipStrictBytes)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (<.>), (</>))
 import           Text.Read                        (readMaybe)
@@ -46,7 +47,7 @@ import           Text.Read                        (readMaybe)
 importOsu :: (SendMessage m, MonadIO m) => Bool -> FilePath -> StackTraceT m [Import m]
 importOsu separateSongs f = do
 
-  tree <- loadZipTree f
+  tree <- stackIO $ loadZipStrictBytes Nothing f
 
   loadedOsus <- fmap catMaybes $ forM (folderFiles tree) $ \(name, getBS) -> do
     inside ("Loading: " <> T.unpack name) $ do

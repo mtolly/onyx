@@ -44,6 +44,7 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
+import           Onyx.Zip.Load                (loadZipReadables)
 -- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Freetar          (importFreetar)
@@ -281,6 +282,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                     imps <- importGH3PS2 iso contents
                     foundImports "Guitar Hero III (PS2)" iso imps
                   Nothing -> return ([], [])
+      foundSGH sgh = do
+        dir <- stackIO $ loadZipReadables (Just "SGH9ZIP2PASS4MXKR") sgh
+        imps <- importGH3SGHFolder sgh dir
+        foundImports "Guitar Hero III (.sgh)" sgh imps
       foundSGHFolder songsInfo = do
         let loc = takeDirectory songsInfo
         dir <- stackIO $ crawlFolder loc
@@ -398,6 +403,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             _        -> foundFreetar fp
         ".iso" -> foundISO fp
         ".osz" -> importOsu True fp >>= foundImports "osu!" fp
+        ".sgh" -> foundSGH fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp

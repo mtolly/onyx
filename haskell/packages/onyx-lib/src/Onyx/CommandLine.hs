@@ -37,6 +37,7 @@ import qualified Data.Conduit.Audio.LAME.Binding      as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Default.Class                   (def)
 import qualified Data.Digest.Pure.MD5                 as MD5
+import qualified Data.EventList.Absolute.TimeBody     as ATB
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import           Data.Functor.Identity                (Identity (..))
@@ -115,12 +116,14 @@ import           Onyx.Image.DXT                       (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.ISO                             (folderISO)
 import           Onyx.Keys.Ranges                     (closeShiftsFile)
-import           Onyx.MIDI.Common                     (Difficulty (..))
+import           Onyx.MIDI.Common                     (Difficulty (..),
+                                                       showPosition)
 import           Onyx.MIDI.Read                       (mapTrack)
 import qualified Onyx.MIDI.Script.Base                as MS
 import qualified Onyx.MIDI.Script.Parse               as MS
 import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
+import           Onyx.MIDI.Track.Drums.True           (convertTrueDrums)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
@@ -160,6 +163,8 @@ import           Onyx.Util.Handle                     (Folder (..),
 import           Onyx.Util.Text.Decode                (decodeGeneral)
 import           Onyx.Xbox.ISO                        (loadXboxISO)
 import           Onyx.Xbox.STFS
+import qualified Sound.MIDI.File.Event                as E
+import qualified Sound.MIDI.File.Event.Meta           as Meta
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
 import           System.Console.GetOpt
@@ -1354,6 +1359,40 @@ commands =
     , commandUsage = ""
     , commandList = False
     , commandRun = \args _ -> concat <$> mapM recursiveChartToMidi args
+    }
+
+  , Command
+    { commandWord = "true-to-pro"
+    , commandDesc = ""
+    , commandUsage = ""
+    , commandList = False
+    , commandRun = \args _opts -> case args of
+      [fmid] -> do
+        mid <- F.loadRawMIDI fmid
+        raw <- F.readMIDIFile mid
+        onyx <- F.interpretMIDIFile raw
+        let true = maybe mempty F.onyxPartTrueDrums $ Map.lookup F.FlexDrums $ F.onyxParts $ F.s_tracks onyx
+            (warnings, pro) = convertTrueDrums False (F.s_tempos onyx) true
+            addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
+            proTracks = F.showMIDITracks onyx
+              { F.s_tracks = mempty
+                { F.onyxParts = Map.singleton F.FlexDrums mempty
+                  { F.onyxPartDrums = pro
+                  }
+                }
+              }
+            raw' = raw
+              { F.s_tracks = F.RawFile $ concat
+                [ filter (\trk -> U.trackName trk /= Just "PART DRUMS") $ F.s_tracks raw
+                , map addWarnings $ F.s_tracks proTracks
+                ]
+              }
+        forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 warnings) $ \(posn, warning) -> do
+          inside (showPosition (F.s_signatures onyx) posn) $ do
+            warn $ T.unpack warning
+        F.saveMIDIUtf8 fmid raw'
+        return [fmid]
+      _ -> fatal "Expected 1 argument (MIDI file)"
     }
 
   ]
