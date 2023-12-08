@@ -27,16 +27,16 @@ plans:
         - pad: [2.318, album-track]
   dev:
     song:
-      pad: [2.318, album-track]
+      pad: [2.318, flip: album-track]
     parts:
       bass:
-        pad: [2.318, channels: [[0, 1], stems]]
+        pad: [2.318, channels: [[1, 0], stems]]
       drums:
-        pad: [2.318, channels: [[2, 3], stems]]
+        pad: [2.318, channels: [[3, 2], stems]]
       vocal:
-        pad: [2.318, channels: [[4, 5], stems]]
+        pad: [2.318, channels: [[5, 4], stems]]
       other:
-        pad: [2.318, channels: [[6, 7], stems]]
+        pad: [2.318, channels: [[7, 6], stems]]
 parts:
   drums:
     drums:

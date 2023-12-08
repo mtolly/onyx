@@ -52,7 +52,6 @@ import           Onyx.Build                                (NameRule (..),
                                                             validFileName,
                                                             validFileNamePiece)
 import           Onyx.Build.Common                         (getTargetMetadata)
-import           Onyx.FretsOnFire                          (stripTags)
 import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.Ark.GH2                     (GH2InstallLocation (..))
 import           Onyx.Import
