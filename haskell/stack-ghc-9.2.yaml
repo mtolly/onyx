@@ -58,6 +58,8 @@ extra-deps:
 #   - Cabal
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
+- git: https://github.com/mtolly/onyx-libzip
+  commit: b14ecb0634000aaeab725e7b4cc2a88381fac1cf
 resolver: lts-20.26
 flags:
   fltkhs:

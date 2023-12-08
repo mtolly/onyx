@@ -35,10 +35,10 @@ case $(uname) in
     # note, msys2 replaced pkg-config with pkgconf (but still has alias pkg-config).
     # also for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
     # but just "pkgconf" so libsndfile configures right (seeing ogg/vorbis/flac/opus).
-    stack exec -- pacman -Sy mingw-w64-x86_64-pkgconf pkgconf \
+    stack exec -- pacman -Sy --needed mingw-w64-x86_64-pkgconf pkgconf \
       mingw-w64-x86_64-openal mingw-w64-x86_64-rubberband \
       mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf \
-      automake nasm make libtool autogen python
+      automake nasm make libtool autogen python mingw-w64-x86_64-cmake
     ;;
   Darwin )
     echo "macos detected"

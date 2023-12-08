@@ -14,6 +14,7 @@ import           Data.Functor                  (void)
 import           Data.Maybe                    (catMaybes)
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as TE
+import           Data.Text.Encoding.Error      (lenientDecode)
 import           Foreign                       (allocaBytes, castPtr)
 import           Onyx.Util.Handle
 import           Onyx.Zip
@@ -39,7 +40,7 @@ loadZipFolder password path eachFile = do
           0 -> do
             info <- getZipStat stat
             return $ do
-              filePath <- TE.decodeUtf8Lenient <$> zipStatName info
+              filePath <- TE.decodeUtf8With lenientDecode <$> zipStatName info
               pathList <- splitPath filePath
               Just (T.unpack filePath, pathList, i)
           _ -> return Nothing

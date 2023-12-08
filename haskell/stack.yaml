@@ -56,7 +56,7 @@ extra-deps:
 - git: https://github.com/mtolly/tcp-streams # ghc 9.6 patch
   commit: 0269618e5e73e11026b45bd9e59a677dc89b1c23
 - git: https://github.com/mtolly/onyx-libzip
-  commit: ec1caf178532e99d0e61ec0543c13ba7b4bc291c
+  commit: b14ecb0634000aaeab725e7b4cc2a88381fac1cf
 resolver: nightly-2023-08-29
 flags:
   fltkhs:
