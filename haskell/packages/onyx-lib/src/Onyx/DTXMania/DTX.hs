@@ -49,7 +49,7 @@ import           Text.Read                        (readMaybe)
 loadDTXLines' :: Bool -> FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines' semicolonComments f = do
   -- Shift-JIS is the usual encoding, but I've seen UTF-16 (with BOM) in the wild
-  lns <- T.lines . decodeWithDefault (T.pack . decodeShiftJIS) <$> B.readFile f
+  lns <- T.lines . decodeWithDefault decodeShiftJIS <$> B.readFile f
   return $ flip mapMaybe lns $ \ln -> case T.uncons ln of
     Just ('#', rest) -> case T.span isAlphaNum rest of
       (x, y) -> Just

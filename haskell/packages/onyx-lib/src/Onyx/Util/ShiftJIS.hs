@@ -1,21 +1,25 @@
 {-# LANGUAGE CPP #-}
 module Onyx.Util.ShiftJIS (decodeShiftJIS, kakasi) where
 
-import qualified Data.ByteString     as B
-import qualified Data.HashMap.Strict as HM
-import           Data.Maybe          (fromMaybe)
-import           Data.Tuple          (swap)
+import qualified Data.ByteString         as B
+import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Lazy    as BL
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.Text               as T
+import qualified Data.Text.Lazy          as TL
+import qualified Data.Text.Lazy.Builder  as TB
+import           Data.Tuple              (swap)
 import           Onyx.Kakasi
-import           Onyx.Resources      (itaijidict, kanwadict, shiftJISTable)
+import           Onyx.Resources          (itaijidict, kanwadict, shiftJISTable)
 
 #ifdef WINDOWS
-import           Control.Monad       (when)
-import           Foreign.C           (CInt (..), CString, withCString)
+import           Control.Monad           (when)
+import           Foreign.C               (CInt (..), CString, withCString)
 #else
-import           System.Environment  (setEnv)
+import           System.Environment      (setEnv)
 #endif
 
-kakasi :: [String] -> String -> IO String
+kakasi :: [String] -> T.Text -> IO T.Text
 kakasi args str = do
   kanwadict >>= setEnvKakasi "KANWADICT"
   itaijidict >>= setEnvKakasi "ITAIJIDICT"
@@ -46,25 +50,27 @@ foreign import ccall unsafe "putenv"
 setEnvKakasi = setEnv
 #endif
 
-encodeShiftJIS :: String -> B.ByteString
-encodeShiftJIS = B.concat . map
-  (\c -> fromMaybe (B.pack [0x81, 0xA1]) -- black square (■)
-  $ HM.lookup c shiftJISReverse
-  )
+encodeShiftJIS :: T.Text -> B.ByteString
+encodeShiftJIS = BL.toStrict . BB.toLazyByteString . T.foldl'
+  (\build c -> build <> case HM.lookup c shiftJISReverse of
+    Just jis -> BB.byteString jis
+    Nothing  -> blackSquare
+  ) mempty
+  where blackSquare = BB.byteString $ B.pack [0x81, 0xA1] -- "■"
 
--- TODO optimize; should return Text and quickly passthrough blocks of ASCII
-decodeShiftJIS :: B.ByteString -> String
-decodeShiftJIS b = if B.null b
-  then ""
-  else case B.splitAt 1 b of
-    (h1, t1) -> case HM.lookup h1 shiftJISTable of
-      Just c -> c : decodeShiftJIS t1
-      Nothing -> if B.length b >= 2
-        then case B.splitAt 2 b of
-          (h2, t2) -> case HM.lookup h2 shiftJISTable of
-            Just c  -> c : decodeShiftJIS t2
-            Nothing -> '�' : decodeShiftJIS t1
-        else "�"
+decodeShiftJIS :: B.ByteString -> T.Text
+decodeShiftJIS = TL.toStrict . TB.toLazyText . go where
+  go b = if B.null b
+    then mempty
+    else case B.splitAt 1 b of
+      (h1, t1) -> case HM.lookup h1 shiftJISTable of
+        Just c -> TB.singleton c <> go t1
+        Nothing -> if B.length b >= 2
+          then case B.splitAt 2 b of
+            (h2, t2) -> case HM.lookup h2 shiftJISTable of
+              Just c  -> TB.singleton c <> go t2
+              Nothing -> TB.singleton '�' <> go t1
+          else TB.singleton '�'
 
 shiftJISReverse :: HM.HashMap Char B.ByteString
 shiftJISReverse = HM.fromList $ map swap $ HM.toList shiftJISTable

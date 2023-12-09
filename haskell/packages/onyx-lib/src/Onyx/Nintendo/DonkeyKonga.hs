@@ -206,7 +206,7 @@ data SongInfoLine
 readSongInfo :: B.ByteString -> [SongInfo]
 readSongInfo bs = let
   lns = do
-    ln <- T.lines $ T.pack $ filter (/= '\r') $ decodeShiftJIS bs
+    ln <- T.lines $ T.filter (/= '\r') $ decodeShiftJIS bs
     case T.stripPrefix "#" ln >>= readMaybe . T.unpack of
       Just n  -> return $ SongInfoStart n
       Nothing -> case T.breakOn "=" ln of

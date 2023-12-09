@@ -65,7 +65,7 @@ replaceCharsRB rbproj txt = liftIO $ let
       -- only '\x301C' (wave dash) is in the shift jis mapping
       let txt' = T.replace "\xFF5E" "\x301C" $ T.replace "~" "\x301C" txt
       -- this used to include `-Ea` for unrecognized characters
-      rom <- kakasi (words "-Ha -Ka -Ja -ka -s") $ T.unpack txt'
+      rom <- kakasi (words "-Ha -Ka -Ja -ka -s") txt'
       let capital s = case T.uncons s of
             Nothing      -> s
             Just (c, cs) -> T.cons (toUpper c) cs
@@ -84,8 +84,7 @@ replaceCharsRB rbproj txt = liftIO $ let
         $ T.replace " !" "!"
         $ T.replace " ?" "?"
         $ T.unwords $ map capital $ T.words
-        $ latinifier
-        $ T.pack rom
+        $ latinifier rom
     else return $ latinifier txt
 
 showTimestamp :: U.Seconds -> T.Text
