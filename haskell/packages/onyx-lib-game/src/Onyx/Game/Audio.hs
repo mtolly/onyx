@@ -79,6 +79,8 @@ _sndSecsSpeed pos mspeed f = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
+-- TODO it would be nice if we could switch audio devices seamlessly on default device change.
+-- see https://github.com/kcat/openal-soft/issues/555
 withAL :: (Bool -> IO a) -> IO a
 withAL fn = let
   destroyContext ctx = do

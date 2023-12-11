@@ -58,7 +58,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
-  = PreviewDrums (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
+  = PreviewDrums DrumMode (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
   | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
@@ -214,16 +214,21 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     drumMap :: Map.Map Double [(D.Gem D.ProType, D.DrumVelocity)]
     drumMap = rtbToMap $ RTB.collectCoincident drumPro
     drumPro = let
-      -- quick 5 lane to 4 hack, eventually should actually support drawing 5-lane drums
       ddiff = D.getDrumDifficulty diff thisSrc
       in case pdrums.mode of
         Drums4    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
-        Drums5    -> D.fiveToPro
-          (case pdrums.fallback of FallbackBlue -> D.Blue; FallbackGreen -> D.Green)
-          ddiff
+        Drums5    -> flip fmap ddiff $ \(gem, vel) -> let
+          gem' = case gem of
+            D.Kick            -> D.Kick
+            D.Red             -> D.Red
+            D.Pro D.Yellow () -> D.Pro D.Yellow D.Cymbal
+            D.Pro D.Blue   () -> D.Pro D.Blue D.Tom
+            D.Orange          -> D.Orange
+            D.Pro D.Green  () -> D.Pro D.Green D.Tom
+          in (gem', vel)
         DrumsPro  -> D.computePro diff thisSrc
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
-        DrumsTrue -> D.computePro diff thisSrc -- TODO support convert from true track
+        DrumsTrue -> D.computePro diff thisSrc
     hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
       Nothing   -> (D.drumActivation thisSrc, RTB.empty)
@@ -583,7 +588,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
           Nothing  -> []
           Just trk -> let
-            standard = [(name <> " (" <> letter <> ")", PreviewDrums trk)]
+            standard = [(name <> " (" <> letter <> ")", PreviewDrums pdrums.mode trk)]
             true = case pdrums.mode of
               DrumsTrue -> case drumTrackTrue fpart pdrums diff of
                 Nothing -> []
