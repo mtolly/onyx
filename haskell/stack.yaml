@@ -57,6 +57,8 @@ extra-deps:
   commit: 0269618e5e73e11026b45bd9e59a677dc89b1c23
 - git: https://github.com/mtolly/onyx-libzip
   commit: b14ecb0634000aaeab725e7b4cc2a88381fac1cf
+- git: https://github.com/mtolly/utf8proc-hs
+  commit: 9e2cd1e5a00e72eb9d72c5922259874d07ea5eb9
 resolver: nightly-2023-08-29
 flags:
   fltkhs:

@@ -103,6 +103,7 @@ library:
   - onyx-mogg-encrypt
   - onyx-autochart
   - onyx-libzip
+  - utf8proc
 
   ghc-options: -O
   build-tools:

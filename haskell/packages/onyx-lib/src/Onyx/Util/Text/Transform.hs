@@ -2,17 +2,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Util.Text.Transform where
 
+import           Control.Monad          (guard)
 import           Control.Monad.IO.Class
 import           Data.Char              (isLatin1, toUpper)
 import           Data.Fixed             (Milli)
+import           Data.Maybe             (mapMaybe)
 import qualified Data.Text              as T
+import           Data.Text.UTF8Proc
 import           Onyx.Util.ShiftJIS     (kakasi)
 import qualified Sound.MIDI.Util        as U
 
--- | Transform a string to Latin-1.
+-- | Transform a string to (mostly) only Latin-1 characters.
 -- Allows Ÿ (not Latin-1) and ÿ (is Latin-1) for RB, but not in Magma .rbproj.
 replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
-replaceCharsRB rbproj txt = liftIO $ let
+replaceCharsRB _      txt | T.isAscii txt = return txt -- usual case
+replaceCharsRB rbproj txt                 = liftIO $ let
   jpnRanges =
     [ (0x3000, 0x30ff) -- Japanese-style punctuation, Hiragana, Katakana
     , (0xff00, 0xffef) -- Full-width roman characters and half-width katakana
@@ -21,45 +25,62 @@ replaceCharsRB rbproj txt = liftIO $ let
   isJapanese c = let
     point = fromEnum c
     in any (\(pmin, pmax) -> pmin <= point && point <= pmax) jpnRanges
-  nonBreakingSpace = '\8203'
-  latinifier s = flip T.map (T.filter (/= nonBreakingSpace) s) $ \case
-    -- TODO should replace this with either text-icu or utf8proc, using normalization
-    'ÿ' | rbproj -> 'y'
-    'Ÿ' | rbproj -> 'Y'
-    '–'          -> '-' -- en dash
-    '—'          -> '-' -- em dash
-    -- various japanese chars
-    '\x301C'     -> '~' -- "wave dash"
-    '\xFF5E'     -> '~' -- "full width tilde"
-    '、'          -> ','
-    '。'          -> '.'
-    '｛'          -> '{'
-    '｝'          -> '}'
-    '（'          -> '('
-    '）'          -> ')'
-    '［'          -> '['
-    '］'          -> ']'
-    '【'          -> '['
-    '】'          -> ']'
-    '「'          -> '['
-    '」'          -> ']'
-    '：'          -> ':'
-    -- random chars from a Eximperituserqethhzebibšiptugakkathšulweliarzaxułum song
-    'ł'          -> 'l'
-    'ź'          -> 'z'
-    'š'          -> 's'
-    'č'          -> 'c'
-    'ę'          -> 'e'
-    'ń'          -> 'n'
-    'Ŭ'          -> 'U'
-    'ś'          -> 's'
-    'ć'          -> 'c'
-    'ĺ'          -> 'l'
-    'Ž'          -> 'Z'
-    'Š'          -> 'S'
-    'ī'          -> 'i'
-    'ŭ'          -> 'u'
-    c            -> if isLatin1 c || c == 'Ÿ' || c == 'ÿ' then c else '?'
+  latinifier s = do
+    -- NFD but also strip default ignorable chars such as non-breaking space
+    nfd <- case utf8proc_map (utf8proc_STABLE <> utf8proc_DECOMPOSE <> utf8proc_IGNORE) s of
+      Left  err -> fail $ "utf8proc error: " <> show err
+      Right nfd -> return nfd
+    return $ T.concat $ map latinCluster $ breakGraphemes nfd
+  latinCluster cluster = case T.unpack $ T.filter isLatin1 cluster of
+    core : _ -> T.singleton $ case mapMaybe (tryMark core cluster) marks of
+      []           -> core
+      combined : _ -> combined
+    []       -> case mapMaybe (tryExtraMapping cluster) extraMapping of
+      []        -> "?"
+      extra : _ -> extra
+  tryExtraMapping cluster (extraIn, extraOut) = do
+    guard $ T.elem extraIn cluster
+    Just extraOut
+  extraMapping =
+    [ ('–'     , "-") -- en dash
+    , ('—'     , "-") -- em dash
+    , ('Ĳ'     , "IJ")
+    , ('ĳ'     , "ij")
+    , ('Ł'     , "L")
+    , ('ł'     , "l")
+    -- japanese/fullwidth stuff
+    , ('\x301C', "~") -- "wave dash"
+    , ('\xFF5E', "~") -- "full width tilde"
+    , ('、'     , ",")
+    , ('。'     , ".")
+    , ('｛'     , "{")
+    , ('｝'     , "}")
+    , ('（'     , "(")
+    , ('）'     , ")")
+    , ('［'     , "[")
+    , ('］'     , "]")
+    , ('【'     , "[")
+    , ('】'     , "]")
+    , ('「'     , "[")
+    , ('」'     , "]")
+    , ('：'     , ":")
+    ]
+  -- check for combining accent marks that result in a supported character
+  tryMark core cluster mark = do
+    guard $ T.elem mark cluster
+    [composed] <- return $ either (const []) T.unpack $ utf8proc_NFC $ T.pack [core, mark]
+    guard $ isLatin1 composed || (not rbproj && composed == 'Ÿ')
+    guard $ not $ rbproj && composed == 'ÿ'
+    Just composed
+  marks =
+    [ '\768' -- grave
+    , '\769' -- acute
+    , '\770' -- circumflex
+    , '\771' -- tilde
+    , '\776' -- umlaut
+    , '\778' -- overring
+    , '\807' -- cedilla
+    ]
   in if T.any isJapanese txt
     then do
       -- only '\x301C' (wave dash) is in the shift jis mapping
@@ -69,6 +90,7 @@ replaceCharsRB rbproj txt = liftIO $ let
       let capital s = case T.uncons s of
             Nothing      -> s
             Just (c, cs) -> T.cons (toUpper c) cs
+      latin <- latinifier rom
       return
         -- T.replace "(kigou)" "?" -- only needed with -Ea
         $ T.replace "^" "-" -- kakasi writes long vowels as ^
@@ -83,9 +105,8 @@ replaceCharsRB rbproj txt = liftIO $ let
         $ T.replace " ." "."
         $ T.replace " !" "!"
         $ T.replace " ?" "?"
-        $ T.unwords $ map capital $ T.words
-        $ latinifier rom
-    else return $ latinifier txt
+        $ T.unwords $ map capital $ T.words latin
+    else latinifier txt
 
 showTimestamp :: U.Seconds -> T.Text
 showTimestamp secs = let

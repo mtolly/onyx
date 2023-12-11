@@ -8,6 +8,7 @@ import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as B8
 import           Data.Char             (isAlpha)
 import qualified Data.HashMap.Strict   as HM
+import           Data.List             (isPrefixOf)
 import           Data.Maybe            (mapMaybe)
 import qualified Data.Text             as T
 import           Data.Text.Encoding    (decodeUtf8)
@@ -20,7 +21,8 @@ import           System.IO.Unsafe      (unsafePerformIO)
 getResourcesPath :: FilePath -> IO FilePath
 getResourcesPath f = do
   exe <- getExecutablePath
-  resDir <- if takeFileName exe == "ghc"
+  -- previously filename was just ghc but on newer stack it seems to be e.g. ghc-9.6.2
+  resDir <- if "ghc" `isPrefixOf` takeFileName exe
     then (</> ".local/bin/onyx-files/onyx-resources") <$> getHomeDirectory -- we're in ghci, use installed resources
     else return $ takeDirectory exe </> "onyx-resources"
   return $ resDir </> f
