@@ -133,7 +133,7 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200072
-    plan: jammit
+    plan: jammit-stemless
   ps:
     game: ps
     plan: jammit-stemless

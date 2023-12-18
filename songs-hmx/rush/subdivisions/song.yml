@@ -5,6 +5,9 @@ parts:
       gender: male
       difficulty:
         rank: 186
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
   bass:
     grybo:
       fix-freeform: false
@@ -64,13 +67,11 @@ plans:
 targets:
   rb3:
     game: rb3
-    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
     plan: mogg
   rb3-2x:
     game: rb3
-    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
@@ -101,3 +102,5 @@ metadata:
   difficulty:
     rank: 335
   artist: Rush
+global:
+  file-song-anim: song.anim

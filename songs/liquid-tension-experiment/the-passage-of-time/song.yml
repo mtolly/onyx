@@ -17,12 +17,48 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
+  surround:
+    # Liquid Tension Experiment_Liquid Tension Experiment 3 [BR-Audio to DTS-CD]
+    # ffmpeg -i song.dts.wav song.flac
+    md5: e949e55e6a082016df89450df112d2d2
+    frames: 19908608
+    channels: 6
+  surround-main:
+    expr:
+      channels: [[0, 1], surround]
+  surround-solo:
+    expr:
+      channels: [[2], surround]
+  surround-keys:
+    expr:
+      channels: [[4, 5], surround]
+  surround-main-stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(surround-main) audio-stems.wav
+    channels: 8
 plans:
   album:
     song:
       mix:
       - countin
       - pad: [4.905, album-track]
+  dev:
+    song:
+      pad: [4.905, album-track]
+    parts:
+      main-bass:
+        pad: [4.926, channels: [[0, 1], surround-main-stems]]
+      main-drums:
+        pad: [4.926, channels: [[2, 3], surround-main-stems]]
+      main-vocal:
+        pad: [4.926, channels: [[4, 5], surround-main-stems]]
+      main-other:
+        pad: [4.926, channels: [[6, 7], surround-main-stems]]
+      solo:
+        pad: [4.926, surround-solo]
+      keys-rhythm:
+        pad: [4.926, surround-keys]
 parts:
   drums:
     drums:
@@ -36,10 +72,13 @@ targets:
   rb3:
     game: rb3
     bass: none
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     bass: none
+    plan: album
   ps:
     game: ps
     bass: none
+    plan: album

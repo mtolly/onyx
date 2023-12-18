@@ -5,6 +5,7 @@ metadata:
   author: Onyxite
   rating: FamilyFriendly
   key: A
+  preview-start: prc_verse_1a
 audio:
   album-track:
     md5: 157151cdc2a65a27d0e142b9b4c4c79e
@@ -42,6 +43,7 @@ parts:
       kicks: 1
       kit: VintageKit
       mode: 'true'
+      difficulty: 7
 targets:
   rb3:
     game: rb3

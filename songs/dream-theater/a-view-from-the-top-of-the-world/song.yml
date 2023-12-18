@@ -8,13 +8,14 @@ metadata:
   subgenre: prog
   track-number: 7
   file-album-art: ../../../covers/a-view-from-the-top-of-the-world.jpg
-  # preview-start:
+  preview-start: prc_chorus_2
 parts:
   drums:
     drums:
       kicks: both
       mode: 'true'
       true-layout: [open-hand]
+      difficulty: 7
 audio:
   album-track:
     frames: 58730370

@@ -29,10 +29,6 @@ audio:
 parts:
   drums:
     drums:
-      # TODO
-      # check true drums thoroughly
-      # clean up dynamics
-      # reconvert to pro drums
       mode: 'true'
       difficulty: 7
       kicks: 1
