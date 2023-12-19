@@ -132,6 +132,7 @@ data RB2Create
 data PSCreate
   = PSDir FilePath
   | PSZip FilePath
+  | PSSng FilePath
 
 data GH1Create
   = GH1ARK FilePath

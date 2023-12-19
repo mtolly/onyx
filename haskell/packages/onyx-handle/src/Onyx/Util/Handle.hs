@@ -161,6 +161,10 @@ saveReadable r dest = case rFilePath r of
   Just src -> Dir.copyFile src dest
   Nothing  -> withBinaryFile dest WriteMode $ copyReadableToHandle r
 
+saveReadables :: [Readable] -> FilePath -> IO ()
+saveReadables rs dest = withBinaryFile dest WriteMode $ \h -> do
+  mapM_ (`copyReadableToHandle` h) rs
+
 saveHandleFolder :: Folder T.Text Readable -> FilePath -> IO ()
 saveHandleFolder folder dest = do
   Dir.createDirectoryIfMissing False dest

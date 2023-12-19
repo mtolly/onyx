@@ -409,7 +409,7 @@ songPagePS sink rect tab proj build = mdo
       liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
   let makeTarget = fmap ($ def) targetModifier
   fullWidth 35 $ \rect' -> do
-    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 5 0 5 -> r2, trimClock 0 0 0 5 -> r3] = splitHorizN 3 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create CH/PS song folder"
     FL.setCallback btn1 $ \_ -> do
       tgt <- makeTarget
@@ -422,8 +422,20 @@ songPagePS sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> build tgt $ PSDir f
         _ -> return ()
-    btn2 <- FL.buttonNew r2 $ Just "Create CH/PS zip file"
+    btn2 <- FL.buttonNew r2 $ Just "Create CH .sng file"
     FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save CH/PS .sng file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".sng" -- TODO add modifiers
+      forM_ (prefDirCH ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ PSSng f
+        _ -> return ()
+    btn3 <- FL.buttonNew r3 $ Just "Create CH/PS zip file"
+    FL.setCallback btn3 $ \_ -> do
       tgt <- makeTarget
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save CH/PS zip file"
@@ -437,6 +449,7 @@ songPagePS sink rect tab proj build = mdo
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
     FL.setColor btn2 color
+    FL.setColor btn3 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

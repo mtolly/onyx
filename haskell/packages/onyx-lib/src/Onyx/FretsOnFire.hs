@@ -192,7 +192,10 @@ loadSong r = do
   return Song{..}
 
 saveSong :: (MonadIO m) => FilePath -> Song -> m ()
-saveSong fp Song{..} = writePSIni fp $ execWriter $ do
+saveSong fp = writePSIni fp . songToIniContents
+
+songToIniContents :: Song -> [(T.Text, T.Text)]
+songToIniContents Song{..} = execWriter $ do
   let str k = maybe (return ()) $ \v -> tell [(k, v)]
       shown k = str k . fmap (T.pack . show)
       milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
@@ -264,7 +267,7 @@ readPSIni = fmap Ini . go HM.empty False . mapMaybe interpretLine . zip [1..] . 
         (x, y) -> case T.stripPrefix "=" y of
           Just y' -> Just (i, IniKeyValue (T.strip x) (T.strip y'))
           Nothing -> Just (i, IniContinue line)
-  go hm          _             []                 = return hm
+  go hm _             []                 = return hm
   go hm inSongSection ((i, line) : rest) = case line of
     IniSection newSection -> if T.toCaseFold newSection == "song"
       then go hm True rest

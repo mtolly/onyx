@@ -562,6 +562,11 @@ batchPagePS sink rect tab build = do
     (getTargetSong PSDir >=> build)
   makeTemplateRunner
     sink
+    "Create CH .sng files"
+    (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%artist% - %title%.sng")
+    (getTargetSong PSSng >=> build)
+  makeTemplateRunner
+    sink
     "Create CH zips"
     (maybe "%input_dir%" T.pack (prefDirCH ?preferences) <> "/%input_base%%modifiers%_ps.zip")
     (getTargetSong PSZip >=> build)

@@ -510,6 +510,9 @@ buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash
 buildPSZip :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
+buildPSSng :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildPSSng ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.sng"
+
 buildGH1Dir :: (MonadIO m) => TargetGH1 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH1Dir gh1 = buildCommon (GH1 gh1) $ \targetHash -> "gen/target" </> targetHash </> "gh1"
 

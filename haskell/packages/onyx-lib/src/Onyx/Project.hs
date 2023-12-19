@@ -1268,6 +1268,7 @@ data TargetPS f = TargetPS
   , guitarCoop    :: F.FlexPartName
   , dance         :: F.FlexPartName
   , bigRockEnding :: Bool
+  , audioFormat   :: T.Text
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetPS :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetPS f)
@@ -1282,6 +1283,7 @@ parseTargetPS = do
   guitarCoop    <- (.guitarCoop   ) =. opt (F.FlexExtra "guitar-coop") "guitar-coop"     stackJSON
   dance         <- (.dance        ) =. opt (F.FlexExtra "dance"      ) "dance"           stackJSON
   bigRockEnding <- (.bigRockEnding) =. opt True                        "big-rock-ending" stackJSON
+  audioFormat   <- (.audioFormat  ) =. opt "ogg"                       "audio-format"    stackJSON
   return TargetPS{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetPS f) where

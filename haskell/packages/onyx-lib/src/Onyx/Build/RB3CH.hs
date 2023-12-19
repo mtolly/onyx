@@ -486,6 +486,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           , guitarCoop    = F.FlexExtra "undefined"
           , dance         = F.FlexExtra "undefined"
           , bigRockEnding = True
+          , audioFormat   = "ogg"
           }
       originalRanks = difficultyPS targetPS songYaml
 

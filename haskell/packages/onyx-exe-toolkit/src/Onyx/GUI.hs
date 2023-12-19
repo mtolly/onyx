@@ -140,7 +140,8 @@ import           Onyx.MIDI.Common                          (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                          as RB
 import           Onyx.MIDI.Track.File                      (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                      as F
-import           Onyx.Preferences                          (MagmaSetting (..),
+import           Onyx.Preferences                          (CHAudioFormat (..),
+                                                            MagmaSetting (..),
                                                             Preferences (..),
                                                             TrueDrumLayoutHint (..),
                                                             applyThreads,
@@ -1156,13 +1157,23 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
       let name = case create of
             PSDir _ -> "Building CH/PS song folder"
             PSZip _ -> "Building CH/PS zip file"
+            PSSng _ -> "Building CH/PS .sng file"
+          tgt' = (tgt :: TargetPS FilePath)
+            { audioFormat = case prefCHAudioFormat newPreferences of
+              CHAudioOggVorbis -> "ogg"
+              CHAudioOpus      -> "opus"
+            }
           task = case create of
             PSDir dout -> do
-              tmp <- buildPSDir tgt proj'
+              tmp <- buildPSDir tgt' proj'
               copyDirRecursive tmp dout
               return [dout]
             PSZip fout -> do
-              tmp <- buildPSZip tgt proj'
+              tmp <- buildPSZip tgt' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            PSSng fout -> do
+              tmp <- buildPSSng tgt' proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       startTasks [(name, task)]
@@ -3119,14 +3130,23 @@ launchBatch sink makeMenuBar startFiles = mdo
         newPreferences <- readPreferences
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
+              target' = (target :: TargetPS FilePath)
+                { audioFormat = case prefCHAudioFormat newPreferences of
+                  CHAudioOggVorbis -> "ogg"
+                  CHAudioOpus      -> "opus"
+                }
           proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj . applyDownmix newPreferences
           case creator of
             PSDir dout -> do
-              tmp <- buildPSDir target proj'
+              tmp <- buildPSDir target' proj'
               copyDirRecursive tmp dout
               return [dout]
             PSZip fout -> do
-              tmp <- buildPSZip target proj'
+              tmp <- buildPSZip target' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            PSSng fout -> do
+              tmp <- buildPSSng target' proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       return tab
@@ -3456,6 +3476,12 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Mix down stems in CH output"
             void $ FL.setValue check $ prefCHDownmix loadedPrefs
             return $ (\b prefs -> prefs { prefCHDownmix = b }) <$> FL.getValue check
+          , do
+            audioFormat <- lineBox $ \box -> horizRadio box
+              [ ("Output Ogg Vorbis audio", CHAudioOggVorbis, prefCHAudioFormat loadedPrefs == CHAudioOggVorbis)
+              , ("Output Opus audio"      , CHAudioOpus     , prefCHAudioFormat loadedPrefs == CHAudioOpus     )
+              ]
+            return $ maybe id (\v prefs -> prefs { prefCHAudioFormat = v }) <$> audioFormat
           ]
         FL.end pack
         return fn

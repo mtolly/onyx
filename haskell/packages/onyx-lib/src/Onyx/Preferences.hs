@@ -47,37 +47,39 @@ data Preferences = Preferences
   , prefTrueLayout    :: [TrueDrumLayoutHint]
   , prefPreviewFPS    :: Int
   , prefCHDownmix     :: Bool
+  , prefCHAudioFormat :: CHAudioFormat
   }
 
 instance StackJSON Preferences where
   stackJSON = asObject "Preferences" $ do
-    prefMagma         <- prefMagma         =. fill MagmaRequire "magma"           stackJSON
-    prefBlackVenue    <- prefBlackVenue    =. fill False        "black-venue"     stackJSON
-    prefLabel2x       <- prefLabel2x       =. fill True         "label-2x"        stackJSON
-    prefTrimXbox      <- prefTrimXbox      =. fill False        "trim-xbox"       stackJSON
-    prefSortGH2       <- prefSortGH2       =. fill True         "sort-gh2"        stackJSON
-    prefPS3Encrypt    <- prefPS3Encrypt    =. fill True         "ps3-encrypt"     stackJSON
-    prefRBNumberID    <- prefRBNumberID    =. fill False        "rb-number-id"    stackJSON
-    prefMSAA          <- prefMSAA          =. fill (Just 4)     "msaa"            stackJSON
-    prefFXAA          <- prefFXAA          =. fill True         "fxaa"            stackJSON
-    prefDirRB         <- prefDirRB         =. opt  Nothing      "dir-rb"          stackJSON
-    prefDirCH         <- prefDirCH         =. opt  Nothing      "dir-ch"          stackJSON
-    prefDirWii        <- prefDirWii        =. opt  Nothing      "dir-wii"         stackJSON
-    prefDirPreview    <- prefDirPreview    =. opt  Nothing      "dir-preview"     stackJSON
-    prefAudioDirs     <- prefAudioDirs     =. opt  []           "audio-dirs"      stackJSON
-    prefOGGQuality    <- prefOGGQuality    =. fill 0.5          "ogg-quality"     stackJSON
-    prefGH2Offset     <- prefGH2Offset     =. fill 0            "gh2-offset"      stackJSON
-    prefWarnedXboxGH2 <- prefWarnedXboxGH2 =. opt  False        "warned-xbox"     stackJSON
-    prefWarnedXboxWoR <- prefWarnedXboxWoR =. opt  False        "warned-xbox-wor" stackJSON
-    prefGH4Lane       <- prefGH4Lane       =. opt  False        "gh-4-lane"       stackJSON
-    prefDecryptSilent <- prefDecryptSilent =. opt  False        "decrypt-silent"  stackJSON
-    prefArtistSort    <- prefArtistSort    =. opt  False        "artist-sort"     stackJSON
-    prefThreads       <- prefThreads       =. opt  Nothing      "threads"         stackJSON
-    prefDetectMuted   <- prefDetectMuted   =. opt  True         "detect-muted"    stackJSON
-    prefLegalTempos   <- prefLegalTempos   =. opt  True         "legal-tempos"    stackJSON
-    prefTrueLayout    <- prefTrueLayout    =. opt  []           "true-layout"     stackJSON
-    prefPreviewFPS    <- prefPreviewFPS    =. fill 60           "preview-fps"     stackJSON
-    prefCHDownmix     <- prefCHDownmix     =. opt  False        "ch-downmix"      stackJSON
+    prefMagma         <- prefMagma         =. fill MagmaRequire     "magma"           stackJSON
+    prefBlackVenue    <- prefBlackVenue    =. fill False            "black-venue"     stackJSON
+    prefLabel2x       <- prefLabel2x       =. fill True             "label-2x"        stackJSON
+    prefTrimXbox      <- prefTrimXbox      =. fill False            "trim-xbox"       stackJSON
+    prefSortGH2       <- prefSortGH2       =. fill True             "sort-gh2"        stackJSON
+    prefPS3Encrypt    <- prefPS3Encrypt    =. fill True             "ps3-encrypt"     stackJSON
+    prefRBNumberID    <- prefRBNumberID    =. fill False            "rb-number-id"    stackJSON
+    prefMSAA          <- prefMSAA          =. fill (Just 4)         "msaa"            stackJSON
+    prefFXAA          <- prefFXAA          =. fill True             "fxaa"            stackJSON
+    prefDirRB         <- prefDirRB         =. opt  Nothing          "dir-rb"          stackJSON
+    prefDirCH         <- prefDirCH         =. opt  Nothing          "dir-ch"          stackJSON
+    prefDirWii        <- prefDirWii        =. opt  Nothing          "dir-wii"         stackJSON
+    prefDirPreview    <- prefDirPreview    =. opt  Nothing          "dir-preview"     stackJSON
+    prefAudioDirs     <- prefAudioDirs     =. opt  []               "audio-dirs"      stackJSON
+    prefOGGQuality    <- prefOGGQuality    =. fill 0.5              "ogg-quality"     stackJSON
+    prefGH2Offset     <- prefGH2Offset     =. fill 0                "gh2-offset"      stackJSON
+    prefWarnedXboxGH2 <- prefWarnedXboxGH2 =. opt  False            "warned-xbox"     stackJSON
+    prefWarnedXboxWoR <- prefWarnedXboxWoR =. opt  False            "warned-xbox-wor" stackJSON
+    prefGH4Lane       <- prefGH4Lane       =. opt  False            "gh-4-lane"       stackJSON
+    prefDecryptSilent <- prefDecryptSilent =. opt  False            "decrypt-silent"  stackJSON
+    prefArtistSort    <- prefArtistSort    =. opt  False            "artist-sort"     stackJSON
+    prefThreads       <- prefThreads       =. opt  Nothing          "threads"         stackJSON
+    prefDetectMuted   <- prefDetectMuted   =. opt  True             "detect-muted"    stackJSON
+    prefLegalTempos   <- prefLegalTempos   =. opt  True             "legal-tempos"    stackJSON
+    prefTrueLayout    <- prefTrueLayout    =. opt  []               "true-layout"     stackJSON
+    prefPreviewFPS    <- prefPreviewFPS    =. fill 60               "preview-fps"     stackJSON
+    prefCHDownmix     <- prefCHDownmix     =. opt  False            "ch-downmix"      stackJSON
+    prefCHAudioFormat <- prefCHAudioFormat =. fill CHAudioOggVorbis "ch-audio-format" stackJSON
     return Preferences{..}
 
 instance Default Preferences where
@@ -142,3 +144,13 @@ instance StackJSON TrueDrumLayoutHint where
     TDLeftOpenHand   -> "open-hand"
     TDRightFarCrash  -> "far-crash"
     TDRightNearCrash -> "near-crash"
+
+data CHAudioFormat
+  = CHAudioOggVorbis
+  | CHAudioOpus
+  deriving (Eq, Enum, Bounded)
+
+instance StackJSON CHAudioFormat where
+  stackJSON = enumCodec "a CH audio format" $ \case
+    CHAudioOggVorbis -> "ogg"
+    CHAudioOpus      -> "opus"

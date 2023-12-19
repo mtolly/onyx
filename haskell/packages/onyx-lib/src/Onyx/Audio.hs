@@ -618,11 +618,14 @@ audioToChannelWAVs src fouts = let
 audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
 audioIO oggQuality src out = let
   src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
-    then merge src $ silent (Frames 0) (rate src) 1
     -- this works around an issue with oggenc:
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
-    else src
+    then merge src $ silent (Frames 0) (rate src) 1
+    else if takeExtension out == ".opus"
+      -- opus doesn't support 44.1 kHz; later we should probably come up with a better way to support 48 kHz
+      then resampleTo 48000 SincMediumQuality src
+      else src
   withSndFormat fmt = runResourceT $ case (takeExtension out, oggQuality) of
     (".ogg", Just q) -> do
       let setup hsnd = void $ liftIO $ setVBREncodingQuality hsnd q
@@ -630,6 +633,7 @@ audioIO oggQuality src out = let
     _ -> sinkSnd out fmt src'
   in case takeExtension out of
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+    ".opus" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatOpus Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
     ".mp3" -> runResourceT $ sinkMP3 out src'
     ext -> error $ "audioIO: unknown audio output file extension " ++ ext
