@@ -50,19 +50,31 @@ plans:
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-3, -6, -6, -6, -6, -3, -6, -6, -6, -6, -5, -5, -6, -6]
-    mogg-md5: 27ba7ea326dfe293b7ee51d87f933c29
+    multitrack: true
+    file-mogg: ghostofperdition.mogg
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-3, -6, -6, -6, -6, -3, -6, -6, -6, -6, -5, -5, -6, -6]
+    multitrack: false
+    file-mogg: ghostofperdition.mogg
 targets:
   rb3: # barely changed
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended
   preview-start: 2:00.806

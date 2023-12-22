@@ -15,9 +15,7 @@ metadata:
   - "2x Bass Pedal upgrade."
 plans:
   mogg:
-    mogg-md5: de1a7b7bc4fcbf510375c890bb427aab # export version i think
-    # rb2: 4758b06302f5d3a6df35e7fb1ad9f7d9
-    # rb2-unenc: ad5cb18348998458e41a5fe632a3fc1b
+    file-mogg: shouldertotheplow.mogg
     parts:
       drums:
         kick: [0]
@@ -26,6 +24,13 @@ plans:
       bass: [5]
       guitar: [6, 7]
       vocal: [8, 9]
+    multitrack: true
+    pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
+    vols: [0.0, 0.0, 0.0, 0.0, 0.0, -3.0, -4.5, -4.5, -3.0, -3.0, -3.0, -3.0]
+  mogg-stemless:
+    file-mogg: shouldertotheplow.mogg
+    parts: {}
+    multitrack: false
     pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
     vols: [0.0, 0.0, 0.0, 0.0, 0.0, -3.0, -4.5, -4.5, -3.0, -3.0, -3.0, -3.0]
 parts:
@@ -53,3 +58,7 @@ targets:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless

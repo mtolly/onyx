@@ -39,7 +39,8 @@ plans:
   mogg:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    mogg-md5: 38e18f67dded555839f866aa70d6eadb
+    file-mogg: UGC_5005828.mogg
+    multitrack: true
     parts:
       drums:
         kick: [0, 1]
@@ -48,16 +49,24 @@ plans:
       bass: [6, 7]
       guitar: [8, 9]
       keys: [10, 11]
+  mogg-stemless:
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    file-mogg: UGC_5005828.mogg
+    multitrack: false
+    parts: {}
 targets:
   rb3:
     game: rb3
     label: (O)
     song-id: ChamCarn1xO200215
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     song-id: ChamCarn2xO200215
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless

@@ -83,12 +83,12 @@ parts:
       difficulty: 6
 targets:
   rb3:
-    plan: stems
+    plan: album
     game: rb3
   rb3-2x:
-    plan: stems
+    plan: album
     game: rb3
     2x-bass-pedal: true
   ps:
-    plan: stems
+    plan: album
     game: ps

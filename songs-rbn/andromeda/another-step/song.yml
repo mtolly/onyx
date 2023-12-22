@@ -32,62 +32,36 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      keys:
-      - 8
-      - 9
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    mogg-md5: 457b95bf18261af75de8638288f5ec24
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: UGC_5006120.mogg
     multitrack: true
-    vols:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: UGC_5006120.mogg
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (2x Bass Pedal) (O)
     2x-bass-pedal: true
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   preview-start: 5:03.000
   file-album-art: cover.png_xbox

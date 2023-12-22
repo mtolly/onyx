@@ -2,9 +2,7 @@ audio:
   youtube:
     file-path: audio-youtube.wav
     commands:
-    - ../../../scripts/youtube igDSyZMy8_E 140
-    md5: 0f94e048ec0283e96a52951e2531776c
-    frames: 10130432
+    - ../../../scripts/youtube oiVP6vJJobI 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -21,9 +19,14 @@ audio:
           - fade:
             - start
             - 4
-            - drop: [start, 0.574, youtube]
+            - drop: [start, 0.608, youtube]
 plans:
   album:
+    song:
+      mix:
+      - countin
+      - aligned-audio
+  album-split:
     song:
       mix:
       - countin
@@ -83,15 +86,20 @@ parts:
     drums:
       kicks: both
       difficulty: 7
-  bass:
-    grybo:
-      difficulty: 5
-  keys:
-    pro-keys:
-      difficulty: 4
+  # bass:
+  #   grybo:
+  #     difficulty: 5
+  # keys:
+  #   pro-keys:
+  #     difficulty: 4
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

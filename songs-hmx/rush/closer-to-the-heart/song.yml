@@ -25,16 +25,23 @@ plans:
       guitar: [4, 5]
       vocal: [6, 7]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 2f59113c08ff8792ac2fe3dcf0538868
+    file-mogg: closertotheheart.mogg
     multitrack: true
+    vols: [-0.5, -0.5, -5.5, -5.5, -4, -4, -3, -3, -3, -3]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: closertotheheart.mogg
+    multitrack: false
     vols: [-0.5, -0.5, -5.5, -5.5, -4, -4, -3, -3, -3, -3]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Family Friendly
   preview-start: 1:06.680

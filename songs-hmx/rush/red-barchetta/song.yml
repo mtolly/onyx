@@ -25,20 +25,28 @@ plans:
       guitar: [4, 5]
       vocal: [6, 7]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: a2ce11638c2d537cc438ce185e95f9d2
+    file-mogg: redbarchetta.mogg
     multitrack: true
+    vols: [-2, -2, -5, -5, -3.5, -3.5, -4, -4, -6, -6]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: redbarchetta.mogg
+    multitrack: false
     vols: [-2, -2, -5, -5, -3.5, -3.5, -4, -4, -6, -6]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Family Friendly
   preview-start: 1:05.425

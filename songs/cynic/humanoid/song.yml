@@ -4,8 +4,6 @@ metadata:
   file-album-art: cover.jpg
   genre: metal
   subgenre: prog
-  album: Humanoid (Single) # should probably do no album but onyx doesn't support
-  track-number: 1
   year: 2018
   author: Onyxite
   preview-start: prc_main_riff_2

@@ -126,13 +126,13 @@ targets:
     game: rb3
     # file-milo: lipsync.milo_xbox
     label: (O)
-    plan: edited
+    plan: album-original
   rb3-2x:
     game: rb3
     # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
-    plan: edited
+    plan: album-original
   ps:
     game: ps
     label: (O)
@@ -145,7 +145,7 @@ targets:
     loading-phrase: "Edited/updated chart for tournament use"
   rs:
     game: rs
-    plan: edited
+    plan: album-original
     arrangements:
     - [bonus-rhythm, bass]
 metadata:

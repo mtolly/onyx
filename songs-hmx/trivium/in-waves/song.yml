@@ -52,26 +52,37 @@ plans:
       keys: [8, 9]
     pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -3.5, -3.5, -0.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
-    file-mogg: audio.mogg
+    file-mogg: inwaves.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -3.5, -3.5, -0.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    file-mogg: inwaves.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
     # harmonix: true
     label: (O)
     song-id: onyx_20220625_1x_inwaves
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     # harmonix: true
     label: (2x Bass Pedal) (O)
     song-id: onyx_20220625_2x_inwaves
+    plan: mogg
   ps:
     game: ps
+    plan: mogg-stemless
   rs:
     game: rs
     arrangements:
     - [bass, bass] # top string not needed
     label: (O) # distinguish from ODLC
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended # was family friendly ??
   preview-start: 29.788

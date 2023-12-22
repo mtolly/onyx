@@ -62,20 +62,32 @@ plans:
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -4.5, -4.5, -4.5, -4.5, -1.5, -4.5, -4.5, -4.7, -4.7, -4.2, -4.2, -4.5, -4.5]
-    # mogg-md5: ee0b3e5d3f679c7adaef703e249edbfb
     file-mogg: audio.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -4.5, -4.5, -4.5, -4.5, -1.5, -4.5, -4.5, -4.7, -4.7, -4.2, -4.2, -4.5, -4.5]
+    file-mogg: audio.mogg
+    multitrack: false
 targets:
   rb3: # barely changed
     game: rb3
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
   rs:
     game: rs
+    plan: mogg-stemless
     arrangements:
     - [bass, bass]
 metadata:

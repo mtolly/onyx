@@ -31,56 +31,28 @@ metadata:
   file-album-art: cover.png_xbox
 plans:
   mogg:
-    file-mogg: audio.mogg
+    file-mogg: UGC_5004920.mogg
     parts:
       drums:
-        kick:
-        - 0
-        - 1
-        kit:
-        - 4
-        - 5
-        snare:
-        - 2
-        - 3
-      guitar:
-      - 8
-      - 9
-      bass:
-      - 6
-      - 7
-    karaoke: false
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
     multitrack: true
-    vols:
-    - -2
-    - -2
-    - -3
-    - -3
-    - -3.5
-    - -3.5
-    - -4.5
-    - -4.5
-    - -4.5
-    - -4.5
-    - -4.5
-    - -4.5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
+    vols: [-2, -2, -3, -3, -3.5, -3.5, -4.5, -4.5, -4.5, -4.5, -4.5, -4.5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+  mogg-stemless:
+    file-mogg: UGC_5004920.mogg
+    parts: {}
+    multitrack: false
+    vols: [-2, -2, -3, -3, -3.5, -3.5, -4.5, -4.5, -4.5, -4.5, -4.5, -4.5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless

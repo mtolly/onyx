@@ -18,9 +18,14 @@ targets:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 plans:
   mogg:
-    mogg-md5: d3f5bd81a327545edd6ac803b913f101 # unenc: 487575b9fa9389e65641f81c41c37a86
+    file-mogg: soulsofblack.mogg
+    multitrack: true
     parts:
       drums:
         kick: [0]
@@ -29,6 +34,12 @@ plans:
       bass: [5]
       guitar: [6, 7]
       vocal: [8, 9]
+    pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
+    vols: [-0.5, -1.0, -1.0, -3.0, -3.0, -3.0, -4.0, -4.0, -4.5, -4.5, -2.5, -2.5]
+  mogg-stemless:
+    file-mogg: soulsofblack.mogg
+    multitrack: false
+    parts: {}
     pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
     vols: [-0.5, -1.0, -1.0, -3.0, -3.0, -3.0, -4.0, -4.0, -4.5, -4.5, -2.5, -2.5]
 parts:

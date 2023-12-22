@@ -27,9 +27,15 @@ plans:
       guitar: [3, 4]
       vocal: [5, 6]
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: de775a5d94a562e9b924ce76754bcbd4
+    file-mogg: cameraeye.mogg
     vols: [-1, -1, -1, -3, -3, -4.2, -4.2, -3.5, -3.5]
     multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: cameraeye.mogg
+    vols: [-1, -1, -1, -3, -3, -4.2, -4.2, -3.5, -3.5]
+    multitrack: false
   jammit:
     song:
       drop:
@@ -78,8 +84,7 @@ targets:
     plan: mogg
   ps:
     game: ps
-    label: (O)
-    plan: mogg
+    plan: mogg-stemless
 jammit:
   jammit-track: {}
 metadata:

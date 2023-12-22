@@ -31,16 +31,24 @@ plans:
         snare: [1]
         kit: [2, 3]
     pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 60c578df305fe61530c2208ce0f3cb7f
+    file-mogg: deadonarrival.mogg
     multitrack: true
+    vols: [0, 0, -1.5, -1.5, -3, -4, -4, -5, -5, -4, -4]
+  mogg-stemless:
+    parts: {}
+    pans: [0, 0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: deadonarrival.mogg
+    multitrack: false
     vols: [0, 0, -1.5, -1.5, -3, -4, -4, -5, -5, -4, -4]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
     label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Family Friendly
   preview-start: 11.5

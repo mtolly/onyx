@@ -62,7 +62,12 @@ plans:
       bass: [2, 3]
       guitar: [4, 5]
       vocal: [6, 7]
-    karaoke: false
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # flipped pans for drums
+  mogg-stemless:
+    file-mogg: audio.mogg
+    parts: {}
     multitrack: false
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # flipped pans for drums
@@ -95,4 +100,4 @@ targets:
     plan: mogg
   ps:
     game: ps
-    plan: mogg
+    plan: mogg-stemless

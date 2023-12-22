@@ -49,16 +49,28 @@ plans:
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
     vols: [-1, -3, -3, -2.5, -2.5, -4.5, -2.5, -2.5, -3, -3, -3, -3]
     file-mogg: audio.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-1, -3, -3, -2.5, -2.5, -4.5, -2.5, -2.5, -3, -3, -3, -3]
+    file-mogg: audio.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended
   preview-start: 1:07.303

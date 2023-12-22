@@ -56,17 +56,16 @@ targets:
     game: rb3
     label: (O)
     song-id: SunOfPearl1xO200215
-    plan: mogg
+    plan: sheet-music
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     song-id: SunOfPearl2xO200215
-    plan: mogg
+    plan: sheet-music
   ps:
     game: ps
-    label: (O)
-    plan: mogg
+    plan: sheet-music
   rs:
     game: rs
     arrangements:

@@ -37,61 +37,34 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 3
-      guitar:
-      - 4
-      - 5
-      keys:
-      - 8
-      - 9
       drums:
-        kick:
-        - 0
-        kit:
-        - 1
-        - 2
-    pans:
-    - 0
-    - -1
-    - 1
-    - 0
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
+        kick: [0]
+        kit: [1, 2]
+      bass: [3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: rosanna.mogg
+    multitrack: true
+    vols: [-0.5, -4, -4, -1.5, -4, -4, -4, -4, -3.7, -3.7, -4, -4]
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     file-mogg: rosanna.mogg
     multitrack: false
-    vols:
-    - -0.5
-    - -4
-    - -4
-    - -1.5
-    - -4
-    - -4
-    - -4
-    - -4
-    - -3.700000047683716
-    - -3.700000047683716
-    - -4
-    - -4
+    vols: [-0.5, -4, -4, -1.5, -4, -4, -4, -4, -3.7, -3.7, -4, -4]
 targets:
   rb3:
     game: rb3
     label: (O)
     # file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    plan: mogg
   ps:
     game: ps
     label: (O)
+    plan: mogg-stemless
 metadata:
   rating: FamilyFriendly
   preview-start: 1:14.353

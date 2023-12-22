@@ -52,10 +52,13 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: album
+  ps:
+    game: ps
+    plan: album
   rs:
     game: rs
-    plan: jammit # maybe use one-instrument expression
+    plan: album
     arrangements:
     - [bonus-rhythm, bass]
     - [bass, bass]

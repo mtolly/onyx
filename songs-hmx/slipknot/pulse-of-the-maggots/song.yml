@@ -51,24 +51,35 @@ plans:
       vocal: [8, 9]
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f9a4dabd4dca91b48471c7e7ff16a1ee
+    file-mogg: pulseofthemaggots.mogg
+    vols: [-0.5, -3.5, -3.5, -3, -3, -0.3, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: pulseofthemaggots.mogg
     vols: [-0.5, -3.5, -3.5, -3, -3, -0.3, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
 targets:
   rb3:
     game: rb3
     label: (O)
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    plan: mogg
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended
   preview-start: 52.17

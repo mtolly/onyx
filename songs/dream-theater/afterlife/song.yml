@@ -43,3 +43,5 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+  ps:
+    game: ps

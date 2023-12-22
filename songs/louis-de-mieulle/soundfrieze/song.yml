@@ -30,3 +30,5 @@ plans:
 targets:
   rb3:
     game: rb3
+  ps:
+    game: ps

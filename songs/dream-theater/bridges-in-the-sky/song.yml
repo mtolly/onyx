@@ -22,24 +22,24 @@ parts:
     drums:
       difficulty: 7
       kicks: both
-  guitar:
-    pro-guitar:
-      difficulty: 7
-      tuning:
-        base: guitar-7
-  keys:
-    pro-keys:
-      difficulty: 7
-  bass:
-    pro-guitar:
-      # pitches checked, but there might be some string differences from guitar
-      tuning:
-        base: bass-5
-      tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
-  vocal:
-    vocal:
-      count: 2
+  # guitar:
+  #   pro-guitar:
+  #     difficulty: 7
+  #     tuning:
+  #       base: guitar-7
+  # keys:
+  #   pro-keys:
+  #     difficulty: 7
+  # bass:
+  #   pro-guitar:
+  #     # pitches checked, but there might be some string differences from guitar
+  #     tuning:
+  #       base: bass-5
+  #     tones:
+  #       file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  # vocal:
+  #   vocal:
+  #     count: 2
 targets:
   rb3:
     game: rb3

@@ -258,12 +258,10 @@ plans:
         - jammit-game-vox
         - jammit-game-keys
         - jammit-bass
-  jammit-simple:
-    parts:
-      bass:
-        only: [Bass, jammit-track]
+  jammit-stemless:
     song:
       mix:
+      - only: [Bass, jammit-track]
       - without: [bass, jammit-track]
   album:
     song:
@@ -316,9 +314,9 @@ targets:
     song-id: 1660200067
   ps:
     game: ps
-    plan: jammit
+    plan: jammit-stemless
   rs:
     game: rs
-    plan: jammit-simple
+    plan: jammit-stemless
     arrangements:
     - [bonus-rhythm, bass]

@@ -37,15 +37,23 @@ plans:
     file-mogg: cantletgo.mogg
     multitrack: true
     vols: [-0.5, -0.5, -0.5, -0.5, -1.5, -1.5, -5, -5, -4.5, -4.5, -3.5, -3.5, -1.5, -1.5]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: cantletgo.mogg
+    multitrack: false
+    vols: [-0.5, -0.5, -0.5, -0.5, -1.5, -1.5, -5, -5, -4.5, -4.5, -3.5, -3.5, -1.5, -1.5]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
   rs:
     game: rs
+    plan: mogg-stemless
     arrangements:
     - [bass, bass]
 metadata:

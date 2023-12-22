@@ -27,14 +27,14 @@ plans:
       vocal: [5, 6]
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5] # does 2.5 pan do surround stuff for crowd channels?
     # mogg-md5: 5f40d319bc1baeda20e536c1ddf2213e
-    file-mogg: audio.mogg
+    file-mogg: wontgetfooledagain.mogg
     multitrack: true
     crowd: [9, 10]
     vols: [0, 0, -1.5, -1.5, -1.5, -2.5, -2.5, -4, -4, -5, -5]
   mogg-stemless:
     parts: {}
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1, -2.5, 2.5]
-    file-mogg: audio.mogg
+    file-mogg: wontgetfooledagain.mogg
     multitrack: false
     vols: [0, 0, -1.5, -1.5, -1.5, -2.5, -2.5, -4, -4, -999, -999] # silenced crowd
 targets:

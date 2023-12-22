@@ -51,14 +51,20 @@ plans:
       keys: [10, 11]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-3, -3, -1.5, -1.5, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
-    karaoke: false
-    mogg-md5: e3f209e23e141e9f3bb1c261e9837409
+    multitrack: true
+    file-mogg: UGC_5006784.mogg
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-3, -3, -1.5, -1.5, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
     multitrack: false
+    file-mogg: UGC_5006784.mogg
 targets:
   rb3:
     song-id: 1660299991
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless

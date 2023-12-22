@@ -30,55 +30,39 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 3
-      guitar:
-      - 4
-      - 5
       drums:
-        kick:
-        - 0
-        kit:
-        - 1
-        - 2
-    pans:
-    - 0
-    - -1
-    - 1
-    - 0
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    mogg-md5: 8aaf90d5d96953c4cbddaba9fdf628bf
-    vols:
-    - -0.5
-    - -4
-    - -4
-    - -1
-    - -4
-    - -4
-    - -3.5
-    - -3.5
-    - -4
-    - -4
+        kick: [0]
+        kit: [1, 2]
+      bass: [3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -4, -4, -1, -4, -4, -3.5, -3.5, -4, -4]
+    file-mogg: audio.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -4, -4, -1, -4, -4, -3.5, -3.5, -4, -4]
+    file-mogg: audio.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended
   preview-start: 28.235

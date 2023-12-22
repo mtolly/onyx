@@ -36,21 +36,31 @@ plans:
       vocal: [10, 11]
       keys: [12, 13]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 3cc2bc811bbd8772d585c401d017c3d6
     vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -2.7, -2.7]
+    file-mogg: UGC_5009224.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -2.7, -2.7]
+    file-mogg: UGC_5009224.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (2x)
     # (default 2x label goes over 100 chars, which fails magma)
+    plan: mogg
   ps:
     game: ps
+    plan: mogg-stemless
 metadata:
   preview-start: 8:21.000
   file-album-art: cover.png_xbox

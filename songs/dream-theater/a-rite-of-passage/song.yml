@@ -108,6 +108,9 @@ targets:
     game: rb3
     2x-bass-pedal: true
     plan: album # change to deluxe once keyboard solo is fixed
+  ps:
+    game: ps
+    plan: album
   rs:
     game: rs
     arrangements:

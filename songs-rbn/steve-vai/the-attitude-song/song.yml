@@ -19,15 +19,23 @@ plans:
       bass: [2]
       guitar: [3, 4]
     pans: [-1, 1, 0, -1, 1, -1, 1]
-    mogg-md5: 31b6b64780513342b7b7c674247ac165
     vols: [-3, -3, -1.5, -3, -3, -3, -3]
+    file-mogg: UGC_5000997.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, 0, -1, 1, -1, 1]
+    vols: [-3, -3, -1.5, -3, -3, -3, -3]
+    file-mogg: UGC_5000997.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   preview-start: 18
   file-album-art: cover.png_xbox

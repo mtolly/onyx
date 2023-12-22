@@ -18,7 +18,7 @@ parts:
       difficulty:
         tier: 6
   drums:
-    drums: # TODO this needs to be fixed up, e.g. too many kicks in intro and probably other errors
+    drums: # TODO did a round of fixes to kicks/snares but needs a closer pass on everything else. also dynamics
       difficulty:
         tier: 7
       kicks: both

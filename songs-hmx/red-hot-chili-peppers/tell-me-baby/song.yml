@@ -29,16 +29,23 @@ plans:
       guitar: [7, 8]
       vocal: [9, 10]
     pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 91b5e8f0d069e7583b9a294720b1574f
+    file-mogg: tellmebaby.mogg
     multitrack: true
+    vols: [-2.5, -2.5, -1, -1, -3, -3, -2.5, -3.8, -3.8, -3, -3, -4.2, -4.2]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: tellmebaby.mogg
+    multitrack: false
     vols: [-2.5, -2.5, -1, -1, -3, -3, -2.5, -3.8, -3.8, -3, -3, -4.2, -4.2]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Supervision Recommended
   preview-start: 58.8

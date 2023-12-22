@@ -66,6 +66,9 @@ targets:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+  ps:
+    game: ps
+    plan: jammit-simple
   rs:
     game: rs
     plan: jammit-simple

@@ -20,21 +20,28 @@ parts:
 plans:
   mogg:
     parts:
-      vocal: [6, 7]
+      drums: [0, 1]
       bass: [2, 3]
       guitar: [4, 5]
-      drums: [0, 1]
+      vocal: [6, 7]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: 15488f1332ae006b866a819cbc49f6aa
+    file-mogg: thetrees.mogg
     multitrack: true
+    vols: [-0.5, -0.5, -5, -5, -6, -6, -4.5, -4.5, -5, -5]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: thetrees.mogg
+    multitrack: false
     vols: [-0.5, -0.5, -5, -5, -6, -6, -4.5, -4.5, -5, -5]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: SupervisionRecommended
   preview-start: 49.063

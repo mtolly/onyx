@@ -33,78 +33,39 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 10
-      - 11
-      bass:
-      - 6
-      - 7
-      guitar:
-      - 8
-      - 9
-      keys:
-      - 12
-      - 13
       drums:
-        kick:
-        - 0
-        - 1
-        snare:
-        - 2
-        - 3
-        kit:
-        - 4
-        - 5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
-    mogg-md5: fd37572cae2ff8ce77c77b19cafbfe86
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+      keys: [12, 13]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: UGC_5011053.mogg
+    multitrack: true
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    file-mogg: UGC_5011053.mogg
     multitrack: false
-    vols:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   preview-start: 1:40.000
   file-album-art: ../../../covers/option-paralysis.png_xbox

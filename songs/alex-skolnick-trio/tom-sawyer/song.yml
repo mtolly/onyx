@@ -18,8 +18,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube IVhggQCqvqI 140
-    md5: 3327395ef60ecc6cec72cc00b00aba5d
-    frames: 17654784
+    # md5: 3327395ef60ecc6cec72cc00b00aba5d
+    # frames: 17654784
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -35,4 +35,3 @@ targets:
     label: (O)
   ps:
     game: ps
-    label: (O)

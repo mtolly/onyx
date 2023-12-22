@@ -17,7 +17,7 @@ parts:
       kicks: both
 plans:
   mogg:
-    mogg-md5: 9f7a7a8e50f923c5404a62c8f58a71bc
+    file-mogg: audio.mogg
     parts:
       drums: [0, 1]
       bass: [2, 3]
@@ -26,21 +26,29 @@ plans:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     tuning-cents: 34
-    karaoke: false
+    multitrack: false
+  mogg-stemless:
+    file-mogg: audio.mogg
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    tuning-cents: 34
     multitrack: false
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Mature
   preview-start: 1:23.000

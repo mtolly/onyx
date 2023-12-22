@@ -20,20 +20,22 @@ parts:
     drums:
       difficulty: 7
       kicks: 2
-  bass:
-    pro-guitar:
-      tuning:
-        base: bass-6
-      tones:
-        file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
-  guitar:
-    pro-guitar:
-      tuning:
-        base: guitar-7
+  # bass:
+  #   pro-guitar:
+  #     tuning:
+  #       base: bass-6
+  #     tones:
+  #       file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
+  # guitar:
+  #   pro-guitar:
+  #     tuning:
+  #       base: guitar-7
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:

@@ -38,23 +38,30 @@ plans:
       vocal: [6, 7]
       keys: [8, 9]
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    karaoke: false
-    mogg-md5: 8d059ffc7df527594db5d39d36a68b41
-    multitrack: false
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    multitrack: false
+    file-mogg: audio.mogg
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    multitrack: false
+    file-mogg: audio.mogg
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: FamilyFriendly
   preview-start: 45.005

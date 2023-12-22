@@ -26,22 +26,30 @@ plans:
       guitar: [4, 5]
       vocal: [6, 7]
     pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # swapped all channels so drums are drummer perspective
-    mogg-md5: 6c6e75728b116a37862bb8f2b998d003
-    multitrack: true
     vols: [1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -2, -2]
+    file-mogg: audio.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [1, -1, 1, -1, 1, -1, 1, -1, 1, -1] # swapped all channels so drums are drummer perspective
+    vols: [1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -1.2, -2, -2]
+    file-mogg: audio.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
-    file-milo: lipsync.milo_xbox
+    # file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Family Friendly
   preview-start: 54

@@ -69,18 +69,34 @@ plans:
     - -3
     - -3
     - -3
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.517, album-track]
+audio:
+  album-track:
+    md5: f5f615ff37b0960904e40f40db0bf120
+    frames: 8276100
+  countin:
+    samples: {}
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 targets:
   rb3-2x:
     song-id: Ridiculosous2xOnyx
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
+    plan: album
   rs:
     game: rs
     arrangements:
     - [bass, bass]
+    plan: album
   ps:
     game: ps
+    plan: album
 metadata:
   preview-start: 15
   file-album-art: cover.png_xbox

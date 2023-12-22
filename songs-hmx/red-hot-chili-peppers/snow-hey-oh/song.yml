@@ -41,16 +41,23 @@ plans:
       guitar: [7, 8]
       vocal: [9, 10]
     pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f7111ec6b9d822594d5ce22416896ff1
+    file-mogg: snowheyoh.mogg
     multitrack: true
+    vols: [-1, -1, -1, -1, -3, -3, -2, -2, -2, -4.5, -4.5, -6, -6]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: snowheyoh.mogg
+    multitrack: false
     vols: [-1, -1, -1, -1, -3, -3, -2, -2, -2, -4.5, -4.5, -6, -6]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Supervision Recommended
   preview-start: 40.936

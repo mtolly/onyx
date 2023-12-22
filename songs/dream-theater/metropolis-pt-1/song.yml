@@ -45,12 +45,15 @@ parts:
   drums:
     drums:
       kicks: 2
-  bass:
-    grybo: {}
-  guitar:
-    grybo: {}
+  # bass:
+  #   grybo: {}
+  # guitar:
+  #   grybo: {}
 targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: album
+  ps:
+    game: ps
+    plan: album

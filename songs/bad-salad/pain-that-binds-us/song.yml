@@ -133,14 +133,14 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: pledgemusic
+    plan: album
     song-id: 1660200061
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: pledgemusic
+    plan: album
     song-id: 1660200062
   ps:
     game: ps
     # file-video: video.avi
-    plan: pledgemusic
+    plan: album

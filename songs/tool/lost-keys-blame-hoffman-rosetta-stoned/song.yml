@@ -68,20 +68,20 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: stems
+    plan: album
     song-id: 1660200088
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: stems
+    plan: album
     song-id: 1660200089
   ps:
     game: ps
-    plan: stems
+    plan: album
   rb3-rs:
     title: Rosetta Stoned
     game: rb3
-    plan: stems
+    plan: album
     song-id: 1660200090
     start:
       &start-rosetta
@@ -92,11 +92,11 @@ targets:
     title: Rosetta Stoned
     game: rb3
     2x-bass-pedal: true
-    plan: stems
+    plan: album
     song-id: 1660200091
     start: *start-rosetta
   ps-rs:
     title: Rosetta Stoned
     game: ps
-    plan: stems
+    plan: album
     start: *start-rosetta

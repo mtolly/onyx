@@ -16,7 +16,7 @@ audio:
     commands:
     - ../../../scripts/youtube QfwwanEF3a0 140 audio-band.wav
   no-drums: # download from vfjams site
-    md5: ad278a668ec8fbbe43643844949dbfce
+    md5: 956563234c1b30ee76b7f8e5bcf3ff72
     frames: 16430976
   pad-band:
     expr:

@@ -44,7 +44,7 @@ parts:
       kicks: both
 plans:
   mogg:
-    mogg-md5: dbbaac067d071ca6a119cfdbe20a9c2e
+    file-mogg: caravan.mogg
     parts:
       drums: [0, 1]
       bass: [2]
@@ -54,19 +54,26 @@ plans:
     pans: [-1, 1, 0.1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-5.3, -5.3, -4.8, -4.8, -4.8, -4.5, -4.5, -4.8, -4.8, -4.8, -4.8]
     multitrack: true
-    karaoke: false
+  mogg-stemless:
+    file-mogg: caravan.mogg
+    parts: {}
+    pans: [-1, 1, 0.1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-5.3, -5.3, -4.8, -4.8, -4.8, -4.5, -4.5, -4.8, -4.8, -4.8, -4.8]
+    multitrack: true
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (2x Bass Pedal) (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless

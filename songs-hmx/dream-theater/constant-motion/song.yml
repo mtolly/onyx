@@ -146,19 +146,18 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: final
+    plan: album
     song-id: 1660200129
     label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: final
+    plan: album
     song-id: 1660200130
     label: (2x Bass Pedal) (O)
   ps:
     game: ps
-    plan: final
-    label: (O)
+    plan: album
   rs:
     game: rs
     plan: album

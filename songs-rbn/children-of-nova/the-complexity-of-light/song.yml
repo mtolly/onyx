@@ -20,24 +20,31 @@ parts:
 plans:
   mogg:
     parts:
-      vocal: [8, 9]
-      bass: [5]
-      guitar: [6, 7]
       drums:
         kick: [0]
         snare: [1, 2]
         kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: b108250bead197ca9987d89cd51edc2b
-    multitrack: true
     vols: [-3, -3, -3, -3, -3, -1.5, -1.5, -1.5, -3, -3, -5, -5]
+    file-mogg: UGC_5001514.mogg
+    multitrack: true
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-3, -3, -3, -3, -3, -1.5, -1.5, -1.5, -3, -3, -5, -5]
+    file-mogg: UGC_5001514.mogg
+    multitrack: false
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   preview-start: 1:24.000
   file-album-art: cover.png_xbox

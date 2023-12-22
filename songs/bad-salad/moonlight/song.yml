@@ -127,8 +127,8 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: pledgemusic
+    plan: album
     song-id: 1660200063
   ps:
     game: ps
-    plan: pledgemusic
+    plan: album

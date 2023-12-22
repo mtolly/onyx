@@ -60,13 +60,13 @@ plans:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -0.5, -0.5, -0.5, -0.3, -0.3, 0, 0, 0, 0, -0.5, -0.5, 0, 0, 0, 0]
     multitrack: true
-    file-mogg: audio.mogg
-  mogg-no-stems:
+    file-mogg: UGC_5006785.mogg
+  mogg-stemless:
     parts: {}
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -0.5, -0.5, -0.5, -0.3, -0.3, 0, 0, 0, 0, -0.5, -0.5, 0, 0, 0, 0]
-    multitrack: true
-    file-mogg: audio.mogg
+    multitrack: false
+    file-mogg: UGC_5006785.mogg
 targets:
   rb3:
     song-id: 1660299993
@@ -83,11 +83,10 @@ targets:
     plan: mogg
   ps:
     game: ps
-    label: (O)
-    plan: mogg-no-stems
+    plan: mogg-stemless
   ps-tourney:
     game: ps
-    plan: mogg-no-stems
+    plan: mogg-stemless
     guitar: none
     bass: none
     keys: none

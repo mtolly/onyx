@@ -20,21 +20,28 @@ parts:
 plans:
   mogg:
     parts:
-      vocal: [5, 6]
+      drums: [0, 1]
       bass: [2]
       guitar: [3, 4]
-      drums: [0, 1]
+      vocal: [5, 6]
     pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: b95a090134fcdda3be87d397e5d013e7
+    file-mogg: witchhunt.mogg
     multitrack: true
+    vols: [-0.5, -0.5, -3.5, -4.5, -4.5, -4.5, -4.5, -2.5, -2.5]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: witchhunt.mogg
+    multitrack: false
     vols: [-0.5, -0.5, -3.5, -4.5, -4.5, -4.5, -4.5, -2.5, -2.5]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Family Friendly
   preview-start: 2:36.528

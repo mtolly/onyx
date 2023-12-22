@@ -32,52 +32,37 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 5
-      - 6
-      bass:
-      - 2
-      guitar:
-      - 3
-      - 4
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - 0
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
-    mogg-md5: c17ac794ef9bd053e870cb6152fbcb8d
-    multitrack: false
-    vols:
-    - -4
-    - -4
-    - -4
-    - -4
-    - -4
-    - -4
-    - -4
-    - -4
-    - -4
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3, 4]
+      vocal: [5, 6]
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: flybynight.mogg
+    multitrack: true
+    vols: [-4, -4, -4, -4, -4, -4, -4, -4, -4]
+  mogg-stemless:
+    parts: {}
+    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: flybynight.mogg
+    multitrack: true
+    vols: [-4, -4, -4, -4, -4, -4, -4, -4, -4]
 targets:
   rb3:
     game: rb3
     label: (O)
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    plan: mogg
+  ps:
+    game: ps
+    plan: mogg-stemless
 metadata:
   rating: FamilyFriendly
   preview-start: 39.032

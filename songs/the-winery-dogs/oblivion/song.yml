@@ -82,11 +82,11 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: album
   ps:
     game: ps
-    plan: drumcam
+    plan: album

@@ -48,20 +48,23 @@ plans:
       guitar: guitar
       keys: keys
       onyxite-2x: drums
+  stemless:
+    song:
+      mix: [song, vocal, bass, guitar, keys, drums]
 targets:
   rb3:
     song-id: 1660299998
     game: rb3
-    plan: stems
+    plan: stemless
   rb3-2x:
     song-id: 1660299997
     game: rb3
-    plan: stems-onyxite-2x
+    plan: stemless
     drums: onyxite-2x
     2x-bass-pedal: true
   ps:
     game: ps
-    plan: stems-onyxite-2x
+    plan: stemless
     drums: onyxite-2x
 metadata:
   preview-start: 1:37.000

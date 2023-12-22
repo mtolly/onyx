@@ -57,4 +57,7 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit
+    plan: album
+  ps:
+    game: ps
+    plan: album

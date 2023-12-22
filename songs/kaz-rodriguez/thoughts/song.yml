@@ -13,8 +13,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube bhYqiIl1Tec 140
-    md5: 5ec4cb4c185c8a3bcdf392fb5d84bba6
-    frames: 14290944
+    # md5: 5ec4cb4c185c8a3bcdf392fb5d84bba6
+    # frames: 14290944
   drumless:
     md5: 1be2f6270a88c1e947bf74b5aa641b6c
     frames: 15552000

@@ -29,18 +29,25 @@ plans:
       guitar: [6, 7]
       vocal: [8, 9]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f6236532ba7c571bb903af2e317a40f0
+    file-mogg: paralleluniverse.mogg
     multitrack: true
+    vols: [-1.6, -4.6, -4.6, -4, -4, -1.6, -4.6, -4.6, -4.6, -4.6, -4.6, -4.6]
+  mogg-stemless:
+    parts: {}
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    file-mogg: paralleluniverse.mogg
+    multitrack: false
     vols: [-1.6, -4.6, -4.6, -4, -4, -1.6, -4.6, -4.6, -4.6, -4.6, -4.6, -4.6]
 targets:
   rb3:
     game: rb3
-    file-milo: lipsync-venue.milo_xbox
+    # file-milo: lipsync-venue.milo_xbox
     harmonix: true
     label: (O)
+    plan: mogg
   ps:
     game: ps
-    label: (O)
+    plan: mogg-stemless
 metadata:
   rating: Supervision Recommended
   preview-start: 53.295
