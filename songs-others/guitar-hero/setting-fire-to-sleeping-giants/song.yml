@@ -33,12 +33,19 @@ plans:
           - drums_4.ogg
     song:
       mix: [countin, song.ogg]
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [2.504, stretch: [0.9991008092716556, album-track]]
 targets:
   rb3:
     game: rb3
     label: (O)
+    plan: album
   ps:
     game: ps
+    plan: album
 metadata:
   file-album-art: album.jpg
   album: Miss Machine
@@ -78,3 +85,6 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
+  album-track:
+    md5: da0c59c2f9489aea3ed27334a13727d0
+    frames: 9162804

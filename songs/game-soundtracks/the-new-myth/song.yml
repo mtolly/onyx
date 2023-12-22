@@ -20,6 +20,10 @@ audio:
     file-path: audio-.wav
     commands:
     - sox "35. The New Myth (Long Version).mp3" audio-.wav
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube L-sMIImzbkI 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -30,11 +34,19 @@ plans:
       mix:
       - countin
       - pad: [3.176, album-track]
+  youtube:
+    song:
+      mix:
+      - countin
+      - pad: [3.095, youtube]
 targets:
   rb3:
     game: rb3
+    plan: youtube
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: youtube
   ps:
     game: ps
+    plan: youtube

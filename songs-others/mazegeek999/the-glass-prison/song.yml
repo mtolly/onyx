@@ -43,10 +43,14 @@ plans:
       - countin
       - drop: [7.366, album-track]
 targets:
+  rb3:
+    game: rb3
   rb3-2x:
     song-id: 1684700120
     game: rb3
     2x-bass-pedal: true
+  ps:
+    game: ps
   rs:
     game: rs
     arrangements:

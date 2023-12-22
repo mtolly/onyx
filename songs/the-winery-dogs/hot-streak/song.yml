@@ -10,6 +10,9 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
   countin:
     samples: {}
+  album-track:
+    md5: b3964a48ccecf556671a804424c99edc
+    frames: 13688052
   drumcam-band:
     md5: c6954c1a636b32e696e50dfd5ab293f6
     frames: 223442400
@@ -41,6 +44,11 @@ audio:
               - frames: 27970285
               - drumcam-drums
 plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [4.235, album-track]
   drumcam:
     song:
       mix:
@@ -68,8 +76,11 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
+    plan: album

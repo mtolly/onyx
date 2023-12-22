@@ -48,6 +48,25 @@ plans:
         snare: stem-snare
         kit: stem-kit
       keys: stem-keys
+  mogg:
+    # reimported because I can't find my stem files lol
+    file-mogg: audio.mogg
+    multitrack: true
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      keys: [8, 9]
+  mogg-stemless:
+    file-mogg: audio.mogg
+    multitrack: true
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    parts: {}
 parts:
   drums:
     drums:
@@ -66,9 +85,12 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200039
+    plan: mogg-stemless
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200040
+    plan: mogg-stemless
   ps:
     game: ps
+    plan: mogg-stemless
