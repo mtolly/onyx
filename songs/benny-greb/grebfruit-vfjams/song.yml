@@ -53,11 +53,28 @@ plans:
             - drop: [3.983, no-drums]
     parts:
       drums: clipped-drums
+  youtube-stemless:
+    song:
+      mix:
+      - gain:
+        - 1.1
+        - fade:
+          - end
+          - 2.5
+          - take:
+            - '5:30'
+            - concatenate:
+              - take: [13.456, pad-band]
+              - drop: [3.983, no-drums]
+      - clipped-drums
 targets:
   rb3:
     game: rb3
+    plan: youtube-stemless
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: youtube-stemless
   ps:
     game: ps
+    plan: youtube-stemless

@@ -68,12 +68,7 @@ plans:
             - pad:
               - 4.266
               - *drums
-  album:
-    comments:
-    - >-
-      The audio expression for this is not actually the album track;
-      it uses audio from MP's DVD, but with no separated instruments.
-      This is due to the extended ending heard on the DVD.
+  drumcam-stemless:
     song:
       mix:
       - countin
@@ -122,18 +117,18 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: drumcam-stemless
     song-id: 1660200131
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: drumcam-stemless
     song-id: 1660200132
   ps:
     game: ps
-    plan: drumcam
+    plan: drumcam-stemless
   rs:
     game: rs
-    plan: album
+    plan: drumcam-stemless
     arrangements:
     - [bonus-rhythm, bass]

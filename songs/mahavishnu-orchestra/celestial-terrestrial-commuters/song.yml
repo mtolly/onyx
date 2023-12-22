@@ -71,6 +71,12 @@ plans:
         - countin
         - pad: [4.381, album-track]
     file-tempo: tempo-album.mid
+  jammit-stemless:
+    song:
+      mix:
+      - countin
+      - pad: [3.649, without: [drums, jammit-track]]
+      - pad: [3.649, only: [Drums, jammit-track]]
   jammit-all:
     comments:
     - "Requires all the Jammit instruments."
@@ -140,14 +146,14 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit-all
+    plan: jammit-stemless
     vocal: violin
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit-all
+    plan: jammit-stemless
     vocal: violin
   ps:
     game: ps
-    plan: jammit-all
+    plan: jammit-stemless
     rhythm: violin

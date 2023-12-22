@@ -96,11 +96,10 @@ targets:
     harmonix: true
   ps:
     game: ps
-    label: (O)
     plan: album
   rs:
     game: rs
-    label: (O)
+    label: (O) # distinguish from ODLC
     plan: album
     arrangements:
     - [bonus-rhythm, bass]

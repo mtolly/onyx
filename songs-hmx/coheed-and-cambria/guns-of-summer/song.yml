@@ -50,7 +50,6 @@ targets:
     plan: mogg
   ps:
     game: ps
-    label: (O)
     plan: mogg-no-stems
   ps-tourney:
     game: ps

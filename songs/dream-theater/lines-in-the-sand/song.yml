@@ -75,10 +75,10 @@ targets:
   rb3:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: album
   rb3-2x:
     game: rb3
-    plan: jammit
+    plan: album
   ps:
     game: ps
-    plan: jammit
+    plan: album

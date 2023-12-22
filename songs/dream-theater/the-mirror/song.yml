@@ -37,13 +37,11 @@ plans:
       vocal-2:
         pad: [0.786, only: [B Vocals, jammit-track]]
     # nothing in subtracted backing track
-  jammit-simple:
-    parts:
-      bass:
-        pad: [0.786, only: [Bass, jammit-track]]
+  jammit-stemless:
     song:
       mix:
       - countin
+      - pad: [0.786, only: [Bass, jammit-track]]
       - pad: [0.786, without: [bass, jammit-track]]
   album:
     song:
@@ -65,16 +63,16 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit
+    plan: jammit-stemless
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: jammit-stemless
   ps:
     game: ps
-    plan: jammit
+    plan: jammit-stemless
   rs:
     game: rs
-    plan: jammit-simple
+    plan: jammit-stemless
     arrangements:
     - [bonus-rhythm, bass]

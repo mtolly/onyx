@@ -295,22 +295,13 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit
+    plan: album
     song-id: 1660200045
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
-    song-id: 1660200046
-  rb3-wii:
-    game: rb3
-    plan: jammit-wii
-    song-id: 1660200045
-  rb3-wii-2x:
-    game: rb3
-    2x-bass-pedal: true
-    plan: jammit-wii
+    plan: album
     song-id: 1660200046
   ps:
     game: ps
-    plan: jammit
+    plan: album

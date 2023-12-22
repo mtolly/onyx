@@ -56,7 +56,6 @@ targets:
     plan: album
   ps:
     game: ps
-    label: (O)
     plan: album
   rs:
     game: rs

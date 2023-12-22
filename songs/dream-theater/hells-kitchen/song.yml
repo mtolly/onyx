@@ -31,13 +31,11 @@ plans:
       - countin
       - without: [drums, jammit-track]
       - gain: [-1, only: [Bass, jammit-track]]
-  jammit-simple:
-    parts:
-      bass:
-        only: [Bass, jammit-track]
+  jammit-stemless:
     song:
       mix:
       - countin
+      - only: [Bass, jammit-track]
       - without: [bass, jammit-track]
   album:
     song:
@@ -67,12 +65,12 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit-simple
+    plan: jammit-stemless
   ps:
     game: ps
-    plan: jammit-simple
+    plan: jammit-stemless
   rs:
     game: rs
-    plan: jammit-simple
+    plan: jammit-stemless
     arrangements:
     - [bonus-rhythm, bass]

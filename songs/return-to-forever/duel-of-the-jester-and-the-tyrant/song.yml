@@ -25,6 +25,19 @@ plans:
       - pad:
         - 1.693
         - without: [drums, jammit-track]
+  jammit-stemless:
+    song:
+      mix:
+      - gain:
+        - 1.27
+        - pad:
+          - 1.693
+          - without: [drums, jammit-track]
+      - gain:
+        - 1.3
+        - pad:
+          - 1.693
+          - only: [Drums, jammit-track]
 parts:
   drums:
     drums:
@@ -34,5 +47,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: jammit-stemless
   ps:
     game: ps
+    plan: jammit-stemless

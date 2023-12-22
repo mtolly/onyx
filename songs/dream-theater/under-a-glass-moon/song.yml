@@ -37,13 +37,11 @@ plans:
           - gain:
             - -1
             - only: [Bass, jammit-track]
-  jammit-simple:
-    parts:
-      drums:
-        pad: [1.704, only: [Drums, jammit-track]]
+  jammit-stemless:
     song:
       mix:
       - countin
+      - pad: [1.704, only: [Drums, jammit-track]]
       - pad: [1.704, without: [drums, jammit-track]]
   album:
     song:
@@ -65,13 +63,13 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: jammit
+    plan: jammit-stemless
   ps:
     game: ps
-    plan: jammit-simple
+    plan: jammit-stemless
   rs:
     game: rs
-    plan: jammit-simple
+    plan: jammit-stemless
     arrangements:
     - [bass, bass]
     song-key: OnyxDTUnderAGlassMoon

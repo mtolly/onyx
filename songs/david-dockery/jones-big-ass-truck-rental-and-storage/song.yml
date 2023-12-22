@@ -7,9 +7,12 @@ metadata:
   year: 2019
   file-album-art: ../cover.jpg
 plans:
-  album:
-    # song:
-    #   pad: [2.662, youtube]
+  stemless:
+    song:
+      mix:
+      - countin
+      - pad: [2.662, youtube]
+  stems:
     parts:
       original:
         gain: [1.3, pad: [3.217, take: [47.231, youtube-original]]]
@@ -41,5 +44,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: stemless
   ps:
     game: ps
+    plan: stemless

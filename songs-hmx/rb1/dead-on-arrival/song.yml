@@ -47,7 +47,6 @@ targets:
     plan: mogg
   ps:
     game: ps
-    label: (O)
     plan: mogg-stemless
 metadata:
   rating: Family Friendly

@@ -140,16 +140,16 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: album
     song-id: 1660200125
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: album
     song-id: 1660200126
   ps:
     game: ps
-    plan: drumcam
+    plan: album
   rs:
     game: rs
     plan: album

@@ -35,8 +35,8 @@ plans:
       mix:
       - countin
       - pad: [3.556, album-track]
-    crowd:
-      vol: [-1, chant]
+    # crowd:
+    #   vol: [-1, chant]
   drumcam:
     comments:
     - "Portnoy's sysDRUMatic Chaos DVD."
@@ -102,16 +102,16 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: album
     song-id: 1660200135
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: album
     song-id: 1660200136
   ps:
     game: ps
-    plan: drumcam
+    plan: album
   rs:
     game: rs
     plan: album

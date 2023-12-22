@@ -135,7 +135,6 @@ targets:
     plan: album-original
   ps:
     game: ps
-    label: (O)
     plan: album-original
   ps-tourney:
     game: ps

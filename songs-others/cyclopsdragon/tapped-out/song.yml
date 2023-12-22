@@ -37,7 +37,6 @@ targets:
     label: (2x Bass Pedal) (O)
   ps:
     game: ps
-    label: (O)
 metadata:
   preview-start: 1:54.000
   file-album-art: cover.png_xbox

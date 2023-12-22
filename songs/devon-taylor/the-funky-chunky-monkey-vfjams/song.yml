@@ -47,8 +47,33 @@ plans:
         - take:
           - '6:48.326'
           - pad: [4.235, only-drums]
+  stemless:
+    song:
+      mix:
+      - countin
+      - fade:
+        - end
+        - 4.562
+        - take:
+          - '6:53.814'
+          - pad:
+            - 5.017
+            - fade:
+              - start
+              - 0.058
+              - drop:
+                - 3.330
+                - no-drums
+      - fade:
+        - end
+        - 0.846
+        - take:
+          - '6:48.326'
+          - pad: [4.235, only-drums]
 targets:
   rb3:
     game: rb3
+    plan: stemless
   ps:
     game: ps
+    plan: stemless

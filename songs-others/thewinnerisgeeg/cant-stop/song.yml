@@ -37,7 +37,6 @@ targets:
     label: (O)
   ps:
     game: ps
-    label: (O)
 metadata:
   file-album-art: cover.png_xbox
   languages:

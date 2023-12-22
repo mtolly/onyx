@@ -52,13 +52,11 @@ plans:
               - only: [Keys 2, jammit-track]
               - only: [Vocal, jammit-track]
               - only: [B Vocals, jammit-track]
-  jammit-simple:
-    parts:
-      bass:
-        pad: [2.178, only: [Bass, jammit-track]]
+  jammit-stemless:
     song:
       mix:
       - countin
+      - pad: [2.178, only: [Bass, jammit-track]]
       - pad: [2.178, without: [bass, jammit-track]]
   album:
     song:
@@ -86,12 +84,12 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: jammit
+    plan: jammit-stemless
   ps:
     game: ps
-    plan: jammit
+    plan: jammit-stemless
   rs:
     game: rs
-    plan: jammit-simple # for tempo map + ending
+    plan: jammit-stemless
     arrangements:
     - [bonus-rhythm, bass]

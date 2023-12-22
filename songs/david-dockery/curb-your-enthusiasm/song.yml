@@ -7,9 +7,10 @@ metadata:
   year: 2018
   file-album-art: ../cover.jpg
 plans:
-  album:
-    # song:
-    #   pad: [1.745, youtube]
+  stemless:
+    song:
+      pad: [1.745, youtube]
+  stems:
     parts:
       show:
         gain:
@@ -54,5 +55,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: stemless
   ps:
     game: ps
+    plan: stemless
