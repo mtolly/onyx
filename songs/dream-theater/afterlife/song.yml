@@ -37,7 +37,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
       difficulty: 7
 targets:
   rb3-2x:

@@ -25,11 +25,11 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
       difficulty: 6
 targets:
-  # rb3:
-  #   game: rb3
+  rb3:
+    game: rb3
   rb3-2x:
     game: rb3
     2x-bass-pedal: true

@@ -39,9 +39,12 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
       difficulty: 6
 targets:
+  rb3:
+    game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true

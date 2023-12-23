@@ -25,7 +25,7 @@ parts:
         tier: 7
   drums:
     drums:
-      kicks: 2
+      kicks: both
       fix-freeform: false
       difficulty:
         tier: 7
@@ -83,6 +83,11 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 targets:
+  rb3:
+    song-id: Ridiculosous1xOnyx
+    game: rb3
+    label: (O)
+    plan: album
   rb3-2x:
     song-id: Ridiculosous2xOnyx
     game: rb3

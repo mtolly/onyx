@@ -51,7 +51,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
   bass:
     # grybo: {}
     pro-guitar:
@@ -62,6 +62,9 @@ parts:
   # guitar:
   #   grybo: {}
 targets:
+  rb3:
+    game: rb3
+    plan: jammit-stemless
   rb3-2x:
     game: rb3
     2x-bass-pedal: true

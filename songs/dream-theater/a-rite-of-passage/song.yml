@@ -80,7 +80,7 @@ parts:
   drums:
     drums:
       difficulty: 5
-      kicks: 2
+      kicks: both
   guitar:
     pro-guitar:
       tuning:

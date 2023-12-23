@@ -23,7 +23,7 @@ parts:
   drums:
     drums:
       difficulty: 5
-      kicks: 2
+      kicks: both
 targets:
   rb3-2x:
     game: rb3

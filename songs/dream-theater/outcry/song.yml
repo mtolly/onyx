@@ -19,7 +19,7 @@ parts:
   drums:
     drums:
       difficulty: 7
-      kicks: 2
+      kicks: both
   # bass:
   #   pro-guitar:
   #     tuning:

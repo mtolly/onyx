@@ -39,7 +39,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
   bass:
     pro-guitar:
       tuning:
@@ -49,6 +49,9 @@ parts:
       tones:
         file-tone-base: ../../../tones/dreametr_bass.tone2014.xml
 targets:
+  rb3:
+    game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true

@@ -44,12 +44,15 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
   # bass:
   #   grybo: {}
   # guitar:
   #   grybo: {}
 targets:
+  rb3:
+    game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
