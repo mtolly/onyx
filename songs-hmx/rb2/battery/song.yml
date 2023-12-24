@@ -13,6 +13,10 @@ metadata:
   - "2x Bass Pedal upgrade."
   preview-start: 101.7
 targets:
+  rb3:
+    game: rb3
+    label: (O)
+    plan: mogg-stemless
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
@@ -44,7 +48,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
       difficulty:
         rank: 510
   bass:

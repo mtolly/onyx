@@ -36,7 +36,7 @@ plans:
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
       difficulty:
         rank: 520
   bass:
@@ -54,6 +54,10 @@ parts:
       count: 1
       gender: male
 targets:
+  rb3:
+    game: rb3
+    label: (O)
+    plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
