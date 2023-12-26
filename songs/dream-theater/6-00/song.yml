@@ -99,6 +99,9 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    vocal: disable
+    keys: disable
+    bass: disable
   rs:
     game: rs
     arrangements:

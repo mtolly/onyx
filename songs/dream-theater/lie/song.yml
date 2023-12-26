@@ -75,6 +75,7 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    bass: disable
   rs:
     game: rs
     plan: jammit-stemless

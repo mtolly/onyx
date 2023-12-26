@@ -16,10 +16,10 @@ parts:
     drums:
       kicks: both
       difficulty: 7
-  bass:
-    pro-guitar: # WIP
-      tuning:
-        base: bass-5
+  # bass:
+  #   pro-guitar: # WIP
+  #     tuning:
+  #       base: bass-5
 plans:
   album:
     song:

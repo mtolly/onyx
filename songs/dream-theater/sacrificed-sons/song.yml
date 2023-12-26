@@ -66,6 +66,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 5
   bass:
     pro-guitar: # WIP
       tuning:
@@ -88,6 +89,8 @@ targets:
   ps:
     game: ps
     plan: album
+    bass: disable
+    guitar: disable
   rs:
     game: rs
     plan: album

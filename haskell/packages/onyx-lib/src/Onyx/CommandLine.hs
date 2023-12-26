@@ -367,8 +367,8 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
 optIndex :: [OnyxOption] -> Maybe Int
 optIndex opts = listToMaybe [ i | OptIndex i <- opts ]
 
-buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target FilePath, FilePath)
-buildTarget yamlPath opts = do
+buildTarget :: (MonadResource m) => FilePath -> FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target FilePath, FilePath)
+buildTarget yamlPath fout opts = do
   songYaml <- loadYaml yamlPath
   let _ = songYaml :: SongYaml FilePath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -378,15 +378,19 @@ buildTarget yamlPath opts = do
   target <- case HM.lookup targetName songYaml.targets of
     Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
     Just target -> return target
-  let built = case target of
-        RB3   {} -> "gen/target" </> T.unpack targetName </> "rb3con"
-        RB2   {} -> "gen/target" </> T.unpack targetName </> "rb2con"
-        PS    {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
-        GH2   {} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
+  let targetFolder = "gen/target" </> T.unpack targetName
+      built = case target of
+        RB3   {} -> targetFolder </> "rb3con"
+        RB2   {} -> targetFolder </> "rb2con"
+        PS    {} -> case map toLower $ takeExtension fout of
+          ".zip" -> targetFolder </> "ps.zip"
+          ".sng" -> targetFolder </> "ps.sng"
+          _      -> targetFolder </> "ps"
+        GH2   {} -> targetFolder </> "gh2.zip"
         GH1   {} -> undefined -- TODO
         GH3   {} -> undefined -- TODO
         GH5   {} -> undefined -- TODO
-        RS    {} -> "gen/target" </> T.unpack targetName </> "cst"
+        RS    {} -> targetFolder </> "cst"
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
   Identity built' <- shakeBuildFiles audioDirs yamlPath $ Identity built
@@ -460,8 +464,8 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \case
       (FileSongYaml, yamlPath) -> do
         out <- outputFile opts $ fatal "onyx build (yaml) requires --to, none given"
-        (_, built) <- buildTarget yamlPath opts
-        -- most targets make a file but rocksmith makes a project folder
+        (_, built) <- buildTarget yamlPath out opts
+        -- most targets make a file but rocksmith makes a project folder and CH can make a song folder
         stackIO $ Dir.doesDirectoryExist built >>= \case
           True  -> copyDirRecursive built out
           False -> Dir.copyFile built out

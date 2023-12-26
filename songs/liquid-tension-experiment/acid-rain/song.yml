@@ -36,3 +36,4 @@ targets:
     2x-bass-pedal: true
   ps:
     game: ps
+    guitar: disable

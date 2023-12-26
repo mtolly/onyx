@@ -49,3 +49,4 @@ targets:
     game: rb3
   ps:
     game: ps
+    bass: disable

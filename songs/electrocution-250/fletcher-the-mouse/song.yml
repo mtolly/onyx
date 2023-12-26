@@ -69,6 +69,8 @@ targets:
     #   Surprisingly enough, not many notes have changed at all since then: the main
     #   updates actually lie in audio, tempo map, forcing modernisation and a very few
     #   extra instruments.'
+    author: Onyxite
+    guitar: disable
   dtx:
     game: dtx
     plan: drumless

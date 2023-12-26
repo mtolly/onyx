@@ -2,7 +2,7 @@ metadata:
   title: Lifting Shadows Off a Dream
   file-include: ../../../albums/awake.yml
   track-number: 9
-  author: Onyxite, Mazegeek999
+  author: Onyxite # Onyxite, Mazegeek999
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -88,6 +88,8 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    keys: disable
+    bass: disable
   rs:
     game: rs
     plan: jammit-stemless

@@ -2,7 +2,7 @@ metadata:
   title: Caught in a Web
   file-include: ../../../albums/awake.yml
   track-number: 2
-  author: Onyxite, Mazegeek999
+  author: Onyxite # Onyxite, Mazegeek999
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -74,7 +74,8 @@ parts:
       tones:
         file-tone-base: ../../../tones/SatchBoogie_bass.tone2014.xml
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 6
   keys:
     # both by Mazegeek999
     grybo:
@@ -92,6 +93,9 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    guitar: disable
+    bass: disable
+    keys: disable
   rs:
     game: rs
     plan: jammit-stemless

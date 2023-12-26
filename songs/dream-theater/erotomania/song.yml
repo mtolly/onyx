@@ -83,6 +83,9 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    guitar: disable
+    bass: disable
+    keys: disable
   rs:
     game: rs
     plan: jammit-stemless

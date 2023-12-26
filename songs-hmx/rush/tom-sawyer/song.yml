@@ -37,12 +37,12 @@ plans:
 targets:
   rb3:
     game: rb3
-    label: (O)
+    label: (Original Version) (O)
     plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
+    label: (Original Version) (2x Bass Pedal) (O)
     plan: mogg
   ps:
     game: ps
@@ -52,7 +52,7 @@ metadata:
   preview-start: 9.9
   track-number: 1
   author: Harmonix, Onyxite
-  title: Tom Sawyer (Original Version)
+  title: Tom Sawyer
   preview-end: 39.9
   difficulty:
     rank: 248

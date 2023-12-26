@@ -37,12 +37,12 @@ plans:
 targets:
   rb3:
     game: rb3
-    label: (O)
+    label: (Original Version) (O)
     plan: mogg
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
+    label: (Original Version) (2x Bass Pedal) (O)
     plan: mogg
   ps:
     game: ps
@@ -52,7 +52,7 @@ metadata:
   preview-start: 28.131
   track-number: 4
   author: Harmonix, Onyxite
-  title: Limelight (Original Version)
+  title: Limelight
   preview-end: 58.131
   difficulty:
     rank: 220

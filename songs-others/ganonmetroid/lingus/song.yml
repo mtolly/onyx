@@ -24,9 +24,11 @@ plans:
           - '10:05'
           - pad: [4.557, album-track]
 parts:
+  # TODO difficulties
   drums:
     drums:
       kicks: 1
+      difficulty: 7
   bass:
     grybo: {}
   guitar: # guitar + horns

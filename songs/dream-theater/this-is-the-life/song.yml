@@ -58,3 +58,5 @@ targets:
   ps:
     game: ps
     plan: album
+    guitar: disable
+    bass: disable

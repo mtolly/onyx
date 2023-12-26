@@ -47,6 +47,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 2
   bass:
     pro-guitar:
       tuning:
@@ -60,6 +61,7 @@ targets:
   ps:
     game: ps
     plan: album
+    bass: disable
   rs:
     game: rs
     plan: album

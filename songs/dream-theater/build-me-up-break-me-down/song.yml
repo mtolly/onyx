@@ -24,6 +24,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 4
   # guitar:
   #   pro-guitar:
   #     tuning:

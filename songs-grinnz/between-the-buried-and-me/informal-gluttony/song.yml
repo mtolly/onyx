@@ -79,6 +79,8 @@ targets:
     song-id: 1660200158
   ps:
     game: ps
+    guitar-coop: disable
+    rhythm: disable
   rs:
     game: rs
     arrangements:

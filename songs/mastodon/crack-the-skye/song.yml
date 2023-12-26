@@ -136,3 +136,4 @@ targets:
   ps:
     game: ps
     plan: album
+    bass: disable

@@ -27,6 +27,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 6
   # guitar:
   #   pro-guitar:
   #     difficulty: 7

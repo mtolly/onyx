@@ -3,7 +3,7 @@ metadata:
   file-include: ../../../albums/liquid-tension-experiment-2.yml
   track-number: 2
   rating: Family Friendly
-  author: Onyxite, Jackeshan
+  author: Onyxite # Onyxite, Jackeshan
 global:
   autogen-theme: Feel Good Pop Rock
 audio:
@@ -25,8 +25,8 @@ parts:
     drums:
       kicks: 1
       difficulty: 3
-  guitar:
-    grybo: {} # from Jackeshan - quantized, just need to cleanup in parts
+  # guitar:
+  #   grybo: {} # from Jackeshan - quantized, just need to cleanup in parts
 targets:
   rb3:
     game: rb3

@@ -2,7 +2,7 @@ metadata:
   title: The Looking Glass
   file-include: ../../../albums/dream-theater.yml
   track-number: 3
-  author: Onyxite, FSG, ErupTi0n
+  author: Onyxite # Onyxite, FSG, ErupTi0n
 audio:
   album-track:
     md5: 30e37fbc73a1e41eed3e2cad45b835c4
@@ -37,6 +37,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 5
   guitar:
     ghl: {} # by FreeStyleGames, transcribed/edited by ErupTi0n
   bass:
@@ -54,3 +55,5 @@ targets:
   ps:
     game: ps
     plan: hdtracks
+    guitar: disable
+    bass: disable

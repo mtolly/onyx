@@ -161,6 +161,8 @@ targets:
   ps:
     game: ps
     plan: album
+    keys: disable
+    bass: disable
   rs:
     game: rs
     plan: album

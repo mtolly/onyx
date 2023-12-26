@@ -49,6 +49,7 @@ plans:
     song:
       without: [bass, jammit-track]
 parts:
+  # TODO difficulties
   drums:
     drums: # seil
       kicks: 1

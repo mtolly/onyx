@@ -75,3 +75,4 @@ targets:
   ps:
     game: ps
     plan: album
+    keys: disable

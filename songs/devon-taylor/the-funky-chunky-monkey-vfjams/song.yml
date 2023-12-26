@@ -21,6 +21,7 @@ parts:
   drums:
     drums:
       kicks: 1
+      difficulty: 7
 plans:
   isolated:
     song:

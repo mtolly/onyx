@@ -3,7 +3,7 @@ metadata:
   artist: CHON
   year: 2015
   track-number: 2
-  author: Onyxite, XEntombmentX
+  author: Onyxite # Onyxite, XEntombmentX
   genre: prog
   subgenre: progrock
   album: Grow
@@ -37,3 +37,4 @@ targets:
     game: rb3
   ps:
     game: ps
+    guitar: disable

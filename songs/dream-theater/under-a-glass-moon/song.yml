@@ -53,6 +53,7 @@ parts:
   drums:
     drums:
       kicks: both
+      difficulty: 5
   bass:
     pro-guitar:
       tuning:
@@ -67,6 +68,7 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    bass: disable
   rs:
     game: rs
     plan: jammit-stemless

@@ -25,9 +25,10 @@ parts:
       kicks: both
       difficulty: 6
   guitar:
-    grybo: {}
-  keys:
-    pro-keys: {}
+    grybo:
+      difficulty: 6
+  # keys:
+  #   pro-keys: {}
 targets:
   rb3-2x:
     game: rb3

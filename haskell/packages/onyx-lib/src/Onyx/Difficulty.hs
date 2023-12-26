@@ -98,6 +98,7 @@ difficultyRB3 rb3 songYaml = let
   rb3BandRank      = case songYaml.metadata.difficulty of
     Tier t -> tierToRank bandDiffMap t
     Rank r -> r
+    -- TODO if no band difficulty, should default to average of instrument difficulties
 
   rb3DrumsTier     = rankToTier drumsDiffMap     rb3DrumsRank
   rb3BassTier      = rankToTier bassDiffMap      rb3BassRank
