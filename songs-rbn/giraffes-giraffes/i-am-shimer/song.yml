@@ -49,15 +49,20 @@ targets:
   rb3:
     game: rb3
     # file-milo: lipsync.milo_xbox
-    label: (O)
     plan: mogg
+    # title+space+label is 99 chars
+    title: "I am S/H(im)e[r] as You am S/H(im)e[r] as You are Me and We am I and I are
+    All Our Together"
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     # file-milo: lipsync.milo_xbox
-    label: (2x)
-    # (default 2x label goes over 100 chars, which fails magma)
     plan: mogg
+    # title+space+label is 100 chars
+    title: "I am S/H(im)e[r] as You am S/H(im)e[r] as You are Me and We am I and I are
+    All Our Together"
+    label: (2x)
   ps:
     game: ps
     plan: mogg-stemless
@@ -68,8 +73,8 @@ metadata:
   album: More Skin with Milk-Mouth
   year: 2007
   subgenre: mathrock
-  title: I am S/H(im)e[r] as You am S/H(im)e[r] as You are Me and We am I and I are
-    All Our Together
+  title: "I am S/H(im)e[r] as You am S/H(im)e[r] as You are Me and We am I and I are
+    All Our Together: Our Collective Consciousness' Psychogenic Fugue"
   preview-end: 8:51.000
   genre: indierock
   difficulty:

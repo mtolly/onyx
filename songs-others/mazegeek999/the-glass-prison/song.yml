@@ -42,19 +42,35 @@ plans:
       mix:
       - countin
       - drop: [7.366, album-track]
+  dev:
+    song:
+      drop: [7.366, album-track]
+    parts:
+      bass:
+        drop: [7.366, channels: [[0, 1], stems]]
+      drums:
+        drop: [7.366, channels: [[2, 3], stems]]
+      vocal:
+        drop: [7.366, channels: [[4, 5], stems]]
+      other:
+        drop: [7.366, channels: [[6, 7], stems]]
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     song-id: 1684700120
     game: rb3
     2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
+    plan: album
   rs:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+    plan: album
 metadata:
   rating: Supervision Recommended
   preview-start: 5:56.000
@@ -65,7 +81,7 @@ metadata:
   album: Six Degrees of Inner Turbulence
   year: 2002
   subgenre: progrock
-  author: mazegeek999, Onyxite
+  author: Mazegeek999, Onyxite
   title: The Glass Prison
   preview-end: 6:26.000
   genre: prog
@@ -78,6 +94,11 @@ audio:
   album-track:
     md5: ecd81eb9497bc5e4689e6f43582fa8b7
     frames: 36724716
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:

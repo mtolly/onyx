@@ -112,6 +112,7 @@ getTargetMetadata songYaml target = metadata
   , previewEnd   = override.previewEnd <|> metadata.previewEnd
   -- , languages    :: [T.Text]
   -- , difficulty   :: Difficulty -- TODO difficulty should be a Maybe, for other cases as well
+  , loadingPhrase = override.loadingPhrase <|> metadata.loadingPhrase
   } where metadata = songYaml.metadata
           override = (targetCommon target).override
 
