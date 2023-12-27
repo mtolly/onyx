@@ -81,4 +81,4 @@ targets:
     game: ps
     loading-phrase: "Part of Onyxite's Jazz Pack 4. Recommended 5-fret part: Guitar (sax), has the sax solo. Keys (brass) has the call/response soli."
     plan: album
-    big-rock-ending: false
+    big-rock-ending: false # drums charted

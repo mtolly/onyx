@@ -51,3 +51,4 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
+    big-rock-ending: false # drums charted

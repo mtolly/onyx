@@ -122,6 +122,7 @@ targets:
   ps:
     game: ps
     plan: album
+    big-rock-ending: false # drums charted
   rs:
     game: rs
     plan: album

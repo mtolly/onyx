@@ -37,3 +37,4 @@ targets:
     2x-bass-pedal: true
   ps:
     game: ps
+    big-rock-ending: false # drums charted

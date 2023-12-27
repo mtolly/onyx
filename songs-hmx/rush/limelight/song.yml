@@ -48,6 +48,7 @@ targets:
     game: ps
     plan: mogg-stemless
     loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band DLC by Harmonix."
+    big-rock-ending: true # drums not charted
 metadata:
   rating: FamilyFriendly
   preview-start: 28.131

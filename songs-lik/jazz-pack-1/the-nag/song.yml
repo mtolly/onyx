@@ -61,3 +61,4 @@ targets:
   ps:
     game: ps
     loading-phrase: "Original drum chart by TheLieInKing; other instruments and edits by Onyxite."
+    big-rock-ending: true # drums not charted

@@ -192,4 +192,5 @@ targets:
   ps:
     game: ps
     plan: album
+    big-rock-ending: false # drums charted, marked as solo
     loading-phrase: "Original drum chart by Grinnz, Pro Keys and QA by Mazegeek999, other instruments and final compilation by Onyxite."

@@ -137,12 +137,4 @@ targets:
   ps:
     game: ps
     plan: jammit-stemless
-    big-rock-ending: false
-  ps-tourney:
-    game: ps
-    plan: jammit-stemless
-    guitar: none
-    bass: none
-    keys: none
-    big-rock-ending: false
-    loading-phrase: "Edited/updated chart for tournament use"
+    big-rock-ending: false # drums charted

@@ -90,3 +90,4 @@ targets:
   ps:
     game: ps
     plan: album
+    big-rock-ending: true # drums not charted
