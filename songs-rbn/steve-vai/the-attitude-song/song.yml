@@ -36,6 +36,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart by Onyxite, original chart from Rock Band Network by WaveGroup."
 metadata:
   preview-start: 18
   file-album-art: cover.png_xbox

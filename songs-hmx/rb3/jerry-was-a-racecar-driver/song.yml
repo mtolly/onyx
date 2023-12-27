@@ -63,6 +63,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band 3 by Harmonix."
 metadata:
   rating: SupervisionRecommended
   preview-start: 28.235
@@ -71,7 +72,7 @@ metadata:
   key: A major
   album: Sailing the Seas of Cheese
   year: 1991
-  author: Harmonix
+  author: Harmonix, Onyxite
   title: Jerry Was a Race Car Driver
   preview-end: 58.235
   genre: alternative

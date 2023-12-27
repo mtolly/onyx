@@ -38,9 +38,9 @@ parts:
     grybo:
       difficulty: 7
     # WIP
-    pro-guitar:
-      tuning:
-        base: bass-5
+    # pro-guitar:
+    #   tuning:
+    #     base: bass-5
   guitar:
     grybo:
       difficulty: 7
@@ -59,3 +59,4 @@ targets:
     label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    loading-phrase: "Edited drums and split guitar/keys by Onyxite, original chart from Rock Band DLC by Harmonix."

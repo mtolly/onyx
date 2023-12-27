@@ -46,6 +46,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart by Onyxite, original chart from Rock Band DLC by Harmonix, harmony vocals by RBHP."
 metadata:
   rating: Supervision Recommended
   preview-start: 58.8

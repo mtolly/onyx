@@ -58,6 +58,7 @@ targets:
     game: ps
     plan: album
     bass: disable
+    loading-phrase: "Original chart by CyclopsDragon; edited drums by Onyxite."
   rs:
     game: rs
     plan: album

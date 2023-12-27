@@ -40,3 +40,4 @@ targets:
     label: (O)
   ps:
     game: ps
+    loading-phrase: "Edited drum chart by Onyxite, original chart (briefly) from Rock Band Network by Mick Larkins."

@@ -192,6 +192,4 @@ targets:
   ps:
     game: ps
     plan: album
-  ps-stems:
-    game: ps
-    plan: release
+    loading-phrase: "Original drum chart by Grinnz, Pro Keys and QA by Mazegeek999, other instruments and final compilation by Onyxite."

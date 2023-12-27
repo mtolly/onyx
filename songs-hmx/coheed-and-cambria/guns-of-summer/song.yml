@@ -51,12 +51,7 @@ targets:
   ps:
     game: ps
     plan: mogg-no-stems
-  ps-tourney:
-    game: ps
-    plan: mogg-no-stems
-    guitar: none
-    bass: none
-    loading-phrase: "Edited/updated chart for tournament use"
+    loading-phrase: "Edited drum chart by Onyxite. Original Rock Band DLC by Harmonix, harmony vocals upgrade by Espher."
   rs:
     game: rs
     arrangements:

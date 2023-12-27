@@ -66,6 +66,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drums, Pro Keys, and tempo map by Onyxite; original chart from Rock Band 3 by Harmonix."
 metadata:
   rating: Supervision Recommended
   preview-start: 46.486

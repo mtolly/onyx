@@ -6,7 +6,7 @@ metadata:
   file-album-art: shouldertotheplow_keep.png_xbox
   genre: metal
   track-number: 5
-  author: Harmonix
+  author: Harmonix, Onyxite
   difficulty:
     rank: 510
   preview-start: 56.9
@@ -66,3 +66,4 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band 2 by Harmonix."

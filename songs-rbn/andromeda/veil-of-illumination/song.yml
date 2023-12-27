@@ -66,6 +66,7 @@ targets:
     game: ps
     plan: stemless
     drums: onyxite-2x
+    loading-phrase: "Edited drum chart and glued together parts by Onyxite, original charts from Rock Band Network by Rhythm Authors."
 metadata:
   preview-start: 1:37.000
   file-album-art: ../../../covers/the-immunity-zone.png_xbox

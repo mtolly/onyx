@@ -4,7 +4,7 @@ metadata:
   album: Master of Puppets
   year: 1986
   track-number: 1
-  author: Harmonix
+  author: Harmonix, Onyxite
   file-album-art: battery_keep.png_xbox
   genre: metal
   difficulty:
@@ -25,6 +25,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band 2 by Harmonix."
 plans:
   mogg:
     file-mogg: audio.mogg

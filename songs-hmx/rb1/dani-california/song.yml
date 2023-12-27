@@ -48,13 +48,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
-  ps-tourney:
-    game: ps
-    plan: mogg-stemless
-    guitar: none
-    bass: none
-    vocal: none
-    loading-phrase: "Edited/updated chart for tournament use"
+    loading-phrase: "Edited drum chart by Onyxite, original chart from Rock Band by Harmonix, harmony vocals by Espher."
 metadata:
   rating: Supervision Recommended
   preview-start: 39.45

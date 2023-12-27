@@ -62,6 +62,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and other minor fixes by Onyxite, original chart from C3 by Nightmare Lyra and Mathespio."
 metadata:
   rating: FamilyFriendly
   preview-start: 45.005
@@ -73,7 +74,7 @@ metadata:
   album: Babymetal
   year: 2014
   subgenre: core
-  author: Nightmare Lyre & Mathespio
+  author: Nightmare Lyre, Mathespio, Onyxite
   title: Megitsune
   preview-end: 1:15.005
   genre: metal

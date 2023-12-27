@@ -80,6 +80,7 @@ targets:
     game: ps
     guitar-coop: disable
     rhythm: disable
+    loading-phrase: "Drums by Grinnz, other instruments and final edits/compilation by Onyxite."
   rs:
     game: rs
     arrangements:

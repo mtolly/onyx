@@ -37,6 +37,7 @@ targets:
     label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    loading-phrase: "Guitar and original drum chart by CyclopsDragon; bass and drum edits by Onyxite."
 metadata:
   preview-start: 1:54.000
   file-album-art: cover.png_xbox

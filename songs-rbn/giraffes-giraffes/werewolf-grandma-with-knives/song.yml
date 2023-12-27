@@ -44,6 +44,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band Network by Fairwood Studios."
 metadata:
   preview-start: 3:01.000
   file-album-art: cover.png_xbox

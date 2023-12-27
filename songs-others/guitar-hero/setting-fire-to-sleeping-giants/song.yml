@@ -46,6 +46,7 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Edited drum chart by Onyxite, original chart from Guitar Hero: Warriors of Rock by Neversoft."
 metadata:
   file-album-art: album.jpg
   album: Miss Machine

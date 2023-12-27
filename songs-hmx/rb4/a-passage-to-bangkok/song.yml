@@ -37,6 +37,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Minor drum edits by Onyxite, original chart from Rock Band 4 by Harmonix."
 metadata:
   preview-start: 1:04.512
   file-album-art: album.png

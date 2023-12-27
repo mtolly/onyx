@@ -75,3 +75,4 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart by Onyxite, original chart from C3 by Nightmare Lyra and Gigakoops."

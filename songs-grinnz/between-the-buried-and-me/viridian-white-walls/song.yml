@@ -68,6 +68,7 @@ targets:
     song-id: 1660200166
   ps:
     game: ps
+    loading-phrase: "Drums by Grinnz, guitar by Moellertechnique, other instruments and final edits/compilation by Onyxite."
   rs:
     game: rs
     arrangements:

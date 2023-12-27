@@ -102,6 +102,7 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Original chart by CyclopsDragon, minor edits to tempo map and drums by Onyxite."
 metadata:
   preview-start: 15
   file-album-art: cover.png_xbox

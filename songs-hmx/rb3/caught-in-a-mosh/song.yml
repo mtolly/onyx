@@ -71,6 +71,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band 3 by Harmonix."
 metadata:
   rating: SupervisionRecommended
   preview-start: 1:07.303

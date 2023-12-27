@@ -84,10 +84,4 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
-  ps-tourney:
-    game: ps
-    plan: mogg-stemless
-    guitar: none
-    bass: none
-    keys: none
-    loading-phrase: "Edited/updated chart for tournament use"
+    loading-phrase: "Edited drum chart by Onyxite, original chart from Rock Band Network by ThatAuthoringGroup."

@@ -88,6 +88,7 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Drums by Grinnz, first half original guitar/vocals by Harmonix, second half guitar by Guyshenig, harmony vocals by Espher, other instruments and final edits/compilation by Onyxite."
   rs:
     game: rs
     plan: album

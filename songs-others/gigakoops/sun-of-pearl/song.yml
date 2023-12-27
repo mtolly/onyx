@@ -66,6 +66,7 @@ targets:
   ps:
     game: ps
     plan: sheet-music
+    loading-phrase: "Edited drum chart by Onyxite, original chart from C3 by Gigakoops and Nightmare Lyra."
   rs:
     game: rs
     arrangements:

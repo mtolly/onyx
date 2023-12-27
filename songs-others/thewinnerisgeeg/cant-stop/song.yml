@@ -37,6 +37,7 @@ targets:
     label: (O)
   ps:
     game: ps
+    loading-phrase: "Edited drum chart by Onyxite, original chart by thewinnerisgeeg and Jusey1."
 metadata:
   file-album-art: cover.png_xbox
   languages:

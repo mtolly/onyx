@@ -97,6 +97,7 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band DLC by Harmonix."
   rs:
     game: rs
     label: (O) # distinguish from ODLC

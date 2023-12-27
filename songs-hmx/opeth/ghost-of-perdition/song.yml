@@ -75,6 +75,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
+    loading-phrase: "Slightly edited drum chart and 2x upgrade by Onyxite, originally Rock Band DLC by Harmonix."
 metadata:
   rating: SupervisionRecommended
   preview-start: 2:00.806
@@ -83,7 +84,7 @@ metadata:
   key: D minor
   album: Ghost Reveries
   year: 2005
-  author: Harmonix
+  author: Harmonix, Onyxite
   title: Ghost of Perdition
   preview-end: 2:30.806
   genre: prog

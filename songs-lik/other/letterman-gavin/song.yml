@@ -103,3 +103,4 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Original drum chart by TheLieInKing; edits and 2x upgrade by Onyxite."

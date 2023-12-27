@@ -91,6 +91,7 @@ targets:
   ps:
     game: ps
     plan: album
+    loading-phrase: "Original drum chart by TheLieInKing; other instruments and edits by Onyxite."
   rs:
     game: rs
     arrangements:
