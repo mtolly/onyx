@@ -140,12 +140,27 @@ rbRules buildInfo dir rb3 mrb2 = do
 
   let pkg :: (IsString a) => a
       pkg = fromString $ T.unpack $ makeShortName (hashRB3 songYaml rb3) songYaml
+
+      uneditedDiffs = difficultyRB3 rb3 songYaml
+
   (planName, plan) <- case getPlan rb3.common.plan songYaml of
     Nothing               -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
     Just pair@(planName, plan) -> return $ case plan of
-      MoggPlan info -> if False -- TODO do this iff an instrument would have no channels
-        then (planName, StandardPlan $ moggToStandardPlan planName info)
-        else pair
+      MoggPlan info -> let
+        instrumentHasChannels inst = maybe False (not . null) $ HM.lookup inst info.parts.getParts
+        allInstrumentsHaveChannels = and
+          [ uneditedDiffs.rb3DrumsRank  == 0 || instrumentHasChannels F.FlexDrums
+          , uneditedDiffs.rb3BassRank   == 0 || instrumentHasChannels F.FlexBass
+          , uneditedDiffs.rb3GuitarRank == 0 || instrumentHasChannels F.FlexGuitar
+          , uneditedDiffs.rb3VocalRank  == 0 || instrumentHasChannels F.FlexVocal
+          , uneditedDiffs.rb3KeysRank   == 0 || instrumentHasChannels F.FlexKeys
+          ]
+        in if allInstrumentsHaveChannels
+          && maybe True (== 0) rb3.common.speed
+          && isNothing rb3.common.start
+          && isNothing rb3.common.end
+          then pair
+          else (planName, StandardPlan $ moggToStandardPlan planName info)
       StandardPlan _ -> pair
   let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 

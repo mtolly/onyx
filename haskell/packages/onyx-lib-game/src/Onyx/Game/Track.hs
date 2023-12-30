@@ -206,7 +206,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     drumSrc   = maybe mempty F.onyxPartDrums   $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
     drumSrc2x = maybe mempty F.onyxPartDrums2x $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
     thisSrc = if pdrums.mode == DrumsTrue && D.nullDrums drumSrc && D.nullDrums drumSrc2x
-      then maybe mempty (snd . TD.convertTrueDrums False tempos . F.onyxPartTrueDrums)
+      then maybe mempty (snd . TD.convertTrueDrums tempos . F.onyxPartTrueDrums)
         $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
       else case diff of
         Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x

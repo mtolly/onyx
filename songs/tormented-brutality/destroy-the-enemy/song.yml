@@ -15,10 +15,17 @@ parts:
       kicks: both
       mode: 'true'
       difficulty: 7
+  # guitar:
+  #   grybo: {} # WIP
 audio:
   album-track: # bandcamp
     md5: 795fb38033a6e809873c6e84e7c8f232
     frames: 6849343
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   china:
     file-path: ../../../sound/china-cymbal.wav
   countin:
@@ -29,11 +36,26 @@ plans:
       mix:
       - countin
       - pad: [2.611, album-track]
+  dev:
+    song:
+      pad: [2.611, album-track]
+    parts:
+      bass:
+        pad: [2.611, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.611, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.611, channels: [[4, 5], stems]]
+      other:
+        pad: [2.611, channels: [[6, 7], stems]]
 targets:
   rb3:
     game: rb3
+    plan: album
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: album
   ps:
     game: ps
+    plan: album

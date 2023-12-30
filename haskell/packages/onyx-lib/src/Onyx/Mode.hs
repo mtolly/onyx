@@ -164,10 +164,10 @@ type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 nativeDrums :: Part f -> Maybe BuildDrums
 nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
-  src1x   =                                               F.onyxPartDrums       input.part
-  src2x   =                                               F.onyxPartDrums2x     input.part
-  srcReal = D.psRealToPro                               $ F.onyxPartRealDrumsPS input.part
-  srcTrue = snd $ TD.convertTrueDrums False input.tempo $ F.onyxPartTrueDrums   input.part
+  src1x   =                                         F.onyxPartDrums       input.part
+  src2x   =                                         F.onyxPartDrums2x     input.part
+  srcReal = D.psRealToPro                         $ F.onyxPartRealDrumsPS input.part
+  srcTrue = snd $ TD.convertTrueDrums input.tempo $ F.onyxPartTrueDrums   input.part
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]

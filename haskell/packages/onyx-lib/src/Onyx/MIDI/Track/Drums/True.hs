@@ -10,19 +10,17 @@
 {-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Drums.True where
 
-import           Control.Monad                    (guard, void, when)
+import           Control.Monad                    (guard, void)
 import           Control.Monad.Codec
-import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer       (execWriter, tell)
-import           Data.Bifunctor                   (first, second)
-import           Data.Either                      (lefts, rights)
+import           Data.Bifunctor                   (first)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (nubOrd)
+import           Data.List.Extra                  (nubOrd, sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
-                                                   listToMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
@@ -300,6 +298,7 @@ data TrueDrumNote a = TrueDrumNote
   , tdn_type     :: TrueGemType
   , tdn_velocity :: DrumVelocity
   , tdn_limb     :: Maybe D.Hand -- hand, or foot
+  , tdn_basic    :: TrueBasic
   , tdn_extra    :: a
   } deriving (Eq, Ord, Show, Functor)
 
@@ -323,7 +322,7 @@ getDifficulty diff trk = let
     hihatType  = fromMaybe GemNormal $ listToMaybe $ filter (`elem` [GemHihatOpen, GemHihatClosed]) types
     drumType   = fromMaybe GemNormal $ listToMaybe $ filter (== GemRim) types
     cymbalType = fromMaybe GemNormal $ listToMaybe $ filter (== GemCymbalChoke) types
-    outputNotKick = flip fmap notKick $ \(gem, _, vel) -> TrueDrumNote
+    outputNotKick = flip fmap notKick $ \(gem, basic, vel) -> TrueDrumNote
       { tdn_gem      = gem
       , tdn_type     = case gem of
         Hihat     -> hihatType
@@ -340,6 +339,7 @@ getDifficulty diff trk = let
         Kick      -> GemNormal
       , tdn_velocity = vel
       , tdn_limb     = Nothing -- TODO
+      , tdn_basic = basic
       , tdn_extra    = if flam && gem /= HihatFoot then Flam else NotFlam
       }
     outputKick = case (kick, kick2) of
@@ -348,6 +348,7 @@ getDifficulty diff trk = let
         , tdn_type     = GemNormal
         , tdn_velocity = VelocityNormal
         , tdn_limb     = Just $ fromMaybe D.LH foot
+        , tdn_basic    = TBDefault
         , tdn_extra    = NotFlam
         }
       _          -> flip fmap kick $ \(gem, _, vel) -> TrueDrumNote
@@ -355,6 +356,7 @@ getDifficulty diff trk = let
         , tdn_type     = GemNormal
         , tdn_velocity = vel
         , tdn_limb     = Just $ fromMaybe D.RH foot
+        , tdn_basic    = TBDefault
         , tdn_extra    = if kick2 then Flam else NotFlam
         }
     in outputNotKick <> outputKick
@@ -393,6 +395,7 @@ addExplicitStomps threshold trk = let
     , tdn_type     = GemNormal
     , tdn_velocity = VelocityNormal
     , tdn_limb     = Nothing
+    , tdn_basic    = TBDefault
     , tdn_extra    = NotFlam
     }
   go lastOpen = \case
@@ -405,68 +408,74 @@ addExplicitStomps threshold trk = let
 
 -- TODO this does not handle kick flams right!
 -- TODO this does not translate or warn about roll/swell lanes!
-trueDrumsToPSWithWarnings
+trueDrumsToRBWithWarnings
   :: U.TempoMap
   -> RTB.T U.Beats (TrueDrumNote FlamStatus)
-  -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.RealDrum, DrumVelocity))
-trueDrumsToPSWithWarnings tmap input = let
+  -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.Gem D.ProType, DrumVelocity))
+trueDrumsToRBWithWarnings tmap input = let
   noFlams = splitFlams tmap input
   allResults = RTB.flatten $ fmap eachInstant $ RTB.collectCoincident noFlams
   warnings = RTB.mapMaybe (either Just (const Nothing)) allResults
   results = RTB.mapMaybe (either (const Nothing) Just) allResults
-  eachInstant :: [TrueDrumNote ()] -> [Either T.Text (D.RealDrum, DrumVelocity)]
+  eachInstant :: [TrueDrumNote ()] -> [Either T.Text (D.Gem D.ProType, DrumVelocity)]
   eachInstant tdns = let
-    hands = filter (\tdn -> tdn.tdn_gem /= Kick && tdn.tdn_gem /= HihatFoot) tdns
-    warnTooMany = guard (not $ null $ drop 2 hands) >> ["More than 2 hand-played gems at this position!"]
-    pushCrashLBlue = any (\other -> elem other.tdn_gem [Hihat, HihatFoot, Tom1]) tdns
-    hasCrashL = any (\other -> other.tdn_gem == CrashL) tdns
-    blueCymbal = any (\other -> other.tdn_gem == Ride) tdns || (hasCrashL && pushCrashLBlue)
-    instantResults = tdns >>= \tdn -> case tdn.tdn_gem of
-      Snare     -> [Right (Right D.Red, tdn.tdn_velocity)]
-      Hihat     -> let
-        hh = case tdn.tdn_type of
-          GemHihatClosed -> Left D.HHSizzle
-          GemHihatOpen   -> Left D.HHOpen
-          _              -> Right $ D.Pro D.Yellow D.Cymbal
-        in [Right (hh, tdn.tdn_velocity)]
-      CrashL    -> if pushCrashLBlue
-        then
-          [ Right (Right $ D.Pro D.Blue D.Cymbal, tdn.tdn_velocity)
-          , Left "Left crash moved from yellow to blue due to conflict with other yellow gem"
+    handsBeforeMoving = flip mapMaybe tdns $ \tdn -> let
+      defaultTo maybeYBG pro = Just $ let
+        maybeYBG' = case tdn.tdn_basic of
+          TBDefault -> maybeYBG
+          TBRed     -> Nothing
+          TBYellow  -> Just D.Yellow
+          TBBlue    -> Just D.Blue
+          TBGreen   -> Just D.Green
+        gem = case maybeYBG' of
+          Nothing       -> D.Red
+          Just D.Yellow -> D.Pro D.Yellow pro
+          Just D.Blue   -> D.Pro D.Blue   pro
+          Just D.Green  -> D.Pro D.Green  pro
+        in (gem, tdn.tdn_velocity)
+      in case tdn.tdn_gem of
+        Snare     -> defaultTo Nothing         D.Tom
+        Hihat     -> defaultTo (Just D.Yellow) D.Cymbal
+        CrashL    -> defaultTo (Just D.Yellow) D.Cymbal
+        Tom1      -> defaultTo (Just D.Yellow) D.Tom
+        Tom2      -> defaultTo (Just D.Blue  ) D.Tom
+        Tom3      -> defaultTo (Just D.Green ) D.Tom
+        Ride      -> defaultTo (Just D.Blue  ) D.Cymbal
+        CrashR    -> defaultTo (Just D.Green ) D.Cymbal
+        Kick      -> Nothing
+        HihatFoot -> Nothing
+    kicks = flip mapMaybe tdns $ \tdn -> case tdn.tdn_gem of
+      Kick -> Just (D.Kick, tdn.tdn_velocity)
+      _    -> Nothing
+    warnTooMany = guard (not $ null $ drop 2 handsBeforeMoving) >> ["More than 2 hand-played gems at this position!"]
+    sortedHands = flip sortOn handsBeforeMoving $ \(gem, _vel) -> case gem of
+      D.Red            -> 0 :: Int
+      D.Pro _ D.Cymbal -> 1
+      D.Pro _ D.Tom    -> 2
+      _                -> 3
+    hands = case sortedHands of
+      firstHand : secondHand : _ -> Right firstHand : case (firstHand, secondHand) of
+        ((D.Red, _), (D.Red, v2)) ->
+          [ Right (D.Pro D.Yellow D.Tom, v2)
           ]
-        else [Right (Right $ D.Pro D.Yellow D.Cymbal, tdn.tdn_velocity)]
-      Tom1      -> if any (\other -> elem other.tdn_gem [Hihat, HihatFoot]) tdns
-        then
-          [ Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)
-          , Left "Tom 1 moved from yellow to blue due to conflict with yellow cymbal"
+        ((D.Pro D.Yellow _, _), (D.Pro D.Yellow typ2, v2)) ->
+          [ Right (D.Pro D.Blue typ2, v2)
+          , Left "Conflict on yellow, moving one to blue"
           ]
-        else [Right (Right $ D.Pro D.Yellow D.Tom, tdn.tdn_velocity)]
-      Tom2      -> if blueCymbal
-        then
-          [ Right (Right $ D.Pro D.Yellow D.Tom, tdn.tdn_velocity)
-          , Left "Tom 2 moved from blue to yellow due to conflict with blue cymbal"
+        ((D.Pro D.Blue _, _), (D.Pro D.Blue typ2, v2)) ->
+          [ Right (D.Pro D.Yellow typ2, v2)
+          , Left "Conflict on blue, moving one to yellow"
           ]
-        else [Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)]
-      Tom3      -> if any (\other -> other.tdn_gem == CrashR) tdns
-        then
-          [ Right (Right $ D.Pro D.Blue D.Tom, tdn.tdn_velocity)
-          , Left "Tom 3 moved from green to blue due to conflict with green cymbal"
+        ((D.Pro D.Green _, _), (D.Pro D.Green typ2, v2)) ->
+          [ Right (D.Pro D.Blue typ2, v2)
+          , Left "Conflict on green, moving one to blue"
           ]
-        else [Right (Right $ D.Pro D.Green D.Tom, tdn.tdn_velocity)]
-      Ride      -> if hasCrashL && pushCrashLBlue
-        then
-          [ Right (Right $ D.Pro D.Green D.Cymbal, tdn.tdn_velocity)
-          , Left "Ride moved from blue to green due to conflict with left crash on blue"
-          ]
-        else [Right (Right $ D.Pro D.Blue D.Cymbal, tdn.tdn_velocity)]
-      CrashR    -> [Right (Right $ D.Pro D.Green D.Cymbal, tdn.tdn_velocity)]
-      Kick      -> [Right (Right D.Kick, tdn.tdn_velocity)]
-      HihatFoot -> if any (\other -> other.tdn_gem == Hihat) tdns
-        then [Left "Dropping hihat foot gem due to hihat hand gem"]
-        else [Right (Left D.HHPedal, tdn.tdn_velocity)]
+        _ -> [Right secondHand]
+      _ -> map Right sortedHands
     in concat
-      [ Left <$> warnTooMany
-      , instantResults
+      [ hands
+      , map Right kicks
+      , map Left warnTooMany
       ]
   flamWarnings = flip RTB.mapMaybe input $ \tdn -> case tdn.tdn_extra of
     Flam    -> Just "Flam note split into two notes"
@@ -480,7 +489,7 @@ trueDrumsToPSWithWarnings tmap input = let
       case Set.lookupLT (posn + conflictWindow) hihatPositions of
         Nothing -> False
         Just t  -> (posn NNC.-| conflictWindow) < t
-    warningText = "Left crash near hihats; check whether this should be on yellow or blue"
+    warningText = "Left crash near hihats, check color"
     in RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (, warningText) $ Set.toList hihatCrashLConflicts
   in (RTB.merge warnings $ RTB.merge flamWarnings leftCrashWarnings, results)
 
@@ -512,29 +521,11 @@ splitFlams tmap tdns = let
     in (t, mainNotes) : [ (flamTime, flamNotes) | not $ null flamNotes ]
   in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList step3
 
-trueDrumsToRBWithWarnings
-  :: U.TempoMap
-  -> RTB.T U.Beats (TrueDrumNote FlamStatus)
-  -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.Gem D.ProType, DrumVelocity))
-trueDrumsToRBWithWarnings tmap gems = let
-  (warnings, real) = trueDrumsToPSWithWarnings tmap $ RTB.filter (\note -> tdn_gem note /= HihatFoot) gems
-  in (warnings,) $ flip fmap real $ \(gem, vel) -> let
-    gem' = case gem of
-      Left ps -> case ps of
-        D.Rimshot  -> D.Red
-        D.HHOpen   -> D.Pro D.Yellow D.Cymbal
-        D.HHSizzle -> D.Pro D.Yellow D.Cymbal
-        D.HHPedal  -> D.Pro D.Yellow D.Cymbal
-      Right rb -> rb
-    in (gem', vel)
-
-convertTrueDrums :: Bool -> U.TempoMap -> TrueDrumTrack U.Beats -> (RTB.T U.Beats T.Text, D.DrumTrack U.Beats)
-convertTrueDrums isPS tmap trk = let
+convertTrueDrums :: U.TempoMap -> TrueDrumTrack U.Beats -> (RTB.T U.Beats T.Text, D.DrumTrack U.Beats)
+convertTrueDrums tmap trk = let
   expert = getDifficulty (Just Expert) trk
-  (warnings, ps) = if isPS
-    then trueDrumsToPSWithWarnings tmap expert
-    else case trueDrumsToRBWithWarnings tmap expert of
-      (ws, rb) -> (ws, fmap (first Right) rb)
+  (warnings, ps) = case trueDrumsToRBWithWarnings tmap expert of
+    (ws, rb) -> (ws, fmap (first Right) rb)
   encoded = D.encodePSReal (1/8) Expert ps
   in (warnings, encoded
     { D.drumOverdrive  = tdOverdrive trk
@@ -574,22 +565,30 @@ trueDrumsToAnimation closeTime tdns = let
 animationToTrueDrums :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (TrueDrumNote (), D.Hand)
 animationToTrueDrums anims = RTB.flatten $ flip fmap anims $ \case
   -- TODO need to handle two hits on same drum and turn into flam
-  D.Tom1       hand -> pure (TrueDrumNote Tom1   GemNormal      VelocityNormal Nothing (), hand)
-  D.Tom2       hand -> pure (TrueDrumNote Tom2   GemNormal      VelocityNormal Nothing (), hand)
-  D.FloorTom   hand -> pure (TrueDrumNote Tom3   GemNormal      VelocityNormal Nothing (), hand)
-  D.Hihat      hand -> pure (TrueDrumNote Hihat  GemNormal      VelocityNormal Nothing (), hand)
-  D.Snare  hit hand -> pure (TrueDrumNote Snare  GemNormal      (fromHit hit)  Nothing (), hand)
-  D.Ride       hand -> pure (TrueDrumNote Ride   GemNormal      VelocityNormal Nothing (), hand)
-  D.Crash1 hit hand -> pure (TrueDrumNote CrashL GemNormal      (fromHit hit)  Nothing (), hand)
-  D.Crash2 hit hand -> pure (TrueDrumNote CrashR GemNormal      (fromHit hit)  Nothing (), hand)
-  D.KickRF          -> pure (TrueDrumNote Kick   GemNormal      VelocityNormal Nothing (), D.RH)
-  D.Crash1RHChokeLH -> pure (TrueDrumNote CrashL GemCymbalChoke VelocityNormal Nothing (), D.RH)
-  D.Crash2RHChokeLH -> pure (TrueDrumNote CrashR GemCymbalChoke VelocityNormal Nothing (), D.RH)
+  D.Tom1       hand -> pure (note Tom1   GemNormal      VelocityNormal, hand)
+  D.Tom2       hand -> pure (note Tom2   GemNormal      VelocityNormal, hand)
+  D.FloorTom   hand -> pure (note Tom3   GemNormal      VelocityNormal, hand)
+  D.Hihat      hand -> pure (note Hihat  GemNormal      VelocityNormal, hand)
+  D.Snare  hit hand -> pure (note Snare  GemNormal      (fromHit hit) , hand)
+  D.Ride       hand -> pure (note Ride   GemNormal      VelocityNormal, hand)
+  D.Crash1 hit hand -> pure (note CrashL GemNormal      (fromHit hit) , hand)
+  D.Crash2 hit hand -> pure (note CrashR GemNormal      (fromHit hit) , hand)
+  D.KickRF          -> pure (note Kick   GemNormal      VelocityNormal, D.RH)
+  D.Crash1RHChokeLH -> pure (note CrashL GemCymbalChoke VelocityNormal, D.RH)
+  D.Crash2RHChokeLH -> pure (note CrashR GemCymbalChoke VelocityNormal, D.RH)
   -- TODO this should probably go on Tom1/Tom2 as needed, I think it's more behind those in the RB anim kit
-  D.PercussionRH    -> pure (TrueDrumNote Tom3   GemNormal      VelocityNormal Nothing (), D.RH)
+  D.PercussionRH    -> pure (note Tom3   GemNormal      VelocityNormal, D.RH)
   _                 -> []
   where fromHit D.SoftHit = VelocityGhost
         fromHit D.HardHit = VelocityNormal
+        note gem typ vel = TrueDrumNote
+          { tdn_gem = gem
+          , tdn_type = typ
+          , tdn_velocity = vel
+          , tdn_limb = Nothing
+          , tdn_basic = TBDefault
+          , tdn_extra = ()
+          }
 
 swapActivation :: F.T B.ByteString -> Maybe (F.T B.ByteString)
 swapActivation (F.Cons typ dvn trks) = let
@@ -607,8 +606,8 @@ swapActivation (F.Cons typ dvn trks) = let
     then Just $ F.Cons typ dvn $ map snd results
     else Nothing
 
-makeTrueDifficulty :: RTB.T U.Beats (TrueGem, TrueGemType, DrumVelocity) -> TrueDrumDifficulty U.Beats
-makeTrueDifficulty gems = let
+makeTrueDifficulty' :: (TrueGem -> TrueBasic) -> RTB.T U.Beats (TrueGem, TrueGemType, DrumVelocity) -> TrueDrumDifficulty U.Beats
+makeTrueDifficulty' basicMapping gems = let
   types = U.trackJoin $ go $ RTB.collectCoincident gems
   go = \case
     Wait dt1 gems1 rest -> let
@@ -623,7 +622,7 @@ makeTrueDifficulty gems = let
     (\(m', b) -> guard (m == m') >> Just b)
     types
   in TrueDrumDifficulty
-    { tdGems        = (\(gem, _, vel) -> (gem, TBDefault, vel)) <$> gems
+    { tdGems        = (\(gem, _, vel) -> (gem, basicMapping gem, vel)) <$> gems
     , tdKick2       = RTB.empty
     , tdFlam        = RTB.empty
     , tdHihatOpen   = getModifier GemHihatOpen
@@ -632,3 +631,12 @@ makeTrueDifficulty gems = let
     , tdRim         = getModifier GemRim
     , tdChoke       = getModifier GemCymbalChoke
     }
+
+makeTrueDifficulty, makeTrueDifficultyDTX :: RTB.T U.Beats (TrueGem, TrueGemType, DrumVelocity) -> TrueDrumDifficulty U.Beats
+makeTrueDifficulty    = makeTrueDifficulty' $ const TBDefault
+makeTrueDifficultyDTX = makeTrueDifficulty' $ \case
+  Hihat  -> TBYellow
+  CrashL -> TBBlue
+  CrashR -> TBGreen
+  Ride   -> TBGreen
+  _      -> TBDefault

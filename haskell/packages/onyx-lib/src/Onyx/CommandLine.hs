@@ -1376,7 +1376,7 @@ commands =
         raw <- F.readMIDIFile mid
         onyx <- F.interpretMIDIFile raw
         let true = maybe mempty F.onyxPartTrueDrums $ Map.lookup F.FlexDrums $ F.onyxParts $ F.s_tracks onyx
-            (warnings, pro) = convertTrueDrums False (F.s_tempos onyx) true
+            (warnings, pro) = convertTrueDrums (F.s_tempos onyx) true
             addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
             proTracks = F.showMIDITracks onyx
               { F.s_tracks = mempty

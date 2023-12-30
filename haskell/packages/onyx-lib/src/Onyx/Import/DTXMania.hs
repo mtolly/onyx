@@ -66,7 +66,7 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
       gems' = if hasOpenHihat
         then gems
         else fmap (\(gem, _, vel) -> (gem, TD.GemNormal, vel)) gems
-      in (TD.makeTrueDifficulty gems')
+      in (TD.makeTrueDifficultyDTX gems')
         { TD.tdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
         }
     }
