@@ -311,6 +311,7 @@ splitPlanSources planName proj lib audios = let
           (projectSongYaml proj)
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
+    Mogg{} -> fatal "MOGG channel audio not supported in preview yet" -- TODO
   in fmap concat $ forM audios $ \audio -> do
     let chans = computeChannelsPlan (projectSongYaml proj) audio
         pans = case chans of

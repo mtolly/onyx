@@ -144,8 +144,9 @@ showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
   NoDisco     -> ""
   Disco       -> "d"
   DiscoNoFlip -> "dnoflip"
-  EasyMix     -> "easy"
-  EasyNoKick  -> "easynokick"
+  -- make sure we don't emit these for drums0 since they don't exist (or at least Magma errors)
+  EasyMix     -> case audio of D0 -> ""; _ -> "easy"
+  EasyNoKick  -> case audio of D0 -> ""; _ -> "easynokick"
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Enum, Bounded)

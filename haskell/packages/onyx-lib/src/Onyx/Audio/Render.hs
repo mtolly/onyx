@@ -66,7 +66,8 @@ computeChannels = \case
 -- | make sure all audio leaves are defined, catch typos
 checkDefined :: (Monad m) => SongYaml f -> StackTraceT m ()
 checkDefined songYaml = do
-  let definedLeaves = HM.keys songYaml.audio ++ HM.keys songYaml.jammit
+  -- TODO this doesn't actually check that the keys are in the right place (audio vs jammit vs mogg-plans)
+  let definedLeaves = HM.keys songYaml.audio ++ HM.keys songYaml.jammit ++ HM.keys songYaml.plans
   forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
     let leaves = case plan of
           MoggPlan _ -> []
@@ -74,6 +75,7 @@ checkDefined songYaml = do
             getLeaves = \case
               Named t          -> t
               JammitSelect _ t -> t
+              Mogg t           -> t
             in map getLeaves $ concat
               [ maybe [] toList x.song
               , maybe [] toList x.crowd
@@ -94,13 +96,17 @@ computeChannelsPlan songYaml = let
       Just (AudioSnippet expr) -> computeChannelsPlan songYaml expr
       Just AudioSamples{}      -> 2
     JammitSelect _ _ -> 2
+    Mogg name -> case HM.lookup name songYaml.plans of
+      Nothing               -> error "panic! mogg plan not found, after it should've been checked"
+      Just (StandardPlan _) -> error "panic! plan referenced as mogg is not a mogg plan"
+      Just (MoggPlan info ) -> length info.pans
   in computeChannels . fmap toChannels
 
-jammitPath :: T.Text -> J.AudioPart -> FilePath
-jammitPath name (J.Only part)
-  = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
-jammitPath name (J.Without inst)
-  = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
+jammitPath :: FilePath -> T.Text -> J.AudioPart -> FilePath
+jammitPath gen name (J.Only part)
+  = gen </> "jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
+jammitPath gen name (J.Without inst)
+  = gen </> "jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
 manualLeaf
@@ -134,8 +140,10 @@ manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.l
         return (Seconds secs, (group, audio))
   Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
 manualLeaf rel _alib _buildDependency _getSamples songYaml (JammitSelect audpart name) = case HM.lookup name songYaml.jammit of
-  Just _  -> return $ Input $ rel </> jammitPath name audpart
+  Just _  -> return $ Input $ rel </> jammitPath "gen" name audpart
   Nothing -> fatal $ "Couldn't find a Jammit source named " ++ show name
+manualLeaf rel _alib _buildDependency _getSamples _songYaml (Mogg name) =
+  return $ Input $ rel </> "gen/plan" </> T.unpack name </> "audio.wav"
 
 -- | Computing a non-drums instrument's audio for CON/Magma.
 -- Always returns 1 or 2 channels, with all volumes 0.

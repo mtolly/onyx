@@ -424,7 +424,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                           ++ map J.Without [minBound .. maxBound]
       forM_ (HM.toList songYaml.jammit) $ \(jammitName, jammitQuery) ->
         forM_ jammitAudioParts $ \audpart ->
-          rel (jammitPath jammitName audpart) %> \out -> do
+          rel (jammitPath genFolder jammitName audpart) %> \out -> do
             inside ("Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart) $ do
               let title  = fromMaybe (getTitle  songYaml.metadata) jammitQuery.title
                   artist = fromMaybe (getArtist songYaml.metadata) jammitQuery.artist

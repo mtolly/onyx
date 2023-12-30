@@ -203,6 +203,7 @@ importGH5WoR src folder = do
                 { drums = readTier (songTierDrums info) $ \diff -> let
                   -- TODO are there any WoR songs that have ghost note X+ with no double kicks?
                   -- if so, do they have `double_kick` on?
+                  -- TODO check New Low and Sad To Know (Middle Class Rut), marked as 2x but aren't
                   kicks = if songDoubleKick info then KicksBoth else Kicks1x
                   in (emptyPartDrums Drums5 kicks :: PartDrums SoftFile)
                     { difficulty = diff

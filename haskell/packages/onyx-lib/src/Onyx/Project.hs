@@ -350,6 +350,7 @@ instance (Eq f, StackJSON f) => StackJSON (Plan f) where
 data AudioInput
   = Named T.Text
   | JammitSelect J.AudioPart T.Text
+  | Mogg T.Text
   deriving (Eq, Ord, Show)
 
 instance StackJSON AudioInput where
@@ -370,6 +371,11 @@ instance StackJSON AudioInput where
           (codecIn parseJammitInstrument)
           fromJSON
         )
+      , ("mogg", do
+        algebraic1 "mogg"
+          (\moggPlanName -> Mogg moggPlanName)
+          fromJSON
+        )
       ] (Named <$> fromJSON)
     , codecOut = makeOut $ \case
       Named t -> toJSON t
@@ -379,6 +385,7 @@ instance StackJSON AudioInput where
       JammitSelect (J.Without i) t -> A.object
         [ "without" .= [makeValue parseJammitInstrument i, toJSON t]
         ]
+      Mogg t -> A.object ["mogg" .= t]
     }
 
 jammitPartToTitle :: J.Part -> T.Text

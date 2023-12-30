@@ -58,7 +58,8 @@ targets:
   ps:
     game: ps
     plan: album
-    loading-phrase: "Drums by Onyxite, guitar by Dillski."
+    guitar: disabled
+    author: Onyxite
   dtx:
     game: dtx
     plan: drumless

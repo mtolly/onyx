@@ -102,6 +102,37 @@ import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
 
+-- Turns a mogg plan into one that explicitly pulls channels out of the mogg file.
+-- Channels which are referenced by not exactly 1 instrument will go to the backing track.
+moggToStandardPlan :: T.Text -> MoggPlanInfo f -> StandardPlanInfo f
+moggToStandardPlan planName info = StandardPlanInfo
+  { song        = channelsToMaybeAudio backingTrackChannels
+  , parts       = Parts $ flip HM.mapMaybe info.parts.getParts $ \pa -> case pa of
+    PartSingle channels -> fmap PartSingle $ channelsToMaybeAudio $ filter (not . isBackingTrack) channels
+    PartDrumKit{}       -> let
+      allDrumChannels = concat $ toList pa
+      in if all (not . isBackingTrack) allDrumChannels
+        then Just $ fmap channelsToAudio pa
+        else fmap PartSingle $ channelsToMaybeAudio $ filter (not . isBackingTrack) allDrumChannels
+  , crowd       = channelsToMaybeAudio info.crowd
+  , comments    = info.comments
+  , tuningCents = info.tuningCents
+  , fileTempo   = info.fileTempo
+  } where
+    partChannelReferences :: [Int]
+    partChannelReferences = concat $ toList info.parts >>= toList
+    isBackingTrack :: Int -> Bool
+    isBackingTrack i = case filter (== i) partChannelReferences of
+      [_] -> False
+      _   -> notElem i info.crowd
+    backingTrackChannels :: [Int]
+    backingTrackChannels = filter isBackingTrack $ zipWith const [0..] info.pans
+    channelsToMaybeAudio indexes = guard (not $ null indexes) >> Just (channelsToAudio indexes)
+    channelsToAudio indexes = PansVols
+      (map (\i -> realToFrac $ info.pans !! i) indexes)
+      (map (\i -> realToFrac $ info.vols !! i) indexes)
+      (Channels (map Just indexes) $ Input $ Mogg planName)
+
 rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe (TargetRB2 FilePath) -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do
   let songYaml = biSongYaml buildInfo
@@ -110,8 +141,12 @@ rbRules buildInfo dir rb3 mrb2 = do
   let pkg :: (IsString a) => a
       pkg = fromString $ T.unpack $ makeShortName (hashRB3 songYaml rb3) songYaml
   (planName, plan) <- case getPlan rb3.common.plan songYaml of
-    Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
-    Just pair -> return pair
+    Nothing               -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
+    Just pair@(planName, plan) -> return $ case plan of
+      MoggPlan info -> if False -- TODO do this iff an instrument would have no channels
+        then (planName, StandardPlan $ moggToStandardPlan planName info)
+        else pair
+      StandardPlan _ -> pair
   let planDir = biGen buildInfo $ "plan" </> T.unpack planName
 
   let pathMagmaKick        = dir </> "magma/kick.wav"

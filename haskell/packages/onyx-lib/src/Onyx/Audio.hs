@@ -83,7 +83,8 @@ import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
 import           Data.Word                        (Word8)
-import           Development.Shake                (Action, need)
+import           Development.Shake                (Action, getShakeOptions,
+                                                   need, shakeFiles)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
@@ -109,7 +110,10 @@ import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
-import           System.FilePath                  ((</>))
+import           System.Directory                 (makeAbsolute)
+import           System.FilePath                  (dropTrailingPathSeparator,
+                                                   isRelative, makeRelative,
+                                                   takeDirectory, (</>))
 import           System.Info                      (os)
 import qualified System.IO                        as IO
 import           System.Process                   (proc)
@@ -435,7 +439,19 @@ remapChannels cs (AudioSource s r c f) = let
 
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
-buildSource aud = need (toList aud) >> buildSource' aud
+buildSource aud = do
+  -- Try to fix "gen/" to "gen-*-*/".
+  -- This is a hack, only currently used for jammit and mogg references from StandardPlan
+  opts <- getShakeOptions
+  genFolderReal <- liftIO $ makeAbsolute $ dropTrailingPathSeparator $ shakeFiles opts
+  let genFolderFake = takeDirectory genFolderReal </> "gen"
+  aud' <- forM aud $ \f -> do
+    f' <- liftIO $ makeAbsolute f
+    let tryRelative = makeRelative genFolderFake f'
+    return $ if isRelative tryRelative
+      then genFolderReal </> tryRelative
+      else f
+  need (toList aud') >> buildSource' aud'
 
 standardRate :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
 standardRate src = if rate src == 44100
