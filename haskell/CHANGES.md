@@ -1,5 +1,22 @@
 # Version history
 
+## 20240101
+
+* Export support for Clone Hero `.sng` files
+* Option to use Opus audio in Clone Hero output
+* Import support for Guitar Hero III PC `.sgh` files
+* Add import/export of `loading_phrase` for Rock Band songs,
+  supported by RB3 Deluxe
+* Support 5-lane drums in 3D preview
+* Import album art back from Guitar Hero II Deluxe format
+* Add Battle Mode powerups to Guitar Hero III songs
+  in the same locations as Star Power
+* Fix some rare issues with parsing `song.ini` files
+* Improved some cases of text reduction to Latin-1 characters
+  for RB and other games
+* [TODO] Upgraded GUI toolkit to fix drag and drop on Linux
+  when running in Wayland (#251)
+
 ## 20230917
 
 * Fix an incorrect case-sensitive file search in Quick Convert

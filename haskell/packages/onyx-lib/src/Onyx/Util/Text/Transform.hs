@@ -4,7 +4,7 @@ module Onyx.Util.Text.Transform where
 
 import           Control.Monad          (guard)
 import           Control.Monad.IO.Class
-import           Data.Char              (isLatin1, toUpper)
+import           Data.Char              (isAscii, isLatin1, toUpper)
 import           Data.Fixed             (Milli)
 import           Data.Maybe             (mapMaybe)
 import qualified Data.Text              as T
@@ -15,8 +15,9 @@ import qualified Sound.MIDI.Util        as U
 -- | Transform a string to (mostly) only Latin-1 characters.
 -- Allows Ÿ (not Latin-1) and ÿ (is Latin-1) for RB, but not in Magma .rbproj.
 replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
-replaceCharsRB _      txt | T.isAscii txt = return txt -- usual case
-replaceCharsRB rbproj txt                 = liftIO $ let
+replaceCharsRB _      txt | T.all isAscii txt = return txt -- usual case
+-- TODO after upgrading text on windows, use T.isAscii
+replaceCharsRB rbproj txt                     = liftIO $ let
   jpnRanges =
     [ (0x3000, 0x30ff) -- Japanese-style punctuation, Hiragana, Katakana
     , (0xff00, 0xffef) -- Full-width roman characters and half-width katakana
