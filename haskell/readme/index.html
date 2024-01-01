@@ -279,6 +279,7 @@ nav a {
 <ul>
 <li>Both Xbox 360 and PS2 discs can be imported directly from <code>.iso</code>, or from <code>default.xex</code> (360) or <code>DATAP.HED</code> (PS2).</li>
 </ul></li>
+<li><p>Guitar Hero Three Control Panel <code>.sgh</code> setlists</p></li>
 <li><p>Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC (Xbox 360 LIVE files or PlayStation 3 .pkg files)</p></li>
 <li><p>Rocksmith 2014 (<code>.psarc</code>, PC/Mac/Xbox/PlayStation format)</p>
 <ul>
@@ -401,7 +402,9 @@ nav a {
 </ul>
 
 <h3 id="clone-hero-phase-shift">Clone Hero & Phase Shift</h3>
-<p>Generates a song folder (or zip file containing one) in the descended <em>Frets on Fire</em> format (<code>song.ini</code>, <code>notes.mid</code>, Ogg Vorbis audio). These should more-or-less work in the latest version of Clone Hero, the latest free version of Phase Shift, and the Steam version of Phase Shift. Songs may also work in Frets on Fire X, but this is not tested.</p>
+<p>Generates a song in the descended <em>Frets on Fire</em> format (<code>song.ini</code>, <code>notes.mid</code>, Ogg Vorbis or Opus audio). These should more-or-less work in the latest version of Clone Hero, the latest free version of Phase Shift, and the Steam version of Phase Shift. Songs may also work in Frets on Fire X, but this is not tested.</p>
+<p>Songs can be output as a folder, a zip file containing a folder, or an SNG file (supported by newer versions of Clone Hero).</p>
+<p>Go to <code>Edit &gt; Preferences</code> to select between Ogg Vorbis and Opus audio. Opus is supported by newer versions of Clone Hero.</p>
 <p>Due to how the conversion is implemented, some non-RB features such as Real Drums and Real Keys may not survive a PS-to-PS conversion. However Dance mode, other 5-fret charts such as <code>PART RHYTHM</code>, and Clone Hero 6-fret tracks should remain.</p>
 
 <h3 id="guitar-hero-guitar-hero-ii">Guitar Hero & Guitar Hero II</h3>
@@ -429,7 +432,7 @@ nav a {
 <h3 id="guitar-hero-iii">Guitar Hero III</h3>
 <p>Creates custom DLC files for Guitar Hero III, for use on a jailbroken Xbox 360 (RGH or JTAG) or PlayStation 3.</p>
 <ul>
-<li><p>Supports lead + rhythm/bass charts, automatic HOPO forcing, star power, face off sections, practice sections, and basic drum animations (translated from Rock Band drum animation notes, or generated from a drum chart).</p></li>
+<li><p>Supports lead + rhythm/bass charts, automatic HOPO forcing, star power, battle mode powerups (in the star power locations), face off sections, practice sections, and basic drum animations (translated from Rock Band drum animation notes, or generated from a drum chart).</p></li>
 <li><p>After creating DLC files, you <em>must</em> take all your custom songs, plus any official DLC you want to load, and create a “Song Cache” from them. <a href="#gh-song-cache-generation">See below</a> for details. This is required to load your songs!</p></li>
 <li><p>Normally GH3 will end a song shortly after the last playable note, which would often be too soon. However it seems the game checks both lead and rhythm tracks on your current difficulty to find the last note, so as a hack for now, a dummy note is added to each difficulty on the rhythm/bass track to extend the song length.</p></li>
 <li><p>Generated charts use MP3 audio, even on Xbox 360 where official content uses the native XMA format. MP3 is much faster/easier to generate and does not waste significant space in GH3 (unlike later GH games).</p></li>
