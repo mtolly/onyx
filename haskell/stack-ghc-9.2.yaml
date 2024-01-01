@@ -57,9 +57,9 @@ extra-deps:
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
 - git: https://github.com/mtolly/onyx-libzip
-  commit: b14ecb0634000aaeab725e7b4cc2a88381fac1cf
+  commit: 3af4544b752ab552b16dd1ccdd6d4cd02def2988
 - git: https://github.com/mtolly/utf8proc-hs
-  commit: 9e2cd1e5a00e72eb9d72c5922259874d07ea5eb9
+  commit: 5ed6b59099013be261764a8ac2ff158c0f3e0066
 - git: https://github.com/mtolly/hsndfile # unreleased upstream past 0.8.0 (switches to pkg-config), also add opus to enum
   commit: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
 resolver: lts-20.26
