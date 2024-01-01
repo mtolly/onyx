@@ -35,11 +35,12 @@ extra-deps:
 - git: https://github.com/mtolly/fltkhs
   # from TheGreatConsolidation upstream branch with several edits:
   # - updated fltk due to file picker bug in macos monterey
+  #   as well as drag and drop bug in wayland
   # - fix some bindings on all platforms due to that update
   # - add some screen scale function bindings
   # - put built fltk and c-lib under onyx's .stack-work, instead of /tmp
   # - newer fltk also supports kdialog but I disabled that until it's more polished
-  commit: b141c8098e89b9be30244c068e7fefd302f4c5db
+  commit: 993a8edb42849c517c1ee86afdfd255ec4a2ba16
   subdirs:
   - fltkhs
 - git: https://github.com/mtolly/midi-util
