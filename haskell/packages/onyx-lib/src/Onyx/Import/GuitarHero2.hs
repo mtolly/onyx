@@ -283,16 +283,21 @@ importGH2Song mode pkg genPath gen level = do
       songChans = zipWith const [0..] (pans songChunk)
         \\ (guitarChans ++ bassChans ++ rhythmChans)
       mixChans v cs = do
-        cs' <- NE.nonEmpty cs
-        Just $ case cs' of
-          c :| [] -> PansVols
+        presentChannels <- NE.nonEmpty $ do
+          c <- cs
+          -- in some custom isos, vgs can have fewer channels than claimed by dta
+          case drop c namedChans of
+            (name, _) : _ -> [(c, T.pack name)]
+            []            -> []
+        Just $ case presentChannels of
+          (c, name) :| [] -> PansVols
             (map realToFrac [pans songChunk !! c])
             (map realToFrac [(vols songChunk !! c) + v])
-            (Input $ Named $ T.pack $ fst $ namedChans !! c)
+            (Input $ Named name)
           _ -> PansVols
-            (map realToFrac [ pans songChunk !! c | c <- cs ])
-            (map realToFrac [ (vols songChunk !! c) + v | c <- cs ])
-            (Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
+            (map realToFrac [ pans songChunk !! c | (c, _) <- toList presentChannels ])
+            (map realToFrac [ (vols songChunk !! c) + v | (c, _) <- toList presentChannels ])
+            (Merge $ fmap (Input . Named . snd) presentChannels)
       in StandardPlan StandardPlanInfo
         { song = mixChans 0 songChans
         , parts = Parts $ HM.fromList $ catMaybes

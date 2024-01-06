@@ -219,18 +219,23 @@ importGH1Song pkg path gen level = do
         volRatio <- vols $ song pkg
         return $ decibelDifferenceInPanRatios (1, 1) (volRatio, volRatio)
       mixChans cs = do
-        cs' <- NE.nonEmpty cs
+        presentChannels <- NE.nonEmpty $ do
+          c <- cs
+          -- in some custom isos, vgs can have fewer channels than claimed by dta
+          case drop c namedChans of
+            (cname, _) : _ -> [(c, T.pack cname)]
+            []             -> []
         -- return Nothing if all channels are silenced by vols
         guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
-        Just $ case cs' of
-          c :| [] -> PansVols
+        Just $ case presentChannels of
+          (c, cname) :| [] -> PansVols
             (map realToFrac [pans (song pkg) !! c])
             (map realToFrac [volumesDecibels !! c])
-            (Input $ Named $ T.pack $ fst $ namedChans !! c)
+            (Input $ Named cname)
           _ -> PansVols
-            (map realToFrac [ pans (song pkg) !! c | c <- cs ])
-            (map realToFrac [ volumesDecibels !! c | c <- cs ])
-            (Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
+            (map realToFrac [ pans (song pkg) !! c | (c, _) <- toList presentChannels ])
+            (map realToFrac [ volumesDecibels !! c | (c, _) <- toList presentChannels ])
+            (Merge $ fmap (Input . Named . snd) presentChannels)
       in StandardPlan StandardPlanInfo
         { song = mixChans songChans
         , parts = Parts $ HM.fromList $ catMaybes
