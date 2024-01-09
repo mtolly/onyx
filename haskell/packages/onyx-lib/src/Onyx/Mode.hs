@@ -158,6 +158,7 @@ data DrumTarget
   | DrumTargetRB2x -- pro, 2x
   | DrumTargetCH -- pro, x+
   | DrumTargetGH -- 5-lane, x+
+  deriving (Eq)
 
 type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 
@@ -217,10 +218,13 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     { settings = void pd
     , notes = Map.fromList $ do
       diff <- [minBound .. maxBound]
-      let gems = case pd.mode of
-            Drums4 -> first (basicToProType <$) <$> D.computePro (Just diff) src'
-            Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
-            _      -> D.computePro (Just diff) src'
+      let gems = if elem dtarget [DrumTargetCH, DrumTargetGH] && pd.mode == Drums5
+            then fmap (first $ fmap $ const D.Cymbal)
+              $ D.drumGems $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
+            else case pd.mode of
+              Drums4 -> first (basicToProType <$) <$> D.computePro (Just diff) src'
+              Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
+              _      -> D.computePro (Just diff) src'
       guard $ not $ RTB.null gems
       return (diff, gems)
     , other = src'

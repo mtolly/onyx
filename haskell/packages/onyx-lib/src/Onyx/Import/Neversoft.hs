@@ -171,10 +171,11 @@ importGH5WoR src folder = do
               , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
                   d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
-                    (Just $ Input $ Named d1)
-                    (Just $ Input $ Named d2)
-                    (Mix $ Input (Named d3) :| [Input $ Named d4])
-                    )]
+                    { kick = Just $ Input $ Named d1
+                    , snare = Just $ Input $ Named d2
+                    , toms = Just $ Input $ Named d3
+                    , kit = Input $ Named d4
+                    })]
                   _ -> []
                 gbv = case map fst streams2 of
                   g : b : v : _ ->

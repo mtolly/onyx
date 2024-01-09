@@ -145,6 +145,7 @@ build songs-others/bloodline/sure-shot
 # build songs/system-of-a-down/revenga
 # build songs-hmx/shaimus/like-a-fool
 build songs/dream-theater/invisible-monster
+build songs/system-of-a-down/lonely-day
 
 # phrases unknown:
 

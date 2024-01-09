@@ -305,7 +305,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     c3 <- makeC3 songYaml plan rb3 midi pkg preview
     liftIO $ B.writeFile out $ TE.encodeUtf8 $ C3.showC3 c3
   let magmaNeededAudio = do
-        ((kickSpec, snareSpec, _), _) <- computeDrumsPart rb3.drums plan songYaml
+        ((kickSpec, snareSpec, _), _, _) <- computeDrumsPart rb3.drums plan songYaml
         return $ concat
           [ guard (maybe False (/= emptyPart) $ getPart rb3.drums songYaml) >> concat
             [ [pathMagmaDrums]
@@ -466,7 +466,7 @@ rbRules buildInfo dir rb3 mrb2 = do
 
   [pathMagmaMid, pathMagmaPad, pathMagmaEditedParts] %> \_ -> do
     input <- F.shakeMIDI $ planDir </> "raw.mid"
-    (_, mixMode) <- computeDrumsPart rb3.drums plan songYaml
+    (_, mixMode, _) <- computeDrumsPart rb3.drums plan songYaml
     sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> midRealSections input
     let (magmaSects, invalid) = makeRBN2Sections sects
         magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
@@ -527,7 +527,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                 $ stretchFullSmart (1 / speed) 1 input
           runAudio src out
     StandardPlan x -> do
-      (_, mixMode) <- computeDrumsPart rb3.drums plan songYaml
+      (_, mixMode, _) <- computeDrumsPart rb3.drums plan songYaml
       (DifficultyRB3{..}, _) <- loadEditedParts
       -- Edited to match the order some C3 tools expect.
       -- See https://github.com/mtolly/onyx/issues/217
@@ -1045,7 +1045,7 @@ rbRules buildInfo dir rb3 mrb2 = do
 makeMagmaProj :: SongYaml f -> TargetRB3 f -> Plan f -> (DifficultyRB3, Maybe VocalCount) -> T.Text -> FilePath -> Action T.Text -> (Int, Int) -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle (pstart, _) = do
   song <- F.shakeMIDI mid -- TODO since this is only to determine percussion type now, should optimize
-  ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart rb3.drums plan songYaml
+  ((kickPVs, snarePVs, kitPVs), mixMode, _) <- computeDrumsPart rb3.drums plan songYaml
   let maxPStart = 570000 :: Int -- 9:30.000
       metadata = getTargetMetadata songYaml $ RB3 rb3
       thisFullGenre = fullGenre metadata
@@ -1202,7 +1202,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
 
 makeRB3DTA :: (MonadIO m, SendMessage m, Hashable f) => SongYaml f -> Plan f -> TargetRB3 f -> Bool -> (DifficultyRB3, Maybe VocalCount) -> F.Song (F.FixedFile U.Beats) -> T.Text -> (Int, Int) -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename (pstart, pend) = do
-  ((kickPV, snarePV, kitPV), _) <- computeDrumsPart rb3.drums plan songYaml
+  ((kickPV, snarePV, kitPV), _, _) <- computeDrumsPart rb3.drums plan songYaml
   let thresh = 170 -- everything gets forced anyway
       metadata = getTargetMetadata songYaml $ RB3 rb3
       len = F.songLengthMS midi

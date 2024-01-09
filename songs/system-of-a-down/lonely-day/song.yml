@@ -1,0 +1,62 @@
+metadata:
+  album: Hypnotize
+  artist: System of a Down
+  author: Onyxite
+  file-album-art: cover.jpg
+  genre: metal
+  subgenre: alternative
+  title: Lonely Day
+  track-number: 11
+  year: 2005
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+        # drop Db
+        offsets: [-2, 0, 0, 0]
+        global: -1
+      picked-bass: true
+audio:
+  album-track:
+    md5: 21235d5ee372978d59424d70e4f545ee
+    frames: 7404096
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  hihat-quiet:
+    expr:
+      gain: [0.5, hihat]
+  countin:
+    samples: {}
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - fade:
+        - end
+        - 1.734
+        - pad: [3.071, album-track]
+  dev:
+    song:
+      pad: [3.071, album-track]
+    parts:
+      bass:
+        pad: [3.071, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.071, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.071, channels: [[4, 5], stems]]
+      other:
+        pad: [3.071, channels: [[6, 7], stems]]
+targets:
+  rs:
+    game: rs
+    plan: album
+    arrangements:
+    - [bass, bass]

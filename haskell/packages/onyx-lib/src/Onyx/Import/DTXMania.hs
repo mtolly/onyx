@@ -183,15 +183,17 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     ]
   (snareAudio, snareTrack) = audioForChipGroups 2 "audio-snare" $ map getDrumChipGroup
     [("", [Snare])]
-  (kitAudio, kitTrack) = audioForChipGroups 2 "audio-kit" $ map getDrumChipGroup
+  (cymbalAudio, cymbalTrack) = audioForChipGroups 2 "audio-cymbals" $ map getDrumChipGroup
     [ ("HH", [HihatClose, HihatOpen])
     , ("LP", [LeftPedal])
-    , ("HT", [HighTom])
-    , ("LT", [LowTom])
     , ("CY", [Cymbal])
-    , ("FT", [FloorTom])
     , ("RC", [RideCymbal])
     , ("LC", [LeftCymbal])
+    ]
+  (tomAudio, tomTrack) = audioForChipGroups 2 "audio-toms" $ map getDrumChipGroup
+    [ ("HT", [HighTom])
+    , ("LT", [LowTom])
+    , ("FT", [FloorTom])
     ]
   -- this may not behave exactly as DTX does, but close enough.
   -- LP notes should cut off any previous HH notes, and HHC should cut off HHO.
@@ -201,7 +203,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     { sampleGroup = "HH"
     , sampleAudio = "hihat-silencer"
     }
-  kitTrack' = flip fmap kitTrack $ fmap $ \trk -> trk
+  cymbalTrack' = flip fmap cymbalTrack $ fmap $ \trk -> trk
     { F.sampleTriggers = RTB.merge (F.sampleTriggers trk) $
       RTB.flatten $ flip fmap (RTB.collectCoincident $ dtx_Drums dtx) $ \instant ->
         if any (\(lane, _) -> elem lane [LeftPedal, HihatClose]) instant
@@ -217,21 +219,22 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   audiosExpr names = Mix $ fmap (Input . Named) names
   songYaml' = songYaml
     { audio = HM.union songYaml.audio $ HM.fromList $ catMaybes
-      $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, kitAudio, hihatSilencer]
+      $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, cymbalAudio, tomAudio, hihatSilencer]
       <> map fst extraResults
     , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
       { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
       , parts       = Parts $ HM.fromList $ concat
         [ toList $ flip fmap guitarAudio $ \(name, _) -> (F.FlexGuitar, PartSingle $ audioExpr name)
         , toList $ flip fmap bassAudio $ \(name, _) -> (F.FlexBass, PartSingle $ audioExpr name)
-        , toList $ (F.FlexDrums ,) <$> case kitAudio of
+        , toList $ (F.FlexDrums ,) <$> case cymbalAudio of
           Just (name, _) -> Just PartDrumKit
             { kick  = flip fmap kickAudio $ \(n, _) -> audioExpr n
             , snare = flip fmap snareAudio $ \(n, _) -> audioExpr n
+            , toms  = flip fmap tomAudio $ \(n, _) -> audioExpr n
             , kit   = audioExpr name
             }
           Nothing -> do
-            xs <- NE.nonEmpty $ catMaybes [kickAudio, snareAudio, kitAudio]
+            xs <- NE.nonEmpty $ catMaybes [kickAudio, snareAudio, cymbalAudio, tomAudio]
             Just $ PartSingle $ case xs of
               (name, _) :| [] -> audioExpr name
               _               -> audiosExpr $ fmap fst xs
@@ -247,7 +250,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   mid' = mid
     { F.s_tracks = (F.s_tracks mid)
       { F.onyxSamples = Map.fromList $ catMaybes
-        $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, kitTrack']
+        $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, cymbalTrack', tomTrack]
         <> map snd extraResults
       }
     }
@@ -365,13 +368,13 @@ importSetDef setDefPath song level = do
 
   let yamlWithAudio = addChipAudio SongYaml
         { metadata = def'
-          { title        = case setTitle song of
+          { title         = case setTitle song of
             ""    -> dtx_TITLE topDiffDTX
             title -> Just title
-          , artist       = dtx_ARTIST topDiffDTX
-          , comments     = toList $ dtx_COMMENT topDiffDTX
-          , genre        = dtx_GENRE topDiffDTX
-          , fileAlbumArt = art
+          , artist        = dtx_ARTIST topDiffDTX
+          , loadingPhrase = dtx_COMMENT topDiffDTX
+          , genre         = dtx_GENRE topDiffDTX
+          , fileAlbumArt  = art
           }
         , global = def'
           { backgroundVideo = video

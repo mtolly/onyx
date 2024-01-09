@@ -107,7 +107,7 @@ foreign import ccall safe "onyx_ShowFiles"
   c_ShowFiles :: CWString -> Ptr CWString -> CInt -> IO ()
 
 osOpenFile f = liftIO $ withCWString f $ \wstr -> do
-  -- COM must be init'd before this. SDL does it for us
+  -- COM must be init'd before this. we now do this in onyxInitCOM in win_open_folder.cpp
   n <- c_ShellExecute nullPtr nullPtr wstr nullPtr nullPtr 5
   if ptrToIntPtr n > 32
     then return ()

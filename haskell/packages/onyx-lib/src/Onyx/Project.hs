@@ -191,6 +191,7 @@ data PartAudio a
   | PartDrumKit
     { kick  :: Maybe a
     , snare :: Maybe a
+    , toms  :: Maybe a
     , kit   :: a
     }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
@@ -201,8 +202,9 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
       [ ("kit", object $ do
         kick  <- optionalKey "kick"  fromJSON
         snare <- optionalKey "snare" fromJSON
+        toms  <- optionalKey "toms"  fromJSON
         kit   <- requiredKey "kit"   fromJSON
-        expectedKeys ["kick", "snare", "kit"]
+        expectedKeys ["kick", "snare", "toms", "kit"]
         return PartDrumKit{..}
         )
       ] $ PartSingle <$> fromJSON
@@ -211,6 +213,7 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
       PartDrumKit{..} -> A.object $ concat
         [ map ("kick"  .=) $ toList kick
         , map ("snare" .=) $ toList snare
+        , map ("toms" .=) $ toList toms
         , ["kit" .= kit]
         ]
     }

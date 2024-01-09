@@ -529,7 +529,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               dir </> name <.> "wav" %> \out -> do
                 s <- sourceSimplePart buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
                 runAudio (clampIfSilent s) out
-            PartDrumKit mkick msnare () -> do
+            PartDrumKit mkick msnare mtoms () -> do
               forM_ mkick $ \() -> do
                 dir </> (name ++ "-kick") <.> "wav" %> \out -> do
                   s <- sourceKick buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
@@ -541,6 +541,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               dir </> (name ++ "-kit") <.> "wav" %> \out -> do
                 s <- sourceKit buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
                 runAudio (clampIfSilent s) out
+              forM_ mtoms $ \() -> do
+                dir </> (name ++ "-toms") <.> "wav" %> \out -> do
+                  s <- sourceToms buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  runAudio (clampIfSilent s) out
+                dir </> (name ++ "-cymbals") <.> "wav" %> \out -> do
+                  s <- sourceCymbals buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  runAudio (clampIfSilent s) out
         let allPlanAudio :: [FilePath]
             allPlanAudio = map (dir </>) $ concat
               [ [ "song.wav" ]
@@ -548,10 +555,15 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                 name = T.unpack $ F.getPartName fpart
                 in case pa of
                   PartSingle () -> [name <.> "wav"]
-                  PartDrumKit mkick msnare () -> concat
+                  PartDrumKit mkick msnare mtoms () -> concat
                     [ map (\() -> (name ++ "-kick") <.> "wav") $ toList mkick
                     , map (\() -> (name ++ "-snare") <.> "wav") $ toList msnare
-                    , [(name ++ "-kit") <.> "wav"]
+                    , case mtoms of
+                      Nothing -> [(name ++ "-kit") <.> "wav"]
+                      Just () ->
+                        [ (name ++ "-toms"   ) <.> "wav"
+                        , (name ++ "-cymbals") <.> "wav"
+                        ]
                     ]
               , [ "crowd.wav"
                 | case plan of

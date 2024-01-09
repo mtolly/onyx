@@ -219,7 +219,12 @@ importMagma fin level = do
           Just (drumsAud, _) ->
             [(FlexDrums, case (kick, snare) of
               (Nothing, Nothing) -> PartSingle drumsAud
-              _ -> PartDrumKit (fmap fst kick) (fmap fst snare) drumsAud
+              _ -> PartDrumKit
+                { kick = fmap fst kick
+                , snare = fmap fst snare
+                , toms = Nothing
+                , kit = drumsAud
+                }
             )]
         , toList $ fmap (\(aud, _) -> (FlexGuitar, PartSingle aud)) gtr
         , toList $ fmap (\(aud, _) -> (FlexBass  , PartSingle aud)) bass

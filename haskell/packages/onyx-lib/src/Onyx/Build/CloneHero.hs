@@ -57,7 +57,7 @@ psRules buildInfo dir ps = do
 
   (dir </> "ps/notes.mid", pathPSEditedParts) %> \(out, parts) -> do
     input <- shakeMIDI $ planDir </> "raw.mid"
-    (_, mixMode) <- computeDrumsPart ps.drums plan songYaml
+    (_, mixMode, _) <- computeDrumsPart ps.drums plan songYaml
     (output, diffs, vc) <- RB3.processPS
       ps
       songYaml
@@ -227,9 +227,6 @@ psRules buildInfo dir ps = do
           applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
         let endSecs = U.applyTempoMap (F.s_tempos midSegment) $ RB3.timingEnd timing
         return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)
-  -- TODO for mix mode 4 (kick + kit), we should create only
-  --   drums_1 (kick) and drums_2 (kit). currently we create
-  --   drums_1 (kick) drums_2 (snare, empty) drums_3 (kit)
   let setInstLength secs s = stackIO $ runResourceT $ setAudioLengthOrEmpty secs s
   dir </> audioExt "audio/drums"   %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
@@ -241,11 +238,19 @@ psRules buildInfo dir ps = do
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_2" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceSnare buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
+    (_, mixMode, _) <- computeDrumsPart ps.drums plan songYaml
+    s <- (case mixMode of Drums.D4 -> sourceKit; _ -> sourceSnare)
+      buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_3" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceKit   buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
+    (_, _, ghDrumsAudio) <- computeDrumsPart ps.drums plan songYaml
+    s <- (if ghDrumsAudio then sourceCymbals else sourceKit)
+      buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
+    setInstLength endSecs s >>= \s' -> runAudio s' out
+  dir </> audioExt "audio/drums_4" %> \out -> do
+    (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
+    s <- sourceToms buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/guitar"  %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
@@ -285,7 +290,7 @@ psRules buildInfo dir ps = do
     runAudio (setAudioLength endSecs s) out
 
   -- Only copy instrument audio over if it's not silent
-  forM_ ["drums", "drums_1", "drums_2", "drums_3", "guitar", "keys", "rhythm", "vocals", "crowd"] $ \inst -> do
+  forM_ ["drums", "drums_1", "drums_2", "drums_3", "drums_4", "guitar", "keys", "rhythm", "vocals", "crowd"] $ \inst -> do
     phony (audioExt $ dir </> "ps/try-" <> inst) $ do
       let fin = dir </> "audio" </> audioExt inst
       shk $ need [fin]
@@ -295,7 +300,7 @@ psRules buildInfo dir ps = do
         _      -> shk $ copyFile' fin $ dir </> "ps" </> audioExt inst
 
   phony (dir </> "ps") $ do
-    (_, mixMode) <- computeDrumsPart ps.drums plan songYaml
+    (_, mixMode, ghDrumsAudio) <- computeDrumsPart ps.drums plan songYaml
     let needsPartAudio f = maybe False (/= emptyPart) (getPart (f ps) songYaml) && case plan of
           StandardPlan x -> HM.member (f ps) x.parts.getParts
           MoggPlan     _ -> True
@@ -314,7 +319,8 @@ psRules buildInfo dir ps = do
         ]
       , [audioExt "try-drums_1" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
       , [audioExt "try-drums_2" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
-      , [audioExt "try-drums_3" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0]
+      , [audioExt "try-drums_3" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && mixMode /= Drums.D0 && mixMode /= Drums.D4]
+      , [audioExt "try-drums_4" | maybe False (/= emptyPart) (getPart ps.drums songYaml) && ghDrumsAudio       ]
       , [audioExt "try-guitar"  | needsPartAudio (.guitar) || needsPartAudio (.guitarCoop)]
       , [audioExt "try-keys"    | needsPartAudio (.keys  )                                   ]
       , [audioExt "try-rhythm"  | needsPartAudio (.bass  ) || needsPartAudio (.rhythm    )]

@@ -308,15 +308,19 @@ importFoF src dir level = do
       md2 = audio_drums_2
       md3 = audio_drums_3
       md4 = audio_drums_4
-      (drumsAudio, kickAudio, snareAudio) = case (md1, md2, md3, md4) of
-        (Just d1, Just d2, Just d3, Just d4) -> ([d3, d4], [d1], [d2]) -- GH config with separate toms vs cymbals
+      -- TODO split out GH toms!
+      (drumsAudio, kickAudio, snareAudio, tomsAudio) = case (md1, md2, md3, md4) of
+        -- GH config with separate toms vs cymbals;
+        -- note according to the phase shift forum post, cymbals are 3 and toms are 4
+        -- (swapped from actual GH order)
+        (Just d1, Just d2, Just d3, Just d4) -> ([d3], [d1], [d2], [d4])
         _ -> case (md1, md2, md3) of
-          (Just d1, Just d2, Just d3) -> ([d3], [d1], [d2]) -- RB drum mix 1, 2, or 3
+          (Just d1, Just d2, Just d3) -> ([d3], [d1], [d2], []) -- RB drum mix 1, 2, or 3
           _ -> case (md1, md2) of
-            (Just d1, Just d2) -> ([d2], [d1], []) -- RB drum mix 4
+            (Just d1, Just d2) -> ([d2], [d1], [], []) -- RB drum mix 4
             _ -> case md0 of
-              Just d0 -> ([d0], [], []) -- RB drum mix 0
-              _       -> (catMaybes [md1, md2, md3, md4], [], []) -- either no drums, or weird configuration
+              Just d0 -> ([d0], [], [], []) -- RB drum mix 0
+              _       -> (catMaybes [md1, md2, md3, md4], [], [], []) -- either no drums, or weird configuration
       songAudio = toList $ if onlyGuitar then audio_guitar else audio_song
 
   let (delayAudio, delayPreview, delayMIDI) = case FoF.delay song of
@@ -499,12 +503,13 @@ importFoF src dir level = do
             _             -> [(FlexBass               , PartSingle r)]
         , case audioExpr keysAudio of Nothing -> []; Just x -> [(FlexKeys, PartSingle x)]
         , case audioExpr voxAudio of Nothing -> []; Just x -> [(FlexVocal, PartSingle x)]
-        , case (audioExpr drumsAudio, audioExpr kickAudio, audioExpr snareAudio) of
-          (Nothing, Nothing, Nothing) -> []
-          (Just kit, Nothing, Nothing) -> [(FlexDrums, PartSingle kit)]
-          (Just kit, kick, snare) -> [(FlexDrums, PartDrumKit
+        , case (audioExpr drumsAudio, audioExpr kickAudio, audioExpr snareAudio, audioExpr tomsAudio) of
+          (Nothing, Nothing, Nothing, Nothing) -> []
+          (Just kit, Nothing, Nothing, Nothing) -> [(FlexDrums, PartSingle kit)]
+          (Just kit, kick, snare, toms) -> [(FlexDrums, PartDrumKit
             { kit   = kit
             , kick  = kick
+            , toms  = toms
             , snare = snare
             })]
           _ -> error "FoF import: unsupported drums audio configuration (kick/snare but no kit)"

@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -28,7 +29,7 @@ import           Data.Foldable                    (toList)
 import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Development.Shake                hiding (phony, (%>))
@@ -279,45 +280,77 @@ audioDepend buildInfo name = do
   shk $ need [path]
   return path
 
-sourceKick, sourceSnare, sourceKit, sourceSimplePart
+sourceKick, sourceSnare, sourceKit, sourceToms, sourceCymbals, sourceSimplePart
   :: (MonadResource m)
   => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
   -> Staction (AudioSource m Float)
 
 sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
-  ((spec', _, _), _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
+  ((spec', _, _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
   let spec = adjustSpec supportsOffMono spec'
   src <- case plan of
     MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
-        Just (PartDrumKit kick _ _) -> fromMaybe [] kick
+        Just PartDrumKit{kick} -> fromMaybe [] kick
+        _                      -> []
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{kick} -> kick
+        _                      -> Nothing
+  return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
+
+sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+  ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
+  let spec = adjustSpec supportsOffMono spec'
+  src <- case plan of
+    MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{snare} -> fromMaybe [] snare
+        _                       -> []
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{snare} -> snare
+        _                       -> Nothing
+  return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
+
+sourceToms buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+  ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
+  let spec = adjustSpec supportsOffMono spec'
+  src <- case plan of
+    MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{toms} -> fromMaybe [] toms
+        _                      -> []
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{toms} -> toms
+        _                      -> Nothing
+  return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
+
+sourceCymbals buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+  ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
+  let spec = adjustSpec supportsOffMono spec'
+  src <- case plan of
+    MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
+      guard $ rank /= 0
+      case HM.lookup fpart x.parts.getParts of
+        Just PartDrumKit{toms, kit} -> guard (isJust toms) >> kit
         _                           -> []
     StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
-        Just (PartDrumKit kick _ _) -> kick
+        Just PartDrumKit{toms, kit} -> guard (isJust toms) >> Just kit
         _                           -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
-  ((_, spec', _), _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
-  src <- case plan of
-    MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
-      guard $ rank /= 0
-      case HM.lookup fpart x.parts.getParts of
-        Just (PartDrumKit _ snare _) -> fromMaybe [] snare
-        _                            -> []
-    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
-      guard $ rank /= 0
-      case HM.lookup fpart x.parts.getParts of
-        Just (PartDrumKit _ snare _) -> snare
-        _                            -> Nothing
-  return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
-
 sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
-  ((_, _, spec'), mixMode) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
+  ((_, _, spec'), mixMode, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
   let spec = adjustSpec supportsOffMono spec'
   src <- case plan of
     MoggPlan x -> let
@@ -325,9 +358,9 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
       indexSets = do
         guard $ rank /= 0
         case HM.lookup fpart x.parts.getParts of
-          Just (PartDrumKit kick snare kit) -> case mixMode of
-            Drums.D0 -> toList kick <> toList snare <> [kit]
-            _        -> [kit]
+          Just PartDrumKit{kick, snare, toms, kit} -> case mixMode of
+            Drums.D0 -> toList kick <> toList snare <> [kit] <> toList toms
+            _        -> [kit] <> toList toms
           Just (PartSingle             kit) -> [kit]
           _                                 -> []
       in mapM build indexSets >>= \case
@@ -338,9 +371,9 @@ sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart ra
       exprs = do
         guard $ rank /= 0
         case HM.lookup fpart x.parts.getParts of
-          Just (PartDrumKit kick snare kit) -> case mixMode of
-            Drums.D0 -> toList kick <> toList snare <> [kit]
-            _        -> [kit]
+          Just PartDrumKit{kick, snare, toms, kit} -> case mixMode of
+            Drums.D0 -> toList kick <> toList snare <> [kit] <> toList toms
+            _        -> [kit] <> toList toms
           Just (PartSingle             kit) -> [kit]
           _                                 -> []
       in mapM (build . Just) exprs >>= \case

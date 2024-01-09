@@ -329,16 +329,36 @@ importRB rbi level = do
         return $ Just $ PartSingle [kitL, kitR]
       [kick, snare, kitL, kitR] -> do
         when (foundMix /= Just Drums.D1) $ warn $ "Using drum mix 1 (4 drum channels found), " <> foundMixStr
-        return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
+        return $ Just PartDrumKit
+          { kick = Just [kick]
+          , snare = Just [snare]
+          , toms = Nothing
+          , kit = [kitL, kitR]
+          }
       [kick, snareL, snareR, kitL, kitR] -> do
         when (foundMix /= Just Drums.D2) $ warn $ "Using drum mix 2 (5 drum channels found), " <> foundMixStr
-        return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
+        return $ Just PartDrumKit
+          { kick = Just [kick]
+          , snare = Just [snareL, snareR]
+          , toms = Nothing
+          , kit = [kitL, kitR]
+          }
       [kickL, kickR, snareL, snareR, kitL, kitR] -> do
         when (foundMix /= Just Drums.D3) $ warn $ "Using drum mix 3 (6 drum channels found), " <> foundMixStr
-        return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
+        return $ Just PartDrumKit
+          { kick = Just [kickL, kickR]
+          , snare = Just [snareL, snareR]
+          , toms = Nothing
+          , kit = [kitL, kitR]
+          }
       [kick, kitL, kitR] -> do
         when (foundMix /= Just Drums.D4) $ warn $ "Using drum mix 4 (3 drum channels found), " <> foundMixStr
-        return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
+        return $ Just PartDrumKit
+          { kick = Just [kick]
+          , snare = Nothing
+          , toms = Nothing
+          , kit = [kitL, kitR]
+          }
       _ -> do
         warn $ "Unexpected number of drum channels (" <> show (length drumChans) <> "), importing as single-track stereo (mix 0)"
         return $ Just $ PartSingle drumChans

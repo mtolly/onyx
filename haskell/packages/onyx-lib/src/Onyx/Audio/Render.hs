@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
@@ -28,7 +29,8 @@ import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List.Extra              (nubOrd)
 import qualified Data.List.NonEmpty           as NE
-import           Data.Maybe                   (fromMaybe, listToMaybe, mapMaybe)
+import           Data.Maybe                   (fromMaybe, isJust, listToMaybe,
+                                               mapMaybe)
 import qualified Data.Text                    as T
 import           Development.Shake            (getShakeOptions, need,
                                                shakeFiles)
@@ -159,7 +161,7 @@ computeSimplePart fpart plan songYaml = case plan of
     Just (PartSingle aud) -> case computeChannelsPlan songYaml aud of
       1 -> [(0, 0)]
       _ -> [(-1, 0), (1, 0)]
-    Just (PartDrumKit _ _ _) -> [(-1, 0), (1, 0)]
+    Just PartDrumKit{} -> [(-1, 0), (1, 0)]
 
 completeAudio :: (Monad m) => SongYaml f -> Audio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
 completeAudio songYaml aud = do
@@ -267,26 +269,29 @@ buildPartAudioToSpec
 buildPartAudioToSpec rel alib buildDependency songYaml specPV planName = \case
   Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV planName Nothing
   Just (PartSingle pa) -> buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just pa
-  Just (PartDrumKit kick snare kit) -> do
+  Just PartDrumKit{kick, snare, toms, kit} -> do
     kickSrc  <- buildAudioToSpec rel alib buildDependency songYaml specPV planName kick
     snareSrc <- buildAudioToSpec rel alib buildDependency songYaml specPV planName snare
-    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just kit
+    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just $ case toms of
+      Nothing -> kit
+      Just t  -> Merge $ kit NE.:| [t]
     return $ mix kickSrc $ mix snareSrc kitSrc
 
 -- | Computing a drums instrument's audio for CON/Magma.
 -- Always returns a valid drum mix configuration, with all volumes 0.
+-- Last bool is whether there's a full GH (split cymbals/toms) config.
 computeDrumsPart
   :: (SendMessage m)
   => FlexPartName
   -> Plan f
   -> SongYaml f
-  -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), Drums.Audio)
+  -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), Drums.Audio, Bool)
 computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
   MoggPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo
-    Just (PartDrumKit kick snare kit) -> do
-      maybeMix <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit)
+    Just PartDrumKit{kick, snare, toms, kit} -> do
+      maybeMix <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit + maybe 0 length toms)
       case maybeMix of
         Nothing -> return stereo
         Just mixMode -> return
@@ -295,15 +300,18 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
             , standardIndexes x.pans kit
             )
           , mixMode
+          , isJust kick && isJust snare && isJust toms
           )
   StandardPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
-    Just (PartDrumKit kick snare kit) -> do
+    Just PartDrumKit{kick, snare, toms, kit} -> do
       maybeMix <- lookupSplit
         ( maybe 0 (computeChannelsPlan songYaml) kick
         , maybe 0 (computeChannelsPlan songYaml) snare
-        , computeChannelsPlan songYaml kit
+        , computeChannelsPlan songYaml $ case toms of
+          Nothing -> kit
+          Just t  -> Mix $ kit NE.:| [t]
         )
       case maybeMix of
         Nothing -> return stereo
@@ -315,7 +323,7 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
             Nothing -> return []
             Just aud -> (\(_, pans, _) -> map (, 0) pans) <$> completeAudio songYaml aud
           kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completeAudio songYaml kit
-          return ((kickPV, snarePV, kitPV), mixMode)
+          return ((kickPV, snarePV, kitPV), mixMode, isJust kick && isJust snare && isJust toms)
   where lookupSplit = \case
           (0, 0, 2) -> return $ Just Drums.D0
           (1, 1, 2) -> return $ Just Drums.D1
@@ -325,7 +333,7 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
           trio -> do
             warn $ "Split drum kit audio will be mixed down due to a non-RB channel configuration: (kick,snare,kit) = " ++ show trio
             return Nothing
-        stereo = (([], [], [(-1, 0), (1, 0)]), Drums.D0)
+        stereo = (([], [], [(-1, 0), (1, 0)]), Drums.D0, False)
         standardIndexes pans = \case
           []  -> []
           [i] -> [(pans !! i, 0)]

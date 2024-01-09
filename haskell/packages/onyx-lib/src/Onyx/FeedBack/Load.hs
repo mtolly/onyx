@@ -441,10 +441,13 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
     { eventsSections = fmap simpleSection $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
+    -- newly supported in CH 1.1 public test build. but maybe this will cause
+    -- issues if people don't put activation (S 64) on non-drums instruments?
+    , eventsCoda = flip RTB.mapMaybe trk $ \case
+      Event "coda" -> Just ()
+      _            -> Nothing
     }
   -- CH-format lyrics
-  -- TODO remove lyrics entirely when they're non-Latin-1, e.g. Japanese.
-  -- Or, actually support MIDIs with UTF-8 text events (could be useful for Rocksmith lyrics)
   fixedPartVocals <- insideTrack "Events" $ \trk -> let
     lyrics = flip RTB.mapMaybe trk $ \case
       Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'" . T.strip
