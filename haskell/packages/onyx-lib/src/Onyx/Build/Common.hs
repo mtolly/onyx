@@ -485,6 +485,11 @@ setAudioLengthOrEmpty secs src = do
     then src { frames = 0, source = return () }
     else setAudioLength secs src
 
+isSilentSource :: (Monad m) => AudioSource m Float -> m Bool
+isSilentSource src = do
+  chans <- runConduit $ emptyChannels src
+  return $ length chans == channels src
+
 -- Silences out an audio stream if more than 1 game part maps to the same flex part
 zeroIfMultiple :: (Monad m) => [F.FlexPartName] -> F.FlexPartName -> AudioSource m Float -> AudioSource m Float
 zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of

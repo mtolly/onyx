@@ -642,10 +642,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           input <- F.shakeMIDI midraw
           output <- RB3.processTiming input $ getAudioLength buildInfo planName plan
           F.saveMIDIUtf8 midprocessed output
-          -- save a separate midi with only EVENTS track
+          -- save a separate midi with only EVENTS track and samples,
+          -- to use for timing and audio processing
           F.saveMIDIUtf8 midevents output
             { F.s_tracks = mempty
-              { F.onyxEvents = F.onyxEvents $ F.s_tracks output
+              { F.onyxEvents  = F.onyxEvents  $ F.s_tracks output
+              , F.onyxSamples = F.onyxSamples $ F.s_tracks output
               }
             }
 

@@ -4,6 +4,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.GuitarHero5 (gh5Rules) where
 
+import           Control.Monad.Extra             (allM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Put                 (putWord32be, runPut)
@@ -23,6 +24,7 @@ import           Development.Shake               hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4)
+import           Onyx.Audio.Render               (computeDrumsPart)
 import           Onyx.Build.Common
 import           Onyx.Build.Neversoft            (makeGHWoRNote,
                                                   packageNameHash,
@@ -113,8 +115,9 @@ gh5Rules buildInfo dir gh5 = do
 
   dir </> "cdl.pak.xen" %> \out -> stackIO $ BL.writeFile out worFileBarePak
 
+  let difficulties = difficultyGH5 gh5 songYaml
   dir </> "cdl_text.pak.xen" %> \out -> do
-    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "events.mid"
     let _ = mid :: F.Song (F.OnyxFile U.Beats)
         makeQSPair s = let s' = worMetadataString s in (qsKey s', s')
         -- not sure what the \L does; it works without it but we'll just match official songs
@@ -122,7 +125,6 @@ gh5Rules buildInfo dir gh5 = do
         artistQS = makeQSPair $ "\\L" <> getArtist metadata
         albumQS  = makeQSPair $ getAlbum metadata
         qs = makeQS [titleQS, artistQS, albumQS]
-        difficulties = difficultyGH5 gh5 songYaml
         genre = worGenre $ interpretGenre
           metadata.genre
           metadata.subgenre
@@ -264,7 +266,7 @@ gh5Rules buildInfo dir gh5 = do
     stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
 
   dir </> "preview.wav" %> \out -> do
-    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    mid <- F.shakeMIDI $ planDir </> "events.mid"
     let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
         fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
     src <- shk $ buildSource
@@ -369,13 +371,23 @@ gh5Rules buildInfo dir gh5 = do
       ps3SongVRAMPakDec  = dir </> "song_vram.pak"
       ps3EmptyVRAMPakDec = dir </> "vram.pak"
       ps3MP3SilenceSmall = dir </> "silence-small.mp3"
-      ps3MP3Silence      = dir </> "silence.mp3"
-      ps3MP3Song         = dir </> "song.mp3"
       ps3MP3Preview      = dir </> "preview.mp3"
       ps3Audio1PreEdat   = dir </> "audio1.fsb.ps3"
       ps3Audio2PreEdat   = dir </> "audio2.fsb.ps3"
       ps3Audio3PreEdat   = dir </> "audio3.fsb.ps3"
       ps3PreviewPreEdat  = dir </> "preview.fsb.ps3"
+
+      ps3MP3Kick         = dir </> "kick.mp3"
+      ps3MP3Snare        = dir </> "snare.mp3"
+      ps3MP3Toms         = dir </> "toms.mp3"
+      ps3MP3Cymbals      = dir </> "cymbals.mp3"
+
+      ps3MP3Guitar       = dir </> "guitar.mp3"
+      ps3MP3Bass         = dir </> "bass.mp3"
+      ps3MP3Vocals       = dir </> "vocals.mp3"
+
+      ps3MP3Backing      = dir </> "backing.mp3"
+      ps3MP3Crowd        = dir </> "crowd.mp3"
 
       ps3PkgLabel        = makePS3Name songID songYaml
       ps3EDATConfig      = ghworCustomMidEdatConfig ps3PkgLabel
@@ -396,40 +408,90 @@ gh5Rules buildInfo dir gh5 = do
         L.check $ L.setBrate lame 32
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 48000
-  [ps3MP3SilenceSmall, ps3MP3Silence, ps3MP3Song] %> \_ -> do
-    src <- shk $ buildSource $ Input (planDir </> "everything.wav")
-    let resampled = resampleTo 48000 SincMediumQuality src
-    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Song setup resampled
-    -- we make this a second longer to make sure it is longer than the song track.
-    -- then ghBandFSBInterleaveMP3s will cut it back when interleaving.
-    -- (lame is weird and may add different amounts of padding to same-length inputs)
-    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Silence setup
-      $ silent (Frames $ frames resampled + round (rate resampled)) (rate resampled) 2
-    stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3SilenceSmall setupSmall
-      $ silent (Frames $ frames resampled) (rate resampled) 2
   ps3MP3Preview %> \out -> do
     src <- shk $ buildSource $ Input (dir </> "preview.wav")
     stackIO $ runResourceT $ sinkMP3WithHandle out setup
       $ resampleTo 48000 SincMediumQuality src
 
-  let writeEncryptedFSB out mp3s = do
+  let midAndAudioLength = do
+        mid <- F.shakeMIDI $ planDir </> "events.mid"
+        return (mid :: F.Song (F.OnyxFile U.Beats), setAudioLength $ realToFrac (F.songLengthMS mid) / 1000 + 1)
+      ghDifficulties =
+        [ (gh5.drums , difficulties.gh5DrumsTier )
+        , (gh5.bass  , difficulties.gh5BassTier  )
+        , (gh5.guitar, difficulties.gh5GuitarTier)
+        , (gh5.vocal , difficulties.gh5VocalsTier)
+        ]
+      ghParts = map fst ghDifficulties
+      pad = 0 -- TODO did we forget to pad ghwor output?
+  ps3MP3SilenceSmall %> \out -> do
+    (_, setLength) <- midAndAudioLength
+    stackIO $ runResourceT $ sinkMP3WithHandle out setupSmall $ setLength $ silent (Frames 0) 48000 2
+  (ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals) %> \_ -> do
+    (mid, setLength) <- midAndAudioLength
+    kick    <- sourceKick    buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
+    snare   <- sourceSnare   buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
+    toms    <- sourceToms    buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
+    cymbals <- sourceCymbals buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
+    allSilent <- stackIO $ runResourceT $ allM isSilentSource [kick, snare, toms, cymbals]
+    if allSilent
+      then do
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Kick
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Snare
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Toms
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Cymbals
+      else do
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Kick    setup $ setLength kick
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Snare   setup $ setLength snare
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Toms    setup $ setLength toms
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Cymbals setup $ setLength cymbals
+  (ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals) %> \_ -> do
+    (mid, setLength) <- midAndAudioLength
+    guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.guitar difficulties.gh5GuitarTier
+    bass   <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.bass   difficulties.gh5BassTier
+    vocals <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.vocal  difficulties.gh5VocalsTier
+    allSilent <- stackIO $ runResourceT $ allM isSilentSource [guitar, bass, vocals]
+    if allSilent
+      then do
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Guitar
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Bass
+        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Vocals
+      else do
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Guitar setup $ setLength guitar
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Bass   setup $ setLength bass
+        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Vocals setup $ setLength vocals
+  ps3MP3Backing %> \out -> do
+    (mid, setLength) <- midAndAudioLength
+    backing <- sourceBacking buildInfo gh5.common mid pad planName plan ghDifficulties
+    (_, _, isGHDrums) <- computeDrumsPart gh5.drums plan songYaml
+    backingWithDrums <- if isGHDrums
+      then return backing
+      else do
+        kit <- sourceKit buildInfo ghParts gh5.common mid pad True planName plan gh5.drums difficulties.gh5DrumsTier
+        return $ mix backing kit
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength backingWithDrums
+  ps3MP3Crowd %> \out -> do
+    (mid, setLength) <- midAndAudioLength
+    crowd <- sourceCrowd buildInfo gh5.common mid pad planName plan
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength crowd
+
+  let readMP3s paths = do
+        shk $ need paths
+        stackIO $ mapM (fmap BL.fromStrict . B.readFile) paths
+      writeEncryptedFSB out mp3s = do
         fsb <- ghBandMP3sToFSB4 mp3s
         case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
           Nothing  -> fatal "Unable to encrypt .fsb to .fsb.{xen/ps3}"
           Just enc -> stackIO $ B.writeFile out enc
   ps3Audio1PreEdat %> \out -> do
-    shk $ need [ps3MP3SilenceSmall]
-    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3SilenceSmall
-    writeEncryptedFSB out [silence, silence, silence, silence]
+    mp3s <- readMP3s [ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals]
+    writeEncryptedFSB out mp3s
   ps3Audio2PreEdat %> \out -> do
-    shk $ need [ps3MP3SilenceSmall]
-    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3SilenceSmall
-    writeEncryptedFSB out [silence, silence, silence]
+    mp3s <- readMP3s [ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals]
+    writeEncryptedFSB out mp3s
   ps3Audio3PreEdat %> \out -> do
-    shk $ need [ps3MP3Song, ps3MP3Silence]
-    song <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Song
-    silence <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Silence
-    writeEncryptedFSB out [song, silence]
+    mp3s <- readMP3s [ps3MP3Backing, ps3MP3Crowd]
+    writeEncryptedFSB out mp3s
   ps3PreviewPreEdat %> \out -> do
     shk $ need [ps3MP3Preview]
     preview <- stackIO $ BL.fromStrict <$> B.readFile ps3MP3Preview
