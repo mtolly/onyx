@@ -527,26 +527,26 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           case pa of
             PartSingle () -> do
               dir </> name <.> "wav" %> \out -> do
-                s <- sourceSimplePart buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                s <- sourceSimplePart buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                 runAudio (clampIfSilent s) out
             PartDrumKit mkick msnare mtoms () -> do
               forM_ mkick $ \() -> do
                 dir </> (name ++ "-kick") <.> "wav" %> \out -> do
-                  s <- sourceKick buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  s <- sourceKick buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                   runAudio (clampIfSilent s) out
               forM_ msnare $ \() -> do
                 dir </> (name ++ "-snare") <.> "wav" %> \out -> do
-                  s <- sourceSnare buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  s <- sourceSnare buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                   runAudio (clampIfSilent s) out
               dir </> (name ++ "-kit") <.> "wav" %> \out -> do
-                s <- sourceKit buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                s <- sourceKit buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                 runAudio (clampIfSilent s) out
               forM_ mtoms $ \() -> do
                 dir </> (name ++ "-toms") <.> "wav" %> \out -> do
-                  s <- sourceToms buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  s <- sourceToms buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                   runAudio (clampIfSilent s) out
                 dir </> (name ++ "-cymbals") <.> "wav" %> \out -> do
-                  s <- sourceCymbals buildInfo [fpart] def dummyMIDI 0 False planName plan fpart 1
+                  s <- sourceCymbals buildInfo [fpart] def dummyMIDI 0 SpecNoPannedMono planName plan fpart 1
                   runAudio (clampIfSilent s) out
         let allPlanAudio :: [FilePath]
             allPlanAudio = map (dir </>) $ concat

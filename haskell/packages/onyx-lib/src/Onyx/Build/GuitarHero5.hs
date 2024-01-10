@@ -429,10 +429,10 @@ gh5Rules buildInfo dir gh5 = do
     stackIO $ runResourceT $ sinkMP3WithHandle out setupSmall $ setLength $ silent (Frames 0) 48000 2
   (ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals) %> \_ -> do
     (mid, setLength) <- midAndAudioLength
-    kick    <- sourceKick    buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
-    snare   <- sourceSnare   buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
-    toms    <- sourceToms    buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
-    cymbals <- sourceCymbals buildInfo ghParts gh5.common mid pad False planName plan gh5.drums difficulties.gh5DrumsTier
+    kick    <- sourceKick    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+    snare   <- sourceSnare   buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+    toms    <- sourceToms    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+    cymbals <- sourceCymbals buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
     allSilent <- stackIO $ runResourceT $ allM isSilentSource [kick, snare, toms, cymbals]
     if allSilent
       then do
@@ -447,9 +447,9 @@ gh5Rules buildInfo dir gh5 = do
         stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Cymbals setup $ setLength cymbals
   (ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals) %> \_ -> do
     (mid, setLength) <- midAndAudioLength
-    guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.guitar difficulties.gh5GuitarTier
-    bass   <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.bass   difficulties.gh5BassTier
-    vocals <- sourceSimplePart buildInfo ghParts gh5.common mid pad False planName plan gh5.vocal  difficulties.gh5VocalsTier
+    guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.guitar difficulties.gh5GuitarTier
+    bass   <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.bass   difficulties.gh5BassTier
+    vocals <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.vocal  difficulties.gh5VocalsTier
     allSilent <- stackIO $ runResourceT $ allM isSilentSource [guitar, bass, vocals]
     if allSilent
       then do
@@ -467,7 +467,7 @@ gh5Rules buildInfo dir gh5 = do
     backingWithDrums <- if isGHDrums
       then return backing
       else do
-        kit <- sourceKit buildInfo ghParts gh5.common mid pad True planName plan gh5.drums difficulties.gh5DrumsTier
+        kit <- sourceKit buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
         return $ mix backing kit
     stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength backingWithDrums
   ps3MP3Crowd %> \out -> do

@@ -280,14 +280,19 @@ audioDepend buildInfo name = do
   shk $ need [path]
   return path
 
+data SpecSetting
+  = SpecDefault
+  | SpecNoPannedMono -- mono is ok if center, but otherwise turn into stereo
+  | SpecStereo -- mono always turned into stereo
+
 sourceKick, sourceSnare, sourceKit, sourceToms, sourceCymbals, sourceSimplePart
   :: (MonadResource m)
-  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> Bool -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
+  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> SpecSetting -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
   -> Staction (AudioSource m Float)
 
-sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+sourceKick buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
   ((spec', _, _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
+  let spec = adjustSpec specSetting spec'
   src <- case plan of
     MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
       guard $ rank /= 0
@@ -301,9 +306,9 @@ sourceKick buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart r
         _                      -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+sourceSnare buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
+  let spec = adjustSpec specSetting spec'
   src <- case plan of
     MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
       guard $ rank /= 0
@@ -317,9 +322,9 @@ sourceSnare buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart 
         _                       -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceToms buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+sourceToms buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
+  let spec = adjustSpec specSetting spec'
   src <- case plan of
     MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
       guard $ rank /= 0
@@ -333,9 +338,9 @@ sourceToms buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart r
         _                      -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceCymbals buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+sourceCymbals buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
+  let spec = adjustSpec specSetting spec'
   src <- case plan of
     MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
       guard $ rank /= 0
@@ -349,9 +354,9 @@ sourceCymbals buildInfo gameParts tgt mid pad supportsOffMono planName plan fpar
         _                           -> Nothing
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceKit buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
+sourceKit buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
   ((_, _, spec'), mixMode, _) <- computeDrumsPart fpart plan $ biSongYaml buildInfo
-  let spec = adjustSpec supportsOffMono spec'
+  let spec = adjustSpec specSetting spec'
   src <- case plan of
     MoggPlan x -> let
       build = channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols)
@@ -407,8 +412,8 @@ sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
     s : ss -> return $ foldr mix s ss
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
-sourceSimplePart buildInfo gameParts tgt mid pad supportsOffMono planName plan fpart rank = do
-  let spec = adjustSpec supportsOffMono $ computeSimplePart fpart plan $ biSongYaml buildInfo
+sourceSimplePart buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
+  let spec = adjustSpec specSetting $ computeSimplePart fpart plan $ biSongYaml buildInfo
   src <- getPartSource buildInfo spec planName plan fpart rank
   return $ zeroIfMultiple gameParts fpart $ padAudio pad $ applyTargetAudio tgt mid src
 
@@ -458,10 +463,11 @@ sourceBacking buildInfo tgt mid pad planName plan fparts = do
           s : ss -> return $ foldr mix s ss
   return $ padAudio pad $ applyTargetAudio tgt mid src
 
-adjustSpec :: Bool -> [(Double, Double)] -> [(Double, Double)]
-adjustSpec True  spec     = spec
-adjustSpec False [(0, 0)] = [(0, 0)]
-adjustSpec False _        = [(-1, 0), (1, 0)]
+adjustSpec :: SpecSetting -> [(Double, Double)] -> [(Double, Double)]
+adjustSpec SpecDefault      spec     = spec
+adjustSpec SpecNoPannedMono [(0, 0)] = [(0, 0)]
+adjustSpec SpecNoPannedMono _        = [(-1, 0), (1, 0)]
+adjustSpec SpecStereo       _        = [(-1, 0), (1, 0)]
 
 padAudio :: (Monad m) => Int -> AudioSource m Float -> AudioSource m Float
 padAudio pad src = if frames src == 0

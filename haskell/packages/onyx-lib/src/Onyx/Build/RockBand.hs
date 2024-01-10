@@ -221,31 +221,31 @@ rbRules buildInfo dir rb3 mrb2 = do
         return (mid, diffs, vc, pad)
   pathMagmaKick   %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceKick        buildInfo magmaParts rb3.common mid pad True planName plan rb3.drums rb3DrumsRank
+    s <- sourceKick        buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.drums rb3DrumsRank
     runAudio (clampIfSilent s) out
   pathMagmaSnare  %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSnare       buildInfo magmaParts rb3.common mid pad True planName plan rb3.drums rb3DrumsRank
+    s <- sourceSnare       buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.drums rb3DrumsRank
     runAudio (clampIfSilent s) out
   pathMagmaDrums  %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceKit         buildInfo magmaParts rb3.common mid pad True planName plan rb3.drums rb3DrumsRank
+    s <- sourceKit         buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.drums rb3DrumsRank
     runAudio (clampIfSilent s) out
   pathMagmaBass   %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad True planName plan rb3.bass rb3BassRank
+    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.bass rb3BassRank
     runAudio (clampIfSilent s) out
   pathMagmaGuitar %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad True planName plan rb3.guitar rb3GuitarRank
+    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.guitar rb3GuitarRank
     runAudio (clampIfSilent s) out
   pathMagmaKeys   %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad True planName plan rb3.keys rb3KeysRank
+    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.keys rb3KeysRank
     runAudio (clampIfSilent s) out
   pathMagmaVocal  %> \out -> do
     (mid, DifficultyRB3{..}, _, pad) <- loadMidiResults
-    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad True planName plan rb3.vocal rb3VocalRank
+    s <- sourceSimplePart  buildInfo magmaParts rb3.common mid pad SpecDefault planName plan rb3.vocal rb3VocalRank
     runAudio (clampIfSilent s) out
   pathMagmaCrowd  %> \out -> do
     (mid, DifficultyRB3{}, _, pad) <- loadMidiResults

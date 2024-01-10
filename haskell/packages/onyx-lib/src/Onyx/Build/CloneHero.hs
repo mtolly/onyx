@@ -234,23 +234,23 @@ psRules buildInfo dir ps = do
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_1" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceKick  buildInfo psParts ps.common mid 0 False planName plan   ps.drums  rb3DrumsRank
+    s <- sourceKick  buildInfo psParts ps.common mid 0 SpecNoPannedMono planName plan   ps.drums  rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_2" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
     (_, mixMode, _) <- computeDrumsPart ps.drums plan songYaml
     s <- (case mixMode of Drums.D4 -> sourceKit; _ -> sourceSnare)
-      buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
+      buildInfo psParts ps.common mid 0 SpecNoPannedMono planName plan ps.drums rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_3" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
     (_, _, ghDrumsAudio) <- computeDrumsPart ps.drums plan songYaml
     s <- (if ghDrumsAudio then sourceCymbals else sourceKit)
-      buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
+      buildInfo psParts ps.common mid 0 SpecNoPannedMono planName plan ps.drums rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/drums_4" %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi
-    s <- sourceToms buildInfo psParts ps.common mid 0 False planName plan ps.drums rb3DrumsRank
+    s <- sourceToms buildInfo psParts ps.common mid 0 SpecNoPannedMono planName plan ps.drums rb3DrumsRank
     setInstLength endSecs s >>= \s' -> runAudio s' out
   dir </> audioExt "audio/guitar"  %> \out -> do
     (mid, DifficultyPS{..}, DifficultyRB3{..}, endSecs) <- loadPSMidi
