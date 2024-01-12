@@ -23,6 +23,9 @@ import           Data.Word
 import           GHC.ByteOrder
 import           Numeric                         (readHex, showHex)
 import           Onyx.Neversoft.CRC              (qbKeyCRC)
+import           Onyx.StackTrace                 (SendMessage, StackTraceT,
+                                                  errorToEither, fatal, inside,
+                                                  warnNoContext)
 import           Onyx.Xbox.STFS                  (runGetM)
 
 data Node = Node
@@ -84,7 +87,7 @@ data PakFormat = PakFormat
   , pakNewPabOffsets :: Bool
   -- in WoR, pak and pab are processed separately. offsets are always relative to start of pab.
   -- in GH3 it's as if they are one file. offsets are computed just like no-pab pak files.
-  }
+  } deriving (Show)
 
 pakFormatGH3 :: ByteOrder -> PakFormat
 pakFormatGH3 endian = PakFormat { pakByteOrder = endian, pakNewPabOffsets = False }
@@ -137,6 +140,30 @@ splitPakNodes fmt pak maybePab = do
         in (node, goToData dataSection)
   map attachData <$> getPakNodes fmt (isJust maybePab')
     (if pakNewPabOffsets fmt then pak' else dataSection)
+
+-- Tries possible pak+pab formats until one parses (seemingly) correctly.
+splitPakNodesAuto :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> StackTraceT m ([(Node, BL.ByteString)], PakFormat)
+splitPakNodesAuto pak maybePab = let
+  tryFormat fmt = errorToEither $ do
+    nodes <- splitPakNodes fmt pak maybePab
+    case reverse nodes of
+      (node, bs) : _
+        | elem (nodeFileType node) [qbKeyCRC "last", qbKeyCRC ".last"]
+          && bs == BL.replicate 4 0xAB
+        -> return nodes
+      _ -> fatal "Pak didn't contain proper 'last', probably not the right format"
+  -- Have to try GH3 format before WoR format; otherwise GH3 can get wrongly detected as WoR
+  in tryFormat (pakFormatGH3 LittleEndian) >>= \case
+    Right result -> return (result, pakFormatGH3 LittleEndian)
+    Left err1 -> tryFormat (pakFormatGH3 BigEndian) >>= \case
+      Right result -> return (result, pakFormatGH3 BigEndian)
+      Left err2 -> tryFormat pakFormatWoR >>= \case
+        Right result -> return (result, pakFormatWoR)
+        Left err3 -> do
+          inside ".pak autodetect: GH3 format, little endian" $ warnNoContext err1
+          inside ".pak autodetect: GH3 format, big endian" $ warnNoContext err2
+          inside ".pak autodetect: WoR format" $ warnNoContext err3
+          fatal ".pak format autodetect failed"
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let

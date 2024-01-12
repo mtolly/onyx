@@ -50,6 +50,10 @@ data QBSection qs k
   | QBSectionString k k B.ByteString -- seen in gh3 ps2
   | QBSectionStringW k k T.Text -- seen in gh3
   | QBSectionQbKeyStringQs k k qs
+  | QBSectionQbKeyString k k k
+  | QBSectionFloat k k Float
+  | QBSectionFloatsX2 k k Float Float
+  | QBSectionFloatsX3 k k Float Float Float
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
@@ -62,6 +66,10 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
     QBSectionString x y z -> OneKey "SectionString" $ toJSON [toJSON x, toJSON y, toJSON $ B8.unpack z]
     QBSectionStringW x y z -> OneKey "SectionStringW" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionQbKeyStringQs x y z -> OneKey "SectionQbKeyStringQs" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionQbKeyString x y z -> OneKey "SectionQbKeyString" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionFloat x y f1 -> OneKey "SectionFloat" $ toJSON [toJSON x, toJSON y, toJSON f1]
+    QBSectionFloatsX2 x y f1 f2 -> OneKey "SectionFloatsX2" $ toJSON [toJSON x, toJSON y, toJSON f1, toJSON f2]
+    QBSectionFloatsX3 x y f1 f2 f3 -> OneKey "SectionFloatsX3" $ toJSON [toJSON x, toJSON y, toJSON f1, toJSON f2, toJSON f3]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
   parseJSON = \case
@@ -89,6 +97,14 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
     OneKey "SectionQbKeyStringQs" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionQbKeyStringQs <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
+    OneKey "SectionQbKeyString" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBSectionQbKeyString <$> parseJSON x <*> parseJSON y <*> parseJSON z
+      _ -> fail "QB json error"
+    OneKey "SectionFloat" xs -> parseJSON xs >>= \case
+      [x, y, f1] -> QBSectionFloat <$> parseJSON x <*> parseJSON y <*> parseJSON f1
+      [x, y, f1, f2] -> QBSectionFloatsX2 <$> parseJSON x <*> parseJSON y <*> parseJSON f1 <*> parseJSON f2
+      [x, y, f1, f2, f3] -> QBSectionFloatsX3 <$> parseJSON x <*> parseJSON y <*> parseJSON f1 <*> parseJSON f2 <*> parseJSON f3
+      _ -> fail "QB json error"
     _ -> fail "QB json error"
 
 data QBArray qs k
@@ -99,6 +115,10 @@ data QBArray qs k
   | QBArrayOfFloatRaw [Float] -- QueenBee says "this isn't really an array, just a simple type", I don't know what that means
   | QBArrayOfQbKeyStringQs [qs]
   | QBArrayOfArray [QBArray qs k]
+  | QBArrayOfQbKeyString [k]
+  | QBArrayOfFloatsX2 [(Float, Float)]
+  | QBArrayOfFloatsX3 [(Float, Float, Float)]
+  | QBArrayOfString [B.ByteString]
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
@@ -110,6 +130,10 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
     QBArrayOfFloatRaw x      -> OneKey "ArrayOfFloatRaw" $ toJSON x
     QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
     QBArrayOfArray x         -> OneKey "ArrayOfArray" $ toJSON x
+    QBArrayOfQbKeyString x   -> OneKey "ArrayOfQbKeyString" $ toJSON x
+    QBArrayOfFloatsX2 x      -> OneKey "ArrayOfFloatsX2" $ toJSON x
+    QBArrayOfFloatsX3 x      -> OneKey "ArrayOfFloatsX3" $ toJSON x
+    QBArrayOfString x        -> OneKey "ArrayOfString" $ toJSON $ map B8.unpack x
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
   parseJSON = \case
@@ -119,6 +143,10 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
     OneKey "ArrayOfFloat" x         -> QBArrayOfFloat <$> parseJSON x
     OneKey "ArrayOfFloatRaw" x      -> QBArrayOfFloatRaw <$> parseJSON x
     OneKey "ArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
+    OneKey "ArrayOfQbKeyString" x   -> QBArrayOfQbKeyString <$> parseJSON x
+    OneKey "ArrayOfFloatsX2" x      -> QBArrayOfFloatsX2 <$> parseJSON x
+    OneKey "ArrayOfFloatsX3" x      -> QBArrayOfFloatsX3 <$> parseJSON x
+    OneKey "ArrayOfString" x        -> QBArrayOfString . map B8.pack <$> parseJSON x
     _                               -> fail "QB json error"
 
 data QBStructItem qs k
@@ -131,6 +159,8 @@ data QBStructItem qs k
   | QBStructItemInteger k Word32
   | QBStructItemFloat k Float
   | QBStructItemArray k (QBArray qs k)
+  | QBStructItemFloatsX2 k Float Float
+  | QBStructItemFloatsX3 k Float Float Float
   -- remaining ones are seen in older games like gh3.
   -- should come up with better naming once more is known
   | QBStructItemInteger810000 k Word32
@@ -154,6 +184,8 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
     QBStructItemInteger x y -> OneKey "StructItemInteger" $ toJSON [toJSON x, toJSON y]
     QBStructItemFloat x y -> OneKey "StructItemFloat" $ toJSON [toJSON x, toJSON y]
     QBStructItemArray x y -> OneKey "StructItemArray" $ toJSON [toJSON x, toJSON y]
+    QBStructItemFloatsX2 x y z -> OneKey "StructItemFloatsX2" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBStructItemFloatsX3 w x y z -> OneKey "StructItemFloatsX3" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON z]
     QBStructItemInteger810000 x y -> OneKey "StructItemInteger810000" $ toJSON [toJSON x, toJSON y]
     QBStructItemQbKeyString9A0000 x y -> OneKey "StructItemQbKeyString9A0000" $ toJSON [toJSON x, toJSON y]
     QBStructItemQbKey8D0000 x y -> OneKey "StructItemQbKey8D0000" $ toJSON [toJSON x, toJSON y]
@@ -190,6 +222,12 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
     OneKey "StructItemArray" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemArray <$> parseJSON x <*> parseJSON y
       _      -> fail "QB json error"
+    OneKey "StructItemFloatsX2" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBStructItemFloatsX2 <$> parseJSON x <*> parseJSON y <*> parseJSON z
+      _      -> fail "QB json error"
+    OneKey "StructItemFloatsX3" xs -> parseJSON xs >>= \case
+      [w, x, y, z] -> QBStructItemFloatsX3 <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> parseJSON z
+      _      -> fail "QB json error"
     OneKey "StructItemInteger810000" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemInteger810000 <$> parseJSON x <*> parseJSON y
       _      -> fail "QB json error"
@@ -206,14 +244,18 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
 
 instance Bifunctor QBSection where
   first f = \case
-    QBSectionInteger x y n       -> QBSectionInteger x y n
-    QBSectionArray x y arr       -> QBSectionArray x y $ first f arr
-    QBSectionQbKey x y z         -> QBSectionQbKey x y z
-    QBSectionStruct x y items    -> QBSectionStruct x y $ map (first f) items
-    QBSectionScript w x y z      -> QBSectionScript w x y z
-    QBSectionString x y s        -> QBSectionString x y s
-    QBSectionStringW x y s       -> QBSectionStringW x y s
-    QBSectionQbKeyStringQs x y z -> QBSectionQbKeyStringQs x y (f z)
+    QBSectionInteger x y n         -> QBSectionInteger x y n
+    QBSectionArray x y arr         -> QBSectionArray x y $ first f arr
+    QBSectionQbKey x y z           -> QBSectionQbKey x y z
+    QBSectionStruct x y items      -> QBSectionStruct x y $ map (first f) items
+    QBSectionScript w x y z        -> QBSectionScript w x y z
+    QBSectionString x y s          -> QBSectionString x y s
+    QBSectionStringW x y s         -> QBSectionStringW x y s
+    QBSectionQbKeyStringQs x y z   -> QBSectionQbKeyStringQs x y (f z)
+    QBSectionQbKeyString x y z     -> QBSectionQbKeyString x y z
+    QBSectionFloat    x y f1       -> QBSectionFloat x y f1
+    QBSectionFloatsX2 x y f1 f2    -> QBSectionFloatsX2 x y f1 f2
+    QBSectionFloatsX3 x y f1 f2 f3 -> QBSectionFloatsX3 x y f1 f2 f3
   second = fmap
 
 instance Bifunctor QBArray where
@@ -225,6 +267,10 @@ instance Bifunctor QBArray where
     QBArrayOfFloatRaw ns      -> QBArrayOfFloatRaw ns
     QBArrayOfQbKeyStringQs qs -> QBArrayOfQbKeyStringQs $ map f qs
     QBArrayOfArray arrs       -> QBArrayOfArray $ map (first f) arrs
+    QBArrayOfQbKeyString ks   -> QBArrayOfQbKeyString ks
+    QBArrayOfFloatsX2 vs      -> QBArrayOfFloatsX2 vs
+    QBArrayOfFloatsX3 vs      -> QBArrayOfFloatsX3 vs
+    QBArrayOfString bs        -> QBArrayOfString bs
   second = fmap
 
 instance Bifunctor QBStructItem where
@@ -238,6 +284,8 @@ instance Bifunctor QBStructItem where
     QBStructItemInteger x y -> QBStructItemInteger x y
     QBStructItemFloat x y -> QBStructItemFloat x y
     QBStructItemArray x arr -> QBStructItemArray x $ first f arr
+    QBStructItemFloatsX2 x y z -> QBStructItemFloatsX2 x y z
+    QBStructItemFloatsX3 w x y z -> QBStructItemFloatsX3 w x y z
     QBStructItemInteger810000 x y -> QBStructItemInteger810000 x y
     QBStructItemQbKeyString9A0000 x y -> QBStructItemQbKeyString9A0000 x y
     QBStructItemQbKey8D0000 x y -> QBStructItemQbKey8D0000 x y
@@ -258,6 +306,10 @@ instance Bifoldable QBSection where
     QBSectionString  x y _       -> g x <> g y
     QBSectionStringW x y _       -> g x <> g y
     QBSectionQbKeyStringQs x y z -> g x <> g y <> f z
+    QBSectionQbKeyString x y z   -> g x <> g y <> g z
+    QBSectionFloat    x y _      -> g x <> g y
+    QBSectionFloatsX2 x y _ _    -> g x <> g y
+    QBSectionFloatsX3 x y _ _ _  -> g x <> g y
 
 instance Bifoldable QBArray where
   bifoldMap f g = \case
@@ -268,6 +320,10 @@ instance Bifoldable QBArray where
     QBArrayOfFloatRaw      _       -> mempty
     QBArrayOfQbKeyStringQs qs      -> mconcat $ map f qs
     QBArrayOfArray         arrs    -> mconcat $ map (bifoldMap f g) arrs
+    QBArrayOfQbKeyString   ks      -> mconcat (map g ks)
+    QBArrayOfFloatsX2      _       -> mempty
+    QBArrayOfFloatsX3      _       -> mempty
+    QBArrayOfString        _       -> mempty
 
 instance Bifoldable QBStructItem where
   bifoldMap f g = \case
@@ -280,6 +336,8 @@ instance Bifoldable QBStructItem where
     QBStructItemInteger       x _     -> g x
     QBStructItemFloat         x _     -> g x
     QBStructItemArray         x arr   -> g x <> bifoldMap f g arr
+    QBStructItemFloatsX2      x _ _   -> g x
+    QBStructItemFloatsX3      x _ _ _ -> g x
     QBStructItemInteger810000 x _     -> g x
     QBStructItemQbKeyString9A0000 x y -> g x <> g y
     QBStructItemQbKey8D0000   x y     -> g x <> g y
@@ -312,41 +370,60 @@ parseQBSubArray = do
     _ -> do
       p3 <- getW32
       shouldBeAt p3
+  let arrayOfArray = do
+        arrayStarts <- replicateM len getW32
+        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBSubArray
+      arrayOfString = do
+        stringStarts <- replicateM len getW32
+        res <- fmap QBArrayOfString $ forM stringStarts $ \p4 -> do
+          shouldBeAt p4
+          qbNullTerm
+        jumpTo4
+        return res
+      arrayOfStruct = do
+        structStarts <- replicateM len getW32
+        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBStruct
+      arrayOfFloatsX2 = do
+        vectorStarts <- replicateM len getW32
+        fmap QBArrayOfFloatsX2 $ forM vectorStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBFloatsX2
+      arrayOfFloatsX3 = do
+        vectorStarts <- replicateM len getW32
+        fmap QBArrayOfFloatsX3 $ forM vectorStarts $ \p4 -> do
+          shouldBeAt p4
+          parseQBFloatsX3
   case ?format of
     QBFormatNew -> case arrayType of
       0x00010D00 -> QBArrayOfQbKey <$> replicateM len getW32
       0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
-      0x00010A00 -> do
-        structStarts <- replicateM len getW32
-        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
-          shouldBeAt p4
-          parseQBStruct
+      0x00010A00 -> arrayOfStruct
       0x00010200 -> QBArrayOfFloat <$> replicateM len getFloat
       0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloat
       0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
-      0x00010C00 -> do
-        arrayStarts <- replicateM len getW32
-        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
-          shouldBeAt p4
-          parseQBSubArray
-      _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+      0x00010C00 -> arrayOfArray
+      0x00011A00 -> QBArrayOfQbKeyString <$> replicateM len getW32
+      0x00010500 -> arrayOfFloatsX2
+      0x00010600 -> arrayOfFloatsX3
+      0x00010300 -> arrayOfString
+      _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
     QBFormatPS2 -> case arrayType of
       0x000D0100 -> QBArrayOfQbKey <$> replicateM len getW32
       0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
-      0x000A0100 -> do
-        structStarts <- replicateM len getW32
-        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
-          shouldBeAt p4
-          parseQBStruct
+      0x000A0100 -> arrayOfStruct
       0x00020100 -> QBArrayOfFloat <$> replicateM len getFloat
       0x00000100 -> QBArrayOfFloatRaw <$> replicateM len getFloat
       0x001C0100 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
-      0x000C0100 -> do
-        arrayStarts <- replicateM len getW32
-        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
-          shouldBeAt p4
-          parseQBSubArray
-      _ -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+      0x000C0100 -> arrayOfArray
+      0x00050100 -> arrayOfFloatsX2
+      0x00060100 -> arrayOfFloatsX3
+      0x001A0100 -> QBArrayOfQbKeyString <$> replicateM len getW32
+      0x00030100 -> arrayOfString
+      _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
 
 parseQBArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 Word32, Word32)
 parseQBArray = do
@@ -374,6 +451,29 @@ qbNullTerm = let
       then return []
       else (c :) <$> getNullTerm
   in B.pack <$> getNullTerm
+
+parseQBFloatsX2 :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (Float, Float)
+parseQBFloatsX2 = do
+  typ <- getW32
+  let expectedType = case ?format of
+        QBFormatNew -> 0x00010000
+        QBFormatPS2 -> 0x00000100
+  unless (typ == expectedType) $ fail "FloatsX2 does not have Floats subtype?"
+  f1 <- getFloat
+  f2 <- getFloat
+  return (f1, f2)
+
+parseQBFloatsX3 :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (Float, Float, Float)
+parseQBFloatsX3 = do
+  typ <- getW32
+  let expectedType = case ?format of
+        QBFormatNew -> 0x00010000
+        QBFormatPS2 -> 0x00000100
+  unless (typ == expectedType) $ fail "FloatsX3 does not have Floats subtype?"
+  f1 <- getFloat
+  f2 <- getFloat
+  f3 <- getFloat
+  return (f1, f2, f3)
 
 parseQBStruct :: (?endian :: ByteOrder, ?format :: QBFormat) => Get [QBStructItem Word32 Word32]
 parseQBStruct = do
@@ -418,6 +518,20 @@ parseQBStruct = do
         x <- getW32
         (array, p) <- parseQBArray
         return (QBStructItemArray x array, p)
+      structItemFloatsX2 = do
+        x <- getW32
+        p1 <- getW32
+        p2 <- getW32
+        shouldBeAt p1
+        (f1, f2) <- parseQBFloatsX2
+        return (QBStructItemFloatsX2 x f1 f2, p2)
+      structItemFloatsX3 = do
+        x <- getW32
+        p1 <- getW32
+        p2 <- getW32
+        shouldBeAt p1
+        (f1, f2, f3) <- parseQBFloatsX3
+        return (QBStructItemFloatsX3 x f1 f2 f3, p2)
       structItemStruct = do
         x <- getW32
         p1 <- getW32
@@ -482,6 +596,8 @@ parseQBStruct = do
       0x00010300 -> structItemString
       0x00010200 -> structItemFloat
       0x00010C00 -> structItemArray
+      0x00010500 -> structItemFloatsX2
+      0x00010600 -> structItemFloatsX3
       0x00010A00 -> structItemStruct
       0x00810000 -> structItemInteger810000
       0x009A0000 -> structItemQbKeyString9A0000
@@ -501,6 +617,8 @@ parseQBStruct = do
       0x00030100 -> structItemString
       0x00020100 -> structItemFloat
       0x000C0100 -> structItemArray
+      0x00050100 -> structItemFloatsX2
+      0x00060100 -> structItemFloatsX3
       0x000A0100 -> structItemStruct
       0x00000300 -> structItemInteger810000
       0x00003500 -> structItemQbKeyString9A0000
@@ -584,6 +702,28 @@ parseQBSection = do
         n2 <- getW32
         when (n2 /= 0) $ fail "SectionQbKeyStringQs: expected 0 for second number"
         return $ QBSectionQbKeyStringQs itemQbKeyCrc fileId n1
+      sectionQbKeyString = do
+        n1 <- getW32
+        n2 <- getW32
+        when (n2 /= 0) $ fail "SectionQbKeyString: expected 0 for second number"
+        return $ QBSectionQbKeyString itemQbKeyCrc fileId n1
+      sectionFloat = do
+        f1 <- getFloat
+        n <- getW32
+        when (n /= 0) $ fail "SectionFloat: expected 0 after float"
+        return $ QBSectionFloat itemQbKeyCrc fileId f1
+      sectionFloatsX2 = do
+        p <- getW32
+        0 <- getW32
+        shouldBeAt p
+        (f1, f2) <- parseQBFloatsX2
+        return $ QBSectionFloatsX2 itemQbKeyCrc fileId f1 f2
+      sectionFloatsX3 = do
+        p <- getW32
+        0 <- getW32
+        shouldBeAt p
+        (f1, f2, f3) <- parseQBFloatsX3
+        return $ QBSectionFloatsX3 itemQbKeyCrc fileId f1 f2 f3
   case ?format of
     QBFormatNew -> case sectionType of
       0x00200100 -> sectionInteger
@@ -594,6 +734,10 @@ parseQBSection = do
       0x00200300 -> sectionString
       0x00200400 -> sectionStringW
       0x00201C00 -> sectionQbKeyStringQs
+      0x00201A00 -> sectionQbKeyString
+      0x00200200 -> sectionFloat
+      0x00200500 -> sectionFloatsX2
+      0x00200600 -> sectionFloatsX3
       _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
     QBFormatPS2 -> case sectionType of
       0x00010400 -> sectionInteger
@@ -604,6 +748,10 @@ parseQBSection = do
       0x00030400 -> sectionString
       0x00040400 -> sectionStringW
       0x001C0400 -> sectionQbKeyStringQs
+      0x00041A00 -> sectionQbKeyString
+      0x00020400 -> sectionFloat
+      0x00050400 -> sectionFloatsX2
+      0x00060400 -> sectionFloatsX3
       _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
 parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 Word32]
@@ -699,6 +847,15 @@ grow need = do
     v' <- MV.grow v $ max available $ need - available
     put (v', used)
 
+padOutputTo4 :: PutSeek s ()
+padOutputTo4 = do
+  (_, used) <- get
+  case rem used 4 of
+    0 -> return ()
+    1 -> append $ B.replicate 3 0
+    2 -> append $ B.replicate 2 0
+    _ -> append $ B.singleton 0
+
 append :: B.ByteString -> PutSeek s ()
 append b = do
   get >>= \(_, used) -> grow $ used + B.length b
@@ -784,6 +941,39 @@ putQBSubArray ary = let
       forM_ ptrArrayPairs $ \(p, a) -> do
         fillPointer p
         putQBSubArray a
+    QBArrayOfQbKeyString ks -> do
+      w32 0x00011A00
+      writeLen ks
+      mapM_ w32 ks
+    QBArrayOfFloatsX2 vs -> do
+      w32 0x00010500
+      writeLen vs
+      ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
+      forM_ ptrVectorPairs $ \(p, (f1, f2)) -> do
+        fillPointer p
+        w32 0x00010000
+        append $ BL.toStrict $ runPut $ do
+          putFloatbe f1
+          putFloatbe f2
+    QBArrayOfFloatsX3 vs -> do
+      w32 0x00010600
+      writeLen vs
+      ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
+      forM_ ptrVectorPairs $ \(p, (f1, f2, f3)) -> do
+        fillPointer p
+        w32 0x00010000
+        append $ BL.toStrict $ runPut $ do
+          putFloatbe f1
+          putFloatbe f2
+          putFloatbe f3
+    QBArrayOfString strs -> do
+      w32 0x00010300
+      writeLen strs
+      ptrStringPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) strs
+      forM_ ptrStringPairs $ \(p, str) -> do
+        fillPointer p
+        append $ str <> B.singleton 0
+      padOutputTo4
 
 padTo4 :: B.ByteString -> B.ByteString
 padTo4 bs = case rem (B.length bs) 4 of
@@ -832,6 +1022,29 @@ putQBStruct = let
         w32 x
         append $ BL.toStrict $ runPut $ putFloatbe f
         reservePointer
+      QBStructItemFloatsX2 x f1 f2 -> do
+        w32 0x00010500
+        w32 x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        w32 0x00010000
+        append $ BL.toStrict $ runPut $ do
+          putFloatbe f1
+          putFloatbe f2
+        return p
+      QBStructItemFloatsX3 x f1 f2 f3 -> do
+        w32 0x00010600
+        w32 x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        w32 0x00010000
+        append $ BL.toStrict $ runPut $ do
+          putFloatbe f1
+          putFloatbe f2
+          putFloatbe f3
+        return p
       QBStructItemArray x array -> do
         w32 0x00010C00
         w32 x
@@ -956,6 +1169,41 @@ putQBSection = \case
     w32 fileId
     w32 qs
     w32 0
+  QBSectionQbKeyString itemQbKeyCrc fileId k -> do
+    w32 0x00201A00
+    w32 itemQbKeyCrc
+    w32 fileId
+    w32 k
+    w32 0
+  QBSectionFloat itemQbKeyCrc fileId f1 -> do
+    w32 0x00200200
+    w32 itemQbKeyCrc
+    w32 fileId
+    append $ BL.toStrict $ runPut $ putFloatbe f1
+    w32 0
+  QBSectionFloatsX2 itemQbKeyCrc fileId f1 f2 -> do
+    w32 0x200500
+    w32 itemQbKeyCrc
+    w32 fileId
+    p <- reservePointer
+    w32 0
+    fillPointer p
+    w32 0x00010000
+    append $ BL.toStrict $ runPut $ do
+      putFloatbe f1
+      putFloatbe f2
+  QBSectionFloatsX3 itemQbKeyCrc fileId f1 f2 f3 -> do
+    w32 0x200600
+    w32 itemQbKeyCrc
+    w32 fileId
+    p <- reservePointer
+    w32 0
+    fillPointer p
+    w32 0x00010000
+    append $ BL.toStrict $ runPut $ do
+      putFloatbe f1
+      putFloatbe f2
+      putFloatbe f3
 
 putQB :: [QBSection Word32 Word32] -> BL.ByteString
 putQB sects = let

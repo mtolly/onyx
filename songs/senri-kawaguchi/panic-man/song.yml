@@ -1,0 +1,35 @@
+audio:
+  album-track:
+    frames: 6637978
+    md5: 42fe5d8170e8a594cfe3a6548c60aada
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+plans:
+  album:
+    song:
+      pad: [3.312, album-track]
+  dev:
+    song:
+      pad: [3.312, album-track]
+    parts:
+      bass:
+        pad: [3.312, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.312, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.312, channels: [[4, 5], stems]]
+      other:
+        pad: [3.312, channels: [[6, 7], stems]]
+metadata:
+  title: Panic Man
+  artist: Senri Kawaguchi
+  year: 2020
+  author: Onyxite

@@ -15,7 +15,7 @@ module Onyx.StackTrace
 , warn, warnMessage, sendMessage', lg
 , errorToWarning, errorToEither
 , fatal
-, throwNoContext
+, throwNoContext, warnNoContext
 , MonadError(..)
 , inside
 , runStackTraceT
@@ -191,6 +191,9 @@ instance (Monad m) => MonadError Messages (StackTraceT m) where
 
 throwNoContext :: (Monad m) => Messages -> StackTraceT m a
 throwNoContext = StackTraceT . throwE
+
+warnNoContext :: (SendMessage m) => Messages -> StackTraceT m ()
+warnNoContext (Messages msgs) = lift $ mapM_ (sendMessage MessageWarning) msgs
 
 instance (Monad m) => MonadThrow (StackTraceT m) where
   throwM = stackShowException

@@ -133,8 +133,8 @@ import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
 import           Onyx.Neversoft.Note                  (loadNoteFile)
 import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
                                                        nodeFileType,
-                                                       pakFormatGH3, qsBank,
-                                                       splitPakNodes)
+                                                       pakByteOrder, qsBank,
+                                                       splitPakNodesAuto)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
 import           Onyx.Nintendo.GCM                    (loadGCM)
@@ -1071,23 +1071,17 @@ commands =
       (FilePak, pak) -> inside ("extracting pak " <> pak) $ do
         dout <- outputFile opts $ return $ pak <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False dout
-        (pabData, endian) <- do
+        pabData <- do
           let (noPlatform, platform) = splitExtension pak
-          pabData <- case splitExtension noPlatform of
+          case splitExtension noPlatform of
             (noPak, ext) | map toLower ext == ".pak" -> do
               pabPath <- fixFileCase $ noPak <> ".pab" <> platform
               stackIO (Dir.doesFileExist pabPath) >>= \case
                 False -> return Nothing
                 True  -> Just <$> stackIO (BL.readFile pabPath)
             _ -> return Nothing
-          let endian = case platform of
-                ".ps2" -> LittleEndian
-                _      -> BigEndian
-          return (pabData, endian)
-        nodes <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodes
-          (pakFormatGH3 endian) -- TODO support WoR pab format
-          bs
-          pabData
+        (nodes, format) <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodesAuto bs pabData
+        lg $ show format
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
         let knownExts =
               [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"
@@ -1113,7 +1107,7 @@ commands =
                     && nodeFileType otherNode == qbKeyCRC ".qs.en"
                 mappingQS = qsBank matchingQS
             inside ("Parsing QB file: " <> show name) $ do
-              let ?endian = endian
+              let ?endian = pakByteOrder format
               mqb <- errorToWarning $ runGetM parseQB contents
               forM_ mqb $ \qb -> do
                 let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb
