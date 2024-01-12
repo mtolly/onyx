@@ -44,8 +44,8 @@ import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.Mode
 import           Onyx.Neversoft.CRC                (qbKeyCRC)
 import           Onyx.Neversoft.Crypt              (gh3Encrypt)
-import           Onyx.Neversoft.GH3
-import           Onyx.Neversoft.Metadata           (gh3MysteryScript)
+import           Onyx.Neversoft.GH3.Metadata       (gh3MysteryScript)
+import           Onyx.Neversoft.GH3.MidQB
 import           Onyx.Neversoft.Pak                (Node (..), buildPak)
 import           Onyx.Neversoft.QB
 import           Onyx.PlayStation.NPData           (gh3CustomMidEdatConfig,

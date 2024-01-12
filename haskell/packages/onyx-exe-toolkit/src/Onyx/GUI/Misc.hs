@@ -28,7 +28,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Onyx.Audio                                (Audio (..),
                                                             buildSource',
                                                             runAudio)
-import           Onyx.Build.Neversoft                      (makeMetadataLIVE,
+import           Onyx.Build.GuitarHero5.Logic              (makeMetadataLIVE,
                                                             makeMetadataPKG)
 import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.RockBand.Milo               as Milo
@@ -36,7 +36,7 @@ import           Onyx.MIDI.Read                            (mapTrack)
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.MIDI.Track.Lipsync
 import           Onyx.MIDI.Track.Vocal                     (nullVox)
-import           Onyx.Neversoft.Metadata                   (combineGH3SongCache360,
+import           Onyx.Neversoft.GH3.Metadata               (combineGH3SongCache360,
                                                             combineGH3SongCachePS3)
 import           Onyx.Project
 import           Onyx.QuickConvert

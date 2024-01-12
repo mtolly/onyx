@@ -8,7 +8,7 @@ expertarraytochart.bms by GHFear
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ViewPatterns      #-}
-module Onyx.Neversoft.Note where
+module Onyx.Neversoft.GH5.Note where
 
 import           Control.Monad                    (forM, forM_, guard,
                                                    replicateM, void)

@@ -26,7 +26,7 @@ import           Onyx.Audio
 import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4)
 import           Onyx.Audio.Render               (computeDrumsPart)
 import           Onyx.Build.Common
-import           Onyx.Build.Neversoft            (makeGHWoRNote,
+import           Onyx.Build.GuitarHero5.Logic    (makeGHWoRNote,
                                                   packageNameHash,
                                                   packageNameHashFormat,
                                                   worFileBarePak,
@@ -39,7 +39,7 @@ import           Onyx.Genre
 import qualified Onyx.MIDI.Track.File            as F
 import           Onyx.Neversoft.CRC              (qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt            (ghworEncrypt)
-import           Onyx.Neversoft.Note             (makeWoRNoteFile, putNote)
+import           Onyx.Neversoft.GH5.Note         (makeWoRNoteFile, putNote)
 import           Onyx.Neversoft.Pak              (Node (..), buildPak, makeQS,
                                                   parseQS, worMetadataString)
 import           Onyx.Neversoft.QB               (QBArray (..), QBSection (..),

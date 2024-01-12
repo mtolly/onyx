@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-module Onyx.Build.Neversoft where
+module Onyx.Build.GuitarHero5.Logic where
 
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -50,8 +50,8 @@ import           Onyx.MIDI.Track.Vocal
 import           Onyx.MIDI.Track.Vocal.Legacy     (harm1ToPartVocals)
 import           Onyx.Mode
 import           Onyx.Neversoft.CRC
-import           Onyx.Neversoft.Metadata
-import           Onyx.Neversoft.Note
+import           Onyx.Neversoft.GH5.Metadata
+import           Onyx.Neversoft.GH5.Note
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 import           Onyx.PlayStation.NPData          (ghworCustomMidEdatConfig,

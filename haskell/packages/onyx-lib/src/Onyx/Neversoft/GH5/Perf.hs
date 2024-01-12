@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module Onyx.Neversoft.Perf where
+module Onyx.Neversoft.GH5.Perf where
 
 import           Control.Monad
 import           Data.Binary.Get

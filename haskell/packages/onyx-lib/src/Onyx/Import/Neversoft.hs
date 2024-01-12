@@ -45,9 +45,10 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Crypt             (decryptFSB', gh3Decrypt)
-import           Onyx.Neversoft.GH3               (gh3ToMidi, parseMidQB)
-import           Onyx.Neversoft.Metadata
-import           Onyx.Neversoft.Note
+import           Onyx.Neversoft.GH3.Metadata
+import           Onyx.Neversoft.GH3.MidQB         (gh3ToMidi, parseMidQB)
+import           Onyx.Neversoft.GH5.Metadata
+import           Onyx.Neversoft.GH5.Note
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.PS2
 import           Onyx.Neversoft.QB                (QBSection (..),

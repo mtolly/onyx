@@ -72,7 +72,7 @@ import           Onyx.Audio.FSB                       (FSBExtraMP3 (..),
                                                        writeXMA2, xma1To2)
 import           Onyx.Audio.VGS                       (readVGS)
 import           Onyx.Build                           (shakeBuildFiles)
-import           Onyx.Build.Neversoft                 (makeMetadataLIVE,
+import           Onyx.Build.GuitarHero5.Logic         (makeMetadataLIVE,
                                                        packageNameHashFormat,
                                                        worFilePS3EmptyVRAMPak,
                                                        worFilePS3SongVRAMPak)
@@ -130,7 +130,7 @@ import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
 import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
                                                        gh3Encrypt, ghworEncrypt,
                                                        ghwtEncrypt)
-import           Onyx.Neversoft.Note                  (loadNoteFile)
+import           Onyx.Neversoft.GH5.Note              (loadNoteFile)
 import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
                                                        nodeFileType,
                                                        pakByteOrder, qsBank,

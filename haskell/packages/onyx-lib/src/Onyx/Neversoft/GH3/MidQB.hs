@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
-module Onyx.Neversoft.GH3 where
+module Onyx.Neversoft.GH3.MidQB where
 
 import           Control.Monad                    (forM, void)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
@@ -28,7 +28,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
-import           Onyx.Neversoft.Metadata          (SongInfoGH3 (..))
+import           Onyx.Neversoft.GH3.Metadata      (SongInfoGH3 (..))
 import           Onyx.Neversoft.QB
 import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace
