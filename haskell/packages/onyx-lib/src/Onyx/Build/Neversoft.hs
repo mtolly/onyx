@@ -512,7 +512,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
       return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
   fmap catMaybes $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
-    errorToWarning $ readTextPakQB bs
+    errorToWarning $ readTextPakQB bs Nothing Nothing
 
 makeMetadataLIVE :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
 makeMetadataLIVE inputs fout = do

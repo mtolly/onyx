@@ -56,7 +56,7 @@ import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
 import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
                                                importGH3SGHFolder,
-                                               importNeversoftGH)
+                                               importNeversoftGH, importWoRDisc)
 import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
@@ -257,7 +257,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
           = warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
         | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
-          = warn "Guitar Hero: Warriors of Rock disc not supported yet" >> return ([], [])
+          = importWoRDisc loc dir >>= foundImports "Guitar Hero: Warriors of Rock" loc
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
           = foundPowerGig loc dir "Data.hdr.e.2"
         | otherwise = warn "Unrecognized Xbox 360 game" >> return ([], [])

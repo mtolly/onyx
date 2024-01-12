@@ -62,21 +62,26 @@ data TextPakSongStruct = TextPakSongStruct
   , songData     :: [QBStructItem QSResult Word32]
   } deriving (Show)
 
-readTextPakQB :: (SendMessage m) => BL.ByteString -> StackTraceT m TextPakQB
-readTextPakQB bs = do
-  nodes <- splitPakNodes BigEndian bs Nothing
+readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m TextPakQB
+readTextPakQB bs pab mqs = do
+  nodes <- splitPakNodes pakFormatWoR bs pab
   let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
       qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes
-  (qbFile, _isWoR) <- case (qbFiles True, qbFiles False) of
-    ([qb], _) -> return (snd qb, True)
-    (_, [qb]) -> return (snd qb, False)
-    _         -> fail "Couldn't locate metadata .qb"
-  let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
+      qbWoRDisc = filter (\(n, _) -> nodeFilenameCRC n == 3114035354) nodes
+  (qbFile, _isWoR) <- case (qbWoRDisc, qbFiles True, qbFiles False) of
+    ([qb], _, _) -> return (snd qb, True)
+    (_, [qb], _) -> return (snd qb, True)
+    (_, _, [qb]) -> return (snd qb, False)
+    _            -> fail "Couldn't locate metadata .qb"
+  mappingQS <- case mqs of
+    Nothing -> return $ qsBank nodes -- could also filter by matching nodeFilenameCRC
+    Just qs -> qsBank <$> splitPakNodes pakFormatWoR qs Nothing
   qb <- let
     ?endian = BigEndian
     in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
   let arrayStructIDPairs =
-        [ (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
+        [ (qbKeyCRC "gh6_songlist", qbKeyCRC "gh6_songlist_props") -- WoR Disc
+        , (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
         -- rest are seen in GH5 only
         , (qbKeyCRC "gh4_dlc_songlist", qbKeyCRC "gh4_dlc_songlist_props") -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
         , (qbKeyCRC "gh4_1_songlist", qbKeyCRC "gh4_1_songlist_props") -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
@@ -190,13 +195,13 @@ data GH3TextPakQB = GH3TextPakQB
 
 readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
-  nodes <- splitPakNodes ?endian pak $ Just pab
+  nodes <- splitPakNodes (pakFormatGH3 ?endian) pak $ Just pab
   readGH3TextPakQB nodes
 
 readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDLC pak = do
   let ?endian = BigEndian
-  nodes <- splitPakNodes ?endian pak Nothing
+  nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
   readGH3TextPakQB nodes
 
 data GH3Language

@@ -253,7 +253,7 @@ data GHNoteFile = GHNoteFile
 -- Load from an uncompressed _song.pak.xen
 loadSongPak :: (MonadFail m) => BL.ByteString -> m (HM.HashMap Word32 T.Text, GHNoteFile)
 loadSongPak bs = do
-  nodes <- splitPakNodes BigEndian bs Nothing
+  nodes <- splitPakNodes pakFormatWoR bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
       nodesOfType t = filter (\(n, _) -> nodeFileType n == qbKeyCRC t) nodes
       bank = qsBank $ nodesOfType ".qs.en"

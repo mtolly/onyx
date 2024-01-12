@@ -44,20 +44,24 @@ data QBFormat
 data QBSection qs k
   = QBSectionInteger k k Word32 -- TODO all these "Integer" data should probably be signed, e.g. vocals_pitch_score_shift
   | QBSectionArray k k (QBArray qs k)
+  | QBSectionQbKey k k k
   | QBSectionStruct k k [QBStructItem qs k]
   | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
   | QBSectionString k k B.ByteString -- seen in gh3 ps2
   | QBSectionStringW k k T.Text -- seen in gh3
+  | QBSectionQbKeyStringQs k k qs
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
   toJSON = \case
     QBSectionInteger x y z -> OneKey "SectionInteger" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionArray x y z -> OneKey "SectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionQbKey x y z -> OneKey "SectionQbKey" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionStruct x y z -> OneKey "SectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B.unpack z]
     QBSectionString x y z -> OneKey "SectionString" $ toJSON [toJSON x, toJSON y, toJSON $ B8.unpack z]
     QBSectionStringW x y z -> OneKey "SectionStringW" $ toJSON [toJSON x, toJSON y, toJSON z]
+    QBSectionQbKeyStringQs x y z -> OneKey "SectionQbKeyStringQs" $ toJSON [toJSON x, toJSON y, toJSON z]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
   parseJSON = \case
@@ -66,6 +70,9 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
       _ -> fail "QB json error"
     OneKey "SectionArray" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionArray <$> parseJSON x <*> parseJSON y <*> parseJSON z
+      _ -> fail "QB json error"
+    OneKey "SectionQbKey" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBSectionQbKey <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
     OneKey "SectionStruct" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionStruct <$> parseJSON x <*> parseJSON y <*> parseJSON z
@@ -78,6 +85,9 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
       _ -> fail "QB json error"
     OneKey "SectionStringW" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionStringW <$> parseJSON x <*> parseJSON y <*> parseJSON z
+      _ -> fail "QB json error"
+    OneKey "SectionQbKeyStringQs" xs -> parseJSON xs >>= \case
+      [x, y, z] -> QBSectionQbKeyStringQs <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
     _ -> fail "QB json error"
 
@@ -196,12 +206,14 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
 
 instance Bifunctor QBSection where
   first f = \case
-    QBSectionInteger x y n    -> QBSectionInteger x y n
-    QBSectionArray x y arr    -> QBSectionArray x y $ first f arr
-    QBSectionStruct x y items -> QBSectionStruct x y $ map (first f) items
-    QBSectionScript w x y z   -> QBSectionScript w x y z
-    QBSectionString x y s     -> QBSectionString x y s
-    QBSectionStringW x y s    -> QBSectionStringW x y s
+    QBSectionInteger x y n       -> QBSectionInteger x y n
+    QBSectionArray x y arr       -> QBSectionArray x y $ first f arr
+    QBSectionQbKey x y z         -> QBSectionQbKey x y z
+    QBSectionStruct x y items    -> QBSectionStruct x y $ map (first f) items
+    QBSectionScript w x y z      -> QBSectionScript w x y z
+    QBSectionString x y s        -> QBSectionString x y s
+    QBSectionStringW x y s       -> QBSectionStringW x y s
+    QBSectionQbKeyStringQs x y z -> QBSectionQbKeyStringQs x y (f z)
   second = fmap
 
 instance Bifunctor QBArray where
@@ -238,12 +250,14 @@ instance Bifunctor QBStructItem where
 
 instance Bifoldable QBSection where
   bifoldMap f g = \case
-    QBSectionInteger x y _     -> g x <> g y
-    QBSectionArray   x y arr   -> g x <> g y <> bifoldMap f g arr
-    QBSectionStruct  x y items -> g x <> g y <> mconcat (map (bifoldMap f g) items)
-    QBSectionScript  x y _ _   -> g x <> g y
-    QBSectionString  x y _     -> g x <> g y
-    QBSectionStringW x y _     -> g x <> g y
+    QBSectionInteger x y _       -> g x <> g y
+    QBSectionArray   x y arr     -> g x <> g y <> bifoldMap f g arr
+    QBSectionQbKey   x y z       -> g x <> g y <> g z
+    QBSectionStruct  x y items   -> g x <> g y <> mconcat (map (bifoldMap f g) items)
+    QBSectionScript  x y _ _     -> g x <> g y
+    QBSectionString  x y _       -> g x <> g y
+    QBSectionStringW x y _       -> g x <> g y
+    QBSectionQbKeyStringQs x y z -> g x <> g y <> f z
 
 instance Bifoldable QBArray where
   bifoldMap f g = \case
@@ -531,6 +545,11 @@ parseQBSection = do
         (array, _) <- parseQBArray
         -- the snd above should be 0, I think
         return $ QBSectionArray itemQbKeyCrc fileId array
+      sectionQbKey = do
+        n1 <- getW32
+        n2 <- getW32
+        when (n2 /= 0) $ fail "SectionQbKey: expected 0 for second number"
+        return $ QBSectionQbKey itemQbKeyCrc fileId n1
       sectionStruct = do
         p1 <- getW32
         _reserved <- getW32
@@ -560,22 +579,31 @@ parseQBSection = do
         str <- getUtf16BE
         jumpTo4
         return $ QBSectionStringW itemQbKeyCrc fileId str
+      sectionQbKeyStringQs = do
+        n1 <- getW32
+        n2 <- getW32
+        when (n2 /= 0) $ fail "SectionQbKeyStringQs: expected 0 for second number"
+        return $ QBSectionQbKeyStringQs itemQbKeyCrc fileId n1
   case ?format of
     QBFormatNew -> case sectionType of
       0x00200100 -> sectionInteger
       0x00200C00 -> sectionArray
+      0x00200D00 -> sectionQbKey
       0x00200A00 -> sectionStruct
       0x00200700 -> sectionScript
       0x00200300 -> sectionString
       0x00200400 -> sectionStringW
+      0x00201C00 -> sectionQbKeyStringQs
       _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
     QBFormatPS2 -> case sectionType of
       0x00010400 -> sectionInteger
       0x000C0400 -> sectionArray
+      0x000D0400 -> sectionQbKey
       0x000A0400 -> sectionStruct
       0x00070400 -> sectionScript
       0x00030400 -> sectionString
       0x00040400 -> sectionStringW
+      0x001C0400 -> sectionQbKeyStringQs
       _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
 parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 Word32]
@@ -881,6 +909,12 @@ putQBSection = \case
     w32 fileId
     p <- putQBArray array
     setPointer p 0
+  QBSectionQbKey itemQbKeyCrc fileId k -> do
+    w32 0x00200D00
+    w32 itemQbKeyCrc
+    w32 fileId
+    w32 k
+    w32 0
   QBSectionStruct itemQbKeyCrc fileId struct -> do
     w32 0x00200A00
     w32 itemQbKeyCrc
@@ -916,6 +950,12 @@ putQBSection = \case
     w32 0
     fillPointer p
     append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
+  QBSectionQbKeyStringQs itemQbKeyCrc fileId qs -> do
+    w32 0x00201C00
+    w32 itemQbKeyCrc
+    w32 fileId
+    w32 qs
+    w32 0
 
 putQB :: [QBSection Word32 Word32] -> BL.ByteString
 putQB sects = let

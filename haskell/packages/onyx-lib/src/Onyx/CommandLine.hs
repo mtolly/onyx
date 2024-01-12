@@ -132,7 +132,8 @@ import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
                                                        ghwtEncrypt)
 import           Onyx.Neversoft.Note                  (loadNoteFile)
 import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
-                                                       nodeFileType, qsBank,
+                                                       nodeFileType,
+                                                       pakFormatGH3, qsBank,
                                                        splitPakNodes)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
@@ -1083,7 +1084,10 @@ commands =
                 ".ps2" -> LittleEndian
                 _      -> BigEndian
           return (pabData, endian)
-        nodes <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodes endian bs pabData
+        nodes <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodes
+          (pakFormatGH3 endian) -- TODO support WoR pab format
+          bs
+          pabData
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
         let knownExts =
               [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"

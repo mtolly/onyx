@@ -15,7 +15,8 @@ import qualified Data.ByteString.Lazy            as BL
 import           Data.Char                       (isAscii, isSpace)
 import qualified Data.HashMap.Strict             as HM
 import           Data.List                       (sortOn)
-import           Data.Maybe                      (fromMaybe, listToMaybe)
+import           Data.Maybe                      (fromMaybe, isJust,
+                                                  listToMaybe)
 import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
 import           Data.Word
@@ -38,7 +39,6 @@ data Node = Node
 
 -- Credit to unpak.pl by Tarragon Allen (tma).
 -- Used in GHWT and onward.
--- TODO this seems to not handle some WoR disc files right, like qb.pab.xen
 decompressPakGH4 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
 decompressPakGH4 bs = do
   -- conveniently, start and next are relative to this CHNK, not the whole file
@@ -79,17 +79,32 @@ decompressPak bs = if BL.take 4 bs == "CHNK"
 
 -- .pak header values are big endian on 360/PS3, but little on PS2
 
-getPakNodes :: (MonadFail m) => ByteOrder -> BL.ByteString -> m [Node]
-getPakNodes endian = runGetM $ let
+data PakFormat = PakFormat
+  { pakByteOrder     :: ByteOrder
+  , pakNewPabOffsets :: Bool
+  -- in WoR, pak and pab are processed separately. offsets are always relative to start of pab.
+  -- in GH3 it's as if they are one file. offsets are computed just like no-pab pak files.
+  }
+
+pakFormatGH3 :: ByteOrder -> PakFormat
+pakFormatGH3 endian = PakFormat { pakByteOrder = endian, pakNewPabOffsets = False }
+
+pakFormatWoR :: PakFormat
+pakFormatWoR = PakFormat { pakByteOrder = BigEndian, pakNewPabOffsets = True }
+
+getPakNodes :: (MonadFail m) => PakFormat -> Bool -> BL.ByteString -> m [Node]
+getPakNodes fmt hasPab = runGetM $ let
   end = qbKeyCRC "last"
   end2 = qbKeyCRC ".last"
   go = do
-    posn <- fromIntegral <$> bytesRead
-    let getW32 = case endian of
+    posnOffset <- if hasPab && pakNewPabOffsets fmt
+      then return 0
+      else fromIntegral <$> bytesRead
+    let getW32 = case pakByteOrder fmt of
           BigEndian    -> getWord32be
           LittleEndian -> getWord32le
     nodeFileType       <- getW32
-    nodeOffset         <- (+ posn) <$> getW32
+    nodeOffset         <- (+ posnOffset) <$> getW32
     nodeSize           <- getW32
     nodeFilenamePakKey <- getW32
     nodeFilenameKey    <- getW32
@@ -104,21 +119,24 @@ getPakNodes endian = runGetM $ let
       else go
   in go
 
-splitPakNodes :: (MonadFail m) => ByteOrder -> BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
+splitPakNodes :: (MonadFail m) => PakFormat -> BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
 splitPakNodes _ pak _
   | "\\\\Dummy file" `BL.isPrefixOf` pak
   -- these are seen in GH3 PS2, songs/*_{gfx,sfx}.pak.ps2
   = return []
-splitPakNodes endian pak maybePab = do
+splitPakNodes fmt pak maybePab = do
   pak'      <- decompressPak pak
   maybePab' <- mapM decompressPak maybePab
-  let bs' = pak' <> fromMaybe BL.empty maybePab'
+  let dataSection = if pakNewPabOffsets fmt
+        then fromMaybe pak' maybePab'
+        else pak' <> fromMaybe BL.empty maybePab'
       attachData node = let
         goToData
           = BL.take (fromIntegral $ nodeSize node)
           . BL.drop (fromIntegral $ nodeOffset node)
-        in (node, goToData bs')
-  map attachData <$> getPakNodes endian bs'
+        in (node, goToData dataSection)
+  map attachData <$> getPakNodes fmt (isJust maybePab')
+    (if pakNewPabOffsets fmt then pak' else dataSection)
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let

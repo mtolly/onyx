@@ -78,24 +78,43 @@ importNeversoftGH src folder = let
     | otherwise                                              -> fatal
       "Unrecognized Neversoft Guitar Hero package"
 
+importWoRDisc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importWoRDisc src folder = do
+  let qsPath  = "data" :| ["compressed", "pak", "qs.pak.xen"]
+      pakPath = "data" :| ["compressed", "pak", "qb.pak.xen"]
+      pabPath = "data" :| ["compressed", "pak", "qb.pab.xen"]
+  qs  <- maybe (fatal "Couldn't find qs.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI qsPath  folder)
+  pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI pakPath folder)
+  pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI pabPath folder)
+  qbSections <- fmap textPakSongStructs $ readTextPakQB pak (Just pab) (Just qs)
+  music <- maybe (fatal "Couldn't find music folder") return $ findFolderCI ["data", "music"] folder
+  songs <- maybe (fatal "Couldn't find song pak folder") return $ findFolderCI ["data", "compressed", "SONGS"] folder
+  importGH5WoRSongStructs True src (music <> songs) qbSections
+
 -- Imports DLC STFS files for Guitar Hero 5 and Guitar Hero: Warriors of Rock.
 -- TODO Does not import GH5 songs from mixed GH5 + GHWoR packages like the Kiss pack
 -- TODO Some other not working GH5 stuff like All Hallows Eve pack
 importGH5WoR :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH5WoR src folder = do
   let texts = [ r | (name, r) <- folderFiles folder, "_text.pak" `T.isInfixOf` T.toLower name ]
-      findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
   qbSections <- fmap concat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
-    errorToWarning (readTextPakQB bs) >>= \case
+    errorToWarning (readTextPakQB bs Nothing Nothing) >>= \case
       Nothing       -> return []
       Just contents -> return $ textPakSongStructs contents
+  importGH5WoRSongStructs False src folder qbSections
+
+importGH5WoRSongStructs
+  :: (SendMessage m, MonadIO m)
+  => Bool -> FilePath -> Folder T.Text Readable -> [TextPakSongStruct] -> StackTraceT m [Import m]
+importGH5WoRSongStructs isDisc src folder qbSections = do
+  let findFolded path = findFileCI (pure path) folder
   songInfo <- fmap concat $ forM qbSections $ \song -> do
     case parseSongInfoStruct $ songData song of
       Left  err  -> warn err >> return []
       Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do
-    let songPakName platform = "b" <> TE.decodeUtf8 (songName info) <> "_song.pak." <> platform
+    let songPakName platform = (if isDisc then "" else "b") <> TE.decodeUtf8 (songName info) <> "_song.pak." <> platform
     case findFolded (songPakName "xen") <|> findFolded (songPakName "ps3") of
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
       Just pakFile -> do
@@ -110,6 +129,7 @@ importGH5WoR src folder = do
           let midiOnyx = midiFixed
                 { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
                 }
+              audioPrefix = if isDisc then "" else "a"
               getAudio getName = case level of
                 ImportQuick -> return []
                 ImportFull -> do
@@ -131,9 +151,9 @@ importGH5WoR src folder = do
                   forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
                     (streamData, ext) <- stackIO $ getFSBStreamBytes stream
                     return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
-          streams1 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
-          streams2 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
-          streams3 <- getAudio $ \platform -> "a" <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
+          streams1 <- getAudio $ \platform -> audioPrefix <> TE.decodeUtf8 (songName info) <> "_1.fsb." <> platform
+          streams2 <- getAudio $ \platform -> audioPrefix <> TE.decodeUtf8 (songName info) <> "_2.fsb." <> platform
+          streams3 <- getAudio $ \platform -> audioPrefix <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
           let readTier 0 _ = Nothing
               readTier n f = Just $ f $ Rank $ fromIntegral n * 50
           return SongYaml
@@ -366,7 +386,7 @@ importGH3Song gh3i = let
               GH3Audio360{} -> BigEndian
               GH3AudioPS2{} -> LittleEndian
         nodes <- stackIO (useHandle (gh3iSongPak gh3i) handleToByteString) >>= \bs ->
-          inside "Parsing song .pak" $ splitPakNodes ?endian bs Nothing
+          inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
         let isMidQB node
               = elem (nodeFileType node) [qbKeyCRC ".qb", qbKeyCRC ".mqb"] -- .mqb on PS2
               && nodeFilenameCRC node == qbKeyCRC (gh3Name info)
