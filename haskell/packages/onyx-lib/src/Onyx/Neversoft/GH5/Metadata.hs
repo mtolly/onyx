@@ -18,7 +18,7 @@ import           Onyx.Neversoft.CRC
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 import           Onyx.StackTrace
-import           Onyx.Xbox.STFS       (runGetM)
+import           Onyx.Util.Binary     (runGetM)
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 

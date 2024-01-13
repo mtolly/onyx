@@ -102,10 +102,10 @@ import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
                                                    stackIO, stackProcess,
                                                    tempDir)
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle                 (Readable, fileReadable,
                                                    handleToByteString,
                                                    useHandle)
-import           Onyx.Xbox.STFS                   (runGetM)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
 import qualified Sound.MIDI.Util                  as U

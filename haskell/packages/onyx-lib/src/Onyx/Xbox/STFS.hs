@@ -28,7 +28,6 @@ module Onyx.Xbox.STFS
 , LicenseEntry(..)
 , Header(..)
 , Metadata(..)
-, runGetM, runGetMOffset
 , makePack
 , repackOptions
 , saveCreateOptions
@@ -71,6 +70,7 @@ import           Onyx.Codec.Binary
 import           Onyx.Resources            (gh2Thumbnail, ghWoRThumbnail,
                                             rb2Thumbnail, rb3Thumbnail, xboxKV)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary          (runGetM)
 import           Onyx.Util.Handle
 import           System.FilePath           (takeDirectory, (</>))
 import           System.IO
@@ -539,14 +539,6 @@ data STFSPackage = STFSPackage
   , stfsHeader   :: Header
   , stfsMetadata :: Metadata
   }
-
-runGetM :: (MonadFail m) => Get a -> BL.ByteString -> m a
-runGetM = runGetMOffset 0
-
-runGetMOffset :: (MonadFail m) => Int64 -> Get a -> BL.ByteString -> m a
-runGetMOffset offset g bs = case runGetOrFail g bs of
-  Left (_, pos, err) -> fail $ "Binary parse error at position " <> show (pos + offset) <> ": " <> err
-  Right (_, _, x) -> return x
 
 withSTFSReadable :: Readable -> (STFSPackage -> IO a) -> IO a
 withSTFSReadable r fn = useHandle r $ \fd -> do

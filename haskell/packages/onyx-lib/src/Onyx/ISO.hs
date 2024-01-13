@@ -26,9 +26,9 @@ import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as Map
 import           Data.Maybe           (fromMaybe)
 import           Data.Word
+import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle     (Folder (..), Readable, fromFiles,
                                        subHandle, useHandle)
-import           Onyx.Xbox.STFS       (runGetM)
 import           System.IO            (Handle, SeekMode (..), hFileSize, hSeek)
 
 data PrimaryVolumeDescriptor = PrimaryVolumeDescriptor

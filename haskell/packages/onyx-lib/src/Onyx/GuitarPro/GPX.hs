@@ -15,7 +15,7 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy    as BL
 import           Data.List               (foldl')
 import           Data.Maybe              (mapMaybe)
-import           Onyx.Xbox.STFS          (runGetM)
+import           Onyx.Util.Binary        (runGetM)
 
 gpxFiles :: (MonadFail m) => BL.ByteString -> m [(B.ByteString, BL.ByteString)]
 gpxFiles gpx = do

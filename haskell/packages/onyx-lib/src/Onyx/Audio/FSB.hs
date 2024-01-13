@@ -33,8 +33,8 @@ import           GHC.Generics                 (Generic)
 import           GHC.IO.Handle                (HandlePosn (..))
 import           Numeric                      (showHex)
 import           Onyx.FFMPEG                  (ffSource)
+import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS               (runGetM)
 import           System.FilePath              (dropExtension, (<.>), (</>))
 import qualified System.IO                    as IO
 import           System.IO.Temp               (withSystemTempDirectory)

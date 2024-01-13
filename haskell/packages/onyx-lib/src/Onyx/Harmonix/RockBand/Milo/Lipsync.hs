@@ -58,8 +58,8 @@ import           Onyx.Resources                          (CMUConsonant (..),
 import           Onyx.StackTrace                         (StackTraceT, fatal,
                                                           inside, logStdout,
                                                           stackIO)
+import           Onyx.Util.Binary                        (runGetM)
 import           Onyx.Vocal.DryVox                       (vocalTubes)
-import           Onyx.Xbox.STFS                          (runGetM)
 import qualified Sound.MIDI.Util                         as U
 import           System.FilePath                         (takeExtension)
 import           Text.Read                               (readMaybe)

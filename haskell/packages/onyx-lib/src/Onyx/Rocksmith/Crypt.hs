@@ -7,7 +7,7 @@ import           Crypto.Error
 import           Data.Binary.Get
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Lazy   as BL
-import           Onyx.Xbox.STFS         (runGetM)
+import           Onyx.Util.Binary       (runGetM)
 
 data GamePlatform
   = PC

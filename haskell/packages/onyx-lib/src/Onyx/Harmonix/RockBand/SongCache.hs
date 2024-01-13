@@ -20,6 +20,7 @@ import           Onyx.Harmonix.DTA.Serialize.Magma    (Gender (..))
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Resources                       (rb3Thumbnail)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle                     (Folder (..),
                                                        byteStringSimpleHandle,
                                                        findByteString,

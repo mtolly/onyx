@@ -55,12 +55,12 @@ import           Onyx.PowerGig.GEV
 import           Onyx.PowerGig.Songs
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                  (runGetM)
 import           Onyx.Util.Handle                  (Folder, Readable,
                                                     byteStringSimpleHandle,
                                                     findFile, findFileCI,
                                                     handleToByteString,
                                                     makeHandle, useHandle)
-import           Onyx.Xbox.STFS                    (runGetM)
 import qualified Sound.MIDI.Util                   as U
 
 importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> StackTraceT m [Import m]

@@ -41,7 +41,7 @@ import qualified Onyx.MIDI.Track.Vocal            as V
 import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Pak
 import           Onyx.Sections                    (simpleSection)
-import           Onyx.Xbox.STFS                   (runGetM)
+import           Onyx.Util.Binary                 (runGetM)
 import qualified Sound.MIDI.Util                  as U
 
 data NoteEntry = NoteEntry
@@ -404,6 +404,61 @@ tappingToFunction taps w = any
   (\tap -> singleTimeOffset tap <= w && w < singleTimeOffset tap + singleValue tap)
   taps
 
+convertVocals :: (Word32 -> U.Beats) -> [VocalNote] -> [Single T.Text] -> [Word32] -> [Single Word16] -> V.VocalTrack U.Beats
+convertVocals toBeats vox lyrics phrases sp = let
+  fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
+  -- GH uses = before 2nd syllable, instead of - after 1st syllable like RB
+  fixDash = \case
+    (t1, lyric1) : (t2, T.uncons -> Just ('=', lyric2)) : rest
+      -> fixDash $ (t1, lyric1 <> "-") : (t2, lyric2) : rest
+    x : xs -> x : fixDash xs
+    [] -> []
+  -- Slides use a note connecting the two flat notes with special pitch 2,
+  -- so we just remove those and put a + lyric at the end of each one
+  (slideNotes, notSlides) = partition (\vn -> vnPitch vn == 2) vox
+  -- TODO problem on Fight Fire With Fire (Metallica):
+  -- several "fire" in choruses have a slide between "fi" and "re",
+  -- so the "re" gets a "+" and messes things up.
+  -- probably we should just ignore the slide (remove "+")
+  pluses = flip map slideNotes $ \vn ->
+    ( toBeats $ vnTimeOffset vn + fromIntegral (vnDuration vn)
+    , "+"
+    )
+  -- Talkies have a special pitch of 26, so we add the # to those
+  talkyPositions = Set.fromList $ map (toBeats . vnTimeOffset) $ filter (\vn -> vnPitch vn == 26) vox
+  addTalkies = map $ \pair@(t, lyric) -> if Set.member t talkyPositions
+    then (t, lyric <> "#")
+    else pair
+  -- Each phrase will be drawn between two adjacent points in the phrase points list,
+  -- if there are vocal notes in it. Then determine SP phrases so they match
+  drawnPhrases = flip mapMaybe (zip phrases $ drop 1 phrases) $ \(start, end) -> let
+    notesInPhrase = filter (\vn -> start <= vnTimeOffset vn && vnTimeOffset vn < end) vox
+    isStarPower = case notesInPhrase of
+      [] -> False
+      vn : _ -> any (\(Single t len) -> t <= vnTimeOffset vn && vnTimeOffset vn < t + fromIntegral len) sp
+    in do
+      guard $ not $ null notesInPhrase
+      return (start, end, isStarPower)
+  in mempty
+    { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics $ \single ->
+      (toBeats $ singleTimeOffset single, singleValue single)
+    , V.vocalPhrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
+      [(toBeats start, True), (toBeats end, False)]
+    , V.vocalOverdrive = fromPairs $ drawnPhrases >>= \(start, end, isSP) -> do
+      guard isSP
+      [(toBeats start, True), (toBeats end, False)]
+    , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
+      $ splitEdgesSimple $ fromPairs $ flip map notSlides $ \vn -> let
+        pos = toBeats $ vnTimeOffset vn
+        len = toBeats (vnTimeOffset vn + fromIntegral (vnDuration vn)) - pos
+        pitch
+          -- TODO GH might use a different octave reference? or maybe it's flexible
+          | vnPitch vn < 36 = minBound
+          | vnPitch vn > 84 = maxBound
+          | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
+        in (pos, ((), pitch, len))
+    }
+
 ghToMidi :: HM.HashMap Word32 T.Text -> GHNoteFile -> F.Song (F.FixedFile U.Beats)
 ghToMidi bank pak = let
   toSeconds :: Word32 -> U.Seconds
@@ -448,6 +503,7 @@ ghToMidi bank pak = let
                   | xdGhost note `testBit` b = D.VelocityGhost
                   | otherwise = D.VelocityNormal
           return (toBeats $ noteTimeOffset $ xdNote note, (gem, vel))
+        -- TODO handle drum sustains, translate to lanes?
         in concat
           [ noteBit (D.Pro D.Green ())  0
           , noteBit D.Red               1
@@ -464,58 +520,6 @@ ghToMidi bank pak = let
     return (toBeats $ noteTimeOffset note, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
     (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])
-  getVocal vox lyrics phrases sp = let
-    -- GH uses = before 2nd syllable, instead of - after 1st syllable like RB
-    fixDash = \case
-      (t1, lyric1) : (t2, T.uncons -> Just ('=', lyric2)) : rest
-        -> fixDash $ (t1, lyric1 <> "-") : (t2, lyric2) : rest
-      x : xs -> x : fixDash xs
-      [] -> []
-    -- Slides use a note connecting the two flat notes with special pitch 2,
-    -- so we just remove those and put a + lyric at the end of each one
-    (slideNotes, notSlides) = partition (\vn -> vnPitch vn == 2) vox
-    -- TODO problem on Fight Fire With Fire (Metallica):
-    -- several "fire" in choruses have a slide between "fi" and "re",
-    -- so the "re" gets a "+" and messes things up.
-    -- probably we should just ignore the slide (remove "+")
-    pluses = flip map slideNotes $ \vn ->
-      ( toBeats $ vnTimeOffset vn + fromIntegral (vnDuration vn)
-      , "+"
-      )
-    -- Talkies have a special pitch of 26, so we add the # to those
-    talkyPositions = Set.fromList $ map (toBeats . vnTimeOffset) $ filter (\vn -> vnPitch vn == 26) vox
-    addTalkies = map $ \pair@(t, lyric) -> if Set.member t talkyPositions
-      then (t, lyric <> "#")
-      else pair
-    -- Each phrase will be drawn between two adjacent points in the phrase points list,
-    -- if there are vocal notes in it. Then determine SP phrases so they match
-    drawnPhrases = flip mapMaybe (zip phrases $ drop 1 phrases) $ \(start, end) -> let
-      notesInPhrase = filter (\vn -> start <= vnTimeOffset vn && vnTimeOffset vn < end) vox
-      isStarPower = case notesInPhrase of
-        [] -> False
-        vn : _ -> any (\(Single t len) -> t <= vnTimeOffset vn && vnTimeOffset vn < t + fromIntegral len) sp
-      in do
-        guard $ not $ null notesInPhrase
-        return (start, end, isStarPower)
-    in mempty
-      { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics $ \single ->
-        (toBeats $ singleTimeOffset single, singleValue single)
-      , V.vocalPhrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
-        [(toBeats start, True), (toBeats end, False)]
-      , V.vocalOverdrive = fromPairs $ drawnPhrases >>= \(start, end, isSP) -> do
-        guard isSP
-        [(toBeats start, True), (toBeats end, False)]
-      , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
-        $ splitEdgesSimple $ fromPairs $ flip map notSlides $ \vn -> let
-          pos = toBeats $ vnTimeOffset vn
-          len = toBeats (vnTimeOffset vn + fromIntegral (vnDuration vn)) - pos
-          pitch
-            -- TODO GH might use a different octave reference? or maybe it's flexible
-            | vnPitch vn < 36 = minBound
-            | vnPitch vn > 84 = maxBound
-            | otherwise       = toEnum $ fromIntegral (vnPitch vn) - 36
-          in (pos, ((), pitch, len))
-      }
   markers
     = fromPairs
     $ mapMaybe (\(Single t qsID) -> let
@@ -557,12 +561,12 @@ ghToMidi bank pak = let
       , D.drumOverdrive = getOD $ drums_starpower $ gh_drumsexpert pak
       , D.drumKick2x = getKick2x $ gh_drumsexpert pak
       }
-    , F.fixedPartVocals = getVocal
+    , F.fixedPartVocals = convertVocals toBeats
       (gh_vocals         pak)
       (gh_vocallyrics    pak)
       (gh_vocalphrase    pak)
       (gh_vocalstarpower pak)
-    , F.fixedHarm2      = fromMaybe mempty $ getVocal
+    , F.fixedHarm2      = fromMaybe mempty $ convertVocals toBeats
       <$> gh_backup_vocals         pak
       <*> gh_backup_vocallyrics    pak
       <*> gh_backup_vocalphrase    pak

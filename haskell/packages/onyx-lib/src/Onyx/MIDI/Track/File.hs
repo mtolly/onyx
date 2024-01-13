@@ -65,11 +65,11 @@ import           Onyx.MIDI.Track.Vocal
 import           Onyx.PhaseShift.Dance
 import           Onyx.PhaseShift.Message
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                  (runGetM)
 import           Onyx.Util.Handle                  (Readable (..), fileReadable,
                                                     handleToByteString,
                                                     useHandle)
 import           Onyx.Util.Text.Decode             (decodeGeneral, encodeLatin1)
-import           Onyx.Xbox.STFS                    (runGetM)
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta

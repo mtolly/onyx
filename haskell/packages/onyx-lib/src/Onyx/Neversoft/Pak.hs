@@ -26,7 +26,7 @@ import           Onyx.Neversoft.CRC              (qbKeyCRC)
 import           Onyx.StackTrace                 (SendMessage, StackTraceT,
                                                   errorToEither, fatal, inside,
                                                   warnNoContext)
-import           Onyx.Xbox.STFS                  (runGetM)
+import           Onyx.Util.Binary                (runGetM)
 
 data Node = Node
   { nodeFileType       :: Word32

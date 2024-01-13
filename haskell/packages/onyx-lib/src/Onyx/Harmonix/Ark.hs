@@ -22,8 +22,8 @@ import qualified Data.List.NonEmpty     as NE
 import qualified Data.Text              as T
 import qualified Data.Vector            as V
 import           Data.Word              (Word32)
+import           Onyx.Util.Binary       (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS         (runGetM)
 import           System.FilePath        (dropExtension, takeFileName, (-<.>))
 
 data FileEntry a = FileEntry

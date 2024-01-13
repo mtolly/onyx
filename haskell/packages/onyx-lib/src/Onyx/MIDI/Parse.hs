@@ -20,7 +20,7 @@ import           Data.Word                             (Word32, Word8)
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Onyx.MIDI.Common                      (pattern RNil,
                                                         pattern Wait)
-import           Onyx.Xbox.STFS                        (runGetMOffset)
+import           Onyx.Util.Binary                      (runGetMOffset)
 import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta

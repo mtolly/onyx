@@ -17,8 +17,8 @@ import qualified Data.Text             as T
 import qualified Data.Text.Encoding    as TE
 import           Data.Word
 import           Onyx.Nintendo.WAD     (roundUpToMultiple, skipToMultiple)
+import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS        (runGetM)
 
 -- DATAP.HED + DATAP.WAD, contains most smaller files
 

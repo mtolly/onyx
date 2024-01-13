@@ -24,7 +24,7 @@ import           Foreign.C
 import           Numeric                      (showHex)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS               (runGetM)
+import           Onyx.Util.Binary              (runGetM)
 import           Sound.MOGG.EncryptRB1        (encryptRB1)
 import           System.IO                    (SeekMode (..), hSeek)
 

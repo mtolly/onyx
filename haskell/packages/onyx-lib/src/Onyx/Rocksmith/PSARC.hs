@@ -20,8 +20,8 @@ import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
 import           Onyx.Codec.Binary
 import           Onyx.Rocksmith.Crypt
+import           Onyx.Util.Binary                (runGetM)
 import qualified Onyx.Util.Handle                as SH
-import           Onyx.Xbox.STFS                  (runGetM)
 import           System.IO                       (SeekMode (..), hSeek)
 
 data Header = Header

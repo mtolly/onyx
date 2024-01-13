@@ -8,9 +8,9 @@ import qualified Data.ByteString.Lazy         as BL
 import           Onyx.Resources               (magmaCommonDir, magmaV1Dir,
                                                magmaV2Dir)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle             (Readable, byteStringSimpleHandle,
                                                makeHandle)
-import           Onyx.Xbox.STFS               (runGetM)
 import qualified System.Directory             as Dir
 import           System.FilePath              ((</>))
 import           System.Info                  (os)

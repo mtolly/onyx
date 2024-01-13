@@ -7,7 +7,7 @@ import qualified Data.ByteString      as B
 import           Debug.Trace
 import           Onyx.Codec.Binary
 import           Onyx.Rocksmith.Crypt
-import           Onyx.Xbox.STFS       (runGetM)
+import           Onyx.Util.Binary     (runGetM)
 
 lenArray :: (?endian :: ByteOrder) => BinaryCodec a -> BinaryCodec [a]
 lenArray c = Codec

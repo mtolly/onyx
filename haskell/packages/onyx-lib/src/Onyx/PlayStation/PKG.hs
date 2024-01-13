@@ -42,9 +42,9 @@ import           Onyx.PlayStation.NPData (NPDecryptConfig (..), decryptNPData,
 import           Onyx.Resources          (getResourcesPath)
 import           Onyx.StackTrace         (SendMessage, StackTraceT,
                                           errorToWarning, lg, stackIO, warn)
+import           Onyx.Util.Binary        (runGetM)
 import           Onyx.Util.Files         (fixFileCase)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS          (runGetM)
 import           System.Directory        (doesFileExist)
 import           System.FilePath         ((<.>), (</>))
 import           System.IO               (Handle, IOMode (..), SeekMode (..),

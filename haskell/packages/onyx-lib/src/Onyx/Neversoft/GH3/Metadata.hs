@@ -34,6 +34,7 @@ import           Onyx.Preferences             (Preferences (prefArtistSort),
                                                readPreferences)
 import           Onyx.Resources               (getResourcesPath, gh3Thumbnail)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Files              (shortWindowsPath)
 import           Onyx.Util.Handle             (Folder (..), Readable,
                                                byteStringSimpleHandle,
@@ -41,7 +42,7 @@ import           Onyx.Util.Handle             (Folder (..), Readable,
                                                makeHandle, useHandle)
 import           Onyx.Xbox.STFS               (CreateOptions (..),
                                                LicenseEntry (..), getSTFSFolder,
-                                               makeCONMemory, runGetM)
+                                               makeCONMemory)
 import           System.FilePath              (dropExtension, takeExtension,
                                                (</>))
 

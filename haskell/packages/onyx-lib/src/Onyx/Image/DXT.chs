@@ -20,8 +20,8 @@ import           Data.Maybe                 (fromMaybe)
 import           Foreign
 import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)
-import qualified Data.Vector.Storable as V
-import Onyx.Xbox.STFS (runGetM)
+import qualified Data.Vector.Storable       as V
+import           Onyx.Util.Binary           (runGetM)
 
 #include "stb_dxt.h"
 

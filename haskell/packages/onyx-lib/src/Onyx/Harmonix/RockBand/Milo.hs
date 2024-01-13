@@ -29,11 +29,11 @@ import           Onyx.Harmonix.RockBand.Milo.Lipsync
 import           Onyx.Harmonix.RockBand.Milo.SongPref
 import           Onyx.Harmonix.RockBand.Milo.Venue
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                        (runGetM)
 import           Onyx.Util.Handle                        (Folder (..),
                                                           byteStringSimpleHandle,
                                                           makeHandle,
                                                           saveHandleFolder)
-import           Onyx.Xbox.STFS                          (runGetM)
 import qualified System.Directory                        as Dir
 import           System.FilePath                         ((<.>), (</>))
 

@@ -22,8 +22,8 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.Text             as T
 import           Data.Word             (Word32)
+import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS        (runGetM)
 import           System.IO             (IOMode (..), SeekMode (..), hFileSize,
                                         hSeek, withBinaryFile)
 

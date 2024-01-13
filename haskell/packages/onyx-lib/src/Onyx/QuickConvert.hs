@@ -77,6 +77,7 @@ import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
 import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.Xbox.STFS
 import qualified Sound.File.Sndfile                   as Snd

@@ -73,6 +73,7 @@ import           Onyx.PlayStation.PSS                 (extractVGSStream,
 import           Onyx.Project
 import           Onyx.Resources                       (rb3Updates)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        byteStringSimpleHandle,
                                                        fileReadable,
@@ -81,7 +82,6 @@ import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
-import           Onyx.Xbox.STFS                       (runGetM)
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
 import qualified System.Directory                     as Dir

@@ -33,8 +33,8 @@ import           Onyx.Nintendo.GCM
 import           Onyx.Project
 import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS                   (runGetM)
 import qualified Sound.MIDI.Util                  as U
 import           System.Directory                 (listDirectory)
 import           System.FilePath                  ((<.>), (</>))

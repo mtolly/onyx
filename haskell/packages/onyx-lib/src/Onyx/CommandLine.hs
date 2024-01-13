@@ -150,6 +150,7 @@ import           Onyx.Reaper.Build                    (TuningInfo (..),
 import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.Rocksmith.PSARC                 (extractPSARC)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary
 import           Onyx.Util.Files                      (copyDirRecursive,
                                                        fixFileCase,
                                                        shortWindowsPath)

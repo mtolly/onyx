@@ -84,6 +84,7 @@ import           Onyx.Sections                         (Section,
                                                         makeRBN2Sections,
                                                         sectionBody)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                      (runGetM)
 import           Onyx.Util.Files                       (shortWindowsPath)
 import           Onyx.Util.Handle                      (Folder (..),
                                                         fileReadable,
@@ -92,7 +93,7 @@ import           Onyx.Util.Text.Transform              (replaceCharsRB)
 import           Onyx.Vocal.DryVox                     (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
-import           Onyx.Xbox.STFS                        (rb2pkg, rb3pkg, runGetM)
+import           Onyx.Xbox.STFS                        (rb2pkg, rb3pkg)
 import           Paths_onyx_lib                        (version)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File.Event                 as E

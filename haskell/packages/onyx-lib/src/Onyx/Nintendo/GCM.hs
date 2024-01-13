@@ -21,8 +21,8 @@ import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Vector          as V
 import           Data.Word
+import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS       (runGetM)
 import           System.IO
 
 data FileEntry = DirEntry Dir | FileEntry File

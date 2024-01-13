@@ -59,8 +59,8 @@ import           Onyx.Neversoft.QB                (QBSection (..),
                                                    parseSGHStruct)
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS                   (runGetM)
 import           Text.Read                        (readMaybe)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -287,8 +287,10 @@ importGH4DLC src folder = do
               [] -> fatal "Couldn't find chart .qb file"
               (_, bs) : _ -> do
                 midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseGH4MidQB (gh4Name info)
-                bank <- return [] -- TODO
-                return $ gh4ToMidi HM.empty midQB
+                -- this just gets lyrics, need separate bank for section names.
+                -- qb key in mid.qb -> qb in _t.pak (match nodeFilenameCRC = dlcN like gh3) -> qs in _t.pak (same match)
+                let bank = qsBank nodes
+                return $ gh4ToMidi bank midQB
           ImportQuick -> return emptyChart
         let midiOnyx = midiFixed
               { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed

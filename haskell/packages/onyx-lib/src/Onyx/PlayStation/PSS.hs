@@ -15,7 +15,7 @@ import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Word
 import           Numeric
-import           Onyx.Xbox.STFS       (runGetM)
+import           Onyx.Util.Binary     (runGetM)
 import           System.IO
 
 data Packet a

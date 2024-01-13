@@ -8,7 +8,7 @@ import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Word            (Word32)
 import           Onyx.Neversoft.CRC
-import           Onyx.Xbox.STFS       (runGetM)
+import           Onyx.Util.Binary     (runGetM)
 
 data Perf = Perf
   { perfDLCKey   :: Word32

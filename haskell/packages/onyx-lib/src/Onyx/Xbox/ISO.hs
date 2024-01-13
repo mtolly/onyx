@@ -17,8 +17,8 @@ import           Data.Bits            (testBit)
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Word
+import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Xbox.STFS       (runGetM)
 import           System.IO
 
 sectorLength :: Integer
