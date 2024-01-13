@@ -274,9 +274,10 @@ readGH3TextPakQB nodes = do
         songs -> Right songs
     else return $ Left pair
   structs <- forM (concat $ rights sortedNodes) $ \case
-    QBStructItemStruct8A0000 k struct -> return (k, struct)
+    QBStructItemStruct8A0000 k struct -> return (k, struct) -- gh3
+    QBStructItemStruct k struct -> return (k, struct) -- gh4
     item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
-  return $ GH3TextPakQB
+  return GH3TextPakQB
     { gh3TextPakSongStructs = structs
     , gh3OtherNodes
       = filter (\(node, _) -> nodeFileType node /= qbKeyCRC ".last")

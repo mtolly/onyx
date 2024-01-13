@@ -179,6 +179,22 @@ parseBackground dlc qb sfx inner = do
   gh3Performance <- findSection qb (dlc <> "_performance" <> sfx) inner
   return GH3Background{..}
 
+parseMarkers :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Either Word32 T.Text)]
+parseMarkers = \case
+  QBArrayOfFloatRaw [] -> return []
+  QBArrayOfStruct marks -> forM marks $ \case
+    QBStructHeader : items -> let
+      time      = [v | QBStructItemInteger810000     k v <- items, k == qbKeyCRC "time"  ]
+      markerKey = [v | QBStructItemQbKeyString9A0000 k v <- items, k == qbKeyCRC "marker"]
+      -- seen in SanicStudios custom. do these work?
+      markerStr = [v | QBStructItemStringW           k v <- items, k == qbKeyCRC "marker"]
+      in case (time, markerKey, markerStr) of
+        ([t], [m], []) -> return (t, Left m)
+        ([t], [], [m]) -> return (t, Right m)
+        _              -> fatal $ "Unexpected contents of marker: " <> show items
+    _ -> fatal "No struct header in marker"
+  _ -> fatal "Expected array of structs for markers"
+
 parseMidQB :: (Monad m) => B.ByteString -> [QBSection Word32 Word32] -> StackTraceT m GH3MidQB
 parseMidQB dlc qb = do
 
@@ -197,20 +213,7 @@ parseMidQB dlc qb = do
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfInteger ns  -> return ns
     _                    -> fatal "Expected array of integers for fretbars"
-  gh3Markers        <- findSection qb (dlc <> "_markers") $ \case
-    QBArrayOfFloatRaw [] -> return []
-    QBArrayOfStruct marks -> forM marks $ \case
-      QBStructHeader : items -> let
-        time      = [v | QBStructItemInteger810000     k v <- items, k == qbKeyCRC "time"  ]
-        markerKey = [v | QBStructItemQbKeyString9A0000 k v <- items, k == qbKeyCRC "marker"]
-        -- seen in SanicStudios custom. do these work?
-        markerStr = [v | QBStructItemStringW           k v <- items, k == qbKeyCRC "marker"]
-        in case (time, markerKey, markerStr) of
-          ([t], [m], []) -> return (t, Left m)
-          ([t], [], [m]) -> return (t, Right m)
-          _              -> fatal $ "Unexpected contents of marker: " <> show items
-      _ -> fatal "No struct header in marker"
-    _ -> fatal "Expected array of structs for markers"
+  gh3Markers        <- findSection qb (dlc <> "_markers") parseMarkers
 
   gh3BackgroundNotes <- parseBackground dlc qb "_notes" $ \case
     QBArrayOfFloatRaw [] -> return []
@@ -337,7 +340,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       , [(pos, TrackNote (Just Five.Yellow) lenBeats) | bits `testBit` 2]
       , [(pos, TrackNote (Just Five.Blue  ) lenBeats) | bits `testBit` 3]
       , [(pos, TrackNote (Just Five.Orange) lenBeats) | bits `testBit` 4]
-      , [(pos, TrackForce                lenBeats) | bits `testBit` 5]
+      , [(pos, TrackForce                   lenBeats) | bits `testBit` 5]
       ]
   getPart part = mempty
     { Five.fiveDifficulties = Map.fromList

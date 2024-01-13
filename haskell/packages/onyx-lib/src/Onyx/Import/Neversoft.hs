@@ -47,6 +47,8 @@ import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.Crypt             (decryptFSB', gh3Decrypt)
 import           Onyx.Neversoft.GH3.Metadata
 import           Onyx.Neversoft.GH3.MidQB         (gh3ToMidi, parseMidQB)
+import           Onyx.Neversoft.GH4.Metadata
+import           Onyx.Neversoft.GH4.MidQB         (gh4ToMidi, parseGH4MidQB)
 import           Onyx.Neversoft.GH5.Metadata
 import           Onyx.Neversoft.GH5.Note
 import           Onyx.Neversoft.Pak
@@ -72,8 +74,7 @@ importNeversoftGH src folder = let
   pakSuffix name = ".pak.xen" `T.isSuffixOf` name || ".pak.ps3" `T.isSuffixOf` name
   in if
     | any (testGH3   . T.toLower . fst) $ folderFiles folder -> importGH3DLC src folder
-    | any (testGHWT  . T.toLower . fst) $ folderFiles folder -> fatal
-      "Guitar Hero World Tour is not supported yet. (Soon?)"
+    | any (testGHWT  . T.toLower . fst) $ folderFiles folder -> importGH4DLC src folder
     | any (testGH5   . T.toLower . fst) $ folderFiles folder -> importGH5WoR src folder
     | any (testGHWoR . T.toLower . fst) $ folderFiles folder -> importGH5WoR src folder
     | otherwise                                              -> fatal
@@ -242,6 +243,151 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                 })
               ]
             }
+
+------------------------------------------------------------------------
+
+importGH4DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH4DLC src folder = do
+  platform <- if any (\(name, _) -> ".xen" `T.isSuffixOf` T.toLower name) $ folderFiles folder
+    then return (<> ".xen")
+    else if any (\(name, _) -> ".ps3" `T.isSuffixOf` T.toLower name) $ folderFiles folder
+      then return (<> ".ps3")
+      else fail "Couldn't determine DLC platform (.xen or .ps3)"
+  let texts = do
+        (name, r) <- folderFiles folder
+        dlName <- toList $ T.stripSuffix (platform "_t.pak") $ T.toLower name
+        return (dlName, r)
+      findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
+  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(_dlName, r) -> do
+    bs <- stackIO $ useHandle r handleToByteString
+    errorToWarning (readGH3TextPakQBDLC bs) >>= \case
+      Nothing       -> return ([], [])
+      Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
+  songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
+    case parseSongInfoGH4 items of
+      Left  err  -> warn err >> return []
+      Right info -> return [info]
+  fmap catMaybes $ forM songInfo $ \info -> do
+    let pathName   = "a" <> TE.decodeUtf8 (gh4Name info)
+        songPath   = pathName <> platform "_s.pak"
+    return $ case findFolded songPath of
+      Nothing       -> Nothing -- song which is listed in the database, but not actually in this package
+      Just rSongPak -> Just $ \level -> do
+        when (level == ImportFull) $ do
+          lg $ "Importing GH song " <> show (gh4Name info) <> " from: " <> src
+        midiFixed <- case level of
+          ImportFull -> do
+            let ?endian = BigEndian
+            nodes <- stackIO (useHandle rSongPak handleToByteString) >>= \bs ->
+              inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
+            let isMidQB node
+                  = elem (nodeFileType node) [qbKeyCRC ".qb"]
+                  && nodeFilenameCRC node == qbKeyCRC (gh4Name info)
+            case filter (isMidQB . fst) nodes of
+              [] -> fatal "Couldn't find chart .qb file"
+              (_, bs) : _ -> do
+                midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseGH4MidQB (gh4Name info)
+                bank <- return [] -- TODO
+                return $ gh4ToMidi HM.empty midQB
+          ImportQuick -> return emptyChart
+        let midiOnyx = midiFixed
+              { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
+              }
+            getAudio path = case level of
+              ImportQuick -> return []
+              ImportFull -> do
+                bs <- case findFolded path of
+                  Just r  -> stackIO $ useHandle r handleToByteString
+                  Nothing -> fatal $ "Couldn't find audio file: " <> show path
+                dec <- case decryptFSB' (T.unpack path) $ BL.toStrict bs of
+                  Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show path
+                  Just dec -> return dec
+                streams <- stackIO $ parseFSB dec >>= splitFSBStreams
+                forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+                  (streamData, ext) <- stackIO $ getFSBStreamBytes stream
+                  return (path <> "." <> T.pack (show i) <> "." <> ext, streamData)
+        streams1 <- getAudio $ pathName <> platform "_1.fsb"
+        streams2 <- getAudio $ pathName <> platform "_2.fsb"
+        streams3 <- getAudio $ pathName <> platform "_3.fsb"
+        return SongYaml
+          { metadata = def'
+            { title = Just $ gh4Title info
+            , artist = Just $ gh4Artist info
+            , year = Nothing -- TODO from gh4Year info
+            , fileAlbumArt = Nothing
+            , genre = Nothing -- TODO from gh4Genre info
+            }
+          , global = def'
+            { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+            , fileSongAnim = Nothing
+            , backgroundVideo = Nothing
+            , fileBackgroundImage = Nothing
+            }
+          , audio = HM.fromList $ do
+            (name, bs) <- streams1 <> streams2 <> streams3
+            let str = T.unpack name
+            return (name, AudioFile AudioInfo
+              { md5 = Nothing
+              , frames = Nothing
+              , filePath = Just $ SoftFile str $ SoftReadable
+                $ makeHandle str $ byteStringSimpleHandle bs
+              , commands = []
+              , rate = Nothing
+              , channels = 2
+              })
+          , jammit = HM.empty
+          , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
+            { song = case streams3 of
+              (x, _) : _ -> Just $ Input $ Named x
+              []         -> Nothing
+            , parts = Parts $ HM.fromList $ let
+              drums = case map fst streams1 of
+                d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
+                  { kick = Just $ Input $ Named d1
+                  , snare = Just $ Input $ Named d2
+                  , toms = Just $ Input $ Named d3
+                  , kit = Input $ Named d4
+                  })]
+                _ -> []
+              gbv = case map fst streams2 of
+                g : b : v : _ ->
+                  [ (F.FlexGuitar, PartSingle $ Input $ Named g)
+                  , (F.FlexBass  , PartSingle $ Input $ Named b)
+                  , (F.FlexVocal , PartSingle $ Input $ Named v)
+                  ]
+                _ -> []
+              in drums <> gbv
+            , crowd = case drop 1 streams3 of
+              (x, _) : _ -> Just $ Input $ Named x
+              []         -> Nothing
+            , comments = []
+            , tuningCents = 0
+            , fileTempo = Nothing
+            }
+          , targets = HM.empty
+          , parts = Parts $ HM.fromList
+            [ (F.FlexGuitar, (emptyPart :: Part SoftFile)
+              { grybo = Just def
+              })
+            , (F.FlexBass, (emptyPart :: Part SoftFile)
+              { grybo = Just def
+              })
+            , (F.FlexDrums, (emptyPart :: Part SoftFile)
+              { drums = Just (emptyPartDrums Drums5 Kicks1x :: PartDrums SoftFile)
+              })
+            , (F.FlexVocal, (emptyPart :: Part SoftFile)
+              { vocal = Just PartVocal
+                { difficulty = Tier 1
+                , count      = Vocal1
+                , gender     = Nothing
+                , key        = Nothing
+                , lipsyncRB3 = Nothing
+                }
+              })
+            ]
+          }
+
+------------------------------------------------------------------------
 
 importGH3PS2 :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3PS2 src folder = do
