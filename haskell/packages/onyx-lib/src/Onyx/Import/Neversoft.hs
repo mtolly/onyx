@@ -26,7 +26,7 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.List.Split                  (chunksOf)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
-                                                   listToMaybe)
+                                                   listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           GHC.ByteOrder
@@ -65,20 +65,19 @@ import           Text.Read                        (readMaybe)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importNeversoftGH src folder = let
-  -- note: when we support ghwt, make sure we do something sensible for Death Magnetic.
-  -- (right now it correctly imports the gh3 data)
+  -- we check all games and combine their results,
+  -- so that Death Magnetic imports both the GH3 and GHWT versions
   testGH3   name = "dl"        `T.isPrefixOf` name && pakSuffix name
   testGHWT  name = "adl"       `T.isPrefixOf` name && pakSuffix name
   testGH5   name = "bmanifest" `T.isPrefixOf` name && pakSuffix name
   testGHWoR name = "cmanifest" `T.isPrefixOf` name && pakSuffix name
   pakSuffix name = ".pak.xen" `T.isSuffixOf` name || ".pak.ps3" `T.isSuffixOf` name
-  in if
-    | any (testGH3   . T.toLower . fst) $ folderFiles folder -> importGH3DLC src folder
-    | any (testGHWT  . T.toLower . fst) $ folderFiles folder -> importGH4DLC src folder
-    | any (testGH5   . T.toLower . fst) $ folderFiles folder -> importGH5WoR src folder
-    | any (testGHWoR . T.toLower . fst) $ folderFiles folder -> importGH5WoR src folder
-    | otherwise                                              -> fatal
-      "Unrecognized Neversoft Guitar Hero package"
+  allNames = map (T.toLower . fst) $ folderFiles folder
+  in fmap concat $ sequence
+    [ if any testGH3                                   allNames then importGH3DLC src folder else return []
+    , if any testGHWT                                  allNames then importGH4DLC src folder else return []
+    , if any (\name -> testGH5 name || testGHWoR name) allNames then importGH5WoR src folder else return []
+    ]
 
 importWoRDisc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importWoRDisc src folder = do
@@ -266,14 +265,14 @@ importGH4Disc src folder = do
         songPath = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
     case findFileCI songPath folder of
       Nothing       -> return Nothing -- song in pak but not present, e.g. possibly WT songs in GHM
-      Just rSongPak -> do
+      Just rSongPak -> errorToWarning $ do
         let getAudio path = do
               r <- findFolded $ "DATA" :| ["MUSIC", path]
               return (r, path)
         audio1 <- getAudio $ pathName <> "_1.fsb.xen"
         audio2 <- getAudio $ pathName <> "_2.fsb.xen"
         audio3 <- getAudio $ pathName <> "_3.fsb.xen"
-        return $ Just $ importGH4Song GHImport
+        return $ importGH4Song GHImport
           { ghiSource   = src
           , ghiSongInfo = info
           , ghiSongPak  = rSongPak
@@ -293,9 +292,13 @@ importGH4DLC src folder = do
         Just r  -> return r
       texts = do
         (name, r) <- folderFiles folder
-        dlName <- toList $ T.stripSuffix (platform "_t.pak") $ T.toLower name
-        return (dlName, r)
-  (textSections, textAllNodes) <- fmap mconcat $ forM texts $ \(_dlName, r) -> do
+        let name' = T.toLower name
+        guard $ "a" `T.isPrefixOf` name'
+          && any (`T.isSuffixOf` name') [platform "_t.pak", platform "_text.pak"]
+        -- most files use _t.pak.xen, but Death Magnetic uses _text.pak.xen.
+        -- also we make sure to start with "a" to ignore the GH3 DM files
+        return r
+  (textSections, textAllNodes) <- fmap mconcat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readGH3TextPakQBDLC bs) >>= \case
       Nothing       -> return ([], [])
@@ -306,10 +309,13 @@ importGH4DLC src folder = do
       Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do
     let pathName   = "a" <> TE.decodeUtf8 (gh4Name info)
-        songPath   = pathName <> platform "_s.pak"
-    case findFileCI (pure songPath) folder of
-      Nothing       -> return Nothing -- song which is listed in the database, but not actually in this package
-      Just rSongPak -> do
+        songPaths  =
+          [ pathName <> platform "_s.pak"    -- most songs
+          , pathName <> platform "_song.pak" -- again, Death Magnetic
+          ]
+    case mapMaybe (\p -> findFileCI (pure p) folder) songPaths of
+      []           -> return Nothing -- song which is listed in the database, but not actually in this package
+      rSongPak : _ -> do
         let getAudio path = do
               r <- findFolded $ pure path
               return (r, path)
@@ -355,7 +361,7 @@ importGH4Song ghi level = do
                 (qb, qs) <- HM.toList textSectionMap
                 str <- toList $ HM.lookup qs textBank
                 return (qb, str)
-          return $ gh4ToMidi songBank combinedSectionMap midQB
+          return $ gh4ToMidi info songBank combinedSectionMap midQB
     ImportQuick -> return emptyChart
   let midiOnyx = midiFixed
         { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
@@ -439,7 +445,9 @@ importGH4Song ghi level = do
         { grybo = Just def
         })
       , (F.FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = Just (emptyPartDrums Drums5 Kicks1x :: PartDrums SoftFile)
+        { drums = Just $ let
+          kicks = if gh4DoubleKick info then KicksBoth else Kicks1x
+          in emptyPartDrums Drums5 kicks
         })
       , (F.FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = Just PartVocal
@@ -536,10 +544,12 @@ importGH3DLC src folder = do
       else fail "Couldn't determine DLC platform (.xen or .ps3)"
   let texts = do
         (name, r) <- folderFiles folder
-        dlName <- toList $ T.stripSuffix (platform "_text.pak") $ T.toLower name
-        return (dlName, r)
+        let name' = T.toLower name
+        -- we check that it starts with "dl" to ignore the "adl" GHWT files in Death Magnetic
+        guard $ "dl" `T.isPrefixOf` name' && platform "_text.pak" `T.isSuffixOf` name'
+        return r
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \(_dlName, r) -> do
+  (qbSections, allNodes) <- fmap mconcat $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readGH3TextPakQBDLC bs) >>= \case
       Nothing       -> return ([], [])

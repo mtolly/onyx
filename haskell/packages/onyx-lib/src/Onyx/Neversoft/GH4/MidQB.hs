@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Neversoft.GH4.MidQB where
 
-import           Control.Monad                    (forM)
+import           Control.Monad                    (forM, guard)
 import           Data.Bits                        (testBit, (.&.))
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -25,6 +25,7 @@ import           Onyx.Neversoft.CRC               (qbKeyCRC)
 import           Onyx.Neversoft.GH3.MidQB         (findSection, groupBy3,
                                                    listOfPairs, listOfTriples,
                                                    readGH3TempoMap, toSeconds)
+import           Onyx.Neversoft.GH4.Metadata
 import           Onyx.Neversoft.GH5.Note          (Single (..), VocalNote (..),
                                                    convertVocals)
 import           Onyx.Neversoft.QB
@@ -394,8 +395,8 @@ from James Bond Theme (dlc50), strings matched with the help of Addy's code
 - 1446002506 dlc50_vocals_markers
 -}
 
-gh4ToMidi :: HM.HashMap Word32 T.Text -> HM.HashMap Word32 T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
-gh4ToMidi bankLyrics bankMarkers gh4 = let
+gh4ToMidi :: SongInfoGH4 -> HM.HashMap Word32 T.Text -> HM.HashMap Word32 T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
+gh4ToMidi info bankLyrics bankMarkers gh4 = let
   tempos = readGH3TempoMap (gh4TimeSignatures gh4) (gh4FretBars gh4)
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
@@ -470,12 +471,17 @@ gh4ToMidi bankLyrics bankMarkers gh4 = let
           dynamicBit n = if bits `testBit` n then Drums.VelocityAccent else Drums.VelocityNormal
       -- TODO handle drum sustains, translate to lanes?
       concat
-        [ [(pos, (Drums.Pro Drums.Green  (), dynamicBit 23       )) | bits `testBit` 16]
-        , [(pos, (Drums.Red                , dynamicBit 24       )) | bits `testBit` 17]
-        , [(pos, (Drums.Pro Drums.Yellow (), dynamicBit 25       )) | bits `testBit` 18]
-        , [(pos, (Drums.Pro Drums.Blue   (), dynamicBit 26       )) | bits `testBit` 19]
-        , [(pos, (Drums.Orange             , dynamicBit 27       )) | bits `testBit` 20]
-        , [(pos, (Drums.Kick               , Drums.VelocityNormal)) | bits `testBit` 21]
+        [ [ (pos, (Drums.Pro Drums.Green  (), dynamicBit 23       )) | bits `testBit` 16 ]
+        , [ (pos, (Drums.Red                , dynamicBit 24       )) | bits `testBit` 17 ]
+        , [ (pos, (Drums.Pro Drums.Yellow (), dynamicBit 25       )) | bits `testBit` 18 ]
+        , [ (pos, (Drums.Pro Drums.Blue   (), dynamicBit 26       )) | bits `testBit` 19 ]
+        , [ (pos, (Drums.Orange             , dynamicBit 27       )) | bits `testBit` 20 ]
+        -- GHM X+ has separate 1x/2x kick notes, unlike GH5/WoR which adds the 2 together to get X+.
+        -- For now since we don't support the separate tracks,
+        -- only include 1x kicks if they are also 2x.
+        , [ (pos, (Drums.Kick               , Drums.VelocityNormal))
+          | bits `testBit` 21 && (not (gh4DoubleKick info) || bits `testBit` 29)
+          ]
         ]
     }
   getDrums part = mempty
@@ -485,10 +491,13 @@ gh4ToMidi bankLyrics bankMarkers gh4 = let
       , (Hard  , getDrumsDiff $ gh4Hard   part)
       , (Expert, getDrumsDiff $ gh4Expert part)
       ]
-    -- TODO X+ kicks
     , Drums.drumOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) $ gh4StarPower $ gh4Expert part
     , Drums.drumPlayer1 = makeSpan $ gh4FaceOffP1 part
     , Drums.drumPlayer2 = makeSpan $ gh4FaceOffP2 part
+    , Drums.drumKick2x = fromPairs $ do
+      (time, bits) <- gh4Notes $ gh4Expert part
+      guard $ bits `testBit` 29 && not (bits `testBit` 21)
+      return (toBeats time, ())
     }
   makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
     (time, len) <- spans

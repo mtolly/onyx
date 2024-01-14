@@ -54,11 +54,12 @@ readTextPakQB bs pab mqs = do
   let arrayStructIDPairs =
         [ (qbKeyCRC "gh6_songlist", qbKeyCRC "gh6_songlist_props") -- WoR Disc
         , (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
-        -- rest are seen in GH5 only
         , (qbKeyCRC "gh4_dlc_songlist", qbKeyCRC "gh4_dlc_songlist_props") -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
         , (qbKeyCRC "gh4_1_songlist", qbKeyCRC "gh4_1_songlist_props") -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , (qbKeyCRC "gh5_0_songlist", qbKeyCRC "gh5_0_songlist_props") -- gh5 disc, starts with dlc502, All The Pretty Faces (The Killers)
-        , (qbKeyCRC "gh5_1_songlist", qbKeyCRC "gh5_1_songlist_props") -- band hero, starts with dlc601, ABC (Jackson 5)
+        , (qbKeyCRC "gh5_songlist", qbKeyCRC "gh5_songlist_props") -- gh5 disc (on the actual disc)
+        , (qbKeyCRC "gh5_0_songlist", qbKeyCRC "gh5_0_songlist_props") -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
+        , (qbKeyCRC "gh5_1_disc_songlist", qbKeyCRC "gh5_1_disc_songlist_props") -- band hero (on the actual disc)
+        , (qbKeyCRC "gh5_1_songlist", qbKeyCRC "gh5_1_songlist_props") -- band hero (export), starts with dlc601, ABC (Jackson 5)
         , (qbKeyCRC "gh4_2_songlist", qbKeyCRC "gh4_2_songlist_props") -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
         , (qbKeyCRC "gh4_songlist", qbKeyCRC "gh4_songlist_props") -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
         , (qbKeyCRC "gh5_dlc_songlist", qbKeyCRC "gh5_dlc_songlist_props") -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)

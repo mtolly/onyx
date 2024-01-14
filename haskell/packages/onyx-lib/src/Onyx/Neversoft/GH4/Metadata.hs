@@ -16,11 +16,12 @@ import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 
 data SongInfoGH4 = SongInfoGH4
-  { gh4Name   :: B.ByteString -- this is an id like "DLC23"
-  , gh4Title  :: T.Text
-  , gh4Artist :: T.Text
-  , gh4Year   :: T.Text
-  , gh4Genre  :: Word32
+  { gh4Name       :: B.ByteString -- this is an id like "DLC23"
+  , gh4Title      :: T.Text
+  , gh4Artist     :: T.Text
+  , gh4Year       :: T.Text
+  , gh4Genre      :: Maybe Word32 -- missing in some demo/test songs
+  , gh4DoubleKick :: Bool -- key only present in GH Metallica
   -- lots of other fields ignored
   } deriving (Show)
 
@@ -34,12 +35,14 @@ parseSongInfoGH4 songEntries = do
         in listToMaybe $ songEntries >>= \case
           QBStructItemQbKeyStringQs k (KnownQS _ s) | k == crc -> [s]
           _                                                    -> []
-  gh4Title  <- maybe (Left $ "parseSongInfoGH4: couldn't get song title" ) (Right . stripBackL) $ getString "title"
-  gh4Artist <- maybe (Left $ "parseSongInfoGH4: couldn't get song artist") (Right . stripBackL) $ getString "artist"
-  gh4Year   <- maybe (Left $ "parseSongInfoGH4: couldn't get song year"  ) (Right . stripBackL) $ getString "year"
-  gh4Genre  <- case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ] of
-    n : _ -> Right n
-    []    -> Left "parseSongInfoGH4: couldn't get genre"
+      metaError s = Left $ "parseSongInfoGH4: " <> s <> " for song " <> show gh4Name
+  gh4Title  <- maybe (metaError $ "couldn't get song title" ) (Right . stripBackL) $ getString "title"
+  gh4Artist <- maybe (metaError $ "couldn't get song artist") (Right . stripBackL) $ getString "artist"
+  gh4Year   <- maybe (metaError $ "couldn't get song year"  ) (Right . stripBackL) $ getString "year"
+  let gh4Genre = listToMaybe [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ]
+      gh4DoubleKick = case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
+        n : _ -> n /= 0
+        []    -> False
   Right SongInfoGH4{..}
 
 readGH4TextPakQBDisc :: (MonadFail m) => BL.ByteString -> BL.ByteString -> BL.ByteString -> m GH3TextPakQB

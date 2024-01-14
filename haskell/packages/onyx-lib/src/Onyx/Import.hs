@@ -251,14 +251,28 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir = let
           songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
           in foundImports "Rock Revolution (360)" loc $ importRR songsDir
+
+        -- using unique non-song files to distinguish Neversoft games
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "AO_Long_1.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero: Aerosmith (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "VHstage02.bik.xen"]) dir
+          = importGH4Disc loc dir >>= foundImports "Guitar Hero: Van Halen (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GHM_Movie_Intro.bik.xen"]) dir
+          = importGH4Disc loc dir >>= foundImports "Guitar Hero: Metallica (360)" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
+          -- this file is also in Van Halen and Metallica which is why we check those first
           = importGH4Disc loc dir >>= foundImports "Guitar Hero World Tour (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GHGH_Movie_Intro.bik.xen"]) dir
+          = importGH4Disc loc dir >>= foundImports "Guitar Hero Smash Hits (360)" loc
+        | isJust $ findFileCI ("data" :| ["moviestreams", "BTS_Taylor.bik"]) dir
+          = importWoRDisc loc dir >>= foundImports "Band Hero (360)" loc
+        | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_LHC.pak.xen"]) dir
+          = importWoRDisc loc dir >>= foundImports "Guitar Hero 5 (360)" loc
         | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
-          = importWoRDisc loc dir >>= foundImports "Guitar Hero: Warriors of Rock" loc
+          = importWoRDisc loc dir >>= foundImports "Guitar Hero: Warriors of Rock (360)" loc
+
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
           = foundPowerGig loc dir "Data.hdr.e.2"
         | otherwise = warn "Unrecognized Xbox 360 game" >> return ([], [])
