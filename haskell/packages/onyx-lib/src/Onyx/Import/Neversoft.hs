@@ -35,7 +35,7 @@ import           Onyx.Audio                       (Audio (..))
 import           Onyx.Audio.FSB                   (getFSBStreamBytes, parseFSB,
                                                    splitFSBStreams,
                                                    splitFSBStreams')
-import           Onyx.Genre                       (displayWoRGenre)
+import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
@@ -157,6 +157,9 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
           streams3 <- getAudio $ \platform -> audioPrefix <> TE.decodeUtf8 (songName info) <> "_3.fsb." <> platform
           let readTier 0 _ = Nothing
               readTier n f = Just $ f $ Rank $ fromIntegral n * 50
+              adjustedInput
+                = (case songOverallSongVolume info of 0 -> id; db -> PansVols [-1, 1] [db, db])
+                . Input . Named
           return SongYaml
             { metadata = def'
               { title = Just $ snd $ songTitle info
@@ -187,30 +190,30 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
             , jammit = HM.empty
             , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
               { song = case streams3 of
-                (x, _) : _ -> Just $ Input $ Named x
+                (x, _) : _ -> Just $ adjustedInput x
                 []         -> Nothing
               , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
                   d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
-                    { kick = Just $ Input $ Named d1
-                    , snare = Just $ Input $ Named d2
-                    , toms = Just $ Input $ Named d3
-                    , kit = Input $ Named d4
+                    { kick = Just $ adjustedInput d1
+                    , snare = Just $ adjustedInput d2
+                    , toms = Just $ adjustedInput d3
+                    , kit = adjustedInput d4
                     })]
                   _ -> []
                 gbv = case map fst streams2 of
                   g : b : v : _ ->
-                    [ (F.FlexGuitar, PartSingle $ Input $ Named g)
-                    , (F.FlexBass  , PartSingle $ Input $ Named b)
-                    , (F.FlexVocal , PartSingle $ Input $ Named v)
+                    [ (F.FlexGuitar, PartSingle $ adjustedInput g)
+                    , (F.FlexBass  , PartSingle $ adjustedInput b)
+                    , (F.FlexVocal , PartSingle $ adjustedInput v)
                     ]
                   _ -> []
                 in drums <> gbv
               , crowd = case drop 1 streams3 of
-                (x, _) : _ -> Just $ Input $ Named x
+                (x, _) : _ -> Just $ adjustedInput x
                 []         -> Nothing
               , comments = []
-              , tuningCents = 0
+              , tuningCents = songVocalsPitchScoreShift info
               , fileTempo = Nothing
               }
             , targets = HM.empty
@@ -381,13 +384,24 @@ importGH4Song ghi level = do
   streams1 <- getAudio audio1
   streams2 <- getAudio audio2
   streams3 <- getAudio audio3
+  let adjustedInput
+        = (case gh4OverallSongVolume info of 0 -> id; db -> PansVols [-1, 1] [db, db])
+        . Input . Named
   return SongYaml
     { metadata = def'
       { title = Just $ gh4Title info
       , artist = Just $ gh4Artist info
-      , year = Nothing -- TODO from gh4Year info
+      , year = readMaybe $ T.unpack $ fromMaybe (gh4Year info) $ T.stripPrefix ", " $ gh4Year info
       , fileAlbumArt = Nothing
-      , genre = Nothing -- TODO from gh4Genre info
+      , genre = do
+        k <- gh4Genre info
+        Just $ case k of
+          -- most are same as WoR, except this one (at least not in my list)
+          0x33fb36dc -> "Goth"
+          _          -> case listToMaybe $ filter (\wor -> qbWoRGenre wor == k ) [minBound .. maxBound] of
+            Nothing -> T.pack $ show k
+            Just g  -> displayWoRGenre g
+      , cover = not $ gh4OriginalArtist info
       }
     , global = def'
       { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
@@ -410,30 +424,30 @@ importGH4Song ghi level = do
     , jammit = HM.empty
     , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
       { song = case streams3 of
-        (x, _) : _ -> Just $ Input $ Named x
+        (x, _) : _ -> Just $ adjustedInput x
         []         -> Nothing
       , parts = Parts $ HM.fromList $ let
         drums = case map fst streams1 of
           d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
-            { kick = Just $ Input $ Named d1
-            , snare = Just $ Input $ Named d2
-            , toms = Just $ Input $ Named d3
-            , kit = Input $ Named d4
+            { kick = Just $ adjustedInput d1
+            , snare = Just $ adjustedInput d2
+            , toms = Just $ adjustedInput d3
+            , kit = adjustedInput d4
             })]
           _ -> []
         gbv = case map fst streams2 of
           g : b : v : _ ->
-            [ (F.FlexGuitar, PartSingle $ Input $ Named g)
-            , (F.FlexBass  , PartSingle $ Input $ Named b)
-            , (F.FlexVocal , PartSingle $ Input $ Named v)
+            [ (F.FlexGuitar, PartSingle $ adjustedInput g)
+            , (F.FlexBass  , PartSingle $ adjustedInput b)
+            , (F.FlexVocal , PartSingle $ adjustedInput v)
             ]
           _ -> []
         in drums <> gbv
       , crowd = case drop 1 streams3 of
-        (x, _) : _ -> Just $ Input $ Named x
+        (x, _) : _ -> Just $ adjustedInput x
         []         -> Nothing
       , comments = []
-      , tuningCents = 0
+      , tuningCents = gh4VocalsPitchScoreShift info
       , fileTempo = Nothing
       }
     , targets = HM.empty
@@ -453,7 +467,7 @@ importGH4Song ghi level = do
         { vocal = Just PartVocal
           { difficulty = Tier 1
           , count      = Vocal1
-          , gender     = Nothing
+          , gender     = gh4Singer info
           , key        = Nothing
           , lipsyncRB3 = Nothing
           }

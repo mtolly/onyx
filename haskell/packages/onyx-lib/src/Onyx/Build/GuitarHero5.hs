@@ -16,6 +16,7 @@ import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME         (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding as L
 import           Data.Conduit.Audio.SampleRate
+import           Data.Foldable                   (toList)
 import           Data.Hashable                   (Hashable, hash)
 import qualified Data.HashMap.Strict             as HM
 import           Data.Maybe                      (fromMaybe)
@@ -39,6 +40,7 @@ import           Onyx.Genre
 import qualified Onyx.MIDI.Track.File            as F
 import           Onyx.Neversoft.CRC              (qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt            (ghworEncrypt)
+import           Onyx.Neversoft.GH4.Metadata     (makeVocalsCents)
 import           Onyx.Neversoft.GH5.Note         (makeWoRNoteFile, putNote)
 import           Onyx.Neversoft.Pak              (Node (..), buildPak, makeQS,
                                                   parseQS, worMetadataString)
@@ -133,7 +135,7 @@ gh5Rules buildInfo dir gh5 = do
             QBArrayOfQbKey [songKeyQB]
           , QBSectionStruct 4087958085 textQBFilenameKey
             [ QBStructHeader
-            , QBStructItemStruct songKeyQB
+            , QBStructItemStruct songKeyQB $
               [ QBStructHeader
               , QBStructItemQbKey (qbKeyCRC "checksum") songKeyQB
               , QBStructItemString (qbKeyCRC "name") $ B8.pack songKey
@@ -177,13 +179,7 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemString (qbKeyCRC "drum_kit") "ModernRock"
               , QBStructItemString (qbKeyCRC "countoff") "Sticks_Normal"
               , QBStructItemFloat 1179677752 0 -- dunno
-              -- - QBStructItemStruct:
-              --   - vocals_pitch_score_shift
-              --   - - QBStructHeader
-              --     - QBStructItemInteger:
-              --       - cents
-              --       - 30
-              ]
+              ] <> toList (makeVocalsCents $ getTuningCents plan)
             ]
           ]
     stackIO $ BL.writeFile out $ worFileTextPak

@@ -5,20 +5,22 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Neversoft.GH5.Metadata where
 
-import           Control.Monad.Extra  (guard, mapMaybeM)
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.List.Extra      (nubOrd, nubOrdOn)
-import           Data.Maybe           (listToMaybe)
-import qualified Data.Text            as T
+import           Control.Monad.Extra         (guard, mapMaybeM)
+import qualified Data.ByteString             as B
+import qualified Data.ByteString.Lazy        as BL
+import           Data.List.Extra             (nubOrd, nubOrdOn)
+import           Data.Maybe                  (fromMaybe, listToMaybe, mapMaybe)
+import qualified Data.Text                   as T
 import           Data.Word
 import           GHC.ByteOrder
 import           Onyx.Genre
 import           Onyx.Neversoft.CRC
+import           Onyx.Neversoft.GH4.Metadata (getOverallSongVolume,
+                                              getVocalsCents)
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 import           Onyx.StackTrace
-import           Onyx.Util.Binary     (runGetM)
+import           Onyx.Util.Binary            (runGetM)
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 
@@ -52,18 +54,18 @@ readTextPakQB bs pab mqs = do
     ?endian = BigEndian
     in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
   let arrayStructIDPairs =
-        [ (qbKeyCRC "gh6_songlist", qbKeyCRC "gh6_songlist_props") -- WoR Disc
-        , (qbKeyCRC "gh6_dlc_songlist", qbKeyCRC "gh6_dlc_songlist_props") -- WoR DLC
-        , (qbKeyCRC "gh4_dlc_songlist", qbKeyCRC "gh4_dlc_songlist_props") -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
-        , (qbKeyCRC "gh4_1_songlist", qbKeyCRC "gh4_1_songlist_props") -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , (qbKeyCRC "gh5_songlist", qbKeyCRC "gh5_songlist_props") -- gh5 disc (on the actual disc)
-        , (qbKeyCRC "gh5_0_songlist", qbKeyCRC "gh5_0_songlist_props") -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
+        [ (qbKeyCRC "gh6_songlist"       , qbKeyCRC "gh6_songlist_props"       ) -- WoR Disc
+        , (qbKeyCRC "gh6_dlc_songlist"   , qbKeyCRC "gh6_dlc_songlist_props"   ) -- WoR DLC
+        , (qbKeyCRC "gh4_dlc_songlist"   , qbKeyCRC "gh4_dlc_songlist_props"   ) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+        , (qbKeyCRC "gh4_1_songlist"     , qbKeyCRC "gh4_1_songlist_props"     ) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+        , (qbKeyCRC "gh5_songlist"       , qbKeyCRC "gh5_songlist_props"       ) -- gh5 disc (on the actual disc)
+        , (qbKeyCRC "gh5_0_songlist"     , qbKeyCRC "gh5_0_songlist_props"     ) -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
         , (qbKeyCRC "gh5_1_disc_songlist", qbKeyCRC "gh5_1_disc_songlist_props") -- band hero (on the actual disc)
-        , (qbKeyCRC "gh5_1_songlist", qbKeyCRC "gh5_1_songlist_props") -- band hero (export), starts with dlc601, ABC (Jackson 5)
-        , (qbKeyCRC "gh4_2_songlist", qbKeyCRC "gh4_2_songlist_props") -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
-        , (qbKeyCRC "gh4_songlist", qbKeyCRC "gh4_songlist_props") -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
-        , (qbKeyCRC "gh5_dlc_songlist", qbKeyCRC "gh5_dlc_songlist_props") -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
-        , (qbKeyCRC "gh4_3_songlist", qbKeyCRC "gh4_3_songlist_props") -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
+        , (qbKeyCRC "gh5_1_songlist"     , qbKeyCRC "gh5_1_songlist_props"     ) -- band hero (export), starts with dlc601, ABC (Jackson 5)
+        , (qbKeyCRC "gh4_2_songlist"     , qbKeyCRC "gh4_2_songlist_props"     ) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+        , (qbKeyCRC "gh4_songlist"       , qbKeyCRC "gh4_songlist_props"       ) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+        , (qbKeyCRC "gh5_dlc_songlist"   , qbKeyCRC "gh5_dlc_songlist_props"   ) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        , (qbKeyCRC "gh4_3_songlist"     , qbKeyCRC "gh4_3_songlist_props"     ) -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
         ]
       structs = do
         QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
@@ -106,17 +108,19 @@ showTextPakQBQS contents = let
   in (putQB $ discardQS qb, makeQS qs)
 
 data SongInfo = SongInfo
-  { songName       :: B.ByteString -- this is an id like "dlc747"
-  , songTitle      :: (Word32, T.Text)
-  , songArtist     :: (Word32, T.Text)
-  , songYear       :: Int
-  , songAlbumTitle :: Maybe (Word32, T.Text) -- not all songs have one
-  , songDoubleKick :: Bool
-  , songTierGuitar :: Int
-  , songTierBass   :: Int
-  , songTierVocals :: Int
-  , songTierDrums  :: Int
-  , songGenre      :: Maybe GenreWoR
+  { songName                  :: B.ByteString -- this is an id like "dlc747"
+  , songTitle                 :: (Word32, T.Text)
+  , songArtist                :: (Word32, T.Text)
+  , songYear                  :: Int
+  , songAlbumTitle            :: Maybe (Word32, T.Text) -- not all songs have one
+  , songDoubleKick            :: Bool
+  , songTierGuitar            :: Int
+  , songTierBass              :: Int
+  , songTierVocals            :: Int
+  , songTierDrums             :: Int
+  , songGenre                 :: Maybe GenreWoR
+  , songVocalsPitchScoreShift :: Int
+  , songOverallSongVolume     :: Float -- decibels
   } deriving (Show)
 
 parseSongInfoStruct :: [QBStructItem QSResult Word32] -> Either String SongInfo
@@ -156,4 +160,6 @@ parseSongInfoStruct songEntries = do
   let songGenre = case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ] of
         [] -> Nothing
         n : _ -> listToMaybe $ filter (\wor -> qbWoRGenre wor == n) [minBound .. maxBound]
+      songVocalsPitchScoreShift = fromMaybe 0 $ listToMaybe $ mapMaybe getVocalsCents songEntries
+      songOverallSongVolume = fromMaybe 0 $ listToMaybe $ mapMaybe getOverallSongVolume songEntries
   Right SongInfo{..}
