@@ -54,9 +54,10 @@ import qualified Onyx.Import.GuitarHero1      as GH1
 import qualified Onyx.Import.GuitarHero2      as GH2
 import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
-import           Onyx.Import.Neversoft        (importGH3Disc, importGH3PS2,
+import           Onyx.Import.Neversoft        (importGH3Disc, importGH3DiscPS2,
                                                importGH3SGHFolder,
-                                               importNeversoftGH, importWoRDisc)
+                                               importGH4Disc, importNeversoftGH,
+                                               importWoRDisc)
 import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
@@ -255,7 +256,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "AO_Long_1.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero: Aerosmith (360)" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "loading_flipbook.bik.xen"]) dir
-          = warn "Guitar Hero World Tour not supported (yet)" >> return ([], [])
+          = importGH4Disc loc dir >>= foundImports "Guitar Hero World Tour (360)" loc
         | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
           = importWoRDisc loc dir >>= foundImports "Guitar Hero: Warriors of Rock" loc
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
@@ -264,7 +265,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundGH3PS2 hed = do
         let loc = takeDirectory hed
         dir <- stackIO $ crawlFolder loc
-        imps <- importGH3PS2 loc dir
+        imps <- importGH3DiscPS2 loc dir
         foundImports "Guitar Hero III (PS2)" loc imps
       foundISO iso = do
         magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> B.hGet h 6
@@ -280,7 +281,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 Just gen -> foundGEN iso gen
                 Nothing  -> case findFileCI (pure "DATAP.HED") contents of
                   Just _ -> do
-                    imps <- importGH3PS2 iso contents
+                    imps <- importGH3DiscPS2 iso contents
                     foundImports "Guitar Hero III (PS2)" iso imps
                   Nothing -> return ([], [])
       foundSGH sgh = do

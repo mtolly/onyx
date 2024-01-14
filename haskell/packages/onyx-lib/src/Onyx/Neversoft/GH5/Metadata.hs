@@ -9,7 +9,7 @@ import           Control.Monad.Extra  (guard, mapMaybeM)
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.List.Extra      (nubOrd, nubOrdOn)
-import           Data.Maybe           (fromMaybe, listToMaybe)
+import           Data.Maybe           (listToMaybe)
 import qualified Data.Text            as T
 import           Data.Word
 import           GHC.ByteOrder
@@ -120,20 +120,19 @@ data SongInfo = SongInfo
 
 parseSongInfoStruct :: [QBStructItem QSResult Word32] -> Either String SongInfo
 parseSongInfoStruct songEntries = do
-  let removeL s = fromMaybe s $ T.stripPrefix "\\L" s
   songName <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
     s : _ -> Right s
     []    -> Left "parseSongInfo: couldn't get song internal name"
-  songTitle <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
+  songTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
     p : _ -> Right p
     []    -> Left "parseSongInfo: couldn't get song title"
-  songArtist <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
+  songArtist <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
     p : _ -> Right p
     []    -> Left "parseSongInfo: couldn't get song artist"
   songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get song year"
-  songAlbumTitle <- case [ (w, removeL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
+  songAlbumTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
     p : _ -> Right $ Just p
     []    -> Right Nothing
   songDoubleKick <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of

@@ -4,12 +4,15 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Neversoft.GH4.Metadata where
 
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.Maybe           (fromMaybe, listToMaybe)
-import qualified Data.Text            as T
+import qualified Data.ByteString             as B
+import qualified Data.ByteString.Lazy        as BL
+import           Data.Maybe                  (listToMaybe)
+import qualified Data.Text                   as T
 import           Data.Word
+import           GHC.ByteOrder
 import           Onyx.Neversoft.CRC
+import           Onyx.Neversoft.GH3.Metadata
+import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 
 data SongInfoGH4 = SongInfoGH4
@@ -31,11 +34,17 @@ parseSongInfoGH4 songEntries = do
         in listToMaybe $ songEntries >>= \case
           QBStructItemQbKeyStringQs k (KnownQS _ s) | k == crc -> [s]
           _                                                    -> []
-      stripText t = fromMaybe t $ T.stripPrefix "\\L" t
-  gh4Title  <- maybe (Left $ "parseSongInfoGH4: couldn't get song title" ) (Right . stripText) $ getString "title"
-  gh4Artist <- maybe (Left $ "parseSongInfoGH4: couldn't get song artist") (Right . stripText) $ getString "artist"
-  gh4Year   <- maybe (Left $ "parseSongInfoGH4: couldn't get song year"  ) (Right . stripText) $ getString "year"
+  gh4Title  <- maybe (Left $ "parseSongInfoGH4: couldn't get song title" ) (Right . stripBackL) $ getString "title"
+  gh4Artist <- maybe (Left $ "parseSongInfoGH4: couldn't get song artist") (Right . stripBackL) $ getString "artist"
+  gh4Year   <- maybe (Left $ "parseSongInfoGH4: couldn't get song year"  ) (Right . stripBackL) $ getString "year"
   gh4Genre  <- case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ] of
     n : _ -> Right n
     []    -> Left "parseSongInfoGH4: couldn't get genre"
   Right SongInfoGH4{..}
+
+readGH4TextPakQBDisc :: (MonadFail m) => BL.ByteString -> BL.ByteString -> BL.ByteString -> m GH3TextPakQB
+readGH4TextPakQBDisc qbpak qbpab qspak = do
+  let ?endian = BigEndian
+  qbnodes <- splitPakNodes (pakFormatGH3 ?endian) qbpak $ Just qbpab
+  qsnodes <- splitPakNodes (pakFormatGH3 ?endian) qspak Nothing
+  readGH3TextPakQB $ qbnodes <> qsnodes

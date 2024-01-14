@@ -12,7 +12,6 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           Data.Word
 import           Onyx.Guitar                      (emit5')
@@ -395,12 +394,20 @@ from James Bond Theme (dlc50), strings matched with the help of Addy's code
 - 1446002506 dlc50_vocals_markers
 -}
 
-gh4ToMidi :: HM.HashMap Word32 T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
-gh4ToMidi bank gh4 = let
+gh4ToMidi :: HM.HashMap Word32 T.Text -> HM.HashMap Word32 T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
+gh4ToMidi bankLyrics bankMarkers gh4 = let
   tempos = readGH3TempoMap (gh4TimeSignatures gh4) (gh4FretBars gh4)
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
+  markers = fromPairs $ do
+    (t, markerKey) <- gh4GuitarMarkers gh4
+    let marker = case HM.lookup markerKey bankMarkers of
+          -- just like WoR, not all songs have this but it overrides the default "end shortly after last note"
+          Just "\\L_ENDOFSONG" -> Left ()
+          Just s               -> Right $ simpleSection $ stripBackL s
+          Nothing              -> Right $ simpleSection $ T.pack $ show markerKey
+    return (toBeats t, marker)
   fixed = mempty
     { F.fixedPartGuitar = getGuitarBass $ gh4Guitar gh4
     , F.fixedPartBass = getGuitarBass $ gh4Rhythm gh4
@@ -409,15 +416,13 @@ gh4ToMidi bank gh4 = let
       notes = [ VocalNote time (fromIntegral dur) (fromIntegral pitch) | (time, dur, pitch) <- gh4SongVocals gh4 ]
       lyrics = do
         (time, lyricQs) <- gh4Lyrics gh4
-        lyric <- toList $ HM.lookup lyricQs bank
-        return $ Single time $ fromMaybe lyric $ T.stripPrefix "\\L" lyric
+        lyric <- toList $ HM.lookup lyricQs bankLyrics
+        return $ Single time $ stripBackL lyric
       phrases = map fst $ gh4VocalsPhrases gh4
       in convertVocals toBeats notes lyrics phrases []
     , F.fixedEvents = mempty
-      { eventsSections = fromPairs $ do
-        (t, sectionKey) <- gh4GuitarMarkers gh4
-        -- TODO get actual string
-        return (toBeats t, simpleSection $ T.pack $ show sectionKey)
+      { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
+      , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
   -- is this sustain cutoff still right? no trim this time

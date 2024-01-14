@@ -23,6 +23,7 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.HashMap.Strict          as HM
+import           Data.Maybe                   (fromMaybe)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
 import           Data.Text.Encoding.Error     (UnicodeException (..),
@@ -1234,3 +1235,6 @@ discardQB = map $ second $ \case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b
 
 discardStrings :: [QBSection QSResult QBResult] -> [QBSection Word32 Word32]
 discardStrings = discardQS . discardQB
+
+stripBackL :: T.Text -> T.Text
+stripBackL s = fromMaybe s $ T.stripPrefix "\\L" s

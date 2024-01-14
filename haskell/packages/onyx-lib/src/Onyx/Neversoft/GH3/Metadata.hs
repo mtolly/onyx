@@ -261,8 +261,8 @@ readGH3TextPakQB nodes = do
       getSonglistProps qb = do
         QBSectionStruct structID _fileID (QBStructHeader : songs) <- qb
         guard $ elem structID
-          [ qbKeyCRC "permanent_songlist_props" -- disc
-          , qbKeyCRC "download_songlist_props" -- dlc
+          [ qbKeyCRC "permanent_songlist_props" -- disc, both gh3 + ghwt
+          , qbKeyCRC "download_songlist_props" -- dlc, both gh3 + ghwt
           ]
         songs
   sortedNodes <- forM nodes $ \pair@(node, bs) -> if nodeFileType node == qbKeyCRC ".qb"
@@ -276,7 +276,7 @@ readGH3TextPakQB nodes = do
     else return $ Left pair
   structs <- forM (concat $ rights sortedNodes) $ \case
     QBStructItemStruct8A0000 k struct -> return (k, struct) -- gh3
-    QBStructItemStruct k struct -> return (k, struct) -- gh4
+    QBStructItemStruct k struct -> return (k, struct) -- ghwt
     item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
   return GH3TextPakQB
     { gh3TextPakSongStructs = structs

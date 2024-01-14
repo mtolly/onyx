@@ -130,16 +130,27 @@ splitPakNodes _ pak _
 splitPakNodes fmt pak maybePab = do
   pak'      <- decompressPak pak
   maybePab' <- mapM decompressPak maybePab
-  let dataSection = if pakNewPabOffsets fmt
-        then fromMaybe pak' maybePab'
-        else pak' <> fromMaybe BL.empty maybePab'
+  nodes     <- getPakNodes fmt (isJust maybePab') pak'
+  let dataSection = case maybePab' of
+        Nothing  -> pak'
+        Just pab -> if pakNewPabOffsets fmt
+          then pab
+          else let
+            -- in GHWT qb.pak.xen, the pak is 0x10000 bytes long.
+            -- but the offsets in the pab start at 0x9000
+            -- (the 0x1000-multiple after the last node details).
+            -- we could either do that, or the below, where hopefully we can
+            -- assume the first node is at the start of the pab
+            specifiedPakLength = case nodes of
+              node : _ -> fromIntegral $ nodeOffset node
+              []       -> 0
+            in BL.take specifiedPakLength pak' <> pab
       attachData node = let
         goToData
           = BL.take (fromIntegral $ nodeSize node)
           . BL.drop (fromIntegral $ nodeOffset node)
         in (node, goToData dataSection)
-  map attachData <$> getPakNodes fmt (isJust maybePab')
-    (if pakNewPabOffsets fmt then pak' else dataSection)
+  return $ map attachData nodes
 
 -- Tries possible pak+pab formats until one parses (seemingly) correctly.
 splitPakNodesAuto :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> StackTraceT m ([(Node, BL.ByteString)], PakFormat)
