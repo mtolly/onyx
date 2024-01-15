@@ -45,6 +45,8 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
+import           Onyx.Neversoft.PS2           (HedFormat (..),
+                                               identifyHedFormat, parseHed)
 import           Onyx.Zip.Load                (loadZipReadables)
 -- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
@@ -56,8 +58,8 @@ import           Onyx.Import.GuitarPro        (importGPIF)
 import           Onyx.Import.Magma            (importMagma)
 import           Onyx.Import.Neversoft        (importGH3Disc, importGH3DiscPS2,
                                                importGH3SGHFolder,
-                                               importGH4Disc, importNeversoftGH,
-                                               importWoRDisc)
+                                               importGH4Disc, importGH4DiscPS2,
+                                               importNeversoftGH, importWoRDisc)
 import           Onyx.Import.Osu              (importOsu)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
@@ -72,9 +74,11 @@ import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
 import           Onyx.Preferences
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle             (Folder (..), crawlFolder,
                                                fileReadable, findFile,
-                                               findFileCI, findFolder)
+                                               findFileCI, findFolder,
+                                               handleToByteString, useHandle)
 import           Onyx.Xbox.ISO                (loadXboxISO)
 import           Onyx.Xbox.STFS               (getSTFSFolder)
 import qualified Sound.Jammit.Base            as J
@@ -276,11 +280,21 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
           = foundPowerGig loc dir "Data.hdr.e.2"
         | otherwise = warn "Unrecognized Xbox 360 game" >> return ([], [])
-      foundGH3PS2 hed = do
-        let loc = takeDirectory hed
-        dir <- stackIO $ crawlFolder loc
-        imps <- importGH3DiscPS2 loc dir
-        foundImports "Guitar Hero III (PS2)" loc imps
+      foundHED loc contents hed = do
+        entries <- stackIO (useHandle hed handleToByteString) >>= runGetM parseHed
+        case identifyHedFormat entries of
+          Just HedFormatGH3 -> do
+            imps <- importGH3DiscPS2 loc contents
+            foundImports "Guitar Hero III (PS2)" loc imps
+          Just HedFormatGH4 -> do
+            imps <- importGH4DiscPS2 loc contents
+            foundImports "Guitar Hero World Tour (PS2)" loc imps
+          Just HedFormatGH5 -> do
+            warn "Guitar Hero 5 (PS2) not supported yet"
+            return ([], [])
+          Nothing -> do
+            warn "Couldn't determine game format of DATAP.HED"
+            return ([], [])
       foundISO iso = do
         magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> B.hGet h 6
         case lookup magic [] {- supportedDKGames -} of
@@ -294,10 +308,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               case findFolder ["GEN"] contents of
                 Just gen -> foundGEN iso gen
                 Nothing  -> case findFileCI (pure "DATAP.HED") contents of
-                  Just _ -> do
-                    imps <- importGH3DiscPS2 iso contents
-                    foundImports "Guitar Hero III (PS2)" iso imps
-                  Nothing -> return ([], [])
+                  Just hed -> foundHED iso contents hed
+                  Nothing  -> return ([], [])
       foundSGH sgh = do
         dir <- stackIO $ loadZipReadables (Just "SGH9ZIP2PASS4MXKR") sgh
         imps <- importGH3SGHFolder sgh dir
@@ -431,7 +443,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "default.xex" -> do
             let dir = takeDirectory fp
             stackIO (crawlFolder dir) >>= found360Game fp
-          "datap.hed" -> foundGH3PS2 fp
+          "datap.hed" -> do
+            let dir = takeDirectory fp
+            contents <- stackIO $ crawlFolder dir
+            foundHED dir contents $ fileReadable fp
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of

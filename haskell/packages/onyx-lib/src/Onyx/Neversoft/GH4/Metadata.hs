@@ -97,9 +97,12 @@ parseSongInfoGH4 songEntries = do
       gh4VocalsPitchScoreShift = fromMaybe 0 $ listToMaybe $ mapMaybe getVocalsCents songEntries
   Right SongInfoGH4{..}
 
-readGH4TextPakQBDisc :: (MonadFail m) => BL.ByteString -> BL.ByteString -> BL.ByteString -> m GH3TextPakQB
-readGH4TextPakQBDisc qbpak qbpab qspak = do
-  let ?endian = BigEndian
-  qbnodes <- splitPakNodes (pakFormatGH3 ?endian) qbpak $ Just qbpab
-  qsnodes <- splitPakNodes (pakFormatGH3 ?endian) qspak Nothing
+readGH4TextPakQBDisc
+  :: (MonadFail m, ?endian :: ByteOrder)
+  => (BL.ByteString, Maybe BL.ByteString)
+  -> (BL.ByteString, Maybe BL.ByteString)
+  -> m GH3TextPakQB
+readGH4TextPakQBDisc (qbpak, qbpab) (qspak, qspab) = do
+  qbnodes <- splitPakNodes (pakFormatGH3 ?endian) qbpak qbpab
+  qsnodes <- splitPakNodes (pakFormatGH3 ?endian) qspak qspab
   readGH3TextPakQB $ qbnodes <> qsnodes

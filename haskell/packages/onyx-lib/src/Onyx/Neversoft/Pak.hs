@@ -218,7 +218,9 @@ qsBank nodes = HM.fromList $ do
 
 parseQS :: BL.ByteString -> Maybe [(Word32, T.Text)]
 parseQS bs = do
-  t <- T.stripPrefix "\xFEFF" $ TE.decodeUtf16LE $ BL.toStrict bs
+  t <- if "\xFF\xFE" `BL.isPrefixOf` bs
+    then T.stripPrefix "\xFEFF" $ TE.decodeUtf16LE $ BL.toStrict bs
+    else return $ TE.decodeLatin1 $ BL.toStrict bs -- ghwt ps2
   fmap concat $ forM (T.lines t) $ \ln ->
     if T.all isSpace ln
       then return []

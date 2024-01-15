@@ -135,6 +135,9 @@ import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
                                                        nodeFileType,
                                                        pakByteOrder, qsBank,
                                                        splitPakNodesAuto)
+import           Onyx.Neversoft.PS2                   (applyHed, hookUpWAD,
+                                                       identifyHedFormat,
+                                                       parseHed)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
 import           Onyx.Nintendo.GCM                    (loadGCM)
@@ -259,6 +262,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".pak" -> return $ FileType FilePak fp
     ".fsb" -> return $ FileType FileFSB fp
     ".wad" -> return $ FileType FileWAD fp
+    ".hed" -> return $ FileType FileHED fp
     ".app" -> return $ FileType FileU8 fp -- note, we check both extension and "U.8-" magic since official rb u8 don't actually start with that
     ".2" | ".hdr.e.2" `T.isSuffixOf` T.toLower (T.pack $ takeFileName fp) -> return $ FileType FileHdrE2 fp
     ext | any (`isPrefixOf` ext) [".png_", ".bmp_"] -> return $ FileType FileHarmonixImage fp -- assume this is .png_xbox, .bmp_ps2, etc.
@@ -344,6 +348,7 @@ data FileType
   | FileWAD
   | FileHarmonixImage
   | FileSNG
+  | FileHED
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -1037,6 +1042,7 @@ commands =
         return out
       (FileVGS, vgs) -> do
         out <- outputFile opts $ return $ vgs <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False out
         srcs <- liftIO $ readVGS vgs
         forM_ (zip [0..] srcs) $ \(i, src) -> do
           let fout = out </> show (i :: Int) <.> "wav"
@@ -1130,6 +1136,15 @@ commands =
         let r = fileReadable fin
         hdr <- stackIO $ readSNGHeader r
         stackIO $ saveHandleFolder (getSNGFolder True hdr r) out
+        return out
+      (FileHED, fin) -> do
+        out <- outputFile opts $ return $ fin <> "_extract"
+        let finWad = fin -<.> "WAD"
+        hed <- stackIO (B.readFile fin) >>= runGetM parseHed . BL.fromStrict
+        fmt <- maybe (fatal "Couldn't detect game format for .HED/.WAD files") return
+          $ identifyHedFormat hed
+        let hookedUp = hookUpWAD (fileReadable finWad) $ applyHed fmt hed
+        stackIO $ saveHandleFolder hookedUp out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
     }

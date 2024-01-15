@@ -6,7 +6,6 @@
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Neversoft where
 
-
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -256,9 +255,12 @@ importGH4Disc src folder = do
   qbpak <- findFolded ("DATA" :| ["COMPRESSED", "PAK", "qb.pak.xen"]) >>= \r -> stackIO $ useHandle r handleToByteString
   qbpab <- findFolded ("DATA" :| ["COMPRESSED", "PAK", "qb.pab.xen"]) >>= \r -> stackIO $ useHandle r handleToByteString
   qspak <- findFolded ("DATA" :| ["COMPRESSED", "PAK", "qs.pak.xen"]) >>= \r -> stackIO $ useHandle r handleToByteString
-  (textSections, textAllNodes) <- errorToWarning (let ?endian = BigEndian in readGH4TextPakQBDisc qbpak qbpab qspak) >>= \case
-    Nothing       -> return ([], [])
-    Just contents -> return (gh3TextPakSongStructs contents, gh3OtherNodes contents)
+  pakResults <- errorToWarning $ let
+    ?endian = BigEndian
+    in readGH4TextPakQBDisc (qbpak, Just qbpab) (qspak, Nothing)
+  let (textSections, textAllNodes) = case pakResults of
+        Nothing       -> ([], [])
+        Just contents -> (gh3TextPakSongStructs contents, gh3OtherNodes contents)
   songInfo <- fmap concat $ forM textSections $ \(_key, items) -> do
     case parseSongInfoGH4 items of
       Left  err  -> warn err >> return []
@@ -279,7 +281,7 @@ importGH4Disc src folder = do
           { ghiSource   = src
           , ghiSongInfo = info
           , ghiSongPak  = rSongPak
-          , ghiAudio    = GH4Audio audio1 audio2 audio3
+          , ghiAudio    = GH4Audio360 audio1 audio2 audio3
           , ghiText     = textAllNodes
           }
 
@@ -329,8 +331,52 @@ importGH4DLC src folder = do
           { ghiSource   = src
           , ghiSongInfo = info
           , ghiSongPak  = rSongPak
-          , ghiAudio    = GH4Audio audio1 audio2 audio3
+          , ghiAudio    = GH4Audio360 audio1 audio2 audio3
           , ghiText     = textAllNodes
+          }
+
+importGH4DiscPS2 :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
+importGH4DiscPS2 src folder = do
+  let findFolded path = case findFileCI path folder of
+        Nothing -> fatal $ "Couldn't find file in PS2 filesystem: " <> show path
+        Just r  -> return r
+  hed <- findFolded (pure "DATAP.HED") >>= \r -> stackIO $ useHandle r handleToByteString
+  wad <- findFolded $ pure "DATAP.WAD"
+  wadFolder <- hookUpWAD wad . applyHed HedFormatGH4 <$> runGetM parseHed hed
+  let findFoldedWad path = case findFileCI path wadFolder of
+        Nothing -> fatal $ "Couldn't find file inside DATAP.WAD: " <> show path
+        Just r  -> return r
+  qbpak <- findFoldedWad ("pak" :| ["qb.pak.ps2"]) >>= \r -> stackIO $ useHandle r handleToByteString
+  qbpab <- findFoldedWad ("pak" :| ["qb.pab.ps2"]) >>= \r -> stackIO $ useHandle r handleToByteString
+  qspak <- findFoldedWad ("pak" :| ["qs.pak.ps2"]) >>= \r -> stackIO $ useHandle r handleToByteString
+  qspab <- findFoldedWad ("pak" :| ["qs.pab.ps2"]) >>= \r -> stackIO $ useHandle r handleToByteString
+  pakResults <- inside "Reading GH4 qb.pak" $ errorToWarning $ let
+    ?endian = LittleEndian
+    in readGH4TextPakQBDisc (qbpak, Just qbpab) (qspak, Just qspab)
+  let (qbSections, allNodes) = case pakResults of
+        Nothing       -> ([], [])
+        Just contents -> (gh3TextPakSongStructs contents, gh3OtherNodes contents)
+  songInfo <- fmap concat $ forM qbSections $ \(_key, items) -> do
+    case parseSongInfoGH4 items of
+      Left  err  -> warn err >> return []
+      Right info -> return [info]
+  fmap catMaybes $ forM songInfo $ \info -> do
+    let songPath  = "songs" :| [TE.decodeUtf8 (gh4Name info) <> ".pak.ps2"]
+        hashSolo = hashString $ qbKeyCRC $ gh4Name info
+        hashString w = T.pack $ reverse $ take 8 $ reverse (showHex w "") <> repeat '0'
+        audioPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
+    case findFileCI songPath wadFolder of
+      Nothing       -> return Nothing -- song in pak but not present, e.g. GH3 songs in GH Aerosmith
+      Just rSongPak -> case findFileCI audioPath folder of
+        Nothing -> do
+          warn $ "Couldn't find audio for song " <> show (gh4Name info) <> ": " <> show audioPath
+          return Nothing
+        Just rAudio -> return $ Just $ importGH4Song GHImport
+          { ghiSource   = src
+          , ghiSongInfo = info
+          , ghiSongPak  = rSongPak
+          , ghiAudio    = GH4AudioPS2 rAudio
+          , ghiText     = allNodes
           }
 
 importGH4Song :: (SendMessage m, MonadIO m) => GH4Import -> Import m
@@ -342,7 +388,9 @@ importGH4Song ghi level = do
     lg $ "Importing GH song " <> show (gh4Name info) <> " from: " <> ghiSource ghi
   midiFixed <- case level of
     ImportFull -> do
-      let ?endian = BigEndian
+      let ?endian = case ghiAudio ghi of
+            GH4Audio360{} -> BigEndian
+            GH4AudioPS2{} -> LittleEndian
       songNodes <- stackIO (useHandle rSongPak handleToByteString) >>= \bs ->
         inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
       let matchQB node = nodeFileType node == qbKeyCRC ".qb"
@@ -369,24 +417,122 @@ importGH4Song ghi level = do
   let midiOnyx = midiFixed
         { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
         }
-      getAudio (r, path) = case level of
-        ImportQuick -> return []
-        ImportFull -> do
-          bs <- stackIO $ useHandle r handleToByteString
-          dec <- case decryptFSB' (T.unpack path) $ BL.toStrict bs of
-            Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show path
-            Just dec -> return dec
-          streams <- stackIO $ parseFSB dec >>= splitFSBStreams
-          forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
-            (streamData, ext) <- stackIO $ getFSBStreamBytes stream
-            return (path <> "." <> T.pack (show i) <> "." <> ext, streamData)
-      GH4Audio audio1 audio2 audio3 = ghiAudio ghi
-  streams1 <- getAudio audio1
-  streams2 <- getAudio audio2
-  streams3 <- getAudio audio3
+
   let adjustedInput
         = (case gh4OverallSongVolume info of 0 -> id; db -> PansVols [-1, 1] [db, db])
         . Input . Named
+      adjustedInputNS (name, (ns, _)) = case nsChannels ns of
+        1 -> (case gh4OverallSongVolume info of 0 -> id; db -> PansVols [0] [db])
+          $ Input $ Named name
+        _ -> adjustedInput name
+  (audio, plan) <- case ghiAudio ghi of
+    GH4Audio360 fsb1 fsb2 fsb3 -> do
+      let getAudio (r, path) = case level of
+            ImportQuick -> return []
+            ImportFull -> do
+              bs <- stackIO $ useHandle r handleToByteString
+              dec <- case decryptFSB' (T.unpack path) $ BL.toStrict bs of
+                Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show path
+                Just dec -> return dec
+              streams <- stackIO $ parseFSB dec >>= splitFSBStreams
+              forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+                (streamData, ext) <- stackIO $ getFSBStreamBytes stream
+                return (path <> "." <> T.pack (show i) <> "." <> ext, streamData)
+      streams1 <- getAudio fsb1
+      streams2 <- getAudio fsb2
+      streams3 <- getAudio fsb3
+      let audio = do
+            (name, bs) <- streams1 <> streams2 <> streams3
+            let str = T.unpack name
+            return (name, AudioFile AudioInfo
+              { md5 = Nothing
+              , frames = Nothing
+              , filePath = Just $ SoftFile str $ SoftReadable
+                $ makeHandle str $ byteStringSimpleHandle bs
+              , commands = []
+              , rate = Nothing
+              , channels = 2
+              })
+          plan = StandardPlan StandardPlanInfo
+            { song = case streams3 of
+              (x, _) : _ -> Just $ adjustedInput x
+              []         -> Nothing
+            , parts = Parts $ HM.fromList $ let
+              drums = case map fst streams1 of
+                d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
+                  { kick  = Just $ adjustedInput d1
+                  , snare = Just $ adjustedInput d2
+                  , toms  = Just $ adjustedInput d3
+                  , kit   = adjustedInput d4
+                  })]
+                _ -> []
+              gbv = case map fst streams2 of
+                g : b : v : _ ->
+                  [ (F.FlexGuitar, PartSingle $ adjustedInput g)
+                  , (F.FlexBass  , PartSingle $ adjustedInput b)
+                  , (F.FlexVocal , PartSingle $ adjustedInput v)
+                  ]
+                _ -> []
+              in drums <> gbv
+            , crowd = case drop 1 streams3 of
+              (x, _) : _ -> Just $ adjustedInput x
+              []         -> Nothing
+            , comments = []
+            , tuningCents = gh4VocalsPitchScoreShift info
+            , fileTempo = Nothing
+            }
+      return (audio, plan)
+    GH4AudioPS2 imf -> do
+      streams <- case level of
+        ImportQuick -> return []
+        ImportFull -> do
+          imfBytes <- stackIO $ useHandle imf handleToByteString
+          (\hdr -> splitNeoStreams hdr imfBytes) <$> runGetM getNeoHeader imfBytes
+      let findStream name suffix = let
+            key = qbKeyCRC $ gh4Name info <> suffix
+            in case filter (\(ns, _) -> nsKey ns == key) streams of
+              []        -> Nothing
+              match : _ -> Just (name <> ".vgs", match)
+          streamGuitar    = findStream "guitar"    "_guitar"
+          streamBass      = findStream "bass"      "_rhythm"
+          streamSong      = findStream "song"      "_song"
+          streamCymbals   = findStream "cymbals"   "_drumcymbal"
+          streamKick      = findStream "kick"      "_drumkick"
+          streamSnareToms = findStream "snaretoms" "_drumsnare"
+          audio = do
+            (name, pair@(ns, _)) <- catMaybes [streamGuitar, streamBass, streamSong, streamCymbals, streamKick, streamSnareToms]
+            let str = T.unpack name
+            return (name, AudioFile AudioInfo
+              { md5 = Nothing
+              , frames = Nothing
+              , filePath = Just $ SoftFile str $ SoftReadable
+                $ makeHandle str $ byteStringSimpleHandle $ neoStreamToVGS pair
+              , commands = []
+              , rate = Nothing
+              , channels = fromIntegral $ nsChannels ns
+              })
+          plan = StandardPlan StandardPlanInfo
+            { song = adjustedInputNS <$> streamSong
+            , parts = Parts $ HM.fromList $ catMaybes
+              [ (\pair -> (F.FlexGuitar, PartSingle $ adjustedInputNS pair)) <$> streamGuitar
+              , (\pair -> (F.FlexBass, PartSingle $ adjustedInputNS pair)) <$> streamBass
+              , case (streamKick, streamCymbals, streamSnareToms) of
+                (Just kick, Just cymbals, Just snareToms) ->
+                  Just (F.FlexDrums, PartDrumKit
+                    { kick = Just $ adjustedInputNS kick
+                    , snare = Nothing
+                    , toms = Nothing
+                    , kit = Mix $ adjustedInputNS cymbals :| [adjustedInputNS snareToms]
+                    })
+                _ -> Nothing -- could mix whatever's present but they should all be present hopefully
+              ]
+            , crowd = Nothing
+            , comments = []
+            , tuningCents = gh4VocalsPitchScoreShift info
+            , fileTempo = Nothing
+            }
+      return (audio, plan)
+
   return SongYaml
     { metadata = def'
       { title = Just $ gh4Title info
@@ -409,47 +555,9 @@ importGH4Song ghi level = do
       , backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
       }
-    , audio = HM.fromList $ do
-      (name, bs) <- streams1 <> streams2 <> streams3
-      let str = T.unpack name
-      return (name, AudioFile AudioInfo
-        { md5 = Nothing
-        , frames = Nothing
-        , filePath = Just $ SoftFile str $ SoftReadable
-          $ makeHandle str $ byteStringSimpleHandle bs
-        , commands = []
-        , rate = Nothing
-        , channels = 2
-        })
+    , audio = HM.fromList audio
     , jammit = HM.empty
-    , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
-      { song = case streams3 of
-        (x, _) : _ -> Just $ adjustedInput x
-        []         -> Nothing
-      , parts = Parts $ HM.fromList $ let
-        drums = case map fst streams1 of
-          d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
-            { kick = Just $ adjustedInput d1
-            , snare = Just $ adjustedInput d2
-            , toms = Just $ adjustedInput d3
-            , kit = adjustedInput d4
-            })]
-          _ -> []
-        gbv = case map fst streams2 of
-          g : b : v : _ ->
-            [ (F.FlexGuitar, PartSingle $ adjustedInput g)
-            , (F.FlexBass  , PartSingle $ adjustedInput b)
-            , (F.FlexVocal , PartSingle $ adjustedInput v)
-            ]
-          _ -> []
-        in drums <> gbv
-      , crowd = case drop 1 streams3 of
-        (x, _) : _ -> Just $ adjustedInput x
-        []         -> Nothing
-      , comments = []
-      , tuningCents = gh4VocalsPitchScoreShift info
-      , fileTempo = Nothing
-      }
+    , plans = HM.singleton "gh" plan
     , targets = HM.empty
     , parts = Parts $ HM.fromList
       [ (F.FlexGuitar, (emptyPart :: Part SoftFile)
@@ -483,7 +591,7 @@ importGH3DiscPS2 src folder = do
       findFolded path = findFile (fmap T.toCaseFold path) folder'
   hed <- maybe (fatal "Couldn't find DATAP.HED") (\r -> stackIO $ useHandle r handleToByteString) (findFolded $ pure "DATAP.HED")
   wad <- maybe (fatal "Couldn't find DATAP.WAD") return $ findFolded $ pure "DATAP.WAD"
-  wadFolder <- hookUpWAD wad . applyHed <$> runGetM parseHed hed
+  wadFolder <- hookUpWAD wad . applyHed HedFormatGH3 <$> runGetM parseHed hed
   let wadFolder' = first T.toCaseFold wadFolder
       findFoldedWad path = findFile (fmap T.toCaseFold path) wadFolder'
       pakPath = "pak" :| ["qb.pak.ps2"]
@@ -504,16 +612,18 @@ importGH3DiscPS2 src folder = do
         hashString w = T.pack $ reverse $ take 8 $ reverse (showHex w "") <> repeat '0'
         audioSoloPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
         audioCoopPath = "MUSIC" :| [T.take 1 hashCoop, hashCoop <> ".IMF"]
-    rSongPak   <- maybe (fatal $ "Couldn't find: " <> show songPath     ) return (findFoldedWad songPath     )
-    let rAudioSolo = findFolded audioSoloPath
-        rAudioCoop = findFolded audioCoopPath
-    return $ importGH3Song GHImport
-      { ghiSource   = src
-      , ghiSongInfo = info
-      , ghiSongPak  = rSongPak
-      , ghiAudio    = GH3AudioPS2 rAudioSolo rAudioCoop
-      , ghiText     = allNodes
-      }
+    case findFoldedWad songPath of
+      Nothing       -> return [] -- song in pak but not present, e.g. GH3 songs in GH Aerosmith
+      Just rSongPak -> do
+        let rAudioSolo = findFolded audioSoloPath
+            rAudioCoop = findFolded audioCoopPath
+        return $ importGH3Song GHImport
+          { ghiSource   = src
+          , ghiSongInfo = info
+          , ghiSongPak  = rSongPak
+          , ghiAudio    = GH3AudioPS2 rAudioSolo rAudioCoop
+          , ghiText     = allNodes
+          }
 
 importGH3Disc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH3Disc src folder = do
@@ -604,11 +714,9 @@ data GH3Audio
   = GH3Audio360 Readable         Readable         -- .fsb.*, .dat.*
   | GH3AudioPS2 (Maybe Readable) (Maybe Readable) -- solo .IMF, coop .IMF
 
-data GH4Audio = GH4Audio
-  { gh4Audio1 :: (Readable, T.Text)
-  , gh4Audio2 :: (Readable, T.Text)
-  , gh4Audio3 :: (Readable, T.Text)
-  }
+data GH4Audio
+  = GH4Audio360 (Readable, T.Text) (Readable, T.Text) (Readable, T.Text) -- _1.fsb _2.fsb _3.fsb
+  | GH4AudioPS2 Readable                                                 -- .IMF
 
 importGH3Song :: (SendMessage m, MonadIO m) => GH3Import -> [Import m]
 importGH3Song gh3i = let
