@@ -47,7 +47,8 @@ import           Onyx.Neversoft.Crypt             (decryptFSB', gh3Decrypt)
 import           Onyx.Neversoft.GH3.Metadata
 import           Onyx.Neversoft.GH3.MidQB         (gh3ToMidi, parseMidQB)
 import           Onyx.Neversoft.GH4.Metadata
-import           Onyx.Neversoft.GH4.MidQB         (gh4ToMidi, parseGH4MidQB)
+import           Onyx.Neversoft.GH4.MidQB         (gh4ToMidi, parseGH4MidQB,
+                                                   worldTourDiscMarkers)
 import           Onyx.Neversoft.GH5.Metadata
 import           Onyx.Neversoft.GH5.Note
 import           Onyx.Neversoft.Pak
@@ -382,7 +383,6 @@ importGH4DiscPS2 src folder = do
 importGH4Song :: (SendMessage m, MonadIO m) => GH4Import -> Import m
 importGH4Song ghi level = do
   let info = ghiSongInfo ghi
-      textAllNodes = ghiText ghi
       rSongPak = ghiSongPak ghi
   when (level == ImportFull) $ do
     lg $ "Importing GH song " <> show (gh4Name info) <> " from: " <> ghiSource ghi
@@ -400,12 +400,16 @@ importGH4Song ghi level = do
         (_, bs) : _ -> do
           midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseGH4MidQB (gh4Name info)
           let songBank = qsBank songNodes -- has lyrics
-              textBank = qsBank textAllNodes -- has section names
-          textSectionMap <- case [ txt | (node, txt) <- textAllNodes, matchQB node ] of
-            [] -> return HM.empty
-            txt : _ -> do
+              markerNodes
+                =  ghiText ghi -- 360 (on a disc, marker qb/qs are in qb.pak.xen and qs.pak.xen)
+                <> songNodes   -- PS2 (marker qb/qs are in songname.pak.ps2)
+              textBank = qsBank markerNodes <> worldTourDiscMarkers -- has section names
+          -- .mid.qb has a qb key, then a separate .qb links that to a qs,
+          -- then a .qs has the actual string
+          textSectionMap <- fmap (HM.fromList . concat) $ do
+            forM [ txt | (node, txt) <- markerNodes, matchQB node ] $ \txt -> do
               qb <- runGetM parseQB txt
-              return $ HM.fromList $ flip concatMap qb $ \case
+              return $ qb >>= \case
                 QBSectionQbKeyStringQs n _ qs -> [(n, qs)]
                 _                             -> []
           let combinedSectionMap = HM.fromList $ do
