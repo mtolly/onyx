@@ -157,7 +157,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           , uneditedDiffs.rb3KeysRank   == 0 || instrumentHasChannels F.FlexKeys
           ]
         in if allInstrumentsHaveChannels
-          && maybe True (== 0) rb3.common.speed
+          && maybe True (== 1) rb3.common.speed
           && isNothing rb3.common.start
           && isNothing rb3.common.end
           then pair
