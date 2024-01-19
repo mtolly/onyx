@@ -44,7 +44,6 @@ import           Onyx.Harmonix.Ark.GH2            (GH2DXExtra (..),
                                                    readSongListGH2,
                                                    readSongListGH2Extra)
 import qualified Onyx.Harmonix.DTA                as D
-import           Onyx.Harmonix.DTA.Crypt          (decrypt, oldCrypt)
 import qualified Onyx.Harmonix.DTA.Serialize      as D
 import           Onyx.Harmonix.DTA.Serialize.GH2
 import           Onyx.Harmonix.GH2.Events
@@ -76,7 +75,7 @@ getSongList gen = do
       r <- readFileEntry hdr arks entry
       stackIO $ useHandle r handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  readSongListGH2 $ D.decodeDTB $ decrypt oldCrypt dtb
+  D.decodeDecryptDTB dtb >>= readSongListGH2
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
 getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
@@ -87,7 +86,10 @@ data ImportMode = ImportSolo | ImportCoop
   deriving (Eq)
 
 importGH2 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
-importGH2 genPath gen = map (\(_, (mode, pkg)) -> importGH2Song mode pkg genPath gen) . getImports <$> getSongList gen
+importGH2 displayPath gen = do
+  (hdr, arks) <- stackIO $ loadGEN gen
+  folder <- loadArkFolder hdr arks
+  map (\(_, (mode, pkg)) -> importGH2Song mode pkg displayPath folder) . getImports <$> getSongList gen
 
 importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.OnyxFile U.Beats)
 importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
@@ -236,10 +238,8 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     ]
   }
 
-importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Folder T.Text Readable -> Import m
-importGH2Song mode pkg genPath gen level = do
-  (hdr, arks) <- stackIO $ loadGEN gen
-  folder <- loadArkFolder hdr arks
+importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
+importGH2Song mode pkg displayPath folder level = do
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -253,64 +253,109 @@ importGH2Song mode pkg genPath gen level = do
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
   when (level == ImportFull) $ do
-    lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from: " <> genPath
+    lg $ "Importing GH2 song [" <> T.unpack (songName songChunk) <> "] from: " <> displayPath
   midi <- split (midiFile songChunk) >>= need . fmap encLatin1
-  vgs <- split (songName songChunk <> ".vgs") >>= need . fmap encLatin1
   onyxMidi <- case level of
     ImportFull  -> importGH2MIDI mode songChunk <$> F.loadMIDIReadable midi
     ImportQuick -> return emptyChart
-  numChannels <- stackIO $ vgsChannelCount vgs
-  namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
-    bs <- case level of
-      ImportFull  -> splitOutVGSChannels [i] vgs
-      ImportQuick -> return BL.empty
-    return ("vgs-" <> show i, bs)
+  (audio, plans) <- do
+    pathVGS  <- fmap (fmap encLatin1) $ split $ songName songChunk <> ".vgs"
+    pathMogg <- fmap (fmap encLatin1) $ split $ songName songChunk <> ".mogg"
+    case (findFile pathVGS folder, findFile pathMogg folder) of
+      (Just vgs, _) -> do
+        numChannels <- stackIO $ vgsChannelCount vgs
+        namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
+          bs <- case level of
+            ImportFull  -> splitOutVGSChannels [i] vgs
+            ImportQuick -> return BL.empty
+          return ("vgs-" <> show i, bs)
+        let audio = HM.fromList $ do
+              (name, bs) <- namedChans
+              return $ (T.pack name ,) $ AudioFile AudioInfo
+                { md5 = Nothing
+                , frames = Nothing
+                , commands = []
+                , filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
+                , rate = Nothing
+                , channels = 1
+                }
+            plans = HM.singleton "vgs" $ let
+              guitarChans = map fromIntegral $ fromMaybe [] $ lookup "guitar" $ D.fromDictList $ tracks songChunk
+              bassChans = map fromIntegral $ fromMaybe [] $ lookup "bass" $ D.fromDictList $ tracks songChunk
+              rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
+              songChans = zipWith const [0..] (pans songChunk)
+                \\ (guitarChans ++ bassChans ++ rhythmChans)
+              mixChans v cs = do
+                presentChannels <- NE.nonEmpty $ do
+                  c <- cs
+                  -- in some custom isos, vgs can have fewer channels than claimed by dta
+                  case drop c namedChans of
+                    (name, _) : _ -> [(c, T.pack name)]
+                    []            -> []
+                Just $ case presentChannels of
+                  (c, name) :| [] -> PansVols
+                    (map realToFrac [pans songChunk !! c])
+                    (map realToFrac [(vols songChunk !! c) + v])
+                    (Input $ Named name)
+                  _ -> PansVols
+                    (map realToFrac [ pans songChunk !! c | (c, _) <- toList presentChannels ])
+                    (map realToFrac [ (vols songChunk !! c) + v | (c, _) <- toList presentChannels ])
+                    (Merge $ fmap (Input . Named . snd) presentChannels)
+              in StandardPlan StandardPlanInfo
+                { song = mixChans 0 songChans
+                , parts = Parts $ HM.fromList $ catMaybes
+                  -- I made up these volume adjustments but they seem to work
+                  [ (F.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
+                  , (F.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
+                  , (F.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
+                  ]
+                , crowd = Nothing
+                , comments = []
+                , tuningCents = 0
+                , fileTempo = Nothing
+                }
+        return (audio, plans)
+      (Nothing, Just mogg) -> let
+        audio = HM.empty
+        plans = case level of
+          ImportQuick -> HM.empty
+          ImportFull  -> HM.singleton "mogg" $ MoggPlan $ getGH2MoggPlan mogg songChunk
+        in return (audio, plans)
+      (Nothing, Nothing) -> fail $ "Couldn't find .vgs or .mogg audio for " <> show (songName songChunk)
   return (gh2SongYaml mode pkg Nothing songChunk onyxMidi)
-    { audio = HM.fromList $ do
-      (name, bs) <- namedChans
-      return $ (T.pack name ,) $ AudioFile AudioInfo
-        { md5 = Nothing
-        , frames = Nothing
-        , commands = []
-        , filePath = Just $ SoftFile (name <.> "vgs") $ SoftReadable $ makeHandle name $ byteStringSimpleHandle bs
-        , rate = Nothing
-        , channels = 1
-        }
-    , plans = HM.singleton "vgs" $ let
-      guitarChans = map fromIntegral $ fromMaybe [] $ lookup "guitar" $ D.fromDictList $ tracks songChunk
-      bassChans = map fromIntegral $ fromMaybe [] $ lookup "bass" $ D.fromDictList $ tracks songChunk
-      rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
-      songChans = zipWith const [0..] (pans songChunk)
-        \\ (guitarChans ++ bassChans ++ rhythmChans)
-      mixChans v cs = do
-        presentChannels <- NE.nonEmpty $ do
-          c <- cs
-          -- in some custom isos, vgs can have fewer channels than claimed by dta
-          case drop c namedChans of
-            (name, _) : _ -> [(c, T.pack name)]
-            []            -> []
-        Just $ case presentChannels of
-          (c, name) :| [] -> PansVols
-            (map realToFrac [pans songChunk !! c])
-            (map realToFrac [(vols songChunk !! c) + v])
-            (Input $ Named name)
-          _ -> PansVols
-            (map realToFrac [ pans songChunk !! c | (c, _) <- toList presentChannels ])
-            (map realToFrac [ (vols songChunk !! c) + v | (c, _) <- toList presentChannels ])
-            (Merge $ fmap (Input . Named . snd) presentChannels)
-      in StandardPlan StandardPlanInfo
-        { song = mixChans 0 songChans
-        , parts = Parts $ HM.fromList $ catMaybes
-          -- I made up these volume adjustments but they seem to work
-          [ (F.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
-          , (F.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
-          , (F.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
-          ]
-        , crowd = Nothing
-        , comments = []
-        , tuningCents = 0
-        , fileTempo = Nothing
-        }
+    { audio = audio
+    , plans = plans
+    }
+
+getGH2MoggPlan :: Readable -> Song -> MoggPlanInfo SoftFile
+getGH2MoggPlan mogg songChunk = let
+  instChans :: [(T.Text, [Int])]
+  instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
+  in MoggPlanInfo
+    { fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable mogg
+    , moggMD5 = Nothing
+    , parts = Parts $ HM.fromList $ concat
+      [ [ (F.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+      , [ (F.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+      , [ (F.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
+      ]
+    , crowd = []
+    , pans = map realToFrac $ pans songChunk
+    , vols = do
+      let i `channelFor` part = maybe False (elem i) $ lookup part instChans
+      (i, vol) <- zip [0..] $ vols songChunk
+      -- again, made up these volume adjustments so things sound ok in RB context
+      return $ realToFrac $ if
+        | i `channelFor` "guitar" -> vol - 0.5
+        | i `channelFor` "bass"   -> vol - 3
+        | i `channelFor` "rhythm" -> vol - 1.5
+        | otherwise               -> vol
+    , comments = []
+    , tuningCents = 0
+    , fileTempo = Nothing
+    , karaoke = False
+    , multitrack = False
+    , decryptSilent = False
     }
 
 importGH2DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -329,7 +374,7 @@ importGH2DLC src folder = do
           Just r  -> return r
           Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
     moggPath <- split $ base <.> "mogg"
-    mogg <- SoftReadable <$> need moggPath
+    mogg <- need moggPath
     art <- case T.splitOn "/" $ songName $ song pkg of
       [x, y, z] -> do
         let artPath = x :| [y, "gen", z <> ".bmp_xbox"]
@@ -353,36 +398,9 @@ importGH2DLC src folder = do
         onyxMidi <- case level of
           ImportFull  -> importGH2MIDI mode songChunk <$> F.loadMIDIReadable midi
           ImportQuick -> return emptyChart
-        let instChans :: [(T.Text, [Int])]
-            instChans = map (second $ map fromIntegral) $ D.fromDictList $ tracks songChunk
-            yaml = gh2SongYaml mode pkg (Just extra) songChunk onyxMidi
+        let yaml = gh2SongYaml mode pkg (Just extra) songChunk onyxMidi
         return yaml
-          { plans = HM.singleton "mogg" $ MoggPlan MoggPlanInfo
-            { fileMOGG = Just $ SoftFile "audio.mogg" mogg
-            , moggMD5 = Nothing
-            , parts = Parts $ HM.fromList $ concat
-              [ [ (F.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-              , [ (F.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-              , [ (F.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
-              ]
-            , crowd = []
-            , pans = map realToFrac $ pans songChunk
-            , vols = do
-              let i `channelFor` part = maybe False (elem i) $ lookup part instChans
-              (i, vol) <- zip [0..] $ vols songChunk
-              -- again, made up these volume adjustments so things sound ok in RB context
-              return $ realToFrac $ if
-                | i `channelFor` "guitar" -> vol - 0.5
-                | i `channelFor` "bass"   -> vol - 3
-                | i `channelFor` "rhythm" -> vol - 1.5
-                | otherwise               -> vol
-            , comments = []
-            , tuningCents = 0
-            , fileTempo = Nothing
-            , karaoke = False
-            , multitrack = False
-            , decryptSilent = False
-            }
+          { plans = HM.singleton "mogg" $ MoggPlan $ getGH2MoggPlan mogg songChunk
           , metadata = yaml.metadata
             { fileAlbumArt = art
             }
@@ -400,7 +418,7 @@ loadSetlist gen = do
         entry : _ -> do
           r <- readFileEntry hdr arks entry
           dtb <- stackIO $ useHandle r handleToByteString
-          return $ D.decodeDTB (decrypt oldCrypt dtb)
+          D.decodeDecryptDTB dtb
         []        -> fatal $ "Couldn't find " <> show name
   dtbCampaign <- loadDTB "campaign.dtb"
   dtbBonus    <- loadDTB "store.dtb"

@@ -86,7 +86,6 @@ import qualified Sound.MIDI.File.Event                as E
 import qualified Sound.MIDI.File.Event.Meta           as Meta
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
-import           System.Directory                     (makeAbsolute)
 import           System.FilePath                      (dropExtension,
                                                        splitExtension,
                                                        takeDirectory,
@@ -121,8 +120,7 @@ data QuickConvertFormat
 
 data QuickConvertFormatInput
   = QCInputTwoWay QuickConvertFormat
-  | QCInputLoose360
-  | QCInputLoosePS3
+  | QCInputLoose
   | QCInputRBA
   deriving (Show)
 
@@ -241,6 +239,33 @@ mapMaybeFolder f dir = Folder
     Nothing    -> Nothing
     Just file' -> Just (name, file')
   }
+
+loadQuickSongsLoose :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m [QuickSong]
+loadQuickSongsLoose pathDTA = do
+  songsFolder <- stackIO $ crawlFolder $ takeDirectory pathDTA
+  let maybePackageName = B8.pack $ takeFileName $ takeDirectory $ takeDirectory pathDTA
+  songRefs <- splitSongsDTA $ fileReadable pathDTA
+  forM songRefs $ \qdta -> do
+    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
+      Just dir -> return dir
+      Nothing -> fatal $ "Song folder not found in directory structure: " <> show (qdtaFolder qdta)
+    let identifyFile (name, r) = do
+          size <- stackIO $ useHandle r hFileSize
+          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+            ".mogg"      -> (name,) <$> detectMOGG r
+            ".milo_xbox" -> return (name, QFMilo r)
+            ".milo_ps3"  -> return (name, QFMilo r)
+            ".png_xbox"  -> return (name, QFPNGXbox r)
+            ".png_ps3"   -> return (name, QFPNGPS3 r)
+            ".mid"       -> return (name, QFUnencryptedMIDI r)
+            ".edat"      -> (name,) <$> detectMIDI maybePackageName r
+            _            -> return (name, QFOther r)
+    identified <- mapMFilesWithName identifyFile songFolder
+    return QuickSong
+      { quickSongDTA       = qdta
+      , quickSongFiles     = identified
+      , quickSongPS3Folder = Nothing
+      }
 
 loadQuickSongsPS3 :: (MonadIO m, SendMessage m) => B.ByteString -> Folder T.Text Readable -> StackTraceT m [QuickSong]
 loadQuickSongsPS3 packageName packageFolder = do
@@ -397,27 +422,13 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
         }
     Left _ -> case takeFileName fin of
       "songs.dta" -> errorToWarning $ do
-        finAbs <- stackIO $ makeAbsolute fin
-        let packageRoot = takeDirectory $ takeDirectory finAbs -- should be the folder that has "songs" subfolder
-        folder <- stackIO $ crawlFolder packageRoot
-        if folderHasEDAT folder
-          then do
-            -- this assumes there's a proper parent folder to use for decryption key
-            songs <- loadQuickSongsPS3 (B8.pack $ takeFileName packageRoot) folder
-            return QuickInput
-              { quickInputPath   = packageRoot
-              , quickInputFormat = QCInputLoosePS3
-              , quickInputSongs  = songs
-              , quickInputXbox   = Nothing
-              }
-          else do
-            songs <- loadQuickSongsXbox folder
-            return QuickInput
-              { quickInputPath   = packageRoot
-              , quickInputFormat = QCInputLoose360
-              , quickInputSongs  = songs
-              , quickInputXbox   = Nothing
-              }
+        songs <- loadQuickSongsLoose fin
+        return QuickInput
+          { quickInputPath   = takeDirectory fin -- not sure best way to handle this
+          , quickInputFormat = QCInputLoose
+          , quickInputSongs  = songs
+          , quickInputXbox   = Nothing
+          }
       _ -> return Nothing
 
 folderHasEDAT :: Folder T.Text a -> Bool
@@ -427,7 +438,9 @@ folderHasEDAT folder = any isEDAT (map fst $ folderFiles folder) || any folderHa
 decryptEDAT :: (MonadIO m, SendMessage m) => B.ByteString -> B.ByteString -> Readable -> StackTraceT m Readable
 decryptEDAT crypt name r = tryDecryptEDAT crypt name r >>= \case
   Just r' -> return r'
-  Nothing -> fatal $ "Couldn't decrypt " <> show name
+  Nothing -> (if crypt /= "HMX0756" then tryDecryptEDAT "HMX0756" name r else return Nothing) >>= \case
+    Just r' -> return r'
+    Nothing -> fatal $ "Couldn't decrypt " <> show name
 
 encryptEDAT :: (MonadResource m) => B.ByteString -> B.ByteString -> Bool -> Readable -> StackTraceT m Readable
 encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO $ do
@@ -439,6 +452,13 @@ encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO $ do
   saveReadable r tmpIn
   packNPData cfg tmpIn tmpOut name
   makeHandle (B8.unpack name) . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
+
+verifyCryptEDAT :: (MonadResource m, SendMessage m) => B.ByteString -> B.ByteString -> Bool -> Readable -> StackTraceT m Readable
+verifyCryptEDAT crypt name rb3 r = tryDecryptEDAT crypt name r >>= \case
+  Just r' -> return r'
+  Nothing -> (if crypt /= "HMX0756" then tryDecryptEDAT "HMX0756" name r else return Nothing) >>= \case
+    Just r' -> encryptEDAT crypt name rb3 r'
+    Nothing -> fatal $ "Couldn't decrypt " <> show name
 
 getXboxFile :: (MonadIO m, SendMessage m) => (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
 getXboxFile (name, qfile) = case qfile of
@@ -483,11 +503,12 @@ getPS3File mcrypt (name, qfile) = case qfile of
     return (name', r')
   QFPNGPS3 r -> return (name, r)
   QFEncryptedMIDI crypt r -> do
+    let nameBytes = TE.encodeUtf8 name
     r' <- case mcrypt of
       Nothing              -> decryptEDAT crypt (TE.encodeUtf8 name) r
       Just (newCrypt, rb3) -> if crypt == newCrypt
-        then return r -- fine as is
-        else decryptEDAT crypt (TE.encodeUtf8 name) r >>= encryptEDAT newCrypt (TE.encodeUtf8 name) rb3
+        then verifyCryptEDAT crypt nameBytes rb3 r
+        else decryptEDAT crypt nameBytes r >>= encryptEDAT newCrypt nameBytes rb3
     return (name, r')
   QFUnencryptedMIDI r -> do
     let name' = case takeExtension $ T.unpack name of

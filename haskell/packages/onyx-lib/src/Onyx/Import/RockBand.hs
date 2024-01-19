@@ -123,6 +123,8 @@ importSTFSFolder src folder = do
     miloPath <- split $ takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
     moggPath <- split $ base <.> "mogg"
     pssPath  <- split $ base <.> "pss"
+    -- TODO can midi_file in songs.dta override this?
+    -- TODO we should support .mid.edat here with HMX0756 key for loose c3-ps3-format songs
     midiPath <- split $ base <.> "mid"
     artPathXbox <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
     artPathPS3 <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_ps3")

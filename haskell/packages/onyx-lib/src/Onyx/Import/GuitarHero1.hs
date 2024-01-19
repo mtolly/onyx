@@ -11,6 +11,7 @@ import           Control.Concurrent.Async             (forConcurrently)
 import           Control.Monad                        (guard, void, when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource         (MonadResource)
+import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
 import           Data.Default.Class                   (def)
@@ -55,7 +56,7 @@ getSongList gen = do
       r <- readFileEntry hdr arks entry
       stackIO $ useHandle r handleToByteString
     []        -> fatal "Couldn't find songs.dtb"
-  fmap (addTrippolette hdr . addGraveyardShift hdr) $ readSongListGH1 $ D.decodeDTB $ decrypt oldCrypt dtb
+  D.decodeDTB (decrypt oldCrypt dtb) >>= fmap (addTrippolette hdr . addGraveyardShift hdr) . readSongListGH1
 
 -- Hacks on DTA info to be able to import Trippolette (if mid/vgs present and it's not already in dta).
 addTrippolette :: Hdr -> [(T.Text, SongPackage)] -> [(T.Text, SongPackage)]
@@ -130,14 +131,15 @@ addGraveyardShift hdr songs = let
     else songs
 
 importGH1 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
-importGH1 path gen = map (\(_, pkg) -> importGH1Song pkg path gen) <$> getSongList gen
-
-importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Folder T.Text Readable -> Import m
-importGH1Song pkg path gen level = do
-  when (level == ImportFull) $ do
-    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from: " <> path
+importGH1 path gen = do
   (hdr, arks) <- stackIO $ loadGEN gen
   folder <- loadArkFolder hdr arks
+  map (\(_, pkg) -> importGH1Song pkg path folder) <$> getSongList gen
+
+importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
+importGH1Song pkg path folder level = do
+  when (level == ImportFull) $ do
+    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from: " <> path
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s

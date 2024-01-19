@@ -200,11 +200,11 @@ readDTASingles bs = do
 
 readDTBSingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
 readDTBSingles bs = do
-  -- TODO use proper error handling instead of pure D.decodeDTB
   -- TODO better determination of encrypted .dtb
-  let songs = D.treeChunks $ D.topTree $ D.decodeDTB $ if B.take 1 bs == "\x01"
-        then BL.fromStrict bs
-        else D.decrypt D.newCrypt $ BL.fromStrict bs
+  dta <- D.decodeDTB $ if B.take 1 bs == "\x01"
+    then BL.fromStrict bs
+    else D.decrypt D.newCrypt $ BL.fromStrict bs
+  let songs = D.treeChunks $ D.topTree dta
   fmap catMaybes $ forM (zip [1..] songs) $ \(i, chunk) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
       errorToWarning $ readDTASingle (B.empty, chunk)

@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-module Onyx.Util.ShiftJIS (decodeShiftJIS, kakasi) where
+module Onyx.Util.Text.ShiftJIS (decodeShiftJIS, kakasi) where
 
 import qualified Data.ByteString         as B
 import qualified Data.ByteString.Builder as BB

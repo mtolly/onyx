@@ -248,7 +248,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImports "Power Gig" loc imps
       foundFreetar loc = foundImports "Freetar" loc [importFreetar loc]
       found360Game loc dir
-        | isJust $ findFileCI ("gen" :| ["main_xbox.hdr"]) dir
+        | any (\hdr -> isJust $ findFileCI ("gen" :| [hdr]) dir) ["main_xbox.hdr", "main.hdr"]
           = case findFolder ["gen"] dir of
             Nothing  -> return ([], []) -- shouldn't happen
             Just gen -> foundGEN loc gen

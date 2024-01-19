@@ -18,7 +18,7 @@ import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common
-import           Onyx.Util.ShiftJIS               (decodeShiftJIS)
+import           Onyx.Util.Text.ShiftJIS          (decodeShiftJIS)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)

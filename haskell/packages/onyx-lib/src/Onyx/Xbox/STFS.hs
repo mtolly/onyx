@@ -747,11 +747,11 @@ verifyHashes :: Bool -> STFSPackage -> IO ()
 verifyHashes fixHashes stfs = let
   meta = stfsMetadata stfs
   sd = md_VolumeDescriptor meta
-  pattern = takeWhile
+  blockPattern = takeWhile
     (/= DataBlock (sd_TotalAllocatedBlockCount sd + 1))
     -- TODO does this need to use sd_TotalUnallocatedBlockCount as well
     (blockContentsPattern $ tableSizeShift meta)
-  patternWithIndexes = zip pattern $ map RealBlock [(-1) ..]
+  patternWithIndexes = zip blockPattern $ map RealBlock [(-1) ..]
   patternTable = Map.fromList patternWithIndexes
   verify hashed hblk i = case Map.lookup hashed patternTable of
     Nothing -> return ()

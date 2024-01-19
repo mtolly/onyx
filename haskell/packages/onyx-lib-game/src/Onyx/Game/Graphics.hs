@@ -2266,7 +2266,7 @@ loadGLStuff scaleUI previewSong = do
                 GL_INVALID_OPERATION -> "Invalid operation"
                 GL_OUT_OF_MEMORY     -> "Out of memory"
                 _                    -> "Unknown error"
-              , "). See onyx-resources/3d-config.yml to configure anti-aliasing"
+              , "). See 'Edit > Preferences' to configure anti-aliasing"
               ]
             liftIO $ withArrayLen [msaaFBO, intermediateFBO] $ glDeleteFramebuffers . fromIntegral
             liftIO $ withArrayLen [msaaFBOTex, intermediateFBOTex] $ glDeleteTextures . fromIntegral

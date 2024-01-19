@@ -38,8 +38,8 @@ import qualified Onyx.MIDI.Track.Drums.True       as TD
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.StackTrace
 import           Onyx.Util.Files                  (fixFileCase)
-import           Onyx.Util.ShiftJIS               (decodeShiftJIS)
 import           Onyx.Util.Text.Decode            (decodeWithDefault)
+import           Onyx.Util.Text.ShiftJIS          (decodeShiftJIS)
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath

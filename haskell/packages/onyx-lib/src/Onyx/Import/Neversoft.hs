@@ -94,7 +94,6 @@ importWoRDisc src folder = do
 
 -- Imports DLC STFS files for Guitar Hero 5 and Guitar Hero: Warriors of Rock.
 -- TODO Does not import GH5 songs from mixed GH5 + GHWoR packages like the Kiss pack
--- TODO Some other not working GH5 stuff like All Hallows Eve pack
 importGH5WoR :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH5WoR src folder = do
   let texts = [ r | (name, r) <- folderFiles folder, "_text.pak" `T.isInfixOf` T.toLower name ]

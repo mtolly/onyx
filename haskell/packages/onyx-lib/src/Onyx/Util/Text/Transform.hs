@@ -2,15 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Util.Text.Transform where
 
-import           Control.Monad          (guard)
+import           Control.Monad           (guard)
 import           Control.Monad.IO.Class
-import           Data.Char              (isAscii, isLatin1, toUpper)
-import           Data.Fixed             (Milli)
-import           Data.Maybe             (mapMaybe)
-import qualified Data.Text              as T
+import           Data.Char               (isAscii, isLatin1, toUpper)
+import           Data.Fixed              (Milli)
+import           Data.Maybe              (mapMaybe)
+import qualified Data.Text               as T
 import           Data.Text.UTF8Proc
-import           Onyx.Util.ShiftJIS     (kakasi)
-import qualified Sound.MIDI.Util        as U
+import           Onyx.Util.Text.ShiftJIS (kakasi)
+import qualified Sound.MIDI.Util         as U
 
 -- | Transform a string to (mostly) only Latin-1 characters.
 -- Allows Ÿ (not Latin-1) and ÿ (is Latin-1) for RB, but not in Magma .rbproj.

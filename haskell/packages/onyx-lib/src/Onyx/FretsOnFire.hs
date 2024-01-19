@@ -92,6 +92,9 @@ data Song = Song
   icon
   playlist_track
   -}
+
+  -- TODO we may want to add more keys for missing stuff like vocalist gender, etc.
+  -- since people complain about stuff not surviving RB->CH->RB or similar conversions
   } deriving (Eq, Ord, Show)
 
 instance Default Song where

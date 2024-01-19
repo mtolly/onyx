@@ -1,9 +1,11 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Neversoft.GH5.Perf where
 
 import           Control.Monad
 import           Data.Binary.Get
+import           Data.Binary.Put
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Word            (Word32)
@@ -15,30 +17,31 @@ data Perf = Perf
   , perfUnknown1 :: Word32
   , perfUnknown2 :: Word32
   , perfUnknown3 :: Word32
-  , perfEntries  :: [PerfEntry]
+  , perfEntries  :: [(Word32, PerfEntry)]
   } deriving (Show)
 
 data PerfEntry
-  = PerfGH5CameraNote Word32 [(Word32, B.ByteString)]
-  | PerfGH6ActorLoops Word32 [B.ByteString]
+  = PerfGH5CameraNote [(Word32, B.ByteString)]
+  | PerfGH5ActorLoops [B.ByteString]
+  | PerfGH6ActorLoops [B.ByteString]
   deriving (Show)
 
 getPerfEntry :: Get PerfEntry
 getPerfEntry = do
-  entryID <- getWord32be
-  -- entryID for gh5_camera_note is either "autocutcameras" or "momentcameras".
-  -- for gh6_actor_loops, entryID appears to be a unique ID
   len <- fromIntegral <$> getWord32be
   qb <- getWord32be
   if qb == qbKeyCRC "gh5_camera_note"
-    then fmap (PerfGH5CameraNote entryID) $ replicateM len $ do
+    then fmap PerfGH5CameraNote $ replicateM len $ do
       t <- getWord32be
       x <- getByteString 3
       return (t, x)
     else if qb == qbKeyCRC "gh6_actor_loops"
-      then fmap (PerfGH6ActorLoops entryID) $ replicateM len $ do
+      then fmap PerfGH6ActorLoops $ replicateM len $ do
         getByteString 1000
-      else fail "Unknown .perf entry type"
+      else if qb == qbKeyCRC "gh5_actor_loops"
+        then fmap PerfGH5ActorLoops $ replicateM len $ do
+          getByteString 0x6C
+        else fail $ "Unknown .perf entry type: " <> show qb
 
 getPerf :: Get Perf
 getPerf = do
@@ -46,15 +49,46 @@ getPerf = do
   perfDLCKey <- getWord32be
   numEntries <- getWord32be
   0x424056AD <- getWord32be -- qb "perf"
-  perfUnknown1 <- getWord32be -- always 0x36?
+  perfUnknown1 <- getWord32be -- always 0x36? nope, seen qb("gh5_actor_loops") in gh5
   perfUnknown2 <- getWord32be
   perfUnknown3 <- getWord32be
-  perfEntries <- replicateM (fromIntegral numEntries) getPerfEntry
+  perfEntries <- replicateM (fromIntegral numEntries) $ do
+    entryKey <- getWord32be
+    -- observed key "autocutcameras" and "momentcameras" both with type "gh5_camera_note"
+    entry <- getPerfEntry
+    return (entryKey, entry)
   isEmpty >>= \b -> unless b $ fail "Expected EOF at end of .perf"
   return Perf{..}
 
 loadPerf :: FilePath -> IO Perf
 loadPerf f = B.readFile f >>= runGetM getPerf . BL.fromStrict
+
+makePerf :: Perf -> BL.ByteString
+makePerf Perf{..} = runPut $ do
+  putWord32be 0x40A001A3
+  putWord32be perfDLCKey
+  putWord32be $ fromIntegral $ length perfEntries
+  putWord32be 0x424056AD
+  putWord32be perfUnknown1
+  putWord32be perfUnknown2
+  putWord32be perfUnknown3
+  forM_ perfEntries $ \(entryKey, entry) -> do
+    putWord32be entryKey
+    case entry of
+      PerfGH5CameraNote notes -> do
+        putWord32be $ fromIntegral $ length notes
+        putWord32be $ qbKeyCRC "gh5_camera_note"
+        forM_ notes $ \(t, x) -> do
+          putWord32be t
+          putByteString x
+      PerfGH5ActorLoops loops -> do
+        putWord32be $ fromIntegral $ length loops
+        putWord32be $ qbKeyCRC "gh5_actor_loops"
+        mapM_ putByteString loops
+      PerfGH6ActorLoops loops -> do
+        putWord32be $ fromIntegral $ length loops
+        putWord32be $ qbKeyCRC "gh6_actor_loops"
+        mapM_ putByteString loops
 
 {-
 

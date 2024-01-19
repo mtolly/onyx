@@ -1,0 +1,120 @@
+audio:
+  BeautifulMourning_1.fsb.xen.0.xma:
+    file-path: BeautifulMourning_1.fsb.xen.0.xma
+  BeautifulMourning_1.fsb.xen.1.xma:
+    file-path: BeautifulMourning_1.fsb.xen.1.xma
+  BeautifulMourning_1.fsb.xen.2.xma:
+    file-path: BeautifulMourning_1.fsb.xen.2.xma
+  BeautifulMourning_1.fsb.xen.3.xma:
+    file-path: BeautifulMourning_1.fsb.xen.3.xma
+  BeautifulMourning_2.fsb.xen.0.xma:
+    file-path: BeautifulMourning_2.fsb.xen.0.xma
+  BeautifulMourning_2.fsb.xen.1.xma:
+    file-path: BeautifulMourning_2.fsb.xen.1.xma
+  BeautifulMourning_2.fsb.xen.2.xma:
+    file-path: BeautifulMourning_2.fsb.xen.2.xma
+  BeautifulMourning_3.fsb.xen.0.xma:
+    file-path: BeautifulMourning_3.fsb.xen.0.xma
+  BeautifulMourning_3.fsb.xen.1.xma:
+    file-path: BeautifulMourning_3.fsb.xen.1.xma
+  album-track:
+    md5: 5ef7946a3054deb385fc52993f5a8238
+    frames: 12631416
+metadata:
+  artist: Machine Head
+  author: Neversoft, Onyxite
+  genre: Rock
+  title: Beautiful Mourning
+  year: 2007
+parts:
+  bass:
+    grybo: {}
+    pro-guitar:
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0]
+        global: -2
+      picked-bass: true
+  drums:
+    drums:
+      fix-freeform: false
+      kicks: both
+      mode: 5
+  guitar:
+    grybo: {}
+  vocal:
+    vocal:
+      gender: male
+plans:
+  album:
+    song:
+      pad: [3.819, album-track]
+    tuning-cents: -50
+  gh:
+    crowd:
+      pans-vols:
+      - - -1
+        - 1
+      - - -1
+        - -1
+      - BeautifulMourning_3.fsb.xen.1.xma
+    parts:
+      bass:
+        pans-vols:
+        - - -1
+          - 1
+        - - -1
+          - -1
+        - BeautifulMourning_2.fsb.xen.1.xma
+      drums:
+        kick:
+          pans-vols:
+          - - -1
+            - 1
+          - - -1
+            - -1
+          - BeautifulMourning_1.fsb.xen.0.xma
+        kit:
+          pans-vols:
+          - - -1
+            - 1
+          - - -1
+            - -1
+          - BeautifulMourning_1.fsb.xen.3.xma
+        snare:
+          pans-vols:
+          - - -1
+            - 1
+          - - -1
+            - -1
+          - BeautifulMourning_1.fsb.xen.1.xma
+        toms:
+          pans-vols:
+          - - -1
+            - 1
+          - - -1
+            - -1
+          - BeautifulMourning_1.fsb.xen.2.xma
+      guitar:
+        pans-vols:
+        - - -1
+          - 1
+        - - -1
+          - -1
+        - BeautifulMourning_2.fsb.xen.0.xma
+      vocal:
+        # censored of course. "fuck you all" is entirely removed
+        pans-vols:
+        - - -1
+          - 1
+        - - -1
+          - -1
+        - BeautifulMourning_2.fsb.xen.2.xma
+    song:
+      pans-vols:
+      - - -1
+        - 1
+      - - -1
+        - -1
+      - BeautifulMourning_3.fsb.xen.0.xma
+    tuning-cents: -50 # GHM says -27 but this sounds better

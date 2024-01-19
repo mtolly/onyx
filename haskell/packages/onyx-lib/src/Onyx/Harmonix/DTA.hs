@@ -5,6 +5,7 @@
 module Onyx.Harmonix.DTA
 ( DTA(..), Tree(..), Chunk(..)
 , decodeDTB, encodeDTB
+, decodeDecryptDTB
 , readFileDTB, writeFileDTB
 , readDTA, showDTA
 , readFileDTA, readFileDTA_latin1, readFileDTA_utf8
@@ -16,7 +17,7 @@ module Onyx.Harmonix.DTA
 ) where
 
 import           Control.Monad.IO.Class  (MonadIO (..))
-import           Data.Binary             (decode, encode)
+import           Data.Binary             (decodeOrFail, encode)
 import qualified Data.ByteString         as B
 import qualified Data.ByteString.Char8   as B8
 import qualified Data.ByteString.Lazy    as BL
@@ -24,6 +25,7 @@ import qualified Data.Text               as T
 import           Data.Text.Encoding      (decodeLatin1, decodeUtf8, decodeUtf8',
                                           encodeUtf8)
 import           Onyx.Harmonix.DTA.Base
+import           Onyx.Harmonix.DTA.Crypt (decrypt, newCrypt, oldCrypt)
 import           Onyx.Harmonix.DTA.Parse
 import           Onyx.Harmonix.DTA.Print
 import           Onyx.Harmonix.DTA.Scan
@@ -32,14 +34,30 @@ import           Onyx.Util.Text.Decode   (decodeGeneral, encodeLatin1,
                                           removeBOM)
 import           System.IO.Error         (tryIOError)
 
-decodeDTB :: BL.ByteString -> DTA B.ByteString
-decodeDTB = decode
+decodeDTBEither :: BL.ByteString -> Either String (DTA B.ByteString)
+decodeDTBEither bs = case decodeOrFail bs of
+  Right (_, _, x)       -> Right x
+  Left (_, offset, err) -> Left $ "Decode error at byte offset " <> show offset <> ": " <> err
+
+decodeDTB :: (MonadFail m) => BL.ByteString -> m (DTA B.ByteString)
+decodeDTB = either fail return . decodeDTBEither
+
+decodeDecryptDTB :: (MonadFail m) => BL.ByteString -> m (DTA B.ByteString)
+decodeDecryptDTB bs = case decodeDTBEither $ decrypt oldCrypt bs of
+  Left errOld -> case decodeDTBEither $ decrypt newCrypt bs of
+    Left errNew -> fail $ concat
+      [ "Couldn't decode encrypted .dtb"
+      , "- Old encryption error: " <> errOld
+      , "- New encryption error: " <> errNew
+      ]
+    Right x -> return x
+  Right x -> return x
 
 encodeDTB :: DTA B.ByteString -> BL.ByteString
 encodeDTB = encode
 
 readFileDTB :: FilePath -> IO (DTA B.ByteString)
-readFileDTB = fmap (decodeDTB . BL.fromStrict) . B.readFile
+readFileDTB f = B.readFile f >>= decodeDTB . BL.fromStrict
 
 writeFileDTB :: FilePath -> DTA B.ByteString -> IO ()
 writeFileDTB fp dta = BL.writeFile fp $ encodeDTB dta
