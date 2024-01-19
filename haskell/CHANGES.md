@@ -1,5 +1,24 @@
 # Version history
 
+# 20240120
+
+* Support separate instrument audio for GH:WoR export
+* Support drums using GH-style audio with separated toms and cymbals
+  * Imported/exported for GH:WoR, Phase Shift, and DTX formats
+* Fixed 5-lane drums being incorrectly condensed to 4-lane when exporting
+  to games that support 5-lane (GH:WoR, CH)
+* Import songs from the following game discs:
+  * Guitar Hero II (360)
+  * Guitar Hero World Tour (360, PS2) + 360 DLC
+  * Guitar Hero Smash Hits (360, PS2)
+  * Guitar Hero: Metallica (360, PS2)
+  * Guitar Hero: Van Halen (360, PS2)
+  * Guitar Hero 5 (360)
+  * Band Hero (360)
+  * Guitar Hero: Warriors of Rock (360)
+* Improve Quick Convert to work better with PS3 files encrypted with the
+  Still Alive ("HMX0756") key
+
 ## 20240101
 
 * Export support for Clone Hero `.sng` files
