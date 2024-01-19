@@ -269,18 +269,50 @@ nav a {
 <li>Unencrypted Clone Hero <code>.sng</code> files are also supported. (The songs that come with the game are a different format and are not supported.)</li>
 </ul></li>
 <li><p>Magma (v1 or v2) projects (<code>.rbproj</code>)</p></li>
-<li><p>Guitar Hero, Guitar Hero II, or Guitar Hero Encore: Rocks the 80s (PS2)</p>
-<ul>
-<li>Import directly from the <code>.iso</code>, or extract and import from <code>MAIN.HDR</code>.</li>
-<li>The hidden songs Trippolette and Graveyard Shift can be imported from GH1.</li>
-</ul></li>
-<li><p>Guitar Hero II (Xbox 360) DLC (LIVE files)</p></li>
-<li><p>Guitar Hero III disc (Xbox 360, PS2) and DLC (Xbox 360, PS3), Guitar Hero: Aerosmith disc (Xbox 360)</p>
-<ul>
-<li>Both Xbox 360 and PS2 discs can be imported directly from <code>.iso</code>, or from <code>default.xex</code> (360) or <code>DATAP.HED</code> (PS2).</li>
-</ul></li>
+<li>
+  <p>The following Guitar Hero game discs for Xbox 360:</p>
+  <ul>
+    <li>Guitar Hero II</li>
+    <li>Guitar Hero III</li>
+    <li>Guitar Hero: Aerosmith</li>
+    <li>Guitar Hero World Tour</li>
+    <li>Guitar Hero Smash Hits</li>
+    <li>Guitar Hero: Metallica</li>
+    <li>Guitar Hero: Van Halen</li>
+    <li>Guitar Hero 5</li>
+    <li>Band Hero</li>
+    <li>Guitar Hero: Warriors of Rock</li>
+  </ul>
+  <p>Import directly from the <code>.iso</code>, or from <code>default.xex</code> in an extracted folder.</p>
+</li>
+<li>
+  <p>DLC (Xbox 360 LIVE files or PlayStation 3 <code>.pkg</code> files) for the following Guitar Hero games:</p>
+  <ul>
+    <li>Guitar Hero II (360)</li>
+    <li>Guitar Hero III (360, PS3)</li>
+    <li>Guitar Hero World Tour (360)</li>
+    <li>Guitar Hero 5 (360, PS3)</li>
+    <li>Guitar Hero: Warriors of Rock (360, PS3)</li>
+  </ul>
+</li>
+<li>
+  <p>The following Guitar Hero game discs for PS2:</p>
+  <ul>
+    <li>Guitar Hero
+      <ul><li>Supports the hidden songs Trippolette and Graveyard Shift</li></ul>
+    </li>
+    <li>Guitar Hero II</li>
+    <li>Guitar Hero Encore: Rocks the 80s</li>
+    <li>Guitar Hero III</li>
+    <li>Guitar Hero: Aerosmith</li>
+    <li>Guitar Hero World Tour</li>
+    <li>Guitar Hero Smash Hits</li>
+    <li>Guitar Hero: Metallica</li>
+    <li>Guitar Hero: Van Halen</li>
+  </ul>
+  <p>Import directly from the <code>.iso</code>, or from <code>MAIN.HDR</code> or <code>DATAP.HED</code> in an extracted folder.</p>
+</li>
 <li><p>Guitar Hero Three Control Panel <code>.sgh</code> setlists</p></li>
-<li><p>Guitar Hero 5 and Guitar Hero: Warriors of Rock DLC (Xbox 360 LIVE files or PlayStation 3 .pkg files)</p></li>
 <li><p>Rocksmith 2014 (<code>.psarc</code>, PC/Mac/Xbox/PlayStation format)</p>
 <ul>
 <li><p>Translates to Pro Guitar / Pro Bass in Rock Band 3 and Phase Shift formats.
@@ -469,9 +501,9 @@ nav a {
 <li><p>Vocals work basically the same as Rock Band, translating phrases, talkies, and slides. Phrases are encoded in a slightly different way; longer stretches of empty space are broken up into multiple empty phrases, and short gaps between phrases are appended to the following phrase.</p></li>
 <li><p>Band animations and lighting/camera are not controlled yet, so a generic camera cut rotation is used, and the drummer and singer do not have animations.</p></li>
 <li><p>In batch mode, guitar and bass will be selected automatically from the available tracks. If there is no suitable track for bass, guitar will be copied to bass due to the lack of open pulloff support on guitar.</p></li>
-<li><p>Stems are not yet supported; all audio goes to the backing track. This will be fixed in a future release.</p>
+<li><p>Multitrack audio is now supported. Note however that separated drums audio is required to match into the 4-track format of kicks, snare, toms, and cymbals. Any drum tracks that contain more than one of these, such as a single mixed drum track or a RB-format layout with toms and cymbals together, will currently be routed to the backing track instead. 4-track audio can be imported from Phase Shift/Clone Hero format.</p>
 <p>Currently, MP3 audio is used on both Xbox 360 and PS3. Official content (and previous Onyx output) for Xbox 360 used its own XMA format, which has some advantages, but is more difficult to generate without Microsoft tools.</p>
-<p>The stemless audio may behave oddly in multiplayer. It appears the backing track is moved towards the center (mono), while the instrument tracks are positioned in space to match their highway position. More research is needed into whether this behavior can be disabled.</p></li>
+<p>Non-separated audio may behave oddly in multiplayer. It appears the backing track is moved towards the center (mono), while the instrument tracks are positioned in space to match their highway position. More research is needed into whether this behavior can be disabled.</p></li>
 <li><p>Song titles and artists may sometimes get a prefix added in front; this is to prevent a game crash when sorting by title or artist caused by non-ASCII characters (even those that are supported by the game fonts).</p></li>
 </ul>
 
