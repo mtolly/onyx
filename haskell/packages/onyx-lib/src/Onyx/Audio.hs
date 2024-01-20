@@ -43,6 +43,7 @@ module Onyx.Audio
 , makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
 , cacheAudio
 , audioToChannelWAVs
+, standardRate
 ) where
 
 import           Control.Concurrent               (newEmptyMVar, threadDelay,

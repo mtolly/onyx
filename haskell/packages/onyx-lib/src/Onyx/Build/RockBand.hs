@@ -132,7 +132,7 @@ moggToStandardPlan planName info = StandardPlanInfo
     channelsToAudio indexes = PansVols
       (map (\i -> realToFrac $ info.pans !! i) indexes)
       (map (\i -> realToFrac $ info.vols !! i) indexes)
-      (Channels (map Just indexes) $ Input $ Mogg planName)
+      (Resample $ Channels (map Just indexes) $ Input $ Mogg planName)
 
 rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe (TargetRB2 FilePath) -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do

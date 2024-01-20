@@ -140,7 +140,7 @@ gh2Rules buildInfo dir gh2 = do
       -- for vgs, separate sources so silence can be encoded at low sample rate
       gh2SourcesVGS = gh2SourceGeneral False id
       -- for mogg, single source
-      gh2SourceMOGG = fmap runIdentity $ gh2SourceGeneral True $ Identity . foldr1 merge
+      gh2SourceMOGG = fmap runIdentity $ gh2SourceGeneral True $ Identity . foldr1 merge . fmap standardRate
 
   dir </> "gh2/audio.vgs" %> \out -> do
     srcs <- gh2SourcesVGS
