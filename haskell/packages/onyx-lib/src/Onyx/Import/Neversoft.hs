@@ -167,6 +167,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               , album = fmap snd $ songAlbumTitle info
               , fileAlbumArt = Nothing
               , genre = displayWoRGenre <$> songGenre info
+              , cover = not $ songOriginalArtist info
               }
             , global = def'
               { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
@@ -817,6 +818,7 @@ importGH3Song gh3i = let
         , artist = Just $ gh3Artist info
         , year = gh3Year info >>= readMaybe . T.unpack . T.takeWhileEnd isDigit
         , fileAlbumArt = Nothing
+        , cover = not $ gh3OriginalArtist info
         }
       , global = def'
         { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx

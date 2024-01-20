@@ -121,6 +121,7 @@ data SongInfo = SongInfo
   , songGenre                 :: Maybe GenreWoR
   , songVocalsPitchScoreShift :: Int
   , songOverallSongVolume     :: Float -- decibels
+  , songOriginalArtist        :: Bool
   } deriving (Show)
 
 parseSongInfoStruct :: [QBStructItem QSResult Word32] -> Either String SongInfo
@@ -162,4 +163,7 @@ parseSongInfoStruct songEntries = do
         n : _ -> listToMaybe $ filter (\wor -> qbWoRGenre wor == n) [minBound .. maxBound]
       songVocalsPitchScoreShift = fromMaybe 0 $ listToMaybe $ mapMaybe getVocalsCents songEntries
       songOverallSongVolume = fromMaybe 0 $ listToMaybe $ mapMaybe getOverallSongVolume songEntries
+      songOriginalArtist = case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "original_artist" ] of
+        b : _ -> b /= 0
+        []    -> True
   Right SongInfo{..}

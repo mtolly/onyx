@@ -303,6 +303,7 @@ data SongInfoGH3 = SongInfoGH3
   , gh3RhythmTrack          :: Bool
   , gh3UseCoopNotetracks    :: Bool
   , gh3HammerOnMeasureScale :: Maybe Float
+  , gh3OriginalArtist       :: Bool
   -- lots of other fields ignored
   } deriving (Show)
 
@@ -347,6 +348,9 @@ parseSongInfoGH3 songEntries = do
         [ () | QBStructItemQbKey8D0000 0 k <- songEntries, k == qbKeyCRC "use_coop_notetracks" ]
       gh3HammerOnMeasureScale = listToMaybe
         [ n | QBStructItemFloat820000 k n <- songEntries, k == qbKeyCRC "hammer_on_measure_scale" ]
+      gh3OriginalArtist = case [ n | QBStructItemInteger810000 k n <- songEntries, k == qbKeyCRC "original_artist" ] of
+        b : _ -> b /= 0
+        []    -> True
   gh3RhythmTrack <- case [ n | QBStructItemInteger810000 k n <- songEntries, k == qbKeyCRC "rhythm_track" ] of
     0 : _ -> Right False
     1 : _ -> Right True

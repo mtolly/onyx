@@ -18,6 +18,8 @@
   * Guitar Hero: Warriors of Rock (360)
 * Improve Quick Convert to work better with PS3 files encrypted with the
   Still Alive ("HMX0756") key
+* Fix bug introduced in `20240101` where compile would fail on encrypted MOGG
+  files instead of passing them through unmodified
 
 ## 20240101
 

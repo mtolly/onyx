@@ -243,7 +243,8 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if metadata.cover
                     then qbKeyCRC "artist_text_as_made_famous_by"
                     else qbKeyCRC "artist_text_by"
-                  , QBStructItemInteger810000 (qbKeyCRC "original_artist") 0 -- TODO what is this? doesn't mean cover/master
+                  , QBStructItemInteger810000 (qbKeyCRC "original_artist")
+                    $ if metadata.cover then 0 else 1
                   , QBStructItemQbKey8D0000 (qbKeyCRC "version") (qbKeyCRC "gh3")
                   , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
                   , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0

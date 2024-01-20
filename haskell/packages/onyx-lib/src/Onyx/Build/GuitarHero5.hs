@@ -141,8 +141,11 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemString (qbKeyCRC "name") $ B8.pack songKey
               , QBStructItemQbKeyStringQs (qbKeyCRC "title") $ fst titleQS
               , QBStructItemQbKeyStringQs (qbKeyCRC "artist") $ fst artistQS
-              , QBStructItemQbKeyString (qbKeyCRC "artist_text") (qbKeyCRC "artist_text_by") -- TODO change if cover?
-              , QBStructItemInteger (qbKeyCRC "original_artist") 1 -- TODO change if cover?
+              , QBStructItemQbKeyString (qbKeyCRC "artist_text") $ if metadata.cover
+                then qbKeyCRC "artist_text_as_made_famous_by"
+                else qbKeyCRC "artist_text_by"
+              , QBStructItemInteger (qbKeyCRC "original_artist")
+                $ if metadata.cover then 0 else 1
               -- TODO can we omit year, or pick a better default than 1960
               , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear metadata
               , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
