@@ -8,4 +8,5 @@ onyx-*.exe
 /packages/onyx-exe-toolkit/*.cabal
 stack*.yaml.lock
 onyx-20*
+onyx-command-line-*
 *.AppImage

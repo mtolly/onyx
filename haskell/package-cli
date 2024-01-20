@@ -22,6 +22,7 @@ case $(uname) in
     stack exec -- onyx-package changes
     stack exec -- onyx-package version-write win/onyx-resources/README.html
     stack exec -- onyx-package dlls win/onyx.exe
+    stack exec -- onyx-package version-print | ./win-cli-package.sh
     ;;
   Darwin )
     # TODO
