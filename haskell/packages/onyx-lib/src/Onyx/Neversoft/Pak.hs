@@ -139,7 +139,9 @@ splitPakNodes fmt pak maybePab = do
             -- but the offsets in the pab start at 0x9000
             -- (the 0x1000-multiple after the last node details).
             -- we could either do that, or the below, where hopefully we can
-            -- assume the first node is at the start of the pab
+            -- assume the first node is at the start of the pab.
+            -- ...nevermind, gh3 ps2 DATAP/zones/global/global_net.pak.ps2
+            -- has a useless pab we should ignore? very strange
             specifiedPakLength = case nodes of
               node : _ -> fromIntegral $ nodeOffset node
               []       -> 0
@@ -154,7 +156,7 @@ splitPakNodes fmt pak maybePab = do
 -- Tries possible pak+pab formats until one parses (seemingly) correctly.
 splitPakNodesAuto :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> StackTraceT m ([(Node, BL.ByteString)], PakFormat)
 splitPakNodesAuto pak maybePab = let
-  tryFormat fmt = errorToEither $ do
+  tryFormat ctx fmt = errorToEither $ inside ctx $ do
     nodes <- splitPakNodes fmt pak maybePab
     case reverse nodes of
       (node, bs) : _
@@ -163,17 +165,19 @@ splitPakNodesAuto pak maybePab = let
         -> return nodes
       _ -> fatal "Pak didn't contain proper 'last', probably not the right format"
   -- Have to try GH3 format before WoR format; otherwise GH3 can get wrongly detected as WoR
-  in tryFormat (pakFormatGH3 LittleEndian) >>= \case
-    Right result -> return (result, pakFormatGH3 LittleEndian)
-    Left err1 -> tryFormat (pakFormatGH3 BigEndian) >>= \case
-      Right result -> return (result, pakFormatGH3 BigEndian)
-      Left err2 -> tryFormat pakFormatWoR >>= \case
-        Right result -> return (result, pakFormatWoR)
-        Left err3 -> do
-          inside ".pak autodetect: GH3 format, little endian" $ warnNoContext err1
-          inside ".pak autodetect: GH3 format, big endian" $ warnNoContext err2
-          inside ".pak autodetect: WoR format" $ warnNoContext err3
-          fatal ".pak format autodetect failed"
+  in if "\\\\Dummy file" `BL.isPrefixOf` pak
+    then return ([], pakFormatGH3 LittleEndian)
+    else tryFormat ".pak autodetect: GH3 format, little endian" (pakFormatGH3 LittleEndian) >>= \case
+      Right result -> return (result, pakFormatGH3 LittleEndian)
+      Left err1 -> tryFormat ".pak autodetect: GH3 format, big endian" (pakFormatGH3 BigEndian) >>= \case
+        Right result -> return (result, pakFormatGH3 BigEndian)
+        Left err2 -> tryFormat ".pak autodetect: WoR format" pakFormatWoR >>= \case
+          Right result -> return (result, pakFormatWoR)
+          Left err3 -> do
+            warnNoContext err1
+            warnNoContext err2
+            warnNoContext err3
+            fatal ".pak format autodetect failed"
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let
