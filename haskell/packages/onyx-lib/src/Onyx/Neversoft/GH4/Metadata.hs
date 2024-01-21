@@ -23,7 +23,7 @@ data SongInfoGH4 = SongInfoGH4
   , gh4Title                 :: T.Text
   , gh4Artist                :: T.Text
   , gh4Year                  :: T.Text
-  , gh4Genre                 :: Maybe Word32 -- missing in some demo/test songs
+  , gh4Genre                 :: Maybe QBKey -- missing in some demo/test songs
   , gh4DoubleKick            :: Bool -- key only present in GH Metallica
   , gh4OriginalArtist        :: Bool
   , gh4Singer                :: Maybe Gender
@@ -45,54 +45,51 @@ data SongInfoGH4 = SongInfoGH4
   -- 2269603036 = QS 651823163
   } deriving (Show)
 
-getVocalsCents :: QBStructItem qs Word32 -> Maybe Int
+getVocalsCents :: QBStructItem qs QBKey -> Maybe Int
 getVocalsCents
-  (QBStructItemStruct vpss [QBStructHeader, QBStructItemInteger cents n])
-  | vpss == qbKeyCRC "vocals_pitch_score_shift" && cents == qbKeyCRC "cents"
+  (QBStructItemStruct "vocals_pitch_score_shift" [QBStructHeader, QBStructItemInteger "cents" n])
   = Just $ fromIntegral $ (fromIntegral :: Word32 -> Int32) n -- TODO simplify when qb is fixed to use Int32
 getVocalsCents _ = Nothing
 
-makeVocalsCents :: Int -> Maybe (QBStructItem qs Word32)
+makeVocalsCents :: Int -> Maybe (QBStructItem qs QBKey)
 makeVocalsCents 0 = Nothing
-makeVocalsCents n = Just $ QBStructItemStruct (qbKeyCRC "vocals_pitch_score_shift")
+makeVocalsCents n = Just $ QBStructItemStruct "vocals_pitch_score_shift"
   [ QBStructHeader
-  , QBStructItemInteger (qbKeyCRC "cents") (fromIntegral (fromIntegral n :: Int32) :: Word32)
+  , QBStructItemInteger "cents" (fromIntegral (fromIntegral n :: Int32) :: Word32)
   ]
 
-getOverallSongVolume :: QBStructItem qs Word32 -> Maybe Float
-getOverallSongVolume (QBStructItemInteger k n) | k == qbKeyCRC "overall_song_volume"
+getOverallSongVolume :: QBStructItem qs QBKey -> Maybe Float
+getOverallSongVolume (QBStructItemInteger "overall_song_volume" n)
   = Just $ realToFrac $ (fromIntegral :: Word32 -> Int32) n -- TODO simplify when qb is fixed to use Int32
-getOverallSongVolume (QBStructItemFloat k n) | k == qbKeyCRC "overall_song_volume"
+getOverallSongVolume (QBStructItemFloat "overall_song_volume" n)
   = Just n
 getOverallSongVolume _ = Nothing
 
-parseSongInfoGH4 :: [QBStructItem QSResult Word32] -> Either String SongInfoGH4
+parseSongInfoGH4 :: [QBStructItem QSResult QBKey] -> Either String SongInfoGH4
 parseSongInfoGH4 songEntries = do
-  gh4Name <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
+  gh4Name <- case [ s | QBStructItemString "name" s <- songEntries ] of
     s : _ -> Right s
     []    -> Left "parseSongInfoGH4: couldn't get song internal name"
-  let getString key = let
-        crc = qbKeyCRC key
-        in listToMaybe $ songEntries >>= \case
-          QBStructItemQbKeyStringQs k (KnownQS _ s) | k == crc -> [s]
-          _                                                    -> []
+  let getString crc = listToMaybe $ songEntries >>= \case
+        QBStructItemQbKeyStringQs k (KnownQS _ s) | k == crc -> [s]
+        _                                                    -> []
       metaError s = Left $ "parseSongInfoGH4: " <> s <> " for song " <> show gh4Name
   gh4Title  <- maybe (metaError $ "couldn't get song title" ) (Right . stripBackL) $ getString "title"
   gh4Artist <- maybe (metaError $ "couldn't get song artist") (Right . stripBackL) $ getString "artist"
   gh4Year   <- maybe (metaError $ "couldn't get song year"  ) (Right . stripBackL) $ getString "year"
-  let gh4Genre = listToMaybe [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ]
-      gh4DoubleKick = case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
+  let gh4Genre = listToMaybe [ n | QBStructItemQbKey "genre" n <- songEntries ]
+      gh4DoubleKick = case [ n | QBStructItemInteger "double_kick" n <- songEntries ] of
         n : _ -> n /= 0
         []    -> False
-      gh4OriginalArtist = case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "original_artist" ] of
+      gh4OriginalArtist = case [ n | QBStructItemInteger "original_artist" n <- songEntries ] of
         b : _ -> b /= 0
         []    -> True -- should always be present but we'll just assume
-      gh4Singer = case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "singer" ] of
-        b : _
-          | b == qbKeyCRC "male"             -> Just Male
-          | b == qbKeyCRC "female"           -> Just Female
-          | otherwise {- should be "none" -} -> Nothing
-        []                                   -> Nothing
+      gh4Singer = case [ n | QBStructItemQbKey "singer" n <- songEntries ] of
+        n : _ -> case n of
+          "male"   -> Just Male
+          "female" -> Just Female
+          _        {- should be "none" -} -> Nothing
+        []    -> Nothing
       gh4OverallSongVolume = fromMaybe 0 $ listToMaybe $ mapMaybe getOverallSongVolume songEntries
       gh4VocalsPitchScoreShift = fromMaybe 0 $ listToMaybe $ mapMaybe getVocalsCents songEntries
   Right SongInfoGH4{..}

@@ -416,7 +416,7 @@ ghwtKey str = runST $ do
   vxor <- newSTRef (0xFFFFFFFF :: Word32)
   encstr <- fmap B.pack $ forM [0 .. ncycle - 1] $ \i -> do
     let ch = B.index str $ i `rem` B.length str
-        crc = qbKeyCRC $ B.singleton ch
+        QBKey crc = qbKeyCRC $ B.singleton ch
     xorOld <- readSTRef vxor
     let xorNew = crc `xor` xorOld
     writeSTRef vxor xorNew
@@ -424,7 +424,7 @@ ghwtKey str = runST $ do
     return $ B.index str index
   key <- forM [0 .. ncycle - 2] $ \i -> do
     let ch = B.index encstr i
-        crc = qbKeyCRC $ B.singleton ch
+        QBKey crc = qbKeyCRC $ B.singleton ch
     xorOld <- readSTRef vxor
     let xorNew1 = crc `xor` xorOld
         c = i .&. 3

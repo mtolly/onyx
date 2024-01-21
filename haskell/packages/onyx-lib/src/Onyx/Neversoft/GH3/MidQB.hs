@@ -27,7 +27,7 @@ import           Onyx.MIDI.Track.Drums.True
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
-import           Onyx.Neversoft.CRC               (qbKeyCRC)
+import           Onyx.Neversoft.CRC               (QBKey, qbKeyCRC)
 import           Onyx.Neversoft.GH3.Metadata      (SongInfoGH3 (..))
 import           Onyx.Neversoft.QB
 import           Onyx.Sections                    (simpleSection)
@@ -60,8 +60,8 @@ data GH3Background a = GH3Background
 
 data GH3AnimEvent = GH3AnimEvent
   { gh3AnimTime   :: Word32
-  , gh3AnimScr    :: Word32
-  , gh3AnimParams :: [QBStructItem Word32 Word32]
+  , gh3AnimScr    :: QBKey
+  , gh3AnimParams :: [QBStructItem Word32 QBKey]
   } deriving (Show)
 
 data GH3MidQB = GH3MidQB
@@ -77,7 +77,7 @@ data GH3MidQB = GH3MidQB
 
   , gh3TimeSignatures  :: [(Word32, Word32, Word32)]
   , gh3FretBars        :: [Word32]
-  , gh3Markers         :: [(Word32, Either Word32 T.Text)] -- time, marker
+  , gh3Markers         :: [(Word32, Either QBKey T.Text)] -- time, marker
 
   , gh3BackgroundNotes :: GH3Background [Word32] -- usually 3 ints, but some dlcX_drums_notes are 4 ints?
   , gh3Background      :: GH3Background GH3AnimEvent
@@ -96,12 +96,13 @@ emptyMidQB = let
 
 findSection
   :: (Monad m)
-  => [QBSection Word32 Word32]
+  => [QBSection Word32 QBKey]
   -> B.ByteString
-  -> (QBArray Word32 Word32 -> StackTraceT m a)
+  -> (QBArray Word32 QBKey -> StackTraceT m a)
   -> StackTraceT m a
-findSection qb key go = inside ("QB section: " <> show key) $ do
-  case [ary | QBSectionArray k _ ary <- qb, k == qbKeyCRC key] of
+findSection qb name go = inside ("QB section: " <> show name) $ do
+  let key = qbKeyCRC name
+  case [ ary | QBSectionArray k _ ary <- qb, k == key ] of
     [ary] -> go ary
     []    -> fatal "Section not found"
     _     -> fatal "Multiple sections with same key?"
@@ -112,7 +113,7 @@ groupBy3 = go [] where
   go trips (x : y : z : rest) = go ((x, y, z) : trips) rest
   go _     _                  = fatal "Expected a list whose length is a multiple of 3"
 
-listOfPairs :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Word32)]
+listOfPairs :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 listOfPairs = \case
   QBArrayOfFloatRaw [] -> return []
   QBArrayOfArray arys -> forM arys $ \case
@@ -120,7 +121,7 @@ listOfPairs = \case
     _                       -> fatal "Expected an array of 2 integers"
   _                   -> fatal "Expected array of arrays"
 
-listOfTriples :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Word32, Word32)]
+listOfTriples :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32, Word32)]
 listOfTriples = \case
   QBArrayOfFloatRaw [] -> return []
   QBArrayOfArray arys -> forM arys $ \case
@@ -128,7 +129,7 @@ listOfTriples = \case
     _                          -> fatal "Expected an array of 3 integers"
   _                   -> fatal "Expected array of arrays"
 
-parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 Word32] -> B.ByteString -> StackTraceT m GH3Part
+parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> B.ByteString -> StackTraceT m GH3Part
 parsePart dlc qb part = let
   parseTrack diff = do
     gh3Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) $ \case
@@ -145,16 +146,16 @@ parsePart dlc qb part = let
     gh3Expert <- parseTrack "expert"
     return GH3Part{..}
 
-parseAnimEvent :: (Monad m) => [QBStructItem Word32 Word32] -> StackTraceT m GH3AnimEvent
+parseAnimEvent :: (Monad m) => [QBStructItem Word32 QBKey] -> StackTraceT m GH3AnimEvent
 parseAnimEvent = \case
   QBStructHeader : struct -> do
-    gh3AnimTime <- case [v | QBStructItemInteger810000 k v <- struct, k == qbKeyCRC "time"] of
+    gh3AnimTime <- case [ v | QBStructItemInteger810000 "time" v <- struct ] of
       [t] -> return t
       _   -> fatal "Couldn't get time of anim event"
-    gh3AnimScr <- case [v | QBStructItemQbKey8D0000 k v <- struct, k == qbKeyCRC "scr"] of
+    gh3AnimScr <- case [ v | QBStructItemQbKey8D0000 "scr" v <- struct ] of
       [scr] -> return scr
       _     -> fatal "Couldn't get scr of anim event"
-    gh3AnimParams <- case [v | QBStructItemStruct8A0000 k v <- struct, k == qbKeyCRC "params"] of
+    gh3AnimParams <- case [ v | QBStructItemStruct8A0000 "params" v <- struct ] of
       [QBStructHeader : params] -> return params
       []                        -> return []
       _                         -> fatal "Couldn't get params of anim event"
@@ -164,9 +165,9 @@ parseAnimEvent = \case
 parseBackground
   :: (Monad m)
   => B.ByteString
-  -> [QBSection Word32 Word32]
+  -> [QBSection Word32 QBKey]
   -> B.ByteString
-  -> (QBArray Word32 Word32 -> StackTraceT m [a])
+  -> (QBArray Word32 QBKey -> StackTraceT m [a])
   -> StackTraceT m (GH3Background a)
 parseBackground dlc qb sfx inner = do
   gh3Scripts     <- findSection qb (dlc <> "_scripts" <> sfx) inner
@@ -179,15 +180,15 @@ parseBackground dlc qb sfx inner = do
   gh3Performance <- findSection qb (dlc <> "_performance" <> sfx) inner
   return GH3Background{..}
 
-parseMarkers :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Either Word32 T.Text)]
+parseMarkers :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Either QBKey T.Text)]
 parseMarkers = \case
   QBArrayOfFloatRaw [] -> return []
   QBArrayOfStruct marks -> forM marks $ \case
     QBStructHeader : items -> let
-      time      = [v | QBStructItemInteger810000     k v <- items, k == qbKeyCRC "time"  ]
-      markerKey = [v | QBStructItemQbKeyString9A0000 k v <- items, k == qbKeyCRC "marker"]
+      time      = [ v | QBStructItemInteger810000     "time"   v <- items ]
+      markerKey = [ v | QBStructItemQbKeyString9A0000 "marker" v <- items ]
       -- seen in SanicStudios custom. do these work?
-      markerStr = [v | QBStructItemStringW           k v <- items, k == qbKeyCRC "marker"]
+      markerStr = [ v | QBStructItemStringW           "marker" v <- items ]
       in case (time, markerKey, markerStr) of
         ([t], [m], []) -> return (t, Left m)
         ([t], [], [m]) -> return (t, Right m)
@@ -195,7 +196,7 @@ parseMarkers = \case
     _ -> fatal "No struct header in marker"
   _ -> fatal "Expected array of structs for markers"
 
-parseMidQB :: (Monad m) => B.ByteString -> [QBSection Word32 Word32] -> StackTraceT m GH3MidQB
+parseMidQB :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> StackTraceT m GH3MidQB
 parseMidQB dlc qb = do
 
   gh3Guitar     <- parsePart dlc qb ""
@@ -228,7 +229,7 @@ parseMidQB dlc qb = do
 
   return GH3MidQB{..}
 
-makeMidQB :: Word32 -> B.ByteString -> GH3MidQB -> [QBSection Word32 Word32]
+makeMidQB :: QBKey -> B.ByteString -> GH3MidQB -> [QBSection Word32 QBKey]
 makeMidQB file dlc GH3MidQB{..} = execWriter $ do
 
   let makePart str GH3Part{..} = do
@@ -272,10 +273,10 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
     (time, marker) <- gh3Markers
     return
       [ QBStructHeader
-      , QBStructItemInteger810000 (qbKeyCRC "time") time
+      , QBStructItemInteger810000 "time" time
       , case marker of
-        Left  k -> QBStructItemQbKeyString9A0000 (qbKeyCRC "marker") k
-        Right s -> QBStructItemStringW (qbKeyCRC "marker") s
+        Left  k -> QBStructItemQbKeyString9A0000 "marker" k
+        Right s -> QBStructItemStringW "marker" s
       ]
 
   makeBackground "_notes" gh3BackgroundNotes $ \str notes -> makeSection str $
@@ -284,9 +285,9 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
     GH3AnimEvent{..} <- evts
     return
       [ QBStructHeader
-      , QBStructItemInteger810000 (qbKeyCRC "time") gh3AnimTime
-      , QBStructItemQbKey8D0000 (qbKeyCRC "scr") gh3AnimScr
-      , QBStructItemStruct8A0000 (qbKeyCRC "params") $ QBStructHeader : gh3AnimParams
+      , QBStructItemInteger810000 "time" gh3AnimTime
+      , QBStructItemQbKey8D0000 "scr" gh3AnimScr
+      , QBStructItemStruct8A0000 "params" $ QBStructHeader : gh3AnimParams
       ]
 
 toSeconds :: Word32 -> U.Seconds
@@ -304,7 +305,7 @@ readGH3TempoMap sigs bars = let
   in U.tempoMapFromBPS $ RTB.fromPairList
     $ zip (0 : map snd temposGaps) (map fst temposGaps)
 
-gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap Word32 T.Text -> GH3MidQB -> F.Song (F.OnyxFile U.Beats)
+gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap QBKey T.Text -> GH3MidQB -> F.Song (F.OnyxFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   tempos = readGH3TempoMap (gh3TimeSignatures gh3) (gh3FretBars gh3)
   toBeats :: Word32 -> U.Beats

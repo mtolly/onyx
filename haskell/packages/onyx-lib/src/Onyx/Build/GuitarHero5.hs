@@ -7,7 +7,7 @@ module Onyx.Build.GuitarHero5 (gh5Rules) where
 import           Control.Monad.Extra             (allM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
-import           Data.Binary.Put                 (putWord32be, runPut)
+import           Data.Binary.Put                 (runPut)
 import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Char8           as B8
 import qualified Data.ByteString.Lazy            as BL
@@ -38,7 +38,7 @@ import           Onyx.Build.GuitarHero5.Logic    (makeGHWoRNote,
 import           Onyx.Difficulty
 import           Onyx.Genre
 import qualified Onyx.MIDI.Track.File            as F
-import           Onyx.Neversoft.CRC              (qbKeyCRC, qsKey)
+import           Onyx.Neversoft.CRC              (putQBKeyBE, qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt            (ghworEncrypt)
 import           Onyx.Neversoft.GH4.Metadata     (makeVocalsCents)
 import           Onyx.Neversoft.GH5.Note         (makeWoRNoteFile, putNote)
@@ -131,31 +131,31 @@ gh5Rules buildInfo dir gh5 = do
           metadata.genre
           metadata.subgenre
         qb =
-          [ QBSectionArray (qbKeyCRC "gh6_dlc_songlist") textQBFilenameKey $
+          [ QBSectionArray "gh6_dlc_songlist" textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
           , QBSectionStruct 4087958085 textQBFilenameKey
             [ QBStructHeader
             , QBStructItemStruct songKeyQB $
               [ QBStructHeader
-              , QBStructItemQbKey (qbKeyCRC "checksum") songKeyQB
-              , QBStructItemString (qbKeyCRC "name") $ B8.pack songKey
-              , QBStructItemQbKeyStringQs (qbKeyCRC "title") $ fst titleQS
-              , QBStructItemQbKeyStringQs (qbKeyCRC "artist") $ fst artistQS
-              , QBStructItemQbKeyString (qbKeyCRC "artist_text") $ if metadata.cover
-                then qbKeyCRC "artist_text_as_made_famous_by"
-                else qbKeyCRC "artist_text_by"
-              , QBStructItemInteger (qbKeyCRC "original_artist")
+              , QBStructItemQbKey "checksum" songKeyQB
+              , QBStructItemString "name" $ B8.pack songKey
+              , QBStructItemQbKeyStringQs "title" $ fst titleQS
+              , QBStructItemQbKeyStringQs "artist" $ fst artistQS
+              , QBStructItemQbKeyString "artist_text" $ if metadata.cover
+                then "artist_text_as_made_famous_by"
+                else "artist_text_by"
+              , QBStructItemInteger "original_artist"
                 $ if metadata.cover then 0 else 1
               -- TODO can we omit year, or pick a better default than 1960
-              , QBStructItemInteger (qbKeyCRC "year") $ fromIntegral $ getYear metadata
-              , QBStructItemQbKeyStringQs (qbKeyCRC "album_title") $ fst albumQS
-              , QBStructItemQbKey (qbKeyCRC "singer") (qbKeyCRC "female") -- TODO change if male
-              , QBStructItemQbKey (qbKeyCRC "genre") $ qbWoRGenre genre
-              , QBStructItemInteger (qbKeyCRC "leaderboard") 0 -- does setting this to 0 work?
-              , QBStructItemInteger (qbKeyCRC "duration")
+              , QBStructItemInteger "year" $ fromIntegral $ getYear metadata
+              , QBStructItemQbKeyStringQs "album_title" $ fst albumQS
+              , QBStructItemQbKey "singer" "female" -- TODO change if male
+              , QBStructItemQbKey "genre" $ qbWoRGenre genre
+              , QBStructItemInteger "leaderboard" 0 -- does setting this to 0 work?
+              , QBStructItemInteger "duration"
                 (fromIntegral $ quot (F.songLengthMS mid + 500) 1000) -- this is just displayed in song list
-              , QBStructItemInteger (qbKeyCRC "flags") 0 -- what is this?
-              , QBStructItemInteger (qbKeyCRC "double_kick") $
+              , QBStructItemInteger "flags" 0 -- what is this?
+              , QBStructItemInteger "double_kick" $
                 case getPart gh5.drums songYaml >>= (.drums) of
                   Nothing -> 0
                   Just pd -> case pd.kicks of
@@ -163,24 +163,24 @@ gh5Rules buildInfo dir gh5 = do
                     Kicks2x   -> 1
                     KicksBoth -> 1
               -- meaning of these seems clear but not sure what criteria you'd use to set them
-              , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_low_bpm") 1
-              , QBStructItemInteger (qbKeyCRC "thin_fretbar_8note_params_high_bpm") 150
-              , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_low_bpm") 1
-              , QBStructItemInteger (qbKeyCRC "thin_fretbar_16note_params_high_bpm") 120
+              , QBStructItemInteger "thin_fretbar_8note_params_low_bpm" 1
+              , QBStructItemInteger "thin_fretbar_8note_params_high_bpm" 150
+              , QBStructItemInteger "thin_fretbar_16note_params_low_bpm" 1
+              , QBStructItemInteger "thin_fretbar_16note_params_high_bpm" 120
               , QBStructItemInteger 437674840 $ fromIntegral $ gh5GuitarTier difficulties
               , QBStructItemInteger 3733500155 $ fromIntegral $ gh5BassTier difficulties
               , QBStructItemInteger 945984381 $ fromIntegral $ gh5VocalsTier difficulties
               , QBStructItemInteger 178662704 $ fromIntegral $ gh5DrumsTier difficulties
               , QBStructItemInteger 3512970546 10 -- what is this?
               -- maybe we could figure out the options for these and match them to the RB kit options?
-              , QBStructItemString (qbKeyCRC "snare") "ModernRock"
-              , QBStructItemString (qbKeyCRC "kick") "ModernRock"
-              , QBStructItemString (qbKeyCRC "tom1") "ModernRock"
-              , QBStructItemString (qbKeyCRC "tom2") "ModernRock"
-              , QBStructItemString (qbKeyCRC "hihat") "ModernRock"
-              , QBStructItemString (qbKeyCRC "cymbal") "ModernRock"
-              , QBStructItemString (qbKeyCRC "drum_kit") "ModernRock"
-              , QBStructItemString (qbKeyCRC "countoff") "Sticks_Normal"
+              , QBStructItemString "snare" "ModernRock"
+              , QBStructItemString "kick" "ModernRock"
+              , QBStructItemString "tom1" "ModernRock"
+              , QBStructItemString "tom2" "ModernRock"
+              , QBStructItemString "hihat" "ModernRock"
+              , QBStructItemString "cymbal" "ModernRock"
+              , QBStructItemString "drum_kit" "ModernRock"
+              , QBStructItemString "countoff" "Sticks_Normal"
               , QBStructItemFloat 1179677752 0 -- dunno
               ] <> toList (makeVocalsCents $ getTuningCents plan)
             ]
@@ -197,7 +197,7 @@ gh5Rules buildInfo dir gh5 = do
       Just pairs -> return $ map fst pairs
       Nothing    -> fatal "Couldn't reparse practice sections .qs file"
     perf <- stackIO $ ghWoRSamplePerf >>= BL.readFile
-    let perf' = BL.take 4 perf <> runPut (putWord32be songKeyQB) <> BL.drop 8 perf
+    let perf' = BL.take 4 perf <> runPut (putQBKeyBE songKeyQB) <> BL.drop 8 perf
         qb =
           [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
           , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloatRaw []
@@ -206,11 +206,11 @@ gh5Rules buildInfo dir gh5 = do
           , QBSectionArray 2096871117 songQBFilenameKey $ QBArrayOfInteger []
           , QBSectionArray 1487281764 songQBFilenameKey $ QBArrayOfStruct
             [ [ QBStructHeader
-              , QBStructItemInteger (qbKeyCRC "time") 0
-              , QBStructItemQbKey (qbKeyCRC "scr") 1861295691
-              , QBStructItemStruct (qbKeyCRC "params")
+              , QBStructItemInteger "time" 0
+              , QBStructItemQbKey "scr" 1861295691
+              , QBStructItemStruct "params"
                 [ QBStructHeader
-                , QBStructItemInteger (qbKeyCRC "time") 3
+                , QBStructItemInteger "time" 3
                 ]
               ]
             ]
@@ -218,38 +218,38 @@ gh5Rules buildInfo dir gh5 = do
           , QBSectionArray 183728976 songQBFilenameKey $ QBArrayOfQbKeyStringQs qsIDs
           ]
         nodes =
-          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB qb
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
             )
-          , ( Node {nodeFileType = qbKeyCRC ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songNoteFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".note", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songNoteFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , note
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             -- nodeFilenameKey and nodeFilenameCRC here are same across songs
             , putQB [QBSectionInteger 2519306321 4208822249 5377]
             )
-          , ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
             )
-          , ( Node {nodeFileType = qbKeyCRC ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , perf'
             )
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]

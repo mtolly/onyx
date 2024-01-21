@@ -22,19 +22,19 @@ import qualified Data.Text.Encoding              as TE
 import           Data.Word
 import           GHC.ByteOrder
 import           Numeric                         (readHex, showHex)
-import           Onyx.Neversoft.CRC              (qbKeyCRC)
+import           Onyx.Neversoft.CRC              (QBKey (..), putQBKeyBE)
 import           Onyx.StackTrace                 (SendMessage, StackTraceT,
                                                   errorToEither, fatal, inside,
                                                   warnNoContext)
 import           Onyx.Util.Binary                (runGetM)
 
 data Node = Node
-  { nodeFileType       :: Word32
+  { nodeFileType       :: QBKey
   , nodeOffset         :: Word32
   , nodeSize           :: Word32
-  , nodeFilenamePakKey :: Word32
-  , nodeFilenameKey    :: Word32
-  , nodeFilenameCRC    :: Word32
+  , nodeFilenamePakKey :: QBKey
+  , nodeFilenameKey    :: QBKey
+  , nodeFilenameCRC    :: QBKey
   , nodeUnknown        :: Word32
   , nodeFlags          :: Word32
   , nodeName           :: Maybe B.ByteString -- snippet of filename seen in PS2 GH3 when flags (LE) is 0x20
@@ -97,8 +97,6 @@ pakFormatWoR = PakFormat { pakByteOrder = BigEndian, pakNewPabOffsets = True }
 
 getPakNodes :: (MonadFail m) => PakFormat -> Bool -> BL.ByteString -> m [Node]
 getPakNodes fmt hasPab = runGetM $ let
-  end = qbKeyCRC "last"
-  end2 = qbKeyCRC ".last"
   go = do
     posnOffset <- if hasPab && pakNewPabOffsets fmt
       then return 0
@@ -106,18 +104,19 @@ getPakNodes fmt hasPab = runGetM $ let
     let getW32 = case pakByteOrder fmt of
           BigEndian    -> getWord32be
           LittleEndian -> getWord32le
-    nodeFileType       <- getW32
+        getQBKey = QBKey <$> getW32
+    nodeFileType       <- getQBKey
     nodeOffset         <- (+ posnOffset) <$> getW32
     nodeSize           <- getW32
-    nodeFilenamePakKey <- getW32
-    nodeFilenameKey    <- getW32
-    nodeFilenameCRC    <- getW32
+    nodeFilenamePakKey <- getQBKey
+    nodeFilenameKey    <- getQBKey
+    nodeFilenameCRC    <- getQBKey
     nodeUnknown        <- getW32
     nodeFlags          <- getW32
     nodeName           <- if nodeFlags .&. 0x20 == 0x20
       then Just . B.takeWhile (/= 0) <$> getByteString 0xA0
       else return Nothing
-    (Node{..} :) <$> if elem nodeFileType [end, end2]
+    (Node{..} :) <$> if elem nodeFileType ["last", ".last"]
       then return []
       else go
   in go
@@ -159,7 +158,7 @@ splitPakNodesAuto pak maybePab = let
     nodes <- splitPakNodes fmt pak maybePab
     case reverse nodes of
       (node, bs) : _
-        | elem (nodeFileType node) [qbKeyCRC "last", qbKeyCRC ".last"]
+        | elem (nodeFileType node) ["last", ".last"]
           && bs == BL.replicate 4 0xAB
         -> return nodes
       _ -> fatal "Pak didn't contain proper 'last', probably not the right format"
@@ -195,12 +194,12 @@ buildPak nodes = let
     len = BL.length bs
     in BL.replicate (padLength len - len) 0
   putHeader (i, Node{..}) = do
-    putWord32be nodeFileType
+    putQBKeyBE nodeFileType
     putWord32be $ nodeOffset - 32 * i
     putWord32be nodeSize
-    putWord32be nodeFilenamePakKey
-    putWord32be nodeFilenameKey
-    putWord32be nodeFilenameCRC
+    putQBKeyBE nodeFilenamePakKey
+    putQBKeyBE nodeFilenameKey
+    putQBKeyBE nodeFilenameCRC
     putWord32be nodeUnknown
     putWord32be nodeFlags
     forM_ nodeName $ \bs -> do
@@ -213,7 +212,7 @@ buildPak nodes = let
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
 qsBank nodes = HM.fromList $ do
   (node, nodeData) <- nodes
-  guard $ elem (nodeFileType node) [qbKeyCRC ".qs.en", qbKeyCRC ".qs"]
+  guard $ elem (nodeFileType node) [".qs.en", ".qs"]
   fromMaybe [] $ parseQS nodeData
 
 parseQS :: BL.ByteString -> Maybe [(Word32, T.Text)]

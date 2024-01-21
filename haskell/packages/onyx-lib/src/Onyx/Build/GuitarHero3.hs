@@ -42,7 +42,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.Mode
-import           Onyx.Neversoft.CRC                (qbKeyCRC)
+import           Onyx.Neversoft.CRC                (putQBKeyBE, qbKeyCRC)
 import           Onyx.Neversoft.Crypt              (gh3Encrypt)
 import           Onyx.Neversoft.GH3.Metadata       (gh3MysteryScript)
 import           Onyx.Neversoft.GH3.MidQB
@@ -192,7 +192,7 @@ gh3Rules buildInfo dir gh3 = do
       putWord32be count
       putWord32be $ fromIntegral fsbLength
       let datEntry slot index = do
-            putWord32be $ qbKeyCRC $ dlcID <> "_" <> slot
+            putQBKeyBE $ qbKeyCRC $ dlcID <> "_" <> slot
             putWord32be index
             putWord32be 0
             putWord32be 0
@@ -213,62 +213,62 @@ gh3Rules buildInfo dir gh3 = do
     -- section names would also go in here, but we'll try to use the embedded section name format
     let metadata = getTargetMetadata songYaml $ GH3 gh3
         nodes =
-          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = unk2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = unk1, nodeFilenameCRC = unk2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB
-              [ QBSectionStruct (qbKeyCRC "GH3_Download_Songs") unk1
+              [ QBSectionStruct "GH3_Download_Songs" unk1
                 [ QBStructHeader
-                , QBStructItemString830000 (qbKeyCRC "prefix") "download"
-                , QBStructItemInteger810000 (qbKeyCRC "num_tiers") 1
-                , QBStructItemStruct8A0000 (qbKeyCRC "tier1")
+                , QBStructItemString830000 "prefix" "download"
+                , QBStructItemInteger810000 "num_tiers" 1
+                , QBStructItemStruct8A0000 "tier1"
                   [ QBStructHeader
-                  , QBStructItemStringW (qbKeyCRC "title") "Downloaded songs"
-                  , QBStructItemArray8C0000 (qbKeyCRC "songs") $ QBArrayOfQbKey [qbKeyCRC dlcID]
-                  , QBStructItemQbKey8D0000 0 (qbKeyCRC "unlockall")
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "level") (qbKeyCRC "load_z_artdeco")
+                  , QBStructItemStringW "title" "Downloaded songs"
+                  , QBStructItemArray8C0000 "songs" $ QBArrayOfQbKey [qbKeyCRC dlcID]
+                  , QBStructItemQbKey8D0000 0 "unlockall"
+                  , QBStructItemQbKey8D0000 "level" "load_z_artdeco"
                   ]
                 ]
-              , QBSectionArray (qbKeyCRC "download_songlist") unk1 $ QBArrayOfQbKey [qbKeyCRC dlcID]
-              , QBSectionStruct (qbKeyCRC "download_songlist_props") unk1
+              , QBSectionArray "download_songlist" unk1 $ QBArrayOfQbKey [qbKeyCRC dlcID]
+              , QBSectionStruct "download_songlist_props" unk1
                 [ QBStructHeader
                 , QBStructItemStruct8A0000 (qbKeyCRC dlcID)
                   [ QBStructHeader
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "checksum") (qbKeyCRC dlcID)
-                  , QBStructItemString830000 (qbKeyCRC "name") dlcID
-                  , QBStructItemStringW (qbKeyCRC "title") $ targetTitle songYaml (GH3 gh3)
-                  , QBStructItemStringW (qbKeyCRC "artist") $ getArtist metadata
+                  , QBStructItemQbKey8D0000 "checksum" (qbKeyCRC dlcID)
+                  , QBStructItemString830000 "name" dlcID
+                  , QBStructItemStringW "title" $ targetTitle songYaml (GH3 gh3)
+                  , QBStructItemStringW "artist" $ getArtist metadata
                   -- Need to have a year string, even if empty. Otherwise it glitches out and takes other strings' values
-                  , QBStructItemStringW (qbKeyCRC "year") $ case metadata.year of
+                  , QBStructItemStringW "year" $ case metadata.year of
                     Nothing   -> ""
                     Just year -> T.pack $ ", " <> show year
-                  , QBStructItemQbKeyString9A0000 (qbKeyCRC "artist_text") $ if metadata.cover
-                    then qbKeyCRC "artist_text_as_made_famous_by"
-                    else qbKeyCRC "artist_text_by"
-                  , QBStructItemInteger810000 (qbKeyCRC "original_artist")
+                  , QBStructItemQbKeyString9A0000 "artist_text" $ if metadata.cover
+                    then "artist_text_as_made_famous_by"
+                    else "artist_text_by"
+                  , QBStructItemInteger810000 "original_artist"
                     $ if metadata.cover then 0 else 1
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "version") (qbKeyCRC "gh3")
-                  , QBStructItemInteger810000 (qbKeyCRC "leaderboard") 1
-                  , QBStructItemInteger810000 (qbKeyCRC "gem_offset") 0
-                  , QBStructItemInteger810000 (qbKeyCRC "input_offset") 0
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "singer") $ case getPart gh3.vocal songYaml >>= (.vocal) of
-                    Nothing -> qbKeyCRC "none"
+                  , QBStructItemQbKey8D0000 "version" "gh3"
+                  , QBStructItemInteger810000 "leaderboard" 1
+                  , QBStructItemInteger810000 "gem_offset" 0
+                  , QBStructItemInteger810000 "input_offset" 0
+                  , QBStructItemQbKey8D0000 "singer" $ case getPart gh3.vocal songYaml >>= (.vocal) of
+                    Nothing -> "none"
                     Just pv -> case pv.gender of
-                      Just Female -> qbKeyCRC "female"
-                      Just Male   -> qbKeyCRC "male"
-                      Nothing     -> qbKeyCRC "male"
-                  , QBStructItemQbKey8D0000 (qbKeyCRC "keyboard") $ case getPart gh3.keys songYaml >>= (.grybo) of
-                    Nothing -> qbKeyCRC "false"
-                    Just _  -> qbKeyCRC "true"
-                  , QBStructItemInteger810000 (qbKeyCRC "band_playback_volume") 0
-                  , QBStructItemInteger810000 (qbKeyCRC "guitar_playback_volume") 0
-                  , QBStructItemString830000 (qbKeyCRC "countoff") "HiHat01"
-                  , QBStructItemInteger810000 (qbKeyCRC "rhythm_track") $ case gh3.coop of
+                      Just Female -> "female"
+                      Just Male   -> "male"
+                      Nothing     -> "male"
+                  , QBStructItemQbKey8D0000 "keyboard" $ case getPart gh3.keys songYaml >>= (.grybo) of
+                    Nothing -> "false"
+                    Just _  -> "true"
+                  , QBStructItemInteger810000 "band_playback_volume" 0
+                  , QBStructItemInteger810000 "guitar_playback_volume" 0
+                  , QBStructItemString830000 "countoff" "HiHat01"
+                  , QBStructItemInteger810000 "rhythm_track" $ case gh3.coop of
                     GH2Bass   -> 0
                     GH2Rhythm -> 1
                   ]
                 ]
               ]
             )
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]
@@ -292,12 +292,12 @@ gh3Rules buildInfo dir gh3 = do
           coopPart
           gh3.drums
         nodes =
-          [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID gh3Mid
             )
           -- there's a small script qb here in official DLC. but SanicStudios customs don't have it
           -- .ska files would go here if we had any
-          , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+          , ( Node {nodeFileType = ".last", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB
             )
           ]

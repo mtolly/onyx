@@ -13,7 +13,7 @@ import           Onyx.Neversoft.CRC
 import           Onyx.Util.Binary     (runGetM)
 
 data Perf = Perf
-  { perfDLCKey   :: Word32
+  { perfDLCKey   :: QBKey
   , perfUnknown1 :: Word32
   , perfUnknown2 :: Word32
   , perfUnknown3 :: Word32
@@ -29,24 +29,22 @@ data PerfEntry
 getPerfEntry :: Get PerfEntry
 getPerfEntry = do
   len <- fromIntegral <$> getWord32be
-  qb <- getWord32be
-  if qb == qbKeyCRC "gh5_camera_note"
-    then fmap PerfGH5CameraNote $ replicateM len $ do
+  qb <- getQBKeyBE
+  case qb of
+    "gh5_camera_note" -> fmap PerfGH5CameraNote $ replicateM len $ do
       t <- getWord32be
       x <- getByteString 3
       return (t, x)
-    else if qb == qbKeyCRC "gh6_actor_loops"
-      then fmap PerfGH6ActorLoops $ replicateM len $ do
-        getByteString 1000
-      else if qb == qbKeyCRC "gh5_actor_loops"
-        then fmap PerfGH5ActorLoops $ replicateM len $ do
-          getByteString 0x6C
-        else fail $ "Unknown .perf entry type: " <> show qb
+    "gh6_actor_loops" -> fmap PerfGH6ActorLoops $ replicateM len $ do
+      getByteString 1000
+    "gh5_actor_loops" -> fmap PerfGH5ActorLoops $ replicateM len $ do
+      getByteString 0x6C
+    _ -> fail $ "Unknown .perf entry type: " <> show qb
 
 getPerf :: Get Perf
 getPerf = do
   0x40A001A3 <- getWord32be
-  perfDLCKey <- getWord32be
+  perfDLCKey <- getQBKeyBE
   numEntries <- getWord32be
   0x424056AD <- getWord32be -- qb "perf"
   perfUnknown1 <- getWord32be -- always 0x36? nope, seen qb("gh5_actor_loops") in gh5
@@ -66,7 +64,7 @@ loadPerf f = B.readFile f >>= runGetM getPerf . BL.fromStrict
 makePerf :: Perf -> BL.ByteString
 makePerf Perf{..} = runPut $ do
   putWord32be 0x40A001A3
-  putWord32be perfDLCKey
+  putQBKeyBE perfDLCKey
   putWord32be $ fromIntegral $ length perfEntries
   putWord32be 0x424056AD
   putWord32be perfUnknown1
@@ -77,17 +75,17 @@ makePerf Perf{..} = runPut $ do
     case entry of
       PerfGH5CameraNote notes -> do
         putWord32be $ fromIntegral $ length notes
-        putWord32be $ qbKeyCRC "gh5_camera_note"
+        putQBKeyBE "gh5_camera_note"
         forM_ notes $ \(t, x) -> do
           putWord32be t
           putByteString x
       PerfGH5ActorLoops loops -> do
         putWord32be $ fromIntegral $ length loops
-        putWord32be $ qbKeyCRC "gh5_actor_loops"
+        putQBKeyBE "gh5_actor_loops"
         mapM_ putByteString loops
       PerfGH6ActorLoops loops -> do
         putWord32be $ fromIntegral $ length loops
-        putWord32be $ qbKeyCRC "gh6_actor_loops"
+        putQBKeyBE "gh6_actor_loops"
         mapM_ putByteString loops
 
 {-

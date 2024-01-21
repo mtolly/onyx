@@ -29,7 +29,6 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           GHC.ByteOrder
-import           Numeric                          (showHex)
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Audio.FSB                   (getFSBStreamBytes, parseFSB,
                                                    splitFSBStreams,
@@ -42,7 +41,7 @@ import           Onyx.MIDI.Track.Drums.True       (tdDifficulties, tdGems,
                                                    tdKick2)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
-import           Onyx.Neversoft.CRC               (qbKeyCRC)
+import           Onyx.Neversoft.CRC               (qb8Hex, qbKeyCRC)
 import           Onyx.Neversoft.Crypt             (decryptFSB', gh3Decrypt)
 import           Onyx.Neversoft.GH3.Metadata
 import           Onyx.Neversoft.GH3.MidQB         (gh3ToMidi, parseMidQB)
@@ -363,8 +362,7 @@ importGH4DiscPS2 src folder = do
       Right info -> return [info]
   fmap catMaybes $ forM songInfo $ \info -> do
     let songPath  = "songs" :| [TE.decodeUtf8 (gh4Name info) <> ".pak.ps2"]
-        hashSolo = hashString $ qbKeyCRC $ gh4Name info
-        hashString w = T.pack $ reverse $ take 8 $ reverse (showHex w "") <> repeat '0'
+        hashSolo = T.pack $ qb8Hex $ qbKeyCRC $ gh4Name info
         audioPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
     case findFileCI songPath wadFolder of
       Nothing       -> return Nothing -- song in pak but not present, e.g. GH3 songs in GH Aerosmith
@@ -393,7 +391,7 @@ importGH4Song ghi level = do
             GH4AudioPS2{} -> LittleEndian
       songNodes <- stackIO (useHandle rSongPak handleToByteString) >>= \bs ->
         inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
-      let matchQB node = nodeFileType node == qbKeyCRC ".qb"
+      let matchQB node = nodeFileType node == ".qb"
             && nodeFilenameCRC node == qbKeyCRC (gh4Name info)
       case filter (matchQB . fst) songNodes of
         [] -> fatal "Couldn't find chart .qb file"
@@ -611,9 +609,8 @@ importGH3DiscPS2 src folder = do
       Right info -> return [info]
   fmap concat $ forM songInfo $ \info -> do
     let songPath  = "songs" :| [TE.decodeUtf8 (gh3Name info) <> ".pak.ps2"]
-        hashSolo = hashString $ qbKeyCRC $ gh3Name info
-        hashCoop = hashString $ qbKeyCRC $ gh3Name info <> "_coop"
-        hashString w = T.pack $ reverse $ take 8 $ reverse (showHex w "") <> repeat '0'
+        hashSolo = T.pack $ qb8Hex $ qbKeyCRC $ gh3Name info
+        hashCoop = T.pack $ qb8Hex $ qbKeyCRC $ gh3Name info <> "_coop"
         audioSoloPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
         audioCoopPath = "MUSIC" :| [T.take 1 hashCoop, hashCoop <> ".IMF"]
     case findFoldedWad songPath of
@@ -745,7 +742,7 @@ importGH3Song gh3i = let
         nodes <- stackIO (useHandle (ghiSongPak gh3i) handleToByteString) >>= \bs ->
           inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
         let isMidQB node
-              = elem (nodeFileType node) [qbKeyCRC ".qb", qbKeyCRC ".mqb"] -- .mqb on PS2
+              = elem (nodeFileType node) [".qb", ".mqb"] -- .mqb on PS2
               && nodeFilenameCRC node == qbKeyCRC (gh3Name info)
         case filter (isMidQB . fst) nodes of
           [] -> fatal "Couldn't find chart .qb file"

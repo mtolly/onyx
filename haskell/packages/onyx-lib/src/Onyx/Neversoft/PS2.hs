@@ -17,6 +17,7 @@ import           Data.List.Split       (chunksOf)
 import qualified Data.Text             as T
 import qualified Data.Text.Encoding    as TE
 import           Data.Word
+import           Onyx.Neversoft.CRC
 import           Onyx.Nintendo.WAD     (roundUpToMultiple, skipToMultiple)
 import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
@@ -143,13 +144,13 @@ convertChannelToVGS chan = do
 -- https://web.archive.org/web/20090327110815/https://usuarios.lycos.es/gamezelda/doc/neoimf.html
 
 data NeoHeader = NeoHeader
-  { neoKey            :: Word32
+  { neoKey            :: QBKey
   , neoTotalBlockSize :: Word32
   , neoStreams        :: [NeoStream]
   } deriving (Show)
 
 data NeoStream = NeoStream
-  { nsKey              :: Word32
+  { nsKey              :: QBKey
   , nsFirstBlockOffset :: Word32
   , nsChannelBlockSize :: Word32
   , nsStreamSize       :: Word32
@@ -162,10 +163,10 @@ data NeoStream = NeoStream
 getNeoHeader :: Get NeoHeader
 getNeoHeader = do
   "494D463\x06" <- getByteString 8
-  neoKey <- getWord32le
+  neoKey <- QBKey <$> getWord32le
   neoTotalBlockSize <- getWord32le
   let getStreams prev = do
-        nsKey <- getWord32le
+        nsKey <- QBKey <$> getWord32le
         if nsKey == 0
           then return $ reverse prev
           else do

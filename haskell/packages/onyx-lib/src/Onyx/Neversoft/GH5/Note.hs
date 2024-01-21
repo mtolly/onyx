@@ -38,54 +38,54 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.Vocal            as V
-import           Onyx.Neversoft.CRC               (qbKeyCRC)
+import           Onyx.Neversoft.CRC               (QBKey, getQBKeyBE,
+                                                   putQBKeyBE, qbKeyCRC)
 import           Onyx.Neversoft.Pak
 import           Onyx.Sections                    (simpleSection)
 import           Onyx.Util.Binary                 (runGetM)
 import qualified Sound.MIDI.Util                  as U
 
 data NoteEntry = NoteEntry
-  { entryIdentifier  :: Word32
+  { entryIdentifier  :: QBKey
   , entryCount       :: Word32
-  , entryType        :: Word32
+  , entryType        :: QBKey
   , entryElementSize :: Word32
   , entryContents    :: [B.ByteString]
   } deriving (Show)
 
-getNote :: Get (Word32, [NoteEntry])
+getNote :: Get (QBKey, [NoteEntry])
 getNote = do
   magic <- getWord32be
   case magic of
     0x40C001A3 -> return () -- GHWOR
     0x40A000D2 -> return () -- GH5
     _          -> fail $ "Unrecognized .note magic: 0x" <> showHex magic ""
-  dlcKey <- getWord32be -- qb key for e.g. "dlc784"
+  dlcKey <- getQBKeyBE -- qb key for e.g. "dlc784"
   count <- getWord32be
-  note <- getWord32be
-  guard $ note == qbKeyCRC "note"
+  "note" <- getQBKeyBE
   zeroes <- getByteString 12
   guard $ B.all (== 0) zeroes
   entries <- replicateM (fromIntegral count) $ do
-    entryIdentifier <- getWord32be
+    entryIdentifier <- getQBKeyBE
     entryCount <- getWord32be
-    entryType <- getWord32be
+    entryType <- getQBKeyBE
     entryElementSize <- getWord32be
     entryContents <- replicateM (fromIntegral entryCount)
       $ getByteString $ fromIntegral entryElementSize
     return NoteEntry{..}
   return (dlcKey, entries)
 
-putNote :: Word32 -> [NoteEntry] -> Put
+putNote :: QBKey -> [NoteEntry] -> Put
 putNote dlcKey entries = do
   putWord32be 0x40C001A3
-  putWord32be dlcKey
+  putQBKeyBE dlcKey
   putWord32be $ fromIntegral $ length entries
-  putWord32be $ qbKeyCRC "note"
+  putQBKeyBE "note"
   putByteString $ B.replicate 12 0
   forM_ entries $ \entry -> do
-    putWord32be $ entryIdentifier entry
+    putQBKeyBE $ entryIdentifier entry
     putWord32be $ entryCount entry
-    putWord32be $ entryType entry
+    putQBKeyBE $ entryType entry
     putWord32be $ entryElementSize entry
     mapM_ putByteString $ entryContents entry
 

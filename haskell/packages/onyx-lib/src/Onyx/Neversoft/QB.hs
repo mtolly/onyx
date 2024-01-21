@@ -35,7 +35,7 @@ import           GHC.ByteOrder
 import           Numeric                      (showHex)
 import           Onyx.Codec.Binary            (binEndian, codecIn)
 import           Onyx.Codec.JSON              (pattern OneKey)
-import           Onyx.Neversoft.CRC           (qbKeyCRC)
+import           Onyx.Neversoft.CRC           (QBKey (..), qbKeyCRC)
 import           System.IO.Unsafe             (unsafePerformIO)
 
 data QBFormat
@@ -361,7 +361,7 @@ shouldBeAt w = do
     , "0x" <> showHex p ""
     ]
 
-parseQBSubArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 Word32)
+parseQBSubArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 QBKey)
 parseQBSubArray = do
   arrayType <- getW32
   len <- fromIntegral <$> getW32
@@ -400,20 +400,20 @@ parseQBSubArray = do
           parseQBFloatsX3
   case ?format of
     QBFormatNew -> case arrayType of
-      0x00010D00 -> QBArrayOfQbKey <$> replicateM len getW32
+      0x00010D00 -> QBArrayOfQbKey <$> replicateM len getQBKey
       0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
       0x00010A00 -> arrayOfStruct
       0x00010200 -> QBArrayOfFloat <$> replicateM len getFloat
       0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloat
       0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
       0x00010C00 -> arrayOfArray
-      0x00011A00 -> QBArrayOfQbKeyString <$> replicateM len getW32
+      0x00011A00 -> QBArrayOfQbKeyString <$> replicateM len getQBKey
       0x00010500 -> arrayOfFloatsX2
       0x00010600 -> arrayOfFloatsX3
       0x00010300 -> arrayOfString
       _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
     QBFormatPS2 -> case arrayType of
-      0x000D0100 -> QBArrayOfQbKey <$> replicateM len getW32
+      0x000D0100 -> QBArrayOfQbKey <$> replicateM len getQBKey
       0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
       0x000A0100 -> arrayOfStruct
       0x00020100 -> QBArrayOfFloat <$> replicateM len getFloat
@@ -422,11 +422,11 @@ parseQBSubArray = do
       0x000C0100 -> arrayOfArray
       0x00050100 -> arrayOfFloatsX2
       0x00060100 -> arrayOfFloatsX3
-      0x001A0100 -> QBArrayOfQbKeyString <$> replicateM len getW32
+      0x001A0100 -> QBArrayOfQbKeyString <$> replicateM len getQBKey
       0x00030100 -> arrayOfString
       _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
 
-parseQBArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 Word32, Word32)
+parseQBArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 QBKey, Word32)
 parseQBArray = do
   p1 <- getW32
   p2 <- getW32
@@ -476,34 +476,34 @@ parseQBFloatsX3 = do
   f3 <- getFloat
   return (f1, f2, f3)
 
-parseQBStruct :: (?endian :: ByteOrder, ?format :: QBFormat) => Get [QBStructItem Word32 Word32]
+parseQBStruct :: (?endian :: ByteOrder, ?format :: QBFormat) => Get [QBStructItem Word32 QBKey]
 parseQBStruct = do
   itemType <- getW32
   let structHeader = do
         p <- getW32
         return (QBStructHeader, p)
       structItemQbKey = do
-        x <- getW32
-        y <- getW32
+        x <- getQBKey
+        y <- getQBKey
         p <- getW32
         return (QBStructItemQbKey x y, p)
       structItemQbKeyStringQs = do
-        x <- getW32
+        x <- getQBKey
         y <- getW32
         p <- getW32
         return (QBStructItemQbKeyStringQs x y, p)
       structItemQbKeyString = do
-        x <- getW32
-        y <- getW32
+        x <- getQBKey
+        y <- getQBKey
         p <- getW32
         return (QBStructItemQbKeyString x y, p)
       structItemInteger = do
-        x <- getW32
+        x <- getQBKey
         y <- getW32
         p <- getW32
         return (QBStructItemInteger x y, p)
       structItemString = do
-        x <- getW32
+        x <- getQBKey
         start <- getW32
         p <- getW32
         shouldBeAt start
@@ -511,64 +511,64 @@ parseQBStruct = do
         jumpTo4
         return (QBStructItemString x b, p)
       structItemFloat = do
-        x <- getW32
+        x <- getQBKey
         f <- getFloat
         p <- getW32
         return (QBStructItemFloat x f, p)
       structItemArray = do
-        x <- getW32
+        x <- getQBKey
         (array, p) <- parseQBArray
         return (QBStructItemArray x array, p)
       structItemFloatsX2 = do
-        x <- getW32
+        x <- getQBKey
         p1 <- getW32
         p2 <- getW32
         shouldBeAt p1
         (f1, f2) <- parseQBFloatsX2
         return (QBStructItemFloatsX2 x f1 f2, p2)
       structItemFloatsX3 = do
-        x <- getW32
+        x <- getQBKey
         p1 <- getW32
         p2 <- getW32
         shouldBeAt p1
         (f1, f2, f3) <- parseQBFloatsX3
         return (QBStructItemFloatsX3 x f1 f2 f3, p2)
       structItemStruct = do
-        x <- getW32
+        x <- getQBKey
         p1 <- getW32
         p2 <- getW32
         shouldBeAt p1
         items <- parseQBStruct
         return (QBStructItemStruct x items, p2)
       structItemInteger810000 = do
-        x <- getW32
+        x <- getQBKey
         y <- getW32
         p <- getW32
         return (QBStructItemInteger810000 x y, p)
       structItemQbKeyString9A0000 = do
-        x <- getW32
-        y <- getW32
+        x <- getQBKey
+        y <- getQBKey
         p <- getW32
         return (QBStructItemQbKeyString9A0000 x y, p)
       structItemQbKey8D0000 = do
-        x <- getW32
-        y <- getW32
+        x <- getQBKey
+        y <- getQBKey
         p <- getW32
         return (QBStructItemQbKey8D0000 x y, p)
       structItemStruct8A0000 = do
-        x <- getW32
+        x <- getQBKey
         p1 <- getW32
         p2 <- getW32
         shouldBeAt p1
         items <- parseQBStruct
         return (QBStructItemStruct8A0000 x items, p2)
       structItemFloat820000 = do
-        x <- getW32
+        x <- getQBKey
         f <- getFloat
         p <- getW32
         return (QBStructItemFloat820000 x f, p)
       structItemString830000 = do
-        x <- getW32
+        x <- getQBKey
         start <- getW32
         p <- getW32
         shouldBeAt start
@@ -576,7 +576,7 @@ parseQBStruct = do
         jumpTo4
         return (QBStructItemString830000 x b, p)
       structItemStringW = do
-        x <- getW32
+        x <- getQBKey
         start <- getW32
         p <- getW32
         shouldBeAt start
@@ -584,7 +584,7 @@ parseQBStruct = do
         jumpTo4
         return (QBStructItemStringW x str, p)
       structItemArray8C0000 = do
-        x <- getW32
+        x <- getQBKey
         (array, p) <- parseQBArray
         return (QBStructItemArray8C0000 x array, p)
   (item, nextPosition) <- case ?format of
@@ -650,11 +650,11 @@ getUtf16BE = do
     Left _                   -> fail "shouldn't happen!" -- deprecated EncodeError
     Right t                  -> return t
 
-parseQBSection :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBSection Word32 Word32)
+parseQBSection :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBSection Word32 QBKey)
 parseQBSection = do
   sectionType <- getW32
-  itemQbKeyCrc <- getW32
-  fileId <- getW32
+  itemQbKeyCrc <- getQBKey
+  fileId <- getQBKey
   let sectionInteger = do
         n1 <- getW32
         n2 <- getW32
@@ -665,7 +665,7 @@ parseQBSection = do
         -- the snd above should be 0, I think
         return $ QBSectionArray itemQbKeyCrc fileId array
       sectionQbKey = do
-        n1 <- getW32
+        n1 <- getQBKey
         n2 <- getW32
         when (n2 /= 0) $ fail "SectionQbKey: expected 0 for second number"
         return $ QBSectionQbKey itemQbKeyCrc fileId n1
@@ -704,7 +704,7 @@ parseQBSection = do
         when (n2 /= 0) $ fail "SectionQbKeyStringQs: expected 0 for second number"
         return $ QBSectionQbKeyStringQs itemQbKeyCrc fileId n1
       sectionQbKeyString = do
-        n1 <- getW32
+        n1 <- getQBKey
         n2 <- getW32
         when (n2 /= 0) $ fail "SectionQbKeyString: expected 0 for second number"
         return $ QBSectionQbKeyString itemQbKeyCrc fileId n1
@@ -755,7 +755,7 @@ parseQBSection = do
       0x00060400 -> sectionFloatsX3
       _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
 
-parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 Word32]
+parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 QBKey]
 parseQB = do
   -- for now, just use endian to determine type keys
   let ?format = case ?endian of
@@ -777,7 +777,7 @@ parseQB = do
   parseSections
 
 -- weird format that looks like a QB but is just the contents of a struct
-parseSGHStruct :: Get [QBStructItem Word32 Word32]
+parseSGHStruct :: Get [QBStructItem Word32 QBKey]
 parseSGHStruct = do
   let ?endian = BigEndian
       ?format = QBFormatNew
@@ -786,6 +786,9 @@ parseSGHStruct = do
 
 getW32 :: (?endian :: ByteOrder) => Get Word32
 getW32 = codecIn binEndian
+
+getQBKey :: (?endian :: ByteOrder) => Get QBKey
+getQBKey = QBKey <$> getW32
 
 getFloat :: (?endian :: ByteOrder) => Get Float
 getFloat = codecIn binEndian
@@ -809,18 +812,18 @@ instance FromJSON QSResult where
     _ -> fail "QB qs json error"
 
 data QBResult
-  = UnknownQB Word32
+  = UnknownQB QBKey
   | KnownQB B.ByteString
   deriving (Show)
 
 instance ToJSON QBResult where
   toJSON = \case
-    UnknownQB qb -> toJSON qb
+    UnknownQB qb -> toJSON $ fromQBKey qb
     KnownQB b    -> toJSON $ B8.unpack b
 
 instance FromJSON QBResult where
   parseJSON = \case
-    Number n -> return $ UnknownQB $ round n
+    Number n -> return $ UnknownQB $ QBKey $ round n
     String s -> return $ KnownQB $ B8.pack $ T.unpack s
     _        -> fail "QB key json error"
 
@@ -829,7 +832,7 @@ lookupQS mapping = first $ \qs -> case HM.lookup qs mapping of
   Nothing -> UnknownQS qs
   Just t  -> KnownQS qs t
 
-lookupQB :: (Bifunctor obj) => HM.HashMap Word32 B.ByteString -> obj qs Word32 -> obj qs QBResult
+lookupQB :: (Bifunctor obj) => HM.HashMap QBKey B.ByteString -> obj qs QBKey -> obj qs QBResult
 lookupQB mapping = second $ \qb -> case HM.lookup qb mapping of
   Nothing -> UnknownQB qb
   Just b  -> KnownQB b
@@ -867,6 +870,9 @@ append b = do
 w32 :: Word32 -> PutSeek s ()
 w32 = append . BL.toStrict . runPut . putWord32be
 
+putQBKey :: QBKey -> PutSeek s ()
+putQBKey (QBKey k) = w32 k
+
 reservePointer :: PutSeek s Pointer
 reservePointer = do
   p <- gets snd
@@ -890,7 +896,7 @@ fillPointer p = do
   posn <- gets snd
   setPointer p $ fromIntegral posn
 
-putQBArray :: QBArray Word32 Word32 -> PutSeek s Pointer
+putQBArray :: QBArray Word32 QBKey -> PutSeek s Pointer
 putQBArray ary = do
   p1 <- reservePointer
   p2 <- reservePointer
@@ -898,7 +904,7 @@ putQBArray ary = do
   putQBSubArray ary
   return p2
 
-putQBSubArray :: QBArray Word32 Word32 -> PutSeek s ()
+putQBSubArray :: QBArray Word32 QBKey -> PutSeek s ()
 putQBSubArray ary = let
   writeLen xs = do
     let len = length xs
@@ -911,7 +917,7 @@ putQBSubArray ary = let
     QBArrayOfQbKey ks -> do
       w32 0x00010D00
       writeLen ks
-      mapM_ w32 ks
+      mapM_ putQBKey ks
     QBArrayOfInteger ns -> do
       w32 0x00010100
       writeLen ns
@@ -945,7 +951,7 @@ putQBSubArray ary = let
     QBArrayOfQbKeyString ks -> do
       w32 0x00011A00
       writeLen ks
-      mapM_ w32 ks
+      mapM_ putQBKey ks
     QBArrayOfFloatsX2 vs -> do
       w32 0x00010500
       writeLen vs
@@ -981,7 +987,7 @@ padTo4 bs = case rem (B.length bs) 4 of
   0 -> bs
   r -> bs <> B.replicate (4 - r) 0
 
-putQBStruct :: [QBStructItem Word32 Word32] -> PutSeek s ()
+putQBStruct :: [QBStructItem Word32 QBKey] -> PutSeek s ()
 putQBStruct = let
   go prevPointer [] = forM_ prevPointer $ \p -> setPointer p 0
   go prevPointer (item : items) = do
@@ -992,27 +998,27 @@ putQBStruct = let
         reservePointer
       QBStructItemQbKey x y -> do
         w32 0x00010D00
-        w32 x
-        w32 y
+        putQBKey x
+        putQBKey y
         reservePointer
       QBStructItemQbKeyStringQs x y -> do
         w32 0x00011C00
-        w32 x
+        putQBKey x
         w32 y
         reservePointer
       QBStructItemQbKeyString x y -> do
         w32 0x00011A00
-        w32 x
-        w32 y
+        putQBKey x
+        putQBKey y
         reservePointer
       QBStructItemInteger x y -> do
         w32 0x00010100
-        w32 x
+        putQBKey x
         w32 y
         reservePointer
       QBStructItemString x b -> do
         w32 0x00010300
-        w32 x
+        putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
@@ -1020,12 +1026,12 @@ putQBStruct = let
         return p
       QBStructItemFloat x f -> do
         w32 0x00010200
-        w32 x
+        putQBKey x
         append $ BL.toStrict $ runPut $ putFloatbe f
         reservePointer
       QBStructItemFloatsX2 x f1 f2 -> do
         w32 0x00010500
-        w32 x
+        putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
@@ -1036,7 +1042,7 @@ putQBStruct = let
         return p
       QBStructItemFloatsX3 x f1 f2 f3 -> do
         w32 0x00010600
-        w32 x
+        putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
@@ -1048,11 +1054,11 @@ putQBStruct = let
         return p
       QBStructItemArray x array -> do
         w32 0x00010C00
-        w32 x
+        putQBKey x
         putQBArray array
       QBStructItemStruct x sub -> do
         w32 0x00010A00
-        w32 x
+        putQBKey x
         p1 <- reservePointer
         p2 <- reservePointer
         fillPointer p1
@@ -1060,22 +1066,22 @@ putQBStruct = let
         return p2
       QBStructItemInteger810000 x y -> do
         w32 0x00810000
-        w32 x
+        putQBKey x
         w32 y
         reservePointer
       QBStructItemQbKeyString9A0000 x y -> do
         w32 0x009A0000
-        w32 x
-        w32 y
+        putQBKey x
+        putQBKey y
         reservePointer
       QBStructItemQbKey8D0000 x y -> do
         w32 0x008D0000
-        w32 x
-        w32 y
+        putQBKey x
+        putQBKey y
         reservePointer
       QBStructItemStruct8A0000 x sub -> do
         w32 0x008A0000
-        w32 x
+        putQBKey x
         p1 <- reservePointer
         p2 <- reservePointer
         fillPointer p1
@@ -1083,12 +1089,12 @@ putQBStruct = let
         return p2
       QBStructItemFloat820000 x f -> do
         w32 0x00820000
-        w32 x
+        putQBKey x
         append $ BL.toStrict $ runPut $ putFloatbe f
         reservePointer
       QBStructItemString830000 x b -> do
         w32 0x00830000
-        w32 x
+        putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
@@ -1096,7 +1102,7 @@ putQBStruct = let
         return p
       QBStructItemStringW x str -> do
         w32 0x00840000
-        w32 x
+        putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
@@ -1104,43 +1110,43 @@ putQBStruct = let
         return p
       QBStructItemArray8C0000 x array -> do
         w32 0x008C0000
-        w32 x
+        putQBKey x
         putQBArray array
     go (Just p) items
   in go Nothing
 
-putQBSection :: QBSection Word32 Word32 -> PutSeek s ()
+putQBSection :: QBSection Word32 QBKey -> PutSeek s ()
 putQBSection = \case
   QBSectionInteger itemQbKeyCrc fileId n1 -> do
     w32 0x00200100
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     w32 n1
     w32 0
   QBSectionArray itemQbKeyCrc fileId array -> do
     w32 0x00200C00
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- putQBArray array
     setPointer p 0
   QBSectionQbKey itemQbKeyCrc fileId k -> do
     w32 0x00200D00
-    w32 itemQbKeyCrc
-    w32 fileId
-    w32 k
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
+    putQBKey k
     w32 0
   QBSectionStruct itemQbKeyCrc fileId struct -> do
     w32 0x00200A00
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
     putQBStruct struct
   QBSectionScript itemQbKeyCrc fileId decompressedSize bs -> do
     w32 0x00200700
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
@@ -1150,42 +1156,42 @@ putQBSection = \case
     append $ padTo4 bs
   QBSectionString itemQbKeyCrc fileId str -> do
     w32 0x00200300
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
     append $ padTo4 $ str <> "\0"
   QBSectionStringW itemQbKeyCrc fileId str -> do
     w32 0x00200400
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
     append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
   QBSectionQbKeyStringQs itemQbKeyCrc fileId qs -> do
     w32 0x00201C00
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     w32 qs
     w32 0
   QBSectionQbKeyString itemQbKeyCrc fileId k -> do
     w32 0x00201A00
-    w32 itemQbKeyCrc
-    w32 fileId
-    w32 k
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
+    putQBKey k
     w32 0
   QBSectionFloat itemQbKeyCrc fileId f1 -> do
     w32 0x00200200
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     append $ BL.toStrict $ runPut $ putFloatbe f1
     w32 0
   QBSectionFloatsX2 itemQbKeyCrc fileId f1 f2 -> do
     w32 0x200500
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
@@ -1195,8 +1201,8 @@ putQBSection = \case
       putFloatbe f2
   QBSectionFloatsX3 itemQbKeyCrc fileId f1 f2 f3 -> do
     w32 0x200600
-    w32 itemQbKeyCrc
-    w32 fileId
+    putQBKey itemQbKeyCrc
+    putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
@@ -1206,7 +1212,7 @@ putQBSection = \case
       putFloatbe f2
       putFloatbe f3
 
-putQB :: [QBSection Word32 Word32] -> BL.ByteString
+putQB :: [QBSection Word32 QBKey] -> BL.ByteString
 putQB sects = let
   go = do
     w32 0
@@ -1230,10 +1236,10 @@ putQB sects = let
 discardQS :: [QBSection QSResult k] -> [QBSection Word32 k]
 discardQS = map $ first $ \case UnknownQS qs -> qs; KnownQS qs _ -> qs
 
-discardQB :: [QBSection qs QBResult] -> [QBSection qs Word32]
+discardQB :: [QBSection qs QBResult] -> [QBSection qs QBKey]
 discardQB = map $ second $ \case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b
 
-discardStrings :: [QBSection QSResult QBResult] -> [QBSection Word32 Word32]
+discardStrings :: [QBSection QSResult QBResult] -> [QBSection Word32 QBKey]
 discardStrings = discardQS . discardQB
 
 stripBackL :: T.Text -> T.Text

@@ -21,7 +21,7 @@ import qualified Onyx.MIDI.Track.Drums            as Drums
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
-import           Onyx.Neversoft.CRC               (qbKeyCRC)
+import           Onyx.Neversoft.CRC               (QBKey (..))
 import           Onyx.Neversoft.GH3.MidQB         (findSection, groupBy3,
                                                    listOfPairs, listOfTriples,
                                                    readGH3TempoMap, toSeconds)
@@ -119,7 +119,7 @@ data GH4Background a = GH4Background
   , gh4Drums     :: [a]
   } deriving (Show)
 
-parseGH4MidQB :: (Monad m) => B.ByteString -> [QBSection Word32 Word32] -> StackTraceT m GH4MidQB
+parseGH4MidQB :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> StackTraceT m GH4MidQB
 parseGH4MidQB dlc qb = do
 
   gh4TimeSignatures <- findSection qb (dlc <> "_timesig") listOfTriples
@@ -161,7 +161,7 @@ parseGH4MidQB dlc qb = do
 
   return GH4MidQB{..}
 
-parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 Word32] -> B.ByteString -> StackTraceT m GH4Part
+parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> B.ByteString -> StackTraceT m GH4Part
 parsePart dlc qb part = let
   parseTrack diff = do
     gh4Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) $ \case
@@ -188,28 +188,28 @@ groupBy2 = go [] where
   go pairs (x : y : rest) = go ((x, y) : pairs) rest
   go _     _              = fatal "Expected a list whose length is a multiple of 2"
 
-parseMarkersGH4 :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Word32)]
+parseMarkersGH4 :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 parseMarkersGH4 = \case
   QBArrayOfFloatRaw [] -> return []
   QBArrayOfStruct marks -> forM marks $ \case
     QBStructHeader : items -> let
-      time      = [v | QBStructItemInteger       k v <- items, k == qbKeyCRC "time"  ]
-      marker    = [v | QBStructItemQbKeyString   k v <- items, k == qbKeyCRC "marker"] -- guitar/rhythm/drum
-      markerVox = [v | QBStructItemQbKeyStringQs k v <- items, k == qbKeyCRC "marker"] -- vocals
+      time      = [ v | QBStructItemInteger       "time"   v <- items ]
+      marker    = [ v | QBStructItemQbKeyString   "marker" v <- items ] -- guitar/rhythm/drum
+      markerVox = [ v | QBStructItemQbKeyStringQs "marker" v <- items ] -- vocals
       in case (time, marker, markerVox) of
-        ([t], [m], []) -> return (t, m)
+        ([t], [m], []) -> return (t, fromQBKey m)
         ([t], [], [m]) -> return (t, m)
         _              -> fatal $ "Unexpected contents of marker: " <> show items
     _ -> fatal "No struct header in marker"
   _ -> fatal "Expected array of structs for markers"
 
-parseLyrics :: (Monad m) => QBArray Word32 Word32 -> StackTraceT m [(Word32, Word32)]
+parseLyrics :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 parseLyrics = \case
   QBArrayOfFloatRaw [] -> return []
   QBArrayOfStruct lyrics -> forM lyrics $ \case
     QBStructHeader : items -> let
-      time   = [v | QBStructItemInteger       k v <- items, k == qbKeyCRC "time"]
-      textQs = [v | QBStructItemQbKeyStringQs k v <- items, k == qbKeyCRC "text"]
+      time   = [ v | QBStructItemInteger       "time" v <- items ]
+      textQs = [ v | QBStructItemQbKeyStringQs "text" v <- items ]
       in case (time, textQs) of
         ([t], [txt]) -> return (t, txt)
         _            -> fatal $ "Unexpected contents of lyric: " <> show items
@@ -395,7 +395,7 @@ from James Bond Theme (dlc50), strings matched with the help of Addy's code
 - 1446002506 dlc50_vocals_markers
 -}
 
-gh4ToMidi :: SongInfoGH4 -> HM.HashMap Word32 T.Text -> HM.HashMap Word32 T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
+gh4ToMidi :: SongInfoGH4 -> HM.HashMap Word32 T.Text -> HM.HashMap QBKey T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
 gh4ToMidi info bankLyrics bankMarkers gh4 = let
   tempos = readGH3TempoMap (gh4TimeSignatures gh4) (gh4FretBars gh4)
   toBeats :: Word32 -> U.Beats
@@ -403,7 +403,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   markers = fromPairs $ do
     (t, markerKey) <- gh4GuitarMarkers gh4
-    let marker = case HM.lookup markerKey bankMarkers of
+    let marker = case HM.lookup (QBKey markerKey) bankMarkers of
           -- just like WoR, not all songs have this but it overrides the default "end shortly after last note"
           Just "\\L_ENDOFSONG" -> Left ()
           Just "/L_ENDOFSONG"  -> Left () -- does this actually work? seen in .qs

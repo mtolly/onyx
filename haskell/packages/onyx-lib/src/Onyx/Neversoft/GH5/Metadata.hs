@@ -25,22 +25,22 @@ import           Onyx.Util.Binary            (runGetM)
 -- Metadata in _text.pak.qb for GH5 and WoR
 
 data TextPakQB = TextPakQB
-  { textPakFileKey     :: Word32
+  { textPakFileKey     :: QBKey
   , textPakSongStructs :: [TextPakSongStruct]
   } deriving (Show)
 
 data TextPakSongStruct = TextPakSongStruct
-  { songArrayID  :: Word32 -- like "gh6_dlc_songlist"
-  , songStructID :: Word32 -- like "gh6_dlc_songlist_props"
-  , songDLCID    :: Word32 -- like "dlc123"
-  , songData     :: [QBStructItem QSResult Word32]
+  { songArrayID  :: QBKey -- like "gh6_dlc_songlist"
+  , songStructID :: QBKey -- like "gh6_dlc_songlist_props"
+  , songDLCID    :: QBKey -- like "dlc123"
+  , songData     :: [QBStructItem QSResult QBKey]
   } deriving (Show)
 
 readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m TextPakQB
 readTextPakQB bs pab mqs = do
   nodes <- splitPakNodes pakFormatWoR bs pab
   let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
-      qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == qbKeyCRC ".qb") nodes
+      qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == ".qb") nodes
       qbWoRDisc = filter (\(n, _) -> nodeFilenameCRC n == 3114035354) nodes
   (qbFile, _isWoR) <- case (qbWoRDisc, qbFiles True, qbFiles False) of
     ([qb], _, _) -> return (snd qb, True)
@@ -54,18 +54,18 @@ readTextPakQB bs pab mqs = do
     ?endian = BigEndian
     in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
   let arrayStructIDPairs =
-        [ (qbKeyCRC "gh6_songlist"       , qbKeyCRC "gh6_songlist_props"       ) -- WoR Disc
-        , (qbKeyCRC "gh6_dlc_songlist"   , qbKeyCRC "gh6_dlc_songlist_props"   ) -- WoR DLC
-        , (qbKeyCRC "gh4_dlc_songlist"   , qbKeyCRC "gh4_dlc_songlist_props"   ) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
-        , (qbKeyCRC "gh4_1_songlist"     , qbKeyCRC "gh4_1_songlist_props"     ) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , (qbKeyCRC "gh5_songlist"       , qbKeyCRC "gh5_songlist_props"       ) -- gh5 disc (on the actual disc)
-        , (qbKeyCRC "gh5_0_songlist"     , qbKeyCRC "gh5_0_songlist_props"     ) -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
-        , (qbKeyCRC "gh5_1_disc_songlist", qbKeyCRC "gh5_1_disc_songlist_props") -- band hero (on the actual disc)
-        , (qbKeyCRC "gh5_1_songlist"     , qbKeyCRC "gh5_1_songlist_props"     ) -- band hero (export), starts with dlc601, ABC (Jackson 5)
-        , (qbKeyCRC "gh4_2_songlist"     , qbKeyCRC "gh4_2_songlist_props"     ) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
-        , (qbKeyCRC "gh4_songlist"       , qbKeyCRC "gh4_songlist_props"       ) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
-        , (qbKeyCRC "gh5_dlc_songlist"   , qbKeyCRC "gh5_dlc_songlist_props"   ) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
-        , (qbKeyCRC "gh4_3_songlist"     , qbKeyCRC "gh4_3_songlist_props"     ) -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
+        [ ("gh6_songlist"       , "gh6_songlist_props"       ) -- WoR Disc
+        , ("gh6_dlc_songlist"   , "gh6_dlc_songlist_props"   ) -- WoR DLC
+        , ("gh4_dlc_songlist"   , "gh4_dlc_songlist_props"   ) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+        , ("gh4_1_songlist"     , "gh4_1_songlist_props"     ) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+        , ("gh5_songlist"       , "gh5_songlist_props"       ) -- gh5 disc (on the actual disc)
+        , ("gh5_0_songlist"     , "gh5_0_songlist_props"     ) -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
+        , ("gh5_1_disc_songlist", "gh5_1_disc_songlist_props") -- band hero (on the actual disc)
+        , ("gh5_1_songlist"     , "gh5_1_songlist_props"     ) -- band hero (export), starts with dlc601, ABC (Jackson 5)
+        , ("gh4_2_songlist"     , "gh4_2_songlist_props"     ) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+        , ("gh4_songlist"       , "gh4_songlist_props"       ) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+        , ("gh5_dlc_songlist"   , "gh5_dlc_songlist_props"   ) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+        , ("gh4_3_songlist"     , "gh4_3_songlist_props"     ) -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
         ]
       structs = do
         QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
@@ -89,7 +89,7 @@ showTextPakQBQS :: TextPakQB -> (BL.ByteString, BL.ByteString)
 showTextPakQBQS contents = let
   qbLists = do
     songlistID <- nubOrd $ map songArrayID $ textPakSongStructs contents
-    guard $ songlistID /= qbKeyCRC "gh4_2_songlist" && songlistID /= qbKeyCRC "gh4_3_songlist" -- We only want the metadata updates, not overwrite the setlists
+    guard $ songlistID /= "gh4_2_songlist" && songlistID /= "gh4_3_songlist" -- We only want the metadata updates, not overwrite the setlists
     return $ QBSectionArray songlistID (textPakFileKey contents) $ QBArrayOfQbKey $ do
       struct <- textPakSongStructs contents
       guard $ songArrayID struct == songlistID
@@ -124,46 +124,46 @@ data SongInfo = SongInfo
   , songOriginalArtist        :: Bool
   } deriving (Show)
 
-parseSongInfoStruct :: [QBStructItem QSResult Word32] -> Either String SongInfo
+parseSongInfoStruct :: [QBStructItem QSResult QBKey] -> Either String SongInfo
 parseSongInfoStruct songEntries = do
-  songName <- case [ s | QBStructItemString k s <- songEntries, k == qbKeyCRC "name" ] of
+  songName <- case [ s | QBStructItemString "name" s <- songEntries ] of
     s : _ -> Right s
     []    -> Left "parseSongInfo: couldn't get song internal name"
-  songTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "title" ] of
+  songTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs "title" (KnownQS w s) <- songEntries ] of
     p : _ -> Right p
     []    -> Left "parseSongInfo: couldn't get song title"
-  songArtist <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "artist" ] of
+  songArtist <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs "artist" (KnownQS w s) <- songEntries ] of
     p : _ -> Right p
     []    -> Left "parseSongInfo: couldn't get song artist"
-  songYear <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "year" ] of
+  songYear <- case [ n | QBStructItemInteger "year" n <- songEntries ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get song year"
-  songAlbumTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs k (KnownQS w s) <- songEntries, k == qbKeyCRC "album_title" ] of
+  songAlbumTitle <- case [ (w, stripBackL s) | QBStructItemQbKeyStringQs "album_title" (KnownQS w s) <- songEntries ] of
     p : _ -> Right $ Just p
     []    -> Right Nothing
-  songDoubleKick <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "double_kick" ] of
+  songDoubleKick <- case [ n | QBStructItemInteger "double_kick" n <- songEntries ] of
     0 : _ -> Right False
     1 : _ -> Right True
     []    -> Right False
     _     -> Left "parseSongInfo: couldn't understand double_kick field"
-  songTierGuitar <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "guitar_difficulty_rating" ] of
+  songTierGuitar <- case [ n | QBStructItemInteger "guitar_difficulty_rating" n <- songEntries ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get guitar tier"
-  songTierBass <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "bass_difficulty_rating" ] of
+  songTierBass <- case [ n | QBStructItemInteger "bass_difficulty_rating" n <- songEntries ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get bass tier"
-  songTierVocals <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "vocals_difficulty_rating" ] of
+  songTierVocals <- case [ n | QBStructItemInteger "vocals_difficulty_rating" n <- songEntries ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get vocals tier"
-  songTierDrums <- case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "drums_difficulty_rating" ] of
+  songTierDrums <- case [ n | QBStructItemInteger "drums_difficulty_rating" n <- songEntries ] of
     n : _ -> Right $ fromIntegral n
     []    -> Left "parseSongInfo: couldn't get drums tier"
-  let songGenre = case [ n | QBStructItemQbKey k n <- songEntries, k == qbKeyCRC "genre" ] of
+  let songGenre = case [ n | QBStructItemQbKey "genre" n <- songEntries ] of
         [] -> Nothing
         n : _ -> listToMaybe $ filter (\wor -> qbWoRGenre wor == n) [minBound .. maxBound]
       songVocalsPitchScoreShift = fromMaybe 0 $ listToMaybe $ mapMaybe getVocalsCents songEntries
       songOverallSongVolume = fromMaybe 0 $ listToMaybe $ mapMaybe getOverallSongVolume songEntries
-      songOriginalArtist = case [ n | QBStructItemInteger k n <- songEntries, k == qbKeyCRC "original_artist" ] of
+      songOriginalArtist = case [ n | QBStructItemInteger "original_artist" n <- songEntries ] of
         b : _ -> b /= 0
         []    -> True
   Right SongInfo{..}

@@ -10,8 +10,7 @@ import           Data.Char          (isAlphaNum)
 import           Data.Maybe         (catMaybes, fromMaybe, listToMaybe)
 import qualified Data.Text          as T
 import qualified Data.Text.Encoding as TE
-import           Data.Word          (Word32)
-import           Onyx.Neversoft.CRC (qbKeyCRC)
+import           Onyx.Neversoft.CRC (QBKey, qbKeyCRC)
 
 data Genre = Genre T.Text T.Text [Subgenre]
   deriving (Eq, Ord, Show)
@@ -526,7 +525,7 @@ displayWoRGenre = \case
   WoR_Speed_Metal   -> "Speed Metal"
   WoR_Surf_Rock     -> "Surf Rock"
 
-qbWoRGenre :: GenreWoR -> Word32
+qbWoRGenre :: GenreWoR -> QBKey
 qbWoRGenre wor = let
   displayed = case wor of
     WoR_Hip_Hop -> "hip_hop" -- reported by ataeaf in https://github.com/mtolly/onyx/issues/193

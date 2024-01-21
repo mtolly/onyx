@@ -1104,14 +1104,14 @@ commands =
                 $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts
               name = reverse (take digits $ reverse (show (i :: Int)) <> repeat '0') <> ext
           stackIO $ BL.writeFile (dout </> name) contents
-          when (nodeFileType node == qbKeyCRC ".note") $ do
+          when (nodeFileType node == ".note") $ do
             -- TODO handle failure
             note <- loadNoteFile contents
             stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
-          when (nodeFileType node == qbKeyCRC ".qb") $ do
+          when (nodeFileType node == ".qb") $ do
             let matchingQS = flip filter nodes $ \(otherNode, _) ->
                   nodeFilenameCRC node == nodeFilenameCRC otherNode
-                    && nodeFileType otherNode == qbKeyCRC ".qs.en"
+                    && nodeFileType otherNode == ".qs.en"
                 mappingQS = qsBank matchingQS
             inside ("Parsing QB file: " <> show name) $ do
               let ?endian = pakByteOrder format

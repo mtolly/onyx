@@ -524,10 +524,10 @@ makeMetadataPKG inputs fout = do
   library <- getAllMetadata inputs
   stackIO $ saveMetadataPKG library fout
 
-worFileManifest :: Word32 -> T.Text -> Word32 -> [Word32] -> BL.ByteString
+worFileManifest :: QBKey -> T.Text -> QBKey -> [Word32] -> BL.ByteString
 worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
   [ ( Node
-      { nodeFileType = qbKeyCRC ".qb"
+      { nodeFileType = ".qb"
       , nodeOffset = 0
       , nodeSize = 0
       , nodeFilenamePakKey = 0
@@ -544,28 +544,28 @@ worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
       , QBSectionArray 2706631909 manifestQBFilenameKey $ QBArrayOfStruct
         [ [ QBStructHeader
           , QBStructItemArray
-            (qbKeyCRC "package_name_checksums")
+            "package_name_checksums"
             (QBArrayOfQbKey [titleHashHex])
           , QBStructItemQbKey
-            (qbKeyCRC "format")
+            "format"
             654834362 -- all WoR dlc has this, gh5 might be different
           , QBStructItemString
-            (qbKeyCRC "song_pak_stem")
+            "song_pak_stem"
             (TE.encodeUtf8 cdl)
           , QBStructItemArray
-            (qbKeyCRC "songs")
+            "songs"
             (QBArrayOfInteger songIDs)
           ]
         ]
       ]
     )
   , ( Node
-      { nodeFileType = qbKeyCRC ".last"
+      { nodeFileType = ".last"
       , nodeOffset = 1
       , nodeSize = 0
       , nodeFilenamePakKey = 0
-      , nodeFilenameKey = qbKeyCRC "chunk.last"
-      , nodeFilenameCRC = qbKeyCRC "chunk"
+      , nodeFilenameKey = "chunk.last"
+      , nodeFilenameCRC = "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -578,7 +578,7 @@ worFileBarePak :: BL.ByteString
 worFileBarePak = buildPak
   -- all of this is constant across packs
   [ ( Node
-      { nodeFileType = qbKeyCRC ".qb"
+      { nodeFileType = ".qb"
       , nodeOffset = 0
       , nodeSize = 0
       , nodeFilenamePakKey = 0
@@ -591,12 +591,12 @@ worFileBarePak = buildPak
     , putQB []
     )
   , ( Node
-      { nodeFileType = qbKeyCRC ".last"
+      { nodeFileType = ".last"
       , nodeOffset = 1
       , nodeSize = 0
       , nodeFilenamePakKey = 0
-      , nodeFilenameKey = qbKeyCRC "chunk.last"
-      , nodeFilenameCRC = qbKeyCRC "chunk"
+      , nodeFilenameKey = "chunk.last"
+      , nodeFilenameCRC = "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -606,15 +606,15 @@ worFileBarePak = buildPak
   ]
 
 -- BDLC*_SONG_VRAM.PAK. Takes QB key of e.g. "dlc771"
-worFilePS3SongVRAMPak :: Word32 -> BL.ByteString
+worFilePS3SongVRAMPak :: QBKey -> BL.ByteString
 worFilePS3SongVRAMPak songKeyQB = buildPak
   [ ( Node
-      { nodeFileType = qbKeyCRC ".last"
+      { nodeFileType = ".last"
       , nodeOffset = 0
       , nodeSize = 0
       , nodeFilenamePakKey = songKeyQB
-      , nodeFilenameKey = qbKeyCRC "chunk.last"
-      , nodeFilenameCRC = qbKeyCRC "chunk"
+      , nodeFilenameKey = "chunk.last"
+      , nodeFilenameCRC = "chunk"
       , nodeUnknown = 0
       , nodeFlags = 0
       , nodeName = Nothing
@@ -628,46 +628,46 @@ worFilePS3EmptyVRAMPak :: BL.ByteString
 worFilePS3EmptyVRAMPak = worFilePS3SongVRAMPak 0
 
 worFileTextPak
-  :: (Word32, BL.ByteString) -- QB file
-  -> (Word32, Word32, Word32, Word32, Word32, BL.ByteString) -- QS file
+  :: (QBKey, BL.ByteString) -- QB file
+  -> (QBKey, QBKey, QBKey, QBKey, QBKey, BL.ByteString) -- QS file
   -> BL.ByteString
 worFileTextPak (qbKey, qb) (qsKey1, qsKey2, qsKey3, qsKey4, qsKey5, qs) = buildPak
   -- all these nodeFilenameCRC are same across packs.
   -- the nodeFilenameKey are different for the first 6 files, and the .stat file (not included). rest are same
-  [ ( Node {nodeFileType = qbKeyCRC ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKey, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qb
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey1, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey1, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey2, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.fr", nodeOffset = 2, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey2, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey3, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.it", nodeOffset = 3, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey3, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey4, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.de", nodeOffset = 4, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey4, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey5, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.es", nodeOffset = 5, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qsKey5, nodeFilenameCRC = 1379803300, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , qs
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.en", nodeOffset = 6, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 2339261848, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.fr", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3024241172, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.it", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3669621742, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.de", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 94872913, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".qs.es", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = 3899138369, nodeFilenameCRC = 24767173, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , makeQS []
     )
-  , ( Node {nodeFileType = qbKeyCRC ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = qbKeyCRC "chunk.last", nodeFilenameCRC = qbKeyCRC "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+  , ( Node {nodeFileType = ".last", nodeOffset = 12, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
     , BL.replicate 4 0xAB
     )
   ]
@@ -808,9 +808,9 @@ packageNameHashFormat caps t = B8.pack $ do
 
 -- The STFS package display name is used to make the hash in the manifest file's name.
 -- TODO does not work for (I think) characters beyond U+00FF. Seen with U+2019 (right single quote)
-packageNameHash :: T.Text -> (Word32, String)
+packageNameHash :: T.Text -> (QBKey, String)
 packageNameHash t = let
   titleHashHex = qbKeyCRC $ packageNameHashFormat False t
   -- Previously I thought this needed to be padded with 0 in front, but apparently not
-  titleHashStr = showHex titleHashHex ""
+  titleHashStr = showHex (fromQBKey titleHashHex) ""
   in (titleHashHex, titleHashStr)
