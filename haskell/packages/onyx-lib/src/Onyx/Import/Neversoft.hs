@@ -344,10 +344,10 @@ importGH4DiscPS2 src folder = do
   let findFolded path = case findFileCI path folder of
         Nothing -> fatal $ "Couldn't find file in PS2 filesystem: " <> show path
         Just r  -> return r
-  hed <- findFolded (pure "DATAP.HED") >>= \r -> stackIO $ useHandle r handleToByteString
+  hed <- findFolded (pure "DATAP.HED") >>= \r -> stackIO (useHandle r handleToByteString) >>= runGetM parseHed
   wad <- findFolded $ pure "DATAP.WAD"
-  wadFolder <- hookUpWAD wad . applyHed HedFormatGH4 <$> runGetM parseHed hed
-  let findFoldedWad path = case findFileCI path wadFolder of
+  let wadFolder = hookUpWAD wad $ hedFolder hed
+      findFoldedWad path = case findFileCI path wadFolder of
         Nothing -> fatal $ "Couldn't find file inside DATAP.WAD: " <> show path
         Just r  -> return r
   qbpak <- findFoldedWad ("pak" :| ["qb.pak.ps2"]) >>= \r -> stackIO $ useHandle r handleToByteString
@@ -594,11 +594,12 @@ importGH3DiscPS2 :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Read
 importGH3DiscPS2 src folder = do
   let folder' = first T.toCaseFold folder
       findFolded path = findFile (fmap T.toCaseFold path) folder'
-  hed <- maybe (fatal "Couldn't find DATAP.HED") (\r -> stackIO $ useHandle r handleToByteString) (findFolded $ pure "DATAP.HED")
+  hed <- maybe (fatal "Couldn't find DATAP.HED")
+    (\r -> stackIO (useHandle r handleToByteString) >>= runGetM parseHed)
+    (findFolded $ pure "DATAP.HED")
   wad <- maybe (fatal "Couldn't find DATAP.WAD") return $ findFolded $ pure "DATAP.WAD"
-  wadFolder <- hookUpWAD wad . applyHed HedFormatGH3 <$> runGetM parseHed hed
-  let wadFolder' = first T.toCaseFold wadFolder
-      findFoldedWad path = findFile (fmap T.toCaseFold path) wadFolder'
+  let wadFolder = hookUpWAD wad $ hedFolder hed
+      findFoldedWad path = findFileCI (fmap T.toCaseFold path) wadFolder
       pakPath = "pak" :| ["qb.pak.ps2"]
       pabPath = "pak" :| ["qb.pab.ps2"]
   pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFoldedWad pakPath)

@@ -1,45 +1,48 @@
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE StrictData          #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
 module Onyx.Neversoft.PS2 where
 
-import           Control.Applicative   (liftA2)
-import           Control.Monad         (forM_)
+import           Control.Applicative   (liftA2, liftA3)
+import           Control.Monad.Extra   (forM_, replicateM, whileJustM)
 import           Data.Bifunctor        (bimap)
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy  as BL
+import           Data.Foldable         (find, toList)
+import qualified Data.HashMap.Strict   as HM
 import           Data.Int
 import qualified Data.List.NonEmpty    as NE
 import           Data.List.Split       (chunksOf)
+import qualified Data.Map.Strict       as Map
 import qualified Data.Text             as T
 import qualified Data.Text.Encoding    as TE
 import           Data.Word
 import           Onyx.Neversoft.CRC
-import           Onyx.Nintendo.WAD     (roundUpToMultiple, skipToMultiple)
+import           Onyx.Nintendo.WAD     (skipToMultiple)
 import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
 
 -- DATAP.HED + DATAP.WAD, contains most smaller files
 
--- Entry in DATAP.HED, found in GH3 PS2 and possibly others
 data HedEntry = HedEntry
-  { hedID   :: Word32
-  , hedSize :: Word32
-  , hedName :: B.ByteString
+  { hedSector :: Word32
+  , hedSize   :: Word32
+  , hedName   :: B.ByteString
   } deriving (Show)
 
 parseHed :: Get [HedEntry]
 parseHed = go [] where
   go entries = do
-    hedID <- getWord32le
-    if hedID == 0xFFFFFFFF
+    hedSector <- getWord32le
+    if hedSector == 0xFFFFFFFF
       then return $ reverse entries
       else do
         hedSize <- getWord32le
@@ -78,34 +81,81 @@ identifyHedFormat entries = let
         then Just HedFormatGH5
         else Nothing
 
-applyHed :: HedFormat -> [HedEntry] -> Folder B.ByteString (Word32, Word32)
-applyHed fmt entries = let
-  findPositions _   []       = []
-  findPositions !pos (e : es) = let
-    -- 0x5C is backslash (seen in GH3), 0x2F is forward slash (seen in GH5).
-    -- paths also start with a slash/backslash so we remove it before split
-    isSlash c = c == 0x5C || c == 0x2F
-    splitName = NE.fromList $ B.splitWith isSlash $ B.dropWhile isSlash e.hedName
-    jumpNext = case es of
-      next : _ -> case fmt of
-        HedFormatGH3 -> if ".pak.ps2" `B8.isSuffixOf` next.hedName
-          then 0x8000
-          else 0x800
-        _ -> if any (`B8.isPrefixOf` next.hedName)
-            [ "\\pak\\anims\\songs\\", "\\songs\\"
-            , "/pak/anims/songs/"    , "/songs/"
-            ]
-          then 0x800
-          else 0x8000
-      [] -> 0x800 -- doesn't matter
-    nextPosition = roundUpToMultiple jumpNext $ pos + e.hedSize
-    in (splitName, (pos, e.hedSize)) : findPositions nextPosition es
-  in fromFiles $ findPositions 0 entries
-
 hookUpWAD :: Readable -> Folder B.ByteString (Word32, Word32) -> Folder T.Text Readable
 hookUpWAD wad = bimap TE.decodeLatin1
   -- TODO add label to handle
   $ \(pos, len) -> subHandle id (fromIntegral pos) (Just $ fromIntegral len) wad
+
+hedFolder :: [HedEntry] -> Folder B.ByteString (Word32, Word32)
+hedFolder entries = fromFiles $ let
+  isSlash c = c == 0x5C || c == 0x2F
+  splitName = NE.fromList . B.splitWith isSlash . B.dropWhile isSlash
+  in do
+    entry <- entries
+    return (splitName entry.hedName, (entry.hedSector * 0x800, entry.hedSize))
+
+data HDP = HDP
+  { folders :: [HDPFolder]
+  , files   :: Map.Map Word32 HDPFile -- keys are byte offsets in .hdp file
+  } deriving (Show)
+
+data HDPFolder = HDPFolder
+  { fileCount :: Word32
+  , checksum  :: QBKey -- this is e.g. the checksum of "images\\cagr" even if it says "/images/cagr/cag_arms_banners001.img.ps2" in the HED
+  , hdpOffset :: Word32
+  } deriving (Show)
+
+data HDPFile = HDPFile
+  { sectorIndex :: Word32 -- this * 0x800 = offset in .wad
+  , dataLength  :: Word32
+  , checksum    :: QBKey -- checksum of just the filename (no folders)
+  } deriving (Show)
+
+parseHDP :: (MonadFail m) => BL.ByteString -> m HDP
+parseHDP bs = do
+  (numEntries, fileOffset, folderOffset) <- runGetM
+    (liftA3 (,,) getWord32le getWord32le getWord32le)
+    bs
+  folders <- case folderOffset of
+    0 -> return []
+    _ -> flip runGetM (BL.drop (fromIntegral folderOffset) bs) $ whileJustM $ do
+      fileCount <- getWord32le
+      case fileCount of
+        0xffffffff -> return Nothing
+        _          -> do
+          checksum <- QBKey <$> getWord32le
+          hdpOffset <- getWord32le
+          return $ Just [HDPFolder{..}]
+  files <- case fileOffset of
+    0 -> return Map.empty
+    _ -> flip runGetM (BL.drop (fromIntegral fileOffset) bs) $ do
+      fmap Map.fromList $ replicateM (fromIntegral numEntries) $ do
+        pos         <- bytesRead
+        sectorIndex <- getWord32le
+        dataLength  <- getWord32le
+        checksum    <- QBKey <$> getWord32le
+        return (fromIntegral pos + fileOffset, HDPFile{..})
+  return HDP{..}
+
+-- this is not actually needed... can just get sectors from the .hed
+applyHDP :: HDP -> [HedEntry] -> Folder B.ByteString (Word32, Word32)
+applyHDP hdp entries = let
+  folderLookup = HM.fromList [ (folder.checksum, folder) | folder <- hdp.folders ]
+  getFolder folder = let
+    (_, x, xs) = Map.splitLookup folder.hdpOffset hdp.files
+    in take (fromIntegral folder.fileCount) $ toList x <> Map.elems xs
+  -- 0x5C is backslash (seen in GH3), 0x2F is forward slash (seen in GH5).
+  -- paths also start with a slash/backslash so we remove it before split
+  isSlash c = c == 0x5C || c == 0x2F
+  splitName = NE.fromList . B.splitWith isSlash . B.dropWhile isSlash
+  in fromFiles $ do
+    entry <- entries
+    let name       = splitName entry.hedName
+        folderName = qbKeyCRC $ B8.intercalate "\\" $ NE.init name
+        fileName   = qbKeyCRC $ NE.last name
+    folder <- toList $ HM.lookup folderName folderLookup
+    file <- toList $ find (\f -> f.checksum == fileName) $ getFolder folder
+    return (splitName entry.hedName, (file.sectorIndex * 0x800, entry.hedSize))
 
 -- GH3 audio
 

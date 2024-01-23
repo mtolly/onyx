@@ -135,8 +135,7 @@ import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
                                                        nodeFileType,
                                                        pakByteOrder, qsBank,
                                                        splitPakNodesAuto)
-import           Onyx.Neversoft.PS2                   (applyHed, hookUpWAD,
-                                                       identifyHedFormat,
+import           Onyx.Neversoft.PS2                   (hedFolder, hookUpWAD,
                                                        parseHed)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
@@ -1141,9 +1140,7 @@ commands =
         out <- outputFile opts $ return $ fin <> "_extract"
         let finWad = fin -<.> "WAD"
         hed <- stackIO (B.readFile fin) >>= runGetM parseHed . BL.fromStrict
-        fmt <- maybe (fatal "Couldn't detect game format for .HED/.WAD files") return
-          $ identifyHedFormat hed
-        let hookedUp = hookUpWAD (fileReadable finWad) $ applyHed fmt hed
+        let hookedUp = hookUpWAD (fileReadable finWad) $ hedFolder hed
         stackIO $ saveHandleFolder hookedUp out
         return out
       p -> fatal $ "Unexpected file type given to extractor: " <> show p
