@@ -803,7 +803,7 @@ parseQBSection = do
       0x00030400 -> sectionString
       0x00040400 -> sectionStringW
       0x001C0400 -> sectionQbKeyStringQs
-      0x00041A00 -> sectionQbKeyString
+      0x00041A00 -> sectionQbKeyString -- is this sectionType right? I see this section type in band hero 360 but not ps2
       0x00020400 -> sectionFloat
       0x00050400 -> sectionFloatsX2
       0x00060400 -> sectionFloatsX3

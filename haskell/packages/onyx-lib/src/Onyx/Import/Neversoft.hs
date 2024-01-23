@@ -1,8 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Neversoft where
 
@@ -278,11 +282,11 @@ importGH4Disc src folder = do
         audio2 <- getAudio $ pathName <> "_2.fsb.xen"
         audio3 <- getAudio $ pathName <> "_3.fsb.xen"
         return $ importGH4Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH4Audio360 audio1 audio2 audio3
-          , ghiText     = textAllNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH4Audio360 audio1 audio2 audio3
+          , text     = textAllNodes
           }
 
 importGH4DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -328,11 +332,11 @@ importGH4DLC src folder = do
         audio2 <- getAudio $ pathName <> platform "_2.fsb"
         audio3 <- getAudio $ pathName <> platform "_3.fsb"
         return $ Just $ importGH4Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH4Audio360 audio1 audio2 audio3
-          , ghiText     = textAllNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH4Audio360 audio1 audio2 audio3
+          , text     = textAllNodes
           }
 
 importGH4DiscPS2 :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -371,25 +375,24 @@ importGH4DiscPS2 src folder = do
           warn $ "Couldn't find audio for song " <> show (gh4Name info) <> ": " <> show audioPath
           return Nothing
         Just rAudio -> return $ Just $ importGH4Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH4AudioPS2 rAudio
-          , ghiText     = allNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH4AudioPS2 rAudio
+          , text     = allNodes
           }
 
 importGH4Song :: (SendMessage m, MonadIO m) => GH4Import -> Import m
 importGH4Song ghi level = do
-  let info = ghiSongInfo ghi
-      rSongPak = ghiSongPak ghi
+  let info = ghi.songInfo
   when (level == ImportFull) $ do
-    lg $ "Importing GH song " <> show (gh4Name info) <> " from: " <> ghiSource ghi
+    lg $ "Importing GH song " <> show (gh4Name info) <> " from: " <> ghi.source
   midiFixed <- case level of
     ImportFull -> do
-      let ?endian = case ghiAudio ghi of
+      let ?endian = case ghi.audio of
             GH4Audio360{} -> BigEndian
             GH4AudioPS2{} -> LittleEndian
-      songNodes <- stackIO (useHandle rSongPak handleToByteString) >>= \bs ->
+      songNodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
         inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
       let matchQB node = nodeFileType node == ".qb"
             && nodeFilenameCRC node == qbKeyCRC (gh4Name info)
@@ -399,7 +402,7 @@ importGH4Song ghi level = do
           midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseGH4MidQB (gh4Name info)
           let songBank = qsBank songNodes -- has lyrics
               markerNodes
-                =  ghiText ghi -- 360 (on a disc, marker qb/qs are in qb.pak.xen and qs.pak.xen)
+                =  ghi.text -- 360 (on a disc, marker qb/qs are in qb.pak.xen and qs.pak.xen)
                 <> songNodes   -- PS2 (marker qb/qs are in songname.pak.ps2)
               textBank = qsBank markerNodes <> worldTourDiscMarkers -- has section names
           -- .mid.qb has a qb key, then a separate .qb links that to a qs,
@@ -423,11 +426,11 @@ importGH4Song ghi level = do
   let adjustedInput
         = (case gh4OverallSongVolume info of 0 -> id; db -> PansVols [-1, 1] [db, db])
         . Input . Named
-      adjustedInputNS (name, (ns, _)) = case nsChannels ns of
+      adjustedInputNS (name, (ns, _)) = case ns.channels of
         1 -> (case gh4OverallSongVolume info of 0 -> id; db -> PansVols [0] [db])
           $ Input $ Named name
         _ -> adjustedInput name
-  (audio, plan) <- case ghiAudio ghi of
+  (audio, plan) <- case ghi.audio of
     GH4Audio360 fsb1 fsb2 fsb3 -> do
       let getAudio (r, path) = case level of
             ImportQuick -> return []
@@ -492,7 +495,7 @@ importGH4Song ghi level = do
           (\hdr -> splitNeoStreams hdr imfBytes) <$> runGetM getNeoHeader imfBytes
       let findStream name suffix = let
             key = qbKeyCRC $ gh4Name info <> suffix
-            in case filter (\(ns, _) -> nsKey ns == key) streams of
+            in case filter (\(ns, _) -> ns.streamKey == key) streams of
               []        -> Nothing
               match : _ -> Just (name <> ".vgs", match)
           streamGuitar    = findStream "guitar"    "_guitar"
@@ -511,7 +514,7 @@ importGH4Song ghi level = do
                 $ makeHandle str $ byteStringSimpleHandle $ neoStreamToVGS pair
               , commands = []
               , rate = Nothing
-              , channels = fromIntegral $ nsChannels ns
+              , channels = fromIntegral ns.channels
               })
           plan = StandardPlan StandardPlanInfo
             { song = adjustedInputNS <$> streamSong
@@ -619,11 +622,11 @@ importGH3DiscPS2 src folder = do
         let rAudioSolo = findFolded audioSoloPath
             rAudioCoop = findFolded audioCoopPath
         return $ importGH3Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH3AudioPS2 rAudioSolo rAudioCoop
-          , ghiText     = allNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH3AudioPS2 rAudioSolo rAudioCoop
+          , text     = allNodes
           }
 
 importGH3Disc :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -653,11 +656,11 @@ importGH3Disc src folder = do
         rAudio   <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
         rDat     <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
         return $ importGH3Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH3Audio360 rAudio rDat
-          , ghiText     = allNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH3Audio360 rAudio rDat
+          , text     = allNodes
           }
 
 importGH3DLC :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -694,19 +697,19 @@ importGH3DLC src folder = do
         rAudio <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
         rDat   <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
         return $ importGH3Song GHImport
-          { ghiSource   = src
-          , ghiSongInfo = info
-          , ghiSongPak  = rSongPak
-          , ghiAudio    = GH3Audio360 rAudio rDat
-          , ghiText     = allNodes
+          { source   = src
+          , songInfo = info
+          , songPak  = rSongPak
+          , audio    = GH3Audio360 rAudio rDat
+          , text     = allNodes
           }
 
 data GHImport info audio = GHImport
-  { ghiSource   :: FilePath
-  , ghiSongInfo :: info
-  , ghiSongPak  :: Readable
-  , ghiAudio    :: audio
-  , ghiText     :: [(Node, BL.ByteString)]
+  { source   :: FilePath
+  , songInfo :: info
+  , songPak  :: Readable
+  , audio    :: audio
+  , text     :: [(Node, BL.ByteString)]
   }
 type GH3Import = GHImport SongInfoGH3 GH3Audio
 type GH4Import = GHImport SongInfoGH4 GH4Audio
@@ -720,14 +723,14 @@ data GH4Audio
   | GH4AudioPS2 Readable                                                 -- .IMF
 
 importGH3Song :: (SendMessage m, MonadIO m) => GH3Import -> [Import m]
-importGH3Song gh3i = let
-  info = ghiSongInfo gh3i
+importGH3Song ghi = let
+  info = ghi.songInfo
   importModes = if gh3UseCoopNotetracks info
     then [ImportSolo, ImportCoop]
     else [ImportSolo]
   in flip map importModes $ \mode level -> do
     when (level == ImportFull) $ do
-      lg $ "Importing GH3 song " <> show (gh3Name info) <> " from: " <> ghiSource gh3i
+      lg $ "Importing GH3 song " <> show (gh3Name info) <> " from: " <> ghi.source
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
     -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
@@ -736,10 +739,10 @@ importGH3Song gh3i = let
         coopPart        = if thisRhythmTrack then F.FlexExtra "rhythm" else F.FlexBass
     midiOnyx <- case level of
       ImportFull -> do
-        let ?endian = case ghiAudio gh3i of
+        let ?endian = case ghi.audio of
               GH3Audio360{} -> BigEndian
               GH3AudioPS2{} -> LittleEndian
-        nodes <- stackIO (useHandle (ghiSongPak gh3i) handleToByteString) >>= \bs ->
+        nodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
           inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
         let isMidQB node
               = elem (nodeFileType node) [".qb", ".mqb"] -- .mqb on PS2
@@ -750,7 +753,7 @@ importGH3Song gh3i = let
             midQB <- inside "Parsing .mid.qb" $ runGetM parseQB bs >>= parseMidQB (gh3Name info)
             -- look for .qb with nodeFilenameCRC of e.g. "dlc17" to find section names
             let markerKey = qbKeyCRC $ gh3Name info
-            markerBank <- case [ txt | (node, txt) <- ghiText gh3i, nodeFilenameCRC node == markerKey ] of
+            markerBank <- case [ txt | (node, txt) <- ghi.text, nodeFilenameCRC node == markerKey ] of
               [] -> return HM.empty -- warn?
               txt : _ -> do
                 qb <- runGetM parseQB txt
@@ -775,7 +778,7 @@ importGH3Song gh3i = let
           $ F.s_tracks midiOnyx
     audio <- case level of
       ImportQuick -> return []
-      ImportFull -> case ghiAudio gh3i of
+      ImportFull -> case ghi.audio of
         GH3Audio360 rfsb rdat -> do
           bs <- stackIO $ useHandle rfsb handleToByteString
           dec <- case gh3Decrypt bs of
@@ -834,7 +837,7 @@ importGH3Song gh3i = let
             $ makeHandle str $ byteStringSimpleHandle bs
           , commands = []
           , rate = Nothing
-          , channels = case ghiAudio gh3i of
+          , channels = case ghi.audio of
             GH3Audio360{} -> 2
             GH3AudioPS2{} -> 1 -- since we split up to mono vgs
           })
@@ -903,11 +906,11 @@ importGH3SGHFolder src folder = case findFileCI (pure "songs.info") folder of
           rAudio <- maybe (fatal $ "Couldn't find: " <> show audioPath) return (findFolded audioPath)
           rDat   <- maybe (fatal $ "Couldn't find: " <> show datPath  ) return (findFolded datPath  )
           return $ importGH3Song GHImport
-            { ghiSource   = src
-            , ghiSongInfo = info
-            , ghiSongPak  = rSongPak
-            , ghiAudio    = GH3Audio360 rAudio rDat
-            , ghiText     = []
+            { source   = src
+            , songInfo = info
+            , songPak  = rSongPak
+            , audio    = GH3Audio360 rAudio rDat
+            , text     = []
             }
 
 {-

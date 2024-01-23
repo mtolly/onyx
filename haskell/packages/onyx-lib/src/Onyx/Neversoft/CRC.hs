@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 module Onyx.Neversoft.CRC where
 
@@ -21,6 +22,7 @@ import           Data.Word
 import           Numeric               (showHex)
 import           Onyx.Codec.Binary     (BinEndian (..))
 import           Onyx.Resources
+import           System.Directory      (doesFileExist)
 import           System.IO.Unsafe      (unsafePerformIO)
 
 newtype QBKey = QBKey { fromQBKey :: Word32 }
@@ -74,11 +76,14 @@ qbKeyCRCNoLowercase = go 0xFFFFFFFF where
 {-# NOINLINE knownKeys #-}
 knownKeys :: HM.HashMap QBKey B.ByteString
 knownKeys = unsafePerformIO $ do
-  keys <- getResourcesPath "ghwor-wii-qb-keys.txt" >>= fmap B8.lines . B.readFile
-  let allKeys = keys
-        <> ["dlc" <> B8.pack (show (n :: Int)) | n <- [0..999]]
-        <> ["album_title", "metal", "grunge"]
-  return $ HM.fromList $ map (\k -> (qbKeyCRC k, k)) allKeys
+  path <- getResourcesPath "gh-debug.txt"
+  doesFileExist path >>= \case
+    False -> return HM.empty
+    True -> do
+      lns <- B8.lines <$> B.readFile path
+      return $ HM.fromList $ map
+        (\s -> (QBKey $ read $ B8.unpack $ B.take 10 s, B.init $ B.drop 12 s))
+        lns
 
 -- This appears to be how most .qs / .qs.(lang) keys are calculated, but some are different?
 -- Escape sequences are given to this as backslash + char. So "\LSong Title" is ['\\', 'L', 'S', ...]

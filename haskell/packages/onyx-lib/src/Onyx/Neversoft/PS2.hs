@@ -1,6 +1,10 @@
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE StrictData          #-}
 module Onyx.Neversoft.PS2 where
 
 import           Control.Applicative   (liftA2)
@@ -64,7 +68,7 @@ data HedFormat
 identifyHedFormat :: [HedEntry] -> Maybe HedFormat
 identifyHedFormat entries = let
   hasRootNamed x entry = let
-    name = B.dropWhile (\c -> c == 0x5C || c == 0x2F) $ hedName entry
+    name = B.dropWhile (\c -> c == 0x5C || c == 0x2F) entry.hedName
     in x `B.isPrefixOf` name
   in if any (hasRootNamed "gh3c") entries
     then Just HedFormatGH3
@@ -81,21 +85,21 @@ applyHed fmt entries = let
     -- 0x5C is backslash (seen in GH3), 0x2F is forward slash (seen in GH5).
     -- paths also start with a slash/backslash so we remove it before split
     isSlash c = c == 0x5C || c == 0x2F
-    splitName = NE.fromList $ B.splitWith isSlash $ B.dropWhile isSlash $ hedName e
+    splitName = NE.fromList $ B.splitWith isSlash $ B.dropWhile isSlash e.hedName
     jumpNext = case es of
       next : _ -> case fmt of
-        HedFormatGH3 -> if ".pak.ps2" `B8.isSuffixOf` hedName next
+        HedFormatGH3 -> if ".pak.ps2" `B8.isSuffixOf` next.hedName
           then 0x8000
           else 0x800
-        _ -> if any (`B8.isPrefixOf` hedName next)
+        _ -> if any (`B8.isPrefixOf` next.hedName)
             [ "\\pak\\anims\\songs\\", "\\songs\\"
             , "/pak/anims/songs/"    , "/songs/"
             ]
           then 0x800
           else 0x8000
       [] -> 0x800 -- doesn't matter
-    nextPosition = roundUpToMultiple jumpNext $ pos + hedSize e
-    in (splitName, (pos, hedSize e)) : findPositions nextPosition es
+    nextPosition = roundUpToMultiple jumpNext $ pos + e.hedSize
+    in (splitName, (pos, e.hedSize)) : findPositions nextPosition es
   in fromFiles $ findPositions 0 entries
 
 hookUpWAD :: Readable -> Folder B.ByteString (Word32, Word32) -> Folder T.Text Readable
@@ -144,50 +148,50 @@ convertChannelToVGS chan = do
 -- https://web.archive.org/web/20090327110815/https://usuarios.lycos.es/gamezelda/doc/neoimf.html
 
 data NeoHeader = NeoHeader
-  { neoKey            :: QBKey
-  , neoTotalBlockSize :: Word32
-  , neoStreams        :: [NeoStream]
+  { neoKey         :: QBKey
+  , totalBlockSize :: Word32
+  , streams        :: [NeoStream]
   } deriving (Show)
 
 data NeoStream = NeoStream
-  { nsKey              :: QBKey
-  , nsFirstBlockOffset :: Word32
-  , nsChannelBlockSize :: Word32
-  , nsStreamSize       :: Word32
-  , nsFrequency        :: Word32
-  , nsUnk1             :: Float
-  , nsChannels         :: Word8
-  , nsUnk2             :: B.ByteString
+  { streamKey        :: QBKey
+  , firstBlockOffset :: Word32
+  , channelBlockSize :: Word32
+  , streamSize       :: Word32
+  , frequency        :: Word32
+  , nsUnk1           :: Float
+  , channels         :: Word8
+  , nsUnk2           :: B.ByteString
   } deriving (Show)
 
 getNeoHeader :: Get NeoHeader
 getNeoHeader = do
-  "494D463\x06" <- getByteString 8
-  neoKey <- QBKey <$> getWord32le
-  neoTotalBlockSize <- getWord32le
+  "494D463\x06"  <- getByteString 8
+  neoKey         <- QBKey <$> getWord32le
+  totalBlockSize <- getWord32le
   let getStreams prev = do
-        nsKey <- QBKey <$> getWord32le
-        if nsKey == 0
+        streamKey <- QBKey <$> getWord32le
+        if streamKey == 0
           then return $ reverse prev
           else do
-            nsFirstBlockOffset <- getWord32le
-            nsChannelBlockSize <- getWord32le
-            nsStreamSize       <- getWord32le
-            nsFrequency        <- getWord32le
-            nsUnk1             <- getFloatle
-            nsChannels         <- getWord8
-            nsUnk2             <- getByteString 3
+            firstBlockOffset <- getWord32le
+            channelBlockSize <- getWord32le
+            streamSize       <- getWord32le
+            frequency        <- getWord32le
+            nsUnk1           <- getFloatle
+            channels         <- getWord8
+            nsUnk2           <- getByteString 3
             getStreams $ NeoStream{..} : prev
-  neoStreams <- getStreams []
+  streams <- getStreams []
   return NeoHeader{..}
 
 splitNeoStreams :: NeoHeader -> BL.ByteString -> [(NeoStream, [BL.ByteString])]
 splitNeoStreams hdr bs = let
-  blocks = splitEvery (fromIntegral $ neoTotalBlockSize hdr) $ BL.drop 0x10000 bs
-  in flip map (neoStreams hdr) $ \stream -> let
-    blockTake = fromIntegral $ nsChannelBlockSize stream
-    chans = flip map [0 .. nsChannels stream - 1] $ \i -> let
-      blockDrop = fromIntegral (nsFirstBlockOffset stream - 0x10000)
+  blocks = splitEvery (fromIntegral hdr.totalBlockSize) $ BL.drop 0x10000 bs
+  in flip map hdr.streams $ \stream -> let
+    blockTake = fromIntegral stream.channelBlockSize
+    chans = flip map [0 .. stream.channels - 1] $ \i -> let
+      blockDrop = fromIntegral (stream.firstBlockOffset - 0x10000)
         + fromIntegral i * blockTake
       in BL.concat $ map
         (BL.take blockTake . BL.drop blockDrop)
@@ -199,7 +203,7 @@ neoStreamToVGS (stream, chans) = runPut $ do
   putByteString "VgS!"
   putWord32le 2
   forM_ chans $ \chan -> do
-    putWord32le $ fromIntegral $ nsFrequency stream
+    putWord32le $ fromIntegral stream.frequency
     putWord32le $ fromIntegral $ quot (BL.length chan) 0x10
   putByteString $ B.replicate (0x80 - 8 - 8 * length chans) 0
   let go chansLeft = if any BL.null chansLeft

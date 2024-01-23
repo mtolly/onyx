@@ -16,6 +16,7 @@ rm -rf "$INSTALL_DIR"
 mkdir "$INSTALL_DIR"
 stack exec which onyx | xargs -I{} cp {} "$INSTALL_DIR/onyx"
 cp -R resources "$INSTALL_DIR/onyx-resources"
+cp -R resources-cli/* "$INSTALL_DIR/onyx-resources/"
 case $(uname) in
   MINGW* )
     cp dependencies/root/bin/*.dll "$INSTALL_DIR"

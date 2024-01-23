@@ -255,7 +255,7 @@ loadSongPak :: (MonadFail m) => BL.ByteString -> m (HM.HashMap Word32 T.Text, GH
 loadSongPak bs = do
   nodes <- splitPakNodes pakFormatWoR bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
-      nodesOfType t = filter (\(n, _) -> nodeFileType n == qbKeyCRC t) nodes
+      nodesOfType t = filter (\(n, _) -> nodeFileType n == t) nodes
       bank = qsBank $ nodesOfType ".qs.en"
   case findNodeKey ".note" of
     Nothing                -> fail ".note not found"
@@ -274,7 +274,7 @@ loadNoteFile noteData = do
       readEntry cdc entry = mapM (runGetM (codecIn cdc) . BL.fromStrict) $ entryContents entry
       interpret options entry = let
         isMatch (aType, len, reader) = do
-          guard $ entryType entry == qbKeyCRC aType
+          guard $ entryType entry == aType
           guard $ entryElementSize entry == len
           return reader
         in case mapMaybe isMatch options of
@@ -332,11 +332,10 @@ loadNoteFile noteData = do
 
 makeWoRNoteFile :: GHNoteFile -> [NoteEntry]
 makeWoRNoteFile GHNoteFile{..} = execWriter $ do
-  let makeEntry = makeEntryCRC . qbKeyCRC
-      makeEntryCRC n aType size cdc xs = tell $ return $ NoteEntry
+  let makeEntry n aType size cdc xs = tell $ return $ NoteEntry
         { entryIdentifier = n
         , entryCount = fromIntegral $ length xs
-        , entryType = qbKeyCRC aType
+        , entryType = aType
         , entryElementSize = size
         , entryContents = map (BL.toStrict . runPut . void . codecOut cdc) xs
         }
