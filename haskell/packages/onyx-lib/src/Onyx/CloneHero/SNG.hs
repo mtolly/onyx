@@ -144,26 +144,32 @@ makeSongINI hdr = T.unlines $
 
 makeSNG :: [(T.Text, T.Text)] -> [(T.Text, Readable)] -> IO [Readable]
 makeSNG meta files = do
-  let seed = BL.toStrict $ runPut $ do
+  filesWithSize <- forM files $ \(name, r) -> do
+    size <- fromIntegral <$> useHandle r hFileSize
+    return (name, r, size)
+  let totalFileSize = sum [ size | (_, _, size) <- filesWithSize ]
+      seed = BL.toStrict $ runPut $ do
         -- look random but actually deterministic for simplicity
         putWord64be $ fromIntegral $ hash meta
         putWord64be $ fromIntegral $ hash $ map snd meta
       seedPattern = seedToPattern seed
-      headerForFiles fs = SNGHeader
-        { version = 1
-        , seed = seed
-        , metadata = meta
-        , files = fs
-        }
-      headerSize = fromIntegral $ BL.length $ showSNGHeader $ headerForFiles $ do
+      headerForFiles fs = let
+        headerBytes = showSNGHeader SNGHeader
+          { version = 1
+          , seed = seed
+          , metadata = meta
+          , files = fs
+          }
+        fileSectionSize = runPut $ putWord64le $ fromIntegral totalFileSize
+        in headerBytes <> fileSectionSize
+      headerSize = fromIntegral $ BL.length $ headerForFiles $ do
         (name, _) <- files
         return $ SNGFileInfo name 0 0
-      encodeFiles _       []               = return []
-      encodeFiles !offset ((name, r) : fs) = do
-        size <- fromIntegral <$> useHandle r hFileSize
-        let file = SNGFileInfo { name = name, size = size, offset = offset }
-        ((file, r) :) <$> encodeFiles (offset + size) fs
-  encoded <- encodeFiles headerSize files
-  let finalHeader = headerForFiles $ map fst encoded
-  return $ makeHandle ".sng header" (byteStringSimpleHandle $ showSNGHeader finalHeader)
+      encodeFiles _       []                     = []
+      encodeFiles !offset ((name, r, size) : fs) = let
+        file = SNGFileInfo { name = name, size = size, offset = offset }
+        in (file, r) : encodeFiles (offset + size) fs
+      encoded = encodeFiles headerSize filesWithSize
+      finalHeader = headerForFiles $ map fst encoded
+  return $ makeHandle ".sng header" (byteStringSimpleHandle finalHeader)
     : map (cryptFile seedPattern . snd) encoded

@@ -1,0 +1,53 @@
+audio:
+  album-track:
+    frames: 10922100
+    md5: 79ae5a16f68b5199dc3a385c681825b6
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
+  bass:
+    pro-guitar:
+      tuning:
+        # Ab Db Ab Db Gb
+        base: bass-5
+        global: -1
+        offsets: [-2, -2, 0, 0, 0]
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.287, album-track]
+  dev:
+    song:
+      pad: [3.287, album-track]
+    parts:
+      bass:
+        pad: [3.287, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.287, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.287, channels: [[4, 5], stems]]
+      other:
+        pad: [3.287, channels: [[6, 7], stems]]
+metadata:
+  title: Chaos Reigns
+  artist: Trivium
+  track-number: 11
+  key: C# minor
+  album: In Waves
+  year: 2011
+  author: Onyxite
+  genre: metal
+  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox

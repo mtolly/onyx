@@ -1,0 +1,47 @@
+audio:
+  album-track:
+    frames: 15061032
+    md5: 0e7db93f5ee7b2e7bc9b62c68730f91a
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+parts:
+  drums:
+    drums:
+      mode: 'true'
+      kicks: 1
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.362, album-track]
+  dev:
+    song:
+      pad: [3.362, album-track]
+    parts:
+      bass:
+        pad: [3.362, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.362, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.362, channels: [[4, 5], stems]]
+      other:
+        pad: [3.362, channels: [[6, 7], stems]]
+metadata:
+  title: Dream Hill
+  artist: Casiopea
+  album: Casiopea
+  year: 1979
+  track-number: 7
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  file-album-art: ../space-road/cover.jpg
+  # preview-start:
