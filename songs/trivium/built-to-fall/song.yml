@@ -1,7 +1,7 @@
 audio:
   album-track:
-    frames: 10056564
-    md5: 752f7ee78302694fb295af3028d5ae02
+    frames: 8299032
+    md5: 18e2a4151d7df446284ad2484a9393d2
   stems:
     file-path: audio-stems.wav
     commands:
@@ -13,7 +13,7 @@ audio:
     samples: {}
 parts:
   drums:
-    drums:
+    drums: # WIP
       mode: 'true'
       kicks: both
 plans:
@@ -21,23 +21,23 @@ plans:
     song:
       mix:
       - countin
-      - pad: [2.567, album-track]
+      - pad: [3.177, album-track]
   dev:
     song:
-      pad: [2.567, album-track]
+      pad: [3.177, album-track]
     parts:
       bass:
-        pad: [2.567, channels: [[0, 1], stems]]
+        pad: [3.177, channels: [[0, 1], stems]]
       drums:
-        pad: [2.567, channels: [[2, 3], stems]]
+        pad: [3.177, channels: [[2, 3], stems]]
       vocal:
-        pad: [2.567, channels: [[4, 5], stems]]
+        pad: [3.177, channels: [[4, 5], stems]]
       other:
-        pad: [2.567, channels: [[6, 7], stems]]
+        pad: [3.177, channels: [[6, 7], stems]]
 metadata:
-  title: Inception of the End
+  title: Built to Fall
   artist: Trivium
-  track-number: 3
+  track-number: 8
   key: C# minor
   album: In Waves
   year: 2011

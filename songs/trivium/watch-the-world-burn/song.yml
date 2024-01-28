@@ -6,14 +6,39 @@ parts:
         base: bass-5
         global: -1
         offsets: [-2, -2, 0, 0, 0]
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
 audio:
   album-track:
     frames: 12925416
     md5: 348bc964b8bcee8fbfbd7e185cb7a19c
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
-  plan:
+  album:
     song:
       pad: [4.319, album-track]
+  dev:
+    song:
+      pad: [4.319, album-track]
+    parts:
+      bass:
+        pad: [4.319, channels: [[0, 1], stems]]
+      drums:
+        pad: [4.319, channels: [[2, 3], stems]]
+      vocal:
+        pad: [4.319, channels: [[4, 5], stems]]
+      other:
+        pad: [4.319, channels: [[6, 7], stems]]
 metadata:
   title: Watch the World Burn
   artist: Trivium

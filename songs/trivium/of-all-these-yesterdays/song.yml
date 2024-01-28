@@ -6,6 +6,10 @@ parts:
         base: bass-5
         global: -1
         offsets: [-2, -2, 0, 0, 0]
+  drums:
+    drums:
+      mode: 'true'
+      kicks: both
 audio:
   album-track:
     frames: 11535384
@@ -13,12 +17,33 @@ audio:
   album-next: # Leaving This World Behind
     frames: 4093656
     md5: 30bb07167ed7f880f978e7a534048ab1
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
 plans:
-  plan:
+  album:
     song:
       pad:
       - 3.706
       - concatenate: [album-track, album-next]
+  dev:
+    song:
+      pad: [3.706, album-track]
+    parts:
+      bass:
+        pad: [3.706, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.706, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.706, channels: [[4, 5], stems]]
+      other:
+        pad: [3.706, channels: [[6, 7], stems]]
 metadata:
   title: Of All These Yesterdays/Leaving This World Behind
   artist: Trivium
@@ -34,3 +59,4 @@ targets:
     game: rs
     arrangements:
     - [bonus-rhythm, bass]
+    plan: album

@@ -29,8 +29,8 @@ import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.List.Extra              (nubOrd)
 import qualified Data.List.NonEmpty           as NE
-import           Data.Maybe                   (fromMaybe, isJust, listToMaybe,
-                                               mapMaybe)
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
+                                               listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
 import           Development.Shake            (getShakeOptions, need,
                                                shakeFiles)
@@ -270,12 +270,9 @@ buildPartAudioToSpec rel alib buildDependency songYaml specPV planName = \case
   Nothing -> buildAudioToSpec rel alib buildDependency songYaml specPV planName Nothing
   Just (PartSingle pa) -> buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just pa
   Just PartDrumKit{kick, snare, toms, kit} -> do
-    kickSrc  <- buildAudioToSpec rel alib buildDependency songYaml specPV planName kick
-    snareSrc <- buildAudioToSpec rel alib buildDependency songYaml specPV planName snare
-    kitSrc   <- buildAudioToSpec rel alib buildDependency songYaml specPV planName $ Just $ case toms of
-      Nothing -> kit
-      Just t  -> Merge $ kit NE.:| [t]
-    return $ mix kickSrc $ mix snareSrc kitSrc
+    srcs <- mapM (buildAudioToSpec rel alib buildDependency songYaml specPV planName . Just)
+      $ kit NE.:| catMaybes [kick, snare, toms]
+    return $ foldr1 mix srcs
 
 -- | Computing a drums instrument's audio for CON/Magma.
 -- Always returns a valid drum mix configuration, with all volumes 0.

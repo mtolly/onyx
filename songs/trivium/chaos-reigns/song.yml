@@ -17,7 +17,7 @@ parts:
       mode: 'true'
       kicks: both
   bass:
-    pro-guitar:
+    pro-guitar: # WIP
       tuning:
         # Ab Db Ab Db Gb
         base: bass-5

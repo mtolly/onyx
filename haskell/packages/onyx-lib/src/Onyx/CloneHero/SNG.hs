@@ -98,6 +98,7 @@ cryptFile seedPattern orig = Readable
   { rFilePath = Nothing
   , rOpen = do
     h <- rOpen orig
+    -- TODO probably want to close h if there's an exception before we're done
     origSize <- hFileSize h
     let seedStream = BL.cycle seedPattern
     openSimpleHandle (handleLabel h) SimpleHandle

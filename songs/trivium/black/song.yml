@@ -1,7 +1,7 @@
 audio:
   album-track:
-    frames: 10056564
-    md5: 752f7ee78302694fb295af3028d5ae02
+    frames: 9168096
+    md5: ae7d16385540620eed5dbe437c1741f2
   stems:
     file-path: audio-stems.wav
     commands:
@@ -21,23 +21,23 @@ plans:
     song:
       mix:
       - countin
-      - pad: [2.567, album-track]
+      - pad: [3.419, album-track]
   dev:
     song:
-      pad: [2.567, album-track]
+      pad: [3.419, album-track]
     parts:
       bass:
-        pad: [2.567, channels: [[0, 1], stems]]
+        pad: [3.419, channels: [[0, 1], stems]]
       drums:
-        pad: [2.567, channels: [[2, 3], stems]]
+        pad: [3.419, channels: [[2, 3], stems]]
       vocal:
-        pad: [2.567, channels: [[4, 5], stems]]
+        pad: [3.419, channels: [[4, 5], stems]]
       other:
-        pad: [2.567, channels: [[6, 7], stems]]
+        pad: [3.419, channels: [[6, 7], stems]]
 metadata:
-  title: Inception of the End
+  title: Black
   artist: Trivium
-  track-number: 3
+  track-number: 6
   key: C# minor
   album: In Waves
   year: 2011
