@@ -127,9 +127,7 @@ stripTags = let
 loadSong :: (MonadIO m, SendMessage m) => Readable -> StackTraceT m Song
 loadSong r = do
 
-  Ini ini <- inside "Parsing song.ini" $ do
-    bs <- liftIO $ decodeGeneral . BL.toStrict <$> useHandle r handleToByteString
-    readPSIni bs
+  ini <- inside "Parsing song.ini" $ HM.fromList <$> loadPSIni r
 
   let str :: T.Text -> Maybe T.Text
       str k = HM.lookup k ini
@@ -251,16 +249,18 @@ songToIniContents Song{..} = execWriter $ do
   str "tags" tags
   str "background" $ fmap T.pack background
 
--- simple, only stores [song] section
-newtype Ini = Ini (HM.HashMap T.Text T.Text)
+loadPSIni :: (MonadIO m, SendMessage m) => Readable -> StackTraceT m [(T.Text, T.Text)]
+loadPSIni r = do
+  bs <- liftIO $ decodeGeneral . BL.toStrict <$> useHandle r handleToByteString
+  readPSIni bs
 
 data IniLine
   = IniSection T.Text
   | IniKeyValue T.Text T.Text
   | IniContinue T.Text
 
-readPSIni :: (SendMessage m) => T.Text -> StackTraceT m Ini
-readPSIni = fmap Ini . go HM.empty False . mapMaybe interpretLine . zip [1..] . T.lines where
+readPSIni :: (SendMessage m) => T.Text -> StackTraceT m [(T.Text, T.Text)]
+readPSIni = fmap reverse . go [] False . mapMaybe interpretLine . zip [1..] . T.lines where
   interpretLine :: (Int, T.Text) -> Maybe (Int, IniLine)
   interpretLine (i, T.strip -> line) = if ";" `T.isPrefixOf` line || "//" `T.isPrefixOf` line
     then Nothing
@@ -284,7 +284,7 @@ readPSIni = fmap Ini . go HM.empty False . mapMaybe interpretLine . zip [1..] . 
     IniKeyValue x y -> let
       (fullValue, rest') = pullContinues y rest
       hm' = if inSongSection
-        then HM.insert (T.toCaseFold x) (T.strip fullValue) hm
+        then (T.toCaseFold x, T.strip fullValue) : hm
         else hm
       in go hm' inSongSection rest'
   pullContinues value ((_, IniContinue next) : rest) = pullContinues (value <> "\n" <> next) rest

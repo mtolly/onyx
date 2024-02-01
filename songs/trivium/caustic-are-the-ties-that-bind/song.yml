@@ -2,8 +2,45 @@ audio:
   album-track:
     frames: 14771148
     md5: 58f7690c0b7f129b537701c4145c69ef
-parts: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+parts:
+  drums:
+    drums: # WIP
+      mode: 'true'
+      kicks: both
 plans:
   album:
     song:
+      mix:
+      - countin
+      - pad: [3.328, album-track]
+  dev:
+    song:
       pad: [3.328, album-track]
+    parts:
+      bass:
+        pad: [3.328, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.328, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.328, channels: [[4, 5], stems]]
+      other:
+        pad: [3.328, channels: [[6, 7], stems]]
+metadata:
+  title: Caustic Are the Ties that Bind
+  artist: Trivium
+  track-number: 10 # in special edition, 9 in standard
+  key: F minor
+  album: In Waves
+  year: 2011
+  author: Onyxite
+  genre: metal
+  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox

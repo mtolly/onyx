@@ -13,7 +13,7 @@ audio:
     samples: {}
 parts:
   drums:
-    drums: # WIP
+    drums:
       mode: 'true'
       kicks: both
 plans:
@@ -37,7 +37,7 @@ plans:
 metadata:
   title: Built to Fall
   artist: Trivium
-  track-number: 8
+  track-number: 9 # in special edition, 8 in standard
   key: C# minor
   album: In Waves
   year: 2011

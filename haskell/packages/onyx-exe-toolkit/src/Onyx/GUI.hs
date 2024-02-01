@@ -148,7 +148,8 @@ import           Onyx.Preferences                          (CHAudioFormat (..),
                                                             readPreferences,
                                                             savePreferences)
 import           Onyx.Project
-import           Onyx.QuickConvert
+import           Onyx.QuickConvert.FretsOnFire
+import           Onyx.QuickConvert.RockBand
 import           Onyx.Reaper.Build                         (TuningInfo (..),
                                                             makeReaper)
 import           Onyx.Reductions                           (simpleReduce)
@@ -484,7 +485,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
             liftIO $ FL.setLabelsize input $ FL.FontSize 13
             tell $ do
               b <- FL.getValue input
-              return $ Endo $ \yaml -> yaml { metadata = setter b yaml.metadata }
+              return $ Endo $ \yaml -> let SongYaml{..} = yaml in SongYaml { metadata = setter b yaml.metadata, .. }
       void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
       fullWidth $ simpleTextGet "Title" (.title)  $ \mstr meta -> meta { title  = mstr }
       fullWidth $ \rect' -> do
@@ -1760,14 +1761,14 @@ data QuickConvertMode
   | QCDolphin
   deriving (Eq)
 
-pageQuickConvert
+pageQuickConvertRB
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-pageQuickConvert sink rect tab startTasks = mdo
+pageQuickConvertRB sink rect tab startTasks = mdo
   loadedFiles <- newMVar []
   let (mainRect, processorsRect) = chopRight 200 rect
       (filesRect, trimClock 0 0 5 0 -> bottomRect) = chopBottom 131 mainRect
@@ -1859,13 +1860,13 @@ pageQuickConvert sink rect tab startTasks = mdo
           "Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc."
           $ return . stripTitleTags
         ]
-  processorGetters <- forM processors $ \(label, tooltip, proc) -> do
+  processorGetters <- forM processors $ \(label, tooltip, processor) -> do
     check <- FL.checkButtonNew processorBox $ Just label
     void $ FL.setValue check False
     FL.setTooltip check tooltip
     return $ do
       checked <- FL.getValue check
-      return $ if checked then proc else return
+      return $ if checked then processor else return
   let getMIDITransform = do
         procs <- sequence processorGetters
         return $ foldr (>=>) return procs
@@ -2188,6 +2189,102 @@ pageQuickConvert sink rect tab startTasks = mdo
           qsongs <- mapM midiTransform $ concatMap quickInputSongs files
           saveQuickSongsDolphin qsongs settings dout
         in [("Make Dolphin pack", task)]
+
+  FL.setResizable tab $ Just filesGroup
+
+pageQuickConvertCH
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageQuickConvertCH sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (mainRect, processorsRect) = chopRight 200 rect
+      (filesRect, trimClock 0 0 5 0 -> bottomRect) = chopBottom 131 mainRect
+      (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
+      [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
+      updateFiles = modifyMVar_ loadedFiles
+  filesGroup <- fileLoadWindow filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
+    $ \qfof -> let
+      entry = T.pack $ qfof.location
+      subline = case qfof.format of
+        FoFFolder -> "folder format"
+        FoFSNG    -> ".sng format"
+      in (entry, [subline])
+
+  -- right side: processors to transform midis and other files
+  packProcessors <- FL.packNew (trimClock 5 5 5 0 processorsRect) Nothing
+  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 45))
+      processors :: [(T.Text, T.Text, QuickFoF -> Onyx QuickFoF)]
+      processors =
+        [ (,,) ".chart to MIDI"
+          "Converts all .chart files to .mid."
+          convertMIDI
+        -- TODO checking one of these should uncheck the other
+        , (,,) "Audio to .ogg"
+          "Reencode any non-Ogg audio files as Ogg."
+          (stackIO . convertOgg)
+        , (,,) "Audio to .opus"
+          "Reencode any non-Opus audio files as Opus."
+          (stackIO . convertOpus)
+        ]
+  processorGetters <- forM processors $ \(label, tooltip, processor) -> do
+    check <- FL.checkButtonNew processorBox $ Just label
+    void $ FL.setValue check False
+    FL.setTooltip check tooltip
+    return $ do
+      checked <- FL.getValue check
+      return $ if checked then processor else return
+  let getTransform = do
+        procs <- sequence processorGetters
+        return $ foldr (>=>) return procs
+  FL.end packProcessors
+
+  -- row2: select mode
+  let withQCMode mode = sink $ EventIO $ do
+        if mode == Nothing        then FL.showWidget inPlace   else FL.hide inPlace
+        -- if mode == Just FoFFolder then FL.showWidget toFolders else FL.hide toFolders
+        -- if mode == Just FoFSNG    then FL.showWidget toSNGs    else FL.hide toSNGs
+  makeModeDropdown row2
+    [ ("Transform in place: replace input files with new versions", Nothing       )
+    , ("To folders: save each song as a folder"                   , Just FoFFolder)
+    , ("To SNG: save each song as an .sng file"                   , Just FoFSNG   )
+    ] withQCMode
+
+  -- row3/row4: mode-specific stuff
+  let modeGroup :: IO () -> IO (FL.Ref FL.Group)
+      modeGroup inner = do
+        group <- FL.groupNew row34 Nothing
+        inner
+        FL.end group
+        return group
+
+  -- Transform in place (each input is replaced with a file, package type preserved)
+  --   3rd row: go button
+  inPlaceGoRef <- newIORef Nothing
+  inPlace <- modeGroup $ do
+    btnGo <- FL.buttonNew row4 $ Just "Start"
+    taskColor >>= FL.setColor btnGo
+    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
+      qfofs <- stackIO $ readMVar loadedFiles
+      transform <- stackIO getTransform
+      -- TODO we should probably popup a warning about overwriting files!
+      startTasks $ flip map qfofs $ \orig -> let
+        fin = orig.location
+        task = do
+          qfof <- transform orig
+          stackIO $ case qfof.format of
+            FoFFolder -> saveQuickFoFFolder qfof.location qfof
+            FoFSNG    -> saveQuickFoFSNG    qfof.location qfof
+          return [qfof.location]
+        in (fin, task)
+    writeIORef inPlaceGoRef $ Just btnGo
+
+  -- new folders, template "%input_dir%/%input_base%", warn if any name conflicts
+
+  -- new sng, template "%input_dir%/%input_base%.sng", warn if any name conflicts
 
   FL.setResizable tab $ Just filesGroup
 
@@ -2604,7 +2701,7 @@ launchQuickConvert sink makeMenuBar = mdo
   functionTabs <- sequence
     [ makeTab windowRect "RB quick convert + pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      pageQuickConvert sink rect tab startTasks
+      pageQuickConvertRB sink rect tab startTasks
       return tab
     , makeTab windowRect "GH2 pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -2613,6 +2710,10 @@ launchQuickConvert sink makeMenuBar = mdo
     , makeTab windowRect "RB legacy CON->PKG" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageCONtoPKG sink rect tab startTasks
+      return tab
+    , makeTab windowRect "CH quick convert" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      pageQuickConvertCH sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

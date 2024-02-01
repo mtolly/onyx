@@ -39,7 +39,7 @@ import           Onyx.MIDI.Track.Vocal                     (nullVox)
 import           Onyx.Neversoft.GH3.Metadata               (combineGH3SongCache360,
                                                             combineGH3SongCachePS3)
 import           Onyx.Project
-import           Onyx.QuickConvert
+import           Onyx.QuickConvert.RockBand
 import           Onyx.StackTrace
 import           Onyx.Vocal.DryVox
 import qualified Onyx.Xbox.STFS                            as STFS

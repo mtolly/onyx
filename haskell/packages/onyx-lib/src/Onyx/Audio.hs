@@ -20,6 +20,7 @@ module Onyx.Audio
 , buildAudio
 , runAudio
 , audioIO
+, loadAudioInput
 , clampFloat
 , audioMD5
 , audioLength
@@ -480,6 +481,24 @@ sourceXMA2CorrectLength r = do
     { frames = n
     }
 
+loadAudioInput :: (MonadResource m) => FilePath -> IO (AudioSource m Float)
+loadAudioInput fin = case takeExtension fin of
+  ".ogg" -> sourceVorbisFile (Frames 0) fin
+  ".vgs" -> do
+    chans <- readVGS fin
+    case map (standardRate . mapSamples fractionalSample) chans of
+      src : srcs -> return $ foldl merge src srcs
+      []         -> fail "buildSource: VGS has 0 channels"
+  -- this is a bad hack for a problem on Windows of temp folders not being
+  -- deleted because (apparently) ffmpeg isn't letting go of its input file
+  -- even after processing finishes or the thread is killed. particularly
+  -- seems to happen when going RB -> CH (mogg -> wav(s) -> oggs).
+  -- need to actually figure out what's going on!
+  -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
+  ".wav" -> sourceSnd fin
+  ".xma" -> sourceXMA2CorrectLength $ fileReadable fin
+  _      -> ffSourceFixPath (Frames 0) fin
+
 buildSource' :: (MonadResource m, MonadIO f, MonadFail f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
 buildSource' aud = case aud of
@@ -538,22 +557,7 @@ buildSource' aud = case aud of
         ]
   -- normal cases
   Silence c t -> return $ silent t 44100 c
-  Input fin -> liftIO $ case takeExtension fin of
-    ".ogg" -> sourceVorbisFile (Frames 0) fin
-    ".vgs" -> do
-      chans <- readVGS fin
-      case map (standardRate . mapSamples fractionalSample) chans of
-        src : srcs -> return $ foldl merge src srcs
-        []         -> fail "buildSource: VGS has 0 channels"
-    -- this is a bad hack for a problem on Windows of temp folders not being
-    -- deleted because (apparently) ffmpeg isn't letting go of its input file
-    -- even after processing finishes or the thread is killed. particularly
-    -- seems to happen when going RB -> CH (mogg -> wav(s) -> oggs).
-    -- need to actually figure out what's going on!
-    -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
-    ".wav" -> sourceSnd fin
-    ".xma" -> sourceXMA2CorrectLength $ fileReadable fin
-    _      -> ffSourceFixPath (Frames 0) fin
+  Input fin -> liftIO $ loadAudioInput fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
   Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs

@@ -10,7 +10,7 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TupleSections     #-}
-module Onyx.QuickConvert where
+module Onyx.QuickConvert.RockBand where
 
 import           Codec.Picture                        (convertRGB8, decodeImage,
                                                        pixelMap)
