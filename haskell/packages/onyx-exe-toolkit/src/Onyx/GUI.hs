@@ -2211,7 +2211,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
       updateFiles = modifyMVar_ loadedFiles
-  filesGroup <- fileLoadWindow filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
     $ \qfof -> let
       entry = T.pack $ qfof.location
       subline = case qfof.format of
@@ -2301,15 +2301,19 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       transform <- getTransform
       let warningText = "This will modify the selected songs, and the old versions will be deleted."
       FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
-        1 -> sink $ EventOnyx $ startTasks $ flip map qfofs $ \orig -> let
-          loc = orig.location
-          task = do
-            qfof <- transform orig
-            stackIO $ case qfof.format of
-              FoFFolder -> saveQuickFoFFolder loc qfof
-              FoFSNG    -> saveQuickFoFSNG    loc qfof
-            return [loc]
-          in (loc, task)
+        1 -> sink $ EventOnyx $ do
+          -- TODO this is a hack to avoid stale .sng references after editing them.
+          -- should come up with a better solution!
+          stackIO clearFiles
+          startTasks $ flip map qfofs $ \orig -> let
+            loc = orig.location
+            task = do
+              qfof <- transform orig
+              stackIO $ case qfof.format of
+                FoFFolder -> saveQuickFoFFolder loc qfof
+                FoFSNG    -> saveQuickFoFSNG    loc qfof
+              return [loc]
+            in (loc, task)
         _ -> return ()
 
   let computeTasks qfofs ext template deleteOriginals = forM qfofs $ \qfof -> do
@@ -2348,8 +2352,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "" template deleteOriginals
-        promptTasks tasks $ do
-          sink $ EventOnyx $ startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
+        promptTasks tasks $ sink $ EventOnyx $ do
+          stackIO clearFiles -- hack as mentioned above
+          startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
               stackIO $ saveQuickFoFFolder fout qfof
@@ -2372,8 +2377,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "sng" template deleteOriginals
-        promptTasks tasks $ do
-          sink $ EventOnyx $ startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
+        promptTasks tasks $ sink $ EventOnyx $ do
+          stackIO clearFiles -- hack as mentioned above
+          startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
               stackIO $ saveQuickFoFSNG fout qfof

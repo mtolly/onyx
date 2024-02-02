@@ -571,7 +571,21 @@ fileLoadWindow
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (FL.Ref FL.Group)
-fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
+fileLoadWindow rect sink single plural modifyFiles startFiles step display
+  = fmap fst
+  $ fileLoadWindow' rect sink single plural modifyFiles startFiles step display
+
+fileLoadWindow'
+  :: Rectangle
+  -> (Event -> IO ())
+  -> T.Text -- ^ singular
+  -> T.Text -- ^ plural
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (FL.Ref FL.Group, IO ())
+fileLoadWindow' rect sink single plural modifyFiles startFiles step display = mdo
   group <- FL.groupNew rect Nothing
   let (labelRect, belowLabel) = chopTop 40 rect
       (termRect, buttonsRect) = chopBottom 50 belowLabel
@@ -682,7 +696,7 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
   btnB <- FL.buttonNew btnRectB' $ Just $ "Clear " <> plural
   FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
   FL.end group
-  return group
+  return (group, clearFiles)
 
 dragAndDrop
   :: ([String] -> IO ())
