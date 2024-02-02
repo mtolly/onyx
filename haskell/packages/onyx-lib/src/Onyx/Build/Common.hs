@@ -587,7 +587,9 @@ applySpeedAudio tgt = case fromMaybe 1 tgt.speed of
 
 data NameRule
   = NameRulePC -- mostly windows but also mac/linux
+  | NameRulePCUnicode
   | NameRuleXbox -- stfs files on hard drive. includes pc rules too
+  deriving (Eq)
 
 -- Smarter length trim that keeps 1x, 2x, 125, rb3con, etc. at end of name
 makeLength :: Int -> T.Text -> T.Text
@@ -608,13 +610,15 @@ makeLength n t = if n >= T.length t
 validFileNamePiece :: NameRule -> T.Text -> T.Text
 validFileNamePiece rule s = let
   trimLength = case rule of
-    NameRulePC   -> id
-    NameRuleXbox -> makeLength 42
+    NameRulePC        -> id
+    NameRulePCUnicode -> id
+    NameRuleXbox      -> makeLength 42
   invalidChars :: String
   invalidChars = "<>:\"/\\|?*" <> case rule of
-    NameRulePC   -> ""
-    NameRuleXbox -> "+," -- these are only invalid on hard drives? not usb drives apparently
-  eachChar c = if isAscii c && not (isControl c) && notElem c invalidChars
+    NameRulePC        -> ""
+    NameRulePCUnicode -> ""
+    NameRuleXbox      -> "+," -- these are only invalid on hard drives? not usb drives apparently
+  eachChar c = if (isAscii c || rule == NameRulePCUnicode) && not (isControl c) && notElem c invalidChars
     then c
     else '_'
   fixEnds = T.dropWhile isSpace . T.dropWhileEnd (\c -> isSpace c || c == '.')
@@ -625,8 +629,9 @@ validFileNamePiece rule s = let
     , "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0"
     , "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0"
     ]
-  s' = fixEnds $ trimLength $ T.map eachChar
-    $ unsafePerformIO $ replaceCharsRB False s
+  s' = fixEnds $ trimLength $ T.map eachChar $ case rule of
+    NameRulePCUnicode -> s
+    _                 -> unsafePerformIO $ replaceCharsRB False s
   in if elem (T.toUpper s') reserved
     then s' <> "_"
     else s'

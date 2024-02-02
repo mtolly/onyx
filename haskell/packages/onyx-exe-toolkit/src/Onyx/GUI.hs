@@ -2192,6 +2192,11 @@ pageQuickConvertRB sink rect tab startTasks = mdo
 
   FL.setResizable tab $ Just filesGroup
 
+data QuickFoFTask
+  = QFoFInPlace
+  | QFoFKeepOriginal
+  | QFoFDeleteOriginal
+
 pageQuickConvertCH
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -2269,12 +2274,12 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     ] withQCMode
 
   let quickTemplate :: FilePath -> T.Text -> T.Text -> Maybe QuickFoF -> FilePath
-      quickTemplate fin ext txt qfof = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+      quickTemplate fin ext txt qfof = validFileName NameRulePCUnicode $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
         [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
-        , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
         , T.intercalate ext . T.splitOn "%ext%"
-        , T.intercalate (validFileNamePiece NameRulePC $ fofMetadata "name") . T.splitOn "%title%"
-        , T.intercalate (validFileNamePiece NameRulePC $ fofMetadata "artist") . T.splitOn "%artist%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ fofMetadata "name") . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ fofMetadata "artist") . T.splitOn "%artist%"
         ] where dropExt f = fromMaybe f $ T.stripSuffix ".sng" f
                 fofMetadata k = fromMaybe "" $ qfof >>= lookup k . (.metadata)
 
@@ -2291,53 +2296,92 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   inPlace <- modeGroup $ do
     btnGo <- FL.buttonNew row4 $ Just "Start"
     taskColor >>= FL.setColor btnGo
-    FL.setCallback btnGo $ \_ -> sink $ EventOnyx $ do
-      qfofs <- stackIO $ readMVar loadedFiles
-      transform <- stackIO getTransform
-      -- TODO we should probably popup a warning about overwriting files!
-      startTasks $ flip map qfofs $ \orig -> let
-        loc = orig.location
-        task = do
-          qfof <- transform orig
-          stackIO $ case qfof.format of
-            FoFFolder -> saveQuickFoFFolder loc qfof
-            FoFSNG    -> saveQuickFoFSNG    loc qfof
-          return [loc]
-        in (loc, task)
+    FL.setCallback btnGo $ \_ -> do
+      qfofs <- readMVar loadedFiles
+      transform <- getTransform
+      let warningText = "This will modify the selected songs, and the old versions will be deleted."
+      FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
+        1 -> sink $ EventOnyx $ startTasks $ flip map qfofs $ \orig -> let
+          loc = orig.location
+          task = do
+            qfof <- transform orig
+            stackIO $ case qfof.format of
+              FoFFolder -> saveQuickFoFFolder loc qfof
+              FoFSNG    -> saveQuickFoFSNG    loc qfof
+            return [loc]
+          in (loc, task)
+        _ -> return ()
+
+  let computeTasks qfofs ext template deleteOriginals = forM qfofs $ \qfof -> do
+        fin  <- Dir.canonicalizePath qfof.location
+        fout <- Dir.canonicalizePath $ quickTemplate qfof.location ext template $ Just qfof
+        let task = if fin == fout
+              then QFoFInPlace
+              else if deleteOriginals then QFoFDeleteOriginal else QFoFKeepOriginal
+        return (qfof, fin, task, fout)
+      promptTasks tasks f = let
+        numInPlace        = length [ () | (_, _, QFoFInPlace       , _) <- tasks ]
+        numKeepOriginal   = length [ () | (_, _, QFoFKeepOriginal  , _) <- tasks ]
+        numDeleteOriginal = length [ () | (_, _, QFoFDeleteOriginal, _) <- tasks ]
+        numSongs 1 = "1 song"
+        numSongs n = T.pack (show n) <> " songs"
+        warningText = T.unlines $ concat
+          [ ["Based on the filename template, these operations will be performed:"]
+          , guard (numInPlace /= 0) >> ["- " <> numSongs numInPlace <> " will be overwritten with new versions"]
+          , guard (numKeepOriginal /= 0) >> ["- " <> numSongs numKeepOriginal <> " will be converted to new versions"]
+          , guard (numDeleteOriginal /= 0) >> ["- " <> numSongs numDeleteOriginal <> " will be converted to new versions, and the old versions will be deleted"]
+          ]
+        in FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
+          1 -> f
+          _ -> return ()
 
   -- new folders, template "%input_dir%/%input_base%", warn if any name conflicts
-  toFolders <- modeGroup $ void $ makeTemplateRunner'
-    sink
-    row4
-    "Start"
-    "%input_dir%/%input_base%"
-    $ \template -> sink $ EventOnyx $ do
-      qfofs <- stackIO $ readMVar loadedFiles
-      transform <- stackIO getTransform
-      startTasks $ flip map qfofs $ \orig -> let
-        fout = quickTemplate orig.location "" template $ Just orig
-        task = do
-          qfof <- transform orig
-          stackIO $ saveQuickFoFFolder fout qfof
-          return [fout]
-        in (fout, task)
+  toFolders <- modeGroup $ do
+    checkDeleteOriginals <- FL.checkButtonNew row3 $ Just "Delete original files"
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Start"
+      "%input_dir%/%input_base%"
+      $ \template -> do
+        deleteOriginals <- FL.getValue checkDeleteOriginals
+        qfofs <- readMVar loadedFiles
+        transform <- getTransform
+        tasks <- computeTasks qfofs "" template deleteOriginals
+        promptTasks tasks $ do
+          sink $ EventOnyx $ startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
+            task = do
+              qfof <- transform orig
+              stackIO $ saveQuickFoFFolder fout qfof
+              case taskType of
+                QFoFDeleteOriginal -> stackIO $ Dir.removePathForcibly orig.location
+                _                  -> return ()
+              return [fout]
+            in (fout, task)
 
   -- new sng, template "%input_dir%/%input_base%.sng", warn if any name conflicts
-  toSNGs <- modeGroup $ void $ makeTemplateRunner'
-    sink
-    row4
-    "Start"
-    "%input_dir%/%input_base%.sng"
-    $ \template -> sink $ EventOnyx $ do
-      qfofs <- stackIO $ readMVar loadedFiles
-      transform <- stackIO getTransform
-      startTasks $ flip map qfofs $ \orig -> let
-        fout = quickTemplate orig.location "sng" template $ Just orig
-        task = do
-          qfof <- transform orig
-          stackIO $ saveQuickFoFSNG fout qfof
-          return [fout]
-        in (fout, task)
+  toSNGs <- modeGroup $ do
+    checkDeleteOriginals <- FL.checkButtonNew row3 $ Just "Delete original files"
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Start"
+      "%input_dir%/%input_base%.sng"
+      $ \template -> do
+        deleteOriginals <- FL.getValue checkDeleteOriginals
+        qfofs <- readMVar loadedFiles
+        transform <- getTransform
+        tasks <- computeTasks qfofs "sng" template deleteOriginals
+        promptTasks tasks $ do
+          sink $ EventOnyx $ startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
+            task = do
+              qfof <- transform orig
+              stackIO $ saveQuickFoFSNG fout qfof
+              case taskType of
+                QFoFDeleteOriginal -> stackIO $ Dir.removePathForcibly orig.location
+                _                  -> return ()
+              return [fout]
+            in (fout, task)
 
   FL.setResizable tab $ Just filesGroup
 
