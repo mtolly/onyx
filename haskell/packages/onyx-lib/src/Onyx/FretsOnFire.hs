@@ -33,6 +33,7 @@ data Song = Song
   , proDrums         :: Maybe Bool
   , songLength       :: Maybe Int
   , previewStartTime :: Maybe Int
+  , previewEndTime   :: Maybe Int
   , diffBand         :: Maybe Int
   , diffGuitar       :: Maybe Int
   , diffGuitarGHL    :: Maybe Int
@@ -91,10 +92,8 @@ data Song = Song
   sysex_rimshot
   icon
   playlist_track
+  vocal_gender
   -}
-
-  -- TODO we may want to add more keys for missing stuff like vocalist gender, etc.
-  -- since people complain about stuff not surviving RB->CH->RB or similar conversions
   } deriving (Eq, Ord, Show)
 
 instance Default Song where
@@ -103,7 +102,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def def
+    def def def def def def def
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -152,6 +151,7 @@ loadSong r = do
       proDrums = bool "pro_drums"
       songLength = int "song_length"
       previewStartTime = int "preview_start_time"
+      previewEndTime = int "preview_end_time"
       diffBand = int "diff_band"
       diffGuitar = int "diff_guitar"
       diffGuitarGHL = int "diff_guitarghl"
@@ -210,6 +210,7 @@ songToIniContents Song{..} = execWriter $ do
   shown "pro_drums" proDrums
   shown "song_length" songLength
   shown "preview_start_time" previewStartTime
+  shown "preview_end_time" previewEndTime
   shown "diff_band" diffBand
   shown "diff_guitar" diffGuitar
   shown "diff_guitarghl" diffGuitarGHL

@@ -2222,13 +2222,6 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         [ (,,) ".chart to MIDI"
           "Converts all .chart files to .mid."
           convertMIDI
-        -- TODO checking one of these should uncheck the other
-        , (,,) "Audio to .ogg"
-          "Reencode any non-Ogg audio files as Ogg."
-          (stackIO . convertOgg)
-        , (,,) "Audio to .opus"
-          "Reencode any non-Opus audio files as Opus."
-          (stackIO . convertOpus)
         ]
   processorGetters <- forM processors $ \(label, tooltip, processor) -> do
     check <- FL.checkButtonNew processorBox $ Just label
@@ -2237,21 +2230,53 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     return $ do
       checked <- FL.getValue check
       return $ if checked then processor else return
+  (checkOgg, processorOgg) <- do
+    check <- FL.checkButtonNew processorBox $ Just "Audio to .ogg"
+    void $ FL.setValue check False
+    FL.setTooltip check "Reencode any non-Ogg audio files as Ogg."
+    FL.setCallback check $ \_ -> do
+      checked <- FL.getValue check
+      when checked $ void $ FL.setValue checkOpus False
+    return (check, do
+      checked <- FL.getValue check
+      return $ if checked then stackIO . convertOgg else return
+      )
+  (checkOpus, processorOpus) <- do
+    check <- FL.checkButtonNew processorBox $ Just "Audio to .opus"
+    void $ FL.setValue check False
+    FL.setTooltip check "Reencode any non-Opus audio files as Opus."
+    FL.setCallback check $ \_ -> do
+      checked <- FL.getValue check
+      when checked $ void $ FL.setValue checkOgg False
+    return (check, do
+      checked <- FL.getValue check
+      return $ if checked then stackIO . convertOpus else return
+      )
   let getTransform = do
-        procs <- sequence processorGetters
+        procs <- sequence $ processorGetters <> [processorOgg, processorOpus]
         return $ foldr (>=>) return procs
   FL.end packProcessors
 
   -- row2: select mode
   let withQCMode mode = sink $ EventIO $ do
         if mode == Nothing        then FL.showWidget inPlace   else FL.hide inPlace
-        -- if mode == Just FoFFolder then FL.showWidget toFolders else FL.hide toFolders
-        -- if mode == Just FoFSNG    then FL.showWidget toSNGs    else FL.hide toSNGs
+        if mode == Just FoFFolder then FL.showWidget toFolders else FL.hide toFolders
+        if mode == Just FoFSNG    then FL.showWidget toSNGs    else FL.hide toSNGs
   makeModeDropdown row2
     [ ("Transform in place: replace input files with new versions", Nothing       )
     , ("To folders: save each song as a folder"                   , Just FoFFolder)
     , ("To SNG: save each song as an .sng file"                   , Just FoFSNG   )
     ] withQCMode
+
+  let quickTemplate :: FilePath -> T.Text -> T.Text -> Maybe QuickFoF -> FilePath
+      quickTemplate fin ext txt qfof = validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+        [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
+        , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
+        , T.intercalate ext . T.splitOn "%ext%"
+        , T.intercalate (validFileNamePiece NameRulePC $ fofMetadata "name") . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePC $ fofMetadata "artist") . T.splitOn "%artist%"
+        ] where dropExt f = fromMaybe f $ T.stripSuffix ".sng" f
+                fofMetadata k = fromMaybe "" $ qfof >>= lookup k . (.metadata)
 
   -- row3/row4: mode-specific stuff
   let modeGroup :: IO () -> IO (FL.Ref FL.Group)
@@ -2263,7 +2288,6 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   -- Transform in place (each input is replaced with a file, package type preserved)
   --   3rd row: go button
-  inPlaceGoRef <- newIORef Nothing
   inPlace <- modeGroup $ do
     btnGo <- FL.buttonNew row4 $ Just "Start"
     taskColor >>= FL.setColor btnGo
@@ -2272,19 +2296,48 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       transform <- stackIO getTransform
       -- TODO we should probably popup a warning about overwriting files!
       startTasks $ flip map qfofs $ \orig -> let
-        fin = orig.location
+        loc = orig.location
         task = do
           qfof <- transform orig
           stackIO $ case qfof.format of
-            FoFFolder -> saveQuickFoFFolder qfof.location qfof
-            FoFSNG    -> saveQuickFoFSNG    qfof.location qfof
-          return [qfof.location]
-        in (fin, task)
-    writeIORef inPlaceGoRef $ Just btnGo
+            FoFFolder -> saveQuickFoFFolder loc qfof
+            FoFSNG    -> saveQuickFoFSNG    loc qfof
+          return [loc]
+        in (loc, task)
 
   -- new folders, template "%input_dir%/%input_base%", warn if any name conflicts
+  toFolders <- modeGroup $ void $ makeTemplateRunner'
+    sink
+    row4
+    "Start"
+    "%input_dir%/%input_base%"
+    $ \template -> sink $ EventOnyx $ do
+      qfofs <- stackIO $ readMVar loadedFiles
+      transform <- stackIO getTransform
+      startTasks $ flip map qfofs $ \orig -> let
+        fout = quickTemplate orig.location "" template $ Just orig
+        task = do
+          qfof <- transform orig
+          stackIO $ saveQuickFoFFolder fout qfof
+          return [fout]
+        in (fout, task)
 
   -- new sng, template "%input_dir%/%input_base%.sng", warn if any name conflicts
+  toSNGs <- modeGroup $ void $ makeTemplateRunner'
+    sink
+    row4
+    "Start"
+    "%input_dir%/%input_base%.sng"
+    $ \template -> sink $ EventOnyx $ do
+      qfofs <- stackIO $ readMVar loadedFiles
+      transform <- stackIO getTransform
+      startTasks $ flip map qfofs $ \orig -> let
+        fout = quickTemplate orig.location "sng" template $ Just orig
+        task = do
+          qfof <- transform orig
+          stackIO $ saveQuickFoFSNG fout qfof
+          return [fout]
+        in (fout, task)
 
   FL.setResizable tab $ Just filesGroup
 

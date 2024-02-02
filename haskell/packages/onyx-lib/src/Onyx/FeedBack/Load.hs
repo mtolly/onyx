@@ -161,7 +161,10 @@ chartToIni chart = def
     Str s  -> T.stripPrefix ", " s >>= readMaybe . T.unpack
     Real r -> Just $ floor r
   , FoF.delay = fmap (floor . (* 1000)) $ HM.lookup "Offset" song >>= atomReal
-  -- could also get PreviewStart, PreviewEnd, Genre
+  , FoF.previewStartTime = case (previewStart, previewEnd) of
+    (0, 0) -> Nothing
+    _      -> Just previewStart
+  , FoF.previewEndTime = guard (previewEnd /= 0) >> Just previewEnd
   } where song = chartSong chart
           atomStr' x = case atomStr x of
             "" -> Nothing
@@ -170,6 +173,8 @@ chartToIni chart = def
           atomReal (Int  i) = Just $ fromIntegral i
           atomReal (Real r) = Just r
           atomReal _        = Nothing
+          previewStart = maybe 0 (floor . (* 1000)) $ HM.lookup "PreviewStart" song >>= atomReal
+          previewEnd   = maybe 0 (floor . (* 1000)) $ HM.lookup "PreviewEnd"   song >>= atomReal
 
 traverseWithAbsTime :: (Applicative m, Num t, NNC.C t) => (t -> a -> m b) -> RTB.T t a -> m (RTB.T t b)
 traverseWithAbsTime f

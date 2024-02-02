@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -15,16 +16,18 @@ import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
 import           Onyx.Audio             (audioIO, loadAudioInput)
 import           Onyx.CloneHero.SNG
-import           Onyx.FeedBack.Load     (chartToBeats, chartToMIDI,
-                                         loadChartReadable)
-import           Onyx.FretsOnFire       (loadPSIni, writePSIni)
+import           Onyx.FeedBack.Load     (chartToBeats, chartToIni, chartToMIDI,
+                                         loadChartFile, loadChartReadable)
+import           Onyx.FretsOnFire       (loadPSIni, songToIniContents,
+                                         writePSIni)
 import           Onyx.MIDI.Track.File   (showMIDIFile')
 import           Onyx.StackTrace
+import           Onyx.Util.Files        (fixFileCase)
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.File.Save   as Save
 import           System.Directory       (createDirectoryIfMissing,
-                                         removePathForcibly, renameDirectory,
-                                         renameFile)
+                                         doesFileExist, removePathForcibly,
+                                         renameDirectory, renameFile)
 import           System.FilePath        (dropTrailingPathSeparator,
                                          splitExtension, takeDirectory,
                                          takeExtension, takeFileName, (</>))
@@ -46,8 +49,8 @@ data FoFFormat
 loadQuickFoF :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickFoF)
 loadQuickFoF fin = inside ("Loading: " <> fin) $ let
   r = fileReadable fin
-  in if map toLower (takeFileName fin) == "song.ini"
-    then do
+  in case map toLower $ takeFileName fin of
+    "song.ini" -> do
       let dir = takeDirectory fin
       ini <- loadPSIni r
       folder <- stackIO $ crawlFolder dir
@@ -57,7 +60,21 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
         , location = dir
         , format   = FoFFolder
         }
-    else if map toLower (takeExtension fin) == ".sng"
+    "notes.chart" -> do
+      let dir = takeDirectory fin
+      iniPath <- fixFileCase $ dir </> "song.ini"
+      stackIO (doesFileExist iniPath) >>= \case
+        True -> return Nothing -- load from song.ini instead
+        False -> do
+          ini <- songToIniContents . chartToIni <$> loadChartFile fin
+          folder <- stackIO $ crawlFolder dir
+          return $ Just QuickFoF
+            { metadata = ini
+            , files    = folderFiles folder
+            , location = dir
+            , format   = FoFFolder
+            }
+    _ -> if map toLower (takeExtension fin) == ".sng"
       then do
         hdr <- stackIO $ readSNGHeader r
         let folder = getSNGFolder False hdr r

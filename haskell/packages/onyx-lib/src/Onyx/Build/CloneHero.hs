@@ -97,7 +97,7 @@ psRules buildInfo dir ps = do
         midEvents <- shakeMIDI $ planDir </> "events.mid"
         song <- shakeMIDI $ dir </> "ps/notes.mid"
         (DifficultyPS{..}, vocalCount) <- loadEditedParts
-        let (pstart, _) = previewBoundsTarget
+        let (pstart, pend) = previewBoundsTarget
               metadata
               midEvents
               ps.common
@@ -152,6 +152,7 @@ psRules buildInfo dir ps = do
             _                                                   -> Nothing
           , FoF.songLength       = Just len
           , FoF.previewStartTime = Just pstart
+          , FoF.previewEndTime   = Just pend
           -- difficulty tiers go from 0 to 6, or -1 for no part
           , FoF.diffBand         = Just $ fromIntegral $ rb3BandTier      - 1
           , FoF.diffGuitar       = Just $ fromIntegral $ rb3GuitarTier    - 1

@@ -466,7 +466,9 @@ importFoF src dir level = do
       , previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ delayPreview $ fromIntegral ms / 1000
         _                 -> Nothing
-      , previewEnd   = Nothing
+      , previewEnd   = case FoF.previewEndTime song of
+        Just ms | ms >= 0 -> Just $ PreviewSeconds $ delayPreview $ fromIntegral ms / 1000
+        _                 -> Nothing
       , difficulty   = toTier $ FoF.diffBand song
       , cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
       , loadingPhrase = FoF.loadingPhrase song
