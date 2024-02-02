@@ -2800,6 +2800,10 @@ launchQuickConvert sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       pageQuickConvertRB sink rect tab startTasks
       return tab
+    , makeTab windowRect "CH quick convert" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      pageQuickConvertCH sink rect tab startTasks
+      return tab
     , makeTab windowRect "GH2 pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
@@ -2807,10 +2811,6 @@ launchQuickConvert sink makeMenuBar = mdo
     , makeTab windowRect "RB legacy CON->PKG" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageCONtoPKG sink rect tab startTasks
-      return tab
-    , makeTab windowRect "CH quick convert" $ \rect tab -> do
-      functionTabColor >>= setTabColor tab
-      pageQuickConvertCH sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

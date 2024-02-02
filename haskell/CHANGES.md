@@ -1,5 +1,17 @@
 # Version history
 
+# 20240202
+
+* Add a tab under Quick Convert for conversion of CH files
+  between folder and `.sng`, plus audio reencoding
+* Fix an error in the format of generated Clone Hero `.sng` files
+  * Created files happened to work in CH but would break
+    Chorus Encore processing
+  * Previously created files can be fixed by running through
+    the above CH Quick Convert tab
+* Fix a few audio processing bugs when importing from GH2 (360) and Neversoft GH
+* Process Neversoft PS2 `.HED` files more correctly
+
 # 20240120
 
 * Support separate instrument audio for GH:WoR export
