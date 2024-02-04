@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
-module Onyx.Import.Freetar where
+module Onyx.Import.Freetar (importFreetar) where
 
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class           (MonadIO)

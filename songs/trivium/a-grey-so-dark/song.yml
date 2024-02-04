@@ -1,7 +1,7 @@
 audio:
   album-track:
-    frames: 14141988
-    md5: 953a6027dd3a697c63d44a49f4c3ee5f
+    frames: 7114800
+    md5: 848928a0826dc0c19141d438ffdfe812
   stems:
     file-path: audio-stems.wav
     commands:
@@ -21,24 +21,24 @@ plans:
     song:
       mix:
       - countin
-      - pad: [3.121, album-track]
+      - pad: [3.773, album-track]
   dev:
     song:
-      pad: [3.121, album-track]
+      pad: [3.773, album-track]
     parts:
       bass:
-        pad: [3.121, channels: [[0, 1], stems]]
+        pad: [3.773, channels: [[0, 1], stems]]
       drums:
-        pad: [3.121, channels: [[2, 3], stems]]
+        pad: [3.773, channels: [[2, 3], stems]]
       vocal:
-        pad: [3.121, channels: [[4, 5], stems]]
+        pad: [3.773, channels: [[4, 5], stems]]
       other:
-        pad: [3.121, channels: [[6, 7], stems]]
+        pad: [3.773, channels: [[6, 7], stems]]
 metadata:
-  title: Forsake Not the Dream
+  title: A Grey So Dark
   artist: Trivium
-  track-number: 11 # in special edition, 10 in standard
-  key: C# minor
+  track-number: 13
+  key: G# minor
   album: In Waves
   year: 2011
   author: Onyxite

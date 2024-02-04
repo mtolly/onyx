@@ -1,7 +1,7 @@
 audio:
   album-track:
-    frames: 14141988
-    md5: 953a6027dd3a697c63d44a49f4c3ee5f
+    frames: 7862148
+    md5: fae71bd9962c7a969490239f6c31627d
   stems:
     file-path: audio-stems.wav
     commands:
@@ -21,24 +21,24 @@ plans:
     song:
       mix:
       - countin
-      - pad: [3.121, album-track]
+      - pad: [3.802, album-track]
   dev:
     song:
-      pad: [3.121, album-track]
+      pad: [3.802, album-track]
     parts:
       bass:
-        pad: [3.121, channels: [[0, 1], stems]]
+        pad: [3.802, channels: [[0, 1], stems]]
       drums:
-        pad: [3.121, channels: [[2, 3], stems]]
+        pad: [3.802, channels: [[2, 3], stems]]
       vocal:
-        pad: [3.121, channels: [[4, 5], stems]]
+        pad: [3.802, channels: [[4, 5], stems]]
       other:
-        pad: [3.121, channels: [[6, 7], stems]]
+        pad: [3.802, channels: [[6, 7], stems]]
 metadata:
-  title: Forsake Not the Dream
+  title: Slave New World [Sepultura]
   artist: Trivium
-  track-number: 11 # in special edition, 10 in standard
-  key: C# minor
+  track-number: 18
+  key: D minor
   album: In Waves
   year: 2011
   author: Onyxite

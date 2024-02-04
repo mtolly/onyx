@@ -1,7 +1,7 @@
 audio:
   album-track:
-    frames: 14141988
-    md5: 953a6027dd3a697c63d44a49f4c3ee5f
+    frames: 11903472
+    md5: a8349cba43022ea86831f9e930fdf711
   stems:
     file-path: audio-stems.wav
     commands:
@@ -21,23 +21,23 @@ plans:
     song:
       mix:
       - countin
-      - pad: [3.121, album-track]
+      - pad: [3.337, album-track]
   dev:
     song:
-      pad: [3.121, album-track]
+      pad: [3.337, album-track]
     parts:
       bass:
-        pad: [3.121, channels: [[0, 1], stems]]
+        pad: [3.337, channels: [[0, 1], stems]]
       drums:
-        pad: [3.121, channels: [[2, 3], stems]]
+        pad: [3.337, channels: [[2, 3], stems]]
       vocal:
-        pad: [3.121, channels: [[4, 5], stems]]
+        pad: [3.337, channels: [[4, 5], stems]]
       other:
-        pad: [3.121, channels: [[6, 7], stems]]
+        pad: [3.337, channels: [[6, 7], stems]]
 metadata:
-  title: Forsake Not the Dream
+  title: Drowning in Slow Motion
   artist: Trivium
-  track-number: 11 # in special edition, 10 in standard
+  track-number: 12
   key: C# minor
   album: In Waves
   year: 2011

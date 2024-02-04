@@ -325,6 +325,7 @@ splitPlanSources planName proj lib audios = let
     -- for mix and merge, split into multiple AL sources
     case evaled of
       -- mix: same pans and vols for each input
+      -- TODO this appears to not work if mixing mono and stereo together
       Mix parts -> return [PlanAudio (join $ fmap snd partExpr) pans vols | partExpr <- NE.toList parts]
       -- merge: split pans and vols to go with the appropriate input
       Merge parts -> do

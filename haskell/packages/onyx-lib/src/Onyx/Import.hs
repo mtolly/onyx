@@ -61,6 +61,7 @@ import           Onyx.Import.Neversoft        (importGH3Disc, importGH3DiscPS2,
                                                importGH4Disc, importGH4DiscPS2,
                                                importNeversoftGH, importWoRDisc)
 import           Onyx.Import.Osu              (importOsu)
+import           Onyx.Import.Paradiddle       (importParadiddle)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
@@ -320,6 +321,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         imps <- importGH3SGHFolder loc dir
         foundImports "Guitar Hero III (extracted .sgh)" loc imps
       foundRagnarock loc = foundImport "Ragnaröck" loc $ importRagnarock loc
+      foundParadiddle loc = foundImport "Paradiddle" loc $ importParadiddle loc
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports $ \imp -> do
@@ -432,6 +434,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".iso" -> foundISO fp
         ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         ".sgh" -> foundSGH fp
+        ".rlrr" -> foundParadiddle fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp

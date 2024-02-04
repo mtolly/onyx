@@ -41,7 +41,7 @@ parts:
         rank: 345
       mode: 'true'
 plans:
-  mogg:
+  mogg: # obviously not timed correctly
     parts:
       drums:
         kick: [0]

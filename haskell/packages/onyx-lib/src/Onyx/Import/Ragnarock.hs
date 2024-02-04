@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-module Onyx.Import.Ragnarock where
+module Onyx.Import.Ragnarock (importRagnarock) where
 
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.Codec

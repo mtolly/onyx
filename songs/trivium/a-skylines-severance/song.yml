@@ -13,7 +13,7 @@ audio:
     samples: {}
 parts:
   drums:
-    drums: # WIP
+    drums:
       mode: 'true'
       kicks: both
 plans:
