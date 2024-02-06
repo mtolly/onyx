@@ -14,9 +14,10 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (nubOrd, sort)
+import           Data.List.Extra                  (nubOrdOn, sort)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           Linear                           (V3 (..))
 import           Onyx.Audio                       (Audio (..), audioChannels)
@@ -37,11 +38,22 @@ import           System.FilePath                  (takeDirectory, takeExtension,
 
 paraToTrue :: RLRR -> TrueDrumTrack U.Seconds
 paraToTrue rlrr = let
+  ghostThreshold = rlrr.highwaySettings >>= \hs -> do
+    guard $ fromMaybe False hs.ghostNotes
+    hs.ghostNoteThreshold
+  accentThreshold = rlrr.highwaySettings >>= \hs -> do
+    guard $ fromMaybe False hs.accentNotes
+    hs.accentNoteThreshold
+  getVelocity vel
+    | maybe False (vel <=) ghostThreshold  = VelocityGhost
+    | maybe False (vel >=) accentThreshold = VelocityAccent
+    | otherwise                            = VelocityNormal
   instMapping = Map.fromList $ do
     inst <- rlrr.instruments
     let isRightSide = case inst.location of V3 _ y _ -> y >= 0
     gem <- if
       -- should check for other classes
+      -- TODO "Tambourine"
       | "Kick"     `T.isInfixOf` inst.class_ -> return Kick
       | "Snare"    `T.isInfixOf` inst.class_ -> return Snare
       | "Crash"    `T.isInfixOf` inst.class_ -> return $ if isRightSide then CrashR else CrashL
@@ -56,13 +68,14 @@ paraToTrue rlrr = let
   gems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
     event <- rlrr.events
     gem <- toList $ Map.lookup event.name instMapping
-    return (realToFrac event.time :: U.Seconds, gem)
-  gemsNoDupe = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident gems
-  flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (/= Kick) gems
-  hasDupe xs = nubOrd xs /= xs
+    return (realToFrac event.time :: U.Seconds, (gem, getVelocity event.vel))
+  -- TODO in case of a flam this will randomly pick one of the velocities to keep
+  gemsNoDupe = RTB.flatten $ fmap (nubOrdOn fst) $ RTB.collectCoincident gems
+  flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick) gems
+  hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
     { tdDifficulties = Map.singleton Expert TrueDrumDifficulty
-      { tdGems        = fmap (\gem -> (gem, TBDefault, VelocityNormal)) gemsNoDupe
+      { tdGems        = fmap (\(gem, vel) -> (gem, TBDefault, vel)) gemsNoDupe
       , tdKick2       = RTB.empty -- TODO kick flams
       , tdFlam        = flams
       , tdHihatOpen   = RTB.empty

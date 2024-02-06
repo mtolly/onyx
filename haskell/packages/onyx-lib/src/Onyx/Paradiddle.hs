@@ -25,6 +25,7 @@ data RLRR = RLRR
   { version           :: Scientific -- odd type choice
   , recordingMetadata :: RecordingMetadata
   , audioFileData     :: AudioFileData
+  , highwaySettings   :: Maybe HighwaySettings
   , instruments       :: [Instrument]
   , events            :: [Event]
   , bpmEvents         :: [BPMEvent]
@@ -32,12 +33,13 @@ data RLRR = RLRR
 
 instance StackJSON RLRR where
   stackJSON = asObject "RLRR" $ do
-    version           <- (.version          ) =. req "version"           stackJSON
-    recordingMetadata <- (.recordingMetadata) =. req "recordingMetadata" stackJSON
-    audioFileData     <- (.audioFileData    ) =. req "audioFileData"     stackJSON
-    instruments       <- (.instruments      ) =. req "instruments"       stackJSON
-    events            <- (.events           ) =. req "events"            stackJSON
-    bpmEvents         <- (.bpmEvents        ) =. req "bpmEvents"         stackJSON
+    version           <- (.version          ) =. req         "version"           stackJSON
+    recordingMetadata <- (.recordingMetadata) =. req         "recordingMetadata" stackJSON
+    audioFileData     <- (.audioFileData    ) =. req         "audioFileData"     stackJSON
+    highwaySettings   <- (.highwaySettings  ) =. opt Nothing "highwaySettings"   stackJSON
+    instruments       <- (.instruments      ) =. req         "instruments"       stackJSON
+    events            <- (.events           ) =. req         "events"            stackJSON
+    bpmEvents         <- (.bpmEvents        ) =. req         "bpmEvents"         stackJSON
     return RLRR{..}
 
 data RecordingMetadata = RecordingMetadata
@@ -73,6 +75,21 @@ instance StackJSON AudioFileData where
     drumTracks        <- (.drumTracks       ) =. req "drumTracks"        stackJSON
     calibrationOffset <- (.calibrationOffset) =. req "calibrationOffset" stackJSON
     return AudioFileData{..}
+
+data HighwaySettings = HighwaySettings
+  { ghostNotes          :: Maybe Bool
+  , accentNotes         :: Maybe Bool
+  , ghostNoteThreshold  :: Maybe Scientific
+  , accentNoteThreshold :: Maybe Scientific
+  } deriving (Eq, Show)
+
+instance StackJSON HighwaySettings where
+  stackJSON = asObject "HighwaySettings" $ do
+    ghostNotes           <- (.ghostNotes         ) =. opt Nothing "ghostNotes"          stackJSON
+    accentNotes          <- (.accentNotes        ) =. opt Nothing "accentNotes"         stackJSON
+    ghostNoteThreshold   <- (.ghostNoteThreshold ) =. opt Nothing "ghostNoteThreshold"  stackJSON
+    accentNoteThreshold  <- (.accentNoteThreshold) =. opt Nothing "accentNoteThreshold" stackJSON
+    return HighwaySettings{..}
 
 data Instrument = Instrument
   { name     :: T.Text
