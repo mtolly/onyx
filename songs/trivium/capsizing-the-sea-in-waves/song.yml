@@ -1,38 +1,38 @@
 parts:
-  vocal:
-    vocal:
-      count: 3
-      gender: male
-      difficulty:
-        rank: 215
-      lipsync-rb3:
-        sources:
-        - file-lipsync: song.lipsync
-  bass:
-    grybo:
-      fix-freeform: false
-      difficulty:
-        rank: 236
-    pro-guitar:
-      tuning:
-        # Ab Db Ab Db Gb (put on RS bass since Gb not used)
-        base: bass-5
-        global: -1
-        offsets: [-2, -2, 0, 0, 0]
-  guitar:
-    grybo:
-      fix-freeform: false
-      difficulty:
-        rank: 305
-  keys:
-    pro-keys:
-      fix-freeform: false
-      difficulty:
-        rank: 236
-    grybo:
-      fix-freeform: false
-      difficulty:
-        rank: 236
+  # vocal:
+  #   vocal:
+  #     count: 3
+  #     gender: male
+  #     difficulty:
+  #       rank: 215
+  #     lipsync-rb3:
+  #       sources:
+  #       - file-lipsync: song.lipsync
+  # bass:
+  #   grybo:
+  #     fix-freeform: false
+  #     difficulty:
+  #       rank: 236
+  #   pro-guitar:
+  #     tuning:
+  #       # Ab Db Ab Db Gb (put on RS bass since Gb not used)
+  #       base: bass-5
+  #       global: -1
+  #       offsets: [-2, -2, 0, 0, 0]
+  # guitar:
+  #   grybo:
+  #     fix-freeform: false
+  #     difficulty:
+  #       rank: 305
+  # keys:
+  #   pro-keys:
+  #     fix-freeform: false
+  #     difficulty:
+  #       rank: 236
+  #   grybo:
+  #     fix-freeform: false
+  #     difficulty:
+  #       rank: 236
   drums:
     drums:
       kicks: both
@@ -74,11 +74,11 @@ metadata:
   rating: SupervisionRecommended # was family friendly ??
   preview-start: 29.788
   file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
-  track-number: 2
+  track-number: 1 # and 2
   key: C# minor
   album: In Waves
   year: 2011
-  author: Harmonix, Onyxite
+  author: Onyxite
   title: Capsizing the Sea/In Waves
   preview-end: 59.788
   genre: metal

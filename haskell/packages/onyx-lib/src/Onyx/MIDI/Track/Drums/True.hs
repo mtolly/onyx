@@ -413,7 +413,7 @@ trueDrumsToRBWithWarnings
   -> RTB.T U.Beats (TrueDrumNote FlamStatus)
   -> (RTB.T U.Beats T.Text, RTB.T U.Beats (D.Gem D.ProType, DrumVelocity))
 trueDrumsToRBWithWarnings tmap input = let
-  noFlams = splitFlams tmap input
+  noFlams = splitFlams tmap $ snareFlamRY input
   allResults = RTB.flatten $ fmap eachInstant $ RTB.collectCoincident noFlams
   warnings = RTB.mapMaybe (either Just (const Nothing)) allResults
   results = RTB.mapMaybe (either (const Nothing) Just) allResults
@@ -492,6 +492,16 @@ trueDrumsToRBWithWarnings tmap input = let
     warningText = "Left crash near hihats, check color"
     in RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (, warningText) $ Set.toList hihatCrashLConflicts
   in (RTB.merge warnings $ RTB.merge flamWarnings leftCrashWarnings, results)
+
+snareFlamRY :: RTB.T U.Beats (TrueDrumNote FlamStatus) -> RTB.T U.Beats (TrueDrumNote FlamStatus)
+snareFlamRY = let
+  eachNote tdn = case (tdn.tdn_gem, tdn.tdn_extra) of
+    (Snare, Flam) ->
+      [ tdn { tdn_extra = NotFlam }
+      , tdn { tdn_extra = NotFlam, tdn_gem = Tom1 }
+      ]
+    _ -> [tdn]
+  in RTB.flatten . fmap eachNote
 
 splitFlams :: U.TempoMap -> RTB.T U.Beats (TrueDrumNote FlamStatus) -> RTB.T U.Beats (TrueDrumNote ())
 splitFlams tmap tdns = let
