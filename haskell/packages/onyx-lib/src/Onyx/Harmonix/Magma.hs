@@ -1,4 +1,8 @@
-module Onyx.Harmonix.Magma (runMagmaMIDI, runMagma, runMagmaV1, getRBAFile, getRBAFileBS, rbaContents, withWin32Exe) where
+module Onyx.Harmonix.Magma
+( runMagmaMIDI, runMagma
+, runMagmaMIDIV1, runMagmaV1
+, getRBAFile, getRBAFileBS, rbaContents, withWin32Exe
+) where
 
 import           Control.Monad                (forM_, replicateM)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
@@ -67,6 +71,16 @@ runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompiler.exe") [proj', rba']
   inside "running Magma v1" $ stackProcess createProc
+
+runMagmaMIDIV1 :: (MonadResource m) => FilePath -> FilePath -> StackTraceT m String
+runMagmaMIDIV1 proj mid = tempDir "magma-v1" $ \tmp -> do
+  wd <- liftIO Dir.getCurrentDirectory
+  let proj' = wd </> proj
+      mid'  = wd </> mid
+  liftIO $ forM_ [magmaV1Dir, magmaCommonDir] (>>= \dir -> copyDirContents dir tmp)
+  let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
+        (tmp </> "MagmaCompiler.exe") ["-export_midi", proj', mid']
+  inside "running Magma v1 to export MIDI" $ stackProcess createProc
 
 getRBAFileBS :: (MonadIO m) => Int -> FilePath -> m BL.ByteString
 getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do

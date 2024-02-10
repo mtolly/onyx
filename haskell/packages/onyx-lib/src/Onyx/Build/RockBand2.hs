@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Onyx.Build.RockBand2 (convertMIDI, dryVoxAudio) where
+module Onyx.Build.RockBand2 (convertMidiRB2, stripMidiMagmaV1, dryVoxAudio) where
 
 import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
@@ -30,8 +30,9 @@ dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ mapTrack (U.applyTempoTrack $ F.s_tempos f)
   $ F.fixedPartVocals $ F.s_tracks f
 
-convertMIDI :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
-convertMIDI mid = fixUnisons mid
+-- Should be given a valid RB3 .mid
+convertMidiRB2 :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
+convertMidiRB2 mid = fixUnisons mid
   { F.s_tracks = mempty
     { F.fixedPartDrums = fixDrumColors $ let
       pd = F.fixedPartDrums $ F.s_tracks mid
@@ -66,12 +67,14 @@ convertMIDI mid = fixUnisons mid
     , F.fixedBeat = F.fixedBeat $ F.s_tracks mid
     -- We now compile venue for RB2 already in Onyx.Build.RB3CH
     , F.fixedVenue = F.fixedVenue $ F.s_tracks mid
+    -- include these for RB2 but remove for Magma (stripMidiMagmaV1)
+    , F.fixedHarm1 = F.fixedHarm1 $ F.s_tracks mid
+    , F.fixedHarm2 = F.fixedHarm2 $ F.s_tracks mid
+    , F.fixedHarm3 = F.fixedHarm3 $ F.s_tracks mid
     }
   } where
     fixGB hasSolos t = t
-      { fiveTremolo = RTB.empty
-      , fiveTrill = RTB.empty
-      , fiveSolo = if hasSolos then fiveSolo t else RTB.empty
+      { fiveSolo = if hasSolos then fiveSolo t else RTB.empty
       }
     fixUnisons song = let
       gtr  = F.fixedPartGuitar $ F.s_tracks song
@@ -80,6 +83,27 @@ convertMIDI mid = fixUnisons mid
       in if not $ nullFive gtr || nullFive bass || nullDrums drum
         then fixPartialUnisons [F.FlexGuitar, F.FlexBass, F.FlexDrums] song
         else return song
+
+-- Should be given the output of convertMidiRB2
+stripMidiMagmaV1 :: F.Song (F.FixedFile U.Beats) -> F.Song (F.FixedFile U.Beats)
+stripMidiMagmaV1 mid = mid
+  { F.s_tracks = (F.s_tracks mid)
+    { F.fixedPartDrums  = noDrumLanes $ F.fixedPartDrums  $ F.s_tracks mid
+    , F.fixedPartGuitar = noFiveLanes $ F.fixedPartGuitar $ F.s_tracks mid
+    , F.fixedPartBass   = noFiveLanes $ F.fixedPartBass   $ F.s_tracks mid
+    , F.fixedHarm1      = mempty
+    , F.fixedHarm2      = mempty
+    , F.fixedHarm3      = mempty
+    }
+  } where
+    noDrumLanes dt = dt
+      { drumSingleRoll = RTB.empty
+      , drumDoubleRoll = RTB.empty
+      }
+    noFiveLanes ft = ft
+      { fiveTrill   = RTB.empty
+      , fiveTremolo = RTB.empty
+      }
 
 fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFiveColors trk = let

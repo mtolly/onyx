@@ -36,7 +36,7 @@ import           Onyx.Build.Common
 import qualified Onyx.Build.RB3CH                      as RB3
 import qualified Onyx.Build.RockBand2                  as RB2
 import qualified Onyx.C3                               as C3
-import           Onyx.Codec.Common                     (makeValue, valueId)
+import           Onyx.Codec.Common                     (valueId)
 import qualified Onyx.Controller.ProGuitar             as PGPlay
 import           Onyx.DeriveHelpers                    (mergeEmpty)
 import           Onyx.Difficulty
@@ -49,15 +49,19 @@ import qualified Onyx.Harmonix.DTA.Serialize.RockBand  as D
 import qualified Onyx.Harmonix.Magma                   as Magma
 import           Onyx.Harmonix.MOGG
 import           Onyx.Harmonix.RockBand.Milo           (MagmaLipsync (..),
+                                                        addMiloHeader,
                                                         autoLipsync,
                                                         defaultTransition,
+                                                        emptyLipsync,
                                                         englishSyllables,
-                                                        extendLipsyncMilo,
+                                                        extendLipsync,
                                                         lipsyncAdjustSpeed,
                                                         lipsyncFromMIDITrack,
                                                         lipsyncPad,
                                                         loadVisemesRB3,
-                                                        magmaMilo, parseLipsync)
+                                                        magmaMilo, makeMiloFile,
+                                                        parseLipsync,
+                                                        rb2MiloDir)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                        (mapTrack)
 import qualified Onyx.MIDI.Track.Drums                 as Drums
@@ -74,8 +78,7 @@ import           Onyx.Preferences                      (MagmaSetting (..))
 import           Onyx.Project                          hiding (Difficulty)
 import           Onyx.Reaper.Build                     (TuningInfo (..),
                                                         makeReaperShake)
-import           Onyx.Resources                        (emptyMilo, emptyMiloRB2,
-                                                        emptyWeightsRB2,
+import           Onyx.Resources                        (emptyWeightsRB2,
                                                         getResourcesPath)
 import           Onyx.Sections                         (Section,
                                                         makeDisplaySection,
@@ -184,6 +187,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       pathMagmaMid         = dir </> "magma/notes.mid"
       pathMagmaRPP         = dir </> "magma/notes.RPP"
       pathMagmaMidV1       = dir </> "magma/notes-v1.mid"
+      pathMagmaMidV1Extra  = dir </> "magma/notes-v1-extra.mid"
       pathMagmaProj        = dir </> "magma/magma.rbproj"
       pathMagmaProjV1      = dir </> "magma/magma-v1.rbproj"
       pathMagmaC3          = dir </> "magma/magma.c3"
@@ -192,6 +196,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       pathMagmaRbaV1       = dir </> "magma-v1.rba"
       pathMagmaExport      = dir </> "notes-magma-export.mid"
       pathMagmaExport2     = dir </> "notes-magma-added.mid"
+      pathMagmaExportV1    = dir </> "notes-magma-export-v1.mid"
       pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
       pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
       pathMagmaPad         = dir </> "magma/pad.txt"
@@ -563,44 +568,48 @@ rbRules buildInfo dir rb3 mrb2 = do
       mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
   -- TODO support target-specific album art
   pathPng  %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
-  pathMilo %> \out -> case getPart rb3.vocal songYaml >>= (.vocal) of
-    -- TODO apply segment boundaries
+
+  -- TODO apply segment boundaries
+  let getLipsyncs = case getPart rb3.vocal songYaml >>= (.vocal) of
+        Nothing   -> return []
+        Just pvox -> do
+          let srcs = case (pvox.lipsyncRB3, pvox.count) of
+                (Just lrb3, _     ) -> lrb3.sources
+                (Nothing  , Vocal1) -> [LipsyncVocal Nothing]
+                (Nothing  , Vocal2) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2]
+                (Nothing  , Vocal3) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2, LipsyncVocal $ Just Vocal3]
+          midi <- F.shakeMIDI $ planDir </> "raw.mid"
+          vmap <- loadVisemesRB3
+          pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
+          let vox = F.getFlexPart rb3.vocal $ F.s_tracks midi
+              lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
+              auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
+              padSeconds = fromIntegral (pad :: Int) :: U.Seconds
+              speed = realToFrac $ fromMaybe 1 rb3.common.speed :: Rational
+              fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed) . \case
+                LipsyncTrack1 -> return $ lip $ F.onyxLipsync1 vox
+                LipsyncTrack2 -> return $ lip $ F.onyxLipsync2 vox
+                LipsyncTrack3 -> return $ lip $ F.onyxLipsync3 vox
+                LipsyncTrack4 -> return $ lip $ F.onyxLipsync4 vox
+                LipsyncVocal mvc -> return $ auto $ case mvc of
+                  Nothing     -> F.onyxPartVocals vox
+                  Just Vocal1 -> F.onyxHarm1 vox
+                  Just Vocal2 -> F.onyxHarm2 vox
+                  Just Vocal3 -> F.onyxHarm3 vox
+                LipsyncFile f -> stackIO (BL.fromStrict <$> B.readFile f) >>= runGetM parseLipsync
+          mapM fromSource srcs
+
+  pathMilo %> \out -> do
     -- TODO add member assignments and anim style in BandSongPref, and anim style
     -- TODO include rb3 format venue in milo (with speed/pad adjustments) but only if dlc (not rbn2)
-    Nothing   -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
-    Just pvox -> do
-      let srcs = case (pvox.lipsyncRB3, pvox.count) of
-            (Just lrb3, _     ) -> lrb3.sources
-            (Nothing  , Vocal1) -> [LipsyncVocal Nothing]
-            (Nothing  , Vocal2) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2]
-            (Nothing  , Vocal3) -> [LipsyncVocal $ Just Vocal1, LipsyncVocal $ Just Vocal2, LipsyncVocal $ Just Vocal3]
-      midi <- F.shakeMIDI $ planDir </> "raw.mid"
-      vmap <- loadVisemesRB3
-      pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
-      let vox = F.getFlexPart rb3.vocal $ F.s_tracks midi
-          lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
-          auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
-          write = stackIO . BL.writeFile out
-          padSeconds = fromIntegral (pad :: Int) :: U.Seconds
-          speed = realToFrac $ fromMaybe 1 rb3.common.speed :: Rational
-          fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed) . \case
-            LipsyncTrack1 -> return $ lip $ F.onyxLipsync1 vox
-            LipsyncTrack2 -> return $ lip $ F.onyxLipsync2 vox
-            LipsyncTrack3 -> return $ lip $ F.onyxLipsync3 vox
-            LipsyncTrack4 -> return $ lip $ F.onyxLipsync4 vox
-            LipsyncVocal mvc -> return $ auto $ case mvc of
-              Nothing     -> F.onyxPartVocals vox
-              Just Vocal1 -> F.onyxHarm1 vox
-              Just Vocal2 -> F.onyxHarm2 vox
-              Just Vocal3 -> F.onyxHarm3 vox
-            LipsyncFile f -> stackIO (BL.fromStrict <$> B.readFile f) >>= runGetM parseLipsync
-      lips <- mapM fromSource srcs
-      case lips of
-        []                    -> stackIO emptyMilo >>= \mt -> shk $ copyFile' mt out
-        [l1]                  -> write $ magmaMilo $ MagmaLipsync1 l1
-        [l1, l2]              -> write $ magmaMilo $ MagmaLipsync2 l1 l2
-        [l1, l2, l3]          -> write $ magmaMilo $ MagmaLipsync3 l1 l2 l3
-        l1 : l2 : l3 : l4 : _ -> write $ magmaMilo $ MagmaLipsync4 l1 l2 l3 l4
+    let write = stackIO . BL.writeFile out
+    getLipsyncs >>= \case
+      []                    -> write $ magmaMilo $ MagmaLipsync1 emptyLipsync
+      [l1]                  -> write $ magmaMilo $ MagmaLipsync1 l1
+      [l1, l2]              -> write $ magmaMilo $ MagmaLipsync2 l1 l2
+      [l1, l2, l3]          -> write $ magmaMilo $ MagmaLipsync3 l1 l2 l3
+      l1 : l2 : l3 : l4 : _ -> write $ magmaMilo $ MagmaLipsync4 l1 l2 l3 l4
+
   pathCon %> \out -> do
     let files = [pathDta, pathMid, pathMogg, pathMilo]
           ++ [pathPng | isJust songYaml.metadata.fileAlbumArt]
@@ -686,8 +695,12 @@ rbRules buildInfo dir rb3 mrb2 = do
     Nothing -> return ()
     Just rb2 -> do
 
-      -- TODO just call processRB here and integrate RB2.convertMIDI into it
-      pathMagmaMidV1 %> \out -> F.shakeMIDI pathMagmaMid >>= RB2.convertMIDI >>= F.saveMIDILatin1 out
+      -- TODO just call processRB here and integrate RB2.convertMidiRB2 into it
+      (pathMagmaMidV1, pathMagmaMidV1Extra) %> \_ -> do
+        midRB2 <- F.shakeMIDI pathMagmaMid >>= RB2.convertMidiRB2
+        let midMagmaV1 = RB2.stripMidiMagmaV1 midRB2
+        F.saveMIDILatin1 pathMagmaMidV1      midMagmaV1
+        F.saveMIDILatin1 pathMagmaMidV1Extra midRB2
 
       pathMagmaProjV1 %> \out -> do
         editedParts <- loadEditedParts
@@ -766,13 +779,21 @@ rbRules buildInfo dir rb3 mrb2 = do
             lg "Magma v1 failed; optimistically bypassing."
             stackIO $ B.writeFile out B.empty
 
+      pathMagmaExportV1 %> \out -> do
+        shk $ need [pathMagmaMidV1, pathMagmaProjV1]
+        lg "# Running Magma v1 (no 10 min limit) to export MIDI"
+        errorToWarning (mapStackTraceT (liftIO . runResourceT) $ Magma.runMagmaMIDIV1 pathMagmaProjV1 out) >>= \case
+          Just output -> lg output
+          Nothing     -> do
+            lg "Magma v1 failed; optimistically bypassing."
+            stackIO $ B.writeFile out B.empty
+
       -- Magma v1 rba to con
       do
-        let doesRBAExist = do
-              shk $ need [pathMagmaRbaV1]
-              stackIO $ (/= 0) <$> withBinaryFile pathMagmaRbaV1 ReadMode hFileSize
+        let doesExportV1Exist = do
+              shk $ need [pathMagmaExportV1]
+              stackIO $ (/= 0) <$> withBinaryFile pathMagmaExportV1 ReadMode hFileSize
             rb2CON = dir </> "rb2con"
-            rb2OriginalDTA = dir </> "rb2-original.dta"
             rb2DTA = dir </> "rb2/songs/songs.dta"
             rb2Mogg = dir </> "rb2/songs" </> pkg </> pkg <.> "mogg"
             rb2Mid = dir </> "rb2/songs" </> pkg </> pkg <.> "mid"
@@ -790,32 +811,28 @@ rbRules buildInfo dir rb3 mrb2 = do
               "vocals" -> Just (k, v)
               "band"   -> Just (k, v)
               _        -> Nothing
-        rb2OriginalDTA %> \out -> do
-          ex <- doesRBAExist
-          if ex
-            then Magma.getRBAFile 0 pathMagmaRbaV1 out
-            else do
+        let writeRB2DTA isPS3 out = do
               shk $ need [pathDta]
               (_, rb3DTA, _) <- readRB3DTA pathDta
               let newDTA :: D.SongPackage
                   newDTA = D.SongPackage
-                    { D.name = D.name rb3DTA
+                    { D.name = targetTitle songYaml $ RB2 rb2
                     , D.artist = D.artist rb3DTA
                     , D.master = not songYaml.metadata.cover
                     , D.song = D.Song
-                      -- most of this gets rewritten later anyway
-                      { D.songName = D.songName $ D.song rb3DTA
+                      { D.songName = "songs/" <> pkg <> "/" <> pkg
                       , D.tracksCount = Nothing
-                      , D.tracks = D.tracks $ D.song rb3DTA
+                      , D.tracks = fixDictList $ D.tracks $ D.song rb3DTA
                       , D.pans = D.pans $ D.song rb3DTA
                       , D.vols = D.vols $ D.song rb3DTA
                       , D.cores = D.cores $ D.song rb3DTA
                       , D.drumSolo = D.drumSolo $ D.song rb3DTA -- needed
                       , D.drumFreestyle = D.drumFreestyle $ D.song rb3DTA -- needed
-                      , D.midiFile = D.midiFile $ D.song rb3DTA
+                      , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
+                      -- including harmonies now
+                      , D.vocalParts = D.vocalParts $ D.song rb3DTA
                       -- not used
-                      , D.vocalParts = Nothing
-                      , D.crowdChannels = Nothing
+                      , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                       , D.hopoThreshold = Nothing
                       , D.muteVolume = Nothing
                       , D.muteVolumeVocals = Nothing
@@ -839,6 +856,8 @@ rbRules buildInfo dir rb3 mrb2 = do
                         | otherwise -> "the10s"
                     , D.vocalGender = D.vocalGender rb3DTA
                     , D.version = 0
+                    -- if version is not 0, you get a message
+                    -- "can't play this song until all players in your session purchase it!"
                     , D.fake = Nothing
                     , D.downloaded = Just True
                     , D.songFormat = 4
@@ -849,9 +868,17 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.videoVenues = Nothing
                     , D.dateReleased = Nothing
                     , D.dateRecorded = Nothing
-                    , D.rating = D.rating rb3DTA
+                    , D.rating = case (isPS3, D.rating rb3DTA) of
+                      (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
+                      (_   , x) -> x
                     , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre thisFullGenre
-                    , D.songId = D.songId rb3DTA
+                    , D.songId = Just $ case rb2.songID of
+                      SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
+                      SongIDInt i      -> Left $ fromIntegral i
+                      SongIDAutoSymbol -> if isPS3
+                        then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
+                        else Right pkg
+                      SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
                     , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                     , D.context = Just 2000
                     , D.gameOrigin = Just "rb2"
@@ -859,8 +886,8 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.albumName = D.albumName rb3DTA
                     , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                     , D.packName = D.packName rb3DTA
-                    , D.author = songYaml.metadata.author
-                    , D.loadingPhrase = songYaml.metadata.loadingPhrase
+                    , D.author = D.author rb3DTA
+                    , D.loadingPhrase = D.loadingPhrase rb3DTA
                     -- not present
                     , D.drumBank = Nothing
                     , D.bandFailCue = Nothing
@@ -877,116 +904,58 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.alternatePath = Nothing
                     , D.video = False
                     }
-              liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Sym pkg : makeValue D.stackChunks newDTA))]
-        let writeRB2DTA isPS3 out = do
-              shk $ need [rb2OriginalDTA, pathDta]
-              (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA
-              (_, rb3DTA, _) <- readRB3DTA pathDta
-              let newDTA :: D.SongPackage
-                  newDTA = magmaDTA
-                    { D.name = targetTitle songYaml $ RB2 rb2
-                    , D.artist = D.artist rb3DTA
-                    , D.albumName = D.albumName rb3DTA
-                    , D.master = not songYaml.metadata.cover
-                    , D.version = 0
-                    -- if version is not 0, you get a message
-                    -- "can't play this song until all players in your session purchase it!"
-                    , D.song = (D.song magmaDTA)
-                      { D.tracksCount = Nothing
-                      , D.tracks = fixDictList $ D.tracks $ D.song rb3DTA
-                      , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
-                      , D.songName = "songs/" <> pkg <> "/" <> pkg
-                      , D.pans = D.pans $ D.song rb3DTA
-                      , D.vols = D.vols $ D.song rb3DTA
-                      , D.cores = D.cores $ D.song rb3DTA
-                      , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
-                      }
-                    , D.songId = Just $ case rb2.songID of
-                        SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
-                        SongIDInt i      -> Left $ fromIntegral i
-                        SongIDAutoSymbol -> if isPS3
-                          then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
-                          else Right pkg
-                        SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
-                    , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
-                    , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
-                    , D.rating = case (isPS3, D.rating rb3DTA) of
-                      (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
-                      (_   , x) -> x
-                    , D.author = D.author rb3DTA
-                    , D.loadingPhrase = D.loadingPhrase rb3DTA
-                    }
               liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments songYaml.metadata plan rb3
         rb2DTA %> writeRB2DTA False
-        -- TODO don't get mid out of rba, just use the one we made
         rb2Mid %> \out -> do
-          ex <- doesRBAExist
-          F.Song tempos sigs trks <- if ex
-            then do
-              shk $ need [pathMagmaRbaV1]
-              liftIO $ Magma.getRBAFile 1 pathMagmaRbaV1 out
-              F.loadMIDI out
-            else F.shakeMIDI pathMagmaMidV1
+          -- load the midi that has post-rb2 stuff like lanes and harmonies
+          F.Song tempos sigs origTracks <- F.shakeMIDI pathMagmaMidV1Extra
+          -- load the magma exported one to get percent sections and auto venue
+          maybeMagmaTracks <- doesExportV1Exist >>= \case
+            True -> do
+              shk $ need [pathMagmaExportV1]
+              Just . F.s_tracks <$> F.loadMIDI pathMagmaExportV1
+            False -> return Nothing
           sects <- getRealSections'
-          let mid = F.Song tempos sigs trks
+          let mid = F.Song tempos sigs origTracks
                 { F.fixedEvents = if RTB.null sects
-                  then F.fixedEvents trks
-                  else (F.fixedEvents trks)
+                  then F.fixedEvents $ fromMaybe origTracks maybeMagmaTracks
+                  else (F.fixedEvents origTracks)
                     { eventsSections = fmap makeRB2Section sects
                     }
-                , F.fixedVenue = if F.fixedVenue trks == mempty
-                  then VenueTrack
-                    { venueCameraRB3        = RTB.empty
-                    , venueCameraRB2        = RTB.flatten $ RTB.singleton 0
-                      [ CameraCut
-                      , FocusBass
-                      , FocusDrums
-                      , FocusGuitar
-                      , FocusVocal
-                      , NoBehind
-                      , OnlyFar
-                      , NoClose
-                      ]
-                    , venueDirectedRB2      = RTB.empty
-                    , venueSingGuitar       = RTB.empty
-                    , venueSingDrums        = RTB.empty
-                    , venueSingBass         = RTB.empty
-                    , venueSpotKeys         = RTB.empty
-                    , venueSpotVocal        = RTB.empty
-                    , venueSpotGuitar       = RTB.empty
-                    , venueSpotDrums        = RTB.empty
-                    , venueSpotBass         = RTB.empty
-                    , venuePostProcessRB3   = RTB.empty
-                    , venuePostProcessRB2   = RTB.singleton 0 V2_video_security
-                    , venueLighting         = RTB.singleton 0 Lighting_
-                    , venueLightingCommands = RTB.empty
-                    , venueLightingMode     = RTB.singleton 0 ModeVerse
-                    , venueBonusFX          = RTB.empty
-                    , venueBonusFXOptional  = RTB.empty
-                    , venueFog              = RTB.empty
-                    }
-                  else F.fixedVenue trks
+                , F.fixedVenue = if F.fixedVenue origTracks == mempty
+                  then case maybeMagmaTracks of
+                    Nothing -> mempty
+                      { venueCameraRB2      = RTB.flatten $ RTB.singleton 0
+                        [ CameraCut
+                        , FocusBass
+                        , FocusDrums
+                        , FocusGuitar
+                        , FocusVocal
+                        , NoBehind
+                        , OnlyFar
+                        , NoClose
+                        ]
+                      , venuePostProcessRB2 = RTB.singleton 0 V2_video_security
+                      , venueLighting       = RTB.singleton 0 Lighting_
+                      , venueLightingMode   = RTB.singleton 0 ModeVerse
+                      }
+                    Just magmaTracks -> F.fixedVenue magmaTracks
+                  else F.fixedVenue origTracks
                 }
           F.saveMIDILatin1 out mid
         rb2Mogg %> shk . copyFile' pathMogg
         rb2Milo %> \out -> do
-          -- TODO replace this with our own lipsync milo, ignore magma
-          ex <- doesRBAExist
-          orig <- if ex
-            then stackIO $ Magma.getRBAFileBS 3 pathMagmaRbaV1
-            else stackIO $ emptyMiloRB2 >>= fmap BL.fromStrict . B.readFile
+          lips <- getLipsyncs
           -- need to extend to song length for lego rock band
           mid <- F.shakeMIDI pathMagmaMidV1
           let _ = mid :: F.Song (F.FixedFile U.Beats)
               lipsyncLen :: U.Seconds
               lipsyncLen = fromIntegral (F.songLengthMS mid) / 1000 + 1
-          extended <- extendLipsyncMilo lipsyncLen orig
-          stackIO $ BL.writeFile out extended
-        rb2Weights %> \out -> do
-          ex <- doesRBAExist
-          if ex
-            then stackIO $ Magma.getRBAFile 5 pathMagmaRbaV1 out
-            else stackIO emptyWeightsRB2 >>= \mt -> shk $ copyFile' mt out
+              miloDir = rb2MiloDir $ extendLipsync lipsyncLen $ case lips of
+                lip : _ -> lip
+                []      -> emptyLipsync
+          stackIO $ BL.writeFile out $ addMiloHeader $ makeMiloFile miloDir
+        rb2Weights %> \out -> stackIO emptyWeightsRB2 >>= \mt -> shk $ copyFile' mt out
         rb2Art %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
         rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
         rb2CON %> \out -> do
