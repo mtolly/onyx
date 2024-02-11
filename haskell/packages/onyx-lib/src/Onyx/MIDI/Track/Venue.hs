@@ -341,7 +341,7 @@ instance TraverseTrack VenueTrack where
 instance ParseTrack VenueTrack where
   parseTrack = do
     venueCameraRB3 <- venueCameraRB3 =. command
-    venueCameraRB2 <- (venueCameraRB2 =.) $ condenseMap_ $ eachKey each $ blip . \case
+    venueCameraRB2 <- (venueCameraRB2 =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
       CameraCut   -> 60
       FocusVocal  -> 64
       FocusGuitar -> 63
@@ -361,7 +361,7 @@ instance ParseTrack VenueTrack where
     venueSpotDrums       <- venueSpotDrums       =. edges 38 -- RBN2 docs incorrectly say this is bass
     venueSpotBass        <- venueSpotBass        =. edges 37 -- RBN2 docs incorrectly say this is drums
     venuePostProcessRB3  <- venuePostProcessRB3  =. command
-    venuePostProcessRB2  <- (venuePostProcessRB2 =.) $ condenseMap_ $ eachKey each $ blip . \case
+    venuePostProcessRB2  <- (venuePostProcessRB2 =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
       V2_video_trails     -> 110
       V2_video_security   -> 109
       V2_video_bw         -> 108
@@ -381,7 +381,7 @@ instance ParseTrack VenueTrack where
       specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
         Just s  -> s
         Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
-    venueLightingCommands <- (venueLightingCommands =.) $ condenseMap_ $ eachKey (liftA2 (,) each each) $ \case
+    venueLightingCommands <- (venueLightingCommands =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) $ \case
       (LightingFirst, RBN2) -> commandMatch ["first"]
       (LightingPrev , RBN2) -> commandMatch ["prev"]
       (LightingNext , RBN2) -> commandMatch ["next"]
@@ -541,6 +541,7 @@ compileVenueRB3 vt = vt
   }
 
 compileVenueRB2 :: (NNC.C t) => VenueTrack t -> VenueTrack t
+compileVenueRB2 vt | vt == mempty = vt -- don't add anything (like [verse]) to an empty input
 compileVenueRB2 vt = let
   cut dist insts = map Left $ CameraCut : (dist ++ insts)
   behind = cut [NoClose]

@@ -1237,7 +1237,7 @@ data TargetRB2 f = TargetRB2
   , is2xBassPedal :: Bool
   , songID        :: RBSongID
   , labelRB2      :: Bool
-  , magma         :: MagmaSetting -- this currently only affects Magma v2; v1 is always tried but optional
+  , magma         :: MagmaSetting
   , guitar        :: F.FlexPartName
   , bass          :: F.FlexPartName
   , drums         :: F.FlexPartName

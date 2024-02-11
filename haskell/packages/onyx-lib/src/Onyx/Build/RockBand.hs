@@ -153,11 +153,11 @@ rbRules buildInfo dir rb3 mrb2 = do
       MoggPlan info -> let
         instrumentHasChannels inst = maybe False (not . null) $ HM.lookup inst info.parts.getParts
         allInstrumentsHaveChannels = and
-          [ uneditedDiffs.rb3DrumsRank  == 0 || instrumentHasChannels F.FlexDrums
-          , uneditedDiffs.rb3BassRank   == 0 || instrumentHasChannels F.FlexBass
-          , uneditedDiffs.rb3GuitarRank == 0 || instrumentHasChannels F.FlexGuitar
-          , uneditedDiffs.rb3VocalRank  == 0 || instrumentHasChannels F.FlexVocal
-          , uneditedDiffs.rb3KeysRank   == 0 || instrumentHasChannels F.FlexKeys
+          [ uneditedDiffs.rb3DrumsRank  == 0 || instrumentHasChannels rb3.drums
+          , uneditedDiffs.rb3BassRank   == 0 || instrumentHasChannels rb3.bass
+          , uneditedDiffs.rb3GuitarRank == 0 || instrumentHasChannels rb3.guitar
+          , uneditedDiffs.rb3VocalRank  == 0 || instrumentHasChannels rb3.vocal
+          , uneditedDiffs.rb3KeysRank   == 0 || instrumentHasChannels rb3.keys
           ]
         in if allInstrumentsHaveChannels
           && maybe True (== 1) rb3.common.speed
@@ -356,6 +356,13 @@ rbRules buildInfo dir rb3 mrb2 = do
         , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
         , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
         }
+      magmaErrorMessage = unwords
+        [ "Magma returned an error; check the log above for what caused"
+        , "the problem. If it seems like something unimportant or that"
+        , "you don't care about, consider selecting \"Edit > Preferences\""
+        , "from the menu above, navigating to the Rock Band tab, and"
+        , "either making Magma optional or disabling it."
+        ]
   pathMagmaExport %> \out -> do
     shk $ need [pathMagmaMid, pathMagmaProj]
     let magma = mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
@@ -373,16 +380,9 @@ rbRules buildInfo dir rb3 mrb2 = do
         errorToEither magma >>= \case
           Right result -> return result
           Left (Messages errors) -> throwNoContext $ Messages $ do
-            let annotation = "\n" <> unwords
-                  [ "Magma returned an error; check the log above for what caused"
-                  , "the problem. If it seems like something unimportant or that"
-                  , "you don't care about, consider selecting \"Edit > Preferences\""
-                  , "from the menu above, navigating to the Rock Band tab, and"
-                  , "either making Magma optional or disabling it."
-                  ] <> "\n"
+            let annotation = "\n" <> magmaErrorMessage <> "\n"
             Message str ctx <- errors
             return $ Message (str <> annotation) ctx
-
       MagmaTry -> do
         lg "# Running Magma v2 to export MIDI (with fallback)"
         errorToWarning magma >>= \case
@@ -781,14 +781,26 @@ rbRules buildInfo dir rb3 mrb2 = do
 
       pathMagmaExportV1 %> \out -> do
         shk $ need [pathMagmaMidV1, pathMagmaProjV1]
-        lg "# Running Magma v1 (no 10 min limit) to export MIDI"
-        errorToWarning (mapStackTraceT (liftIO . runResourceT) $ Magma.runMagmaMIDIV1 pathMagmaProjV1 out) >>= \case
-          Just output -> lg output
-          Nothing     -> do
-            lg "Magma v1 failed; optimistically bypassing."
-            stackIO $ B.writeFile out B.empty
+        let magma = mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDIV1 pathMagmaProjV1 out) >>= lg
+            fallback = stackIO $ B.writeFile out B.empty
+        case rb2.magma of
+          MagmaRequire -> do
+            lg "# Running Magma v1 to export MIDI"
+            errorToEither magma >>= \case
+              Right result -> return result
+              Left (Messages errors) -> throwNoContext $ Messages $ do
+                let annotation = "\n" <> magmaErrorMessage <> "\n"
+                Message str ctx <- errors
+                return $ Message (str <> annotation) ctx
+          MagmaTry -> do
+            lg "# Running Magma v1 to export MIDI (with fallback)"
+            errorToWarning magma >>= \case
+              Nothing -> do
+                lg "Magma v1 failed; optimistically bypassing."
+                fallback
+              Just () -> return ()
+          MagmaDisable -> fallback
 
-      -- Magma v1 rba to con
       do
         let doesExportV1Exist = do
               shk $ need [pathMagmaExportV1]
