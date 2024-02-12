@@ -55,14 +55,16 @@ import           Onyx.Harmonix.DTA.Serialize.Magma    (Gender (..))
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
 import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
+                                                       convertFromAnim,
                                                        decompressMilo,
-                                                       miloToFolder,
+                                                       miloToFolder, parseAnim,
                                                        parseMiloFile)
 import           Onyx.Harmonix.RockBand.RB4.RBMid
 import           Onyx.Harmonix.RockBand.RB4.SongDTA
 import           Onyx.Image.DXT.RB4
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
+import           Onyx.MIDI.Read                       (mapTrack)
 import           Onyx.MIDI.Track.Drums                as Drums
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
@@ -418,8 +420,17 @@ importRB rbi level = do
   songAnim <- case lookup "song.anim" flat of
     Nothing -> return Nothing
     Just bs -> do
-      lg "Loading song.anim"
-      return $ Just $ SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
+      parsed <- inside "Loading song.anim" $ errorToWarning $ runGetM parseAnim bs
+      return $ Just
+        ( SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
+        , parsed
+        )
+  let midiOnyxWithAnim = case songAnim of
+        Just (_, Just parsedAnim) -> midiOnyx
+          { F.s_tracks = F.s_tracks midiOnyx
+            <> mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) (convertFromAnim parsedAnim)
+          }
+        _ -> midiOnyx
 
   (video, vgs) <- case guard (level == ImportFull) >> rbi.pss of
     Nothing     -> return (Nothing, Nothing)
@@ -472,8 +483,9 @@ importRB rbi level = do
       }
     , global = def'
       { animTempo           = D.animTempo pkg
-      , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyx
-      , fileSongAnim        = songAnim
+      , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyxWithAnim
+      -- disabled now that we're importing it to midi
+      , fileSongAnim        = Nothing -- fst <$> songAnim
       , backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
         { fileVideo      = videoFile
         , videoStartTime = Just $ rockBandPS2PreSongTime pkg

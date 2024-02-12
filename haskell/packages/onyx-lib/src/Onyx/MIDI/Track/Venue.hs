@@ -271,7 +271,7 @@ data Lighting
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data LightingMode2 = ModeVerse | ModeChorus
   deriving (Eq, Ord, Show, Enum, Bounded)

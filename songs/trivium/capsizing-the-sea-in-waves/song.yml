@@ -83,3 +83,15 @@ metadata:
   difficulty:
     rank: 273
   artist: Trivium
+  preview-start: prc_verse_2
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

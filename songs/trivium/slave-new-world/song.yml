@@ -44,3 +44,15 @@ metadata:
   author: Onyxite
   genre: metal
   file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
+  preview-start: prc_break_2
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album
+  ps:
+    game: ps
+    plan: album

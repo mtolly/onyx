@@ -274,6 +274,9 @@ data OnyxFile t = OnyxFile
   , onyxVenue    :: VenueTrack t
   , onyxLighting :: LightingTrack t
   , onyxCamera   :: CameraTrack t
+  , onyxCameraBG :: CameraTrack t
+  , onyxCameraBK :: CameraTrack t
+  , onyxCameraGK :: CameraTrack t
   , onyxSamples  :: Map.Map T.Text (SamplesTrack t)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxFile t)
@@ -284,13 +287,16 @@ instance HasEvents OnyxFile where
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d e f g)
+    (OnyxFile a b c d e f g h i j)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
       <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e
       <*> traverseTrack fn f
-      <*> traverse (traverseTrack fn) g
+      <*> traverseTrack fn g
+      <*> traverseTrack fn h
+      <*> traverseTrack fn i
+      <*> traverse (traverseTrack fn) j
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -442,11 +448,14 @@ instance ParseFile OnyxFile where
       , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
         codecOut (fileId $ parseOnyxPart partName) trk
       }
-    onyxEvents   <- onyxEvents   =. fileTrack (pure "EVENTS"  )
-    onyxBeat     <- onyxBeat     =. fileTrack (pure "BEAT"    )
-    onyxVenue    <- onyxVenue    =. fileTrack (pure "VENUE"   )
-    onyxLighting <- onyxLighting =. fileTrack (pure "LIGHTING")
-    onyxCamera   <- onyxCamera   =. fileTrack (pure "CAMERA"  )
+    onyxEvents   <- onyxEvents   =. fileTrack (pure "EVENTS"   )
+    onyxBeat     <- onyxBeat     =. fileTrack (pure "BEAT"     )
+    onyxVenue    <- onyxVenue    =. fileTrack (pure "VENUE"    )
+    onyxLighting <- onyxLighting =. fileTrack (pure "LIGHTING" )
+    onyxCamera   <- onyxCamera   =. fileTrack (pure "CAMERA"   )
+    onyxCameraBG <- onyxCameraBG =. fileTrack (pure "CAMERA_BG")
+    onyxCameraBK <- onyxCameraBK =. fileTrack (pure "CAMERA_BK")
+    onyxCameraGK <- onyxCameraGK =. fileTrack (pure "CAMERA_GK")
     onyxSamples  <- onyxSamples =. Codec
       { codecIn = do
         trks <- lift get
@@ -764,6 +773,9 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = mapTrack (U.trackTake t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackTake t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackTake t) $ onyxCamera o -- TODO
+    , onyxCameraBG = mapTrack (U.trackTake t) $ onyxCameraBG o -- TODO
+    , onyxCameraBK = mapTrack (U.trackTake t) $ onyxCameraBK o -- TODO
+    , onyxCameraGK = mapTrack (U.trackTake t) $ onyxCameraGK o -- TODO
     , onyxSamples  = chopTake t <$> onyxSamples o
     }
   chopDrop t o = OnyxFile
@@ -773,6 +785,9 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = mapTrack (U.trackDrop t) $ onyxVenue o -- TODO
     , onyxLighting = mapTrack (U.trackDrop t) $ onyxLighting o -- TODO
     , onyxCamera   = mapTrack (U.trackDrop t) $ onyxCamera o -- TODO
+    , onyxCameraBG = mapTrack (U.trackDrop t) $ onyxCameraBG o -- TODO
+    , onyxCameraBK = mapTrack (U.trackDrop t) $ onyxCameraBK o -- TODO
+    , onyxCameraGK = mapTrack (U.trackDrop t) $ onyxCameraGK o -- TODO
     , onyxSamples  = chopDrop t <$> onyxSamples o
     }
 
@@ -938,6 +953,9 @@ fixedToOnyx f = OnyxFile
   , onyxVenue    = fixedVenue f
   , onyxLighting = mempty
   , onyxCamera   = mempty
+  , onyxCameraBG = mempty
+  , onyxCameraBK = mempty
+  , onyxCameraGK = mempty
   , onyxSamples  = mempty
   }
 

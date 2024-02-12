@@ -15,7 +15,7 @@ parts:
   drums:
     drums:
       mode: 'true'
-      kicks: both
+      kicks: 1
 plans:
   album:
     song:
@@ -44,3 +44,11 @@ metadata:
   author: Onyxite
   genre: metal
   file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
+  preview-start: section Ensnare
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

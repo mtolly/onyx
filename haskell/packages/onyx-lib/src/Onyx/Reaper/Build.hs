@@ -384,7 +384,7 @@ track tunings lenTicks lenSecs resn trk = let
       , (("PART GUITAR GHL" `T.isSuffixOf`), ghlNoteNames)
       , (("PART BASS GHL" `T.isSuffixOf`), ghlNoteNames)
       , (("PART REAL_KEYS" `T.isInfixOf`), proKeysNoteNames)
-      , (("BEAT" `T.isSuffixOf`), [(13, "Up Beats"), (12, "Downbeat")])
+      , (("BEAT" `T.isPrefixOf`), [(13, "Up Beats"), (12, "Downbeat")])
       , (("PART VOCALS" `T.isSuffixOf`), vocalNoteNames)
       , (("HARM1" `T.isSuffixOf`), vocalNoteNames)
       , (("HARM2" `T.isSuffixOf`), vocalNoteNames)
@@ -397,9 +397,9 @@ track tunings lenTicks lenSecs resn trk = let
       , (("MELODY'S ESCAPE" `T.isSuffixOf`), melodyNoteNames)
       , (("DONKEY KONGA" `T.isInfixOf`), dkongaNoteNames)
       , (("PART DANCE" `T.isSuffixOf`), danceNoteNames)
-      , (("LIGHTING" `T.isSuffixOf`), venuegenLightingNames)
-      , (("CAMERA" `T.isSuffixOf`), venuegenCameraNames)
-      , (("VENUE" `T.isSuffixOf`), venueNoteNames)
+      , (("LIGHTING" `T.isPrefixOf`), venuegenLightingNames)
+      , (("CAMERA" `T.isPrefixOf`), venuegenCameraNames)
+      , (("VENUE" `T.isPrefixOf`), venueNoteNames)
       ] of
       Nothing -> return False
       Just (_, names) -> do
@@ -1207,6 +1207,9 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` name)
   , "VENUE"
   , "LIGHTING"
   , "CAMERA"
+  , "CAMERA_BG"
+  , "CAMERA_BK"
+  , "CAMERA_GK"
   , "BEAT"
   ]
 

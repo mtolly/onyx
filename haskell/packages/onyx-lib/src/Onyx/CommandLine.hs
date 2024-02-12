@@ -106,10 +106,10 @@ import           Onyx.Harmonix.RockBand.Milo          (autoLipsync,
                                                        lipsyncFromMIDITrack,
                                                        loadVisemesRB3,
                                                        loadVisemesTBRB,
-                                                       packMilo, parseVenue,
+                                                       packMilo, parseAnim,
                                                        putLipsync, setBeatles,
+                                                       testConvertAnim,
                                                        testConvertLipsync,
-                                                       testConvertVenue,
                                                        unpackMilo)
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Image.DXT                       (readRBImageMaybe)
@@ -1759,12 +1759,12 @@ _oldCommands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "txt"
-        venue <- stackIO (BL.readFile fin) >>= runGetM parseVenue
+        venue <- stackIO (BL.readFile fin) >>= runGetM parseAnim
         stackIO $ writeFile fout $ show venue
         return [fout]
       [fin, mid] -> do
         fout <- outputFile opts $ return $ mid <> ".venue.mid"
-        stackIO $ testConvertVenue mid fin fout
+        stackIO $ testConvertAnim mid fin fout
         return [fout]
       _ -> fatal "Expected 1 or 2 arguments"
     }

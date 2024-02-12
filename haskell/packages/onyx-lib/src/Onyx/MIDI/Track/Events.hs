@@ -24,6 +24,14 @@ data CrowdMood
   | CrowdMellow
   deriving (Eq, Ord, Show, Enum, Bounded)
 
+instance Command CrowdMood where
+  fromCommand = \case
+    CrowdRealtime -> ["crowd_realtime"]
+    CrowdIntense  -> ["crowd_intense" ]
+    CrowdNormal   -> ["crowd_normal"  ]
+    CrowdMellow   -> ["crowd_mellow"  ]
+  toCommand = reverseLookup each fromCommand
+
 data Backing
   = BackingKick
   | BackingSnare
@@ -70,11 +78,7 @@ instance ParseTrack EventsTrack where
     eventsEnd        <- eventsEnd        =. commandMatch ["end"]
     eventsCoda       <- eventsCoda       =. commandMatch ["coda"]
     eventsCodaResume <- eventsCodaResume =. commandMatch ["coda_resume"]
-    eventsCrowd <- (eventsCrowd =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
-      CrowdRealtime -> ["crowd_realtime"]
-      CrowdIntense  -> ["crowd_intense"]
-      CrowdNormal   -> ["crowd_normal"]
-      CrowdMellow   -> ["crowd_mellow"]
+    eventsCrowd      <- eventsCrowd      =. command
     eventsCrowdClap <- (eventsCrowdClap =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       False -> ["crowd_noclap"]
       True  -> ["crowd_clap"]
