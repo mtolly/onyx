@@ -10,6 +10,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE PatternSynonyms        #-}
+{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE ViewPatterns           #-}
 module Onyx.MIDI.Common where
 
@@ -18,8 +19,10 @@ import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import           Data.Hashable                    (Hashable (..))
-import           Data.List                        (stripPrefix)
+import           Data.List.Extra                  (nubOrd, stripPrefix)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
@@ -41,6 +44,11 @@ reverseLookup :: (Eq b) => [a] -> (a -> b) -> b -> Maybe a
 reverseLookup xs f y = let
   pairs = [ (f x, x) | x <- xs ]
   in lookup y pairs
+
+reverseLookupCI :: [a] -> (a -> [T.Text]) -> [T.Text] -> Maybe a
+reverseLookupCI xs f y = let
+  pairs = [ (map T.toCaseFold $ f x, x) | x <- xs ]
+  in lookup (map T.toCaseFold y) pairs
 
 each :: (Enum a, Bounded a) => [a]
 each = [minBound .. maxBound]
@@ -410,6 +418,13 @@ chopDropBool t xs = let
       Just (_, (_, True)) -> U.trackGlueZero [True] after
       _                   -> after
     (z, nz) -> U.trackGlueZero (filter id z) nz
+
+chopEachPair :: (NNC.C t, Ord a) => (RTB.T t Bool -> RTB.T t Bool) -> RTB.T t (a, Bool) -> RTB.T t (a, Bool)
+chopEachPair eachLane orig = let
+  trkMap = Map.fromList $ do
+    k <- nubOrd $ map fst $ toList orig
+    return (k, eachLane $ RTB.mapMaybe (\(k', v) -> guard (k == k') >> Just v) orig)
+  in foldr RTB.merge RTB.empty [fmap (k,) trk | (k, trk) <- Map.toList trkMap]
 
 chopTakeMaybe :: (NNC.C t, Ord a) => t -> RTB.T t (Maybe a) -> RTB.T t (Maybe a)
 chopTakeMaybe t xs = let

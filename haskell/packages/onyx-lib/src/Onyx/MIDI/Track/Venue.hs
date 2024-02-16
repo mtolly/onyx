@@ -23,6 +23,7 @@ import           Onyx.DeriveHelpers
 import           Onyx.Guitar                      (applyStatus1)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
+import qualified Sound.MIDI.Util                  as U
 
 data Camera3
   -- generic 4 camera shots
@@ -212,7 +213,8 @@ instance Command PostProcess3 where
   fromCommand x           = case T.stripPrefix "V3_" $ T.pack $ show x of
     Just s  -> [s <> ".pp"]
     Nothing -> error "panic! couldn't strip V3_ from venue event"
-  toCommand = reverseLookup each fromCommand
+  toCommand = reverseLookupCI each fromCommand
+  -- case insensitive since RB4 .rbsong just has them all lowercase
 
 data PostProcess2
   = V2_video_trails
@@ -330,6 +332,50 @@ data VenueTrack t = VenueTrack
 
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VenueTrack t)
+
+instance ChopTrack VenueTrack where
+  chopTake t o = VenueTrack
+    { venueCameraRB3        = U.trackTake  t $ venueCameraRB3        o
+    , venueCameraRB2        = U.trackTake  t $ venueCameraRB2        o
+    , venueDirectedRB2      = U.trackTake  t $ venueDirectedRB2      o
+    , venueSingGuitar       = chopTakeBool t $ venueSingGuitar       o
+    , venueSingDrums        = chopTakeBool t $ venueSingDrums        o
+    , venueSingBass         = chopTakeBool t $ venueSingBass         o
+    , venueSpotKeys         = chopTakeBool t $ venueSpotKeys         o
+    , venueSpotVocal        = chopTakeBool t $ venueSpotVocal        o
+    , venueSpotGuitar       = chopTakeBool t $ venueSpotGuitar       o
+    , venueSpotDrums        = chopTakeBool t $ venueSpotDrums        o
+    , venueSpotBass         = chopTakeBool t $ venueSpotBass         o
+    , venuePostProcessRB3   = U.trackTake  t $ venuePostProcessRB3   o
+    , venuePostProcessRB2   = U.trackTake  t $ venuePostProcessRB2   o
+    , venueLighting         = U.trackTake  t $ venueLighting         o
+    , venueLightingCommands = U.trackTake  t $ venueLightingCommands o
+    , venueLightingMode     = U.trackTake  t $ venueLightingMode     o
+    , venueBonusFX          = U.trackTake  t $ venueBonusFX          o
+    , venueBonusFXOptional  = U.trackTake  t $ venueBonusFXOptional  o
+    , venueFog              = U.trackTake  t $ venueFog              o
+    }
+  chopDrop t o = VenueTrack
+    { venueCameraRB3        = U.trackDrop  t $ venueCameraRB3        o
+    , venueCameraRB2        = U.trackDrop  t $ venueCameraRB2        o
+    , venueDirectedRB2      = U.trackDrop  t $ venueDirectedRB2      o
+    , venueSingGuitar       = chopDropBool t $ venueSingGuitar       o
+    , venueSingDrums        = chopDropBool t $ venueSingDrums        o
+    , venueSingBass         = chopDropBool t $ venueSingBass         o
+    , venueSpotKeys         = chopDropBool t $ venueSpotKeys         o
+    , venueSpotVocal        = chopDropBool t $ venueSpotVocal        o
+    , venueSpotGuitar       = chopDropBool t $ venueSpotGuitar       o
+    , venueSpotDrums        = chopDropBool t $ venueSpotDrums        o
+    , venueSpotBass         = chopDropBool t $ venueSpotBass         o
+    , venuePostProcessRB3   = U.trackDrop  t $ venuePostProcessRB3   o
+    , venuePostProcessRB2   = U.trackDrop  t $ venuePostProcessRB2   o
+    , venueLighting         = U.trackDrop  t $ venueLighting         o
+    , venueLightingCommands = U.trackDrop  t $ venueLightingCommands o
+    , venueLightingMode     = U.trackDrop  t $ venueLightingMode     o
+    , venueBonusFX          = U.trackDrop  t $ venueBonusFX          o
+    , venueBonusFXOptional  = U.trackDrop  t $ venueBonusFXOptional  o
+    , venueFog              = U.trackDrop  t $ venueFog              o
+    }
 
 instance TraverseTrack VenueTrack where
   traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r s) = VenueTrack

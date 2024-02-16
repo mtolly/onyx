@@ -770,24 +770,24 @@ instance ChopTrack OnyxFile where
     { onyxParts    = chopTake t <$> onyxParts o
     , onyxEvents   = chopTake t $ onyxEvents o
     , onyxBeat     = chopTake t $ onyxBeat o
-    , onyxVenue    = mapTrack (U.trackTake t) $ onyxVenue o -- TODO
-    , onyxLighting = mapTrack (U.trackTake t) $ onyxLighting o -- TODO
-    , onyxCamera   = mapTrack (U.trackTake t) $ onyxCamera o -- TODO
-    , onyxCameraBG = mapTrack (U.trackTake t) $ onyxCameraBG o -- TODO
-    , onyxCameraBK = mapTrack (U.trackTake t) $ onyxCameraBK o -- TODO
-    , onyxCameraGK = mapTrack (U.trackTake t) $ onyxCameraGK o -- TODO
+    , onyxVenue    = chopTake t $ onyxVenue o
+    , onyxLighting = chopTake t $ onyxLighting o
+    , onyxCamera   = chopTake t $ onyxCamera o
+    , onyxCameraBG = chopTake t $ onyxCameraBG o
+    , onyxCameraBK = chopTake t $ onyxCameraBK o
+    , onyxCameraGK = chopTake t $ onyxCameraGK o
     , onyxSamples  = chopTake t <$> onyxSamples o
     }
   chopDrop t o = OnyxFile
     { onyxParts    = chopDrop t <$> onyxParts o
     , onyxEvents   = chopDrop t $ onyxEvents o
     , onyxBeat     = chopDrop t $ onyxBeat o
-    , onyxVenue    = mapTrack (U.trackDrop t) $ onyxVenue o -- TODO
-    , onyxLighting = mapTrack (U.trackDrop t) $ onyxLighting o -- TODO
-    , onyxCamera   = mapTrack (U.trackDrop t) $ onyxCamera o -- TODO
-    , onyxCameraBG = mapTrack (U.trackDrop t) $ onyxCameraBG o -- TODO
-    , onyxCameraBK = mapTrack (U.trackDrop t) $ onyxCameraBK o -- TODO
-    , onyxCameraGK = mapTrack (U.trackDrop t) $ onyxCameraGK o -- TODO
+    , onyxVenue    = chopDrop t $ onyxVenue o
+    , onyxLighting = chopDrop t $ onyxLighting o
+    , onyxCamera   = chopDrop t $ onyxCamera o
+    , onyxCameraBG = chopDrop t $ onyxCameraBG o
+    , onyxCameraBK = chopDrop t $ onyxCameraBK o
+    , onyxCameraGK = chopDrop t $ onyxCameraGK o
     , onyxSamples  = chopDrop t <$> onyxSamples o
     }
 

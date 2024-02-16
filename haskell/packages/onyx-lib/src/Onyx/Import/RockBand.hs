@@ -41,7 +41,8 @@ import           Data.Text.Encoding.Error             (lenientDecode)
 import           Onyx.Audio                           (Audio (..), Edge (..))
 import           Onyx.Audio.VGS                       (splitOutVGSChannels,
                                                        vgsChannelCount)
-import           Onyx.Codec.Binary                    (bin, codecIn, (=.))
+import           Onyx.Codec.Binary                    (bin, codecIn, runPut,
+                                                       (=.))
 import           Onyx.Codec.Common                    (req)
 import           Onyx.Difficulty
 import           Onyx.Harmonix.Ark.ArkTool            (ark_DecryptVgs)
@@ -58,14 +59,18 @@ import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        convertFromAnim,
                                                        decompressMilo,
                                                        miloToFolder, parseAnim,
-                                                       parseMiloFile)
+                                                       parseMiloFile, putAnim,
+                                                       putLipsync)
+import           Onyx.Harmonix.RockBand.RB4.Lipsync
 import           Onyx.Harmonix.RockBand.RB4.RBMid
+import           Onyx.Harmonix.RockBand.RB4.RBSong
 import           Onyx.Harmonix.RockBand.RB4.SongDTA
 import           Onyx.Image.DXT.RB4
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                       (mapTrack)
 import           Onyx.MIDI.Track.Drums                as Drums
+import           Onyx.MIDI.Track.Events               (eventsEnd)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
@@ -84,6 +89,7 @@ import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
+import           Sound.MIDI.File                      (T (..))
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
 import qualified System.Directory                     as Dir
@@ -99,7 +105,7 @@ data RBImport = RBImport
   , mogg        :: Maybe SoftContents
   , pss         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
   , albumArt    :: Maybe (IO (Either String SoftFile))
-  , milo        :: Maybe Readable
+  , milo        :: [(B.ByteString, BL.ByteString)]
   , midi        :: Readable
   , midiUpdate  :: Maybe (IO (Either String Readable))
   , source      :: Maybe FilePath
@@ -172,17 +178,19 @@ importSTFSFolder src folder = do
           True  -> Right $ fileReadable updateMid
           False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
-    return $ importRB RBImport
-      { songPackage = pkg
-      , comments = comments
-      , mogg = mogg
-      , pss = pss
-      , albumArt = art
-      , milo = findFileCI miloPath folder
-      , midi = midi
-      , midiUpdate = update
-      , source = Just src
-      }
+    return $ \level -> do
+      milo <- maybe (return []) (loadFlatMilo level) $ findFileCI miloPath folder
+      importRB RBImport
+        { songPackage = pkg
+        , comments = comments
+        , mogg = mogg
+        , pss = pss
+        , albumArt = art
+        , milo = milo
+        , midi = midi
+        , midiUpdate = update
+        , source = Just src
+        } level
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRBA rba level = do
@@ -197,7 +205,7 @@ importRBA rba level = do
     _      -> fatal $ "Expected 1 song in RBA, found " <> show (length packSongs)
   midi <- need 1
   mogg <- SoftReadable <$> need 2
-  milo <- need 3
+  milo <- need 3 >>= loadFlatMilo level
   bmp <- SoftFile "cover.bmp" . SoftReadable <$> need 4
   extraBS <- need 6 >>= \r -> stackIO $ useHandle r handleToByteString
   extra <- fmap (if isUTF8 then decodeUtf8With lenientDecode else decodeLatin1)
@@ -219,7 +227,7 @@ importRBA rba level = do
     , mogg = Just mogg
     , pss = Nothing
     , albumArt = Just $ return $ Right bmp
-    , milo = Just milo
+    , milo = milo
     , midi = midi
     , midiUpdate = Nothing
     , source = Nothing
@@ -235,6 +243,17 @@ dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pk
 -- Time in seconds that the video/audio should start before the midi begins.
 rockBandPS2PreSongTime :: (Fractional a) => D.SongPackage -> a
 rockBandPS2PreSongTime pkg = if D.video pkg then 5 else 3
+
+loadFlatMilo :: (SendMessage m, MonadIO m) => ImportLevel -> Readable -> StackTraceT m [(B.ByteString, BL.ByteString)]
+loadFlatMilo level milo = do
+  miloFolder <- case level of
+    ImportFull -> errorToWarning $ do
+      bs <- stackIO $ useHandle milo handleToByteString
+      dec <- runGetM decompressMilo bs
+      snd . miloToFolder <$> runGetM parseMiloFile dec
+    _ -> return Nothing
+  let flatten folder = folderFiles folder <> concatMap (flatten . snd) (folderSubfolders folder)
+  return $ maybe [] flatten miloFolder
 
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
 importRB rbi level = do
@@ -377,17 +396,9 @@ importRB rbi level = do
 
       bassBase = detectExtProBass $ F.s_tracks midiFixed
 
-  miloFolder <- case (level, rbi.milo) of
-    (ImportFull, Just milo) -> errorToWarning $ do
-      bs <- stackIO $ useHandle milo handleToByteString
-      dec <- runGetM decompressMilo bs
-      snd . miloToFolder <$> runGetM parseMiloFile dec
-    _ -> return Nothing
-  let flatten folder = folderFiles folder <> concatMap (flatten . snd) (folderSubfolders folder)
-      flat = maybe [] flatten miloFolder
-      lipsyncNames = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync"]
+  let lipsyncNames = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync"]
       getLipsyncFile name = do
-        bs <- lookup name flat
+        bs <- lookup name rbi.milo
         return
           $ LipsyncFile
           $ SoftFile (B8.unpack name)
@@ -396,7 +407,7 @@ importRB rbi level = do
           $ byteStringSimpleHandle bs
       takeWhileJust (Just x : xs) = x : takeWhileJust xs
       takeWhileJust _             = []
-  songPref <- case lookup "BandSongPref" flat of
+  songPref <- case lookup "BandSongPref" rbi.milo of
     Nothing -> return Nothing
     Just bs -> do
       lg "Loading BandSongPref"
@@ -417,7 +428,7 @@ importRB rbi level = do
   let lipsync = case takeWhileJust $ map getLipsyncFile lipsyncNames of
         []   -> Nothing
         srcs -> Just $ LipsyncRB3 srcs pref2 pref3 pref4
-  songAnim <- case lookup "song.anim" flat of
+  songAnim <- case lookup "song.anim" rbi.milo of
     Nothing -> return Nothing
     Just bs -> do
       parsed <- inside "Loading song.anim" $ errorToWarning $ runGetM parseAnim bs
@@ -425,10 +436,37 @@ importRB rbi level = do
         ( SoftFile "song.anim" $ SoftReadable $ makeHandle "song.anim" $ byteStringSimpleHandle bs
         , parsed
         )
-  let midiOnyxWithAnim = case songAnim of
+  -- if we don't have all 3 guitar/bass/keys, only import the actually used camera track
+  let adjustAnimMidi orig = case (hasRankStr "guitar", hasRankStr "bass", hasRankStr "keys") of
+        (True, True, True) -> orig
+        (_, _, False) -> orig
+          { F.onyxCamera = F.onyxCameraBG orig
+          , F.onyxCameraBG = mempty
+          , F.onyxCameraBK = mempty
+          , F.onyxCameraGK = mempty
+          }
+        (False, _, True) -> orig
+          { F.onyxCamera = F.onyxCameraBK orig
+          , F.onyxCameraBG = mempty
+          , F.onyxCameraBK = mempty
+          , F.onyxCameraGK = mempty
+          }
+        (True, False, True) -> orig
+          { F.onyxCamera = F.onyxCameraGK orig
+          , F.onyxCameraBG = mempty
+          , F.onyxCameraBK = mempty
+          , F.onyxCameraGK = mempty
+          }
+      cutoffAnimAtEnd = case eventsEnd $ F.onyxEvents $ F.s_tracks midiOnyx of
+        RNil              -> id
+        Wait endTime () _ -> chopTake endTime
+      -- TODO we may need a smarter way to apply the song.anim data;
+      -- various cases of data existing in both song.anim (or .rbsong) and the midi
+      midiOnyxWithAnim = case songAnim of
         Just (_, Just parsedAnim) -> midiOnyx
-          { F.s_tracks = F.s_tracks midiOnyx
-            <> mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) (convertFromAnim parsedAnim)
+          { F.s_tracks = (F.s_tracks midiOnyx)
+            { F.onyxVenue = mempty -- pre-RB3 songs still have old VENUE tracks we can replace entirely
+            } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) $ convertFromAnim parsedAnim)
           }
         _ -> midiOnyx
 
@@ -671,12 +709,24 @@ importRB4 fdta level = do
   moggDTA <- stackIO (D.readFileDTA $ fdta -<.> "mogg.dta") >>= D.unserialize D.stackChunks
   let _ = moggDTA :: RB4MoggDta
 
-  (midRead, hopoThreshold) <- case level of
-    ImportQuick -> return (makeHandle "notes.mid" $ byteStringSimpleHandle BL.empty, 170)
+  (midRead, hopoThreshold, beatTrackSeconds) <- case level of
+    ImportQuick -> return
+      ( makeHandle "notes.mid" $ byteStringSimpleHandle BL.empty
+      , 170
+      , mempty
+      )
     ImportFull  -> do
       rbmid <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
       mid <- extractMidi rbmid
-      return (makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid, rbmid_HopoThreshold rbmid)
+      -- only need to parse out the BEAT track so we can translate .rbsong times
+      beatMidi <- F.readMIDIFile' $ fmap decodeLatin1 $ case mid of
+        Cons typ dvn []       -> Cons typ dvn []
+        Cons typ dvn (t : ts) -> Cons typ dvn $ t : filter (\trk -> U.trackName trk == Just "BEAT") ts
+      return
+        ( makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid
+        , rbmid_HopoThreshold rbmid
+        , mapTrack (U.applyTempoTrack $ F.s_tempos beatMidi) $ F.onyxBeat $ F.s_tracks beatMidi
+        )
 
   -- dta.albumArt doesn't appear to be correct, it is False sometimes when song should have art
   art <- if level == ImportFull
@@ -684,6 +734,44 @@ importRB4 fdta level = do
       img <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "png_ps4")) >>= runGetM readPNGPS4
       return $ SoftFile "cover.png" $ SoftImage $ pixelMap dropTransparency img
     else return Nothing
+
+  let rbsongPath  = fdta -<.> "rbsong"
+      lipsyncPath = fdta -<.> "lipsync_ps4"
+  maybeRBSong <- case level of
+    ImportQuick -> return Nothing
+    ImportFull  -> stackIO (Dir.doesFileExist rbsongPath) >>= \case
+      False -> return Nothing
+      True  -> do
+        bs <- stackIO $ B.readFile rbsongPath
+        inside "Loading .rbsong" $ errorToWarning $ runGetM getEntityResource $ BL.fromStrict bs
+  miloLipsync <- case level of
+    ImportQuick -> return []
+    ImportFull -> stackIO (Dir.doesFileExist lipsyncPath) >>= \case
+      True -> do
+        lips <- fmap (fromMaybe []) $ inside "Loading .lipsync_ps4" $ errorToWarning $ do
+          bs <- stackIO $ B.readFile lipsyncPath
+          runGetM getLipsyncPS4 (BL.fromStrict bs) >>= fromLipsyncPS4
+        return $ lips >>= \case
+          -- TODO do we need to worry about any parts not being present?
+          ("mic"        , lip) -> [("song.lipsync" , runPut $ putLipsync lip)]
+          ("guitar"     , lip) -> [("part2.lipsync", runPut $ putLipsync lip)]
+          ("bass"       , lip) -> [("part3.lipsync", runPut $ putLipsync lip)]
+          ("drum"       , lip) -> [("part4.lipsync", runPut $ putLipsync lip)]
+          ("guitar+bass", lip) -> let
+            bs = runPut $ putLipsync lip
+            in [("part2.lipsync", bs), ("part3.lipsync", bs)]
+          _                    -> []
+      False -> case maybeRBSong of
+        Nothing -> return []
+        Just rbsong -> do
+          lips <- inside "Loading lipsync from .rbsong" $ errorToWarning $ getRBSongLipsync rbsong
+          return $ do
+            (name, lip) <- fromMaybe [] lips
+            return (name <> ".lipsync", runPut $ putLipsync lip)
+  let miloVenue = do
+        guard $ level == ImportFull
+        rbsong <- toList maybeRBSong
+        return ("song.anim", runPut $ putAnim $ getRBSongVenue beatTrackSeconds rbsong)
 
   let decodeBS = TE.decodeUtf8 -- is this correct? find example with non-ascii char
       pkg = D.SongPackage
@@ -780,7 +868,7 @@ importRB4 fdta level = do
     , mogg = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
     , pss = Nothing
     , albumArt = return . Right <$> art
-    , milo = Nothing
+    , milo = miloLipsync <> miloVenue
     , midi = midRead
     , midiUpdate = Nothing
     , source = Nothing

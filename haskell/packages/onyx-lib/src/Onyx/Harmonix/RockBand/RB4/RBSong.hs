@@ -9,18 +9,34 @@ https://github.com/maxton/LibForge
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
-module Onyx.Harmonix.RockBand.RB4.RBSong where
+module Onyx.Harmonix.RockBand.RB4.RBSong
+
+( Resource(..), ResourceContents(..), EntityResource(..), Entity(..)
+, EntityLayer(..), GameObjectID(..), GameObject(..), Component(..)
+, Property(..), Value(..)
+
+, getEntityResource
+, getRBSongLipsync
+, getRBSongVenue
+, getArray, getString
+
+) where
 
 import           Control.Monad
 import           Data.Binary.Get
 import           Data.Bits
 import qualified Data.ByteString                     as B
 import qualified Data.ByteString.Lazy                as BL
+import qualified Data.EventList.Relative.TimeBody    as RTB
 import           Data.Int
+import           Data.Maybe                          (listToMaybe)
 import           Data.Word
 import           Onyx.Harmonix.RockBand.Milo.Lipsync
+import           Onyx.Harmonix.RockBand.Milo.Venue
+import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Lipsync             (VisemeEvent (..))
 import           Onyx.Util.Binary                    (runGetM)
+import qualified Sound.MIDI.Util                     as U
 
 data Resource = Resource
   { type_    :: B.ByteString
@@ -336,3 +352,74 @@ getRBSongLipsync res = let
   in forM lipsyncList $ \(lipsyncName, visemes, keyframeData) -> do
     keyframes <- runGetM (parseKeyframes []) keyframeData
     return (lipsyncName, emptyLipsync { lipsyncVisemes = visemes, lipsyncKeyframes = keyframes })
+
+-- positions in PropAnim are given in BEAT events. see gimmechocolate which has half-note BEATs
+beatTrackTempoMap :: BeatTrack U.Seconds -> U.TempoMap
+beatTrackTempoMap = U.tempoMapFromSecondsBPS . go . RTB.getTimes . beatLines where
+  go (t1 : rest@(t2 : _)) = RTB.cons t1 (U.makeTempo 1 t2) $ go rest
+  go _                    = RTB.empty
+
+getRBSongVenue :: BeatTrack U.Seconds -> EntityResource -> Anim Float
+getRBSongVenue beatTrack top = let
+  tmap = beatTrackTempoMap beatTrack
+  propAnim = listToMaybe $ do
+    (_, Just resources) <- top.entity.layers
+    resource <- resources
+    RC_PropAnimResource res <- return resource.contents
+    return res
+  tracks :: [(B.ByteString, [(Float, B.ByteString)])]
+  tracks = case propAnim of
+    Nothing   -> []
+    Just anim -> do
+      (layer, _) <- anim.entity.layers
+      object <- layer.objects
+      comp <- object.components
+      guard $ comp.name1 == "PropKeysSymCom"
+      Property { name = "keys", value = ArrayValue keys } <- comp.props
+      Property { name = "driven_prop", value = DrivenProp _ _ _ _ _ (Just prop) } <- comp.props
+      guard $ prop /= "stagekit_fog" -- appears to be garbage in songs I checked
+      let events = do
+            StructValue [Property "frame" (FloatValue frames), Property "value" (SymbolValue x)] <- keys
+            -- need to adjust some camera cut names, also postprocs
+            let adjustedValue = if "shot" `B.isPrefixOf` prop
+                  then let
+                    x2 = maybe x ("coop_" <>) $ B.stripPrefix "band_" x
+                    x3 = case x2 of
+                      "directed_crowd" -> x2
+                      "coop_dv_behind" -> "coop_dv_near"
+                      "coop_bd_behind" -> "coop_bd_near"
+                      "coop_dg_behind" -> "coop_dg_near"
+                      _                -> maybe x2 (<> "_behind") $ B.stripSuffix "_crowd" x2
+                    in x3
+                  else if prop == "postproc"
+                    -- all lowercase also but that's fine, handled by reverseLookupCI in Venue.hs
+                    then x <> ".pp"
+                    else x
+            return (frames, adjustedValue)
+      return (prop, events)
+  in Anim
+    -- ignoring most numbers for now since this is just for importing and will get turned into midi anyway
+    { animVersion    = 0
+    , animSubversion = 0
+    , animDTAImport  = ""
+    , animMystery1   = 0
+    , animMystery2   = 0
+    , animMystery3   = 0
+    , animEnd        = 0
+    , animMystery4   = 0
+    , animTracks     = flip map tracks $ \(name, events) -> AnimTrack
+      { trackVersion    = 6 -- just setting these as such so eventExtra is always expected to be Nothing
+      , trackSubversion = 6
+      , trackDomain     = "BandDirector"
+      , trackMystery1   = B.pack [0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05]
+      , trackName       = name
+      , trackMystery2   = 0
+      , trackName2      = ""
+      , trackMystery3   = B.replicate 5 0
+      , trackEvents     = flip map events $ \(time, event) -> AnimEvent
+        { eventExtra = Nothing
+        , eventName  = event
+        , eventTime  = realToFrac (U.applyTempoMap tmap (realToFrac time :: U.Beats) :: U.Seconds) * 30
+        }
+      }
+    }

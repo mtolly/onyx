@@ -135,6 +135,24 @@ instance ParseTrack LightingTrack where
     lightingBonusFXOptional <- lightingBonusFXOptional =. fatBlips (1/8) (blip 10)
     return LightingTrack{..}
 
+instance ChopTrack LightingTrack where
+  chopTake t o = LightingTrack
+    { lightingPostProcess     = chopEachPair (chopTakeBool t) $ lightingPostProcess     o
+    , lightingTypes           = chopEachPair (chopTakeBool t) $ lightingTypes           o
+    , lightingStrobe          = chopTakeMaybe t               $ lightingStrobe          o
+    , lightingCommands        = U.trackTake   t               $ lightingCommands        o
+    , lightingBonusFX         = U.trackTake   t               $ lightingBonusFX         o
+    , lightingBonusFXOptional = U.trackTake   t               $ lightingBonusFXOptional o
+    }
+  chopDrop t o = LightingTrack
+    { lightingPostProcess     = chopEachPair (chopDropBool t) $ lightingPostProcess     o
+    , lightingTypes           = chopEachPair (chopDropBool t) $ lightingTypes           o
+    , lightingStrobe          = chopDropMaybe t               $ lightingStrobe          o
+    , lightingCommands        = U.trackDrop   t               $ lightingCommands        o
+    , lightingBonusFX         = U.trackDrop   t               $ lightingBonusFX         o
+    , lightingBonusFXOptional = U.trackDrop   t               $ lightingBonusFXOptional o
+    }
+
 venue_generate :: (NNC.C t) => RTB.T t (a, Bool) -> RTB.T t a
 venue_generate = go . RTB.flatten . fmap offsBeforeOns . RTB.collectCoincident where
   offsBeforeOns xs = let (ons, offs) = partition snd xs in offs ++ ons
@@ -314,6 +332,16 @@ instance ParseTrack CameraTrack where
       V3_directed_duo_kb        -> 12
       V3_directed_duo_kg        -> 11
     return CameraTrack{..}
+
+instance ChopTrack CameraTrack where
+  chopTake t o = CameraTrack
+    { cameraCuts   = chopEachPair (U.trackTake t) $ cameraCuts   o
+    , cameraRandom = U.trackTake t                $ cameraRandom o
+    }
+  chopDrop t o = CameraTrack
+    { cameraCuts   = chopEachPair (U.trackDrop t) $ cameraCuts   o
+    , cameraRandom = U.trackDrop t                $ cameraRandom o
+    }
 
 cameraLevels :: [(Camera3, (Int, [RB3Instrument]))]
 cameraLevels =

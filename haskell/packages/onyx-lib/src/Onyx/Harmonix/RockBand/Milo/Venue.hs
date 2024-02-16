@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -15,9 +16,11 @@ import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import           Data.List                        (sort)
 import qualified Data.Text.Encoding               as TE
 import           Data.Word
+import           Numeric.NonNegative.Class        ((-|))
 import           Onyx.Harmonix.RockBand.Milo.Dir
 import           Onyx.MIDI.Common                 (toCommand)
 import           Onyx.MIDI.Track.Events
@@ -41,7 +44,7 @@ data Anim t = Anim
   , animEnd        :: t
   , animMystery4   :: Word32
   , animTracks     :: [AnimTrack t]
-  } deriving (Eq, Show, Functor)
+  } deriving (Eq, Show, Functor, Foldable)
 
 data AnimTrack t = AnimTrack
   { trackVersion    :: Word32
@@ -53,13 +56,13 @@ data AnimTrack t = AnimTrack
   , trackName2      :: B.ByteString
   , trackMystery3   :: B.ByteString
   , trackEvents     :: [AnimEvent t]
-  } deriving (Eq, Show, Functor)
+  } deriving (Eq, Show, Functor, Foldable)
 
 data AnimEvent t = AnimEvent
   { eventExtra :: Maybe Word32 -- 0, only in postproc track?
   , eventName  :: B.ByteString
   , eventTime  :: t
-  } deriving (Eq, Show, Functor)
+  } deriving (Eq, Show, Functor, Foldable)
 
 parseAnim :: Get (Anim Float)
 parseAnim = do
@@ -164,15 +167,23 @@ convertFromAnim anim = let
     trk.trackEvents
   toRTB :: (Ord a) => [(U.Seconds, a)] -> RTB.T U.Seconds a
   toRTB = RTB.fromAbsoluteEventList . ATB.fromPairList . sort
-  singalong name = toRTB $ do
-    -- TODO should check that this is valid midi note edges
+  -- make sure that things we will translate to midi notes are valid on/off pairs.
+  -- usually fine, but seen rb4 songs with singalong tracks that have singalong_off at time 0
+  validEdges :: [(U.Seconds, Bool)] -> [(U.Seconds, Bool)]
+  validEdges = go False . sort {- could avoid double sort... -} where
+    go False [] = []
+    go True  [] = [(lastTime, False)] -- end last note at hopefully an ok time? not sure if this ever happens
+    go b1 (pair@(_, b2) : rest) = if b1 == b2
+      then go b2 rest -- drop event in case of double on, double off, or off at start of track
+      else pair : go b2 rest
+  lastTime = foldr max 0 $ toList animSeconds
+  singalong name = toRTB $ validEdges $ do
     e <- getEvents name
     case e.eventName of
       "singalong_off" -> [(e.eventTime, False)]
       "singalong_on"  -> [(e.eventTime, True )]
       _               -> []
-  onOff name = toRTB $ do
-    -- TODO should check that this is valid midi note edges
+  onOff name = toRTB $ validEdges $ do
     e <- getEvents name
     case e.eventName of
       "off" -> [(e.eventTime, False)]
@@ -188,12 +199,16 @@ convertFromAnim anim = let
     }
   -- various redundant events seen in pulseofthemaggots postproc track;
   -- cleaning up so it converts to venuegen better
-  cleanPostproc :: (Eq t) => [AnimEvent t] -> [AnimEvent t]
+  cleanPostproc :: [AnimEvent U.Seconds] -> [AnimEvent U.Seconds]
   cleanPostproc = \case
     -- AnimEvent {eventExtra = Just 0, eventName = "horror_movie_special.pp", eventTime = 5967.908}
     -- AnimEvent {eventExtra = Just 0, eventName = "film_16mm.pp", eventTime = 5967.908}
     e1 : es@(e2 : _)
-      | e1.eventTime == e2.eventTime
+      -- blurredlines.rbsong has some very close but not exactly the same events:
+      --   428.0001  film_contrast_blue
+      --   428.00012 film_contrast_blue
+      -- so putting in some wiggle room here
+      | e2.eventTime -| e1.eventTime < 0.003
       -> cleanPostproc es
     -- AnimEvent {eventExtra = Just 0, eventName = "film_16mm.pp", eventTime = 37.613712}
     -- AnimEvent {eventExtra = Just 0, eventName = "film_16mm.pp", eventTime = 122.73703}
@@ -237,7 +252,7 @@ convertFromAnim anim = let
             Nothing -> []
             Just pp -> [(e.eventTime, pp)]
       , venueLighting = toRTB $ do
-        e <- getEvents "lightpreset"
+        e <- cleanPostproc $ getEvents "lightpreset"
         case readMaybe $ "Lighting_" <> B8.unpack e.eventName of
           Nothing    -> []
           Just light -> [(e.eventTime, light)]
@@ -262,6 +277,7 @@ convertFromAnim anim = let
       }
     {-
     -- not including as these seem to be in midis still, but off by 1 quarter note?
+    -- but also see note in Onyx.Import.RockBand about being smarter when merging into midi
     , F.onyxParts = Map.fromList
       [ (F.FlexGuitar, mempty
         { F.onyxPartGuitar = mempty

@@ -8,7 +8,9 @@ https://github.com/maxton/LibForge
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
-module Onyx.Harmonix.RockBand.RB4.Lipsync where
+module Onyx.Harmonix.RockBand.RB4.Lipsync
+( LipsyncPS4(..), getLipsyncPS4, fromLipsyncPS4
+) where
 
 import           Control.Monad                       (forM)
 import           Data.Binary.Get
@@ -50,7 +52,7 @@ getLipsyncPS4 = do
 
 splitFrameGroups :: LipsyncPS4 -> [B.ByteString]
 splitFrameGroups lip = do
-  (this, next) <- zip lip.frameIndices $ drop 1 $ lip.frameIndices
+  (this, next) <- zip (0 : lip.frameIndices) $ lip.frameIndices
   return $ B.take (fromIntegral $ next - this) $ B.drop (fromIntegral this) lip.frameData
 
 splitFrameGroup :: Get [Keyframe]
