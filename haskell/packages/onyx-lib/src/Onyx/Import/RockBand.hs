@@ -460,15 +460,17 @@ importRB rbi level = do
       cutoffAnimAtEnd = case eventsEnd $ F.onyxEvents $ F.s_tracks midiOnyx of
         RNil              -> id
         Wait endTime () _ -> chopTake endTime
-      -- TODO we may need a smarter way to apply the song.anim data;
-      -- various cases of data existing in both song.anim (or .rbsong) and the midi
-      midiOnyxWithAnim = case songAnim of
-        Just (_, Just parsedAnim) -> midiOnyx
-          { F.s_tracks = (F.s_tracks midiOnyx)
-            { F.onyxVenue = mempty -- pre-RB3 songs still have old VENUE tracks we can replace entirely
-            } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) $ convertFromAnim parsedAnim)
-          }
-        _ -> midiOnyx
+  -- TODO we may need a smarter way to apply the song.anim data;
+  -- various cases of data existing in both song.anim (or .rbsong) and the midi
+  midiOnyxWithAnim <- case songAnim of
+    Just (_, Just parsedAnim) -> do
+      converted <- convertFromAnim parsedAnim
+      return midiOnyx
+        { F.s_tracks = (F.s_tracks midiOnyx)
+          { F.onyxVenue = mempty -- pre-RB3 songs still have old VENUE tracks we can replace entirely
+          } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) converted)
+        }
+    _ -> return midiOnyx
 
   (video, vgs) <- case guard (level == ImportFull) >> rbi.pss of
     Nothing     -> return (Nothing, Nothing)

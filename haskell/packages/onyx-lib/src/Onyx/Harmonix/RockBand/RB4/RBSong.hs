@@ -26,7 +26,9 @@ import           Control.Monad
 import           Data.Binary.Get
 import           Data.Bits
 import qualified Data.ByteString                     as B
+import qualified Data.ByteString.Char8               as B8
 import qualified Data.ByteString.Lazy                as BL
+import           Data.Char                           (toLower)
 import qualified Data.EventList.Relative.TimeBody    as RTB
 import           Data.Int
 import           Data.Maybe                          (listToMaybe)
@@ -287,8 +289,24 @@ getPropertyType = do
           unknown3 <- getInt32le
           unknown4 <- getInt64le
           return $ DrivenProp unk_driven_prop_1 unk_driven_prop_2 Nothing unknown3 unknown4 Nothing
-    0xA -> fail "unhandled property type: 0xA (GameObjectId)"
-    0xD -> fail "unhandled property type: 0xD (Color)"
+    0xA -> return $ do
+      a <- getInt32le
+      b <- getInt32le
+      c <- getInt32le
+      d <- getInt32le
+      e <- getInt32le
+      f <- getInt32le
+      return $ GameObjectIdValue a b c d e f
+    0xD -> return $ do
+      a <- getFloatle
+      b <- getFloatle
+      c <- getFloatle
+      d <- getFloatle
+      e <- getInt32le
+      f <- getInt32le
+      g <- getInt32le
+      h <- getInt32le
+      return $ ColorValue a b c d e f g h
     0xF -> do
       _refCount <- getInt64le
       propertyReaders <- getPropertyReaders
@@ -379,21 +397,47 @@ getRBSongVenue beatTrack top = let
       Property { name = "driven_prop", value = DrivenProp _ _ _ _ _ (Just prop) } <- comp.props
       guard $ prop /= "stagekit_fog" -- appears to be garbage in songs I checked
       let events = do
-            StructValue [Property "frame" (FloatValue frames), Property "value" (SymbolValue x)] <- keys
+            StructValue [Property "frame" (FloatValue frames), Property "value" (SymbolValue preStrip)] <- keys
             -- need to adjust some camera cut names, also postprocs
-            let adjustedValue = if "shot" `B.isPrefixOf` prop
+            let x = B8.strip preStrip -- needed for blink.rbsong
+                adjustedValue = if "shot" `B.isPrefixOf` prop
                   then let
                     x2 = maybe x ("coop_" <>) $ B.stripPrefix "band_" x
-                    x3 = case x2 of
-                      "directed_crowd" -> x2
+                    in case x2 of
                       "coop_dv_behind" -> "coop_dv_near"
                       "coop_bd_behind" -> "coop_bd_near"
                       "coop_dg_behind" -> "coop_dg_near"
+                      "coop_d_near_head" -> "coop_d_closeup_head"
+                      "coop_g_near_head" -> "coop_g_closeup_head"
+                      "coop_v_near_head" -> "coop_v_closeup"
+                      "coop_b_near_head" -> "coop_b_closeup_head"
+                      "directed_crowd" -> x2 -- exception to below line
                       _                -> maybe x2 (<> "_behind") $ B.stripSuffix "_crowd" x2
-                    in x3
                   else if prop == "postproc"
                     -- all lowercase also but that's fine, handled by reverseLookupCI in Venue.hs
-                    then x <> ".pp"
+                    then case B8.map toLower x of
+                      -- seemingly new simple postprocs seen in e.g. beatsports.rbsong and others
+                      -- TODO we should be smarter about adjacent pps, so we don't introduce unintended blending
+                      "b&w"                 -> "film_b+w.pp"
+                      "blue bright"         -> "film_blue_filter.pp"
+                      "cool"                -> "ProFilm_b.pp"
+                      "default"             -> "ProFilm_a.pp"
+                      "high contrast cool"  -> "posterize.pp"
+                      "high contrast dark"  -> "photocopy.pp"
+                      "high contrast warm"  -> "film_contrast.pp"
+                      "low contrast green"  -> "film_contrast_green.pp"
+                      "low contrast purple" -> "desat_blue.pp"
+                      "low contrast red"    -> "film_contrast_red.pp"
+                      "orange bright"       -> "film_contrast_red.pp"
+                      "pink bright"         -> "film_contrast_red.pp"
+                      "purple bright"       -> "film_contrast_blue.pp"
+                      "sepia bright"        -> "film_sepia_ink.pp"
+                      "sepia dark"          -> "film_sepia_ink.pp"
+                      "video"               -> "video_a.pp"
+                      "warm"                -> "posterize.pp"
+                      "yellow bright"       -> "film_contrast_green.pp"
+                      "<null>"              -> "ProFilm_a.pp" -- ??? seen in neverenough.rbsong
+                      _                     -> x <> ".pp"
                     else x
             return (frames, adjustedValue)
       return (prop, events)
