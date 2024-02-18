@@ -1,38 +1,38 @@
 parts:
-  # vocal:
-  #   vocal:
-  #     count: 3
-  #     gender: male
-  #     difficulty:
-  #       rank: 215
-  #     lipsync-rb3:
-  #       sources:
-  #       - file-lipsync: song.lipsync
-  # bass:
-  #   grybo:
-  #     fix-freeform: false
-  #     difficulty:
-  #       rank: 236
-  #   pro-guitar:
-  #     tuning:
-  #       # Ab Db Ab Db Gb (put on RS bass since Gb not used)
-  #       base: bass-5
-  #       global: -1
-  #       offsets: [-2, -2, 0, 0, 0]
-  # guitar:
-  #   grybo:
-  #     fix-freeform: false
-  #     difficulty:
-  #       rank: 305
-  # keys:
-  #   pro-keys:
-  #     fix-freeform: false
-  #     difficulty:
-  #       rank: 236
-  #   grybo:
-  #     fix-freeform: false
-  #     difficulty:
-  #       rank: 236
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 215
+      lipsync-rb3:
+        sources:
+        - file-lipsync: song.lipsync
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 236
+    pro-guitar:
+      tuning:
+        # Ab Db Ab Db Gb (put on RS bass since Gb not used)
+        base: bass-5
+        global: -1
+        offsets: [-2, -2, 0, 0, 0]
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 305
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 236
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 236
   drums:
     drums:
       kicks: both
@@ -59,6 +59,11 @@ plans:
       mix:
       - countin
       - pad: [2.680, concatenate: [album-capsizing, album-waves]]
+  album-no-capsizing:
+    song:
+      mix:
+      - countin-no-capsizing
+      - pad: [93.290, album-waves]
 audio:
   album-capsizing:
     md5: 2b30ddf8859aa4563265d86ec4a512f9
@@ -67,8 +72,10 @@ audio:
     md5: 6accb2a6cb176cfd9a26cd32cffe4138
     frames: 13338780
   hihat:
-    file-path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/in-waves-countin.wav
   countin:
+    samples: {}
+  countin-no-capsizing:
     samples: {}
 metadata:
   rating: SupervisionRecommended # was family friendly ??
@@ -95,3 +102,26 @@ targets:
   ps:
     game: ps
     plan: album
+  rb3-no-capsizing:
+    title: In Waves
+    track-number: 2
+    game: rb3
+    plan: album-no-capsizing
+    start:
+      &start-no-capsizing
+      fade-start: 57|0
+      fade-end: 57|0
+      notes: 59|2
+  rb3-2x-no-capsizing:
+    title: In Waves
+    track-number: 2
+    game: rb3
+    2x-bass-pedal: true
+    plan: album-no-capsizing
+    start: *start-no-capsizing
+  ps-no-capsizing:
+    title: In Waves
+    track-number: 2
+    game: ps
+    plan: album-no-capsizing
+    start: *start-no-capsizing

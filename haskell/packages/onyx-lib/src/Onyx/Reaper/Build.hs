@@ -1180,6 +1180,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` name)
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
+  , "PART TRUE_DRUMS"
   , "PART BASS"
   , "PART BASS EXT"
   , "PART REAL_BASS"

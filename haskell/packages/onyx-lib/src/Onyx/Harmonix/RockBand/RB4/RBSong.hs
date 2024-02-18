@@ -115,7 +115,8 @@ data Value
 getEntityResource :: Get EntityResource
 getEntityResource = do
   version <- getInt32le
-  when (version < 0xC || version > 0x11) $ do
+  -- Maxton's code went up to 0x11, MT: changed to 0x12 for juice.rbsong
+  when (version < 0xC || version > 0x12) $ do
     fail $ "Can't handle EntityResource version " <> show version
   inlineLayerNames <- getArray getString
   when (version >= 0xF) $ do
@@ -134,7 +135,8 @@ getArray f = do
 getEntity :: Get Entity
 getEntity = do
   version <- getInt32le
-  when (version > 0x1E) $ fail $ "Can't handle entity version " <> show version
+  -- Maxton's code went up to 0x1E, MT: changed to 0x21 for juice.rbsong
+  when (version > 0x21) $ fail $ "Can't handle entity version " <> show version
   when (version <= 1) $ fail "Entity version must be > 1"
   unkString <- if version <= 4
     then Just <$> getString
@@ -198,7 +200,7 @@ getEntityLayer _index _entityVersion = do
   when (version < 8) $ fail "Entity layer version should be > 8"
   when (version >= 0x17) $ void getInt32le -- unknown
   fileSlotIndex <- getInt32le
-  -- fileSlotIndex should equal _index, or may be not? commented out error
+  -- fileSlotIndex should equal _index, or maybe not? commented out error
   totalObjectLayers <- getInt16le
   numObjects <- getInt32le
   let getObjects i = if i >= numObjects
@@ -251,6 +253,7 @@ getComponent :: Int32 -> Int32 -> Get Component
 getComponent objRev layerVersion = do
   name1 <- getString
   name2 <- if objRev >= 2
+      && objRev < 5 -- MT: added to allow juice.rbsong to parse
     then Just <$> getString
     else return Nothing
   rev <- getInt32le

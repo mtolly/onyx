@@ -8,7 +8,7 @@ audio:
     - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
     channels: 8
   hihat:
-    file-path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/in-waves-countin.wav
   countin:
     samples: {}
 parts:

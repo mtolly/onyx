@@ -23,15 +23,20 @@ audio:
     - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
     channels: 8
   hihat:
-    file-path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/in-waves-countin.wav
+  hihat-quiet:
+    expr:
+      gain: [0.37, hihat]
   countin:
     samples: {}
 plans:
   album:
     song:
-      pad:
-      - 3.706
-      - concatenate: [album-track, album-next]
+      mix:
+      - countin
+      - pad:
+        - 3.706
+        - concatenate: [album-track, album-next]
   dev:
     song:
       pad: [3.706, album-track]

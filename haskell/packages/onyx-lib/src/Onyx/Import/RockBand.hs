@@ -718,7 +718,8 @@ importRB4 fdta level = do
       , mempty
       )
     ImportFull  -> do
-      rbmid <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
+      rbmid <- inside "Loading .rbmid_ps4" $ do
+        stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
       mid <- extractMidi rbmid
       -- only need to parse out the BEAT track so we can translate .rbsong times
       beatMidi <- F.readMIDIFile' $ fmap decodeLatin1 $ case mid of

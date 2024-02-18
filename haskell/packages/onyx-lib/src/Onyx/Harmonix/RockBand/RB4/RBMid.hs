@@ -42,6 +42,15 @@ optionalData b c = Codec
   , codecOut = fmapArg $ mapM_ $ codecOut c
   }
 
+-- TODO
+-- these start with rbmid_Format = 0x0E and fail to parse:
+--   brassinpocket.rbmid_ps4
+--   clocks.rbmid_ps4
+--   intheend_linkin2.rbmid_ps4
+-- these start with rbmid_Format = 0x0D and fail to parse:
+--   hardtohandle.rbmid_ps4
+--   nineteenohone.rbmid_ps4
+
 data RBMid = RBMid
   { rbmid_Format                :: Word32 -- should be 0x10 (RB4) or 0x2F (RBVR)
   , rbmid_TrackInfo             :: [TrackInfo]
