@@ -1,6 +1,6 @@
 parts:
   bass:
-    pro-guitar:
+    pro-guitar: # WIP
       tuning:
         # Ab Db Ab Db Gb
         base: bass-5
@@ -10,6 +10,7 @@ parts:
     drums:
       mode: 'true'
       kicks: both
+      difficulty: 5
 audio:
   album-track:
     frames: 12925416
@@ -50,16 +51,19 @@ metadata:
   year: 2011
   author: Onyxite
   genre: metal
-  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
+  file-album-art: ../../../covers/in-waves.jpg
   preview-start: prc_prechorus_1
 targets:
   rb3:
     game: rb3
     plan: album
+    bass: none
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: album
+    bass: none
   ps:
     game: ps
     plan: album
+    bass: none

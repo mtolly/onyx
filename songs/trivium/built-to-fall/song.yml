@@ -16,6 +16,7 @@ parts:
     drums:
       mode: 'true'
       kicks: both
+      difficulty: 4
 plans:
   album:
     song:
@@ -43,7 +44,7 @@ metadata:
   year: 2011
   author: Onyxite
   genre: metal
-  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
+  file-album-art: ../../../covers/in-waves.jpg
   preview-start: prc_prechorus_1
 targets:
   rb3:

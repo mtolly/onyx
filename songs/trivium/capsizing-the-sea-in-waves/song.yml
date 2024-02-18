@@ -64,6 +64,18 @@ plans:
       mix:
       - countin-no-capsizing
       - pad: [93.290, album-waves]
+  dev:
+    song:
+      pad: [2.680, album-capsizing]
+    parts:
+      bass:
+        pad: [2.680, channels: [[0, 1], stems-capsizing]]
+      drums:
+        pad: [2.680, channels: [[2, 3], stems-capsizing]]
+      vocal:
+        pad: [2.680, channels: [[4, 5], stems-capsizing]]
+      other:
+        pad: [2.680, channels: [[6, 7], stems-capsizing]]
 audio:
   album-capsizing:
     md5: 2b30ddf8859aa4563265d86ec4a512f9
@@ -71,6 +83,11 @@ audio:
   album-waves:
     md5: 6accb2a6cb176cfd9a26cd32cffe4138
     frames: 13338780
+  stems-capsizing:
+    file-path: audio-stems-capsizing.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-capsizing) audio-stems-capsizing.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/in-waves-countin.wav
   countin:
@@ -79,7 +96,7 @@ audio:
     samples: {}
 metadata:
   rating: SupervisionRecommended # was family friendly ??
-  file-album-art: ../../../songs-hmx/trivium/in-waves/cover.png_xbox
+  file-album-art: ../../../covers/in-waves.jpg
   track-number: 1 # and 2
   key: C# minor
   album: In Waves
