@@ -23,6 +23,7 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import qualified Onyx.PhaseShift.Message          as PS
 import qualified Sound.MIDI.Message.Channel.Voice as V
+import qualified Sound.MIDI.Util                  as U
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -108,6 +109,36 @@ instance TraverseTrack FiveTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
     <*> fn i <*> fn j <*> fn k <*> fn l
 
+instance ChopTrack FiveTrack where
+  chopTake t ft = FiveTrack
+    { fiveDifficulties = chopTake t <$> fiveDifficulties ft
+    , fiveMood         = U.trackTake t                 $ fiveMood ft
+    , fiveHandMap      = U.trackTake t                 $ fiveHandMap ft
+    , fiveStrumMap     = U.trackTake t                 $ fiveStrumMap ft
+    , fiveFretPosition = chopEachPair (chopTakeBool t) $ fiveFretPosition ft
+    , fiveTremolo      = chopTakeMaybe t               $ fiveTremolo ft
+    , fiveTrill        = chopTakeMaybe t               $ fiveTrill ft
+    , fiveOverdrive    = chopTakeBool t                $ fivePlayer2 ft
+    , fiveBRE          = chopTakeBool t                $ fivePlayer2 ft
+    , fiveSolo         = chopTakeBool t                $ fivePlayer2 ft
+    , fivePlayer1      = chopTakeBool t                $ fivePlayer1 ft
+    , fivePlayer2      = chopTakeBool t                $ fivePlayer2 ft
+    }
+  chopDrop t ft = FiveTrack
+    { fiveDifficulties = chopDrop t <$> fiveDifficulties ft
+    , fiveMood         = chopDropStatus t              $ fiveMood ft
+    , fiveHandMap      = chopDropStatus t              $ fiveHandMap ft
+    , fiveStrumMap     = chopDropStatus t              $ fiveStrumMap ft
+    , fiveFretPosition = chopEachPair (chopDropBool t) $ fiveFretPosition ft
+    , fiveTremolo      = chopDropMaybe t               $ fiveTremolo ft
+    , fiveTrill        = chopDropMaybe t               $ fiveTrill ft
+    , fiveOverdrive    = chopDropBool t                $ fivePlayer2 ft
+    , fiveBRE          = chopDropBool t                $ fivePlayer2 ft
+    , fiveSolo         = chopDropBool t                $ fivePlayer2 ft
+    , fivePlayer1      = chopDropBool t                $ fivePlayer1 ft
+    , fivePlayer2      = chopDropBool t                $ fivePlayer2 ft
+    }
+
 data FiveDifficulty t = FiveDifficulty
   { fiveForceStrum :: RTB.T t Bool
   , fiveForceHOPO  :: RTB.T t Bool
@@ -116,6 +147,22 @@ data FiveDifficulty t = FiveDifficulty
   , fiveGems       :: RTB.T t (Edge () Color)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveDifficulty t)
+
+instance ChopTrack FiveDifficulty where
+  chopTake t fd = FiveDifficulty
+    { fiveForceStrum = chopTakeBool t $ fiveForceStrum fd
+    , fiveForceHOPO  = chopTakeBool t $ fiveForceHOPO  fd
+    , fiveTap        = chopTakeBool t $ fiveTap        fd
+    , fiveOpen       = chopTakeBool t $ fiveOpen       fd
+    , fiveGems       = chopTakeEdge t $ fiveGems       fd
+    }
+  chopDrop t fd = FiveDifficulty
+    { fiveForceStrum = chopDropBool t $ fiveForceStrum fd
+    , fiveForceHOPO  = chopDropBool t $ fiveForceHOPO  fd
+    , fiveTap        = chopDropBool t $ fiveTap        fd
+    , fiveOpen       = chopDropBool t $ fiveOpen       fd
+    , fiveGems       = chopDropEdge t $ fiveGems       fd
+    }
 
 instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e) = FiveDifficulty

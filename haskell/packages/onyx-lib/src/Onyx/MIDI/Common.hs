@@ -442,6 +442,12 @@ chopDropMaybe t xs = let
       _                     -> after
     (z, nz) -> U.trackGlueZero (filter isJust z) nz
 
+chopTakeEdge :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (Edge s a) -> RTB.T t (Edge s a)
+chopTakeEdge = U.trackTake -- TODO not right!
+
+chopDropEdge :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (Edge s a) -> RTB.T t (Edge s a)
+chopDropEdge = U.trackDrop -- TODO not right!
+
 noRedundantStatus :: (NNC.C t, Eq a) => RTB.T t a -> RTB.T t a
 noRedundantStatus = go Nothing where
   go _ RNil

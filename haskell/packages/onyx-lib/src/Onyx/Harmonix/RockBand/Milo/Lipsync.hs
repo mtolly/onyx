@@ -912,6 +912,17 @@ lipsyncPad secs lip = let
   pad = replicate (round $ secs * 30) $ Keyframe []
   in lip { lipsyncKeyframes = pad <> lipsyncKeyframes lip }
 
+lipsyncTake :: U.Seconds -> Lipsync -> Lipsync
+lipsyncTake secs lip = lip
+  { lipsyncKeyframes = take (round $ secs * 30) $ lipsyncKeyframes lip
+  }
+
+-- TODO not quite right; should make sure to initialize first frame state correctly
+lipsyncDrop :: U.Seconds -> Lipsync -> Lipsync
+lipsyncDrop secs lip = lip
+  { lipsyncKeyframes = drop (round $ secs * 30) $ lipsyncKeyframes lip
+  }
+
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
 testConvertLipsync fmid fvocs fout = do
   res <- logStdout $ F.loadMIDI fmid

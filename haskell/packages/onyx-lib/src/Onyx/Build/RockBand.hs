@@ -56,8 +56,9 @@ import           Onyx.Harmonix.RockBand.Milo           (MagmaLipsync (..),
                                                         englishSyllables,
                                                         extendLipsync,
                                                         lipsyncAdjustSpeed,
+                                                        lipsyncDrop,
                                                         lipsyncFromMIDITrack,
-                                                        lipsyncPad,
+                                                        lipsyncPad, lipsyncTake,
                                                         loadVisemesRB3,
                                                         magmaMilo, makeMiloFile,
                                                         parseLipsync,
@@ -522,7 +523,7 @@ rbRules buildInfo dir rb3 mrb2 = do
   pathMid %> shk . copyFile' pathMagmaExport2
   pathOgg %> \out -> case plan of
     MoggPlan _ -> do
-      -- TODO apply segment boundaries
+      -- don't need to worry about segment boundaries because we always rebuild mogg in that case
       let speed = fromMaybe 1 rb3.common.speed
       pad <- shk $ read <$> readFile' pathMagmaPad
       case (speed, pad :: Int) of
@@ -552,7 +553,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       runAudio src out
   pathMogg %> \out -> case plan of
     MoggPlan _ -> do
-      -- TODO apply segment boundaries
+      -- don't need to worry about segment boundaries because we always rebuild mogg in that case
       let speed = fromMaybe 1 rb3.common.speed
       pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
       case (speed, pad :: Int) of
@@ -569,7 +570,6 @@ rbRules buildInfo dir rb3 mrb2 = do
   -- TODO support target-specific album art
   pathPng  %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
 
-  -- TODO apply segment boundaries
   let getLipsyncs = case getPart rb3.vocal songYaml >>= (.vocal) of
         Nothing   -> return []
         Just pvox -> do
@@ -581,12 +581,26 @@ rbRules buildInfo dir rb3 mrb2 = do
           midi <- F.shakeMIDI $ planDir </> "raw.mid"
           vmap <- loadVisemesRB3
           pad <- shk $ read <$> readFile' (dir </> "magma/pad.txt")
+          secsStart <- case rb3.common.start of
+            Nothing      -> return Nothing
+            Just segment -> do
+              let t = evalPreviewTime False Nothing midi 0 False segment.fadeStart
+              when (isNothing t) $ warn "Couldn't evaluate segment start time to modify lipsync"
+              return t
+          secsEnd <- case rb3.common.end of
+            Nothing      -> return Nothing
+            Just segment -> do
+              let t = evalPreviewTime False Nothing midi 0 False segment.fadeEnd
+              when (isNothing t) $ warn "Couldn't evaluate segment end time to modify lipsync"
+              return t
           let vox = F.getFlexPart rb3.vocal $ F.s_tracks midi
               lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
               auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
               padSeconds = fromIntegral (pad :: Int) :: U.Seconds
               speed = realToFrac $ fromMaybe 1 rb3.common.speed :: Rational
-              fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed) . \case
+              segmentStart = maybe id lipsyncDrop secsStart
+              segmentEnd   = maybe id lipsyncTake secsEnd
+              fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed . segmentStart . segmentEnd) . \case
                 LipsyncTrack1 -> return $ lip $ F.onyxLipsync1 vox
                 LipsyncTrack2 -> return $ lip $ F.onyxLipsync2 vox
                 LipsyncTrack3 -> return $ lip $ F.onyxLipsync3 vox

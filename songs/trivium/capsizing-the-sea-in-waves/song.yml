@@ -6,8 +6,9 @@ parts:
       difficulty:
         rank: 215
       lipsync-rb3:
+        # from DLC, padded by 1:29.342 to line up properly
         sources:
-        - file-lipsync: song.lipsync
+        - file-lipsync: inwaves-padded.lipsync
   bass:
     grybo:
       fix-freeform: false
@@ -41,7 +42,7 @@ parts:
         rank: 345
       mode: 'true'
 plans:
-  mogg: # obviously not timed correctly
+  mogg: # not timed correctly, padded in dev plan
     parts:
       drums:
         kick: [0]
@@ -66,16 +67,31 @@ plans:
       - pad: [93.290, album-waves]
   dev:
     song:
-      pad: [2.680, album-capsizing]
+      pad: [2.680, concatenate: [album-capsizing, album-waves]]
     parts:
-      bass:
+      capsizing-bass:
         pad: [2.680, channels: [[0, 1], stems-capsizing]]
-      drums:
+      capsizing-drums:
         pad: [2.680, channels: [[2, 3], stems-capsizing]]
-      vocal:
+      capsizing-vocal:
         pad: [2.680, channels: [[4, 5], stems-capsizing]]
-      other:
+      capsizing-other:
         pad: [2.680, channels: [[6, 7], stems-capsizing]]
+      mogg-drums:
+        kick:
+          pad: ['1:29.342', vol: [-0.5, channels: [[0], mogg: mogg]]]
+        kit:
+          pad: ['1:29.342', vol: [-3.5, channels: [[1, 2], mogg: mogg]]]
+      mogg-bass:
+        pad: ['1:29.342', vol: [-0.5, channels: [[3], mogg: mogg]]]
+      mogg-guitar:
+        pad: ['1:29.342', vol: [-3.5, channels: [[4, 5], mogg: mogg]]]
+      mogg-vocal:
+        pad: ['1:29.342', vol: [-3.5, channels: [[6, 7], mogg: mogg]]]
+      mogg-keys:
+        pad: ['1:29.342', vol: [-3.5, channels: [[8, 9], mogg: mogg]]]
+      mogg-song:
+        pad: ['1:29.342', vol: [-3.5, channels: [[10, 11], mogg: mogg]]]
 audio:
   album-capsizing:
     md5: 2b30ddf8859aa4563265d86ec4a512f9
@@ -101,13 +117,14 @@ metadata:
   key: C# minor
   album: In Waves
   year: 2011
-  author: Onyxite
+  author: Onyxite, Harmonix
   title: Capsizing the Sea/In Waves
   genre: metal
   difficulty:
     rank: 273
   artist: Trivium
   preview-start: prc_verse_2
+  loading-phrase: "EGG WHIIIIITES"
 targets:
   rb3:
     game: rb3

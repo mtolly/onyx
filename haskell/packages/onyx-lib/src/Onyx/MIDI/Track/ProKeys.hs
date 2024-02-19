@@ -15,6 +15,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
+import qualified Sound.MIDI.Util                  as U
 
 -- | There are six playable ranges, each of which covers 10 white keys, plus
 -- all the black keys within. They are named here according to their lowest key.
@@ -40,6 +41,30 @@ data ProKeysTrack t = ProKeysTrack
 
 nullPK :: ProKeysTrack t -> Bool
 nullPK = RTB.null . pkNotes
+
+instance ChopTrack ProKeysTrack where
+  chopTake t pk = ProKeysTrack
+    { pkLanes     = U.trackTake  t $ pkLanes     pk
+    , pkTrainer   = U.trackTake  t $ pkTrainer   pk
+    , pkMood      = U.trackTake  t $ pkMood      pk
+    , pkSolo      = chopTakeBool t $ pkSolo      pk
+    , pkGlissando = chopTakeBool t $ pkGlissando pk
+    , pkTrill     = chopTakeBool t $ pkTrill     pk
+    , pkOverdrive = chopTakeBool t $ pkOverdrive pk
+    , pkBRE       = chopTakeBool t $ pkBRE       pk
+    , pkNotes     = chopTakeEdge t $ pkNotes     pk
+    }
+  chopDrop t pk = ProKeysTrack
+    { pkLanes     = chopDropStatus t $ pkLanes     pk
+    , pkTrainer   = U.trackDrop    t $ pkTrainer   pk
+    , pkMood      = chopDropStatus t $ pkMood      pk
+    , pkSolo      = chopDropBool   t $ pkSolo      pk
+    , pkGlissando = chopDropBool   t $ pkGlissando pk
+    , pkTrill     = chopDropBool   t $ pkTrill     pk
+    , pkOverdrive = chopDropBool   t $ pkOverdrive pk
+    , pkBRE       = chopDropBool   t $ pkBRE       pk
+    , pkNotes     = chopDropEdge   t $ pkNotes     pk
+    }
 
 instance TraverseTrack ProKeysTrack where
   traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack
