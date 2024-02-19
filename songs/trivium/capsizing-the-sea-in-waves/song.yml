@@ -20,6 +20,7 @@ parts:
         base: bass-5
         global: -1
         offsets: [-2, -2, 0, 0, 0]
+      difficulty: 4
   guitar:
     grybo:
       fix-freeform: false
@@ -120,6 +121,7 @@ metadata:
   author: Onyxite, Harmonix
   title: Capsizing the Sea/In Waves
   genre: metal
+  subgenre: core
   difficulty:
     rank: 273
   artist: Trivium

@@ -44,6 +44,7 @@ metadata:
   year: 2011
   author: Onyxite
   genre: metal
+  subgenre: core
   file-album-art: ../../../covers/in-waves.jpg
   preview-start: prc_prechorus_1
 targets:
