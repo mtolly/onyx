@@ -260,6 +260,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         -- using unique non-song files to distinguish Neversoft games
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero III (360)" loc
+        | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "arcade_bg_for_GH3.bik.xen"]) dir
+          = importGH3Disc loc dir >>= foundImports "Guitar Hero III (360) Demo" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "AO_Long_1.bik.xen"]) dir
           = importGH3Disc loc dir >>= foundImports "Guitar Hero: Aerosmith (360)" loc
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "VHstage02.bik.xen"]) dir
@@ -435,6 +437,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         ".sgh" -> foundSGH fp
         ".rlrr" -> foundParadiddle fp
+        ".xex" -> do
+          let dir = takeDirectory fp
+          stackIO (crawlFolder dir) >>= found360Game fp
         _ -> case map toLower $ takeFileName fp of
           "song.yml" -> foundYaml fp
           "song.ini" -> foundFoF fp
@@ -443,9 +448,6 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "main.hdr" -> foundHDR fp
           "main_ps3.hdr" -> foundHDR fp
           "main_xbox.hdr" -> foundHDR fp
-          "default.xex" -> do
-            let dir = takeDirectory fp
-            stackIO (crawlFolder dir) >>= found360Game fp
           "datap.hed" -> do
             let dir = takeDirectory fp
             contents <- stackIO $ crawlFolder dir

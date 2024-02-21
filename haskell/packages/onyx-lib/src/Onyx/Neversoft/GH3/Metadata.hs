@@ -263,6 +263,7 @@ readGH3TextPakQB nodes = do
         guard $ elem structID
           [ "permanent_songlist_props" -- disc, both gh3 + ghwt
           , "download_songlist_props" -- dlc, both gh3 + ghwt
+          , "gh3_songlist_props" -- GH3 DEMO BUILD
           ]
         songs
   sortedNodes <- forM nodes $ \pair@(node, bs) -> if nodeFileType node == ".qb"
@@ -274,9 +275,10 @@ readGH3TextPakQB nodes = do
         []    -> Left  pair
         songs -> Right songs
     else return $ Left pair
-  structs <- forM (concat $ rights sortedNodes) $ \case
-    QBStructItemStruct8A0000 k struct -> return (k, struct) -- gh3
-    QBStructItemStruct k struct -> return (k, struct) -- ghwt
+  structs <- fmap concat $ forM (concat $ rights sortedNodes) $ \case
+    QBStructItemStruct8A0000 k struct -> return [(k, struct)] -- gh3
+    QBStructItemStruct k struct -> return [(k, struct)] -- ghwt
+    QBStructItemQbKeyString9A0000 0 "download_songlist_props" -> return [] -- weird thing in GH3 DEMO BUILD
     item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
   return GH3TextPakQB
     { gh3TextPakSongStructs = structs
