@@ -2,14 +2,38 @@ audio:
   album-track:
     frames: 11594184
     md5: d80848430e42e41796e9cb72f71992b9
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
 parts:
   drums:
     drums:
       mode: 'true'
       kicks: both
 plans:
-  plan:
+  album:
     song:
       pad: [2.836, album-track]
+  dev:
+    song:
+      pad: [2.836, album-track]
+    parts:
+      bass:
+        pad: [2.836, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.836, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.836, channels: [[4, 5], stems]]
+      other:
+        pad: [2.836, channels: [[6, 7], stems]]
 metadata:
   title: Funky Lizard
+  artist: Electrocution 250
+  album: Electric Cartoon Music from Hell
+  track-number: 2
+  year: 2003
+  file-album-art: ../fletcher-the-mouse/album.png
+  genre: Cartoon Metal
+  author: Onyxite

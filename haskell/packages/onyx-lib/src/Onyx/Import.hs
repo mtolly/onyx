@@ -25,6 +25,7 @@ import qualified Data.HashMap.Strict          as HM
 import           Data.Int                     (Int32)
 import           Data.List.Extra              (stripSuffix)
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty           as NE
 import           Data.Maybe                   (fromMaybe, isJust, mapMaybe)
 import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
@@ -45,6 +46,7 @@ import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
 import           Onyx.Import.Amplitude2016    (importAmplitude)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
+import           Onyx.MIDI.Common             (Difficulty (..))
 import           Onyx.Neversoft.PS2           (HedFormat (..),
                                                identifyHedFormat, parseHed)
 import           Onyx.Zip.Load                (loadZipReadables)
@@ -61,7 +63,7 @@ import           Onyx.Import.Neversoft        (importGH3Disc, importGH3DiscPS2,
                                                importGH4Disc, importGH4DiscPS2,
                                                importNeversoftGH, importWoRDisc)
 import           Onyx.Import.Osu              (importOsu)
-import           Onyx.Import.Paradiddle       (importParadiddle)
+import           Onyx.Import.Paradiddle       (findParadiddle, importParadiddle)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
@@ -323,7 +325,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         imps <- importGH3SGHFolder loc dir
         foundImports "Guitar Hero III (extracted .sgh)" loc imps
       foundRagnarock loc = foundImport "Ragnaröck" loc $ importRagnarock loc
-      foundParadiddle loc = foundImport "Paradiddle" loc $ importParadiddle loc
+      foundParadiddle loc = foundImport "Paradiddle" loc $ importParadiddle $ NE.singleton (Expert, loc)
       foundImports fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports $ \imp -> do
@@ -368,16 +370,20 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 filtered = flip filter ents $ \x -> case splitExtension $ map toLower x of
                   (name, ".dwi") -> notElem (name <.> "sm") sm
                   _              -> True
-            if hasRBDTA
-              then stackIO (crawlFolder fp)
-                >>= importSTFSFolder fp
-                >>= foundImports "Rock Band Extracted" fp
-              else if hasGHDTA
-                -- TODO this only works for xbox, not ps2
+            case findParadiddle $ map (fp </>) ents of
+              [] -> if hasRBDTA
                 then stackIO (crawlFolder fp)
-                  >>= GH2.importGH2DLC fp
-                  >>= foundImports "Guitar Hero II Extracted" fp
-                else return (map (fp </>) filtered, [])
+                  >>= importSTFSFolder fp
+                  >>= foundImports "Rock Band Extracted" fp
+                else if hasGHDTA
+                  -- TODO this only works for xbox, not ps2
+                  then stackIO (crawlFolder fp)
+                    >>= GH2.importGH2DLC fp
+                    >>= foundImports "Guitar Hero II Extracted" fp
+                  else return (map (fp </>) filtered, [])
+              paras -> fmap mconcat $ forM paras $ \paraDiffs -> do
+                let loc = snd $ NE.head paraDiffs
+                foundImport "Paradiddle" loc $ importParadiddle paraDiffs
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
             match : _ -> use $ fp </> match
             []        -> lookFor rest

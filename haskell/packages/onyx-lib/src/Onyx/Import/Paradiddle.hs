@@ -3,12 +3,11 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-module Onyx.Import.Paradiddle (importParadiddle) where
+module Onyx.Import.Paradiddle (importParadiddle, findParadiddle) where
 
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.Reader       (runReaderT)
-import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -17,7 +16,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrdOn, sort)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import           Linear                           (V3 (..))
 import           Onyx.Audio                       (Audio (..), audioChannels)
@@ -29,15 +28,16 @@ import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
 import           Onyx.MIDI.Track.Drums.True
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Paradiddle
-import           Onyx.Project
+import           Onyx.Project                     hiding (Difficulty (..))
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
+import           Onyx.Util.Text.Decode            (decodeGeneral)
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
-paraToTrue :: RLRR -> TrueDrumTrack U.Seconds
-paraToTrue rlrr = let
+paraToTrue :: Difficulty -> RLRR -> TrueDrumTrack U.Seconds
+paraToTrue diff rlrr = let
   ghostThreshold = rlrr.highwaySettings >>= \hs -> do
     guard $ fromMaybe False hs.ghostNotes
     hs.ghostNoteThreshold
@@ -74,7 +74,7 @@ paraToTrue rlrr = let
   flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick) gems
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
-    { tdDifficulties = Map.singleton Expert TrueDrumDifficulty
+    { tdDifficulties = Map.singleton diff TrueDrumDifficulty
       { tdGems        = fmap (\(gem, vel) -> (gem, TBDefault, vel)) gemsNoDupe
       , tdKick2       = RTB.empty -- TODO kick flams
       , tdFlam        = flams
@@ -91,15 +91,17 @@ paraTempoMap rlrr = U.tempoMapFromSecondsBPS $ RTB.fromAbsoluteEventList $ ATB.f
   bpm <- rlrr.bpmEvents
   return (realToFrac bpm.time :: U.Seconds, realToFrac bpm.bpm / 60 :: U.BPS)
 
-importParadiddle :: (SendMessage m, MonadIO m) => FilePath -> Import m
-importParadiddle path level = do
-  let dir = takeDirectory path
+importParadiddle :: (SendMessage m, MonadIO m) => NE.NonEmpty (Difficulty, FilePath) -> Import m
+importParadiddle diffs level = do
+  let (diff, path) = NE.head diffs
+      dir = takeDirectory path
       loadJSON f = do
-        json <- stackIO (B.readFile f) >>= either fatal return . A.eitherDecodeStrict
+        -- usually should be utf-8, but utf-16 (with BOM) has been spotted
+        json <- stackIO (B.readFile f) >>= decodeJSONText . decodeGeneral
         mapStackTraceT (`runReaderT` json) fromJSON
   rlrr <- loadJSON path
-  let tmap = paraTempoMap rlrr
-      true = paraToTrue   rlrr
+  let tmap = paraTempoMap    rlrr
+      true = paraToTrue diff rlrr
       art = case rlrr.recordingMetadata.coverImagePath of
         Nothing -> Nothing
         Just f  -> let
@@ -118,6 +120,11 @@ importParadiddle path level = do
             , rate     = Nothing
             , channels = chans
             })
+  lowerDiffs <- case level of
+    ImportQuick -> return []
+    ImportFull  -> forM (NE.tail diffs) $ \(lowerDiff, lowerPath) -> do
+      lowerRLRR <- loadJSON lowerPath
+      return $ paraToTrue lowerDiff lowerRLRR
   songAudio <- getAudio rlrr.audioFileData.songTracks
   drumAudio <- getAudio rlrr.audioFileData.drumTracks
   -- TODO probably need to apply calibrationOffset somewhere
@@ -143,7 +150,8 @@ importParadiddle path level = do
           , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
           , F.s_tracks = mempty
             { F.onyxParts = Map.singleton F.FlexDrums mempty
-              { F.onyxPartTrueDrums = mapTrack (U.unapplyTempoTrack tmap) true
+              { F.onyxPartTrueDrums = mapTrack (U.unapplyTempoTrack tmap)
+                $ mconcat $ true : lowerDiffs
               }
             }
           }
@@ -166,3 +174,14 @@ importParadiddle path level = do
       { drums = Just $ emptyPartDrums DrumsTrue Kicks1x
       }
     }
+
+findParadiddle :: [FilePath] -> [NE.NonEmpty (Difficulty, FilePath)]
+findParadiddle fs = let
+  prefixed = do
+    f <- fs
+    let t = T.pack f
+        tryDifficulty diff = do
+          prefix <- T.stripSuffix ("_" <> T.pack (show diff) <> ".rlrr") t
+          return $ Map.singleton prefix $ Map.singleton diff f
+    take 1 $ mapMaybe tryDifficulty [Easy, Medium, Hard, Expert]
+  in mapMaybe (NE.nonEmpty . Map.toDescList) $ Map.elems $ Map.unionsWith Map.union prefixed

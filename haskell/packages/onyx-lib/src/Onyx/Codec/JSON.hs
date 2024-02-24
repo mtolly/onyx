@@ -23,6 +23,7 @@ import qualified Data.List.NonEmpty         as NE
 import           Data.Profunctor            (dimap)
 import           Data.Scientific
 import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 import qualified Data.Vector                as V
 import qualified Data.Yaml                  as Y
 import           Onyx.Codec.Common
@@ -210,3 +211,7 @@ loadYaml :: (SendMessage m, StackJSON a, MonadIO m) => FilePath -> StackTraceT m
 loadYaml fp = do
   yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) fromJSON
+
+-- This should use Data.Aeson.eitherDecodeStrictText but we need to upgrade (all platforms) to aeson-2.2.1.0 first
+decodeJSONText :: (MonadFail m) => T.Text -> m A.Value
+decodeJSONText t = either fail return $ A.eitherDecodeStrict' $ TE.encodeUtf8 t

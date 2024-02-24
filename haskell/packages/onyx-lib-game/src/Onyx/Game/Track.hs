@@ -585,22 +585,22 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
             DrumsReal -> "Pro Drums"
             DrumsTrue -> "Pro Drums"
           _           -> displayPartName fpart <> " [D]"
-        in drumDiffPairs >>= \(diff, letter) -> case drumTrack fpart pdrums diff of
-          Nothing  -> []
-          Just trk -> let
-            standard = [(name <> " (" <> letter <> ")", PreviewDrums pdrums.mode trk)]
-            true = case pdrums.mode of
-              DrumsTrue -> case drumTrackTrue fpart pdrums diff of
-                Nothing -> []
-                Just trkTrue ->
-                  [ ( case fpart of
-                      F.FlexDrums -> "True Drums (" <> letter <> ")"
-                      _           -> displayPartName fpart <> " [True Drums] (" <> letter <> ")"
-                    , PreviewDrumsTrue pdrums.trueLayout trkTrue
-                    )
-                  ]
-              _         -> []
-            in true <> standard
+        in drumDiffPairs >>= \(diff, letter) -> let
+          standard = case drumTrack fpart pdrums diff of
+            Nothing  -> []
+            Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums pdrums.mode trk)]
+          true = case pdrums.mode of
+            DrumsTrue -> case drumTrackTrue fpart pdrums diff of
+              Nothing -> []
+              Just trkTrue ->
+                [ ( case fpart of
+                    F.FlexDrums -> "True Drums (" <> letter <> ")"
+                    _           -> displayPartName fpart <> " [True Drums] (" <> letter <> ")"
+                  , PreviewDrumsTrue pdrums.trueLayout trkTrue
+                  )
+                ]
+            _         -> []
+          in true <> standard
     mania = case part.mania of
       Nothing -> []
       Just pm -> let

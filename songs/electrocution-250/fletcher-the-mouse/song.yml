@@ -10,11 +10,9 @@ audio:
 global:
   file-background-image: background.jpg
 metadata:
-  album: Electric Cartoon Music From Hell
+  album: Electric Cartoon Music from Hell
   artist: Electrocution 250
   author: Paturages, Onyxite
-  difficulty:
-    tier: 1
   file-album-art: album.png
   genre: Cartoon Metal
   preview-start: prc_gtr_solo_a
