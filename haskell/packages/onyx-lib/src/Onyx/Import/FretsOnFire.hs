@@ -378,6 +378,8 @@ importFoF src dir level = do
   let fixGHVox trks = trks
         { F.fixedPartVocals = stripTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ F.fixedPartVocals trks
         }
+      -- TODO ugh newer CH/YARG rips always use the in-order format (RYBOG) without
+      -- the song.ini tag. we may just need to assume it's always the case
       swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
         then trks
           { F.fixedPartDrums   = swapFiveLaneTrack $ F.fixedPartDrums   trks

@@ -668,7 +668,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     fin  <- shortWindowsPath False pathMogg
     fout <- shortWindowsPath True  out
     case B.unpack moggType of
-      [0xA] -> stackIO $ encryptRB1 fin fout
+      [0xA] -> stackIO $ encryptMOGG fin fout
       _     -> shk $ copyFile' pathMogg out
   rb3ps3Milo %> shk . copyFile' pathMilo
   phony rb3ps3Root $ do
@@ -1022,7 +1022,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           fin  <- shortWindowsPath False rb2Mogg
           fout <- shortWindowsPath True  out
           case B.unpack moggType of
-            [0xA] -> stackIO $ encryptRB1 fin fout
+            [0xA] -> stackIO $ encryptMOGG fin fout
             _     -> shk $ copyFile' rb2Mogg out
         rb2ps3Weights %> shk . copyFile' rb2Weights
         rb2ps3Milo %> shk . copyFile' rb2Milo

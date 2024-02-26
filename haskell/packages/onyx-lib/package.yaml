@@ -101,7 +101,7 @@ library:
   - onyx-ffmpeg
   - onyx-handle
   - onyx-npdata
-  - onyx-mogg-encrypt
+  - onyx-moggcrypt
   - onyx-autochart
   - onyx-libzip
   - utf8proc

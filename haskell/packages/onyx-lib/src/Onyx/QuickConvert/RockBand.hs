@@ -59,7 +59,8 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
-import           Onyx.Harmonix.MOGG                   (encryptRB1, fixOldC3Mogg,
+import           Onyx.Harmonix.MOGG                   (encryptMOGG,
+                                                       fixOldC3Mogg,
                                                        moggToOggHandle,
                                                        oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
@@ -490,7 +491,7 @@ getPS3File mcrypt (name, qfile) = case qfile of
     let tmpIn  = tmp </> "in.mogg"
         tmpOut = tmp </> "out.mogg"
     saveReadable r tmpIn
-    encryptRB1 tmpIn tmpOut
+    encryptMOGG tmpIn tmpOut
     r' <- makeHandle (T.unpack name) . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
     return (name, r')
   QFMilo r -> let
@@ -1006,7 +1007,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
             case B.unpack moggType of
               [0xA] -> do
                 saveReadable r tmpIn
-                encryptRB1 tmpIn tmpOut
+                encryptMOGG tmpIn tmpOut
                 r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
                 return (name, r')
               _     -> return (name, r)

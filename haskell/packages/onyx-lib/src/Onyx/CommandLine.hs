@@ -96,7 +96,7 @@ import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.GH2.File               (GH2File (..))
 import           Onyx.Harmonix.GH2.PartGuitar         (nullPart)
 import           Onyx.Harmonix.Magma                  (getRBAFile, runMagmaMIDI)
-import           Onyx.Harmonix.MOGG                   (encryptRB1, moggToOgg,
+import           Onyx.Harmonix.MOGG                   (encryptMOGG, moggToOgg,
                                                        oggToMogg)
 import qualified Onyx.Harmonix.RockBand.IOS           as IOS
 import           Onyx.Harmonix.RockBand.Milo          (autoLipsync,
@@ -632,7 +632,7 @@ commands =
         fout <- outputFile opts $ fatal "Requires --to argument"
         fin'  <- shortWindowsPath False fin
         fout' <- shortWindowsPath True  fout
-        stackIO $ encryptRB1 fin' fout'
+        stackIO $ encryptMOGG fin' fout'
         return [fout]
       _ -> fatal "Expected 1 argument"
     }

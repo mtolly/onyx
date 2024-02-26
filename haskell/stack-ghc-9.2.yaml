@@ -22,7 +22,7 @@ extra-deps:
 - packages/onyx-gamecube-dsp
 - packages/onyx-wwise
 - packages/onyx-npdata
-- packages/onyx-mogg-encrypt
+- packages/onyx-moggcrypt
 - packages/onyx-autochart
 - cabal/Cabal/ # this submodule should just be a git reference, but stack appears to not apply it correctly that way
 # git repos

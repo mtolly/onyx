@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef VR_NO_DECODE
+#include <vorbis/vorbisfile.h>
+#endif
+
 #ifndef _OV_FILE_H_
 #include "XiphTypes.h"
 #endif

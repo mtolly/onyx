@@ -108,6 +108,15 @@ void VorbisEncrypter::FixCounter(size_t decryptedPos) {
 	}
 }
 
+// Increments a 128-bit counter using 64-bit word size
+inline void IncrementCounter(aes_ctr_128* ctr) {
+	for (int ptr = 0; ptr < 2; ptr++) {
+		ctr->qwords[ptr]++;
+		if (ctr->qwords[ptr] != 0)
+			break;
+	}
+}
+
 /**
  * buffer: buffer to write into
  * offset: offset into buffer to start writing

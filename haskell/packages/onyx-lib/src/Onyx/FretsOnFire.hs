@@ -135,9 +135,9 @@ loadSong r = do
       milli :: T.Text -> Maybe Milli
       milli = str >=> fmap (/ 1000) . readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
-      bool = str >=> \s -> case T.strip s of
-        "True"  -> Just True
-        "False" -> Just False
+      bool = str >=> \s -> case T.toLower $ T.strip s of
+        "true"  -> Just True
+        "false" -> Just False
         "1"     -> Just True
         "0"     -> Just False
         _       -> Nothing

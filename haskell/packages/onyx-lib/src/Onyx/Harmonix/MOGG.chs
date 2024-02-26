@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Onyx.Harmonix.MOGG
 ( moggToOgg, moggToOggHandle, oggToMogg, sourceVorbisFile
-, encryptRB1
+, encryptMOGG
 , fixOldC3Mogg
 ) where
 
@@ -9,42 +9,43 @@ import           Control.Applicative          (liftA2)
 import           Control.Monad                (forM, forM_, guard, void, when)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource
-import           Data.Binary.Get              (getWord32le, runGet)
+import           Data.Binary.Get              (getWord32le)
 import           Data.Binary.Put              (putLazyByteString, putWord32le,
                                                runPut)
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
-import           Data.Char                    (toUpper)
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as CA
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
 import           Foreign                      hiding (void)
 import           Foreign.C
-import           Numeric                      (showHex)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
-import           Onyx.Util.Binary              (runGetM)
-import           Sound.MOGG.EncryptRB1        (encryptRB1)
+import           Onyx.Util.Binary             (runGetM)
+import           Onyx.Harmonix.MOGG.Crypt     (encryptMOGG, decryptMOGG)
+import           System.FilePath              ((</>))
 import           System.IO                    (SeekMode (..), hSeek)
+import           System.IO.Temp               (withSystemTempDirectory)
 
 #include "vorbis/codec.h"
 #include "vorbis/vorbisfile.h"
 
--- | Just strips the header off an unencrypted MOGG for now.
 moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 moggToOgg mogg ogg = do
   oggHandle <- moggToOggHandle $ fileReadable mogg
   stackIO $ saveReadable oggHandle ogg
 
+-- TODO do decryption on the fly, use moggcrypt's VorbisReader directly
 moggToOggHandle :: (MonadIO m) => Readable -> StackTraceT m Readable
-moggToOggHandle ioh = do
-  bs <- stackIO $ useHandle ioh $ \h -> BL.hGet h 8
-  let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs
-      hex = "0x" <> map toUpper (showHex moggType "")
-  if moggType == 0xA
-    then return $ subHandle (<> " | mogg -> ogg") (fromIntegral oggStart) Nothing ioh
-    else fatal $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
+moggToOggHandle r = stackIO $ withSystemTempDirectory "mogg-decrypt" $ \tmp -> do
+  let fin  = tmp </> "in.mogg"
+      fout = tmp </> "out.mogg"
+  mogg <- useHandle r handleToByteString
+  BL.writeFile fin mogg
+  decryptMOGG fin fout
+  ogg <- BL.fromStrict <$> B.readFile fout
+  return $ makeHandle "decrypted mogg" $ byteStringSimpleHandle ogg
 
 {#pointer *OggVorbis_File as OggVorbis_File newtype #}
 {#pointer *vorbis_info as VorbisInfo newtype #}

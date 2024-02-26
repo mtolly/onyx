@@ -141,3 +141,27 @@ saveQuickFoFFolder out q = do
   writePSIni (temp </> "song.ini") q.metadata
   removePathForcibly out
   renameDirectory temp out
+
+{-
+
+TODO game downconversion steps
+
+PS (free):
+- convert taps and opens to sysex format (pull back opens)
+- optional: no opens since no hopo opens
+- bass.ogg -> rhythm.ogg (steam PS supports this)
+- remove <tags> from metadata and loading phrase
+
+FoFiX:
+- remove taps and opens, no sysex events allowed
+- probably no extended sustains
+- guitar.ogg is required
+- guitar.ogg must be the song length or practice mode breaks
+- for no stems, should just move song.ogg to guitar.ogg (otherwise no audio in practice mode)
+- bunch of PS stem filenames not supported, combine
+
+FoF:
+- no square album art, convert to cassette format
+- IIRC, guitar needs to be the first midi track
+
+-}

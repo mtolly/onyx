@@ -22,7 +22,7 @@ extra-deps:
 - packages/onyx-gamecube-dsp
 - packages/onyx-wwise
 - packages/onyx-npdata
-- packages/onyx-mogg-encrypt
+- packages/onyx-moggcrypt
 - packages/onyx-autochart
 # git repos
 - git: https://github.com/mtolly/midi

@@ -1,11 +1,11 @@
 cabal-version:  2.2
-name:           onyx-mogg-encrypt
+name:           onyx-moggcrypt
 version:        0.1
 build-type:     Simple
 
 library
   exposed-modules:
-    Sound.MOGG.EncryptRB1
+    Onyx.Harmonix.MOGG.Crypt
   hs-source-dirs:
     src
   ghc-options: -Wall
@@ -13,10 +13,16 @@ library
     cbits
   c-sources:
     cbits/aes.c
+    cbits/ops.c
   cxx-sources:
+    cbits/BinkReader.cpp
+    cbits/ByteGrinder.cpp
+    cbits/keygen.cpp
     cbits/VorbisEncrypter.cpp
+    cbits/VorbisReader.cpp
+    cbits/XTEABlockEncrypter.cpp
     cbits/MoggcryptCpp.cpp
   build-depends: base, bytestring
   default-language: Haskell2010
   extra-libraries: stdc++
-  cxx-options: -std=c++11
+  cxx-options: -std=c++11 -DVR_NO_DECODE
