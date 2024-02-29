@@ -7,7 +7,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Game.Audio
 ( projectAudio, withAL, AudioHandle(..)
-, withMOGG, oggSecsSpeed, playSource
+, withMOGG, playSource
 ) where
 
 import           Control.Concurrent           (threadDelay)
@@ -43,6 +43,7 @@ import           Onyx.Import
 import           Onyx.Project
 import           Onyx.StackTrace              (QueueLog, StackTraceT,
                                                errorToWarning, fatal, logStdout)
+import           Onyx.Util.Handle             (Readable, fileReadable)
 import           Path                         (parseAbsDir)
 import qualified Sound.OpenAL                 as AL
 import           Sound.OpenAL                 (($=))
@@ -273,9 +274,9 @@ data ReadySource = ReadySource
   }
 
 -- | Use libvorbisfile to read an OGG
-oggSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
+oggSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> Readable -> IO (CA.AudioSource m Int16)
 oggSecsSpeed pos mspeed ogg = do
-  src <- sourceVorbisFile (CA.Seconds pos) ogg
+  src <- sourceVorbis (CA.Seconds pos) ogg
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
@@ -341,7 +342,8 @@ projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Ma
 projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
   Just (MoggPlan x) -> errorToWarning $ do
     -- TODO maybe silence crowd channels
-    ogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.ogg"
+    mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
+    let ogg = decryptMOGG' $ fileReadable mogg
     return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
   Just (StandardPlan x) -> errorToWarning $ do
     let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]

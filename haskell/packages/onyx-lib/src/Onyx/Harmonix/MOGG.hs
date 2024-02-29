@@ -1,12 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 module Onyx.Harmonix.MOGG
-( moggToOgg, moggToOggHandle, oggToMogg, sourceVorbisFile
+( moggToOgg, decryptMOGG', oggToMogg, sourceVorbis
 , encryptMOGG
 , fixOldC3Mogg
 ) where
 
 import           Control.Applicative          (liftA2)
-import           Control.Monad                (forM, forM_, guard, void, when)
+import           Control.Monad                (forM, forM_, guard, void)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Get              (getWord32le)
@@ -20,106 +20,22 @@ import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
 import           Foreign                      hiding (void)
 import           Foreign.C
+import           Onyx.Harmonix.MOGG.Crypt     (decryptMOGG', encryptMOGG)
 import           Onyx.StackTrace
-import           Onyx.Util.Handle
 import           Onyx.Util.Binary             (runGetM)
-import           Onyx.Harmonix.MOGG.Crypt     (encryptMOGG, decryptMOGG)
-import           System.FilePath              ((</>))
+import           Onyx.Util.Handle
+import           Onyx.VorbisFile
 import           System.IO                    (SeekMode (..), hSeek)
-import           System.IO.Temp               (withSystemTempDirectory)
-
-#include "vorbis/codec.h"
-#include "vorbis/vorbisfile.h"
 
 moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-moggToOgg mogg ogg = do
-  oggHandle <- moggToOggHandle $ fileReadable mogg
-  stackIO $ saveReadable oggHandle ogg
-
--- TODO do decryption on the fly, use moggcrypt's VorbisReader directly
-moggToOggHandle :: (MonadIO m) => Readable -> StackTraceT m Readable
-moggToOggHandle r = stackIO $ withSystemTempDirectory "mogg-decrypt" $ \tmp -> do
-  let fin  = tmp </> "in.mogg"
-      fout = tmp </> "out.mogg"
-  mogg <- useHandle r handleToByteString
-  BL.writeFile fin mogg
-  decryptMOGG fin fout
-  ogg <- BL.fromStrict <$> B.readFile fout
-  return $ makeHandle "decrypted mogg" $ byteStringSimpleHandle ogg
-
-{#pointer *OggVorbis_File as OggVorbis_File newtype #}
-{#pointer *vorbis_info as VorbisInfo newtype #}
-
-{#fun ov_fopen
-  { `CString'
-  , `OggVorbis_File'
-  } -> `CInt'
-#}
-
-{#fun ov_raw_seek
-  { `OggVorbis_File'
-  , `CLong'
-  } -> `CInt'
-#}
-
-{#fun ov_pcm_seek
-  { `OggVorbis_File'
-  , `Int64'
-  } -> `CInt'
-#}
-
-{#fun ov_pcm_total
-  { `OggVorbis_File'
-  , `CInt'
-  } -> `Int64'
-#}
-
-{#fun ov_pcm_tell
-  { `OggVorbis_File'
-  } -> `Int64'
-#}
-
-{#fun ov_read_float
-  { `OggVorbis_File'
-  , id `Ptr (Ptr (Ptr CFloat))'
-  , `CInt'
-  , id `Ptr CInt'
-  } -> `CLong'
-#}
-
-{#fun ov_clear
-  { `OggVorbis_File'
-  } -> `CInt'
-#}
-
-{#fun ov_info
-  { `OggVorbis_File'
-  , `CInt'
-  } -> `VorbisInfo'
-#}
-
-getChannelsRate :: OggVorbis_File -> IO (CInt, CLong)
-getChannelsRate ov = do
-  p <- ov_info ov (-1)
-  chans <- {#get vorbis_info->channels #} p
-  rate <- {#get vorbis_info->rate #} p
-  return (chans, rate)
-
-loadVorbisFile :: (MonadResource m) => FilePath -> m (Maybe (m (), OggVorbis_File))
-loadVorbisFile f = do
-  (pkey, p) <- allocate (mallocBytes {#sizeof OggVorbis_File#}) free
-  let ov = OggVorbis_File p
-  -- TODO does this need a short name hack on Windows for non-ascii chars?
-  (reskey, res) <- allocate (withCString f $ \cstr -> ov_fopen cstr ov)
-    (\n -> when (n == 0) $ void $ ov_clear ov)
-  if res == 0
-    then return $ Just (release reskey >> release pkey, ov)
-    else do
-      release pkey
-      return Nothing
+moggToOgg mogg ogg = stackIO $ saveReadable (decryptMOGG' $ fileReadable mogg) ogg
 
 runVorbisFile :: FilePath -> (Maybe OggVorbis_File -> IO a) -> IO a
 runVorbisFile fogg fn = runResourceT $ loadVorbisFile fogg >>= liftIO . fn . fmap snd
+
+runVorbisReadable :: Readable -> (Maybe OggVorbis_File -> IO a) -> IO a
+runVorbisReadable r fn = useHandle r $ \h -> do
+  runResourceT $ loadVorbisHandle h >>= liftIO . fn . fmap snd
 
 makeMoggTable :: Word32 -> Word32 -> [(Word32, Word32)] -> [(Word32, Word32)]
 makeMoggTable bufSize audioLen = go 0 (0, 0) where
@@ -160,19 +76,19 @@ oggToMogg ogg mogg = do
         putWord32le samples
       putLazyByteString oggBS
 
-sourceVorbisFile :: (MonadResource m, MonadIO f) => CA.Duration -> FilePath -> f (CA.AudioSource m Float)
-sourceVorbisFile pos ogg = liftIO $ runVorbisFile ogg $ \case
-  Nothing -> error $ "Couldn't load OGG file: " <> ogg
+sourceVorbis :: (MonadResource m, MonadIO f) => CA.Duration -> Readable -> f (CA.AudioSource m Float)
+sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case
+  Nothing -> fail "Couldn't load OGG file"
   Just ovInit -> do
     (chans, rate) <- getChannelsRate ovInit
     total <- ov_pcm_total ovInit (-1)
     let seekTo = fromIntegral $ case pos of
           CA.Seconds secs -> CA.secondsToFrames secs (fromIntegral rate)
-          CA.Frames fms -> fms
+          CA.Frames fms   -> fms
     return $ CA.reorganize CA.chunkSize $ CA.AudioSource
       { CA.source = if total <= seekTo
         then return () -- seeked past end of file
-        else loadVorbisFile ogg >>= \case
+        else resourceHandle ogg >>= \(h, releaseHandle) -> loadVorbisHandle h >>= \case
           Nothing -> return () -- failed to load, maybe log somewhere?
           Just (releaseOV, ov) -> let
             loop = do
@@ -195,6 +111,7 @@ sourceVorbisFile pos ogg = liftIO $ runVorbisFile ogg $ \case
               void $ liftIO $ ov_pcm_seek ov seekTo
               loop
               releaseOV
+              liftIO $ releaseHandle
       , CA.rate = fromIntegral rate
       , CA.channels = fromIntegral chans
       , CA.frames = max 0 $ fromIntegral total - fromIntegral seekTo

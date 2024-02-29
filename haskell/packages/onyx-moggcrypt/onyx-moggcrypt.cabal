@@ -6,6 +6,7 @@ build-type:     Simple
 library
   exposed-modules:
     Onyx.Harmonix.MOGG.Crypt
+    Onyx.VorbisFile
   hs-source-dirs:
     src
   ghc-options: -Wall
@@ -22,7 +23,9 @@ library
     cbits/VorbisReader.cpp
     cbits/XTEABlockEncrypter.cpp
     cbits/MoggcryptCpp.cpp
-  build-depends: base, bytestring
+    cbits/Onyx.cpp
+    cbits/OnyxVorbisfile.cpp
+  build-depends: base, bytestring, onyx-handle, resourcet
   default-language: Haskell2010
-  extra-libraries: stdc++
+  extra-libraries: stdc++, vorbisfile
   cxx-options: -std=c++11 -DVR_NO_DECODE

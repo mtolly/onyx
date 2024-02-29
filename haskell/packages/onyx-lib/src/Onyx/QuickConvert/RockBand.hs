@@ -59,10 +59,9 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
-import           Onyx.Harmonix.MOGG                   (encryptMOGG,
-                                                       fixOldC3Mogg,
-                                                       moggToOggHandle,
-                                                       oggToMogg)
+import           Onyx.Harmonix.MOGG                   (decryptMOGG',
+                                                       encryptMOGG,
+                                                       fixOldC3Mogg, oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
@@ -705,22 +704,23 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
         [] -> do
           lg "No unencrypted .mogg found, making silent preview"
           silentPreview
-        r : _ -> errorToEither (moggToOggHandle r) >>= \case
-          Right rOgg -> do
-            -- TODO wanted to use ffSourceFrom (with Readable), but it crashes! no idea why
-            stackIO $ saveReadable rOgg fullOgg
-            src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) fullOgg
-            stackIO
-              $ runResourceT
-              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-              $ fadeStart (CA.Seconds 0.75)
-              $ fadeEnd (CA.Seconds 0.75)
-              $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-              $ applyPansVols (qdtaPans $ quickSongDTA qsong) (qdtaVols $ quickSongDTA qsong)
-              $ src
-          Left _msgs -> do
-            lg "Encrypted audio, making silent preview"
-            silentPreview
+        r : _ -> do
+          -- TODO wanted to use ffSourceFrom (with Readable), but it crashes! no idea why
+          errorToEither (stackIO $ saveReadable (decryptMOGG' r) fullOgg) >>= \case
+            -- TODO the above error catch is untested since moving to moggcrypt
+            Right () -> do
+              src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) fullOgg
+              stackIO
+                $ runResourceT
+                $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+                $ fadeStart (CA.Seconds 0.75)
+                $ fadeEnd (CA.Seconds 0.75)
+                $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
+                $ applyPansVols (qdtaPans $ quickSongDTA qsong) (qdtaVols $ quickSongDTA qsong)
+                $ src
+            Left _err -> do
+              lg "Couldn't decrypt audio, making silent preview"
+              silentPreview
       else silentPreview
     oggToMogg prevOgg prevMogg
     previewReadable <- stackIO $ makeHandle "preview mogg" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile prevMogg

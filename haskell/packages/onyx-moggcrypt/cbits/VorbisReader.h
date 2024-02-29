@@ -65,11 +65,14 @@ public:
 	// Read raw ogg data (virtual file starting after HMX header)
 	size_t ReadRaw(void* buffer, size_t elementSize, size_t elements);
 
-	// Seek throw raw ogg data (virtual file starting after HMX header)
+	// Seek through raw ogg data (virtual file starting after HMX header)
 	int SeekRaw(long long pos, int whence);
 
-	// Tell postition in raw ogg data(virtual file starting after HMX header)
+	// Tell postition in raw ogg data (virtual file starting after HMX header)
 	size_t TellRaw();
+
+	// Get size of raw ogg data (virtual file starting after HMX header)
+	size_t SizeRaw();
 
 	// Close the underlying ogg file
 	int Close();

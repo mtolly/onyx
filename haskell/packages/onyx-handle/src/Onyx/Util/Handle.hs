@@ -9,6 +9,8 @@ module Onyx.Util.Handle where
 import           Control.Concurrent.MVar       (modifyMVar, newMVar)
 import           Control.Exception             (bracket, throwIO)
 import           Control.Monad                 (forM, forM_, guard, unless)
+import           Control.Monad.Trans.Resource  (MonadResource, allocate,
+                                                release)
 import           Data.Bifunctor                (Bifunctor (..))
 import qualified Data.ByteString               as B
 import           Data.ByteString.Internal      (memcpy)
@@ -146,6 +148,11 @@ handleToByteString h = do
 
 useHandle :: Readable -> (Handle -> IO a) -> IO a
 useHandle readable = bracket (rOpen readable) hClose
+
+resourceHandle :: (MonadResource m) => Readable -> m (Handle, IO ())
+resourceHandle r = do
+  (rkey, h) <- allocate (rOpen r) hClose
+  return (h, release rkey)
 
 copyReadableToHandle :: Readable -> Handle -> IO ()
 copyReadableToHandle r hout = useHandle r $ \h -> let

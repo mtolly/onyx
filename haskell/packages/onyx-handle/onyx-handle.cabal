@@ -17,4 +17,5 @@ library
     , directory
     , bytestring
     , containers
+    , resourcet
   default-language: Haskell2010

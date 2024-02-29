@@ -238,6 +238,11 @@ size_t VorbisReader::TellRaw()
 	return loaded ? oggPos : 0;
 }
 
+size_t VorbisReader::SizeRaw()
+{
+	return oggDataSize;
+}
+
 size_t VorbisReader::ReadRaw(void * buf, size_t elementSize, size_t elements)
 {
 	if (!loaded) return 0;

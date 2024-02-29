@@ -96,7 +96,7 @@ import           Onyx.Audio.VGS                   (readSingleRateVGS, readVGS)
 import           Onyx.FFMPEG                      (FFSourceSample, ffSource,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
-import           Onyx.Harmonix.MOGG               (sourceVorbisFile)
+import           Onyx.Harmonix.MOGG               (sourceVorbis)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import           Onyx.Preferences
 import           Onyx.Resources                   (makeFSB4exe, xma2encodeExe)
@@ -483,7 +483,7 @@ sourceXMA2CorrectLength r = do
 
 loadAudioInput :: (MonadResource m) => FilePath -> IO (AudioSource m Float)
 loadAudioInput fin = case takeExtension fin of
-  ".ogg" -> sourceVorbisFile (Frames 0) fin
+  ".ogg" -> sourceVorbis (Frames 0) (fileReadable fin)
   ".vgs" -> do
     chans <- readVGS fin
     case map (standardRate . mapSamples fractionalSample) chans of
@@ -512,7 +512,7 @@ buildSource' aud = case aud of
   Drop Start (Frames  t1) (Pad Start (Frames  t2) x) -> dropPad Start Frames  t1 t2 x
   Drop End   (Frames  t1) (Pad End   (Frames  t2) x) -> dropPad End   Frames  t1 t2 x
   Drop Start t (Input fin) -> liftIO $ case takeExtension fin of
-    ".ogg" -> sourceVorbisFile t fin
+    ".ogg" -> sourceVorbis t (fileReadable fin)
     -- only supports VGS with consistent sample rate
     ".vgs" -> standardRate . mapSamples fractionalSample <$> readSingleRateVGS t (fileReadable fin)
     -- FFMPEG appears to not seek XMA correctly, so instead we hack together a
@@ -727,7 +727,7 @@ audioLength f = case map toLower $ takeExtension f of
   -- ffmpeg fails to give 0 frames for empty ogg files, saying
   -- "Estimating duration from bitrate, this may be inaccurate"
   ".ogg" -> liftIO $ Just . fromIntegral . frames
-    <$> (sourceVorbisFile (Frames 0) f :: IO (AudioSource (ResourceT IO) Float))
+    <$> (sourceVorbis (Frames 0) (fileReadable f) :: IO (AudioSource (ResourceT IO) Float))
   _      -> if supportedFFExt f
     then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
     else return Nothing

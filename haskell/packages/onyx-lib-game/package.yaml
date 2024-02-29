@@ -15,6 +15,7 @@ library:
   - base
   - onyx-lib
   - onyx-ffmpeg
+  - onyx-handle
   - containers
   - vector
   - async
