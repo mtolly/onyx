@@ -7,6 +7,7 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
@@ -925,14 +926,17 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
         startPlaying :: Double -> IO SongState
         startPlaying t = do
           speed <- getSpeed
+          let dummyHandle = AudioHandle
+                { audioStop = return ()
+                , audioSetGain = \_ -> return ()
+                }
           handle <- case maybeAudio of
             Just f  -> do
               gain <- FL.getValue volSlider
-              f t (guard (speed /= 1) >> Just speed) (realToFrac gain)
-            Nothing -> return AudioHandle
-              { audioStop = return ()
-              , audioSetGain = \_ -> return ()
-              }
+              Exc.catch @Exc.IOException
+                (f t (guard (speed /= 1) >> Just speed) (realToFrac gain))
+                (\_ -> return dummyHandle)
+            Nothing -> return dummyHandle
           curTime <- getTimeMonotonic
           stopAnim <- startAnimation (recip $ realToFrac $ prefPreviewFPS ?preferences) $ do
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
