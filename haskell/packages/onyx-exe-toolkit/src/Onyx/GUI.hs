@@ -129,7 +129,7 @@ import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.Ark.GH2                     (GH2InstallLocation (..))
 import qualified Onyx.Harmonix.DTA.Serialize.GH2           as D
 import           Onyx.Harmonix.DTA.Serialize.Magma         (Gender (..))
-import           Onyx.Harmonix.MOGG                        (oggToMogg)
+import           Onyx.Harmonix.MOGG                        (oggToMoggFiles)
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Harmonix.RockBand.SongCache          (hardcodeSongCacheIDs)
 import           Onyx.Image.DXT                            (readRBImageMaybe)
@@ -1815,7 +1815,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       updateFiles f = do
         modifyMVar_ loadedFiles f
         sink $ EventIO $ updatePackGo >> updateInPlace
-  filesGroup <- fileLoadWindow filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
     $ \qinput -> let
       entry = T.pack $ quickInputPath qinput
       subline = T.pack $ case length $ quickInputSongs qinput of
@@ -1871,9 +1871,14 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     return $ do
       checked <- FL.getValue check
       return $ if checked then processor else return
-  let getMIDITransform = do
+  let getSongTransform = do
         procs <- sequence processorGetters
         return $ foldr (>=>) return procs
+  getDecrypt360 <- do
+    check <- FL.checkButtonNew processorBox $ Just "Decrypt MOGGs (360)"
+    void $ FL.setValue check False
+    FL.setTooltip check "For CON/LIVE output, decrypt all MOGG files."
+    return $ FL.getValue check
   FL.end packProcessors
 
   -- row2: select mode
@@ -1958,12 +1963,16 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       files <- stackIO $ readMVar loadedFiles
       enc <- stackIO getEncrypt
       ps3Folder <- stackIO getFolderSetting
-      midiTransform <- stackIO getMIDITransform
+      songTransform <- stackIO getSongTransform
+      decrypt360 <- stackIO getDecrypt360
+      -- TODO this is a hack to avoid stale references after editing them.
+      -- should come up with a better solution!
+      stackIO clearFiles
       startTasks $ flip map files $ \qinput -> let
         fin = quickInputPath qinput
         qsongs = quickInputSongs qinput
         task = do
-          qsongs' <- mapM midiTransform qsongs
+          qsongs' <- mapM songTransform qsongs
           let tmp = fin <> ".tmp"
               isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
               ps3Settings = QuickPS3Settings
@@ -1979,8 +1988,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                 live
           case quickInputFormat qinput of
             QCInputTwoWay fmt -> case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts tmp
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts tmp
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts tmp
               QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
             fmt -> fatal $ "Unsupported format for transform mode (" <> show fmt <> ")"
           stackIO $ Dir.renameFile tmp fin
@@ -2013,13 +2022,14 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         fmt <- stackIO getFormat
         enc <- stackIO getEncrypt
         ps3Folder <- stackIO getFolderSetting
-        midiTransform <- stackIO getMIDITransform
+        songTransform <- stackIO getSongTransform
+        decrypt360 <- stackIO getDecrypt360
         newPreferences <- readPreferences
         startTasks $ flip map files $ \qinput -> let
           fin = quickInputPath qinput
           qsongs = quickInputSongs qinput
           task = do
-            qsongs' <- mapM midiTransform qsongs
+            qsongs' <- mapM songTransform qsongs
             let ext = case fmt of
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
@@ -2037,8 +2047,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
                   live
             case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
               QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
             return [fout]
           in (fin, task)
@@ -2074,7 +2084,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       fmt <- getFormat
       enc <- getEncrypt
       ps3Folder <- getFolderSetting
-      midiTransform <- getMIDITransform
+      songTransform <- getSongTransform
+      decrypt360 <- getDecrypt360
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
         Just packs -> do
@@ -2099,7 +2110,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   fout = getOutputPath i
                   task = do
                     mapM_ (lg . T.unpack . artistTitle) qsongs
-                    qsongs' <- mapM midiTransform qsongs
+                    qsongs' <- mapM songTransform qsongs
                     let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                         ps3Folder' = case ps3Folder of
                           QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
@@ -2115,8 +2126,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                           ""
                           live
                     case fmt of
-                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
-                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS qsongs' opts fout
+                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
+                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
                       QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
                     return [fout]
                   in ("Pack #" <> show (i :: Int), task)
@@ -2142,7 +2153,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         files <- readMVar loadedFiles
         fmt <- getFormat
         enc <- getEncrypt
-        midiTransform <- getMIDITransform
+        songTransform <- getSongTransform
+        decrypt360 <- getDecrypt360
         askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
           let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
           sink $ EventOnyx $ do
@@ -2155,7 +2167,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
               fout = dout </> quickTemplate newPreferences fmt (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
               isRB3 = qdtaRB3 $ quickSongDTA qsong
               task = do
-                qsong' <- midiTransform qsong
+                qsong' <- songTransform qsong
                 let ps3Settings = QuickPS3Settings
                       { qcPS3Folder  = Just QCSeparateFolders
                       , qcPS3Encrypt = enc
@@ -2167,8 +2179,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                       ""
                       live
                 case fmt of
-                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
-                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS [qsong'] opts fout
+                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 [qsong'] opts fout
+                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 [qsong'] opts fout
                   QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
                 return [fout]
               in (T.unpack $ artistTitle qsong, task)
@@ -2184,13 +2196,13 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
       files <- readMVar loadedFiles
       tryPreview <- FL.getValue boxPrev
-      midiTransform <- getMIDITransform
+      songTransform <- getSongTransform
       askFolder (prefDirWii ?preferences) $ \dout -> sink $ EventOnyx $ startTasks $ let
         settings = QuickDolphinSettings
           { qcDolphinPreview = tryPreview
           }
         task = do
-          qsongs <- mapM midiTransform $ concatMap quickInputSongs files
+          qsongs <- mapM songTransform $ concatMap quickInputSongs files
           saveQuickSongsDolphin qsongs settings dout
         in [("Make Dolphin pack", task)]
 
@@ -2477,7 +2489,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             then f
             else f <.> "mogg"
           in sink $ EventOnyx $ startTasks $ case isSingleOgg audio of
-            Just aud -> [("Ogg to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
+            Just aud -> [("Ogg to MOGG", oggToMoggFiles (audioPath aud) f' >> return [f'])]
             Nothing  -> let
               task = tempDir "makemogg" $ \tmp -> do
                 let ogg = tmp </> "temp.ogg"
@@ -2488,7 +2500,7 @@ miscPageMOGG sink rect tab startTasks = mdo
                 ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
                 src <- buildSource' $ Merge $ fmap (Input . audioPath) ne
                 runAudio src ogg
-                oggToMogg ogg f'
+                oggToMoggFiles ogg f'
                 return [f']
               in [("MOGG file creation", task)]
       _ -> return ()

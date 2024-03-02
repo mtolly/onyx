@@ -117,9 +117,8 @@ handleOVCallbacks h = do
         onyx_delete_ov_callbacks cb
   return (cb, cleanup)
 
-moggToOgg :: Readable -> Readable
-moggToOgg r = makeHandle "decrypted mogg" $ do
-  h <- rOpen r
+moggToOggHandles :: Handle -> IO SimpleHandle
+moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- onyx_VorbisReader_Open nullPtr cb
   when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
@@ -138,6 +137,9 @@ moggToOgg r = makeHandle "decrypted mogg" $ do
       bytesRead <- onyx_VorbisReader_ReadRaw vr (castPtr buf) 1 $ fromIntegral n
       B.packCStringLen (buf, fromIntegral bytesRead)
     }
+
+moggToOgg :: Readable -> Readable
+moggToOgg r = makeHandle "decrypted mogg" $ rOpen r >>= moggToOggHandles
 
 -- 0x0A (unencrypted) -> 0x0B (RB1)
 encryptMOGG :: (Monoid a) => Readable -> (B.ByteString -> IO a) -> IO a

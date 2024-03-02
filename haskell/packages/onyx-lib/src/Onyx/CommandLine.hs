@@ -99,7 +99,7 @@ import           Onyx.Harmonix.Magma                  (getRBAFile, runMagmaMIDI)
 import           Onyx.Harmonix.MOGG                   (decryptBink,
                                                        encryptMOGGFiles,
                                                        moggToOggFiles,
-                                                       oggToMogg)
+                                                       oggToMoggFiles)
 import qualified Onyx.Harmonix.RockBand.IOS           as IOS
 import           Onyx.Harmonix.RockBand.Milo          (autoLipsync,
                                                        beatlesLipsync,
@@ -621,7 +621,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileOGG -> do
         mogg <- outputFile opts $ return $ fpath -<.> "mogg"
-        oggToMogg fpath mogg
+        oggToMoggFiles fpath mogg
         return [mogg]
       _ -> unrecognized ftype fpath
     }

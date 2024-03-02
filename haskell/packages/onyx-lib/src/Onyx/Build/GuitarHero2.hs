@@ -314,7 +314,7 @@ gh2Rules buildInfo dir gh2 = do
     runAudio src out
   dir </> "stfs/songs" </> pkg </> pkg <.> "mogg" %> \out -> do
     shk $ need [dir </> "audio.ogg"]
-    oggToMogg (dir </> "audio.ogg") out
+    oggToMoggFiles (dir </> "audio.ogg") out
   dir </> "stfs/songs" </> pkg </> pkg <.> "voc" %> \out -> do
     shk $ copyFile' (dir </> "gh2/lipsync.voc") out
   dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox" %> \out -> do

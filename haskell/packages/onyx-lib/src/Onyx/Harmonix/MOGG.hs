@@ -1,7 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 module Onyx.Harmonix.MOGG
-( moggToOggFiles, moggToOgg, oggToMogg, sourceVorbis
+( moggToOggFiles, moggToOgg, oggToMogg, oggToMoggFiles, sourceVorbis
 , encryptMOGG, encryptMOGGFiles, encryptMOGGToByteString
+, decryptMOGG
 , fixOldC3Mogg
 , decryptBink
 ) where
@@ -31,8 +32,22 @@ import           System.IO                    (SeekMode (..), hSeek)
 moggToOggFiles :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 moggToOggFiles mogg ogg = stackIO $ saveReadable (moggToOgg $ fileReadable mogg) ogg
 
-runVorbisFile :: FilePath -> (Maybe OggVorbis_File -> IO a) -> IO a
-runVorbisFile fogg fn = runResourceT $ loadVorbisFile fogg >>= liftIO . fn . fmap snd
+-- Output is a 0x0A type (unencrypted) mogg, with header
+decryptMOGG :: Readable -> Readable
+decryptMOGG enc = makeHandle "decrypted mogg" $ do
+  header <- useHandle enc $ \h -> do
+    hSeek h AbsoluteSeek 16
+    numPairs <- BL.hGet h 4 >>= runGetM getWord32le
+    hSeek h AbsoluteSeek 12
+    bufSizeAndTable <- BL.hGet h $ 4 + 4 + 8 * fromIntegral numPairs
+    return $ runPut $ do
+      putWord32le 0xA -- unencrypted
+      putWord32le $ 20 + 8 * numPairs -- size of header before the ogg
+      putWord32le 0x10 -- "ogg map version"
+      putLazyByteString bufSizeAndTable
+  shHeader <- byteStringSimpleHandle header
+  shOgg <- rOpen enc >>= moggToOggHandles
+  appendSimpleHandle shHeader shOgg
 
 runVorbisReadable :: Readable -> (Maybe OggVorbis_File -> IO a) -> IO a
 runVorbisReadable r fn = useHandle r $ \h -> do
@@ -48,34 +63,37 @@ makeMoggTable bufSize audioLen = go 0 (0, 0) where
         then go curSample p ps
         else prevPair : go (curSample + bufSize) prevPair pairs
 
-oggToMogg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-oggToMogg ogg mogg = do
-  pair <- stackIO $ runVorbisFile ogg $ mapM $ \ov -> let
-    go bytes = ov_raw_seek ov bytes >>= \case
-      0 -> do
-        samples <- ov_pcm_tell ov
-        ((fromIntegral bytes, fromIntegral samples) :) <$> go (bytes + 0x8000)
-      _ -> return []
-    in do
-      audioLen <- ov_pcm_total ov (-1)
-      table <- go 0
-      return (audioLen, table)
-  (audioLen, table) <- maybe (fatal "couldn't open OGG file to generate MOGG") return pair
+oggToMogg :: Readable -> Readable
+oggToMogg ogg = makeHandle "ogg -> mogg" $ do
+  (audioLen, table) <- runVorbisReadable ogg $ \case
+    Nothing -> fail "Couldn't open Ogg file to generate MOGG"
+    Just ov -> let
+      go bytes = ov_raw_seek ov bytes >>= \case
+        0 -> do
+          samples <- ov_pcm_tell ov
+          ((fromIntegral bytes, fromIntegral samples) :) <$> go (bytes + 0x8000)
+        _ -> return []
+      in do
+        audioLen <- ov_pcm_total ov (-1)
+        table <- go 0
+        return (audioLen, table)
   let bufSize = 20000
       table' = makeMoggTable bufSize (fromIntegral audioLen) table
-  stackIO $ do
-    oggBS <- BL.readFile ogg
-    BL.writeFile mogg $ runPut $ do
-      let len = fromIntegral $ length table' :: Word32
-      putWord32le 0xA -- unencrypted
-      putWord32le $ 20 + 8 * len -- size of header before the ogg
-      putWord32le 0x10 -- "ogg map version"
-      putWord32le bufSize -- buffer size
-      putWord32le len -- number of pairs
-      forM_ table' $ \(bytes, samples) -> do
-        putWord32le bytes
-        putWord32le samples
-      putLazyByteString oggBS
+  shHeader <- byteStringSimpleHandle $ runPut $ do
+    let len = fromIntegral $ length table' :: Word32
+    putWord32le 0xA -- unencrypted
+    putWord32le $ 20 + 8 * len -- size of header before the ogg
+    putWord32le 0x10 -- "ogg map version"
+    putWord32le bufSize -- buffer size
+    putWord32le len -- number of pairs
+    forM_ table' $ \(bytes, samples) -> do
+      putWord32le bytes
+      putWord32le samples
+  shOgg <- rOpen ogg >>= simplifyHandle
+  appendSimpleHandle shHeader shOgg
+
+oggToMoggFiles :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+oggToMoggFiles ogg mogg = stackIO $ saveReadable (oggToMogg $ fileReadable ogg) mogg
 
 sourceVorbis :: (MonadResource m, MonadIO f) => CA.Duration -> Readable -> f (CA.AudioSource m Float)
 sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case

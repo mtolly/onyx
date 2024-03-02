@@ -156,6 +156,7 @@ appendSimpleHandle x y = do
     , shClose = shClose x >> shClose y
     , shRead = \n -> do
       p <- readIORef posn
+      writeIORef posn $ p + n
       let segmentX = do
             guard $ p < shSize x
             Just $ do

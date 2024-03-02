@@ -72,19 +72,6 @@ getChannelsRate ov = do
   rate <- {#get vorbis_info->rate #} p
   return (chans, rate)
 
-loadVorbisFile :: (MonadResource m) => FilePath -> m (Maybe (m (), OggVorbis_File))
-loadVorbisFile f = do
-  (pkey, p) <- allocate (mallocBytes {#sizeof OggVorbis_File#}) free
-  let ov = OggVorbis_File p
-  -- TODO does this need a short name hack on Windows for non-ascii chars?
-  (reskey, res) <- allocate (withCString f $ \cstr -> ov_fopen cstr ov)
-    (\n -> when (n == 0) $ void $ ov_clear ov)
-  if res == 0
-    then return $ Just (release reskey >> release pkey, ov)
-    else do
-      release pkey
-      return Nothing
-
 loadVorbisHandle :: (MonadResource m) => Handle -> m (Maybe (m (), OggVorbis_File))
 loadVorbisHandle h = do
   (pkey, p) <- allocate (mallocBytes {#sizeof OggVorbis_File#}) free

@@ -563,10 +563,10 @@ rbRules buildInfo dir rb3 mrb2 = do
           stackIO $ saveReadable (fixOldC3Mogg $ fileReadable origMogg) out
         _      -> do
           shk $ need [pathOgg]
-          mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
+          mapStackTraceT (liftIO . runResourceT) $ oggToMoggFiles pathOgg out
     StandardPlan _ -> do
       shk $ need [pathOgg]
-      mapStackTraceT (liftIO . runResourceT) $ oggToMogg pathOgg out
+      mapStackTraceT (liftIO . runResourceT) $ oggToMoggFiles pathOgg out
   -- TODO support target-specific album art
   pathPng  %> shk . copyFile' (biGen buildInfo "cover.png_xbox")
 

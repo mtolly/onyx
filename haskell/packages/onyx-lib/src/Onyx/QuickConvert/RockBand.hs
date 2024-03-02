@@ -59,9 +59,10 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
-import           Onyx.Harmonix.MOGG                   (encryptMOGGToByteString,
+import           Onyx.Harmonix.MOGG                   (decryptMOGG,
+                                                       encryptMOGGToByteString,
                                                        fixOldC3Mogg, moggToOgg,
-                                                       oggToMogg)
+                                                       oggToMoggFiles)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
@@ -460,9 +461,9 @@ verifyCryptEDAT crypt name rb3 r = tryDecryptEDAT crypt name r >>= \case
     Just r' -> encryptEDAT crypt name rb3 r'
     Nothing -> fatal $ "Couldn't decrypt " <> show name
 
-getXboxFile :: (MonadIO m, SendMessage m) => (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
-getXboxFile (name, qfile) = case qfile of
-  QFEncryptedMOGG r -> return (name, fixOldC3Mogg r)
+getXboxFile :: (MonadIO m, SendMessage m) => Bool -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
+getXboxFile decrypt (name, qfile) = case qfile of
+  QFEncryptedMOGG r -> return (name, (if decrypt then decryptMOGG else fixOldC3Mogg) r)
   QFUnencryptedMOGG r -> return (name, r)
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_xbox"
@@ -480,7 +481,7 @@ getXboxFile (name, qfile) = case qfile of
     r' <- decryptEDAT crypt (TE.encodeUtf8 name) r
     return (name', r')
   QFUnencryptedMIDI r -> return (name, r)
-  QFParsedMIDI mid -> getXboxFile (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
+  QFParsedMIDI mid -> getXboxFile decrypt (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
   QFOther r -> return (name, r)
 
 getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
@@ -582,10 +583,10 @@ getWiiFile (name, qfile) = case qfile of
   QFParsedMIDI mid -> getWiiFile (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
   QFOther r -> return (name, (WiiSong, r)) -- should warn maybe?
 
-saveQuickSongsSTFS :: (MonadIO m, SendMessage m) => [QuickSong] -> CreateOptions -> FilePath -> StackTraceT m ()
-saveQuickSongsSTFS qsongs opts fout = do
+saveQuickSongsSTFS :: (MonadIO m, SendMessage m) => Bool -> [QuickSong] -> CreateOptions -> FilePath -> StackTraceT m ()
+saveQuickSongsSTFS decrypt qsongs opts fout = do
   xboxFolders <- forM qsongs $ \qsong -> do
-    xboxFolder <- mapMFilesWithName (getXboxFile . discardSize) $ quickSongFiles qsong
+    xboxFolder <- mapMFilesWithName (getXboxFile decrypt . discardSize) $ quickSongFiles qsong
     return (qdtaFolder $ quickSongDTA qsong, xboxFolder)
   let songsFolder = Folder
         { folderSubfolders = xboxFolders
@@ -718,7 +719,7 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
               lg "Couldn't decrypt audio, making silent preview"
               silentPreview
       else silentPreview
-    oggToMogg prevOgg prevMogg
+    oggToMoggFiles prevOgg prevMogg
     previewReadable <- stackIO $ makeHandle "preview mogg" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile prevMogg
     let metaContents = container "songs" $ container (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
           (WiiMeta, r) -> Just r
