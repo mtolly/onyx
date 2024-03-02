@@ -23,7 +23,7 @@ import           Data.List                     (find, sort)
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Map                      as Map
-import           Data.Maybe                    (fromMaybe)
+import           Data.Maybe                    (catMaybes, fromMaybe)
 import qualified Data.Text                     as T
 import           Data.Typeable                 (Typeable)
 import           Foreign                       (castPtr)
@@ -145,6 +145,29 @@ handleToByteString h = do
   len <- hFileSize h
   hSeek h AbsoluteSeek 0
   BL.hGet h $ fromIntegral len
+
+appendSimpleHandle :: SimpleHandle -> SimpleHandle -> IO SimpleHandle
+appendSimpleHandle x y = do
+  posn <- newIORef 0
+  return SimpleHandle
+    { shSize = shSize x + shSize y
+    , shSeek = writeIORef posn
+    , shTell = readIORef posn
+    , shClose = shClose x >> shClose y
+    , shRead = \n -> do
+      p <- readIORef posn
+      let segmentX = do
+            guard $ p < shSize x
+            Just $ do
+              shSeek x p
+              shRead x $ min (shSize x - p) n
+          segmentY = do
+            guard $ p + n > shSize x
+            Just $ do
+              shSeek y $ max 0 (p - shSize x)
+              shRead y $ n - max 0 (shSize x - p)
+      fmap B.concat $ sequence $ catMaybes [segmentX, segmentY]
+    }
 
 useHandle :: Readable -> (Handle -> IO a) -> IO a
 useHandle readable = bracket (rOpen readable) hClose

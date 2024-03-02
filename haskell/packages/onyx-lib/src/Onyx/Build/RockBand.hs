@@ -665,10 +665,8 @@ rbRules buildInfo dir rb3 mrb2 = do
     -- PS3 RB3 can't play unencrypted moggs
     shk $ need [pathMogg]
     moggType <- stackIO $ withBinaryFile pathMogg ReadMode $ \h -> B.hGet h 1
-    fin  <- shortWindowsPath False pathMogg
-    fout <- shortWindowsPath True  out
     case B.unpack moggType of
-      [0xA] -> stackIO $ encryptMOGG fin fout
+      [0xA] -> stackIO $ encryptMOGGFiles pathMogg out
       _     -> shk $ copyFile' pathMogg out
   rb3ps3Milo %> shk . copyFile' pathMilo
   phony rb3ps3Root $ do
@@ -1019,10 +1017,8 @@ rbRules buildInfo dir rb3 mrb2 = do
           -- PS3 RB3 can't play unencrypted moggs (RB2 might be fine, but we may as well be compatible)
           shk $ need [rb2Mogg]
           moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
-          fin  <- shortWindowsPath False rb2Mogg
-          fout <- shortWindowsPath True  out
           case B.unpack moggType of
-            [0xA] -> stackIO $ encryptMOGG fin fout
+            [0xA] -> stackIO $ encryptMOGGFiles rb2Mogg out
             _     -> shk $ copyFile' rb2Mogg out
         rb2ps3Weights %> shk . copyFile' rb2Weights
         rb2ps3Milo %> shk . copyFile' rb2Milo

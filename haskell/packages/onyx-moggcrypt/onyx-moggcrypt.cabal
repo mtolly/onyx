@@ -22,7 +22,6 @@ library
     cbits/VorbisEncrypter.cpp
     cbits/VorbisReader.cpp
     cbits/XTEABlockEncrypter.cpp
-    cbits/MoggcryptCpp.cpp
     cbits/Onyx.cpp
     cbits/OnyxVorbisfile.cpp
   build-depends: base, bytestring, onyx-handle, resourcet

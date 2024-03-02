@@ -59,9 +59,9 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
-import           Onyx.Harmonix.MOGG                   (decryptMOGG',
-                                                       encryptMOGG,
-                                                       fixOldC3Mogg, oggToMogg)
+import           Onyx.Harmonix.MOGG                   (encryptMOGGToByteString,
+                                                       fixOldC3Mogg, moggToOgg,
+                                                       oggToMogg)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
@@ -486,13 +486,9 @@ getXboxFile (name, qfile) = case qfile of
 getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
 getPS3File mcrypt (name, qfile) = case qfile of
   QFEncryptedMOGG r -> return (name, fixOldC3Mogg r)
-  QFUnencryptedMOGG r -> tempDir "onyxquickconv" $ \tmp -> stackIO $ do
-    let tmpIn  = tmp </> "in.mogg"
-        tmpOut = tmp </> "out.mogg"
-    saveReadable r tmpIn
-    encryptMOGG tmpIn tmpOut
-    r' <- makeHandle (T.unpack name) . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
-    return (name, r')
+  QFUnencryptedMOGG r -> let
+    enc = makeHandle "encrypted mogg for ps3" $ encryptMOGGToByteString r >>= byteStringSimpleHandle
+    in return (name, enc)
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
     in return (name', r)
@@ -706,7 +702,7 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
           silentPreview
         r : _ -> do
           -- TODO wanted to use ffSourceFrom (with Readable), but it crashes! no idea why
-          errorToEither (stackIO $ saveReadable (decryptMOGG' r) fullOgg) >>= \case
+          errorToEither (stackIO $ saveReadable (moggToOgg r) fullOgg) >>= \case
             -- TODO the above error catch is untested since moving to moggcrypt
             Right () -> do
               src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) fullOgg
@@ -1002,14 +998,10 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
         newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
           ".mogg" -> stackIO $ do
             moggType <- useHandle r $ \h -> B.hGet h 1
-            let tmpIn  = tmp </> "in.mogg"
-                tmpOut = tmp </> "out.mogg"
             case B.unpack moggType of
-              [0xA] -> do
-                saveReadable r tmpIn
-                encryptMOGG tmpIn tmpOut
-                r' <- makeHandle "" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile tmpOut
-                return (name, r')
+              [0xA] -> let
+                enc = makeHandle "encrypted mogg for ps3" $ encryptMOGGToByteString r >>= byteStringSimpleHandle
+                in return (name, enc)
               _     -> return (name, r)
           ".mid" -> stackIO $ do
             let tmpIn  = tmp </> "in.mid"

@@ -7,14 +7,14 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Game.Audio
 ( projectAudio, withAL, AudioHandle(..)
-, withMOGG, playSource
+, playSource
 ) where
 
 import           Control.Concurrent           (threadDelay)
 import           Control.Concurrent.Async     (async, forConcurrently,
                                                mapConcurrently_)
 import           Control.Concurrent.MVar
-import           Control.Exception            (bracket, throwIO)
+import           Control.Exception            (bracket)
 import           Control.Monad                (forM, forM_, join)
 import           Control.Monad.IO.Class       (MonadIO, liftIO)
 import           Control.Monad.Trans.Resource
@@ -42,13 +42,12 @@ import           Onyx.Harmonix.MOGG
 import           Onyx.Import
 import           Onyx.Project
 import           Onyx.StackTrace              (QueueLog, StackTraceT,
-                                               errorToWarning, fatal, logStdout)
+                                               errorToWarning, fatal)
 import           Onyx.Util.Handle             (Readable, fileReadable)
 import           Path                         (parseAbsDir)
 import qualified Sound.OpenAL                 as AL
 import           Sound.OpenAL                 (($=))
 import           System.FilePath              (takeDirectory, (<.>), (</>))
-import           System.IO.Temp
 
 {-
 {-# NOINLINE lockAL #-}
@@ -67,12 +66,6 @@ checkAL desc f = withMVar lockAL $ \() -> do
 -- | Can be swapped out with checkAL to see OpenAL errors
 doAL :: String -> IO a -> IO a
 doAL _ f = f
-
-withMOGG :: FilePath -> (FilePath -> IO a) -> IO a
-withMOGG mogg fn = withSystemTempDirectory "onyxLoadMogg" $ \tmp -> do
-  let ogg = tmp </> "audio.ogg"
-  logStdout (moggToOgg mogg ogg) >>= either throwIO return
-  fn ogg
 
 _sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
 _sndSecsSpeed pos mspeed f = do
@@ -343,7 +336,7 @@ projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
   Just (MoggPlan x) -> errorToWarning $ do
     -- TODO maybe silence crowd channels
     mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
-    let ogg = decryptMOGG' $ fileReadable mogg
+    let ogg = moggToOgg $ fileReadable mogg
     return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
   Just (StandardPlan x) -> errorToWarning $ do
     let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]

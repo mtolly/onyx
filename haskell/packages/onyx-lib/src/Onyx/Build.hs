@@ -679,12 +679,12 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
             ogg %> \out -> do
               shk $ need [mogg]
               if x.decryptSilent
-                then errorToWarning (moggToOgg mogg out) >>= \case
+                then errorToWarning (moggToOggFiles mogg out) >>= \case
                   Just () -> return ()
                   Nothing -> do
                     -- Make a no-samples ogg with the right channel count
                     buildAudio (Silence (length x.pans) $ Frames 0) out
-                else moggToOgg mogg out
+                else moggToOggFiles mogg out
             wav %> buildAudio (Input ogg)
             let allChannelWAVs = map channelWAV [0 .. length x.pans - 1]
             allChannelWAVs %> \_ -> do

@@ -56,13 +56,13 @@ data GH3TextPakQB = GH3TextPakQB
 readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
   nodes <- splitPakNodes (pakFormatGH3 ?endian) pak $ Just pab
-  readGH3TextPakQB nodes
+  return $ readGH3TextPakQB nodes
 
 readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDLC pak = do
   let ?endian = BigEndian
   nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
-  readGH3TextPakQB nodes
+  return $ readGH3TextPakQB nodes
 
 data GH3Language
   = GH3English
@@ -255,32 +255,34 @@ combineGH3SongCachePS3 ins out = do
   extra <- stackIO $ getResourcesPath "pkg-contents/gh3" >>= fmap (first TE.encodeUtf8) . crawlFolder
   stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
-readGH3TextPakQB :: (MonadFail m, ?endian :: ByteOrder) => [(Node, BL.ByteString)] -> m GH3TextPakQB
-readGH3TextPakQB nodes = do
-  let mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
-      getSonglistProps qb = do
-        QBSectionStruct structID _fileID (QBStructHeader : songs) <- qb
-        guard $ elem structID
-          [ "permanent_songlist_props" -- disc, both gh3 + ghwt
-          , "download_songlist_props" -- dlc, both gh3 + ghwt
-          , "gh3_songlist_props" -- GH3 DEMO BUILD
-          ]
-        songs
-  sortedNodes <- forM nodes $ \pair@(node, bs) -> if nodeFileType node == ".qb"
-    then do
+readGH3TextPakQB :: (?endian :: ByteOrder) => [(Node, BL.ByteString)] -> GH3TextPakQB
+readGH3TextPakQB nodes = let
+  mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
+  getSonglistProps qb = do
+    QBSectionStruct structID _fileID (QBStructHeader : songs) <- qb
+    guard $ elem structID
+      [ "permanent_songlist_props" -- disc, both gh3 + ghwt
+      , "download_songlist_props" -- dlc, both gh3 + ghwt
+      , "gh3_songlist_props" -- GH3 DEMO BUILD
+      ]
+    songs
+  sortedNodes = flip map nodes $ \pair@(node, bs) -> if nodeFileType node == ".qb"
+    then let
       -- this will just be an empty list if we can't parse the qb,
       -- such as some parts of gh3 disc .pak we don't care about
-      let qb = fromMaybe [] $ map (lookupQS mappingQS) <$> runGetM parseQB bs
-      return $ case getSonglistProps qb of
+      qb = fromMaybe [] $ map (lookupQS mappingQS) <$> runGetM parseQB bs
+      in case getSonglistProps qb of
         []    -> Left  pair
         songs -> Right songs
-    else return $ Left pair
-  structs <- fmap concat $ forM (concat $ rights sortedNodes) $ \case
-    QBStructItemStruct8A0000 k struct -> return [(k, struct)] -- gh3
-    QBStructItemStruct k struct -> return [(k, struct)] -- ghwt
-    QBStructItemQbKeyString9A0000 0 "download_songlist_props" -> return [] -- weird thing in GH3 DEMO BUILD
-    item -> fail $ "Unexpected item in _text.pak instead of song struct: " <> show item
-  return GH3TextPakQB
+    else Left pair
+  structs = concat $ flip map (concat $ rights sortedNodes) $ \case
+    QBStructItemStruct8A0000 k struct -> [(k, struct)] -- gh3
+    QBStructItemStruct       k struct -> [(k, struct)] -- ghwt
+    _                                 -> []
+    -- known other things found here:
+    -- QBStructItemQbKeyString9A0000 0 "download_songlist_props"  -- GH3 DEMO BUILD
+    -- QBStructItemQbKeyString9A0000 0 "permanent_songlist_props" -- under gh3_songlist_props in final gh3 disc
+  in GH3TextPakQB
     { gh3TextPakSongStructs = structs
     , gh3OtherNodes
       = filter (\(node, _) -> nodeFileType node /= ".last")

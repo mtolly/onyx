@@ -57,7 +57,7 @@ VorbisReader::~VorbisReader()
 
 int VorbisReader::Open(void* datasource, ov_callbacks cbStruct)
 {
-	if (this->fileRef) {
+	if (this->cbStruct.close_func && this->fileRef) {
 		this->cbStruct.close_func(this->fileRef);
 	}
 	this->fileRef = datasource;
@@ -189,7 +189,7 @@ long VorbisReader::SeekSamples(int64_t sampleToSeekTo)
 
 int VorbisReader::Close()
 {
-	if (fileRef)
+	if (cbStruct.close_func && fileRef)
 		cbStruct.close_func(fileRef);
 
 #ifndef VR_NO_DECODE

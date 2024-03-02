@@ -102,4 +102,4 @@ readGH4TextPakQBDisc
 readGH4TextPakQBDisc (qbpak, qbpab) (qspak, qspab) = do
   qbnodes <- splitPakNodes (pakFormatGH3 ?endian) qbpak qbpab
   qsnodes <- splitPakNodes (pakFormatGH3 ?endian) qspak qspab
-  readGH3TextPakQB $ qbnodes <> qsnodes
+  return $ readGH3TextPakQB $ qbnodes <> qsnodes

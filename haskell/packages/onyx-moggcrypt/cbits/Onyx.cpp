@@ -1,5 +1,7 @@
 #include "XiphTypes.h"
 #include "VorbisReader.h"
+#include "VorbisEncrypter.h"
+#include "BinkReader.h"
 #include <cstdlib>
 
 extern "C" {
@@ -49,8 +51,32 @@ size_t onyx_VorbisReader_SizeRaw(void* vr) {
   return ((VorbisReader*) vr)->SizeRaw();
 }
 
-size_t onyx_VorbisReader_ReadRaw(void* vr, void *buf, size_t elementSize, size_t elements) {
+size_t onyx_VorbisReader_ReadRaw(void* vr, void* buf, size_t elementSize, size_t elements) {
   return ((VorbisReader*) vr)->ReadRaw(buf, elementSize, elements);
+}
+
+void* onyx_VorbisEncrypter_Open(void* src, ov_callbacks* cb) {
+  return new VorbisEncrypter(src, *cb);
+}
+
+void onyx_delete_VorbisEncrypter(void* ve) {
+  delete ((VorbisEncrypter*) ve);
+}
+
+size_t onyx_VorbisEncrypter_ReadRaw(void* ve, void* buf, size_t elementSize, size_t elements) {
+  return ((VorbisEncrypter*) ve)->ReadRaw(buf, elementSize, elements);
+}
+
+void* onyx_BinkReader_Open(void* src, ov_callbacks* cb) {
+  return new BinkReader(src, *cb);
+}
+
+void onyx_delete_BinkReader(void* br) {
+  delete ((BinkReader*) br);
+}
+
+int onyx_BinkReader_ReadToArray(void* br, uint8_t** buffer, size_t* size) {
+  return ((BinkReader*) br)->ReadToArray(buffer, size);
 }
 
 }

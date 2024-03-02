@@ -1,19 +1,25 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
 module Onyx.Harmonix.MOGG.Crypt where
 
-import           Control.Monad          (when)
-import qualified Data.ByteString        as B
+import           Control.Exception        (bracket)
+import           Control.Monad            (when)
+import qualified Data.ByteString          as B
+import           Data.ByteString.Internal (fromForeignPtr0)
+import qualified Data.ByteString.Lazy     as BL
 import           Foreign
 import           Foreign.C
-import qualified GHC.IO.Handle          as H
+import qualified GHC.IO.Handle            as H
 import           Onyx.Util.Handle
 import           System.IO
-import           System.Posix.Internals (sEEK_CUR, sEEK_END, sEEK_SET)
+import           System.Posix.Internals   (sEEK_CUR, sEEK_END, sEEK_SET)
 
 -----------------------------------------------------------------------
 
-newtype OVCallbacks  = OVCallbacks  (Ptr OVCallbacks )
-newtype VorbisReader = VorbisReader (Ptr VorbisReader)
+newtype OVCallbacks     = OVCallbacks     (Ptr OVCallbacks    )
+newtype VorbisReader    = VorbisReader    (Ptr VorbisReader   )
+newtype VorbisEncrypter = VorbisEncrypter (Ptr VorbisEncrypter)
+newtype BinkReader      = BinkReader      (Ptr BinkReader     )
 
 foreign import ccall "wrapper"
   makeOVRead
@@ -64,6 +70,24 @@ foreign import ccall "onyx_VorbisReader_SizeRaw"
 foreign import ccall "onyx_VorbisReader_ReadRaw"
   onyx_VorbisReader_ReadRaw :: VorbisReader -> Ptr a -> CSize -> CSize -> IO CSize
 
+foreign import ccall "onyx_VorbisEncrypter_Open"
+  onyx_VorbisEncrypter_Open :: Ptr a -> OVCallbacks -> IO VorbisEncrypter
+
+foreign import ccall "onyx_delete_VorbisEncrypter"
+  onyx_delete_VorbisEncrypter :: VorbisEncrypter -> IO ()
+
+foreign import ccall "onyx_VorbisEncrypter_ReadRaw"
+  onyx_VorbisEncrypter_ReadRaw :: VorbisEncrypter -> Ptr a -> CSize -> CSize -> IO CSize
+
+foreign import ccall "onyx_BinkReader_Open"
+  onyx_BinkReader_Open :: Ptr a -> OVCallbacks -> IO BinkReader
+
+foreign import ccall "onyx_delete_BinkReader"
+  onyx_delete_BinkReader :: BinkReader -> IO ()
+
+foreign import ccall "onyx_BinkReader_ReadToArray"
+  onyx_BinkReader_ReadToArray :: BinkReader -> Ptr (Ptr Word8) -> Ptr CSize -> IO CInt
+
 handleOVCallbacks :: Handle -> IO (OVCallbacks, IO ())
 handleOVCallbacks h = do
   let modeMap =
@@ -90,10 +114,11 @@ handleOVCallbacks h = do
         freeHaskellFunPtr fnRead
         freeHaskellFunPtr fnSeek
         freeHaskellFunPtr fnTell
+        onyx_delete_ov_callbacks cb
   return (cb, cleanup)
 
-decryptMOGG' :: Readable -> Readable
-decryptMOGG' r = makeHandle "decrypted mogg" $ do
+moggToOgg :: Readable -> Readable
+moggToOgg r = makeHandle "decrypted mogg" $ do
   h <- rOpen r
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- onyx_VorbisReader_Open nullPtr cb
@@ -105,42 +130,50 @@ decryptMOGG' r = makeHandle "decrypted mogg" $ do
       0 -> return ()
       c -> fail $ "decrypted mogg seek returned error code " <> show c
     , shTell  = fromIntegral <$> onyx_VorbisReader_TellRaw vr
-    , shClose = hClose h >> cleanup
+    , shClose = do
+      onyx_delete_VorbisReader vr
+      hClose h
+      cleanup
     , shRead  = \n -> allocaBytes (fromIntegral n) $ \buf -> do
       bytesRead <- onyx_VorbisReader_ReadRaw vr (castPtr buf) 1 $ fromIntegral n
       B.packCStringLen (buf, fromIntegral bytesRead)
     }
 
------------------------------------------------------------------------
-
-foreign import ccall "saveOgg"
-  c_saveOgg :: CString -> CString -> IO CInt
-
-foreign import ccall "encryptOgg"
-  c_encryptOgg :: CString -> CString -> IO CInt
-
-foreign import ccall "saveBik"
-  c_saveBik :: CString -> CString -> IO CInt
-
 -- 0x0A (unencrypted) -> 0x0B (RB1)
-encryptMOGG :: FilePath -> FilePath -> IO ()
-encryptMOGG fin fout = do
-  withCString fin $ \pin -> do
-    withCString fout $ \pout -> do
-      res <- c_encryptOgg pin pout
-      when (res /= 0) $ ioError $ userError "Error in MOGG encryption"
+encryptMOGG :: (Monoid a) => Readable -> (B.ByteString -> IO a) -> IO a
+encryptMOGG r eachChunk = useHandle r $ \h -> do
+  bracket (handleOVCallbacks h) snd $ \(cb, _) -> do
+    bracket (onyx_VorbisEncrypter_Open nullPtr cb) onyx_delete_VorbisEncrypter $ \ve -> do
+      let bufSize = 8192
+      allocaBytes (fromIntegral bufSize) $ \buf -> let
+        go !cur = do
+          bytesRead <- onyx_VorbisEncrypter_ReadRaw ve (castPtr buf) 1 bufSize
+          if bytesRead == 0
+            then return cur
+            else do
+              bs <- B.packCStringLen (buf, fromIntegral bytesRead)
+              x <- eachChunk bs
+              go (cur <> x)
+        in go mempty
 
--- mogg -> ogg
-decryptMOGG :: FilePath -> FilePath -> IO ()
-decryptMOGG fin fout = do
-  withCString fin $ \pin -> do
-    withCString fout $ \pout -> do
-      res <- c_saveOgg pin pout
-      when (res /= 0) $ ioError $ userError "Error in MOGG decryption"
+encryptMOGGFiles :: FilePath -> FilePath -> IO ()
+encryptMOGGFiles fin fout = withBinaryFile fout WriteMode $ \hout -> do
+  encryptMOGG (fileReadable fin) $ \bs -> do
+    B.hPut hout bs
 
-decryptBink :: FilePath -> FilePath -> IO ()
-decryptBink fin fout = do
-  withCString fin $ \pin -> do
-    withCString fout $ \pout -> do
-      res <- c_saveBik pin pout
-      when (res /= 0) $ ioError $ userError "Error in Bink decryption"
+encryptMOGGToByteString :: Readable -> IO BL.ByteString
+encryptMOGGToByteString r = encryptMOGG r $ return . BL.fromStrict
+
+decryptBink :: Readable -> IO B.ByteString
+decryptBink r = useHandle r $ \h -> do
+  bracket (handleOVCallbacks h) snd $ \(cb, _) -> do
+    bracket (onyx_BinkReader_Open nullPtr cb) onyx_delete_BinkReader $ \br -> do
+      alloca $ \parray -> do
+        alloca $ \psize -> do
+          onyx_BinkReader_ReadToArray br parray psize >>= \case
+            0 -> do
+              -- array is malloc'd in ReadToArray, so use free when done
+              fptr <- peek parray >>= newForeignPtr finalizerFree
+              size <- fromIntegral <$> peek psize
+              return $ fromForeignPtr0 fptr size
+            _ -> fail "Failed to decrypt Bink file"

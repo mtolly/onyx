@@ -1,8 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 module Onyx.Harmonix.MOGG
-( moggToOgg, decryptMOGG', oggToMogg, sourceVorbis
-, encryptMOGG
+( moggToOggFiles, moggToOgg, oggToMogg, sourceVorbis
+, encryptMOGG, encryptMOGGFiles, encryptMOGGToByteString
 , fixOldC3Mogg
+, decryptBink
 ) where
 
 import           Control.Applicative          (liftA2)
@@ -20,15 +21,15 @@ import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
 import           Foreign                      hiding (void)
 import           Foreign.C
-import           Onyx.Harmonix.MOGG.Crypt     (decryptMOGG', encryptMOGG)
+import           Onyx.Harmonix.MOGG.Crypt
 import           Onyx.StackTrace
 import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.VorbisFile
 import           System.IO                    (SeekMode (..), hSeek)
 
-moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-moggToOgg mogg ogg = stackIO $ saveReadable (decryptMOGG' $ fileReadable mogg) ogg
+moggToOggFiles :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+moggToOggFiles mogg ogg = stackIO $ saveReadable (moggToOgg $ fileReadable mogg) ogg
 
 runVorbisFile :: FilePath -> (Maybe OggVorbis_File -> IO a) -> IO a
 runVorbisFile fogg fn = runResourceT $ loadVorbisFile fogg >>= liftIO . fn . fmap snd

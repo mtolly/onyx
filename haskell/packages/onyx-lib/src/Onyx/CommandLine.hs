@@ -96,7 +96,9 @@ import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.GH2.File               (GH2File (..))
 import           Onyx.Harmonix.GH2.PartGuitar         (nullPart)
 import           Onyx.Harmonix.Magma                  (getRBAFile, runMagmaMIDI)
-import           Onyx.Harmonix.MOGG                   (encryptMOGG, moggToOgg,
+import           Onyx.Harmonix.MOGG                   (decryptBink,
+                                                       encryptMOGGFiles,
+                                                       moggToOggFiles,
                                                        oggToMogg)
 import qualified Onyx.Harmonix.RockBand.IOS           as IOS
 import           Onyx.Harmonix.RockBand.Milo          (autoLipsync,
@@ -250,6 +252,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".moggsong" -> return $ FileType FileMOGGSong fp
     ".midtxt" -> return $ FileType FileMidiText fp
     ".mogg" -> return $ FileType FileMOGG fp
+    ".bik" -> return $ FileType FileBink fp
     ".zip" -> return $ FileType FileZip fp
     ".chart" -> return $ FileType FileChart fp
     ".psarc" -> return $ FileType FilePSARC fp
@@ -328,6 +331,7 @@ data FileType
   | FileMOGGSong
   | FileOGG
   | FileMOGG
+  | FileBink
   | FileFLAC
   | FileWAV
   | FileZip
@@ -630,9 +634,7 @@ commands =
     , commandRun = \args opts -> case args of
       [fin] -> do
         fout <- outputFile opts $ fatal "Requires --to argument"
-        fin'  <- shortWindowsPath False fin
-        fout' <- shortWindowsPath True  fout
-        stackIO $ encryptMOGG fin' fout'
+        stackIO $ encryptMOGGFiles fin fout
         return [fout]
       _ -> fatal "Expected 1 argument"
     }
@@ -1151,7 +1153,8 @@ commands =
     , commandDesc = "Decodes/decrypts a single file inside certain formats, see usage."
     , commandUsage = T.unlines
       [ "onyx unwrap in.fsb.xen --to out.fsb  # decrypt Neversoft GH FSB"
-      , "onyx unwrap in.mogg --to out.ogg     # unwrap unencrypted MOGG"
+      , "onyx unwrap in.mogg --to out.ogg     # unwrap/decrypt MOGG"
+      , "onyx unwrap in.bik --to out.bik      # decrypt encrypted Bink"
       , "onyx unwrap in.png_xbox --to out.png # decode Harmonix image format"
       ]
     , commandList = True
@@ -1165,8 +1168,12 @@ commands =
         return out
       (FileMOGG, fin) -> do
         ogg <- outputFile opts $ return $ fin -<.> "ogg"
-        moggToOgg fin ogg
+        moggToOggFiles fin ogg
         return ogg
+      (FileBink, fin) -> do
+        fout <- outputFile opts $ return $ fin -<.> "dec.bik"
+        stackIO $ decryptBink (fileReadable fin) >>= B.writeFile fout
+        return fout
       (FileHarmonixImage, fin) -> do
         let isPS3 = map toLower (takeExtension fin) == ".png_ps3"
         bs <- stackIO $ fmap BL.fromStrict $ B.readFile fin

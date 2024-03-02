@@ -62,7 +62,9 @@ VorbisEncrypter::VorbisEncrypter(void* datasource, ov_callbacks cbStruct)
 }
 
 VorbisEncrypter::~VorbisEncrypter() {
-	cb_struct.close_func(file_ref);
+	if (cb_struct.close_func) {
+		cb_struct.close_func(file_ref);
+	}
 }
 
 size_t VorbisEncrypter::ReadRaw(void* buf, size_t elementSize, size_t elements)
