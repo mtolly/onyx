@@ -20,6 +20,7 @@ import           Control.Concurrent.Async             (forConcurrently)
 import           Control.Monad                        (forM, forM_, guard,
                                                        unless, when)
 import           Control.Monad.IO.Class               (MonadIO)
+import           Data.Bifunctor                       (bimap)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
@@ -55,6 +56,7 @@ import qualified Onyx.Harmonix.DTA.Serialize          as D
 import           Onyx.Harmonix.DTA.Serialize.Magma    (Gender (..))
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (rbaContents)
+import           Onyx.Harmonix.MOGG.Crypt             (decryptBink)
 import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        convertFromAnim,
                                                        decompressMilo,
@@ -74,6 +76,7 @@ import           Onyx.MIDI.Track.Events               (eventsEnd)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
+import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
 import           Onyx.PlayStation.PSS                 (extractVGSStream,
                                                        extractVideoStream,
                                                        scanPackets)
@@ -85,7 +88,7 @@ import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        byteStringSimpleHandle,
                                                        fileReadable,
                                                        findByteString,
-                                                       findFileCI,
+                                                       findFileCI, findFolder,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
@@ -93,9 +96,7 @@ import           Sound.MIDI.File                      (T (..))
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
 import qualified System.Directory                     as Dir
-import           System.FilePath                      (takeDirectory,
-                                                       takeFileName, (-<.>),
-                                                       (<.>), (</>))
+import           System.FilePath                      ((-<.>), (<.>), (</>))
 import           System.IO.Temp                       (withSystemTempDirectory)
 import           Text.Read                            (readMaybe)
 
@@ -103,6 +104,7 @@ data RBImport = RBImport
   { songPackage :: D.SongPackage
   , comments    :: C3DTAComments
   , mogg        :: Maybe SoftContents
+  , bink        :: Maybe SoftContents
   , pss         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
   , albumArt    :: Maybe (IO (Either String SoftFile))
   , milo        :: [(B.ByteString, BL.ByteString)]
@@ -121,23 +123,25 @@ importSTFSFolder src folder = do
       Nothing -> fatal "Couldn't find songs/songs.dta or songs/gen/songs.dtb"
   updateDir <- stackIO rb3Updates
   fmap catMaybes $ forM packSongs $ \(DTASingle top pkg comments, _) -> errorToWarning $ do
-    let base = T.unpack $ D.songName $ D.song pkg
-        split s = case splitPath $ T.pack s of
-          Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
-          Just p  -> return p
-        need p = case findFileCI p folder of
+
+    (baseX, baseY) <- case splitPath $ D.songName $ D.song pkg of
+      Just ("songs" :| [x, y]) -> return (x, y) -- normal 360/ps3
+      Just ("dlc" :| [_, _, "content", "songs", x, y]) -> return (x, y) -- wii dlc
+      _ -> fatal $ "Unrecognized `name` field in songs.dta: " <> show (D.songName $ D.song pkg)
+
+    let need p = case findFileCI p folder of
           Just r  -> return r
           Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
-    miloPath <- split $ takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
-    moggPath <- split $ base <.> "mogg"
-    pssPath  <- split $ base <.> "pss"
-    -- TODO can midi_file in songs.dta override this?
-    -- TODO we should support .mid.edat here with HMX0756 key for loose c3-ps3-format songs
-    midiPath <- split $ base <.> "mid"
-    artPathXbox <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
-    artPathPS3 <- split $ takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_ps3")
+        moggPath = "songs" :| [baseX, baseY <> ".mogg"]
+        binkPath = "songs" :| [baseX, baseY <> ".bik"]
+        pssPath = "songs" :| [baseX, baseY <> ".pss"]
+        -- TODO can midi_file in songs.dta override this?
+        -- TODO we should support .mid.edat here with HMX0756 key for loose c3-ps3-format songs
+        midiPath = "songs" :| [baseX, baseY <> ".mid"]
 
     let mogg = SoftReadable <$> findFileCI moggPath folder
+        bink = flip fmap (findFileCI binkPath folder) $ \r -> SoftReadable
+          $ makeHandle "decrypted bink" $ decryptBink r >>= byteStringSimpleHandle . BL.fromStrict
         pss = case findFileCI pssPath folder of
           Nothing -> Nothing
           Just r -> Just $ do
@@ -163,14 +167,17 @@ importSTFSFolder src folder = do
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
       then return $ Just $ do
-        Dir.doesFileExist missingArt >>= \case
+        Dir.doesFileExist missingArt >>= return . \case
           -- if True, old rb1 song with album art on rb3 disc
-          True -> return $ Right $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
-          False -> case findFileCI artPathXbox folder of
-            Just res -> return $ Right $ SoftFile "cover.png_xbox" $ SoftReadable res
-            Nothing -> case findFileCI artPathPS3 folder of
-              Just res -> return $ Right $ SoftFile "cover.png_ps3" $ SoftReadable res
-              Nothing -> return $ Left $ "Expected album art, but didn't find it: " <> show artPathXbox
+          True -> Right $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
+          False -> let
+            tryArt platform = do
+              let path = "songs" :| [baseX, "gen", baseY <> "_keep.png_" <> platform]
+              res <- findFileCI path folder
+              Just $ SoftFile ("cover.png_" <> T.unpack platform) $ SoftReadable res
+            in case mapMaybe tryArt ["xbox", "ps3", "wii"] of
+              soft : _ -> Right soft
+              []       -> Left "Expected album art, but didn't find it"
       else return Nothing
     update <- if maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
       then return $ Just $ do
@@ -179,11 +186,18 @@ importSTFSFolder src folder = do
           False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
     return $ \level -> do
-      milo <- maybe (return []) (loadFlatMilo level) $ findFileCI miloPath folder
+      milo <- let
+        tryMilo platform = let
+          path = "songs" :| [baseX, "gen", baseY <> ".milo_" <> platform]
+          in loadFlatMilo level <$> findFileCI path folder
+        in case mapMaybe tryMilo ["xbox", "ps3", "wii"] of
+          []         -> return []
+          getter : _ -> getter
       importRB RBImport
         { songPackage = pkg
         , comments = comments
         , mogg = mogg
+        , bink = bink
         , pss = pss
         , albumArt = art
         , milo = milo
@@ -191,6 +205,17 @@ importSTFSFolder src folder = do
         , midiUpdate = update
         , source = Just src
         } level
+
+importWAD :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
+importWAD path = do
+  wad <- stackIO (B.readFile path) >>= runGetM getWAD . BL.fromStrict
+  (_, u8s) <- hackSplitU8s wad
+  let folder
+        = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle)
+        $ fromMaybe mempty
+        $ findFolder (pure "content")
+        $ mconcat $ map snd u8s
+  importSTFSFolder path folder
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRBA rba level = do
@@ -225,6 +250,7 @@ importRBA rba level = do
       { c3dtaAuthoredBy = author
       }
     , mogg = Just mogg
+    , bink = Nothing
     , pss = Nothing
     , albumArt = Just $ return $ Right bmp
     , milo = milo
@@ -545,42 +571,9 @@ importRB rbi level = do
         , channels = 1
         }
     , jammit = HM.empty
-    , plans = case rbi.mogg of
-      Nothing -> case rbi.pss of
-        Nothing -> HM.empty
-        Just _pss -> HM.singleton "vgs" $ let
-          songChans = [0 .. length namedChans - 1] \\ concat
-            [ concatMap snd instChans
-            , maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
-            ]
-          audioAdjust = Drop Start $ CA.Seconds $ rockBandPS2PreSongTime pkg
-          mixChans cs = do
-            cs' <- NE.nonEmpty cs
-            Just $ case cs' of
-              c :| [] -> PansVols
-                (map realToFrac [D.pans (D.song pkg) !! c])
-                (map realToFrac [D.vols (D.song pkg) !! c])
-                (audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c)
-              _ -> PansVols
-                (map realToFrac [D.pans (D.song pkg) !! c | c <- cs])
-                (map realToFrac [D.vols (D.song pkg) !! c | c <- cs])
-                (audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
-          in StandardPlan StandardPlanInfo
-            { song = mixChans songChans
-            , parts = Parts $ HM.fromList $ catMaybes
-              [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.FlexGuitar, PartSingle x)
-              , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.FlexBass  , PartSingle x)
-              , lookup "keys"   instChans >>= mixChans >>= \x -> return (F.FlexKeys  , PartSingle x)
-              , lookup "vocals" instChans >>= mixChans >>= \x -> return (F.FlexVocal , PartSingle x)
-              , drumSplit >>= mapM mixChans            >>= \x -> return (F.FlexDrums , x)
-              ]
-            , crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
-            , comments = []
-            , tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
-            , fileTempo = Nothing
-            }
-      Just mogg -> HM.singleton "mogg" $ MoggPlan MoggPlanInfo
-        { fileMOGG = Just $ SoftFile "audio.mogg" mogg
+    , plans = let
+      makeMoggBinkPlan ext name soft = HM.singleton ext $ MoggPlan MoggPlanInfo
+        { fileMOGG = Just $ SoftFile name soft
         , moggMD5 = Nothing
         , parts = Parts $ HM.fromList $ concat
           [ [ (F.FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
@@ -599,6 +592,43 @@ importRB rbi level = do
         , multitrack = fromMaybe True $ c3dtaMultitrack rbi.comments
         , decryptSilent = False
         }
+      in case rbi.mogg of
+        Just mogg -> makeMoggBinkPlan "mogg" "audio.mogg" mogg
+        Nothing -> case rbi.bink of
+          Just bink -> makeMoggBinkPlan "bink" "audio.bik" bink
+          Nothing -> case rbi.pss of
+            Nothing -> HM.empty
+            Just _pss -> HM.singleton "vgs" $ let
+              songChans = [0 .. length namedChans - 1] \\ concat
+                [ concatMap snd instChans
+                , maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+                ]
+              audioAdjust = Drop Start $ CA.Seconds $ rockBandPS2PreSongTime pkg
+              mixChans cs = do
+                cs' <- NE.nonEmpty cs
+                Just $ case cs' of
+                  c :| [] -> PansVols
+                    (map realToFrac [D.pans (D.song pkg) !! c])
+                    (map realToFrac [D.vols (D.song pkg) !! c])
+                    (audioAdjust $ Input $ Named $ T.pack $ fst $ namedChans !! c)
+                  _ -> PansVols
+                    (map realToFrac [D.pans (D.song pkg) !! c | c <- cs])
+                    (map realToFrac [D.vols (D.song pkg) !! c | c <- cs])
+                    (audioAdjust $ Merge $ fmap (Input . Named . T.pack . fst . (namedChans !!)) cs')
+              in StandardPlan StandardPlanInfo
+                { song = mixChans songChans
+                , parts = Parts $ HM.fromList $ catMaybes
+                  [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.FlexGuitar, PartSingle x)
+                  , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.FlexBass  , PartSingle x)
+                  , lookup "keys"   instChans >>= mixChans >>= \x -> return (F.FlexKeys  , PartSingle x)
+                  , lookup "vocals" instChans >>= mixChans >>= \x -> return (F.FlexVocal , PartSingle x)
+                  , drumSplit >>= mapM mixChans            >>= \x -> return (F.FlexDrums , x)
+                  ]
+                , crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
+                , comments = []
+                , tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
+                , fileTempo = Nothing
+                }
     , targets = let
       getSongID = \case
         Left  i -> if i /= 0
@@ -869,6 +899,7 @@ importRB4 fdta level = do
     { songPackage = pkg
     , comments = def
     , mogg = Just $ SoftReadable $ fileReadable $ fdta -<.> "mogg"
+    , bink = Nothing
     , pss = Nothing
     , albumArt = return . Right <$> art
     , milo = miloLipsync <> miloVenue

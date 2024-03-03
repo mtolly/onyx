@@ -111,10 +111,10 @@ handleOVCallbacks h = do
     return $ fromIntegral n
   cb <- onyx_new_ov_callbacks fnRead fnSeek nullFunPtr fnTell
   let cleanup = do
+        onyx_delete_ov_callbacks cb
         freeHaskellFunPtr fnRead
         freeHaskellFunPtr fnSeek
         freeHaskellFunPtr fnTell
-        onyx_delete_ov_callbacks cb
   return (cb, cleanup)
 
 moggToOggHandles :: Handle -> IO SimpleHandle

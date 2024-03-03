@@ -801,9 +801,9 @@ ffSourceFrom dur input = do
     channels <- {#get AVCodecContext->channels #} dec_ctx
     frames <- {#get AVStream->nb_frames #} stream >>= \case
       0 -> do
-        -- nb_frames appears to be 0 in ogg files? so we do this as backup
+        -- nb_frames appears to be 0 in ogg and bik files? so we do this as backup.
         streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
-        streamDur <- {#get AVStream->duration #} stream
+        streamDur <- {#get AVStream->duration #} stream -- TODO still wrong in .bik files
         -- streamRes might be 1 / rate? but better to be sure
         return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
       frames -> return frames

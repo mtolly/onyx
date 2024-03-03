@@ -38,6 +38,7 @@ import           Onyx.Audio.Render            (computeChannelsPlan,
                                                loadSamplesFromBuildDir,
                                                manualLeaf)
 import           Onyx.Audio.Search
+import           Onyx.FFMPEG                  (ffSourceFrom)
 import           Onyx.Harmonix.MOGG
 import           Onyx.Import
 import           Onyx.Project
@@ -47,7 +48,8 @@ import           Onyx.Util.Handle             (Readable, fileReadable)
 import           Path                         (parseAbsDir)
 import qualified Sound.OpenAL                 as AL
 import           Sound.OpenAL                 (($=))
-import           System.FilePath              (takeDirectory, (<.>), (</>))
+import           System.FilePath              (takeDirectory, takeExtension,
+                                               (<.>), (</>))
 
 {-
 {-# NOINLINE lockAL #-}
@@ -273,6 +275,12 @@ oggSecsSpeed pos mspeed ogg = do
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
+bikSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> Readable -> IO (CA.AudioSource m Int16)
+bikSecsSpeed pos mspeed bik = do
+  src <- ffSourceFrom (CA.Seconds pos) $ Left bik
+  let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
+  return $ CA.mapSamples CA.integralSample $ adjustSpeed src
+
 data PlanAudio t a = PlanAudio
   { expr :: Audio t a
   , pans :: [Double]
@@ -333,11 +341,17 @@ splitPlanSources planName proj lib audios = let
 
 projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
 projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
-  Just (MoggPlan x) -> errorToWarning $ do
-    -- TODO maybe silence crowd channels
-    mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
-    let ogg = moggToOgg $ fileReadable mogg
-    return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
+  Just (MoggPlan x) -> errorToWarning $ case x.fileMOGG of
+    Just path | takeExtension path == ".bik" -> let
+      bik = takeDirectory proj.projectLocation </> path
+      in return $ \t speed gain -> do
+        src <- bikSecsSpeed t speed $ fileReadable bik
+        playSource (map realToFrac x.pans) (map realToFrac x.vols) gain src
+    _ -> do
+      -- TODO maybe silence crowd channels
+      mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
+      let ogg = moggToOgg $ fileReadable mogg
+      return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
   Just (StandardPlan x) -> errorToWarning $ do
     let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary

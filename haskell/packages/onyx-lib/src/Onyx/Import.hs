@@ -67,7 +67,7 @@ import           Onyx.Import.Paradiddle       (findParadiddle, importParadiddle)
 import           Onyx.Import.PowerGig         (importPowerGig)
 import           Onyx.Import.Ragnarock        (importRagnarock)
 import           Onyx.Import.RockBand         (importRB4, importRBA,
-                                               importSTFSFolder)
+                                               importSTFSFolder, importWAD)
 import           Onyx.Import.RockRevolution   (importRR)
 import           Onyx.Import.Rocksmith        as RS
 import           Onyx.Import.StepMania        (importSM)
@@ -239,6 +239,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
               else return ([], [])
             ]
+      foundWAD loc = do
+        imps <- importWAD loc
+        foundImports "Rock Band (Wii .wad)" loc imps
       foundGP loc = do
         let imp level = parseGP loc >>= \gpif -> importGPIF gpif level
         foundImports "Guitar Pro (.gp)" loc [imp]
@@ -425,6 +428,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".edat" | map toLower (takeExtension $ dropExtension fp) == ".psarc"
           -> foundRSPS3 fp
         ".pkg" -> foundPS3 fp
+        ".wad" -> foundWAD fp
         ".gp" -> foundGP fp
         ".gpx" -> foundGPX fp
         ".2" -> do -- assuming this is Data.hdr.e.2
