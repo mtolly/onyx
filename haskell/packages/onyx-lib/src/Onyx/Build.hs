@@ -607,7 +607,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
 
         dir </> "everything.wav" %> \out -> case plan of
           MoggPlan x -> do
-            src <- shk $ buildSource $ Input $ dir </> "audio.ogg"
+            src <- shk $ buildSource $ Input $ case x.fileMOGG of
+              Just path | takeExtension path == ".bik" -> rel path
+              _                                        -> dir </> "audio.ogg"
             let volsNoCrowd = zipWith noCrowd [0..] x.vols
                 noCrowd i vol = if elem i x.crowd then -99 else vol
             runAudio (applyPansVols (map realToFrac x.pans) (map realToFrac volsNoCrowd) src) out
@@ -704,7 +706,9 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               shk $ copyFile' p out
               forceRW out
             dir </> "silent-channels.txt" %> \out -> do
-              src <- lift $ lift $ buildSource $ Input ogg
+              src <- lift $ lift $ buildSource $ case x.fileMOGG of
+                Just path | takeExtension path == ".bik" -> Input $ rel path
+                _                                        -> Input ogg
               chans <- stackIO $ runResourceT $ runConduit $ emptyChannels src
               stackIO $ writeFile out $ show chans
 

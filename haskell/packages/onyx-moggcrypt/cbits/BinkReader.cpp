@@ -50,6 +50,12 @@ int BinkReader::CheckKIBEHeader()
   if (cbStruct.read_func((void*)&header, 0x38, 1, fileRef) != 1)
     return -1;
 
+  if (header.version > 2) {
+    // MT: added so that Beatles files just fail instead of crashing.
+    // they have version 3 while normal dlc appears to have version 2
+    return -1;
+  }
+
   ByteGrinder byteGrinder;
   uint8_t key_tmp[16], master_key[32];
 

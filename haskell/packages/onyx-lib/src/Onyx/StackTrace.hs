@@ -50,7 +50,8 @@ import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8            as B8
 import           Data.Char                        (isSpace)
 import           Data.Functor.Identity            (Identity)
-import           Data.List                        (stripPrefix)
+import           Data.List                        (intercalate, stripPrefix)
+import           Data.List.Split                  (splitOn)
 import qualified Development.Shake                as Shake
 import qualified System.Directory                 as Dir
 import           System.Exit                      (ExitCode (..))
@@ -281,7 +282,9 @@ stackCatchIO handler io = do
   either handler return exc
 
 stackShowException :: (Exc.Exception e, Monad m) => e -> StackTraceT m a
-stackShowException = fatal . Exc.displayException
+stackShowException = fatal . noUserError . Exc.displayException where
+  -- default 'fail' in IO says 'user error' but that would be confusing
+  noUserError = intercalate "error" . splitOn "user error"
 
 -- | Like 'liftIO', but 'IOError' are caught and rethrown with 'fatal'.
 stackIO :: (MonadIO m) => IO a -> StackTraceT m a

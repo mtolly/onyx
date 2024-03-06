@@ -85,10 +85,12 @@ import           Onyx.Resources                       (rb3Updates)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle                     (Folder (..), Readable,
+                                                       allFiles,
                                                        byteStringSimpleHandle,
                                                        fileReadable,
                                                        findByteString,
                                                        findFileCI, findFolder,
+                                                       fromFiles,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
@@ -212,9 +214,17 @@ importWAD path = do
   (_, u8s) <- hackSplitU8s wad
   let folder
         = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle)
+        $ fromFiles
+        $ map fixSongsDTALocation
+        $ allFiles
         $ fromMaybe mempty
         $ findFolder (pure "content")
         $ mconcat $ map snd u8s
+      -- older songs appear to have the dta under a song folder for some reason?
+      -- or maybe our u8 code is messing it up, dunno
+      fixSongsDTALocation = \case
+        ("songs" :| [_, "songs.dta"], x) -> ("songs" :| ["songs.dta"], x)
+        pair                             -> pair
   importSTFSFolder path folder
 
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
