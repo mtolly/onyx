@@ -12,7 +12,7 @@ import           Control.Concurrent.Async     (forConcurrently)
 import           Control.Concurrent.STM       (atomically, newTBQueueIO,
                                                readTBQueue, writeTBQueue)
 import           Control.Exception            (Exception (..), throwIO)
-import           Control.Monad                (forM_, unless, when)
+import           Control.Monad                (forM_, unless, when, forM)
 import           Control.Monad.Trans.Resource (MonadResource, liftResourceT,
                                                resourceForkIO)
 import           Data.Coerce                  (coerce)
@@ -126,20 +126,6 @@ deriving instance Show SwrContext
 deriving instance Storable SwrContext
 
 -----------------------------
-
-{#fun av_packet_get_side_data
-  { `AVPacket'
-  , `AVPacketSideDataType'
-  , id `Ptr CInt'
-  } -> `Ptr Word8' castPtr
-#}
-
-{#fun av_packet_new_side_data
-  { `AVPacket'
-  , `AVPacketSideDataType'
-  , `CInt'
-  } -> `Ptr Word8' castPtr
-#}
 
 {#fun avformat_alloc_context
   {} -> `AVFormatContext'
@@ -780,6 +766,48 @@ withStream brkt mediaType input fn = do
         fn fmt_ctx dec_ctx stream
     in openInput
 
+withAllStreams
+  :: (MonadIO m)
+  => Bracket m
+  -> AVMediaType
+  -> Either Readable FilePath
+  -> (AVFormatContext -> [(AVCodecContext, AVStream)] -> m a)
+  -> m a
+withAllStreams brkt mediaType input fn = do
+  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> let
+    openInput = case input of
+      Right f -> do
+        liftIO $ with fmt_ctx $ \pctx -> do
+          withCString f $ \s -> do
+            ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
+        afterOpenInput
+      Left r -> runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
+        liftIO $ {#set AVFormatContext->pb #} fmt_ctx avio
+        liftIO $ with fmt_ctx $ \pctx -> do
+          ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
+        afterOpenInput
+    afterOpenInput = do
+      liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
+      numStreams <- liftIO $ {#get AVFormatContext->nb_streams #} fmt_ctx
+      matchingStreams <- liftIO $ alloca $ \pdec -> do
+        fmap catMaybes $ forM [0 .. fromIntegral numStreams - 1] $ \i -> do
+          streamIndex <- av_find_best_stream fmt_ctx mediaType i -1 pdec 0
+          if streamIndex /= i -- could also compare to AVERROR_STREAM_NOT_FOUND
+            then return Nothing
+            else do
+              dec <- peek pdec
+              return $ Just (i, dec)
+      allStreams <- liftIO $ getStreams fmt_ctx
+      let loadStream (i, dec) rest = do
+            runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
+              let stream = allStreams !! fromIntegral i
+              params <- liftIO $ stream_codecpar stream
+              liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
+              liftIO $ ffCheck "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
+              rest (dec_ctx, stream)
+      withMany loadStream matchingStreams $ fn fmt_ctx
+    in openInput
+
 class (Storable a) => FFSourceSample a where
   ffSourceSampleFormat :: a -> AVSampleFormat
 
@@ -795,42 +823,92 @@ ffSource = ffSourceFrom $ CA.Frames 0
 ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
   CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
 ffSourceFrom dur input = do
-  (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \_fmt_ctx dec_ctx stream -> do
-    -- TODO all these metadata pieces appear to be set elsewhere in ffmpeg 5.0
+
+  (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+    -- some of this metadata appeared to be set elsewhere in ffmpeg 5.0,
+    -- but with 6.1 everything seems fine?
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
     channels <- {#get AVCodecContext->channels #} dec_ctx
     frames <- {#get AVStream->nb_frames #} stream >>= \case
       0 -> do
         -- nb_frames appears to be 0 in ogg and bik files? so we do this as backup.
         streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
-        streamDur <- {#get AVStream->duration #} stream -- TODO still wrong in .bik files
-        -- streamRes might be 1 / rate? but better to be sure
-        return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
+        streamDur <- {#get AVStream->duration #} stream
+        if streamDur < 0
+          then do -- .bik files
+            secs <- avfc_duration fmt_ctx
+            return $ round $ secs * fromIntegral rate
+          else do
+            -- streamRes might be 1 / rate? but better to be sure
+            return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
       frames -> return frames
     return (rate, channels, frames)
+
   let startFrame = case dur of
         CA.Frames  f -> f
         CA.Seconds s -> floor $ s * fromIntegral rate
-      startSecs = fromIntegral startFrame / fromIntegral rate
+
   return CA.AudioSource
     { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
-      seekInfo <- if startSecs == 0
-        then return Nothing
-        else liftIO $ do
-          -- not sure if these can be different
-          streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
-          codecRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
-          -- putStrLn $ "Resolution = " <> show (streamRes :: Double, codecRes :: Double)
-          streamIndex <- stream_index stream
-          let wantPTS = floor $ startSecs / streamRes
-          _code <- av_seek_frame
-            fmt_ctx
-            streamIndex
-            wantPTS
-            avseek_FLAG_BACKWARD
-          -- TODO warn if code < 0
-          return $ Just (wantPTS, streamRes :: Double, codecRes :: Double)
+
+      bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
+      bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
+
       audio_stream_index <- liftIO $ stream_index stream
+
+      -- some (not all) mp3s have a weird behavior where the pts values of
+      -- the packets don't properly account for the 1105 samples of decoder
+      -- delay in the first frame. so it goes
+      --   packet 0, pts = 0     ; frame 0, nb_samples = 47
+      --   packet 1, pts = 368640; frame 1, nb_samples = 1152
+      --   packet 2, pts = 737280; frame 2, nb_samples = 1152
+      -- in order to seek correctly we need to account for this, so we check the
+      -- first frame's nb_samples and compare to the codec's stated frame_size
+      codecFrameSize <- liftIO $ {#get AVCodecContext->frame_size #} dec_ctx
+      firstFrameMissingSamples <- if codecFrameSize == 0
+        then return 0 -- unset in many other formats
+        else liftIO $ let
+          loopCheckFirstFrame = do
+            codePacket <- av_read_frame fmt_ctx packet
+            if codePacket < 0
+              then return 0 -- empty file probably
+              else do
+                packetIndex <- packet_stream_index packet
+                if packetIndex /= audio_stream_index
+                  then do
+                    av_packet_unref packet
+                    loopCheckFirstFrame
+                  else do
+                    codeSendPacket <- avcodec_send_packet dec_ctx packet
+                    av_packet_unref packet
+                    if codeSendPacket >= 0
+                      then do
+                        codeFrame <- avcodec_receive_frame dec_ctx frame
+                        if codeFrame < 0
+                          then loopCheckFirstFrame
+                          else do
+                            countSamples <- {#get AVFrame->nb_samples #} frame
+                            return $ codecFrameSize - countSamples
+                      else return 0
+          in loopCheckFirstFrame
+
+      let firstFrameSize = codecFrameSize - firstFrameMissingSamples
+          adjustedStartSecs :: Double
+          adjustedStartSecs = if startFrame >= fromIntegral firstFrameSize
+            then fromIntegral (startFrame + fromIntegral firstFrameMissingSamples) / fromIntegral rate
+            else fromIntegral startFrame / fromIntegral rate
+
+      -- always seek (even to pts 0) since we may have read a frame above
+      streamRes <- liftIO $ (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
+      codecRes <- liftIO $ (\(num, den) -> realToFrac num / realToFrac den) <$> ctx_time_base dec_ctx
+      let wantPTS = floor $ adjustedStartSecs / streamRes
+      _code <- liftIO $ av_seek_frame
+        fmt_ctx
+        audio_stream_index
+        wantPTS
+        avseek_FLAG_BACKWARD
+      -- TODO warn if code < 0
+
       -- channel_layout is set in opus, mp3, others; but unset in e.g. wav
       channelLayout <- liftIO $ {#get AVCodecContext->channel_layout #} dec_ctx >>= \case
         0 -> av_get_default_channel_layout channels >>= \case
@@ -839,7 +917,9 @@ ffSourceFrom dur input = do
           0 -> return $ foldr (.|.) 0 $ map bit [0 .. fromIntegral channels - 1]
           n -> return $ fromIntegral n
         n -> return $ fromIntegral n
+
       inSampleFormat <- liftIO $ toEnum . fromIntegral <$> {#get AVCodecContext->sample_fmt #} dec_ctx
+
       let swrChangeFormat = swr_alloc_set_opts
             (SwrContext nullPtr)
             channelLayout
@@ -852,68 +932,64 @@ ffSourceFrom dur input = do
             nullPtr
       bracketP swrChangeFormat (\f -> with f swr_free) $ \swr -> do
       liftIO $ ffCheck "swr_init" (>= 0) $ swr_init swr
-      bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
-        bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
-          queue <- liftIO $ newTBQueueIO 10
-          let loop = do
-                codePacket <- liftIO $ av_read_frame fmt_ctx packet
-                if codePacket < 0
+
+      queue <- liftIO $ newTBQueueIO 10
+
+      let loop = do
+            codePacket <- liftIO $ av_read_frame fmt_ctx packet
+            if codePacket < 0
+              then do
+                -- probably reached end of file
+                liftIO $ atomically $ writeTBQueue queue Nothing
+              else do
+                packetIndex <- liftIO $ packet_stream_index packet
+                if packetIndex /= audio_stream_index
                   then do
-                    -- probably reached end of file
-                    liftIO $ atomically $ writeTBQueue queue Nothing
+                    liftIO $ av_packet_unref packet
+                    loop
                   else do
-                    packetIndex <- liftIO $ packet_stream_index packet
-                    if packetIndex /= audio_stream_index
-                      then do
-                        liftIO $ av_packet_unref packet
-                        loop
+                    -- skip frames if needed
+                    -- thanks to https://stackoverflow.com/a/60317000/509936
+                    skipManual <- do
+                      pts <- liftIO $ packet_pts packet
+                      return $ if pts < wantPTS
+                        then round $ (fromIntegral (wantPTS - pts) * streamRes) / codecRes
+                        else 0
+                    codeSendPacket <- liftIO $ avcodec_send_packet dec_ctx packet
+                    liftIO $ av_packet_unref packet
+                    if codeSendPacket >= 0
+                      then loopReceiveFrames skipManual
                       else do
-                        -- skip frames if needed
-                        -- thanks to https://stackoverflow.com/a/60317000/509936
-                        skipManual <- case seekInfo of
-                          Nothing -> return 0
-                          Just (wantPTS, streamRes, codecRes) -> do
-                            pts <- liftIO $ packet_pts packet
-                            if pts < wantPTS
-                              then liftIO $ do
-                                let skipFrames = round $ fromIntegral (wantPTS - pts) / streamRes * codecRes
-                                -- putStrLn $ "Should skip " <> show skipFrames <> " frames"
-                                return skipFrames
-                              else return 0
-                        codeSendPacket <- liftIO $ avcodec_send_packet dec_ctx packet
-                        if codeSendPacket >= 0
-                          then do
-                            liftIO $ av_packet_unref packet
-                            loopReceiveFrames skipManual
-                          else do
-                            -- some weird files appear to have corrupt data at the end, just treat as end of file
-                            liftIO $ atomically $ writeTBQueue queue Nothing
-              loopReceiveFrames skipManual = do
-                codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
-                if codeFrame < 0
-                  then loop -- no more frames to get, time to feed more packets
-                  else do
-                    countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
-                    when (countSamples > skipManual) $ do
-                      -- when (skipManual > 0) $ liftIO $ putStrLn $ "Frame has " <> show countSamples <> " samples"
-                      mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
-                      liftIO $ MV.unsafeWith mvec $ \p -> do
-                        inputPlanes <- frame_data frame
-                        withArray [p] $ \outputPlanes -> do
-                          ffCheck "swr_convert" (>= 0) $ swr_convert
-                            swr
-                            (castPtr outputPlanes)
-                            countSamples
-                            (castPtr inputPlanes)
-                            countSamples
-                      vec <- liftIO $ V.drop (fromIntegral $ skipManual * channels) <$> V.unsafeFreeze mvec
-                      liftIO $ atomically $ writeTBQueue queue $ Just vec
-                    loopReceiveFrames $ max 0 $ skipManual - countSamples
-          _threadId <- liftResourceT $ resourceForkIO loop
-          let readLoop = liftIO (atomically $ readTBQueue queue) >>= \case
-                Nothing  -> return () -- file is done
-                Just vec -> yield vec >> readLoop
-          readLoop
+                        -- some weird files appear to have corrupt data at the end, just treat as end of file
+                        liftIO $ atomically $ writeTBQueue queue Nothing
+
+          loopReceiveFrames skipManual = do
+            codeFrame <- liftIO $ avcodec_receive_frame dec_ctx frame
+            if codeFrame < 0
+              then loop -- no more frames to get, time to feed more packets
+              else do
+                countSamples <- liftIO $ {#get AVFrame->nb_samples #} frame
+                when (countSamples > skipManual) $ do
+                  mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
+                  liftIO $ MV.unsafeWith mvec $ \p -> do
+                    inputPlanes <- frame_data frame
+                    withArray [p] $ \outputPlanes -> do
+                      ffCheck "swr_convert" (>= 0) $ swr_convert
+                        swr
+                        (castPtr outputPlanes)
+                        countSamples
+                        (castPtr inputPlanes)
+                        countSamples
+                  vec <- liftIO $ V.drop (fromIntegral $ skipManual * channels) <$> V.unsafeFreeze mvec
+                  liftIO $ atomically $ writeTBQueue queue $ Just vec
+                loopReceiveFrames $ max 0 $ skipManual - countSamples
+
+      _threadId <- liftResourceT $ resourceForkIO loop
+      let readLoop = liftIO (atomically $ readTBQueue queue) >>= \case
+            Nothing  -> return () -- file is done
+            Just vec -> yield vec >> readLoop
+      readLoop
+
     , CA.rate     = fromIntegral rate
     , CA.channels = fromIntegral channels
     , CA.frames   = max 0 $ fromIntegral frames - fromIntegral startFrame

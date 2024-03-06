@@ -62,7 +62,7 @@ openal:
 	cd libs/openal-soft/build && make install
 
 ffmpeg:
-	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --prefix=$(current_dir)/root
+	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers --prefix=$(current_dir)/root
 	cd libs/FFmpeg && make
 	cd libs/FFmpeg && make install
 

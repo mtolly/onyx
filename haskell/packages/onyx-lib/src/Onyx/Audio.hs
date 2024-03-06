@@ -522,16 +522,7 @@ buildSource' aud = case aud of
       bs <- BL.fromStrict <$> B.readFile fin
       (choppedXMA, restFrames) <- seekXMA bs t
       dropStart (Frames restFrames) <$> sourceXMA2CorrectLength choppedXMA
-    -- there may be a problem in our ffmpeg seek code with mp3s.
-    -- in osu import, seeking to e.g. 0.02s seems to not work right, only seeking ~0.001s.
-    -- for now let's just drop those small amounts manually.
-    _      -> let
-      shortDrop = case t of
-        Frames  n -> n < 20000
-        Seconds s -> s < 0.5
-      in if shortDrop
-        then dropStart t <$> ffSourceFixPath (Frames 0) fin
-        else ffSourceFixPath t fin
+    _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs

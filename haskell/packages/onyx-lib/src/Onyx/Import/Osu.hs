@@ -216,10 +216,9 @@ importOsu separateSongs f = do
         in audioFiles <> audioSamples
       , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
         { song = flip fmap audio $ \(key, _, _) -> let
-          -- Need to do this or audio is out of sync. I assume the game is
-          -- skipping MP3 encoder delay. But .ogg also appears to need adjustment?
-          -- Also see Onyx.Audio.buildSource' for note about something wrong in our ffmpeg seek code
-          mp3Delay = Drop Start (CA.Seconds 0.02)
+          -- Need to do this or audio is out of sync, not sure why. Seems like it's
+          -- about one MP3 frame (1152 / 44100 or 48000), but .ogg also needs it?
+          mp3Delay = Drop Start (CA.Seconds 0.024)
           in mp3Delay $ Input $ Named key
         , parts = Parts $ HM.fromList $ do
           (partName, _, track) <- convertedTracks
