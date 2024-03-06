@@ -38,7 +38,7 @@ import           Onyx.Audio.Render            (computeChannelsPlan,
                                                loadSamplesFromBuildDir,
                                                manualLeaf)
 import           Onyx.Audio.Search
-import           Onyx.FFMPEG                  (ffSourceFrom)
+import           Onyx.FFMPEG                  (ffSourceBinkFrom)
 import           Onyx.Harmonix.MOGG
 import           Onyx.Import
 import           Onyx.Project
@@ -277,7 +277,7 @@ oggSecsSpeed pos mspeed ogg = do
 
 bikSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> Readable -> IO (CA.AudioSource m Int16)
 bikSecsSpeed pos mspeed bik = do
-  src <- ffSourceFrom (CA.Seconds pos) $ Left bik
+  src <- ffSourceBinkFrom (CA.Seconds pos) $ Left bik
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 

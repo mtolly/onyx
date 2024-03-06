@@ -94,6 +94,7 @@ import           Onyx.Audio.FSB
 import           Onyx.Audio.SndfileExtra
 import           Onyx.Audio.VGS                   (readSingleRateVGS, readVGS)
 import           Onyx.FFMPEG                      (FFSourceSample, ffSource,
+                                                   ffSourceBinkFrom,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
 import           Onyx.Harmonix.MOGG               (sourceVorbis)
@@ -497,6 +498,7 @@ loadAudioInput fin = case takeExtension fin of
   -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
   ".wav" -> sourceSnd fin
   ".xma" -> sourceXMA2CorrectLength $ fileReadable fin
+  ".bik" -> ffSourceBinkFrom (Frames 0) (Left $ fileReadable fin)
   _      -> ffSourceFixPath (Frames 0) fin
 
 buildSource' :: (MonadResource m, MonadIO f, MonadFail f) =>
@@ -522,6 +524,7 @@ buildSource' aud = case aud of
       bs <- BL.fromStrict <$> B.readFile fin
       (choppedXMA, restFrames) <- seekXMA bs t
       dropStart (Frames restFrames) <$> sourceXMA2CorrectLength choppedXMA
+    ".bik" -> ffSourceBinkFrom t (Left $ fileReadable fin)
     _      -> ffSourceFixPath t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs

@@ -133,6 +133,7 @@ moggToStandardPlan planName info = StandardPlanInfo
     backingTrackChannels :: [Int]
     backingTrackChannels = filter isBackingTrack $ zipWith const [0..] info.pans
     channelsToMaybeAudio indexes = guard (not $ null indexes) >> Just (channelsToAudio indexes)
+    -- TODO center mono audio could stay mono instead of being stereo'd here
     channelsToAudio indexes = PansVols
       (map (\i -> realToFrac $ info.pans !! i) indexes)
       (map (\i -> realToFrac $ info.vols !! i) indexes)
@@ -160,10 +161,14 @@ rbRules buildInfo dir rb3 mrb2 = do
           , uneditedDiffs.rb3VocalRank  == 0 || instrumentHasChannels rb3.vocal
           , uneditedDiffs.rb3KeysRank   == 0 || instrumentHasChannels rb3.keys
           ]
+        isBink = case info.fileMOGG of
+          Just path | takeExtension path == ".bik" -> True
+          _                                        -> False
         in if allInstrumentsHaveChannels
           && maybe True (== 1) rb3.common.speed
           && isNothing rb3.common.start
           && isNothing rb3.common.end
+          && not isBink
           then pair
           else (planName, StandardPlan $ moggToStandardPlan planName info)
       StandardPlan _ -> pair

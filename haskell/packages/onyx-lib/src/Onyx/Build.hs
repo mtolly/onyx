@@ -685,10 +685,14 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
                     -- Make a no-samples ogg with the right channel count
                     buildAudio (Silence (length x.pans) $ Frames 0) out
                 else moggToOggFiles mogg out
-            wav %> buildAudio (Input ogg)
+            wav %> case x.fileMOGG of
+              Just path | takeExtension path == ".bik" -> buildAudio (Input $ rel path)
+              _ -> buildAudio (Input ogg)
             let allChannelWAVs = map channelWAV [0 .. length x.pans - 1]
             allChannelWAVs %> \_ -> do
-              src <- lift $ lift $ buildSource $ Input ogg
+              src <- lift $ lift $ buildSource $ case x.fileMOGG of
+                Just path | takeExtension path == ".bik" -> Input $ rel path
+                _                                        -> Input ogg
               stackIO $ audioToChannelWAVs src allChannelWAVs
             mogg %> \out -> do
               p <- inside "Searching for MOGG file" $ case (x.fileMOGG, x.moggMD5) of

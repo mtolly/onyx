@@ -20,6 +20,7 @@ library
     , onyx-handle
     , async
     , stm
+    , containers
   default-language: Haskell2010
   pkgconfig-depends:
       libavutil
