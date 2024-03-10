@@ -40,7 +40,7 @@ import           Onyx.Harmonix.Ark
 import           Onyx.Harmonix.Ark.Amplitude     (FoundFile (..),
                                                   makeStringBank,
                                                   traverseFolder)
-import           Onyx.Harmonix.Ark.ArkTool
+import           Onyx.Harmonix.Ark.ArkTool       hiding (FileEntry)
 import qualified Onyx.Harmonix.DTA               as D
 import qualified Onyx.Harmonix.DTA.Run           as Run
 import qualified Onyx.Harmonix.DTA.Serialize     as D
@@ -249,7 +249,7 @@ replaceSong
 replaceSong gen sym snippet files = withArk gen $ \ark -> do
   withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
     IO.hClose hdl
-    ark_GetFile' ark fdtb "config/gen/songs.dtb" True
+    ark_GetFile ark fdtb "config/gen/songs.dtb" True
     D.DTA z (D.Tree _ chunks) <- D.readFileDTB fdtb
     let adjust chunk = case chunk of
           D.Parens (D.Tree _ (D.Sym k : _)) | k == sym ->
@@ -266,15 +266,15 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
           (h, t) | not $ B.null t -> adjustString $ h <> sym <> B.drop 8 t
           _                       -> str
     D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
-    ark_ReplaceAFile' ark fdtb "config/gen/songs.dtb" True
+    ark_ReplaceAFile ark fdtb "config/gen/songs.dtb" True
     entries <- searchFiles ark $ "songs/" <> sym <> "/*"
     forM_ entries $ \entry -> do
       name <- ark_Arkname entry
-      ark_RemoveFile' ark name
+      ark_RemoveFile ark name
     forM_ files $ \(arkName, localPath) -> do
       let arkPath = "songs/" <> sym <> "/" <> arkName
-      ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
-    ark_Save' ark
+      ark_AddFile ark localPath arkPath True -- encryption doesn't matter
+    ark_Save ark
 
 data GH2Installation = GH2Installation
   { gen              :: FilePath
@@ -304,13 +304,13 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
           IO.hClose hdl2
           IO.hClose hdl3
           IO.hClose hdl4
-          let editDTB tmp path f = ark_GetFile ark tmp path True >>= \case
+          let editDTB tmp path f = ark_TryGetFile ark tmp path True >>= \case
                 True -> do
-                  ark_GetFile' ark tmp path True
+                  ark_GetFile ark tmp path True
                   D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
                   chunks' <- f chunks
                   D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
-                  ark_ReplaceAFile' ark tmp path True
+                  ark_ReplaceAFile ark tmp path True
                   return $ Just chunks'
                 False -> return Nothing
               tryEditDTB tmp path f = editDTB tmp path f >>= \case
@@ -353,10 +353,10 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
             ]
           forM_ gh2i.files $ \(arkName, localPath) -> do
             let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
-            ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
+            ark_AddFile ark localPath arkPath True -- encryption doesn't matter
           forM_ gh2i.album_art $ \img -> do
-            ark_AddFile' ark img ("ui/image/og/gen/us_logo_" <> gh2i.symbol <> "_keep.png_ps2") True
-          ark_Save' ark
+            ark_AddFile ark img ("ui/image/og/gen/us_logo_" <> gh2i.symbol <> "_keep.png_ps2") True
+          ark_Save ark
           return warnings
 
 -- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
@@ -369,11 +369,11 @@ addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
         IO.hClose hdl2
         IO.hClose hdl3
         let editDTB tmp path f = do
-              ark_GetFile' ark tmp path True
+              ark_GetFile ark tmp path True
               D.DTA z (D.Tree _ chunks) <- D.readFileDTB tmp
               chunks' <- f chunks
               D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
-              ark_ReplaceAFile' ark tmp path True
+              ark_ReplaceAFile ark tmp path True
               return chunks'
         newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
           let (before, after) = case chunks of
@@ -406,8 +406,8 @@ addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
             ] <> chunks
         forM_ gh2i.files $ \(arkName, localPath) -> do
           let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
-          ark_AddFile' ark localPath arkPath True -- encryption doesn't matter
-        ark_Save' ark
+          ark_AddFile ark localPath arkPath True -- encryption doesn't matter
+        ark_Save ark
 
 data SongSort
   = SongSortTitleArtist

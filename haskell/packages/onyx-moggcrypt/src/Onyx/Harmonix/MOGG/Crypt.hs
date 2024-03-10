@@ -1,5 +1,9 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Onyx.Harmonix.MOGG.Crypt where
 
 import           Control.Exception        (bracket)
@@ -10,16 +14,31 @@ import qualified Data.ByteString.Lazy     as BL
 import           Foreign
 import           Foreign.C
 import qualified GHC.IO.Handle            as H
+import qualified Language.C.Inline.Cpp    as C
 import           Onyx.Util.Handle
 import           System.IO
 import           System.Posix.Internals   (sEEK_CUR, sEEK_END, sEEK_SET)
 
------------------------------------------------------------------------
+data COVCallbacks
+data CVorbisReader
+data CVorbisEncrypter
+data CBinkReader
 
-newtype OVCallbacks     = OVCallbacks     (Ptr OVCallbacks    )
-newtype VorbisReader    = VorbisReader    (Ptr VorbisReader   )
-newtype VorbisEncrypter = VorbisEncrypter (Ptr VorbisEncrypter)
-newtype BinkReader      = BinkReader      (Ptr BinkReader     )
+newtype OVCallbacks     = OVCallbacks     (Ptr COVCallbacks    )
+newtype VorbisReader    = VorbisReader    (Ptr CVorbisReader   )
+newtype VorbisEncrypter = VorbisEncrypter (Ptr CVorbisEncrypter)
+newtype BinkReader      = BinkReader      (Ptr CBinkReader     )
+
+C.context $ C.cppCtx <> C.cppTypePairs
+  [ ("ov_callbacks"   , [t| COVCallbacks     |])
+  , ("VorbisReader"   , [t| CVorbisReader    |])
+  , ("VorbisEncrypter", [t| CVorbisEncrypter |])
+  , ("BinkReader"     , [t| CBinkReader      |])
+  ]
+
+C.include "VorbisReader.h"
+C.include "VorbisEncrypter.h"
+C.include "BinkReader.h"
 
 foreign import ccall "wrapper"
   makeOVRead
@@ -41,52 +60,81 @@ foreign import ccall "wrapper"
     ::            (Ptr () -> IO CLong)
     -> IO (FunPtr (Ptr () -> IO CLong))
 
-foreign import ccall "onyx_new_ov_callbacks"
-  onyx_new_ov_callbacks
-    :: FunPtr (Ptr () -> CSize -> CSize -> Ptr () -> IO CSize)
-    -> FunPtr (Ptr () -> Int64 -> CInt -> IO CInt)
-    -> FunPtr (Ptr () -> IO CInt)
-    -> FunPtr (Ptr () -> IO CLong)
-    -> IO OVCallbacks
+ovCallbacksNew
+  :: FunPtr (Ptr () -> CSize -> CSize -> Ptr () -> IO CSize)
+  -> FunPtr (Ptr () -> Int64 -> CInt -> IO CInt)
+  -> FunPtr (Ptr () -> IO CInt)
+  -> FunPtr (Ptr () -> IO CLong)
+  -> IO OVCallbacks
+ovCallbacksNew read_func seek_func close_func tell_func = OVCallbacks <$>
+  [C.block| ov_callbacks* {
+    ov_callbacks* cb = new ov_callbacks();
+    cb->read_func  = $(size_t(*read_func)  (void *ptr, size_t size, size_t nmemb, void *datasource));
+    cb->seek_func  = $(int(*seek_func)  (void *datasource, int64_t offset, int whence));
+    cb->close_func = $(int(*close_func) (void *datasource));
+    cb->tell_func  = $(long(*tell_func)  (void *datasource));
+    return cb;
+  } |]
 
-foreign import ccall "onyx_delete_ov_callbacks"
-  onyx_delete_ov_callbacks :: OVCallbacks -> IO ()
+ovCallbacksDelete :: OVCallbacks -> IO ()
+ovCallbacksDelete (OVCallbacks cb) =
+  [C.block| void { delete $(ov_callbacks* cb); } |]
 
-foreign import ccall "onyx_VorbisReader_Open"
-  onyx_VorbisReader_Open :: Ptr a -> OVCallbacks -> IO VorbisReader
+vorbisReaderOpen :: Ptr a -> OVCallbacks -> IO VorbisReader
+vorbisReaderOpen (castPtr -> src) (OVCallbacks cb) = VorbisReader <$>
+  [C.block| VorbisReader* {
+    VorbisReader* vr = new VorbisReader();
+    if (vr->Open($(void* src), *$(ov_callbacks* cb))) {
+      delete vr;
+      return nullptr;
+    } else {
+      return vr;
+    }
+  } |]
 
-foreign import ccall "onyx_delete_VorbisReader"
-  onyx_delete_VorbisReader :: VorbisReader -> IO ()
+vorbisReaderDelete :: VorbisReader -> IO ()
+vorbisReaderDelete (VorbisReader vr) =
+  [C.block| void { delete $(VorbisReader* vr); } |]
 
-foreign import ccall "onyx_VorbisReader_SeekRaw"
-  onyx_VorbisReader_SeekRaw :: VorbisReader -> Int64 -> CInt -> IO CInt
+vorbisReaderSeekRaw :: VorbisReader -> Int64 -> CInt -> IO CInt
+vorbisReaderSeekRaw (VorbisReader vr) offset whence =
+  [C.exp| int { $(VorbisReader* vr)->SeekRaw($(int64_t offset), $(int whence)) } |]
 
-foreign import ccall "onyx_VorbisReader_TellRaw"
-  onyx_VorbisReader_TellRaw :: VorbisReader -> IO CSize
+vorbisReaderTellRaw :: VorbisReader -> IO CSize
+vorbisReaderTellRaw (VorbisReader vr) =
+  [C.exp| size_t { $(VorbisReader* vr)->TellRaw() } |]
 
-foreign import ccall "onyx_VorbisReader_SizeRaw"
-  onyx_VorbisReader_SizeRaw :: VorbisReader -> IO CSize
+vorbisReaderSizeRaw :: VorbisReader -> IO CSize
+vorbisReaderSizeRaw (VorbisReader vr) =
+  [C.exp| size_t { $(VorbisReader* vr)->SizeRaw() } |]
 
-foreign import ccall "onyx_VorbisReader_ReadRaw"
-  onyx_VorbisReader_ReadRaw :: VorbisReader -> Ptr a -> CSize -> CSize -> IO CSize
+vorbisReaderReadRaw :: VorbisReader -> Ptr a -> CSize -> CSize -> IO CSize
+vorbisReaderReadRaw (VorbisReader vr) (castPtr -> buf) elementSize elements =
+  [C.exp| size_t { $(VorbisReader* vr)->ReadRaw($(void* buf), $(size_t elementSize), $(size_t elements)) } |]
 
-foreign import ccall "onyx_VorbisEncrypter_Open"
-  onyx_VorbisEncrypter_Open :: Ptr a -> OVCallbacks -> IO VorbisEncrypter
+vorbisEncrypterOpen :: Ptr a -> OVCallbacks -> IO VorbisEncrypter
+vorbisEncrypterOpen (castPtr -> src) (OVCallbacks cb) = VorbisEncrypter <$>
+  [C.exp| VorbisEncrypter* { new VorbisEncrypter($(void* src), *$(ov_callbacks* cb)) } |]
 
-foreign import ccall "onyx_delete_VorbisEncrypter"
-  onyx_delete_VorbisEncrypter :: VorbisEncrypter -> IO ()
+vorbisEncrypterDelete :: VorbisEncrypter -> IO ()
+vorbisEncrypterDelete (VorbisEncrypter ve) =
+  [C.block| void { delete $(VorbisEncrypter* ve); } |]
 
-foreign import ccall "onyx_VorbisEncrypter_ReadRaw"
-  onyx_VorbisEncrypter_ReadRaw :: VorbisEncrypter -> Ptr a -> CSize -> CSize -> IO CSize
+vorbisEncrypterReadRaw :: VorbisEncrypter -> Ptr a -> CSize -> CSize -> IO CSize
+vorbisEncrypterReadRaw (VorbisEncrypter ve) (castPtr -> buf) elementSize elements =
+  [C.exp| size_t { $(VorbisEncrypter* ve)->ReadRaw($(void* buf), $(size_t elementSize), $(size_t elements)) } |]
 
-foreign import ccall "onyx_BinkReader_Open"
-  onyx_BinkReader_Open :: Ptr a -> OVCallbacks -> IO BinkReader
+binkReaderOpen :: Ptr a -> OVCallbacks -> IO BinkReader
+binkReaderOpen (castPtr -> src) (OVCallbacks cb) = BinkReader <$>
+  [C.exp| BinkReader* { new BinkReader($(void* src), *$(ov_callbacks* cb)) } |]
 
-foreign import ccall "onyx_delete_BinkReader"
-  onyx_delete_BinkReader :: BinkReader -> IO ()
+binkReaderDelete :: BinkReader -> IO ()
+binkReaderDelete (BinkReader br) =
+  [C.block| void { delete $(BinkReader* br); } |]
 
-foreign import ccall "onyx_BinkReader_ReadToArray"
-  onyx_BinkReader_ReadToArray :: BinkReader -> Ptr (Ptr Word8) -> Ptr CSize -> IO CInt
+binkReaderReadToArray :: BinkReader -> Ptr (Ptr Word8) -> Ptr CSize -> IO CInt
+binkReaderReadToArray (BinkReader br) buffer size = do
+  [C.exp| int { $(BinkReader* br)->ReadToArray($(uint8_t** buffer), $(size_t* size)) } |]
 
 handleOVCallbacks :: Handle -> IO (OVCallbacks, IO ())
 handleOVCallbacks h = do
@@ -109,9 +157,9 @@ handleOVCallbacks h = do
   fnTell <- makeOVTell $ \_ -> do
     H.HandlePosn _ n <- hGetPosn h
     return $ fromIntegral n
-  cb <- onyx_new_ov_callbacks fnRead fnSeek nullFunPtr fnTell
+  cb <- ovCallbacksNew fnRead fnSeek nullFunPtr fnTell
   let cleanup = do
-        onyx_delete_ov_callbacks cb
+        ovCallbacksDelete cb
         freeHaskellFunPtr fnRead
         freeHaskellFunPtr fnSeek
         freeHaskellFunPtr fnTell
@@ -120,21 +168,21 @@ handleOVCallbacks h = do
 moggToOggHandles :: Handle -> IO SimpleHandle
 moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
-  vr@(VorbisReader p) <- onyx_VorbisReader_Open nullPtr cb
+  vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
   when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
-  size <- onyx_VorbisReader_SizeRaw vr
+  size <- vorbisReaderSizeRaw vr
   return SimpleHandle
     { shSize  = fromIntegral size
-    , shSeek  = \n -> onyx_VorbisReader_SeekRaw vr (fromIntegral n) sEEK_SET >>= \case
+    , shSeek  = \n -> vorbisReaderSeekRaw vr (fromIntegral n) sEEK_SET >>= \case
       0 -> return ()
       c -> fail $ "decrypted mogg seek returned error code " <> show c
-    , shTell  = fromIntegral <$> onyx_VorbisReader_TellRaw vr
+    , shTell  = fromIntegral <$> vorbisReaderTellRaw vr
     , shClose = do
-      onyx_delete_VorbisReader vr
+      vorbisReaderDelete vr
       hClose h
       cleanup
     , shRead  = \n -> allocaBytes (fromIntegral n) $ \buf -> do
-      bytesRead <- onyx_VorbisReader_ReadRaw vr (castPtr buf) 1 $ fromIntegral n
+      bytesRead <- vorbisReaderReadRaw vr (castPtr buf) 1 $ fromIntegral n
       B.packCStringLen (buf, fromIntegral bytesRead)
     }
 
@@ -145,11 +193,11 @@ moggToOgg r = makeHandle "decrypted mogg" $ rOpen r >>= moggToOggHandles
 encryptMOGG :: (Monoid a) => Readable -> (B.ByteString -> IO a) -> IO a
 encryptMOGG r eachChunk = useHandle r $ \h -> do
   bracket (handleOVCallbacks h) snd $ \(cb, _) -> do
-    bracket (onyx_VorbisEncrypter_Open nullPtr cb) onyx_delete_VorbisEncrypter $ \ve -> do
+    bracket (vorbisEncrypterOpen nullPtr cb) vorbisEncrypterDelete $ \ve -> do
       let bufSize = 8192
       allocaBytes (fromIntegral bufSize) $ \buf -> let
         go !cur = do
-          bytesRead <- onyx_VorbisEncrypter_ReadRaw ve (castPtr buf) 1 bufSize
+          bytesRead <- vorbisEncrypterReadRaw ve (castPtr buf) 1 bufSize
           if bytesRead == 0
             then return cur
             else do
@@ -169,10 +217,10 @@ encryptMOGGToByteString r = encryptMOGG r $ return . BL.fromStrict
 decryptBink :: Readable -> IO B.ByteString
 decryptBink r = useHandle r $ \h -> do
   bracket (handleOVCallbacks h) snd $ \(cb, _) -> do
-    bracket (onyx_BinkReader_Open nullPtr cb) onyx_delete_BinkReader $ \br -> do
+    bracket (binkReaderOpen nullPtr cb) binkReaderDelete $ \br -> do
       alloca $ \parray -> do
         alloca $ \psize -> do
-          onyx_BinkReader_ReadToArray br parray psize >>= \case
+          binkReaderReadToArray br parray psize >>= \case
             0 -> do
               -- array is malloc'd in ReadToArray, so use free when done
               fptr <- peek parray >>= newForeignPtr finalizerFree
