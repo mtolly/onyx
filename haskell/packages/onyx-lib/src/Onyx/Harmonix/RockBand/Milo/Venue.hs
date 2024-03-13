@@ -161,7 +161,8 @@ animPad s = let
 convertFromAnim :: (SendMessage m) => Anim Float -> StackTraceT m (F.OnyxFile U.Seconds)
 convertFromAnim anim = inside "Converting venue info to MIDI" $ let
   animSeconds :: Anim U.Seconds
-  animSeconds = (\f -> realToFrac $ f / 30) <$> anim
+  -- need to clamp negative to 0, negative time seen in headlikeahole
+  animSeconds = (\f -> realToFrac $ max 0 $ f / 30) <$> anim
   getEvents name = do
     trk <- animSeconds.animTracks
     guard $ trk.trackName == name

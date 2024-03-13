@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -7,31 +8,28 @@
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.RockRevolution where
 
-import           Control.Concurrent.Async         (concurrently)
-import           Control.Monad                    (forM, guard, replicateM,
-                                                   unless, when)
+import           Control.Concurrent.Async         (forConcurrently)
+import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class           (MonadIO)
-import           Data.Binary.Get
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (isDigit)
+import           Data.Char                        (isDigit, toLower)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (nubOrd)
+import           Data.List.Extra                  (nubOrd, (!?))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Word
-import           Debug.Trace
-import           Numeric                          (showHex)
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Audio.FSB
+import           Onyx.Audio.FSB.FEV
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    each, isNoteEdgeCPV,
@@ -49,6 +47,7 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -140,27 +139,42 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
           (streamData, ext) <- getFSBStreamBytes stream
           return (TE.decodeLatin1 streamName <> "." <> ext, streamData)
 
-  (nonDrumStreams, drumStreams) <- case level of
-    ImportQuick -> return ([], [])
+  findDef <- case level of
+    ImportQuick -> return $ const Nothing
     ImportFull -> do
-      r1 <- need $ "s" <> key <> ".fsb"
-      r2 <- need $ "s" <> key <> "_Drums.fsb"
-      stackIO $ concurrently (loadAudio r1) (loadAudio r2)
-
-  -- TODO this is a brittle hack. We have to parse the .fev files to figure out channel order correctly
-  let findStream insts fsb = case filter (\(name, _) -> any (`T.isInfixOf` T.toLower name) insts) fsb of
-        [] -> do
-          case level of
-            ImportQuick -> return ()
-            ImportFull  -> warn $ "Couldn't locate stream in FSB: " <> show insts
-          return Nothing
-        (name, _) : _ -> return $ Just name
-      allStreams = nonDrumStreams <> drumStreams
-      -- searching all streams together because s1056 has guitar and drums mixed up
-  guitarStream  <- findStream ["guitar"               ] allStreams
-  bassStream    <- findStream ["bass"                 ] allStreams
-  drumsStream   <- findStream ["drum"                 ] allStreams
-  backingStream <- findStream ["mixminus", "mix-minus"] allStreams
+      fev <- need ("s" <> key <> ".fev") >>= runGetM getFEV
+      return $ \eventName -> listToMaybe $ do
+        let bsLower = B8.map toLower
+        eventGroup <- fev.topLevelEventGroups
+        guard $ bsLower eventGroup.name == "stems"
+        event <- eventGroup.events
+        guard $ bsLower event.name == eventName
+        layer <- event.layers
+        inst <- layer.soundDefInstances
+        Left sdefName <- return inst.nameOrIndex
+        let sdefName' = bsLower sdefName
+        soundDef <- fev.soundDefs
+        guard $ bsLower soundDef.name == sdefName'
+        [waveform] <- return soundDef.waveforms
+        return (T.toCaseFold $ TE.decodeLatin1 waveform.bankName, waveform.indexInBank)
+  let guitarDef  = findDef "guitar"
+      bassDef    = findDef "bass"
+      drumsDef   = findDef "drums"
+      backingDef = findDef "backing"
+      allFSBNames = nubOrd $ map fst $ catMaybes [guitarDef, bassDef, drumsDef, backingDef]
+  allFSB <- forM allFSBNames $ \bankName -> do
+    r <- need $ bankName <> ".fsb"
+    return (bankName, r)
+  loadedFSB <- stackIO $ forConcurrently allFSB $ \(bankName, r) -> do
+    streams <- loadAudio r
+    return (bankName, streams)
+  let getStream (bankName, index) = do
+        streamsInFile <- lookup bankName loadedFSB
+        streamsInFile !? fromIntegral index
+      guitarStream  = guitarDef  >>= getStream
+      bassStream    = bassDef    >>= getStream
+      drumsStream   = drumsDef   >>= getStream
+      backingStream = backingDef >>= getStream
 
   controlMid <- case level of
     ImportQuick -> return emptyChart
@@ -274,7 +288,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ do
-      (name, bs) <- nonDrumStreams <> drumStreams
+      (name, bs) <- catMaybes [guitarStream, bassStream, drumsStream, backingStream]
       let str = T.unpack name
       return (name, AudioFile AudioInfo
         { md5 = Nothing
@@ -286,11 +300,11 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
         , channels = 2 -- TODO maybe verify
         })
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
-      { song = Input . Named <$> backingStream
+      { song = Input . Named . fst <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream $ \s -> (F.FlexGuitar, PartSingle $ Input $ Named s)
-        , flip fmap bassStream   $ \s -> (F.FlexBass  , PartSingle $ Input $ Named s)
-        , flip fmap drumsStream  $ \s -> (F.FlexDrums , PartSingle $ Input $ Named s)
+        [ flip fmap guitarStream $ \(s, _) -> (F.FlexGuitar, PartSingle $ Input $ Named s)
+        , flip fmap bassStream   $ \(s, _) -> (F.FlexBass  , PartSingle $ Input $ Named s)
+        , flip fmap drumsStream  $ \(s, _) -> (F.FlexDrums , PartSingle $ Input $ Named s)
         ]
       , crowd = Nothing
       , comments = []
@@ -473,159 +487,3 @@ importRRHiddenDrums rr
   = TD.makeTrueDifficulty
   $ fmap (rrDrumGuessTD . fst)
   $ RTB.merge (rrdGems rr) (rrdHidden rr)
-
--- .fev files
--- This can currently kind of parse song (s*.fev) files but it's not really right and fails on other .fev files
-
-data FEV = FEV
-  { fev_unk1 :: Word16
-  , fev_str1 :: B.ByteString
-  , fev_fsbs :: [FSBReference]
-  , fev_a    :: FEVNodeA
-  , fev_b    :: [FEVNodeB]
-  , fev_e    :: [FEVNodeE]
-  , fev_unk2 :: Word32
-  } deriving (Show)
-
-data FSBReference = FSBReference
-  { fsb_unk1 :: Word32
-  , fsb_unk2 :: Word32
-  , fsb_name :: B.ByteString
-  } deriving (Show)
-
-data FEVNodeA = FEVNodeA
-  { a_name     :: B.ByteString
-  , a_unk1     :: Word32
-  , a_unk2     :: Word32
-  , a_children :: [FEVNodeA]
-  } deriving (Show)
-
-data FEVNodeB = FEVNodeB
-  { b_name     :: B.ByteString
-  , b_unk1     :: Word32
-  , b_unk2     :: Word32 -- this is 0 in s1064.fev and s1064_FE.fev, but 8 in g1203.fev. probably array length
-  , b_children :: [FEVNodeC]
-  } deriving (Show)
-
-data FEVNodeC = FEVNodeC
-  { c_name     :: B.ByteString
-  , c_unk1     :: [Word32] -- len 30
-  , c_str1     :: B.ByteString
-  , c_unk2     :: Word32
-  , c_str2     :: B.ByteString
-  , c_unk3     :: Word16
-  -- next is (I think) count of c_children, Word16
-  , c_str3     :: B.ByteString
-  , c_unk4     :: [Word32] -- len 16
-  , c_children :: [FEVNodeD]
-  , c_str4     :: Word32
-  , c_unk5     :: Word32
-  , c_unk6     :: Word32
-  , c_str5     :: B.ByteString
-  } deriving (Show)
-
-data FEVNodeD = FEVNodeD
-  { d_str1 :: B.ByteString
-  , d_unk1 :: [Word32] -- len 12
-  , d_str2 :: B.ByteString
-  , d_unk2 :: [Word32] -- len 8
-  } deriving (Show)
-
-data FEVNodeE = FEVNodeE
-  { e_name  :: B.ByteString
-  , e_unk1  :: [Word32] -- len 17
-  , e_wav   :: B.ByteString -- looks like path to original stem wav
-  , e_fsb   :: B.ByteString -- the fsb file that this stream is in
-  , e_index :: Word32 -- the index of this stream in the fsb
-  , e_unk2  :: Word32
-  } deriving (Show)
-
-getFEV :: Get FEV
-getFEV = do
-
-  let traced lbl f = do
-        p <- bytesRead
-        x <- f
-        trace ("0x" <> showHex p "" <> ": " <> lbl <> " = " <> show x) $ return ()
-        return x
-
-  let string = do
-        len <- getWord32le
-        case len of
-          0 -> return ""
-          _ -> do
-            bs <- getByteString $ fromIntegral len
-            unless (B.last bs == 0) $ fail $ "Invalid string: " <> show bs
-            return $ B.init bs
-
-  "FEV1" <- getByteString 4
-  0 <- getWord16le
-  fev_unk1 <- traced "fev_unk1" getWord16le -- always 0x26?
-  fev_str1 <- traced "fev_str1" string
-
-  numFSBs <- traced "numFSBs" getWord32le
-  fev_fsbs <- replicateM (fromIntegral numFSBs) $ do
-    fsb_unk1 <- traced "fsb_unk1" getWord32le
-    fsb_unk2 <- traced "fsb_unk2" getWord32le
-    fsb_name <- traced "fsb_name" string
-    return FSBReference{..}
-
-  let getNodeA = do
-        traced "start A" $ return ()
-        a_name <- traced "a_name" string
-        a_unk1 <- traced "a_unk1" getWord32le
-        a_unk2 <- traced "a_unk2" getWord32le
-        numChildren <- traced "a numChildren" getWord32le
-        a_children <- replicateM (fromIntegral numChildren) getNodeA
-        return FEVNodeA{..}
-  fev_a <- getNodeA
-
-  let getNodeB = do
-        traced "start B" $ return ()
-        b_name <- traced "b_name" string
-        b_unk1 <- traced "b_unk1" getWord32le
-        b_unk2 <- traced "b_unk2" getWord32le
-        numChildren <- traced "b numChildren" getWord32le
-        b_children <- replicateM (fromIntegral numChildren) getNodeC
-        return FEVNodeB{..}
-      getNodeC = do
-        traced "start C" $ return ()
-        c_name <- traced "c_name" string
-        c_unk1 <- replicateM 30 $ traced "c_unk1 element" getWord32le
-        c_str1 <- traced "c_str1" string
-        c_unk2 <- traced "c_unk2" getWord32le
-        c_str2 <- traced "c_str2" string
-        c_unk3 <- getWord16le
-        numChildren <- traced "c numChildren" getWord16le
-        c_str3 <- traced "c_str3" string
-        c_unk4 <- replicateM 16 $ traced "c_unk4 element" getWord32le
-        c_children <- replicateM (fromIntegral numChildren) getNodeD
-        c_str4 <- traced "c_str4" getWord32le
-        c_unk5 <- traced "c_unk5" getWord32le
-        c_unk6 <- traced "c_unk6" getWord32le
-        c_str5 <- traced "c_str5" string
-        return FEVNodeC{..}
-      getNodeD = do
-        traced "start D" $ return ()
-        d_str1 <- traced "d_str1" string
-        d_unk1 <- replicateM 12 $ traced "d_unk1 element" getWord32le
-        d_str2 <- traced "d_str2" string
-        d_unk2 <- replicateM 8 $ traced "d_unk2 element" getWord32le
-        return FEVNodeD{..}
-  numB <- traced "numB" getWord32le
-  fev_b <- replicateM (fromIntegral numB) getNodeB
-
-  let getNodeE = do
-        traced "start E" $ return ()
-        e_name <- traced "e_name" string
-        e_unk1 <- replicateM 17 $ traced "e_unk1 element" getWord32le
-        e_wav <- traced "e_wav" string
-        e_fsb <- traced "e_fsb" string
-        e_index <- traced "e_index" getWord32le
-        e_unk2 <- traced "e_unk2" getWord32le
-        return FEVNodeE{..}
-  numE <- traced "numE" getWord32le
-  fev_e <- replicateM (fromIntegral numE) getNodeE
-
-  fev_unk2 <- getWord32le
-  return FEV{..}
