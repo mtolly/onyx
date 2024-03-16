@@ -295,37 +295,47 @@ rrRules buildInfo dir rr = do
       readPad = shk $ read <$> readFile' pathPad
 
   pathGuitar %> \out -> do
-    mid <- loadOnyxMidi
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.guitar, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
+      $ padAudio pad $ clampIfSilent s
   pathBass %> \out -> do
-    mid <- loadOnyxMidi
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.bass, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
+      $ padAudio pad $ clampIfSilent s
   pathDrums %> \out -> do
-    mid <- loadOnyxMidi
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.drums, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
+      $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
-    mid <- loadOnyxMidi
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan
       [ (rr.guitar, 1)
       , (rr.bass  , 1)
       , (rr.drums , 1)
       ]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
+      $ padAudio pad $ clampIfSilent s
   pathFE %> \out -> do
-    mid <- loadOnyxMidi
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan []
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
+      $ padAudio pad $ clampIfSilent s
 
   let songFev = file $ "s" <> str <> ".fev" -- makeMainFEV
       songFsb = file $ "s" <> str <> ".fsb"

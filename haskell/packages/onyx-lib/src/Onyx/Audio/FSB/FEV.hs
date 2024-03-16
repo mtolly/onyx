@@ -54,10 +54,12 @@ fevString = Codec
         bs <- getByteString $ fromIntegral len
         unless (B.last bs == 0) $ fail $ "Invalid string: " <> show bs
         return $ B.init bs
-  , codecOut = fmapArg $ \bs -> do
-    putWord32le $ fromIntegral $ B.length bs + 1
-    putByteString bs
-    putWord8 0
+  , codecOut = fmapArg $ \bs -> if B.null bs
+    then putWord32le 0
+    else do
+      putWord32le $ fromIntegral $ B.length bs + 1
+      putByteString bs
+      putWord8 0
   }
 
 fevLenArray :: BinaryCodec a -> BinaryCodec [a]
