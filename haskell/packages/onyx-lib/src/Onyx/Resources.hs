@@ -61,6 +61,9 @@ powerGigThumbnail = getResourcesPath "pg.png"
 powerGigTitleThumbnail :: IO FilePath
 powerGigTitleThumbnail = getResourcesPath "pg-title.png"
 
+rrThumbnail :: IO FilePath
+rrThumbnail = getResourcesPath "rr.png"
+
 emptyMilo :: IO FilePath
 emptyMilo = getResourcesPath "empty.milo_xbox"
 

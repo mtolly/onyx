@@ -37,7 +37,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
 import           Onyx.MIDI.Read                   (ChannelType (..),
                                                    ParseTrack (..),
                                                    channelBlip_, condenseMap,
-                                                   eachKey, edges,
+                                                   eachKey, edges, fatBlips,
                                                    translateEdges)
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.True       as TD
@@ -59,7 +59,7 @@ findRRSongKeys :: Folder T.Text Readable -> [T.Text]
 findRRSongKeys dir = do
   (name, _) <- folderFiles dir
   key <- toList $ T.stripPrefix "s" (T.toLower name) >>= T.stripSuffix ".lua"
-  guard $ T.all isDigit key
+  guard $ T.all isDigit key -- is this necessary?
   return key
 
 -- notes on channel 0xF in control.mid
@@ -81,7 +81,7 @@ data RRFiveDifficulty t = RRFiveDifficulty
   } deriving (Show)
 
 instance ParseTrack RRFiveDifficulty where
-  parseTrack = do
+  parseTrack = fatBlips (1/8) $ do
     rrfStrums <- (rrfStrums =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Five.Green  -> 48
       Five.Red    -> 49
@@ -142,7 +142,7 @@ importRRSong dir key level = inside ("Song " <> show key) $ do
   findDef <- case level of
     ImportQuick -> return $ const Nothing
     ImportFull -> do
-      fev <- need ("s" <> key <> ".fev") >>= runGetM getFEV
+      fev <- need ("s" <> key <> ".fev") >>= runGetM (codecIn binFEV)
       return $ \eventName -> listToMaybe $ do
         let bsLower = B8.map toLower
         eventGroup <- fev.topLevelEventGroups
@@ -446,8 +446,8 @@ data RRDrumDifficulty t = RRDrumDifficulty
 
 instance ParseTrack RRDrumDifficulty where
   parseTrack = do
-    rrdGems      <- (rrdGems      =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 48
-    rrdHidden    <- (rrdHidden    =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 72
+    rrdGems      <- (rrdGems      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 48
+    rrdHidden    <- (rrdHidden    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 72
     rrdFreestyle <- (rrdFreestyle =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum
     rrdSolo      <- rrdSolo =. edges 127
     return RRDrumDifficulty{..}

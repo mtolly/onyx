@@ -47,6 +47,7 @@ import           Onyx.Build.GuitarHero5
 import           Onyx.Build.PowerGig
 import qualified Onyx.Build.RB3CH                 as RB3
 import           Onyx.Build.RockBand
+import           Onyx.Build.RockRevolution
 import           Onyx.Build.Rocksmith
 import           Onyx.Codec.JSON                  (loadYaml)
 import qualified Onyx.DTXMania.DTX                as DTX
@@ -497,6 +498,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           GH3 gh3 -> gh3Rules buildInfo dir gh3
           DTX dtx -> dtxRules buildInfo dir dtx
           PG pg -> pgRules buildInfo dir pg
+          RR rr -> rrRules buildInfo dir rr
 
       forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
 

@@ -339,7 +339,7 @@ sameChannels (a1, a2) = if channels a1 == channels a2
       in (a1', a2')
 
 fadeStart :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
-fadeStart dur (AudioSource s r c l) = let
+fadeStart dur src@(AudioSource s r c l) = let
   fadeFrames = case dur of
     Frames  fms  -> fms
     Seconds secs -> secondsToFrames secs r
@@ -351,10 +351,12 @@ fadeStart dur (AudioSource s r c l) = let
         fader = V.generate (V.length v) $ \j ->
           min 1 $ fromIntegral (i + quot j c) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
-  in AudioSource (s .| go 0) r c l
+  in if fadeFrames == 0
+    then src
+    else AudioSource (s .| go 0) r c l
 
 fadeEnd :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
-fadeEnd dur (AudioSource s r c l) = let
+fadeEnd dur src@(AudioSource s r c l) = let
   fadeFrames = case dur of
     Frames  fms  -> fms
     Seconds secs -> secondsToFrames secs r
@@ -366,7 +368,9 @@ fadeEnd dur (AudioSource s r c l) = let
           min 1 $ fromIntegral (l - (i + quot j c)) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
       else yield v >> go (i + vectorFrames v c)
-  in AudioSource (s .| go 0) r c l
+  in if fadeFrames == 0
+    then src
+    else AudioSource (s .| go 0) r c l
 
 data MaskSections
   = MaskFade Bool Frames Frames MaskSections

@@ -18,6 +18,7 @@ module Onyx.Xbox.STFS
 , rb2pkg
 , gh2pkg
 , ghworpkg
+, rrpkg
 , makeCON
 , makeCONMemory
 , makeCONReadable
@@ -68,7 +69,8 @@ import           Data.Yaml                 ((.:))
 import qualified Data.Yaml                 as Y
 import           Onyx.Codec.Binary
 import           Onyx.Resources            (gh2Thumbnail, ghWoRThumbnail,
-                                            rb2Thumbnail, rb3Thumbnail, xboxKV)
+                                            rb2Thumbnail, rb3Thumbnail,
+                                            rrThumbnail, xboxKV)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary          (runGetM)
 import           Onyx.Util.Handle
@@ -1056,6 +1058,24 @@ rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT
 rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
   opts <- rb2STFSOptions title desc False
   makeCON opts dir fout
+
+rrpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stackIO $ do
+  thumb <- rrThumbnail >>= B.readFile
+  makeCON CreateOptions
+    { createNames = [title]
+    , createDescriptions = [desc]
+    , createTitleID = 0x4B4E07E0
+    , createTitleName = "Rock Revolution"
+    , createThumb = thumb
+    , createTitleThumb = thumb
+    , createLicenses = [LicenseEntry (-1) 1 0] -- unlocked
+    , createMediaID       = 0
+    , createVersion       = 0
+    , createBaseVersion   = 0
+    , createTransferFlags = 0xC0
+    , createLIVE = True
+    } dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
 makeCON opts dir con = do

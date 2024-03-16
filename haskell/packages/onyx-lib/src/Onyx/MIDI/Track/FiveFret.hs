@@ -118,9 +118,9 @@ instance ChopTrack FiveTrack where
     , fiveFretPosition = chopEachPair (chopTakeBool t) $ fiveFretPosition ft
     , fiveTremolo      = chopTakeMaybe t               $ fiveTremolo ft
     , fiveTrill        = chopTakeMaybe t               $ fiveTrill ft
-    , fiveOverdrive    = chopTakeBool t                $ fivePlayer2 ft
-    , fiveBRE          = chopTakeBool t                $ fivePlayer2 ft
-    , fiveSolo         = chopTakeBool t                $ fivePlayer2 ft
+    , fiveOverdrive    = chopTakeBool t                $ fiveOverdrive ft
+    , fiveBRE          = chopTakeBool t                $ fiveBRE ft
+    , fiveSolo         = chopTakeBool t                $ fiveSolo ft
     , fivePlayer1      = chopTakeBool t                $ fivePlayer1 ft
     , fivePlayer2      = chopTakeBool t                $ fivePlayer2 ft
     }
@@ -132,9 +132,9 @@ instance ChopTrack FiveTrack where
     , fiveFretPosition = chopEachPair (chopDropBool t) $ fiveFretPosition ft
     , fiveTremolo      = chopDropMaybe t               $ fiveTremolo ft
     , fiveTrill        = chopDropMaybe t               $ fiveTrill ft
-    , fiveOverdrive    = chopDropBool t                $ fivePlayer2 ft
-    , fiveBRE          = chopDropBool t                $ fivePlayer2 ft
-    , fiveSolo         = chopDropBool t                $ fivePlayer2 ft
+    , fiveOverdrive    = chopDropBool t                $ fiveOverdrive ft
+    , fiveBRE          = chopDropBool t                $ fiveBRE ft
+    , fiveSolo         = chopDropBool t                $ fiveSolo ft
     , fivePlayer1      = chopDropBool t                $ fivePlayer1 ft
     , fivePlayer2      = chopDropBool t                $ fivePlayer2 ft
     }

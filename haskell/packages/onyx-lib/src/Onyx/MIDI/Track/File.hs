@@ -573,6 +573,15 @@ readMixedMIDI mid = case mid of
     _ -> fatal "Not exactly 1 track in 'mixed' (type-0) MIDI file"
   F.Cons typ _ _ -> fatal $ "Expected a 'mixed' (type-0) MIDI file but found: " <> show typ
 
+showMixedMIDI :: (Ord s) => Song (RTB.T U.Beats (E.T s)) -> F.T s
+showMixedMIDI s = let
+  tempos = U.unmakeTempoMap $ s_tempos s
+  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs $ s_signatures s of
+    Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
+    Just evts -> evts
+  trk = RTB.merge (RTB.merge tempos sigs) $ s_tracks s
+  in U.encodeFileBeats F.Mixed 480 [trk]
+
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
 stripTrack = RTB.filter $ \e -> case e of

@@ -1550,11 +1550,11 @@ data TargetPG f = TargetPG
 parseTargetPG :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetPG f)
 parseTargetPG = do
   common        <- (.common       ) =. parseTargetCommon
-  is2xBassPedal <- (.is2xBassPedal) =. opt False        "2x-bass-pedal" stackJSON
-  guitar        <- (.guitar       ) =. opt F.FlexGuitar   "guitar"        stackJSON
-  drums         <- (.drums        ) =. opt F.FlexDrums    "drums"         stackJSON
-  vocal         <- (.vocal        ) =. opt F.FlexVocal    "vocal"         stackJSON
-  key           <- (.key          ) =. opt Nothing      "key"           stackJSON
+  is2xBassPedal <- (.is2xBassPedal) =. opt False         "2x-bass-pedal" stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar  "guitar"        stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums   "drums"         stackJSON
+  vocal         <- (.vocal        ) =. opt F.FlexVocal   "vocal"         stackJSON
+  key           <- (.key          ) =. opt Nothing       "key"           stackJSON
   return TargetPG{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetPG f) where
@@ -1562,6 +1562,31 @@ instance (Eq f, StackJSON f) => StackJSON (TargetPG f) where
 
 instance Default (TargetPG f) where
   def = (fromEmptyObject :: TargetPG String) { common = def }
+
+data TargetRR f = TargetRR
+  { common        :: TargetCommon f
+  , is2xBassPedal :: Bool
+  , guitar        :: F.FlexPartName
+  , bass          :: F.FlexPartName
+  , drums         :: F.FlexPartName
+  , songID        :: Maybe T.Text
+  } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
+
+parseTargetRR :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRR f)
+parseTargetRR = do
+  common        <- (.common       ) =. parseTargetCommon
+  is2xBassPedal <- (.is2xBassPedal) =. opt False         "2x-bass-pedal" stackJSON
+  guitar        <- (.guitar       ) =. opt F.FlexGuitar  "guitar"        stackJSON
+  bass          <- (.bass         ) =. opt F.FlexBass    "bass"          stackJSON
+  drums         <- (.drums        ) =. opt F.FlexDrums   "drums"         stackJSON
+  songID        <- (.songID       ) =. opt Nothing       "song-id"       stackJSON
+  return TargetRR{..}
+
+instance (Eq f, StackJSON f) => StackJSON (TargetRR f) where
+  stackJSON = asStrictObject "TargetRR" parseTargetRR
+
+instance Default (TargetRR f) where
+  def = (fromEmptyObject :: TargetRR String) { common = def }
 
 data TargetPart f = TargetPart
   { common :: TargetCommon f
@@ -1591,6 +1616,7 @@ data Target f
   | RS  (TargetRS  f)
   | DTX (TargetDTX f)
   | PG  (TargetPG  f)
+  | RR  (TargetRR  f)
   deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 targetCommon :: Target f -> TargetCommon f
@@ -1605,6 +1631,7 @@ targetCommon = \case
   RS     x -> x.common
   DTX    x -> x.common
   PG     x -> x.common
+  RR     x -> x.common
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList $ makeObject (objectId codec) x
@@ -1624,6 +1651,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "rs"  -> fmap RS     fromJSON
         "dtx" -> fmap DTX    fromJSON
         "pg"  -> fmap PG     fromJSON
+        "rr"  -> fmap RR     fromJSON
         _     -> fatal $ "Unrecognized target game: " ++ show target
     , codecOut = makeOut $ \case
       RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
@@ -1636,6 +1664,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
       RS     rs  -> addKey parseTargetRS   "game" "rs"     rs
       DTX    dtx -> addKey parseTargetDTX  "game" "dtx"    dtx
       PG     pg  -> addKey parseTargetPG   "game" "pg"     pg
+      RR     rr  -> addKey parseTargetRR   "game" "rr"     rr
     }
 
 data SongYaml f = SongYaml
