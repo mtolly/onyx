@@ -37,10 +37,12 @@ import           Onyx.Guitar                      (noExtendedSustains',
                                                    noOpenNotes,
                                                    standardBlipThreshold)
 import           Onyx.Import.RockRevolution
-import           Onyx.MIDI.Common                 (Difficulty (..),
+import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
-                                                   blipEdgesRB_, makeEdgeCPV,
-                                                   pattern RNil, pattern Wait)
+                                                   blipEdgesRBNice,
+                                                   blipEdgesRB_, isNoteEdgeCPV,
+                                                   makeEdgeCPV, pattern RNil,
+                                                   pattern Wait)
 import           Onyx.MIDI.Read
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Events
@@ -164,6 +166,19 @@ rrRules buildInfo dir rr = do
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
             }
 
+        makeGBControl :: Int -> Maybe FiveResult -> RTB.T U.Beats (Event.T s)
+        makeGBControl _    Nothing       = RTB.empty
+        makeGBControl chan (Just result) = makeRRFiveControl chan result
+          $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
+
+        makeDrumControl :: RTB.T U.Beats (Event.T B.ByteString)
+        makeDrumControl = let
+          orig = toTrackMidi $ makeRRDrumDifficulty4Lane $ fromMaybe RTB.empty
+            $ drums >>= \res -> Map.lookup Expert res.notes
+          in flip fmap (F.s_tracks orig) $ \e -> case isNoteEdgeCPV e of
+            Just (_c, p, v) -> makeEdgeCPV 11 (p + (72 - 48)) v
+            Nothing         -> e
+
     makeStringsBin
       [ artist
       , title
@@ -190,9 +205,16 @@ rrRules buildInfo dir rr = do
 
     -- TODO more stuff
     stackIO $ Save.toFile control $ F.showMixedMIDI mid
-      { F.s_tracks = U.trackJoin $ fmap
-        (\() -> Wait 0 (makeEdgeCPV 14 126 $ Just 96) $ Wait (1/8) (makeEdgeCPV 14 126 Nothing) RNil )
-        (eventsEnd $ F.onyxEvents $ F.s_tracks mid)
+      { F.s_tracks = foldr RTB.merge RTB.empty
+        -- end event
+        [ U.trackJoin $ fmap
+          (\() -> Wait 0 (makeEdgeCPV 14 126 $ Just 96) $ Wait (1/8) (makeEdgeCPV 14 126 Nothing) RNil )
+          (eventsEnd $ F.onyxEvents $ F.s_tracks mid)
+        -- sort of dupes of gems, these apparently control animations
+        , makeDrumControl
+        , makeGBControl 12 guitar
+        , makeGBControl 13 bass
+        ]
       }
 
   let songLua = file $ "s" <> str <> ".lua"
@@ -295,47 +317,37 @@ rrRules buildInfo dir rr = do
       readPad = shk $ read <$> readFile' pathPad
 
   pathGuitar %> \out -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.guitar, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
-      $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathBass %> \out -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.bass, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
-      $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathDrums %> \out -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.drums, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
-      $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan
       [ (rr.guitar, 1)
       , (rr.bass  , 1)
       , (rr.drums , 1)
       ]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
-      $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathFE %> \out -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan []
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ setAudioLength (realToFrac (F.songLengthMS mid) / 1000 + 1)
-      $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
 
   let songFev = file $ "s" <> str <> ".fev" -- makeMainFEV
       songFsb = file $ "s" <> str <> ".fsb"
@@ -371,6 +383,8 @@ rrRules buildInfo dir rr = do
     stackIO $ BL.writeFile songFev $ runPut $ void $ codecOut binFEV fev
 
   [songFEFev, songFEFsb] %> \_ -> do
+    -- TODO split off vocals like official songs do
+    -- TODO if no stems at all, can just reuse backing audio in main fsb as the FE audio
     shk $ need [pathFE]
     (feBytes, feSize) <- getAudio pathFE >>= \case
       Nothing   -> fatal "panic! couldn't produce rock revolution FE audio"
@@ -409,6 +423,16 @@ makeRRFiveDifficulty result gems = RRFiveDifficulty
     processed = noOpenNotes result.settings.detectMutedOpens
       $ noExtendedSustains' standardBlipThreshold gap gems
     gap = fromIntegral result.settings.sustainGap / 480
+
+makeRRFiveControl :: Int -> FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RTB.T U.Beats (Event.T s)
+makeRRFiveControl chan result gems = let
+  processed = noOpenNotes result.settings.detectMutedOpens
+    $ noExtendedSustains' standardBlipThreshold gap gems
+  gap = fromIntegral result.settings.sustainGap / 480
+  eachEdge = \case
+    EdgeOn () col -> makeEdgeCPV chan (72 + fromEnum col) (Just 96)
+    EdgeOff   col -> makeEdgeCPV chan (72 + fromEnum col) Nothing
+  in fmap eachEdge $ blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
 
 makeRRDrumDifficulty4Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
 makeRRDrumDifficulty4Lane gems = RRDrumDifficulty
@@ -567,11 +591,20 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
           , unk15 = 0
           , parentEventCategoryNames = [ categoryName ]
           }
-        in  [ event "Drums"   "Drums_Vol"   ("s" <> songID <> "_drums"   ) ("s" <> songID <> "/Drums"  )
-            , event "Guitar"  "Guitar_Vol"  ("s" <> songID <> "_guitar"  ) ("s" <> songID <> "/Guitar" )
-            , event "Bass"    "Bass_Vol"    ("s" <> songID <> "_bass"    ) ("s" <> songID <> "/Bass"   )
-            , event "Backing" "Backing_Vol" ("s" <> songID <> "_MixMinus") ("s" <> songID <> "/Backing")
-            ]
+        in catMaybes
+          [ do
+            guard $ isJust timeDrums
+            Just $ event "Drums"   "Drums_Vol"   ("s" <> songID <> "_drums"   ) ("s" <> songID <> "/Drums"  )
+          , do
+            guard $ isJust timeGuitar
+            Just $ event "Guitar"  "Guitar_Vol"  ("s" <> songID <> "_guitar"  ) ("s" <> songID <> "/Guitar" )
+          , do
+            guard $ isJust timeBass
+            Just $ event "Bass"    "Bass_Vol"    ("s" <> songID <> "_bass"    ) ("s" <> songID <> "/Bass"   )
+          , do
+            guard $ isJust timeBacking
+            Just $ event "Backing" "Backing_Vol" ("s" <> songID <> "_MixMinus") ("s" <> songID <> "/Backing")
+          ]
       }
     ]
   , soundDefs = let
