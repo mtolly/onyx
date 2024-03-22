@@ -24,7 +24,8 @@ import           Data.Foldable                     (toList)
 import           Data.Functor                      (void)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
-import           Data.List.Extra                   (nubOrd, partition, sortOn)
+import           Data.List.Extra                   (nubOrd, nubSort, partition,
+                                                    sortOn)
 import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
@@ -97,7 +98,9 @@ parseTrackReport trk = do
       Left  msgs      -> return $ Left msgs
       Right parsedTrk -> return $ Right (parsedTrk, unrec)
   let unrec' = mapMIDITrack toList unrec
-  forM_ (nubOrd $ putMIDITrack (++) unrec') $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
+  forM_ (nubSort $ putMIDITrack (++) unrec') $ \e -> case isNoteEdgeCPV e of
+    Just (_, _, Nothing) -> return () -- don't clutter with note-off warnings
+    _                    -> warn $ "Unrecognized MIDI event: " ++ show e
   return parsedTrk
 
 fileTrack :: (SendMessage m, ParseTrack trk) => NonEmpty T.Text -> FileCodec m U.Beats (trk U.Beats)

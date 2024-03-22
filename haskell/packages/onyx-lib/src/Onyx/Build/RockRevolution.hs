@@ -9,57 +9,66 @@ module Onyx.Build.RockRevolution (rrRules) where
 import           Control.Monad.Codec
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
+import           Control.Monad.Random.Strict       (MonadRandom, evalRand,
+                                                    mkStdGen, uniform)
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.State.Strict (execState)
-import           Data.Binary.Put                  (runPut)
-import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Lazy             as BL
-import qualified Data.Conduit.Audio               as CA
-import           Data.Conduit.Audio.LAME          (sinkMP3WithHandle)
-import qualified Data.Conduit.Audio.LAME.Binding  as L
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Functor.Identity            (Identity)
-import           Data.Int                         (Int16)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
-import qualified Data.Text                        as T
-import qualified Data.Text.Encoding               as TE
-import           Data.Version                     (showVersion)
-import           Data.Word                        (Word32)
-import           Development.Shake                hiding (phony, (%>))
+import           Control.Monad.Trans.State.Strict  (execState)
+import           Data.Binary.Put                   (runPut)
+import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Lazy              as BL
+import qualified Data.Conduit.Audio                as CA
+import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
+import qualified Data.Conduit.Audio.LAME.Binding   as L
+import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Functor.Identity             (Identity)
+import           Data.Hashable                     (hash)
+import           Data.Int                          (Int16)
+import           Data.List                         (sort)
+import qualified Data.Map                          as Map
+import           Data.Maybe                        (catMaybes, fromMaybe,
+                                                    isJust, listToMaybe)
+import qualified Data.Text                         as T
+import qualified Data.Text.Encoding                as TE
+import           Data.Version                      (showVersion)
+import           Data.Word                         (Word32)
+import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
-import           Onyx.Audio                       (clampIfSilent)
+import           Onyx.Audio                        (clampIfSilent)
 import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
+import           Onyx.Background
 import           Onyx.Build.Common
-import           Onyx.FFMPEG                      (ffSource)
-import           Onyx.Guitar                      (noExtendedSustains',
-                                                   noOpenNotes,
-                                                   standardBlipThreshold)
-import           Onyx.Import.RockRevolution
-import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
-                                                   StrumHOPOTap (..),
-                                                   blipEdgesRBNice,
-                                                   blipEdgesRB_, isNoteEdgeCPV,
-                                                   makeEdgeCPV, pattern RNil,
-                                                   pattern Wait)
+import           Onyx.FFMPEG                       (ffSource)
+import           Onyx.Guitar                       (noExtendedSustains',
+                                                    noOpenNotes,
+                                                    standardBlipThreshold)
+import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
+import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
+                                                    Key (..), Mood (..),
+                                                    RB3Instrument (..),
+                                                    StrumHOPOTap (..),
+                                                    blipEdgesRBNice,
+                                                    blipEdgesRB_, pattern RNil,
+                                                    pattern Wait)
 import           Onyx.MIDI.Read
-import qualified Onyx.MIDI.Track.Drums            as D
+import qualified Onyx.MIDI.Track.Drums             as D
 import           Onyx.MIDI.Track.Events
-import qualified Onyx.MIDI.Track.File             as F
-import qualified Onyx.MIDI.Track.FiveFret         as Five
+import qualified Onyx.MIDI.Track.File              as F
+import qualified Onyx.MIDI.Track.FiveFret          as Five
+import           Onyx.MIDI.Track.Venue
 import           Onyx.Mode
-import           Onyx.Project                     hiding (Difficulty)
+import           Onyx.Project                      hiding (Difficulty)
+import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
-import           Onyx.Util.Text.Decode            (encodeLatin1)
-import           Onyx.Xbox.STFS                   (rrpkg)
-import           Paths_onyx_lib                   (version)
-import qualified Sound.MIDI.File                  as File
-import qualified Sound.MIDI.File.Event            as Event
-import qualified Sound.MIDI.File.Save             as Save
-import qualified Sound.MIDI.Util                  as U
-import           System.IO                        (IOMode (..), hFileSize,
-                                                   withBinaryFile)
+import           Onyx.Util.Text.Decode             (encodeLatin1)
+import           Onyx.Xbox.STFS                    (rrpkg)
+import           Paths_onyx_lib                    (version)
+import qualified Sound.MIDI.File                   as File
+import qualified Sound.MIDI.File.Event             as Event
+import qualified Sound.MIDI.File.Save              as Save
+import qualified Sound.MIDI.Util                   as U
+import           System.IO                         (IOMode (..), hFileSize,
+                                                    withBinaryFile)
 
 rrRules :: BuildInfo -> FilePath -> TargetRR FilePath -> QueueLog Rules ()
 rrRules buildInfo dir rr = do
@@ -100,6 +109,7 @@ rrRules buildInfo dir rr = do
   let rrPartDrums  = getPart rr.drums  songYaml >>= anyDrums
       rrPartGuitar = getPart rr.guitar songYaml >>= anyFiveFret
       rrPartBass   = getPart rr.bass   songYaml >>= anyFiveFret
+      rrVocals     = getPart rr.vocal  songYaml >>= (.vocal)
 
       bass01   = file $ "s" <> str <> "_bass_01.mid"
       bass02   = file $ "s" <> str <> "_bass_02.mid"
@@ -129,6 +139,9 @@ rrRules buildInfo dir rr = do
 
   (songBinEnglish : allMidis) %> \_ -> do
     mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
+      Wait dt _ _ -> return dt
+      RNil        -> fatal "panic! no [end] in processed midi"
     let input partName = ModeInput
           { tempo  = F.s_tempos mid
           , events = F.onyxEvents $ F.s_tracks mid
@@ -166,18 +179,17 @@ rrRules buildInfo dir rr = do
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
             }
 
-        makeGBControl :: Int -> Maybe FiveResult -> RTB.T U.Beats (Event.T s)
-        makeGBControl _    Nothing       = RTB.empty
-        makeGBControl chan (Just result) = makeRRFiveControl chan result
-          $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
-
-        makeDrumControl :: RTB.T U.Beats (Event.T B.ByteString)
-        makeDrumControl = let
-          orig = toTrackMidi $ makeRRDrumDifficulty4Lane $ fromMaybe RTB.empty
-            $ drums >>= \res -> Map.lookup Expert res.notes
-          in flip fmap (F.s_tracks orig) $ \e -> case isNoteEdgeCPV e of
-            Just (_c, p, v) -> makeEdgeCPV 11 (p + (72 - 48)) v
-            Nothing         -> e
+        venue = flip evalRand (mkStdGen $ hash key) $ getVenue
+          VenueTargetRB3
+          -- TODO filter out based on which parts have notes
+          (Map.fromList [(Guitar, rr.guitar), (Bass, rr.bass), (Drums, rr.drums)])
+          mid
+        camera = RTB.mapMaybe (listToMaybe . catMaybes)
+          $ flip evalRand (mkStdGen $ hash key)
+          $ mapM (\cuts -> mapM rrCameraCut $ reverse $ sort cuts)
+          $ RTB.collectCoincident venue.venueCameraRB3
+        moodFor part = maybe RTB.empty (getMoods mid.s_tempos endTime)
+          $ Map.lookup part mid.s_tracks.onyxParts
 
     makeStringsBin
       [ artist
@@ -203,18 +215,47 @@ rrRules buildInfo dir rr = do
     stackIO $ Save.toFile drums04 $ makeDrums Hard
     stackIO $ Save.toFile drums05 $ makeDrums Expert
 
-    -- TODO more stuff
-    stackIO $ Save.toFile control $ F.showMixedMIDI mid
-      { F.s_tracks = foldr RTB.merge RTB.empty
-        -- end event
-        [ U.trackJoin $ fmap
-          (\() -> Wait 0 (makeEdgeCPV 14 126 $ Just 96) $ Wait (1/8) (makeEdgeCPV 14 126 Nothing) RNil )
-          (eventsEnd $ F.onyxEvents $ F.s_tracks mid)
-        -- sort of dupes of gems, these apparently control animations
-        , makeDrumControl
-        , makeGBControl 12 guitar
-        , makeGBControl 13 bass
-        ]
+    stackIO $ Save.toFile control $ F.showMixedMIDI $ mid
+      { F.s_tracks = showRRControl RRControl
+        { rrcAnimDrummer   = flip fmap (moodFor rr.drums) $ \case
+          -- obviously not great, need to instead translate from drum animations
+          Mood_idle          -> 109 -- Drummer_NoPlay
+          Mood_idle_realtime -> 109
+          Mood_idle_intense  -> 109
+          Mood_play          -> 52 -- Drummer_44_HH_Cymbal
+          Mood_mellow        -> 52
+          Mood_intense       -> 52
+          Mood_play_solo     -> 52
+        , rrcAnimGuitarist = flip fmap (moodFor rr.guitar) $ \case
+          Mood_idle          -> 0 -- Guitar_NoPlay
+          Mood_idle_realtime -> 0
+          Mood_idle_intense  -> 0
+          Mood_mellow        -> 1 -- Guitar_TempoB_Funk
+          Mood_play          -> 2 -- Guitar_TempoB_Rock
+          Mood_intense       -> 3 -- Guitar_TempoB_Metal
+          Mood_play_solo     -> 3
+        , rrcAnimBassist   = flip fmap (moodFor rr.guitar) $ \case
+          Mood_idle          -> 0 -- Bass_NoPlay
+          Mood_idle_realtime -> 0
+          Mood_idle_intense  -> 0
+          Mood_mellow        -> 1 -- Bass_TempoB_Funk
+          Mood_play          -> 2 -- Bass_TempoB_Rock
+          Mood_intense       -> 3 -- Bass_TempoB_Metal
+          Mood_play_solo     -> 3
+        , rrcAnimVocalist  = RTB.empty
+        , rrcGemsDrums     = fmap fst $ rrdGems $ makeRRDrumDifficulty4Lane
+          $ fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes
+        , rrcGemsGuitar    = fromMaybe RTB.empty $ do
+          res <- guitar
+          makeRRFiveControl res <$> Map.lookup Expert res.notes
+        , rrcGemsBass      = fromMaybe RTB.empty $ do
+          res <- bass
+          makeRRFiveControl res <$> Map.lookup Expert res.notes
+        , rrcVenue         = camera
+        , rrcEnd           = eventsEnd $ F.onyxEvents $ F.s_tracks mid
+        , rrcSections      = RTB.empty -- TODO
+        , rrcBeat          = RTB.empty -- TODO
+        }
       }
 
   let songLua = file $ "s" <> str <> ".lua"
@@ -242,11 +283,11 @@ rrRules buildInfo dir rr = do
           , "KitId = 1002" -- hopefully this works
           , "SoloGuitarId = 2200" -- ?
           , "DrumPlayback = Playback.kMidi" -- ?
-          , "DisplayArtist = false" -- ?
+          , "DisplayArtist = true" -- on disc, this is only true for the 2 masters. in dlc, false even for the bemani pack oddly
           , ""
-          -- for official songs this is different from the filename song id?
+          -- in official songs this is different from the filename song id
           , "-- leaderboard - this MUST be unique"
-          , "LeaderboardId = " <> key
+          , "LeaderboardId = " <> maybe key (T.pack . show) rr.leaderboardID
           , ""
           -- TODO looks like these can be 1 through 5. never actually different per level
           , "-- star ratings for each difficulty level:"
@@ -268,7 +309,10 @@ rrRules buildInfo dir rr = do
           , "PreviewStopTime = " <> showTimeParts pend
           , ""
           , "-- character information"
-          , "SingerSex = Sex.kMale" -- TODO
+          , "SingerSex = " <> case rrVocals >>= (.gender) of
+            Nothing     -> "Sex.kMale"
+            Just Male   -> "Sex.kMale"
+            Just Female -> "Sex.kFemale"
           -- hopefully no lipsync is ok
           , ""
           -- ?
@@ -411,7 +455,8 @@ rrRules buildInfo dir rr = do
 
 makeRRFiveDifficulty :: FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RRFiveDifficulty U.Beats
 makeRRFiveDifficulty result gems = RRFiveDifficulty
-  -- TODO do hopo chords work? do they break?
+  -- TODO no hopo chords, need to turn into strum
+  -- TODO do repeated hopos work, like rb? or not, like neversoft gh
   { rrfStrums = blipEdgesRB_ $ flip RTB.mapMaybe processed $ \case
     ((color, Strum), len) -> Just (color, len)
     _                     -> Nothing
@@ -424,15 +469,15 @@ makeRRFiveDifficulty result gems = RRFiveDifficulty
       $ noExtendedSustains' standardBlipThreshold gap gems
     gap = fromIntegral result.settings.sustainGap / 480
 
-makeRRFiveControl :: Int -> FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RTB.T U.Beats (Event.T s)
-makeRRFiveControl chan result gems = let
+makeRRFiveControl
+  :: FiveResult
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats (Edge () Five.Color)
+makeRRFiveControl result gems = let
   processed = noOpenNotes result.settings.detectMutedOpens
     $ noExtendedSustains' standardBlipThreshold gap gems
   gap = fromIntegral result.settings.sustainGap / 480
-  eachEdge = \case
-    EdgeOn () col -> makeEdgeCPV chan (72 + fromEnum col) (Just 96)
-    EdgeOff   col -> makeEdgeCPV chan (72 + fromEnum col) Nothing
-  in fmap eachEdge $ blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
+  in blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
 
 makeRRDrumDifficulty4Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
 makeRRDrumDifficulty4Lane gems = RRDrumDifficulty
@@ -794,3 +839,54 @@ makeFrontEndFEV songID playtime = FEV
     ]
   , reverbs = []
   }
+
+rrCameraCut :: (MonadRandom m) => Camera3 -> m (Maybe Int)
+rrCameraCut = \case
+  -- venue info in v0006_002.lua
+  V3_coop_all_behind     -> cut $ trigger E 0 -- RegisterDebugTrigger("Target", "E", 0, "Crowd")
+  V3_coop_all_far        -> cut $ trigger C 0 -- RegisterDebugTrigger("Target", "C", 0, "StageSong")
+  V3_coop_all_near       -> moneyShot
+  V3_coop_front_behind   -> cut $ trigger E 0 -- RegisterDebugTrigger("Target", "E", 0, "Crowd")
+  V3_coop_front_near     -> moneyShot
+  V3_coop_d_behind       -> cut $ trigger Cs (-2) -- RegisterDebugTrigger("Target", "C#", -2, "Drummer")
+  V3_coop_d_near         -> cut $ trigger Cs (-2) -- RegisterDebugTrigger("Target", "C#", -2, "Drummer")
+  V3_coop_v_behind       -> cut $ trigger D (-2) -- RegisterDebugTrigger("Target", "D", -2, "Vocalist")
+  V3_coop_v_near         -> cut $ trigger D (-2) -- RegisterDebugTrigger("Target", "D", -2, "Vocalist")
+  V3_coop_b_behind       -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_b_near         -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_g_behind       -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_g_near         -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_k_behind       -> moneyShot
+  V3_coop_k_near         -> moneyShot
+  V3_coop_d_closeup_hand -> cut $ trigger Cs (-2) -- RegisterDebugTrigger("Target", "C#", -2, "Drummer")
+  V3_coop_d_closeup_head -> cut $ trigger G (-2) -- RegisterDebugTrigger("Target", "G", -2, "Drummer Head")
+  V3_coop_v_closeup      -> cut $ trigger Gs (-2) -- RegisterDebugTrigger("Target", "G#", -2, "Vocalist Head")
+  V3_coop_b_closeup_hand -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_b_closeup_head -> cut $ trigger A (-2) -- RegisterDebugTrigger("Target", "A", -2, "Bassist Head")
+  V3_coop_g_closeup_hand -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_g_closeup_head -> cut $ trigger Fs (-2) -- RegisterDebugTrigger("Target", "F#", -2, "Guitarist Head")
+  V3_coop_k_closeup_hand -> moneyShot
+  V3_coop_k_closeup_head -> moneyShot
+  V3_coop_dv_near        -> cut $ trigger Cs (-2) -- RegisterDebugTrigger("Target", "C#", -2, "Drummer")
+  V3_coop_bd_near        -> cutOneOf [trigger Ds (-2), trigger Cs (-2)]
+  V3_coop_dg_near        -> cutOneOf [trigger Cs (-2), trigger C (-2)]
+  V3_coop_bv_behind      -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_bv_near        -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_gv_behind      -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_gv_near        -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_kv_behind      -> cut $ trigger D (-2) -- RegisterDebugTrigger("Target", "D", -2, "Vocalist")
+  V3_coop_kv_near        -> cut $ trigger D (-2) -- RegisterDebugTrigger("Target", "D", -2, "Vocalist")
+  V3_coop_bg_behind      -> cutOneOf [trigger Ds (-2), trigger C (-2)]
+  V3_coop_bg_near        -> cutOneOf [trigger Ds (-2), trigger C (-2)]
+  V3_coop_bk_behind      -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_bk_near        -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
+  V3_coop_gk_behind      -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  V3_coop_gk_near        -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
+  _                      -> return Nothing -- directed cut
+  where cut = return . Just
+        cutOneOf = fmap Just . uniform
+        moneyShot = cutOneOf [trigger Fs 0, trigger G 0, trigger Gs 0]
+        -- RegisterDebugTrigger("Target", "F#", 0, "Money Shot 1")
+        -- RegisterDebugTrigger("Target", "G", 0, "Money Shot 2")
+        -- RegisterDebugTrigger("Target", "G#", 0, "Money Shot 3")
+        trigger k oct = fromEnum k + (oct + 2) * 12
