@@ -323,7 +323,7 @@ rrRules buildInfo dir rr = do
             Nothing     -> "Sex.kMale"
             Just Male   -> "Sex.kMale"
             Just Female -> "Sex.kFemale"
-          -- hopefully no lipsync is ok
+          , "LipSyncBan = \"\"" -- setting to something is required to not crash on ps3! (360 is fine oddly)
           , ""
           -- ?
           , "DefaultDrummer = 10"
@@ -464,7 +464,7 @@ rrRules buildInfo dir rr = do
       (dir </> "files")
       out
 
-  -- ps3; not working yet (crashes)
+  -- ps3
 
   let edatConfig = rockRevolutionEdatConfig "TESTING" -- TODO
       contentID = npdContentID edatConfig
@@ -472,10 +472,14 @@ rrRules buildInfo dir rr = do
   rrPS3Files <- forM rrBuildFiles $ \f -> do
     let ps3 = dir </> "files-ps3" </> map toUpper (takeFileName f) <.> "EDAT"
     ps3 %> \_ -> do
-      shk $ need [f]
-      fin  <- shortWindowsPath False f
-      fout <- shortWindowsPath True  ps3
-      stackIO $ packNPData edatConfig fin fout $ B8.pack $ takeFileName ps3
+      -- can't actually get it to work on console yet, so just make unencrypted files for RPCS3
+      if False
+        then do
+          shk $ need [f]
+          fin  <- shortWindowsPath False f
+          fout <- shortWindowsPath True  ps3
+          stackIO $ packNPData edatConfig fin fout $ B8.pack $ takeFileName ps3
+        else shk $ copyFile' f ps3
     return ps3
 
   dir </> "rr.pkg" %> \out -> do
@@ -693,17 +697,24 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
   , soundDefs = let
     blankDef = SoundDef
       { name = ""
-      , unk1 = Just 3
-      , unk2 = Just 0
-      , unk3 = Just 0
-      , unk4 = Just 1
-      , unk5 = Just 1.0
-      , unk6 = Just 1
-      , unk7 = Just 1.0
-      , unk8 = Just 1.0
-      , unk9 = Just 1.0
-      , unk10 = Just [0, 1, 0, 0, 0]
-      , sound_def_properties_index = Nothing
+      , property = Left SoundDefProperty
+        { play_mode                   = 3
+        , min_spawn_time              = 0
+        , max_spawn_time              = 0
+        , max_spawned_sounds          = 1
+        , volume_field_ratio_1        = 1.0
+        , volume_rand_method          = 1
+        , volume_rand_min_field_ratio = 1.0
+        , volume_rand_max_field_ratio = 1.0
+        , volume_field_ratio_2        = 1.0
+        , pitch                       = 0.0
+        , pitch_rand_method           = 1
+        , pitch_rand_min_field_ratio  = 0
+        , pitch_rand_max_field_ratio  = 0
+        , pitch_rand                  = 0
+        , recalc_pitch_rand           = Nothing
+        , position_3d_randomization   = Nothing
+        }
       , waveforms = []
       }
     in catMaybes
@@ -858,17 +869,24 @@ makeFrontEndFEV songID playtime = FEV
   , soundDefs =
     [ SoundDef
       { name = "s" <> songID <> "_FE"
-      , unk1 = Just 3
-      , unk2 = Just 0
-      , unk3 = Just 0
-      , unk4 = Just 1
-      , unk5 = Just 1.0
-      , unk6 = Just 1
-      , unk7 = Just 1.0
-      , unk8 = Just 1.0
-      , unk9 = Just 1.0
-      , unk10 = Just [0, 1, 0, 0, 0]
-      , sound_def_properties_index = Nothing
+      , property = Left SoundDefProperty
+        { play_mode                   = 3
+        , min_spawn_time              = 0
+        , max_spawn_time              = 0
+        , max_spawned_sounds          = 1
+        , volume_field_ratio_1        = 1.0
+        , volume_rand_method          = 1
+        , volume_rand_min_field_ratio = 1.0
+        , volume_rand_max_field_ratio = 1.0
+        , volume_field_ratio_2        = 1.0
+        , pitch                       = 0.0
+        , pitch_rand_method           = 1
+        , pitch_rand_min_field_ratio  = 0
+        , pitch_rand_max_field_ratio  = 0
+        , pitch_rand                  = 0
+        , recalc_pitch_rand           = Nothing
+        , position_3d_randomization   = Nothing
+        }
       , waveforms =
         [ Waveform
           { padding = 0

@@ -152,15 +152,14 @@ gh3CustomMidEdatConfig pkgLabel = NPDataConfig
   , npdEDAT      = True
   }
 
--- TODO this does not work, RR PS3 appears to not like rapless edat...
--- npdLicense needs to be 2 and then provide an npdRAP
+-- RR PS3 appears to not like rapless edat... annoying
 rockRevolutionEdatConfig :: B.ByteString -> NPDataConfig
 rockRevolutionEdatConfig pkgLabel = NPDataConfig
   { npdContentID = "UP0101-BLUS30212_00-" <> pkgLabel
   , npdKLIC      = B.replicate 16 0
-  , npdRAP       = Nothing
+  , npdRAP       = Just $ B.replicate 16 0
   , npdVersion   = 2
-  , npdLicense   = 3
+  , npdLicense   = 2
   , npdType      = 0
   , npdBlock     = 16
   , npdEDAT      = True

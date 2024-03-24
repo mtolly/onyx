@@ -84,6 +84,7 @@ library:
   - caerbannog
   - stache
   - linear
+  - pretty-simple
   # my libraries
   - jammittools
   - midi-util
