@@ -634,7 +634,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           ++ [pathPng | isJust songYaml.metadata.fileAlbumArt]
     shk $ need files
     lg "# Producing RB3 CON file"
-    mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb3pkg
+    rb3pkg
       (getArtist songYaml.metadata <> " - " <> title)
       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
       (dir </> "stfs")
@@ -990,7 +990,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         rb2CON %> \out -> do
           shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
           lg "# Producing RB2 CON file"
-          mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb2pkg
+          rb2pkg
             (getArtist songYaml.metadata <> " - " <> targetTitle songYaml (RB2 rb2))
             (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
             (dir </> "rb2")

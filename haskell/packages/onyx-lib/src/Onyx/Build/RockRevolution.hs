@@ -15,7 +15,9 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State.Strict  (execState)
 import           Data.Binary.Put                   (runPut)
 import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
+import           Data.Char                         (toUpper)
 import qualified Data.Conduit.Audio                as CA
 import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
@@ -57,9 +59,15 @@ import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.MIDI.Track.Venue
 import           Onyx.Mode
+import           Onyx.PlayStation.NPData           (npdContentID, packNPData,
+                                                    rockRevolutionEdatConfig)
+import           Onyx.PlayStation.PKG
 import           Onyx.Project                      hiding (Difficulty)
+import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
+import           Onyx.Util.Files                   (shortWindowsPath)
+import           Onyx.Util.Handle                  (Folder (..))
 import           Onyx.Util.Text.Decode             (encodeLatin1)
 import           Onyx.Xbox.STFS                    (rrpkg)
 import           Paths_onyx_lib                    (version)
@@ -439,21 +447,45 @@ rrRules buildInfo dir rr = do
     let fev = makeFrontEndFEV bytes feSize
     stackIO $ BL.writeFile songFEFev $ runPut $ void $ codecOut binFEV fev
 
+  let rrBuildFiles = concat
+        [ [songBinEnglish, songBinFrench, songBinSpanish]
+        , [sFevSeq, sFsbSeq, sDrumsFsbSeq]
+        , allMidis
+        , [songLua]
+        , [songFev, songFsb, songDrumsFsb, songFEFev, songFEFsb]
+        ]
+
   dir </> "rrlive" %> \out -> do
-    let files = concat
-          [ [songBinEnglish, songBinFrench, songBinSpanish]
-          , [sFevSeq, sFsbSeq, sDrumsFsbSeq]
-          , allMidis
-          , [songLua]
-          , [songFev, songFsb, songDrumsFsb, songFEFev, songFEFsb]
-          ]
-    shk $ need files
+    shk $ need rrBuildFiles
     lg "# Producing Rock Revolution LIVE file"
-    mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rrpkg
+    rrpkg
       (artist <> " - " <> title)
       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
       (dir </> "files")
       out
+
+  -- ps3; not working yet (crashes)
+
+  let edatConfig = rockRevolutionEdatConfig "TESTING" -- TODO
+      contentID = npdContentID edatConfig
+
+  rrPS3Files <- forM rrBuildFiles $ \f -> do
+    let ps3 = dir </> "files-ps3" </> map toUpper (takeFileName f) <.> "EDAT"
+    ps3 %> \_ -> do
+      shk $ need [f]
+      fin  <- shortWindowsPath False f
+      fout <- shortWindowsPath True  ps3
+      stackIO $ packNPData edatConfig fin fout $ B8.pack $ takeFileName ps3
+    return ps3
+
+  dir </> "rr.pkg" %> \out -> do
+    shk $ need rrPS3Files
+    lg "# Producing Rock Revolution .pkg file"
+    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+    main <- container "USRDIR" <$> crawlFolderBytes (dir </> "files-ps3")
+    -- TODO our PARAM.SFO says "She's The Bug" for title
+    extra <- stackIO (getResourcesPath "pkg-contents/rr") >>= crawlFolderBytes
+    stackIO $ makePKG contentID (main <> extra) out
 
 makeRRFiveDifficulty :: FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RRFiveDifficulty U.Beats
 makeRRFiveDifficulty result gems = RRFiveDifficulty

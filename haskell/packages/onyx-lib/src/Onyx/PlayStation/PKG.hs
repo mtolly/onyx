@@ -433,8 +433,10 @@ makePKGRecords = fmap (go "") . mapM annotate where
       -- Check both the name and magic number, in case we are generating unencrypted midis for RPCS3
       let isEDAT = ((".edat" `B.isSuffixOf` name) || (".EDAT" `B.isSuffixOf` name))
             && magic == "NPD\0"
-          flags = if elem (B8.map toUpper name) ["PARAM.SFO", "ICON0.PNG"]
-            then 3 -- this means, don't overwrite if already present
+          -- 0x80000000 means overwrite if already present;
+          -- this should be true on dlc-specific files but not game metadata
+          flags = if elem (B8.map toUpper name) ["PARAM.SFO", "ICON0.PNG", "PIC1.PNG"]
+            then 3
             else if isEDAT then 0x80000002 else 0x80000003
       return (addPath name, (size, r), flags)
     subs = do

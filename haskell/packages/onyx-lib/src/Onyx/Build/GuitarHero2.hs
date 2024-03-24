@@ -9,7 +9,6 @@
 module Onyx.Build.GuitarHero2 (gh2Rules) where
 
 import           Control.Monad.Extra
-import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Put                  (runPut)
 import qualified Data.ByteString                  as B
@@ -330,7 +329,7 @@ gh2Rules buildInfo dir gh2 = do
       , dir </> "stfs/songs" </> pkg </> pkg <.> "voc"
       ] <> [ dir </> "stfs/songs" </> pkg </> "gen" </> pkg <.> "bmp_xbox" | gh2.gh2Deluxe ]
     lg "# Producing GH2 LIVE file"
-    mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ gh2pkg
+    gh2pkg
       (getArtist songYaml.metadata <> " - " <> targetTitle songYaml (GH2 gh2))
       (T.pack $ "Compiled by Onyx Music Game Toolkit version " <> showVersion version)
       (dir </> "stfs")

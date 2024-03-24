@@ -6,6 +6,7 @@ module Onyx.PlayStation.NPData
 , rb3CustomMidEdatConfig
 , ghworCustomMidEdatConfig
 , gh3CustomMidEdatConfig
+, rockRevolutionEdatConfig
 , ghworKLIC
 , rockBandKLIC
 , rs2014KLIC
@@ -143,6 +144,20 @@ gh3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 gh3CustomMidEdatConfig pkgLabel = NPDataConfig
   { npdContentID = "UP0002-BLUS30074_00-" <> pkgLabel
   , npdKLIC      = ghworKLIC
+  , npdRAP       = Nothing
+  , npdVersion   = 2
+  , npdLicense   = 3
+  , npdType      = 0
+  , npdBlock     = 16
+  , npdEDAT      = True
+  }
+
+-- TODO this does not work, RR PS3 appears to not like rapless edat...
+-- npdLicense needs to be 2 and then provide an npdRAP
+rockRevolutionEdatConfig :: B.ByteString -> NPDataConfig
+rockRevolutionEdatConfig pkgLabel = NPDataConfig
+  { npdContentID = "UP0101-BLUS30212_00-" <> pkgLabel
+  , npdKLIC      = B.replicate 16 0
   , npdRAP       = Nothing
   , npdVersion   = 2
   , npdLicense   = 3
