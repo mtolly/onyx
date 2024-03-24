@@ -103,21 +103,30 @@ fevEither parseRight c1 c2 = Codec
   , codecOut = fmapArg $ either (void . codecOut c1) (void . codecOut c2)
   }
 
--- two versions show up in the rock revolution files...?
+-- multiple versions show up in the rock revolution files...?
 data FEVVersion
-  = FEVVersion26 -- 00 00 26 00
-  | FEVVersion2C -- 00 00 2C 00
-  deriving (Eq, Show)
+  = FEVVersion26 -- 00 00 26 00, seen on 360 disc
+  | FEVVersion2C -- 00 00 2C 00, seen on 360 disc
+  -- TODO other versions seen in ps3 disc: 00 00 32 00, 00 00 34 00
+  | FEVVersion35 -- 00 00 35 00, seen on ps3 dlc (She's the Bug)
+  deriving (Eq, Ord, Show)
 
 data FEV = FEV
   { version               :: FEVVersion
+  , unkOffset1            :: Maybe Word32
+  , unkOffset2            :: Maybe Word32
   , projectName           :: B.ByteString
   , waveBanks             :: [WaveBank]
   , topLevelEventCategory :: EventCategory
   , topLevelEventGroups   :: [EventGroup]
+  , soundDefProperties    :: Maybe [SoundDefProperty]
   , soundDefs             :: [SoundDef]
-  , reverbs               :: [Reverb]
+  , reverbs               :: Either [Reverb] ReverbNew
   } deriving (Show)
+
+-- traceMe x = do
+--   posn <- Codec { codecIn = bytesRead, codecOut = \_ -> return 0 }
+--   traceShow ("0x" <> showHex posn "", x) $ return ()
 
 binFEV :: BinaryCodec FEV
 binFEV = do
@@ -131,17 +140,24 @@ binFEV = do
     { codecIn = getWord32le >>= \case
       0x260000 -> return FEVVersion26
       0x2C0000 -> return FEVVersion2C
+      0x350000 -> return FEVVersion35
       n        -> fail $ "Unsupported .fev version: 0x" <> showHex n ""
     , codecOut = fmapArg $ putWord32le . \case
       FEVVersion26 -> 0x260000
       FEVVersion2C -> 0x2C0000
+      FEVVersion35 -> 0x350000
     }
+  unkOffset1            <- (.unkOffset1           ) =. fevMaybe (version >= FEVVersion35) word32le
+  unkOffset2            <- (.unkOffset2           ) =. fevMaybe (version >= FEVVersion35) word32le
   projectName           <- (.projectName          ) =. fevString
   waveBanks             <- (.waveBanks            ) =. fevLenArray binWaveBank
   topLevelEventCategory <- (.topLevelEventCategory) =. binEventCategory version
   topLevelEventGroups   <- (.topLevelEventGroups  ) =. fevLenArray (binEventGroup version)
+  soundDefProperties    <- (.soundDefProperties   ) =. fevMaybe (version >= FEVVersion35) (fevLenArray $ binSoundDefProperty version)
   soundDefs             <- (.soundDefs            ) =. fevLenArray (binSoundDef   version)
-  reverbs               <- (.reverbs              ) =. fevLenArray binReverb
+  reverbs               <- (.reverbs              ) =. fevEither (version >= FEVVersion35)
+    (fevLenArray binReverb)
+    (binReverbNew version)
   const () =. Codec
     { codecIn = isEmpty >>= \case
       True  -> return ()
@@ -177,8 +193,8 @@ binEventCategory version = do
   name                <- (.name               ) =. fevString
   volumeFieldRatio    <- (.volumeFieldRatio   ) =. floatle
   pitch               <- (.pitch              ) =. floatle
-  maxPlaybacks        <- (.maxPlaybacks       ) =. fevMaybe (version == FEVVersion2C) word32le
-  maxPlaybackBehavior <- (.maxPlaybackBehavior) =. fevMaybe (version == FEVVersion2C) word32le
+  maxPlaybacks        <- (.maxPlaybacks       ) =. fevMaybe (version >= FEVVersion2C) word32le
+  maxPlaybackBehavior <- (.maxPlaybackBehavior) =. fevMaybe (version >= FEVVersion2C) word32le
   subcategories       <- (.subcategories      ) =. fevLenArray (binEventCategory version)
   return EventCategory{..}
 
@@ -208,7 +224,8 @@ data UserProperty = UserProperty
   deriving (Show)
 
 data Event = Event
-  { name                     :: B.ByteString
+  { type_                    :: Maybe Word32
+  , name                     :: B.ByteString
   , unk1                     :: Float
   , unk2                     :: Word32
   , unk3                     :: Word32
@@ -232,6 +249,8 @@ data Event = Event
 
 binEvent :: FEVVersion -> BinaryCodec Event
 binEvent version = do
+  -- TODO we can probably only parse COMPLEX (8) for type_
+  type_                    <- (.type_                   ) =. fevMaybe (version >= FEVVersion35) word32le
   name                     <- (.name                    ) =. fevString
   unk1                     <- (.unk1                    ) =. floatle
   unk2                     <- (.unk2                    ) =. word32le
@@ -250,6 +269,7 @@ binEvent version = do
   unk14                    <- (.unk14                   ) =. case version of
     FEVVersion26 -> fixedArray 7 floatle
     FEVVersion2C -> fixedArray 9 floatle
+    FEVVersion35 -> fixedArray 10 floatle
   layers                   <- (.layers                  ) =. fevLenArray (binEventLayer version)
   parameters               <- (.parameters              ) =. fevLenArray binParameter
   unk15                    <- (.unk15                   ) =. word32le
@@ -270,7 +290,7 @@ binEventLayer version = do
   name                 <- (.name            ) =. fevMaybe (version == FEVVersion26) fevString
   magic                <- (.magic           ) =. word16le
   priority             <- (.priority        ) =. int16le
-  controlParameter     <- (.controlParameter) =. fevEither (version == FEVVersion2C) fevString int16le
+  controlParameter     <- (.controlParameter) =. fevEither (version >= FEVVersion2C) fevString int16le
   (soundDefInstances, envelopes)
     <- (\layer -> (layer.soundDefInstances, layer.envelopes))
     =. fevLenArray2 word16le
@@ -285,8 +305,9 @@ data SoundDefInstance = SoundDefInstance
   , unk1                    :: Word32
   , unk2                    :: Word32
   , unk3                    :: Int32
-  , padding                 :: Word32
-  , loopCount               :: Word32
+  -- not sure exactly which fields change across versions
+  , padding                 :: Maybe Word32
+  , loopCount               :: Maybe Word32
   , autopitchEnabled        :: Word32
   , autopitchReferencePoint :: Word32
   , autopitchAtMin          :: Word32
@@ -300,14 +321,14 @@ data SoundDefInstance = SoundDefInstance
 
 binSoundDefInstance :: FEVVersion -> BinaryCodec SoundDefInstance
 binSoundDefInstance version = do
-  nameOrIndex             <- (.nameOrIndex            ) =. fevEither (version == FEVVersion2C) fevString word16le
+  nameOrIndex             <- (.nameOrIndex            ) =. fevEither (version >= FEVVersion2C) fevString word16le
   soundStart              <- (.soundStart             ) =. floatle
   soundLength             <- (.soundLength            ) =. floatle
   unk1                    <- (.unk1                   ) =. word32le
   unk2                    <- (.unk2                   ) =. word32le
   unk3                    <- (.unk3                   ) =. int32le
-  padding                 <- (.padding                ) =. word32le
-  loopCount               <- (.loopCount              ) =. word32le
+  padding                 <- (.padding                ) =. fevMaybe (version < FEVVersion35) word32le
+  loopCount               <- (.loopCount              ) =. fevMaybe (version < FEVVersion35) word32le
   autopitchEnabled        <- (.autopitchEnabled       ) =. word32le
   autopitchReferencePoint <- (.autopitchReferencePoint) =. word32le
   autopitchAtMin          <- (.autopitchAtMin         ) =. word32le
@@ -333,7 +354,7 @@ data Envelope = Envelope
 binEnvelope :: FEVVersion -> BinaryCodec Envelope
 binEnvelope version = do
   envelopeID <- (.envelopeID) =. fevMaybe (version == FEVVersion26) fevString
-  parent     <- (.parent    ) =. fevEither (version == FEVVersion2C) fevString int32le
+  parent     <- (.parent    ) =. fevEither (version >= FEVVersion2C) fevString int32le
   name       <- (.name      ) =. fevString
   unk1       <- (.unk1      ) =. word32le
   unk2       <- (.unk2      ) =. word32le
@@ -378,36 +399,80 @@ binParameter = do
   unk0                   <- (.unk0                  ) =. word32le
   return Parameter{..}
 
+data SoundDefProperty = SoundDefProperty
+  { play_mode                   :: Word32
+  , min_spawn_time              :: Word32
+  , max_spawn_time              :: Word32
+  , max_spawned_sounds          :: Word32
+  , volume_field_ratio_1        :: Float
+  , volume_rand_method          :: Word32
+  , volume_rand_min_field_ratio :: Float
+  , volume_rand_max_field_ratio :: Float
+  , volume_field_ratio_2        :: Float
+  , pitch                       :: Float
+  , pitch_rand_method           :: Word32
+  -- one of these fields is missing in version 35 relative to dark souls spec, not sure which though
+  , pitch_rand_min_field_ratio  :: Float
+  , pitch_rand_max_field_ratio  :: Float
+  , pitch_rand                  :: Float
+  , recalc_pitch_rand           :: Word32
+  -- , position_3d_randomization   :: Float
+  } deriving (Show)
+
+binSoundDefProperty :: FEVVersion -> BinaryCodec SoundDefProperty
+binSoundDefProperty _version = do
+  play_mode                   <- (.play_mode                  ) =. word32le
+  min_spawn_time              <- (.min_spawn_time             ) =. word32le
+  max_spawn_time              <- (.max_spawn_time             ) =. word32le
+  max_spawned_sounds          <- (.max_spawned_sounds         ) =. word32le
+  volume_field_ratio_1        <- (.volume_field_ratio_1       ) =. floatle
+  volume_rand_method          <- (.volume_rand_method         ) =. word32le
+  volume_rand_min_field_ratio <- (.volume_rand_min_field_ratio) =. floatle
+  volume_rand_max_field_ratio <- (.volume_rand_max_field_ratio) =. floatle
+  volume_field_ratio_2        <- (.volume_field_ratio_2       ) =. floatle
+  pitch                       <- (.pitch                      ) =. floatle
+  pitch_rand_method           <- (.pitch_rand_method          ) =. word32le
+  pitch_rand_min_field_ratio  <- (.pitch_rand_min_field_ratio ) =. floatle
+  pitch_rand_max_field_ratio  <- (.pitch_rand_max_field_ratio ) =. floatle
+  pitch_rand                  <- (.pitch_rand                 ) =. floatle
+  recalc_pitch_rand           <- (.recalc_pitch_rand          ) =. word32le
+  return SoundDefProperty{..}
+
 data SoundDef = SoundDef
-  { name      :: B.ByteString
-  , unk1      :: Word32
-  , unk2      :: Word32
-  , unk3      :: Word32
-  , unk4      :: Word32
-  , unk5      :: Float
-  , unk6      :: Word32
-  , unk7      :: Float
-  , unk8      :: Float
-  , unk9      :: Float
-  , unk10     :: [Word32]
-  , waveforms :: [Waveform]
+  { name                       :: B.ByteString
+  -- not sure if one of these unks is the sound_def_properties_index seen in version 35
+  , unk1                       :: Maybe Word32
+  , unk2                       :: Maybe Word32
+  , unk3                       :: Maybe Word32
+  , unk4                       :: Maybe Word32
+  , unk5                       :: Maybe Float
+  , unk6                       :: Maybe Word32
+  , unk7                       :: Maybe Float
+  , unk8                       :: Maybe Float
+  , unk9                       :: Maybe Float
+  , unk10                      :: Maybe [Word32]
+  , sound_def_properties_index :: Maybe Word32
+  , waveforms                  :: [Waveform]
   } deriving (Show)
 
 binSoundDef :: FEVVersion -> BinaryCodec SoundDef
 binSoundDef version = do
   name      <- (.name     ) =. fevString
-  unk1      <- (.unk1     ) =. word32le
-  unk2      <- (.unk2     ) =. word32le
-  unk3      <- (.unk3     ) =. word32le
-  unk4      <- (.unk4     ) =. word32le
-  unk5      <- (.unk5     ) =. floatle
-  unk6      <- (.unk6     ) =. word32le
-  unk7      <- (.unk7     ) =. floatle
-  unk8      <- (.unk8     ) =. floatle
-  unk9      <- (.unk9     ) =. floatle
-  unk10     <- (.unk10    ) =. case version of
+  unk1      <- (.unk1     ) =. fevMaybe (version < FEVVersion35) word32le
+  unk2      <- (.unk2     ) =. fevMaybe (version < FEVVersion35) word32le
+  unk3      <- (.unk3     ) =. fevMaybe (version < FEVVersion35) word32le
+  unk4      <- (.unk4     ) =. fevMaybe (version < FEVVersion35) word32le
+  unk5      <- (.unk5     ) =. fevMaybe (version < FEVVersion35) floatle
+  unk6      <- (.unk6     ) =. fevMaybe (version < FEVVersion35) word32le
+  unk7      <- (.unk7     ) =. fevMaybe (version < FEVVersion35) floatle
+  unk8      <- (.unk8     ) =. fevMaybe (version < FEVVersion35) floatle
+  unk9      <- (.unk9     ) =. fevMaybe (version < FEVVersion35) floatle
+  unk10     <- (.unk10    ) =. fevMaybe (version < FEVVersion35) (case version of
     FEVVersion26 -> fixedArray 5 word32le
     FEVVersion2C -> fixedArray 6 word32le
+    FEVVersion35 -> fixedArray 0 word32le -- shouldn't happen
+    )
+  sound_def_properties_index <- (.sound_def_properties_index) =. fevMaybe (version >= FEVVersion35) word32le
   waveforms <- (.waveforms) =. fevLenArray binWaveform
   return SoundDef{..}
 
@@ -504,3 +569,23 @@ binReverb = do
   unk18        <- (.unk18       ) =. floatle
   unk19        <- (.unk19       ) =. word32le
   return Reverb{..}
+
+data ReverbNew = ReverbNew
+  { unk1  :: Word32
+  , unk2  :: Word32
+  , magic :: B.ByteString
+  } deriving (Show)
+
+binReverbNew :: FEVVersion -> BinaryCodec ReverbNew
+binReverbNew _version = do
+  unk1 <- (.unk1) =. word32le
+  unk2 <- (.unk2) =. word32le
+  magic <- (.magic) =. Codec
+    { codecIn = do
+      bs <- getByteString 4
+      case bs of
+        "comp" -> return bs
+        _      -> fail $ "Unexpected reverb magic (not 'comp'): " <> show bs
+    , codecOut = fmapArg putByteString
+    }
+  return ReverbNew{..}

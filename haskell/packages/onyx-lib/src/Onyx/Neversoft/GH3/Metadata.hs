@@ -93,9 +93,9 @@ readGH3TextSetDLC folder = let
 loadGH3TextSetDLC :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(GH3Language, GH3TextPakQB)]
 loadGH3TextSetDLC f = case map toLower $ takeExtension f of
   ".pkg" -> do
-    usrdirs <- stackIO (pkgFolder <$> loadPKG f) >>= getDecryptedUSRDIR
-    fmap concat $ forM usrdirs $ \(_, usrdir) -> do
-      readGH3TextSetDLC $ first TE.decodeLatin1 usrdir
+    usrdir <- stackIO (pkgFolder <$> loadPKG f) >>= getDecryptedUSRDIR
+    fmap concat $ forM (map snd $ folderSubfolders usrdir) $ \dir -> do
+      readGH3TextSetDLC $ first TE.decodeLatin1 dir
   _      -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
 
 buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> (BL.ByteString, [T.Text])

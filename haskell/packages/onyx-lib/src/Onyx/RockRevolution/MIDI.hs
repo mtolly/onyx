@@ -8,11 +8,13 @@ module Onyx.RockRevolution.MIDI where
 
 import           Control.Monad                    (guard)
 import           Control.Monad.Codec
+import           Data.Char                        (isAlphaNum, isDigit)
+import           Data.Either                      (rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
-import           Data.List.Extra                  (nubOrd)
+import           Data.List.Extra                  (elemIndex, nubOrd)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (isJust)
+import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
@@ -30,6 +32,7 @@ import           Onyx.MIDI.Track.Beat             (BeatEvent (..))
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.True       as TD
 import qualified Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.Sections
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
@@ -268,6 +271,36 @@ importRRSections strings = let
         else name
       in Wait t numbered $ go (sect : prev) rest
   in go []
+
+makeRRSections :: RTB.T t Section -> (RTB.T t SectionMarker, [T.Text])
+makeRRSections sects = let
+  stripNumberLetter t = case reverse $ T.words t of
+    x : xs | isNumberLetter x -> T.unwords $ reverse xs
+    _                         -> t
+  -- True if t is 0 or more digits followed by an optional letter
+  isNumberLetter t = case T.unsnoc t of
+    Just (digits, lastChar) -> T.all isDigit digits && isAlphaNum lastChar
+    Nothing                 -> False -- shouldn't happen
+  decideCustom = flip fmap sects $ \s -> let
+    normal = stripNumberLetter (makeDisplaySection s).name
+    in case T.toLower $ T.filter isAlphaNum normal of
+      "intro"       -> Left SectionIntro
+      "verse"       -> Left SectionVerse
+      "chorus"      -> Left SectionChorus
+      "bridge"      -> Left SectionBridge
+      "middleeight" -> Left SectionMiddleEight
+      "gtrsolo"     -> Left SectionGuitarSolo
+      "guitarsolo"  -> Left SectionGuitarSolo
+      "outro"       -> Left SectionOutro
+      _             -> Right normal
+  maxCustomSections = 17
+  customList = case splitAt maxCustomSections $ nubOrd $ rights $ RTB.getBodies decideCustom of
+    (list, []   ) -> list
+    (list, _ : _) -> init list <> ["Section"]
+  markers = flip fmap decideCustom $ \case
+    Left  s      -> s
+    Right custom -> SectionCustom $ fromMaybe (maxCustomSections - 1) $ elemIndex custom customList
+  in (markers, customList)
 
 data RRControl t = RRControl
   { rrcAnimDrummer   :: RTB.T t Int -- DrummerSignalRuleActions.lua, (Male|Female)DrummerAnimations.lua

@@ -191,11 +191,13 @@ rrRules buildInfo dir rr = do
         moodFor part = maybe RTB.empty (getMoods mid.s_tempos endTime)
           $ Map.lookup part mid.s_tracks.onyxParts
 
+        (sections, customSections) = makeRRSections mid.s_tracks.onyxEvents.eventsSections
+
     makeStringsBin
-      [ artist
-      , title
-      -- custom practice sections here
-      ] songBinEnglish
+      ( artist
+      : title
+      : customSections
+      ) songBinEnglish
 
     stackIO $ Save.toFile bass01 $ makeGB Easy   bass
     stackIO $ Save.toFile bass02 $ makeGB Easy   bass
@@ -253,7 +255,7 @@ rrRules buildInfo dir rr = do
           makeRRFiveControl res <$> Map.lookup Expert res.notes
         , rrcVenue         = camera
         , rrcEnd           = eventsEnd $ F.onyxEvents $ F.s_tracks mid
-        , rrcSections      = RTB.empty -- TODO
+        , rrcSections      = sections
         , rrcBeat          = RTB.empty -- TODO
         }
       }
@@ -499,6 +501,8 @@ makeRRDrumDifficulty4Lane gems = RRDrumDifficulty
 makeMainFEV :: B.ByteString -> Maybe Word32 -> Maybe Word32 -> Maybe Word32 -> Maybe Word32 -> FEV
 makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
   { version = FEVVersion26
+  , unkOffset1 = Nothing
+  , unkOffset2 = Nothing
   , projectName = "s" <> songID
   , waveBanks =
     [ WaveBank
@@ -553,7 +557,8 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
       , subgroups = []
       , events = let
         event eventName volName soundDefName categoryName = Event
-          { name = eventName
+          { type_ = Nothing
+          , name = eventName
           , unk1 = 1.0
           , unk2 = 0
           , unk3 = 0
@@ -583,8 +588,8 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
                   , unk1 = 0
                   , unk2 = 1
                   , unk3 = -1
-                  , padding = 0
-                  , loopCount = 0
+                  , padding = Just 0
+                  , loopCount = Just 0
                   , autopitchEnabled = 0
                   , autopitchReferencePoint = 0
                   , autopitchAtMin = 0
@@ -652,19 +657,21 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
           ]
       }
     ]
+  , soundDefProperties = Nothing
   , soundDefs = let
     blankDef = SoundDef
       { name = ""
-      , unk1 = 3
-      , unk2 = 0
-      , unk3 = 0
-      , unk4 = 1
-      , unk5 = 1.0
-      , unk6 = 1
-      , unk7 = 1.0
-      , unk8 = 1.0
-      , unk9 = 1.0
-      , unk10 = [0, 1, 0, 0, 0]
+      , unk1 = Just 3
+      , unk2 = Just 0
+      , unk3 = Just 0
+      , unk4 = Just 1
+      , unk5 = Just 1.0
+      , unk6 = Just 1
+      , unk7 = Just 1.0
+      , unk8 = Just 1.0
+      , unk9 = Just 1.0
+      , unk10 = Just [0, 1, 0, 0, 0]
+      , sound_def_properties_index = Nothing
       , waveforms = []
       }
     in catMaybes
@@ -721,12 +728,14 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
           ]
         }
       ]
-  , reverbs = []
+  , reverbs = Left []
   }
 
 makeFrontEndFEV :: B.ByteString -> Word32 -> FEV
 makeFrontEndFEV songID playtime = FEV
   { version = FEVVersion26
+  , unkOffset1 = Nothing
+  , unkOffset2 = Nothing
   , projectName = "s" <> songID <> "_FE"
   , waveBanks =
     [ WaveBank
@@ -759,7 +768,8 @@ makeFrontEndFEV songID playtime = FEV
       , subgroups = []
       , events =
         [ Event
-          { name = "Song"
+          { type_ = Nothing
+          , name = "Song"
           , unk1 = 1.0
           , unk2 = 0
           , unk3 = 0
@@ -789,8 +799,8 @@ makeFrontEndFEV songID playtime = FEV
                   , unk1 = 0
                   , unk2 = 1
                   , unk3 = -1
-                  , padding = 0
-                  , loopCount = 0
+                  , padding = Just 0
+                  , loopCount = Just 0
                   , autopitchEnabled = 0
                   , autopitchReferencePoint = 0
                   , autopitchAtMin = 0
@@ -812,19 +822,21 @@ makeFrontEndFEV songID playtime = FEV
         ]
       }
     ]
+  , soundDefProperties = Nothing
   , soundDefs =
     [ SoundDef
       { name = "s" <> songID <> "_FE"
-      , unk1 = 3
-      , unk2 = 0
-      , unk3 = 0
-      , unk4 = 1
-      , unk5 = 1.0
-      , unk6 = 1
-      , unk7 = 1.0
-      , unk8 = 1.0
-      , unk9 = 1.0
-      , unk10 = [0, 1, 0, 0, 0]
+      , unk1 = Just 3
+      , unk2 = Just 0
+      , unk3 = Just 0
+      , unk4 = Just 1
+      , unk5 = Just 1.0
+      , unk6 = Just 1
+      , unk7 = Just 1.0
+      , unk8 = Just 1.0
+      , unk9 = Just 1.0
+      , unk10 = Just [0, 1, 0, 0, 0]
+      , sound_def_properties_index = Nothing
       , waveforms =
         [ Waveform
           { padding = 0
@@ -837,7 +849,7 @@ makeFrontEndFEV songID playtime = FEV
         ]
       }
     ]
-  , reverbs = []
+  , reverbs = Left []
   }
 
 rrCameraCut :: (MonadRandom m) => Camera3 -> m (Maybe Int)

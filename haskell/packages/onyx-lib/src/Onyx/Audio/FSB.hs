@@ -441,10 +441,9 @@ splitFSBStreams fsb = do
             , xma1Data      = sdata
             }
         Right _mp3 -> return $ FSB_MP3 sdata
-    Right fsb4 -> do
-      (song, sdata) <- case zip (fsb4Songs fsb4) (fsbSongData fsb) of
-        [pair] -> return pair
-        _      -> fail "Not exactly 1 item found in FSB4 file"
+    -- FSB4 in Neversoft GH and (I think?) Power Gig is a single multi-channel "song".
+    -- FSB4 in PS3 Rock Revolution is more like FSB3, with separate songs.
+    Right fsb4 -> fmap concat $ forM (zip (fsb4Songs fsb4) (fsbSongData fsb)) $ \(song, sdata) -> do
       let (stereoCount, monoCount) = quotRem (fromIntegral $ fsbSongChannels song) 2
       case fsbExtra song of
         Left _xma -> do

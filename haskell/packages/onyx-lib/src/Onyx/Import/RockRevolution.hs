@@ -91,10 +91,13 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         guard $ bsLower event.name == eventName
         layer <- event.layers
         inst <- layer.soundDefInstances
-        Left sdefName <- return inst.nameOrIndex
-        let sdefName' = bsLower sdefName
-        soundDef <- fev.soundDefs
-        guard $ bsLower soundDef.name == sdefName'
+        soundDef <- case inst.nameOrIndex of
+          -- everything on 360
+          Left sdefName -> do
+            let sdefName' = bsLower sdefName
+            filter (\soundDef -> bsLower soundDef.name == sdefName') fev.soundDefs
+          -- (later fev version) ps3, dlc and probably disc
+          Right sdefIndex -> toList $ fev.soundDefs !? fromIntegral sdefIndex
         [waveform] <- return soundDef.waveforms
         return (T.toCaseFold $ TE.decodeLatin1 waveform.bankName, waveform.indexInBank)
   let guitarDef  = findDef "guitar"

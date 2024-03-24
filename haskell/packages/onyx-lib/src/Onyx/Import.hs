@@ -224,8 +224,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Nothing    -> fatal "Couldn't decrypt .psarc.edat"
           Just psarc -> importRS psarc >>= foundImports "Rocksmith" edat
       foundPS3 loc = do
-        usrdirs <- stackIO (pkgFolder <$> loadPKG loc) >>= getDecryptedUSRDIR
-        fmap mconcat $ forM usrdirs $ \(_, folderBS) -> let
+        usrdir <- stackIO (pkgFolder <$> loadPKG loc) >>= getDecryptedUSRDIR
+        rbgh <- fmap mconcat $ forM (map snd $ folderSubfolders usrdir) $ \folderBS -> let
           folder = first TE.decodeLatin1 folderBS
           in mconcat <$> sequence
             [ case findFile ("songs" :| ["songs.dta"]) folder of
@@ -239,6 +239,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
               else return ([], [])
             ]
+        rr <- foundImports "Rock Revolution (PS3 .pkg)" loc $ importRR $ first TE.decodeLatin1 usrdir
+        return $ rbgh <> rr
       foundWAD loc = do
         imps <- importWAD loc
         foundImports "Rock Band (Wii .wad)" loc imps

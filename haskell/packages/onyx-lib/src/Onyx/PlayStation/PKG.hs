@@ -321,6 +321,9 @@ tryDecryptEDAT dir name readable = do
         "BLUS30670" -> do
           lg "Decrypting Rocksmith 2014 EDAT file"
           return $ Just rs2014KLIC
+        "BLUS30212" -> do
+          lg "Decrypting Rock Revolution EDAT file"
+          return $ Just $ B.replicate 16 0
         _ | elem gameID neversoftIDs -> do
             lg "Decrypting Neversoft GH EDAT file"
             return $ Just ghworKLIC
@@ -353,6 +356,19 @@ tryDecryptEDAT dir name readable = do
                 bs <- B.readFile $ tmp </> "out.bin"
                 return $ makeHandle (B8.unpack name) $ byteStringSimpleHandle $ BL.fromStrict bs
 
+tryDecryptIfEDAT
+  :: (MonadIO m, SendMessage m)
+  => B.ByteString
+  -> (B.ByteString, Readable)
+  -> StackTraceT m (B.ByteString, Readable)
+tryDecryptIfEDAT dir pair@(name, file) = case B.stripSuffix ".edat" name <|> B.stripSuffix ".EDAT" name of
+  Just decName -> tryDecryptEDAT dir name file >>= \case
+    Nothing  -> do
+      warn $ "Not able to decrypt: " <> B8.unpack name
+      return pair
+    Just dec -> return (decName, dec)
+  Nothing -> return pair
+
 tryDecryptEDATsInFolder
   :: (MonadIO m, SendMessage m)
   => B.ByteString
@@ -362,13 +378,7 @@ tryDecryptEDATsInFolder dir folder = do
   subs <- forM (folderSubfolders folder) $ \(name, sub) -> do
     sub' <- tryDecryptEDATsInFolder dir sub
     return (name, sub')
-  files <- forM (folderFiles folder) $ \pair@(name, file) -> case B.stripSuffix ".edat" name <|> B.stripSuffix ".EDAT" name of
-    Just decName -> tryDecryptEDAT dir name file >>= \case
-      Nothing  -> do
-        warn $ "Not able to decrypt: " <> B8.unpack name
-        return pair
-      Just dec -> return (decName, dec)
-    Nothing -> return pair
+  files <- mapM (tryDecryptIfEDAT dir) $ folderFiles folder
   return Folder
     { folderSubfolders = subs
     , folderFiles = files
@@ -386,22 +396,23 @@ tryDecryptEDATs folder = case findFolder ["USRDIR"] folder of
     subs <- forM (folderSubfolders usr) $ \(subName, sub) -> do
       sub' <- tryDecryptEDATsInFolder subName sub
       return (subName, sub')
+    files <- mapM (tryDecryptIfEDAT "") $ folderFiles usr
     return folder
-      { folderSubfolders = ("USRDIR", usr { folderSubfolders = subs })
+      { folderSubfolders = ("USRDIR", Folder { folderSubfolders = subs, folderFiles = files })
         : filter (\(name, _) -> name /= "USRDIR") (folderSubfolders folder)
       }
 
 getDecryptedUSRDIR
   :: (SendMessage m, MonadIO m)
   => Folder B.ByteString Readable
-  -> StackTraceT m [(B.ByteString, Folder B.ByteString Readable)]
-getDecryptedUSRDIR folder = case findFolder ["USRDIR"] folder of
-  Nothing -> do
-    warn "Couldn't find USRDIR"
-    return []
-  Just usr -> forM (folderSubfolders usr) $ \(name, sub) -> do
-    sub' <- tryDecryptEDATsInFolder name sub
-    return (name, sub')
+  -> StackTraceT m (Folder B.ByteString Readable)
+getDecryptedUSRDIR folder = do
+  dec <- tryDecryptEDATs folder
+  case findFolder ["USRDIR"] dec of
+    Nothing -> do
+      warn "Couldn't find USRDIR"
+      return mempty
+    Just usr -> return usr
 
 -- Each output is (full name, (size, data), flags)
 makePKGRecords :: Folder B.ByteString Readable -> IO [(B.ByteString, (Int, Readable), Word32)]
