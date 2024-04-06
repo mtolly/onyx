@@ -152,8 +152,8 @@ hashRB3 songYaml rb3 = let
   minID = 10000000
   in if n < minID then n + minID else n
 
-crawlFolderBytes :: (MonadIO m) => FilePath -> StackTraceT m (Folder B.ByteString Readable)
-crawlFolderBytes p = stackIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
+crawlFolderBytes :: (MonadIO m) => FilePath -> m (Folder B.ByteString Readable)
+crawlFolderBytes p = liftIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 
 applyTargetMIDI :: TargetCommon f -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let

@@ -14,18 +14,16 @@ import qualified Language.C.Inline            as C
 import qualified Language.C.Inline.Context    as C
 import qualified Language.C.Inline.Unsafe     as CU
 import qualified Language.C.Types             as C
-import           Onyx.Harmonix.MOGG.Crypt     (COVCallbacks, OVCallbacks (..),
+import           Onyx.Harmonix.MOGG.Crypt     (OVCallbacks (..),
                                                handleOVCallbacks)
 import           System.IO                    (Handle)
 
-data COggVorbis_File
-
-newtype OggVorbis_File = OggVorbis_File (Ptr COggVorbis_File)
+newtype OggVorbis_File = OggVorbis_File (Ptr OggVorbis_File)
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
-    [ (C.TypeName "OggVorbis_File", [t| COggVorbis_File |])
-    , (C.TypeName "ov_callbacks"  , [t| COVCallbacks    |])
+    [ (C.TypeName "OggVorbis_File", [t| OggVorbis_File |])
+    , (C.TypeName "ov_callbacks"  , [t| OVCallbacks    |])
     ]
   }
 

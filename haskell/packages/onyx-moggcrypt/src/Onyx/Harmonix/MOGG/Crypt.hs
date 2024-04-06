@@ -19,21 +19,16 @@ import           Onyx.Util.Handle
 import           System.IO
 import           System.Posix.Internals   (sEEK_CUR, sEEK_END, sEEK_SET)
 
-data COVCallbacks
-data CVorbisReader
-data CVorbisEncrypter
-data CBinkReader
-
-newtype OVCallbacks     = OVCallbacks     (Ptr COVCallbacks    )
-newtype VorbisReader    = VorbisReader    (Ptr CVorbisReader   )
-newtype VorbisEncrypter = VorbisEncrypter (Ptr CVorbisEncrypter)
-newtype BinkReader      = BinkReader      (Ptr CBinkReader     )
+newtype OVCallbacks     = OVCallbacks     (Ptr OVCallbacks    )
+newtype VorbisReader    = VorbisReader    (Ptr VorbisReader   )
+newtype VorbisEncrypter = VorbisEncrypter (Ptr VorbisEncrypter)
+newtype BinkReader      = BinkReader      (Ptr BinkReader     )
 
 C.context $ C.cppCtx <> C.cppTypePairs
-  [ ("ov_callbacks"   , [t| COVCallbacks     |])
-  , ("VorbisReader"   , [t| CVorbisReader    |])
-  , ("VorbisEncrypter", [t| CVorbisEncrypter |])
-  , ("BinkReader"     , [t| CBinkReader      |])
+  [ ("ov_callbacks"   , [t| OVCallbacks     |])
+  , ("VorbisReader"   , [t| VorbisReader    |])
+  , ("VorbisEncrypter", [t| VorbisEncrypter |])
+  , ("BinkReader"     , [t| BinkReader      |])
   ]
 
 C.include "VorbisReader.h"

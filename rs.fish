@@ -104,7 +104,7 @@ end
 # build songs/dream-theater/anna-lee
 # build songs/dream-theater/trial-of-tears
 # build songs-hmx/billy-joel/piano-man
-build songs-others/bloodline/sure-shot
+# build songs-others/bloodline/sure-shot
 # build songs/trioscapes/stab-wounds
 # build songs-hmx/the-black-dahlia-murder/what-a-horrible-night-to-have-a-curse
 # build songs-hmx/whitechapel/this-is-exile
@@ -144,8 +144,9 @@ build songs-others/bloodline/sure-shot
 # build songs-hmx/authority-zero/no-regrets
 # build songs/system-of-a-down/revenga
 # build songs-hmx/shaimus/like-a-fool
-build songs/dream-theater/invisible-monster
-build songs/system-of-a-down/lonely-day
+# build songs/dream-theater/invisible-monster
+# build songs/system-of-a-down/lonely-day
+build songs/metallica/the-shortest-straw
 
 # phrases unknown:
 

@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE TupleSections         #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult) where
+module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult) where
 
 import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
@@ -364,6 +364,26 @@ pkReduce diff   mmap od diffEvents = let
     x : xs -> x : pullBackSustains xs
   -- Step: redo range shifts
   in completeRanges (showPKNotes pknotes6) { pkLanes = RTB.empty }
+
+completeDrumResult :: U.MeasureMap -> RTB.T U.Beats Section -> DrumResult -> DrumResult
+completeDrumResult mmap sections result = let
+  od        = D.drumOverdrive result.other
+  getDiff d = fromMaybe RTB.empty $ Map.lookup d result.notes
+  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1) <= 5 then trk2 else trk1
+  expert    = getDiff Expert
+  hard      = getDiff Hard   `orIfNull` defVelocity (drumsReduce Hard   mmap od sections (noVelocity expert))
+  medium    = getDiff Medium `orIfNull` defVelocity (drumsReduce Medium mmap od sections (noVelocity hard  ))
+  easy      = getDiff Easy   `orIfNull` defVelocity (drumsReduce Easy   mmap od sections (noVelocity medium))
+  defVelocity = fmap $ \gem -> (gem, D.VelocityNormal)
+  noVelocity = fmap fst
+  in result
+    { notes = Map.fromList
+      [ (Easy  , easy  )
+      , (Medium, medium)
+      , (Hard  , hard  )
+      , (Expert, expert)
+      ]
+    }
 
 drumsComplete
   :: U.MeasureMap

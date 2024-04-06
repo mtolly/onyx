@@ -9,7 +9,15 @@ References:
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module Onyx.PlayStation.PKG (PKGHeader(..), PKGMetadata(..), PKG(..), loadPKG, makePKG, tryDecryptEDAT, tryDecryptEDATs, tryDecryptEDATsInFolder, getDecryptedUSRDIR) where
+module Onyx.PlayStation.PKG
+( PKGHeader(..), PKGMetadata(..), PKG(..)
+, loadPKG, loadPKGReadable
+, makePKG
+, tryDecryptEDAT
+, tryDecryptEDATs
+, tryDecryptEDATsInFolder
+, getDecryptedUSRDIR
+) where
 
 import           Control.Applicative     ((<|>))
 import           Control.Monad           (forM, forM_, guard, replicateM,
@@ -218,8 +226,8 @@ readPKGName name = let
     Nothing        -> fail "Couldn't split filename in PKG contents"
     Just nameParts -> return nameParts
 
-loadFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
-loadFinalizedPKGFolder f h header = do
+loadFinalizedPKGFolder :: Readable -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
+loadFinalizedPKGFolder r h header = do
   decoder <- maybe (fail "Couldn't decode PKG contents") return $ cryptFinalizedPKG header
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
@@ -234,13 +242,13 @@ loadFinalizedPKGFolder f h header = do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) $ do
-          bs <- withBinaryFile f ReadMode $ \h' -> do
+          bs <- useHandle r $ \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
-loadNonFinalizedPKGFolder :: FilePath -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
-loadNonFinalizedPKGFolder f h header = do
+loadNonFinalizedPKGFolder :: Readable -> Handle -> PKGHeader -> IO (Folder B.ByteString Readable)
+loadNonFinalizedPKGFolder r h header = do
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
           hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + pkgDataOffset header
@@ -254,13 +262,13 @@ loadNonFinalizedPKGFolder f h header = do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) $ do
-          bs <- withBinaryFile f ReadMode $ \h' -> do
+          bs <- useHandle r $ \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
-loadPKG :: FilePath -> IO PKG
-loadPKG f = withBinaryFile f ReadMode $ \h -> do
+loadPKGReadable :: Readable -> IO PKG
+loadPKGReadable r = useHandle r $ \h -> do
   pkgHeader   <- BL.hGet h 0x80 >>= runGetM (codecIn bin)
   pkgDigests1 <- B.hGet h 0x40
   let metadataSize = fromIntegral (pkgMetadataSize pkgHeader) - 0x40 -- size minus digests
@@ -272,10 +280,13 @@ loadPKG f = withBinaryFile f ReadMode $ \h -> do
     0x0000 -> return False
     n      -> fail $ "Unrecognized finalization value in .pkg: " <> showHex n ""
   pkgFolder <- if isFinalized
-    then loadFinalizedPKGFolder    f h pkgHeader
-    else loadNonFinalizedPKGFolder f h pkgHeader
+    then loadFinalizedPKGFolder    r h pkgHeader
+    else loadNonFinalizedPKGFolder r h pkgHeader
 
   return PKG{..}
+
+loadPKG :: FilePath -> IO PKG
+loadPKG = loadPKGReadable . fileReadable
 
 -- Games that use the folder-MD5 KLIC generation (NPData.rockBandKLIC)
 rockBandIDs :: [B.ByteString]

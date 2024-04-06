@@ -643,7 +643,7 @@ saveQuickSongsPKG qsongs settings fout = do
         (usrdirSub, songs) <- Map.toList qsongMapping
         let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
               (qsong, _) <- songs
-              return (qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
+              return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
         return $ container (TE.decodeLatin1 usrdirSub) $ container "songs" Folder
           { folderFiles = [("songs.dta", songsDTA)]
           , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs

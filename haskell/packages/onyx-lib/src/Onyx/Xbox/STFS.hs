@@ -13,12 +13,12 @@ This code was written with the help of
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Xbox.STFS
 ( extractSTFS
-, getSTFSFolder
+, getSTFSFolder, readableSTFSFolder
 , rb3pkg
 , rb2pkg
 , gh2pkg
 , ghworpkg
-, rrpkg
+, rrpkg, rrSTFSOptions
 , makeCON
 , makeCONMemory
 , makeCONReadable
@@ -695,8 +695,8 @@ getFileHandle fe stfs readable = Readable
       }
   }
 
-readableSTFSFolder :: Readable -> STFSPackage -> IO (Folder T.Text Readable)
-readableSTFSFolder r stfs = do
+getFileEntriesFolder :: Readable -> STFSPackage -> IO (Folder T.Text Readable)
+getFileEntriesFolder r stfs = do
   files <- getFileEntries stfs
   let getFolder pathIndex = let
         contents = [ (i, fe) | (i, fe) <- zip [0..] files, fe_PathIndex fe == pathIndex ]
@@ -713,7 +713,10 @@ readableSTFSFolder r stfs = do
   return $ getFolder (-1)
 
 getSTFSFolder :: FilePath -> IO (Folder T.Text Readable)
-getSTFSFolder f = withSTFSPackage f $ readableSTFSFolder $ fileReadable f
+getSTFSFolder f = withSTFSPackage f $ getFileEntriesFolder $ fileReadable f
+
+readableSTFSFolder :: Readable -> IO (Folder T.Text Readable)
+readableSTFSFolder r = withSTFSReadable r $ getFileEntriesFolder r
 
 extractSTFS :: FilePath -> FilePath -> IO ()
 extractSTFS stfs dir = getSTFSFolder stfs >>= \folder -> saveHandleFolder folder dir
@@ -1059,10 +1062,10 @@ rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
   opts <- rb2STFSOptions title desc False
   makeCON opts dir fout
 
-rrpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stackIO $ do
+rrSTFSOptions :: T.Text -> T.Text -> IO CreateOptions
+rrSTFSOptions title desc = do
   thumb <- rrThumbnail >>= B.readFile
-  makeCON CreateOptions
+  return CreateOptions
     { createNames = [title]
     , createDescriptions = [desc]
     , createTitleID = 0x4B4E07E0
@@ -1075,7 +1078,12 @@ rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stack
     , createBaseVersion   = 0
     , createTransferFlags = 0xC0
     , createLIVE = True
-    } dir fout
+    }
+
+rrpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stackIO $ do
+  opts <- rrSTFSOptions title desc
+  makeCON opts dir fout
 
 makeCON :: CreateOptions -> FilePath -> FilePath -> IO ()
 makeCON opts dir con = do

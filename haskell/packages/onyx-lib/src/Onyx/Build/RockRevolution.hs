@@ -63,6 +63,8 @@ import           Onyx.PlayStation.NPData           (npdContentID, packNPData,
                                                     rockRevolutionEdatConfig)
 import           Onyx.PlayStation.PKG
 import           Onyx.Project                      hiding (Difficulty)
+import           Onyx.Reductions                   (completeDrumResult,
+                                                    completeFiveResult)
 import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
@@ -85,7 +87,7 @@ rrRules buildInfo dir rr = do
       _rel = biRelative buildInfo
       gen = biGen buildInfo
       metadata = getTargetMetadata songYaml $ RR rr
-      key = fromMaybe (error "need key!") rr.songID
+      key = fromMaybe "2000" rr.songID
       str = T.unpack key
       bytes = TE.encodeUtf8 key
 
@@ -155,9 +157,12 @@ rrRules buildInfo dir rr = do
           , events = F.onyxEvents $ F.s_tracks mid
           , part   = F.getFlexPart partName $ F.s_tracks mid
           }
-        guitar = (\builder -> builder FiveTypeGuitar $ input rr.guitar) <$> rrPartGuitar
-        bass   = (\builder -> builder FiveTypeGuitar $ input rr.bass  ) <$> rrPartBass
-        drums  = (\builder -> builder drumTarget     $ input rr.drums ) <$> rrPartDrums
+        guitar = flip fmap rrPartGuitar $ \builder ->
+          completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar $ input rr.guitar
+        bass   = flip fmap rrPartBass $ \builder ->
+          completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar $ input rr.bass
+        drums  = flip fmap rrPartDrums $ \builder ->
+          completeDrumResult mid.s_signatures mid.s_tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
         toTrackMidi :: (ParseTrack f) => f U.Beats -> F.Song (RTB.T U.Beats (Event.T B.ByteString))
@@ -466,7 +471,7 @@ rrRules buildInfo dir rr = do
 
   -- ps3
 
-  let edatConfig = rockRevolutionEdatConfig "TESTING" -- TODO
+  let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
       contentID = npdContentID edatConfig
 
   rrPS3Files <- forM rrBuildFiles $ \f -> do
@@ -487,7 +492,6 @@ rrRules buildInfo dir rr = do
     lg "# Producing Rock Revolution .pkg file"
     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
     main <- container "USRDIR" <$> crawlFolderBytes (dir </> "files-ps3")
-    -- TODO our PARAM.SFO says "She's The Bug" for title
     extra <- stackIO (getResourcesPath "pkg-contents/rr") >>= crawlFolderBytes
     stackIO $ makePKG contentID (main <> extra) out
 

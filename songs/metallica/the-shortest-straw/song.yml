@@ -18,14 +18,16 @@ audio:
   adlc390_3.fsb.xen.1.xma:
     file-path: adlc390_3.fsb.xen.1.xma
 metadata:
-  album: Placeholder
+  album: '...And Justice for All'
   artist: Metallica
-  author: null
+  author: Neversoft, Onyxite
   difficulty:
     tier: 1
   genre: Metal
   title: The Shortest Straw
   year: 1988
+  track-number: 5
+  file-album-art: ../blackened/cover.png_xbox
 parts:
   bass:
     grybo:
@@ -65,3 +67,9 @@ plans:
       guitar: adlc390_2.fsb.xen.0.xma
       vocal: adlc390_2.fsb.xen.2.xma
     song: adlc390_3.fsb.xen.0.xma
+targets:
+  rs:
+    game: rs
+    author: Onyxite
+    arrangements:
+    - [bass, bass]

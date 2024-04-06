@@ -11,18 +11,14 @@ import           Foreign
 import           Foreign.C
 import qualified Language.C.Inline.Cpp as C
 
-data CArkHdrPair
-data CFileEntrySetIter
-data CFileEntry
-
-newtype ArkHdrPair       = ArkHdrPair       (Ptr CArkHdrPair      )
-newtype FileEntrySetIter = FileEntrySetIter (Ptr CFileEntrySetIter)
-newtype FileEntry        = FileEntry        (Ptr CFileEntry       )
+newtype ArkHdrPair       = ArkHdrPair       (Ptr ArkHdrPair      )
+newtype FileEntrySetIter = FileEntrySetIter (Ptr FileEntrySetIter)
+newtype FileEntry        = FileEntry        (Ptr FileEntry       )
 
 C.context $ C.cppCtx <> C.cppTypePairs
-  [ ("ArkHdrPair"      , [t| CArkHdrPair       |])
-  , ("FileEntrySetIter", [t| CFileEntrySetIter |])
-  , ("FileEntry"       , [t| CFileEntry        |])
+  [ ("ArkHdrPair"      , [t| ArkHdrPair       |])
+  , ("FileEntrySetIter", [t| FileEntrySetIter |])
+  , ("FileEntry"       , [t| FileEntry        |])
   ]
 
 C.include "ArkTool_v6.1/ArkHdrPair.h"
