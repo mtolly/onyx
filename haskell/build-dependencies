@@ -6,6 +6,7 @@ cd dependencies
 # we can probably just `stack exec make` on all platforms, but this is fine
 case $(uname) in
   MINGW* )
+    export STACK_YAML=../stack-ghc-9.2.yaml
     stack exec make
     ;;
   * )

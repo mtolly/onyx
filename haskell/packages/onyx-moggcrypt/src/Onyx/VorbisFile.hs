@@ -27,6 +27,7 @@ C.context $ C.baseCtx <> mempty
     ]
   }
 
+C.include "<stdint.h>"
 C.include "vorbis/codec.h"
 C.include "vorbis/vorbisfile.h"
 

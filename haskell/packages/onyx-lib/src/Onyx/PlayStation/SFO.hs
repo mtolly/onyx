@@ -10,16 +10,17 @@ PARAM.SFO format
 {-# LANGUAGE StrictData            #-}
 module Onyx.PlayStation.SFO where
 
-import           Control.Monad           (replicateM, unless)
+import           Control.Monad            (replicateM, unless)
 import           Data.Binary.Get
-import qualified Data.ByteString         as B
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Lazy    as BL
-import           Data.List               (sortOn)
-import qualified Data.Text               as T
-import qualified Data.Text.Encoding      as TE
+import qualified Data.ByteString          as B
+import qualified Data.ByteString.Builder  as BB
+import qualified Data.ByteString.Lazy     as BL
+import           Data.List                (sortOn)
+import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as TE
+import           Data.Text.Encoding.Error (lenientDecode)
 import           Data.Word
-import           Onyx.Util.Binary        (runGetM)
+import           Onyx.Util.Binary         (runGetM)
 
 data SFOEntry
   = SFO_UTF8_S Word32 T.Text -- Word32 is max allocated size
@@ -38,7 +39,7 @@ readSFO bs = do
     magic <- getByteString 4
     unless (magic == "\0PSF") $ fail $ "Unrecognized magic identifier in .SFO: " <> show magic
     (,,,) <$> getWord32le <*> getWord32le <*> getWord32le <*> getWord32le
-  let toText = TE.decodeUtf8Lenient . BL.toStrict
+  let toText = TE.decodeUtf8With lenientDecode . BL.toStrict
   entries <- flip runGetM (BL.drop 0x14 bs) $ do
     replicateM (fromIntegral numEntries) $ do
       keyOffset  <- getWord16le

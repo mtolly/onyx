@@ -16,8 +16,6 @@ extra-deps:
 - wavefront-0.7.1.4
 - caerbannog-1.0.0.2
 - RtMidi-0.5.0.2
-- inline-c-0.9.1.10
-- inline-c-cpp-0.5.0.2
 # local folders
 - packages/onyx-arktool
 - packages/onyx-kakasi
@@ -65,6 +63,11 @@ extra-deps:
   commit: 5ed6b59099013be261764a8ac2ff158c0f3e0066
 - git: https://github.com/mtolly/hsndfile # unreleased upstream past 0.8.0 (switches to pkg-config), also add opus to enum
   commit: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
+- git: https://github.com/mtolly/inline-c
+  commit: 5ecdd481b7525c99e08e3f9eac4080c3806034e9
+  subdirs:
+  - inline-c
+  - inline-c-cpp
 resolver: lts-20.26
 flags:
   fltkhs:

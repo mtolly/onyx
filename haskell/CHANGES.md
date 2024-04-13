@@ -1,6 +1,6 @@
 # Version history
 
-# 20240412
+# 20240413
 
 * Prerelease version
 * Fix regressions in PS3 output of RB Quick Convert
@@ -12,9 +12,9 @@
 * (WIP) Import venue from RB3 `.milo_xbox` and RB4 formats,
   also possibly lipsync from RB4 format (needs testing)
 * Improvements to RB2 export
-  * Use Magma "MIDI export" mode in all cases, significantly lower speed
+  * Use Magma "MIDI export" mode in all cases, significantly faster
   * Onyx-generated lipsync, like RB3 export
-  * Include some RB3 features: freeform lanes, harmony vocal tracks
+  * Include some more RB3 features: freeform lanes, harmony vocal tracks
 
 # 20240202
 
