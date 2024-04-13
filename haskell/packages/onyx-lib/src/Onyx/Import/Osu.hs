@@ -215,11 +215,14 @@ importOsu separateSongs f = do
             })
         in audioFiles <> audioSamples
       , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
-        { song = flip fmap audio $ \(key, _, _) -> let
-          -- Need to do this or audio is out of sync, not sure why. Seems like it's
-          -- about one MP3 frame (1152 / 44100 or 48000), but .ogg also needs it?
-          mp3Delay = Drop Start (CA.Seconds 0.024)
-          in mp3Delay $ Input $ Named key
+        { song = flip fmap audio $ \(key, fileName, _) -> let
+          -- We now skip initial decoder delay when decoding mp3s via ffmpeg.
+          -- But for some reason osu charts seem to expect that .ogg also
+          -- is going to get this amount skipped? Very weird
+          extraDelay = case map toLower $ takeExtension fileName of
+            ".mp3" -> id
+            _      -> Drop Start $ CA.Frames 1105
+          in extraDelay $ Input $ Named key
         , parts = Parts $ HM.fromList $ do
           (partName, _, track) <- convertedTracks
           case track of

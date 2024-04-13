@@ -20,6 +20,7 @@ module Onyx.Audio
 , buildAudio
 , runAudio
 , audioIO
+, sinkMP3Pad, sinkMP3PadWithHandle
 , loadAudioInput
 , clampFloat
 , audioMD5
@@ -654,8 +655,21 @@ audioIO oggQuality src out = let
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
     ".opus" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatOpus Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    ".mp3" -> runResourceT $ sinkMP3 out src'
+    -- not sure why we need to add "decoder delay" explicitly
+    ".mp3" -> runResourceT $ sinkMP3Pad out src'
     ext -> error $ "audioIO: unknown audio output file extension " ++ ext
+
+-- for some reason we need to add approximately "decoder delay" value to mp3 explicitly,
+-- not sure if this is an error in our lame setup or something
+
+mp3EncodeHackAmount :: Duration
+mp3EncodeHackAmount = Frames $ 1105 - 90 -- ???
+
+sinkMP3Pad :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
+sinkMP3Pad out src = sinkMP3 out $ padStart mp3EncodeHackAmount src
+
+sinkMP3PadWithHandle :: (MonadResource m) => FilePath -> (L.LAME -> m ()) -> AudioSource m Float -> m ()
+sinkMP3PadWithHandle out setup src = sinkMP3WithHandle out setup $ padStart mp3EncodeHackAmount src
 
 runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = do
@@ -842,7 +856,7 @@ applyVolsMono vols src = AudioSource
       in sum $ map wire vx
 
 decentMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-decentMP3 out = sinkMP3WithHandle out $ \lame -> liftIO $ do
+decentMP3 out = sinkMP3PadWithHandle out $ \lame -> liftIO $ do
   L.check $ L.setVBR lame L.VbrDefault
   L.check $ L.setVBRQ lame 6 -- 0 (hq) to 9 (lq)
 

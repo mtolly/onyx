@@ -32,7 +32,6 @@ import           Data.Char                            (isAlphaNum, isAscii,
                                                        isDigit, isUpper,
                                                        toLower)
 import qualified Data.Conduit.Audio                   as CA
-import           Data.Conduit.Audio.LAME              (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding      as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Default.Class                   (def)
@@ -60,7 +59,8 @@ import           Onyx.Audio                           (Audio (Input),
                                                        audioLength, audioMD5,
                                                        buildSource', makeFSB4,
                                                        makeFSB4', makeXMAFSB3,
-                                                       runAudio)
+                                                       runAudio,
+                                                       sinkMP3PadWithHandle)
 import           Onyx.Audio.FSB                       (FSBExtraMP3 (..),
                                                        FSBExtraXMA (..),
                                                        emitFSB, fsb3Songs,
@@ -739,7 +739,7 @@ commands =
                     L.check $ L.setOutSamplerate lame 48000
               src <- buildSource' $ Input fin
               let resampled = resampleTo 48000 SincMediumQuality src
-              stackIO $ runResourceT $ sinkMP3WithHandle tmpWav setup resampled
+              stackIO $ runResourceT $ sinkMP3PadWithHandle tmpWav setup resampled
               stackIO $ BL.fromStrict <$> B.readFile tmpWav
             _ -> fatal $ "Expected mp3 or wav file extension for audio: " <> show fin
           stackIO $ ghBandMP3sToFSB4 mp3s >>= BL.writeFile fout . emitFSB

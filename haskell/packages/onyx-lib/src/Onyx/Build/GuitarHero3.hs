@@ -13,7 +13,6 @@ import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (toUpper)
 import           Data.Conduit.Audio
-import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
@@ -123,13 +122,13 @@ gh3Rules buildInfo dir gh3 = do
     s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
       [(gh3.guitar, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathRhythm %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
       [(coopPart, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceBacking buildInfo gh3.common mid 0 planName plan
@@ -137,7 +136,7 @@ gh3Rules buildInfo dir gh3 = do
       , (coopPart      , 1)
       ]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathPreview %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     -- Pad passed as 0 because we are just applying it to the unpadded audio
@@ -151,7 +150,7 @@ gh3Rules buildInfo dir gh3 = do
           $ Drop Start (fromMS pstart)
           $ Input (planDir </> "everything.wav")
     src <- shk $ buildSource previewExpr
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup
       $ applySpeedAudio gh3.common src
 
   let pathFsb = dir </> "audio.fsb"

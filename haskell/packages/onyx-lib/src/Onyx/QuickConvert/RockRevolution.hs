@@ -11,33 +11,34 @@ Renumber RR custom songs due to the limited song ID range
 {-# LANGUAGE ViewPatterns          #-}
 module Onyx.QuickConvert.RockRevolution where
 
-import           Control.Monad.Codec     (codecIn, codecOut)
-import           Control.Monad.Extra     (forM, guard, void, zipWithM)
-import           Control.Monad.IO.Class  (MonadIO)
-import           Data.Bifunctor          (first)
-import           Data.Binary.Put         (runPut)
-import qualified Data.ByteString         as B
-import qualified Data.ByteString.Lazy    as BL
-import           Data.Char               (isDigit, toLower)
-import           Data.Foldable           (toList)
-import           Data.Maybe              (catMaybes)
-import qualified Data.Text               as T
-import qualified Data.Text.Encoding      as TE
+import           Control.Monad.Codec       (codecIn, codecOut)
+import           Control.Monad.Extra       (forM, guard, void, zipWithM)
+import           Control.Monad.IO.Class    (MonadIO)
+import           Data.Bifunctor            (first)
+import           Data.Binary.Put           (runPut)
+import qualified Data.ByteString           as B
+import qualified Data.ByteString.Lazy      as BL
+import           Data.Char                 (isDigit, toLower)
+import           Data.Foldable             (toList)
+import           Data.Maybe                (catMaybes)
+import qualified Data.Text                 as T
+import qualified Data.Text.Encoding        as TE
 import           Onyx.Audio.FSB.FEV
-import           Onyx.Build.Common       (crawlFolderBytes)
-import           Onyx.PlayStation.NPData (npdContentID,
-                                          rockRevolutionEdatConfig)
-import           Onyx.PlayStation.PKG    (PKG (..), getDecryptedUSRDIR,
-                                          loadPKGReadable, makePKG)
-import           Onyx.Resources          (getResourcesPath)
-import           Onyx.StackTrace         (SendMessage, StackTraceT, stackIO)
-import           Onyx.Util.Binary        (runGetM)
+import           Onyx.Build.Common         (crawlFolderBytes)
+import           Onyx.Build.RockRevolution (intToRRSongID)
+import           Onyx.PlayStation.NPData   (npdContentID,
+                                            rockRevolutionEdatConfig)
+import           Onyx.PlayStation.PKG      (PKG (..), getDecryptedUSRDIR,
+                                            loadPKGReadable, makePKG)
+import           Onyx.Resources            (getResourcesPath)
+import           Onyx.StackTrace           (SendMessage, StackTraceT, stackIO)
+import           Onyx.Util.Binary          (runGetM)
 import           Onyx.Util.Handle
-import           Onyx.Util.Text.Decode   (encodeLatin1)
-import           Onyx.Xbox.STFS          (makeCONReadable, readableSTFSFolder,
-                                          rrSTFSOptions)
-import           System.FilePath         (takeExtension)
-import           System.IO               (hFileSize)
+import           Onyx.Util.Text.Decode     (encodeLatin1)
+import           Onyx.Xbox.STFS            (makeCONReadable, readableSTFSFolder,
+                                            rrSTFSOptions)
+import           System.FilePath           (takeExtension)
+import           System.IO                 (hFileSize)
 
 data RRSong = RRSong
   { songID :: T.Text
@@ -86,7 +87,7 @@ loadRRSongs fs = fmap catMaybes $ forM fs $ \f -> do
 
 newSongID :: Int -> RRSong -> IO RRSong
 newSongID n song = do
-  let newID = T.pack $ reverse $ take 4 $ reverse (show n) <> repeat '0'
+  let newID = intToRRSongID n
       oldIDBytes = encodeLatin1 song.songID
       newIDBytes = encodeLatin1 newID
   files <- forM song.files $ \(name, r) -> do

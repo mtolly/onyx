@@ -1261,6 +1261,26 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
+  {-
+  rrTab <- makeTab windowRect "RR" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
+    songPageRR sink rect tab proj $ \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            RRLIVE{} -> "Building RR LIVE file"
+            RRPKG{}  -> "Building RR PKG file"
+          task = case create of
+            RRLIVE fout -> do
+              tmp <- buildRRLIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RRPKG fout -> do
+              tmp <- buildRRPKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  -}
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -1319,7 +1339,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, {- rrTab, -} utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1752,6 +1772,17 @@ miscPagePacks sink rect tab startTasks = mdo
 
   FL.setResizable tab $ Just group
 
+{-
+pageRRRenumber
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageRRRenumber sink rect tab startTasks = mdo
+  undefined
+-}
+
 data Pack360Output
   = PackCON
   | PackLIVE
@@ -1874,11 +1905,12 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   let getSongTransform = do
         procs <- sequence processorGetters
         return $ foldr (>=>) return procs
-  getDecrypt360 <- do
+  getDecrypt360 <- return $ return False {- do
     check <- FL.checkButtonNew processorBox $ Just "Decrypt MOGGs (360)"
     void $ FL.setValue check False
     FL.setTooltip check "For CON/LIVE output, decrypt all MOGG files."
     return $ FL.getValue check
+    -}
   FL.end packProcessors
 
   -- row2: select mode
@@ -3446,6 +3478,28 @@ launchBatch sink makeMenuBar startFiles = mdo
               warnWoR
               return [fout]
       return tab
+    {-
+    , makeTab windowRect "RR" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      batchPageRR sink rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+          let ((target, creator), yaml) = settings proj
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          let warnRR = warn "TODO rock rev warning text here"
+          case creator of
+            RRLIVE fout -> do
+              tmp <- buildRRLIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnRR
+              return [fout]
+            RRPKG fout -> do
+              tmp <- buildRRPKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnRR
+              return [fout]
+      return tab
+    -}
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePreview sink rect tab $ \settings -> sink $ EventOnyx $ do

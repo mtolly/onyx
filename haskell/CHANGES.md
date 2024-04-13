@@ -1,5 +1,21 @@
 # Version history
 
+# 20240412
+
+* Prerelease version
+* Fix regressions in PS3 output of RB Quick Convert
+  * Song rating and song ID patches were not working since version `20230625`
+* Small timing fixes for several cases of reading/writing MP3 files
+  * Affects GH:WoR, CH, osu
+* Don't add space to start of RB output when legal tempos checkbox is unchecked
+* Import support from GH3 leaked beta
+* (WIP) Import venue from RB3 `.milo_xbox` and RB4 formats,
+  also possibly lipsync from RB4 format (needs testing)
+* Improvements to RB2 export
+  * Use Magma "MIDI export" mode in all cases, significantly lower speed
+  * Onyx-generated lipsync, like RB3 export
+  * Include some RB3 features: freeform lanes, harmony vocal tracks
+
 # 20240202
 
 * Add a tab under Quick Convert for conversion of CH files

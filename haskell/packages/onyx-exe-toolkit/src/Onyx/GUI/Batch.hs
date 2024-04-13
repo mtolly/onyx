@@ -409,7 +409,7 @@ batchPageGHWOR sink rect tab build = do
             , FlexKeys
             ]
           defGH5 = def :: TargetGH5 FilePath
-          tgt = defGH5
+          tgt = (defGH5 :: TargetGH5 FilePath)
             { common = defGH5.common
               { speed = Just speed
               }
@@ -439,6 +439,77 @@ batchPageGHWOR sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
     (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= stackIO . build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+batchPageRR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> ((TargetRR FilePath, RRCreate), SongYaml FilePath)) -> IO ())
+  -> IO ()
+batchPageRR sink rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+    centerRect = trimClock 0 250 0 250 rect'
+    in centerFixed rect' $ speedPercent True centerRect
+  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("Pro Drums to 6 pad", False, False)
+      , ("Pro Drums to 4 pad", True, True)
+      ]
+    return $ fromMaybe False <$> fn
+  let getTargetSong isXbox usePath template = do
+        speed <- stackIO getSpeed
+        proTo4 <- stackIO getProTo4
+        newPreferences <- readPreferences
+        return $ \proj -> let
+          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
+          pickedGuitar = find hasPart
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexKeys
+            , FlexBass
+            ]
+          pickedBass = find (\p -> hasPart p && pickedGuitar /= Just p)
+            [ FlexGuitar
+            , FlexExtra "rhythm"
+            , FlexBass
+            , FlexKeys
+            ]
+          defRR = def :: TargetRR FilePath
+          tgt = (defRR :: TargetRR FilePath)
+            { common = defRR.common
+              { speed = Just speed
+              }
+            , guitar = fromMaybe defRR.guitar pickedGuitar
+            , bass = fromMaybe defRR.bass $ pickedBass <|> pickedGuitar
+            , drums = getDrumsOrDance $ projectSongYaml proj
+            , proTo4 = proTo4
+            }
+          fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
+            [ templateApplyInput proj $ Just $ RR tgt
+            , let
+              modifiers = T.concat
+                [ T.pack $ case tgt.common.speed of
+                  Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                  _               -> ""
+                ]
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in ((tgt, usePath fout), projectSongYaml proj)
+  makeTemplateRunner
+    sink
+    "Create Xbox 360 LIVE files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rr")
+    (\template -> sink $ EventOnyx $ getTargetSong True RRLIVE template >>= stackIO . build)
+  makeTemplateRunner
+    sink
+    "Create RPCS3 PKG files"
+    (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
+    (\template -> sink $ EventOnyx $ getTargetSong False RRPKG template >>= stackIO . build)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

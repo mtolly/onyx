@@ -826,12 +826,12 @@ ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
   CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
 ffSourceFrom dur input = do
 
-  (rate, channels, frames) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+  (rate, channels, frames, skipPadding) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
     -- some of this metadata appeared to be set elsewhere in ffmpeg 5.0,
     -- but with 6.1 everything seems fine?
     rate <- {#get AVCodecContext->sample_rate #} dec_ctx
     channels <- {#get AVCodecContext->channels #} dec_ctx
-    frames <- {#get AVStream->nb_frames #} stream >>= \case
+    framesOrig <- {#get AVStream->nb_frames #} stream >>= \case
       0 -> do
         -- nb_frames appears to be 0 in ogg and bik files? so we do this as backup.
         streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream_time_base stream
@@ -844,9 +844,18 @@ ffSourceFrom dur input = do
             -- streamRes might be 1 / rate? but better to be sure
             return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
       frames -> return frames
-    return (rate, channels, frames)
+    -- need to skip mp3 initial decoder delay, also not sure why extra length adjustment is needed
+    isMP3 <- (== fromIntegral (fromEnum AV_CODEC_ID_MP3))
+      <$> {#get AVCodecContext->codec_id #} dec_ctx
+    let frames = if isMP3
+          then framesOrig - 1152
+          else framesOrig
+        skipPadding = if isMP3
+          then 1105
+          else 0
+    return (rate, channels, frames, skipPadding)
 
-  let startFrame = case dur of
+  let startFrame = skipPadding + case dur of
         CA.Frames  f -> f
         CA.Seconds s -> floor $ s * fromIntegral rate
 

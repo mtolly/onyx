@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-module Onyx.Build.RockRevolution (rrRules) where
+module Onyx.Build.RockRevolution (rrRules, intToRRSongID) where
 
 import           Control.Monad.Codec
 import           Control.Monad.Extra
@@ -19,7 +19,6 @@ import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (toUpper)
 import qualified Data.Conduit.Audio                as CA
-import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Functor.Identity             (Identity)
@@ -35,7 +34,8 @@ import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
-import           Onyx.Audio                        (clampIfSilent)
+import           Onyx.Audio                        (clampIfSilent,
+                                                    sinkMP3PadWithHandle)
 import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
 import           Onyx.Background
@@ -80,6 +80,9 @@ import qualified Sound.MIDI.Util                   as U
 import           System.IO                         (IOMode (..), hFileSize,
                                                     withBinaryFile)
 
+intToRRSongID :: Int -> T.Text
+intToRRSongID n = T.pack $ reverse $ take 4 $ reverse (show n) <> repeat '0'
+
 rrRules :: BuildInfo -> FilePath -> TargetRR FilePath -> QueueLog Rules ()
 rrRules buildInfo dir rr = do
 
@@ -87,7 +90,7 @@ rrRules buildInfo dir rr = do
       _rel = biRelative buildInfo
       gen = biGen buildInfo
       metadata = getTargetMetadata songYaml $ RR rr
-      key = fromMaybe "2000" rr.songID
+      key = intToRRSongID $ fromMaybe 2000 rr.songID
       str = T.unpack key
       bytes = TE.encodeUtf8 key
 
@@ -188,7 +191,10 @@ rrRules buildInfo dir rr = do
         makeDrums :: Difficulty -> File.T B.ByteString
         makeDrums diff = let
           gems = fromMaybe RTB.empty $ drums >>= \res -> Map.lookup diff res.notes
-          in F.showMixedMIDI $ toTrackMidi $ (makeRRDrumDifficulty4Lane gems)
+          rrDiff = if rr.proTo4
+            then makeRRDrumDifficulty4Lane gems
+            else makeRRDrumDifficulty6Lane gems
+          in F.showMixedMIDI $ toTrackMidi rrDiff
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
             }
 
@@ -380,19 +386,19 @@ rrRules buildInfo dir rr = do
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.guitar, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathBass %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.bass, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathDrums %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.drums, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan
@@ -401,12 +407,12 @@ rrRules buildInfo dir rr = do
       , (rr.drums , 1)
       ]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
   pathFE %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan []
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
 
   let songFev = file $ "s" <> str <> ".fev" -- makeMainFEV
       songFsb = file $ "s" <> str <> ".fsb"
@@ -520,6 +526,23 @@ makeRRFiveControl result gems = let
     $ noExtendedSustains' standardBlipThreshold gap gems
   gap = fromIntegral result.settings.sustainGap / 480
   in blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
+
+makeRRDrumDifficulty6Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
+makeRRDrumDifficulty6Lane gems = RRDrumDifficulty
+  { rrdGems      = flip fmap gems $ \case
+    (D.Kick                 , _) -> (RR_Kick     , RRC_Kick   )
+    (D.Red                  , _) -> (RR_Snare    , RRC_Snare  )
+    (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_HighTom)
+    (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_LowTom )
+    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_LowTom )
+    (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_Hihat  )
+    (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_CrashL )
+    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_CrashR )
+    (D.Orange               , _) -> (RR_China    , RRC_CrashR )
+  , rrdHidden    = RTB.empty
+  , rrdFreestyle = RTB.empty -- TODO
+  , rrdSolo      = RTB.empty -- added later
+  }
 
 makeRRDrumDifficulty4Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
 makeRRDrumDifficulty4Lane gems = RRDrumDifficulty

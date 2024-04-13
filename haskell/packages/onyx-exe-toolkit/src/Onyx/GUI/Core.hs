@@ -152,6 +152,10 @@ data GHWORCreate
   = GHWORLIVE FilePath
   | GHWORPKG FilePath
 
+data RRCreate
+  = RRLIVE FilePath
+  | RRPKG FilePath
+
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
   [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"

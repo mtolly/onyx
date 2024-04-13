@@ -164,6 +164,12 @@ moggToOggHandles :: Handle -> IO SimpleHandle
 moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
+
+  -- temporary disable of encrypted mogg support
+  hSeek h AbsoluteSeek 0
+  enc <- B.hGet h 1
+  when (enc /= B.singleton 0xA) $ fail "Encrypted .mogg not supported"
+
   when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
   size <- vorbisReaderSizeRaw vr
   return SimpleHandle

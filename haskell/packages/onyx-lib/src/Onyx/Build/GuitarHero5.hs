@@ -13,7 +13,6 @@ import qualified Data.ByteString.Char8           as B8
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Char                       (toUpper)
 import           Data.Conduit.Audio
-import           Data.Conduit.Audio.LAME         (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Foldable                   (toList)
@@ -409,7 +408,7 @@ gh5Rules buildInfo dir gh5 = do
         L.check $ L.setOutSamplerate lame 48000
   ps3MP3Preview %> \out -> do
     src <- shk $ buildSource $ Input (dir </> "preview.wav")
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup
       $ resampleTo 48000 SincMediumQuality src
 
   let midAndAudioLength = do
@@ -425,7 +424,7 @@ gh5Rules buildInfo dir gh5 = do
       pad = 0 -- TODO did we forget to pad ghwor output?
   ps3MP3SilenceSmall %> \out -> do
     (_, setLength) <- midAndAudioLength
-    stackIO $ runResourceT $ sinkMP3WithHandle out setupSmall $ setLength $ silent (Frames 0) 48000 2
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setupSmall $ setLength $ silent (Frames 0) 48000 2
   (ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals) %> \_ -> do
     (mid, setLength) <- midAndAudioLength
     kick    <- sourceKick    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
@@ -440,10 +439,10 @@ gh5Rules buildInfo dir gh5 = do
         shk $ copyFile' ps3MP3SilenceSmall ps3MP3Toms
         shk $ copyFile' ps3MP3SilenceSmall ps3MP3Cymbals
       else do
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Kick    setup $ setLength kick
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Snare   setup $ setLength snare
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Toms    setup $ setLength toms
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Cymbals setup $ setLength cymbals
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Kick    setup $ setLength kick
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Snare   setup $ setLength snare
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Toms    setup $ setLength toms
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Cymbals setup $ setLength cymbals
   (ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals) %> \_ -> do
     (mid, setLength) <- midAndAudioLength
     guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.guitar difficulties.gh5GuitarTier
@@ -456,9 +455,9 @@ gh5Rules buildInfo dir gh5 = do
         shk $ copyFile' ps3MP3SilenceSmall ps3MP3Bass
         shk $ copyFile' ps3MP3SilenceSmall ps3MP3Vocals
       else do
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Guitar setup $ setLength guitar
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Bass   setup $ setLength bass
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Vocals setup $ setLength vocals
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Guitar setup $ setLength guitar
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Bass   setup $ setLength bass
+        stackIO $ runResourceT $ sinkMP3PadWithHandle ps3MP3Vocals setup $ setLength vocals
   ps3MP3Backing %> \out -> do
     (mid, setLength) <- midAndAudioLength
     backing <- sourceBacking buildInfo gh5.common mid pad planName plan ghDifficulties
@@ -468,11 +467,11 @@ gh5Rules buildInfo dir gh5 = do
       else do
         kit <- sourceKit buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
         return $ mix backing kit
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength backingWithDrums
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ setLength backingWithDrums
   ps3MP3Crowd %> \out -> do
     (mid, setLength) <- midAndAudioLength
     crowd <- sourceCrowd buildInfo gh5.common mid pad planName plan
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength crowd
+    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ setLength crowd
 
   let readMP3s paths = do
         shk $ need paths

@@ -352,6 +352,101 @@ songPageGHWOR sink rect tab proj build = mdo
   FL.setResizable tab $ Just pack
   return ()
 
+songPageRR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> Project
+  -> (TargetRR FilePath -> RRCreate -> IO ())
+  -> IO ()
+songPageRR sink rect tab proj build = mdo
+  pack <- FL.packNew rect Nothing
+  let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
+  targetModifier <- fmap (fmap appEndo) $ execWriterT $ do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
+      tell $ getSpeed >>= \speed -> return $ Endo $ \rr ->
+        (rr :: TargetRR FilePath) { common = rr.common { speed = Just speed } }
+      return counter
+    fullWidth 35 $ \rect' -> do
+      getProTo4 <- liftIO $ horizRadio rect'
+        [ ("Pro Drums to 6 pad", False, False)
+        , ("Pro Drums to 4 pad", True, True)
+        ]
+      tell $ do
+        b <- getProTo4
+        return $ Endo $ \rr -> rr { proTo4 = fromMaybe False b }
+    fullWidth 35 $ \rect' -> numberBox rect' "Custom Song ID" $ \sid rr ->
+      rr { songID = sid }
+    fullWidth 35 $ \rect' -> numberBox rect' "Custom Leaderboard ID" $ \sid rr ->
+      rr { leaderboardID = sid }
+    fullWidth 50 $ \rect' -> void $ partSelectors rect' proj
+      [ ( "Guitar"           , (.guitar), (\v rr -> (rr :: TargetRR FilePath) { guitar = v })
+        , (\p -> isJust $ anyFiveFret p)
+        )
+      , ( "Bass"             , (.bass  ), (\v rr -> (rr :: TargetRR FilePath) { bass   = v })
+        , (\p -> isJust $ anyFiveFret p)
+        )
+      , ( "Drums"            , (.drums ), (\v rr -> (rr :: TargetRR FilePath) { drums  = v })
+        , (\p -> isJust $ anyDrums p)
+        )
+      , ( "Vocal (animation)", (.vocal ), (\v rr -> (rr :: TargetRR FilePath) { vocal  = v })
+        , (\p -> isJust p.vocal)
+        )
+      ]
+    fullWidth 35 $ \rect' -> do
+      controlInput <- customTitleSuffix sink rect'
+        (makeTarget >>= \rr -> return $ targetTitle
+          (projectSongYaml proj)
+          (RR rr { common = rr.common { override = overrideEmptyTitle } })
+        )
+        (\msfx rr -> (rr :: TargetRR FilePath)
+          { common = rr.common
+            { label_ = msfx
+            }
+          }
+        )
+      liftIO $ FL.setCallback counterSpeed $ \_ -> controlInput
+  let initTarget = def
+      makeTarget = fmap ($ initTarget) targetModifier
+  fullWidth 35 $ \rect' -> do
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 LIVE file"
+    FL.setCallback btn1 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RR LIVE file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rr" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> sink $ EventOnyx $ do
+            newPreferences <- readPreferences
+            stackIO $ build tgt $ RRLIVE $ trimXbox newPreferences f
+        _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create RPCS3 PKG file"
+    FL.setCallback btn2 $ \_ -> do
+      tgt <- makeTarget
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save RR PKG file"
+      FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
+      forM_ (prefDirRB ?preferences) $ FL.setDirectory picker . T.pack
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> build tgt $ RRPKG f
+        _ -> return ()
+    color <- FLE.rgbColorWithRgb (179,221,187)
+    FL.setColor btn1 color
+    FL.setColor btn2 color
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 songPagePS
   :: (?preferences :: Preferences)
   => (Event -> IO ())

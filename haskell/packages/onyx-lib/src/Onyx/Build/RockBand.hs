@@ -489,7 +489,13 @@ rbRules buildInfo dir rb3 mrb2 = do
           }
         input' = input { F.s_tracks = adjustEvents $ F.s_tracks input }
     (output, diffs, vc, pad) <- case plan of
-      MoggPlan _ -> do
+      StandardPlan _ | rb3.legalTempos -> RB3.processRBPad
+        (rb3, mrb2)
+        songYaml
+        (applyTargetMIDI rb3.common input')
+        mixMode
+        (applyTargetLength rb3.common input <$> getAudioLength buildInfo planName plan)
+      _ -> do
         (output, diffs, vc) <- RB3.processRB
           (rb3, mrb2)
           songYaml
@@ -497,12 +503,6 @@ rbRules buildInfo dir rb3 mrb2 = do
           mixMode
           (applyTargetLength rb3.common input <$> getAudioLength buildInfo planName plan)
         return (output, diffs, vc, 0)
-      StandardPlan _ -> RB3.processRBPad
-        (rb3, mrb2)
-        songYaml
-        (applyTargetMIDI rb3.common input')
-        mixMode
-        (applyTargetLength rb3.common input <$> getAudioLength buildInfo planName plan)
     liftIO $ writeFile pathMagmaPad $ show pad
     liftIO $ writeFile pathMagmaEditedParts $ show (diffs, vc)
     case invalid of

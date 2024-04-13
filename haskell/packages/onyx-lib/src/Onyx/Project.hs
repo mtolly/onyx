@@ -1570,20 +1570,22 @@ data TargetRR f = TargetRR
   , bass          :: F.FlexPartName
   , drums         :: F.FlexPartName
   , vocal         :: F.FlexPartName
-  , songID        :: Maybe T.Text
+  , songID        :: Maybe Int
   , leaderboardID :: Maybe Int
+  , proTo4        :: Bool -- true if pro drums should convert to RYBG
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetRR :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRR f)
 parseTargetRR = do
   common        <- (.common       ) =. parseTargetCommon
-  is2xBassPedal <- (.is2xBassPedal) =. opt False         "2x-bass-pedal"  stackJSON
-  guitar        <- (.guitar       ) =. opt F.FlexGuitar  "guitar"         stackJSON
-  bass          <- (.bass         ) =. opt F.FlexBass    "bass"           stackJSON
-  drums         <- (.drums        ) =. opt F.FlexDrums   "drums"          stackJSON
-  vocal         <- (.vocal        ) =. opt F.FlexVocal   "vocal"          stackJSON
-  songID        <- (.songID       ) =. opt Nothing       "song-id"        stackJSON
-  leaderboardID <- (.leaderboardID) =. opt Nothing       "leaderboard-id" stackJSON
+  is2xBassPedal <- (.is2xBassPedal) =. opt  False        "2x-bass-pedal"  stackJSON
+  guitar        <- (.guitar       ) =. opt  F.FlexGuitar "guitar"         stackJSON
+  bass          <- (.bass         ) =. opt  F.FlexBass   "bass"           stackJSON
+  drums         <- (.drums        ) =. opt  F.FlexDrums  "drums"          stackJSON
+  vocal         <- (.vocal        ) =. opt  F.FlexVocal  "vocal"          stackJSON
+  songID        <- (.songID       ) =. opt  Nothing      "song-id"        stackJSON
+  leaderboardID <- (.leaderboardID) =. opt  Nothing      "leaderboard-id" stackJSON
+  proTo4        <- (.proTo4       ) =. fill True         "pro-to-4"       stackJSON
   return TargetRR{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetRR f) where

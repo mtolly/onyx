@@ -581,6 +581,12 @@ buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> tar
 buildGHWORPKG :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
+buildRRLIVE :: (MonadIO m) => TargetRR FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildRRLIVE rr = buildCommon (RR rr) $ \targetHash -> "gen/target" </> targetHash </> "rrlive"
+
+buildRRPKG :: (MonadIO m) => TargetRR FilePath -> Project -> StackTraceT (QueueLog m) FilePath
+buildRRPKG rr = buildCommon (RR rr) $ \targetHash -> "gen/target" </> targetHash </> "rr.pkg"
+
 installGH1 :: (MonadIO m) => TargetGH1 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH1 gh1 proj gen = do
   stackIO (crawlFolder gen >>= detectGameGH) >>= \case
