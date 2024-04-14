@@ -176,6 +176,7 @@ import           System.FilePath                           (dropExtension,
                                                             (</>))
 import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
+import           System.Random                             (randomIO)
 -- import qualified System.IO.Streams                         as Streams
 -- import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                                 (readMaybe)
@@ -1866,25 +1867,25 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           "Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format."
           $ \qsong -> do
             let isRB3 = qdtaRB3 $ quickSongDTA qsong
-            procFolder (applyToMIDI $ blackVenue isRB3) qsong
+            procFolder (applyToMIDI $ return . blackVenue isRB3) qsong
         , (,,) "No Overdrive"
           "Removes overdrive phrases from all instruments."
-          $ procFolder $ applyToMIDI noOverdrive
+          $ procFolder $ applyToMIDI $ return . noOverdrive
         , (,,) "No lanes (G/B/K)"
           "Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys."
-          $ procFolder $ applyToMIDI noLanesGBK
+          $ procFolder $ applyToMIDI $ return . noLanesGBK
         , (,,) "No lanes (drums)"
           "Removes one-pad and two-pad rolls/swells from Drums."
-          $ procFolder $ applyToMIDI noLanesDrums
+          $ procFolder $ applyToMIDI $ return . noLanesDrums
         , (,,) "No drum fills"
           "Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos."
-          $ procFolder $ applyToMIDI noDrumFills
+          $ procFolder $ applyToMIDI $ return . noDrumFills
         , (,,) "Force 22-fret protar"
           "For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos."
-          $ procFolder $ applyToMIDI mustang22
+          $ procFolder $ applyToMIDI $ return . mustang22
         , (,,) "Unmute >22-fret protar"
           "Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input."
-          $ procFolder $ applyToMIDI unmuteOver22
+          $ procFolder $ applyToMIDI $ return . unmuteOver22
         , (,,) "Decompress .milo_*"
           "Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion."
           $ procFolder decompressMilos
@@ -1894,6 +1895,12 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         , (,,) "Strip title tags"
           "Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc."
           $ return . stripTitleTags
+        , (,,) "Drum note shuffle"
+          "Work in progress!"
+          $ \qsong -> do
+            shuffled <- procFolder (applyToMIDI drumNoteShuffleMIDI) qsong
+            seed <- randomIO
+            return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
         ]
   processorGetters <- forM processors $ \(label, tooltip, processor) -> do
     check <- FL.checkButtonNew processorBox $ Just label

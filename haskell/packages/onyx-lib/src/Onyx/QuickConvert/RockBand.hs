@@ -5,11 +5,12 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 - Change platform: 360 <-> PS3, eventually also Wii
 - Certain changes to MIDI: black venue, remove OD, remove lanes, etc.
 -}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.QuickConvert.RockBand where
 
 import           Codec.Picture                        (convertRGB8, decodeImage,
@@ -17,9 +18,11 @@ import           Codec.Picture                        (convertRGB8, decodeImage,
 import           Codec.Picture.Types                  (dropTransparency)
 import           Control.Exception                    (evaluate)
 import           Control.Monad
+import           Control.Monad.Codec                  (codecOut)
 import           Control.Monad.IO.Class               (MonadIO)
 import           Control.Monad.Trans.Resource         (MonadResource, ResourceT,
                                                        runResourceT)
+import           Control.Monad.Trans.State.Strict     (execState)
 import           Data.Bifunctor                       (first, second)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Char8                as B8
@@ -33,6 +36,7 @@ import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Absolute.TimeBody     as ATB
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor.Identity                (Identity)
 import           Data.Hashable                        (hash)
 import           Data.Int                             (Int16, Int32)
 import qualified Data.IntSet                          as IntSet
@@ -73,6 +77,11 @@ import           Onyx.MIDI.Common                     (isNoteEdge, isNoteEdge',
                                                        pattern Wait,
                                                        splitEdgesSimple)
 import           Onyx.MIDI.Parse                      (getMIDI)
+import           Onyx.MIDI.Read                       (TrackCodec, parseTrack)
+import           Onyx.MIDI.Track.Drums                (DrumTrack)
+import           Onyx.MIDI.Track.File                 (parseTrackReport,
+                                                       stripTrack)
+import           Onyx.Mode                            (drumNoteShuffle)
 import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
@@ -80,6 +89,7 @@ import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle
+import           Onyx.Util.Text.Decode                (encodeLatin1)
 import           Onyx.Xbox.STFS
 import qualified Sound.File.Sndfile                   as Snd
 import qualified Sound.MIDI.File                      as F
@@ -96,7 +106,7 @@ import           System.IO                            (hFileSize)
 
 data QuickSong = QuickSong
   { quickSongDTA       :: QuickDTA
-  , quickSongFiles     :: Folder T.Text QuickFileSized -- contents of 'foo'
+  , quickSongFiles     :: Folder T.Text QuickFileSized -- contents of 'foo' where naming pattern is 'songs/foo/bar'
   , quickSongPS3Folder :: Maybe B.ByteString      -- if came from ps3, this is the USRDIR subfolder (used for .mid.edat encryption)
   }
 
@@ -105,6 +115,7 @@ data QuickDTA = QuickDTA
   , qdtaParsed   :: Chunk B.ByteString
   , qdtaComments :: [B.ByteString] -- c3 style extra comments
   , qdtaFolder   :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
+  , qdtaSubname  :: T.Text -- in 'songs/foo/bar.mid', this is 'bar'
   , qdtaRB3      :: Bool
   , qdtaTitle    :: T.Text
   , qdtaArtist   :: Maybe T.Text
@@ -165,8 +176,8 @@ splitSongsDTA r = do
           String x : _ -> return x
           Sym    x : _ -> return x
           _            -> fatal "Couldn't get path parameter (songs/foo/bar) for song"
-        folder <- case T.splitOn "/" $ TE.decodeLatin1 base of
-          ["songs", x, _] -> return x
+        (folder, subname) <- case T.splitOn "/" $ TE.decodeLatin1 base of
+          ["songs", x, y] -> return (x, y)
           _               -> fatal $
             "Unrecognized format of name parameter in songs.dta, expected songs/x/y but got: " <> show base
         rb3 <- case concat [x | Key "format" x <- data1] of
@@ -204,6 +215,7 @@ splitSongsDTA r = do
           , qdtaParsed   = chunk
           , qdtaComments = comments
           , qdtaFolder   = folder
+          , qdtaSubname  = subname
           , qdtaRB3      = rb3
           , qdtaTitle    = readString title
           , qdtaArtist   = readString <$> artist
@@ -523,18 +535,80 @@ makePS3DTA = adjustChunk where
   adjustTree (Tree nid chunks) = Tree nid $ adjustChunks chunks
   adjustChunks = \case
     [Sym "rating" , Int 4] -> [Sym "rating" , Int 2]
-    [Sym "song_id", Sym n] -> [Sym "song_id", Int $ quickSongID n]
+    [Sym "song_id", Sym s] -> [Sym "song_id", Int $ quickSongID $ hash s]
     xs                     -> map adjustChunk xs
   adjustChunk = \case
     Parens   tree -> Parens   $ adjustTree tree
     Braces   tree -> Braces   $ adjustTree tree
     Brackets tree -> Brackets $ adjustTree tree
     x             -> x
-  quickSongID hashed = let
-    -- want these to be higher than real DLC, but lower than C3 IDs
-    n = hash hashed `mod` 1000000000
-    minID = 10000000
-    in fromIntegral $ if n < minID then n + minID else n
+
+quickSongID :: Int -> Int32
+quickSongID orig = let
+  -- want these to be higher than real DLC, but lower than C3 IDs
+  n = orig `mod` 1000000000
+  minID = 10000000
+  in fromIntegral $ if n < minID then n + minID else n
+
+newSongID :: Int -> QuickSong -> QuickSong
+newSongID seed qsong = let
+  adjustTree (Tree nid chunks) = Tree nid $ adjustChunks chunks
+  adjustChunks = \case
+    [Sym "song_id", _] -> [Sym "song_id", Int $ quickSongID seed]
+    xs                 -> map adjustChunk xs
+  adjustChunk = \case
+    Parens   tree -> Parens   $ adjustTree tree
+    Braces   tree -> Braces   $ adjustTree tree
+    Brackets tree -> Brackets $ adjustTree tree
+    x             -> x
+  in qsong
+    { quickSongDTA = qsong.quickSongDTA
+      { qdtaParsed = adjustChunk qsong.quickSongDTA.qdtaParsed
+      }
+    }
+
+newTopKey :: B.ByteString -> QuickSong -> QuickSong
+newTopKey k qsong = let
+  adjust = \case
+    Parens (Tree nid (Sym _ : rest)) -> Parens $ Tree nid (Sym k : rest)
+    x                                -> x -- warn?
+  in qsong
+    { quickSongDTA = qsong.quickSongDTA
+      { qdtaParsed = adjust qsong.quickSongDTA.qdtaParsed
+      }
+    }
+
+newFolderNames :: T.Text -> T.Text -> QuickSong -> QuickSong
+newFolderNames name1 name2 qsong = let
+  adjustTree (Tree nid chunks) = Tree nid $ adjustChunks chunks
+  adjustChunks = \case
+    [Sym "name", Sym    s] -> [Sym "name", String $ adjustString s]
+    [Sym "name", String s] -> [Sym "name", String $ adjustString s]
+    xs                     -> map adjustChunk xs
+  adjustChunk = \case
+    Parens   tree -> Parens   $ adjustTree tree
+    Braces   tree -> Braces   $ adjustTree tree
+    Brackets tree -> Brackets $ adjustTree tree
+    x             -> x
+  -- note: since we just look for `name` this may be the song title at root level
+  adjustString s = case T.splitOn "/" $ TE.decodeLatin1 s of
+    ["songs", _, _] -> encodeLatin1 $ "songs/" <> name1 <> "/" <> name2
+    _               -> s
+  adjustFolder dir = dir
+    { folderFiles = map adjustFile dir.folderFiles
+    , folderSubfolders = map (second adjustFolder) dir.folderSubfolders
+    }
+  adjustFile p@(fileName, f) = case T.stripPrefix qsong.quickSongDTA.qdtaSubname fileName of
+    Nothing       -> p
+    Just stripped -> (name2 <> stripped, f)
+  in qsong
+    { quickSongDTA = qsong.quickSongDTA
+      { qdtaParsed = adjustChunk qsong.quickSongDTA.qdtaParsed
+      , qdtaFolder = name1
+      , qdtaSubname = name2
+      }
+    , quickSongFiles = adjustFolder qsong.quickSongFiles
+    }
 
 makeWiiDTA :: Int32 -> Chunk B.ByteString -> Chunk B.ByteString
 makeWiiDTA previewLength = adjustChunk where
@@ -890,11 +964,13 @@ unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn $ let
 
 applyToMIDI
   :: (SendMessage m, MonadIO m)
-  => (F.T B.ByteString -> F.T B.ByteString)
+  => (F.T B.ByteString -> StackTraceT m (F.T B.ByteString))
   -> Folder T.Text QuickFileSized
   -> StackTraceT m (Folder T.Text QuickFileSized)
 applyToMIDI midFunction = mapMFilesWithName $ let
-  withParsed name mid = return (name, QFParsedMIDI $ midFunction mid)
+  withParsed name mid = do
+    mid' <- midFunction mid
+    return (name, QFParsedMIDI mid')
   withUnenc name r = do
     bs <- stackIO $ useHandle r handleToByteString
     (mid, warns) <- runGetM getMIDI bs
@@ -950,10 +1026,24 @@ transferAuthorToTag qsong = let
           }
       _ -> qsong -- warn?
 
+modifyTitle :: (B.ByteString -> B.ByteString) -> QuickSong -> QuickSong
+modifyTitle f qsong = let
+  qdta = quickSongDTA qsong
+  eachChild = \case
+    Key "name" [String s] -> Key "name" [String $ f s]
+    x                     -> x
+  in case qdtaParsed qdta of
+    Parens (Tree w (k : rest)) -> qsong
+      { quickSongDTA = qdta
+        { qdtaParsed = Parens $ Tree w $ k : map eachChild rest
+        -- could also strip from qdtaTitle but doesn't really matter
+        }
+      }
+    _ -> qsong -- warn?
+
 -- Strips 2x Bass Pedal labels and BirdmanExe author tags like (B) (X) (Z) (O) (Rh) (I) etc.
 stripTitleTags :: QuickSong -> QuickSong
-stripTitleTags qsong = let
-  qdta = quickSongDTA qsong
+stripTitleTags = modifyTitle $ let
   strippableTag s = or
     [ elem (B8.map toLower s) ["2x bass pedal", "2x", "x+"]
     , case B8.unpack s of
@@ -969,17 +1059,37 @@ stripTitleTags qsong = let
           else title1
         Nothing -> title1
     Nothing -> title1
-  eachChild = \case
-    Key "name" [String s] -> Key "name" [String $ stripper s]
-    x                     -> x
-  in case qdtaParsed qdta of
-    Parens (Tree w (k : rest)) -> qsong
-      { quickSongDTA = qdta
-        { qdtaParsed = Parens $ Tree w $ k : map eachChild rest
-        -- could also strip from qdtaTitle but doesn't really matter
-        }
-      }
-    _ -> qsong -- warn?
+  in stripper
+
+addTitleTag :: B.ByteString -> QuickSong -> QuickSong
+addTitleTag tag = modifyTitle $ \title -> if tag `B.isInfixOf` title
+  then title
+  else title <> " " <> tag
+
+drumNoteShuffleMIDI :: (SendMessage m) => F.T B.ByteString -> StackTraceT m (F.T B.ByteString)
+drumNoteShuffleMIDI (F.Cons typ dvn@(F.Ticks res) trks) = fmap (F.Cons typ dvn) $ forM trks $ \trk ->
+  if U.trackName trk == Just "PART DRUMS"
+    then do
+      let trk'
+            = RTB.mapTime (\tks -> realToFrac tks / realToFrac res)
+            $ RTB.mapBody (fmap TE.decodeLatin1) trk
+      drums <- parseTrackReport $ stripTrack trk'
+      let shuffled = drumNoteShuffle drums
+          parseTrack' :: TrackCodec (PureLog Identity) U.Beats (DrumTrack U.Beats)
+          parseTrack' = parseTrack
+      return
+        $ U.setTrackName "PART DRUMS"
+        $ RTB.discretize $ RTB.mapTime (* realToFrac res)
+        $ RTB.mapBody (fmap encodeLatin1)
+        $ execState (codecOut parseTrack' shuffled) RTB.empty
+    else return trk
+drumNoteShuffleMIDI (F.Cons _ F.SMPTE{} _) = fatal "SMPTE time not supported"
+
+-- Gives a new random song ID and file naming structure.
+refreshSong :: Int -> QuickSong -> QuickSong
+refreshSong seed = let
+  name = T.pack $ take 26 $ "oqc" <> dropWhile (== '-') (show seed)
+  in newTopKey (encodeLatin1 name) . newFolderNames name name . newSongID seed
 
 ------------------------
 

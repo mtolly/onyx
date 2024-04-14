@@ -11,13 +11,16 @@
 module Onyx.Mode where
 
 import           Control.Applicative              ((<|>))
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
+import           Control.Monad.Random.Class       (uniform, uniformMay)
+import           Control.Monad.Random.Strict      (evalRand, mkStdGen)
 import           Data.Bifunctor                   (first, second)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (find)
 import           Data.Functor                     (void)
+import           Data.Hashable                    (hash)
 import           Data.List.Extra                  (nubOrd, sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
@@ -746,3 +749,50 @@ drumResultToTrack dr = if dr.hasRBMarks
         return $ fmap (ybg,) $ makeColorTomMarkers $ getColor ybg
     , D.drumAnimation = dr.animations
     }
+
+drumNoteShuffle :: D.DrumTrack U.Beats -> D.DrumTrack U.Beats
+drumNoteShuffle dt = let
+  randomSeed = hash $ show dt
+  newTrack = drumResultToTrack DrumResult
+    { settings   = emptyPartDrums DrumsPro Kicks1x
+    , notes      = Map.fromList $ do
+      let lanes = RTB.merge
+            (maybe (0 :: Int, False) (const (0, True)) <$> dt.drumSingleRoll)
+            (maybe (1       , False) (const (1, True)) <$> dt.drumDoubleRoll)
+          colors = [D.Red, D.Pro D.Yellow (), D.Pro D.Blue (), D.Pro D.Green ()]
+      diff <- [Easy .. Expert]
+      let gems = D.computePro (Just diff) dt
+          laneAnnotated = applyStatus lanes $ RTB.collectCoincident gems
+          thisSeed = mkStdGen $ randomSeed + fromEnum diff
+          newGems = RTB.flatten $ flip evalRand thisSeed $ RTB.fromPairList <$> do
+            forM (RTB.toPairList laneAnnotated) $ \(t, (activeLanes, instant)) -> do
+              instant' <- if null activeLanes
+                then do
+                  let kick = any (\case (D.Kick, _) -> True; _ -> False) instant
+                      numHands = length instant - if kick then 1 else 0
+                  hand1 <- uniformMay $ guard (numHands >= 1) >> colors
+                  hand2 <- uniformMay $ do
+                    guard $ numHands >= 2
+                    filter ((/= hand1) . Just) colors
+                  type1 <- uniform [D.Tom, D.Cymbal]
+                  type2 <- uniform [D.Tom, D.Cymbal]
+                  return $ catMaybes
+                    [ guard kick >> Just (D.Kick, D.VelocityNormal)
+                    , (\gem -> (type1 <$ gem, D.VelocityNormal)) <$> hand1
+                    , (\gem -> (type2 <$ gem, D.VelocityNormal)) <$> hand2
+                    ]
+                else return instant
+              return (t, instant')
+      return (diff, newGems)
+    , other      = dt
+    , animations = dt.drumAnimation
+    , hasRBMarks = False
+    , source     = ""
+    , autochart  = False
+    , trueDrums  = Nothing
+    }
+  audio = listToMaybe $ do
+    dd <- Map.elems dt.drumDifficulties
+    (a, _) <- RTB.getBodies dd.drumMix
+    return a
+  in maybe id D.setDrumMix audio newTrack

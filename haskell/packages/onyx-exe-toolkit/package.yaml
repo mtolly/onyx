@@ -42,6 +42,7 @@ executables:
     - time
     - non-negative
     - binary
+    - random
     # - tcp-streams
     # - io-streams
     - fsnotify
