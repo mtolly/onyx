@@ -314,20 +314,25 @@ handleLabel = \case
   FileHandle   s _   -> s
   DuplexHandle s _ _ -> s
 
+subHandleInternal :: Integer -> Maybe Integer -> Handle -> (Handle -> IO ()) -> IO SimpleHandle
+subHandleInternal pos mlen h close = do
+  origSize <- hFileSize h
+  hSeek h AbsoluteSeek pos
+  return SimpleHandle
+    { shSize  = fromMaybe (origSize - pos) mlen
+    , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos
+    , shTell  = (\(H.HandlePosn _ n) -> n - pos) <$> H.hGetPosn h
+    , shClose = close h
+    , shRead  = B.hGet h . fromIntegral
+    }
+
 subHandle' :: (String -> String) -> Integer -> Maybe Integer -> IO Handle -> (Handle -> IO ()) -> Readable
 subHandle' addLabel pos mlen open close = Readable
   { rFilePath = Nothing -- because it no longer refers to a simple file
   , rOpen = do
     h <- open
-    origSize <- hFileSize h
-    hSeek h AbsoluteSeek pos
-    openSimpleHandle (addLabel $ handleLabel h) SimpleHandle
-      { shSize  = fromMaybe (origSize - pos) mlen
-      , shSeek  = \n -> hSeek h AbsoluteSeek $ n + pos
-      , shTell  = (\(H.HandlePosn _ n) -> n - pos) <$> H.hGetPosn h
-      , shClose = close h
-      , shRead  = B.hGet h . fromIntegral
-      }
+    sh <- subHandleInternal pos mlen h close
+    openSimpleHandle (addLabel $ handleLabel h) sh
   }
 
 subHandle :: (String -> String) -> Integer -> Maybe Integer -> Readable -> Readable
