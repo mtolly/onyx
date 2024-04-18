@@ -29,7 +29,7 @@ void ByteGrinder::HvDecrypt(uint8_t* dest, const uint8_t* src, int version)
 	AES128_ECB_decrypt(src, HvKey, dest);
 }
 
-int ByteGrinder::PickOneOf32A(bool init, int seed)
+unsigned int ByteGrinder::PickOneOf32A(bool init, unsigned int seed)
 {
 	if (init) {
 		seedA = seed;
@@ -45,7 +45,7 @@ int ByteGrinder::PickOneOf32A(bool init, int seed)
 	return tmp;
 }
 
-int ByteGrinder::PickOneOf32B(bool init, int seed)
+unsigned int ByteGrinder::PickOneOf32B(bool init, unsigned int seed)
 {
 	if (init) {
 		seedB = seed;

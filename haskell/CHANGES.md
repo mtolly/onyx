@@ -1,6 +1,6 @@
 # Version history
 
-# 20240413
+# 20240418
 
 * Prerelease version
 * Fix regressions in PS3 output of RB Quick Convert
@@ -15,6 +15,8 @@
   * Use Magma "MIDI export" mode in all cases, significantly faster
   * Onyx-generated lipsync, like RB3 export
   * Include some more RB3 features: freeform lanes, harmony vocal tracks
+* Demo of drums note shuffle modifier for RB Quick Convert
+* Fix app freeze in 20240413/20240414 when decoding audio from MOGG files
 
 # 20240202
 

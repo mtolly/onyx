@@ -19,10 +19,6 @@ import           Onyx.Util.Handle
 import           System.IO
 import           System.Posix.Internals   (sEEK_CUR, sEEK_END, sEEK_SET)
 
-import           Data.Binary.Get          (getWord32le, runGet)
-import           Data.Char                (toUpper)
-import           Numeric                  (showHex)
-
 newtype OVCallbacks     = OVCallbacks     (Ptr OVCallbacks    )
 newtype VorbisReader    = VorbisReader    (Ptr VorbisReader   )
 newtype VorbisEncrypter = VorbisEncrypter (Ptr VorbisEncrypter)
@@ -164,19 +160,27 @@ handleOVCallbacks h = do
         freeHaskellFunPtr fnTell
   return (cb, cleanup)
 
-moggToOggHandles :: Handle -> IO SimpleHandle
-moggToOggHandles h = do
+{-
+moggToOggHandles' :: Handle -> IO SimpleHandle
+moggToOggHandles' h = do
   bs <- BL.hGet h 8
   let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs
       hex = "0x" <> map toUpper (showHex moggType "")
   if moggType == 0xA
     then subHandleInternal (fromIntegral oggStart) Nothing h hClose
     else fail $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
+-}
 
-moggToOggHandles' :: Handle -> IO SimpleHandle
-moggToOggHandles' h = do
+moggToOggHandles :: Handle -> IO SimpleHandle
+moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
+
+  -- temporary disable of encrypted mogg support
+  hSeek h AbsoluteSeek 0
+  enc <- B.hGet h 1
+  when (enc /= B.singleton 0xA) $ fail "Encrypted .mogg not supported"
+
   when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
   size <- vorbisReaderSizeRaw vr
   return SimpleHandle
