@@ -64,6 +64,7 @@ import           Onyx.Preferences                          (Preferences (..),
 import           Onyx.Project
 import           Onyx.QuickConvert.FretsOnFire
 import           Onyx.QuickConvert.RockBand
+import           Onyx.QuickConvert.RockRevolution
 import           Onyx.StackTrace
 import qualified Onyx.Xbox.STFS                            as STFS
 import qualified System.Directory                          as Dir
@@ -550,6 +551,13 @@ searchQuickFoF f = stackIO (Dir.doesDirectoryExist f) >>= \case
     case res of
       Nothing   -> return ([], [])
       Just qfof -> return ([], [qfof])
+
+searchRockRevolution :: FilePath -> Onyx ([FilePath], [(FilePath, [RRSong])])
+searchRockRevolution f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> do
+    res <- loadRRSongs [f]
+    return ([], res)
 
 isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
 isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)

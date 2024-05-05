@@ -12,7 +12,8 @@ Renumber RR custom songs due to the limited song ID range
 module Onyx.QuickConvert.RockRevolution where
 
 import           Control.Monad.Codec       (codecIn, codecOut)
-import           Control.Monad.Extra       (forM, guard, void, zipWithM)
+import           Control.Monad.Extra       (firstJustM, forM, guard, void,
+                                            zipWithM)
 import           Control.Monad.IO.Class    (MonadIO)
 import           Data.Bifunctor            (first)
 import           Data.Binary.Put           (runPut)
@@ -31,7 +32,8 @@ import           Onyx.PlayStation.NPData   (npdContentID,
 import           Onyx.PlayStation.PKG      (PKG (..), getDecryptedUSRDIR,
                                             loadPKGReadable, makePKG)
 import           Onyx.Resources            (getResourcesPath)
-import           Onyx.StackTrace           (SendMessage, StackTraceT, stackIO)
+import           Onyx.StackTrace           (SendMessage, StackTraceT,
+                                            errorToEither, stackIO)
 import           Onyx.Util.Binary          (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode     (encodeLatin1)
@@ -82,8 +84,21 @@ loadRRSongs :: (MonadIO m, SendMessage m) => [FilePath] -> StackTraceT m [(FileP
 loadRRSongs fs = fmap catMaybes $ forM fs $ \f -> do
   songs <- case map toLower $ takeExtension f of
     ".pkg" -> loadRRPS3 $ fileReadable f
-    _      -> stackIO $ loadRRXbox $ fileReadable f
+    _      -> errorToEither (stackIO $ loadRRXbox $ fileReadable f) >>= return . \case
+      Left  _     -> []
+      Right songs -> songs
   return $ guard (not $ null songs) >> Just (f, songs)
+
+getTitleArtist :: RRSong -> IO (Maybe (T.Text, T.Text))
+getTitleArtist song = flip firstJustM song.files $ \(name, r) -> let
+  lower = T.toLower name
+  in if "english_s" `T.isPrefixOf` lower && "_strings.bin" `T.isSuffixOf` lower
+    then do
+      strings <- map TE.decodeUtf8 . B.split 0 . BL.toStrict <$> useHandle r handleToByteString
+      case strings of
+        title : artist : _ -> return $ Just (title, artist)
+        _                  -> return Nothing
+    else return Nothing
 
 newSongID :: Int -> RRSong -> IO RRSong
 newSongID n song = do

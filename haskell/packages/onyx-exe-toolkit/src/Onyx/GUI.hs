@@ -151,6 +151,7 @@ import           Onyx.Preferences                          (CHAudioFormat (..),
 import           Onyx.Project
 import           Onyx.QuickConvert.FretsOnFire
 import           Onyx.QuickConvert.RockBand
+import qualified Onyx.QuickConvert.RockRevolution          as RR
 import           Onyx.Reaper.Build                         (TuningInfo (..),
                                                             makeReaper)
 import           Onyx.Reductions                           (simpleReduce)
@@ -1262,7 +1263,6 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  {-
   rrTab <- makeTab windowRect "RR" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRR sink rect tab proj $ \tgt create -> do
@@ -1281,7 +1281,6 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  -}
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
@@ -1340,7 +1339,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, {- rrTab, -} utilsTab]
+  let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, rrTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
@@ -1772,17 +1771,6 @@ miscPagePacks sink rect tab startTasks = mdo
   FL.setCallback btnRaw $ \_ -> doPrompt PackExtracted
 
   FL.setResizable tab $ Just group
-
-{-
-pageRRRenumber
-  :: (Event -> IO ())
-  -> Rectangle
-  -> FL.Ref FL.Group
-  -> ([(String, Onyx [FilePath])] -> Onyx ())
-  -> IO ()
-pageRRRenumber sink rect tab startTasks = mdo
-  undefined
--}
 
 data Pack360Output
   = PackCON
@@ -2244,6 +2232,57 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           qsongs <- mapM songTransform $ concatMap quickInputSongs files
           saveQuickSongsDolphin qsongs settings dout
         in [("Make Dolphin pack", task)]
+
+  FL.setResizable tab $ Just filesGroup
+
+pageRenumberRR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageRenumberRR sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
+      updateFiles = modifyMVar_ loadedFiles
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "RR song" "RR songs" updateFiles [] searchRockRevolution
+    $ \(path, songs) -> let
+      entry = T.pack path
+      subline = case length songs of
+        1 -> "1 song"
+        n -> T.pack $ show n <> " songs"
+      in (entry, [subline])
+
+  btnGo <- FL.buttonNew bottomRect $ Just "Start"
+  taskColor >>= FL.setColor btnGo
+  FL.setCallback btnGo $ \_ -> do
+    songsOld <- readMVar loadedFiles
+    sink $ EventOnyx $ do
+      -- TODO this is a hack to avoid stale stfs/pkg references after editing them.
+      -- should come up with a better solution!
+      stackIO clearFiles
+      startTasks $ return $ let
+        name = "Renumbering Rock Revolution song IDs"
+        task = do
+          songsNew <- stackIO $ RR.renumberFrom 2000 songsOld
+          forM songsNew $ \(f, songs) -> do
+            lg f
+            forM_ songs $ \song -> do
+              titleArtist <- stackIO $ RR.getTitleArtist song
+              lg $ T.unpack $ song.songID <> ": " <> case titleArtist of
+                Nothing              -> "(unknown)"
+                Just (title, artist) -> title <> " (" <> artist <> ")"
+            let tmp = f <> ".tmp"
+            case songs of
+              []       -> return () -- shouldn't happen
+              song : _ -> stackIO $ do
+                if song.ps3
+                  then RR.saveSongsPS3 tmp songs
+                  else RR.saveSongs360 tmp songs
+                Dir.renameFile tmp f
+            return f
+        in (name, task)
 
   FL.setResizable tab $ Just filesGroup
 
@@ -2865,6 +2904,10 @@ launchQuickConvert sink makeMenuBar = mdo
       functionTabColor >>= setTabColor tab
       pageQuickConvertCH sink rect tab startTasks
       return tab
+    , makeTab windowRect "RR renumber" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      pageRenumberRR sink rect tab startTasks
+      return tab
     , makeTab windowRect "GH2 pack creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
@@ -3485,7 +3528,6 @@ launchBatch sink makeMenuBar startFiles = mdo
               warnWoR
               return [fout]
       return tab
-    {-
     , makeTab windowRect "RR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRR sink rect tab $ \settings -> sink $ EventOnyx $ do
@@ -3506,7 +3548,6 @@ launchBatch sink makeMenuBar startFiles = mdo
               warnRR
               return [fout]
       return tab
-    -}
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePreview sink rect tab $ \settings -> sink $ EventOnyx $ do

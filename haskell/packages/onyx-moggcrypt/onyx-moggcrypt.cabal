@@ -12,7 +12,7 @@ library
   -- the extra c++11 setting here doesn't seem like it should be required,
   -- since we have the other one down in cxx-options.
   -- but otherwise inline-c-cpp snippets throw errors on old ubuntu in docker
-  ghc-options: -Wall -optcxx -std=c++11
+  ghc-options: -Wall -optcxx -std=c++11 -O
   include-dirs:
     cbits
   c-sources:

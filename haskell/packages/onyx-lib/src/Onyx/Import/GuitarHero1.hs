@@ -101,7 +101,7 @@ addGraveyardShift hdr songs = let
     (\fn -> any (\fe -> fe.folder == Just "songs/graveyardshift" && fe.name == fn) hdr.files)
     ["graveyardshift.mid", "graveyardshift.vgs"]
   alreadyGrave = any ((== "graveyardshift") . fst) songs
-  tripPackage = SongPackage
+  gravePackage = SongPackage
     { name = "Graveyard Shift"
     , artist = "Gurney"
     , song = Song
@@ -127,7 +127,7 @@ addGraveyardShift hdr songs = let
       }
     }
   in if hasGraveFiles && not alreadyGrave
-    then ("graveyardshift", tripPackage) : songs
+    then ("graveyardshift", gravePackage) : songs
     else songs
 
 importGH1 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]

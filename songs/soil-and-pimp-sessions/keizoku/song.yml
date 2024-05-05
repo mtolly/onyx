@@ -15,6 +15,11 @@ audio:
   album-track:
     md5: 675dac1566809747687e43efe098918a
     frames: 7890960
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -25,12 +30,30 @@ plans:
       mix:
       - pad: [2.764, album-track]
       - countin
+  dev:
+    song:
+      flip:
+        pad: [2.764, album-track]
+    parts:
+      bass:
+        flip:
+          pad: [2.764, channels: [[0, 1], stems]]
+      drums:
+        flip:
+          pad: [2.764, channels: [[2, 3], stems]]
+      vocal:
+        flip:
+          pad: [2.764, channels: [[4, 5], stems]]
+      other:
+        flip:
+          pad: [2.764, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
       difficulty: 7
       kicks: 1
       kit: HardRockKit
+      mode: 'true'
   keys:
     grybo:
       difficulty: 6
@@ -47,5 +70,7 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200003
+    plan: album
   ps:
     game: ps
+    plan: album
