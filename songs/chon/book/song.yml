@@ -13,7 +13,7 @@ parts:
   drums: # Onyxite
     drums:
       kicks: 1
-      mode: 'true'
+      mode: elite
       difficulty: 4
   guitar: # NicolasPL
     grybo:

@@ -23,7 +23,7 @@ import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Onyx.MIDI.Track.Drums            as D
-import           Onyx.MIDI.Track.Drums.True
+import           Onyx.MIDI.Track.Drums.Elite
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -369,7 +369,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
               Nothing -> T.pack $ show n
       return (toBeats t, simpleSection str)
     }
-  drums = gh3DrumsToFull toBeats $ gh3Drums $ gh3BackgroundNotes gh3
+  drums = gh3DrumsToElite toBeats $ gh3Drums $ gh3BackgroundNotes gh3
   fixed = mempty
     { F.onyxParts = Map.fromList
       [ ( F.FlexGuitar
@@ -379,7 +379,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
         , mempty { F.onyxPartGuitar = trackCoop }
         )
       , ( F.FlexDrums
-        , mempty { F.onyxPartTrueDrums = drums }
+        , mempty { F.onyxPartEliteDrums = drums }
         )
       ]
     , F.onyxEvents = events
@@ -394,7 +394,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , F.s_tracks = fixed
     }
 
-gh3DrumMapping :: [(Word32, (TrueGem, D.Hand))]
+gh3DrumMapping :: [(Word32, (EliteGem, D.Hand))]
 gh3DrumMapping =
   [ (36, (Kick  , D.LH)) -- second kick drum
   , (37, (Tom3  , D.LH))
@@ -419,8 +419,8 @@ gh3DrumMapping =
   , (57, (CrashR, D.RH))
   ]
 
-gh3DrumsToFull :: (Word32 -> U.Beats) -> [[Word32]] -> TrueDrumTrack U.Beats
-gh3DrumsToFull toBeats notes = let
+gh3DrumsToElite :: (Word32 -> U.Beats) -> [[Word32]] -> EliteDrumTrack U.Beats
+gh3DrumsToElite toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   allGems = flip mapMaybe notes $ \case
     time : pitch : _ -> (toBeats time,) <$> lookup pitch gh3DrumMapping

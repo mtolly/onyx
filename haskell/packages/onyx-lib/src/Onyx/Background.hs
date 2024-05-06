@@ -18,7 +18,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    pattern RNil, pattern Wait)
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums
-import qualified Onyx.MIDI.Track.Drums.True
+import qualified Onyx.MIDI.Track.Drums.Elite
 import qualified Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret
@@ -52,7 +52,7 @@ getMoods tmap endTime opart = let
     [ longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums
     , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums2x
     , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartRealDrumsPS
-    , longBlips (\t -> Map.lookup Expert t.tdDifficulties) (.tdGems)  opart.onyxPartTrueDrums
+    , longBlips (\t -> Map.lookup Expert t.tdDifficulties  ) (.tdGems  ) opart.onyxPartEliteDrums
     , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartGuitar
     , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartKeys
     , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartGuitarExt

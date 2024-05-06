@@ -1,7 +1,7 @@
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
 metadata:
   title: Chris & Kevin's Amazing Odyssey # inconsistent "&"/"and" from Excellent Adventure...

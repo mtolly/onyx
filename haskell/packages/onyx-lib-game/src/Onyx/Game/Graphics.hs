@@ -54,8 +54,8 @@ import           Onyx.MIDI.Common             (StrumHOPOTap (..), each,
                                                showPosition)
 import           Onyx.MIDI.Track.Beat
 import qualified Onyx.MIDI.Track.Drums        as D
-import           Onyx.MIDI.Track.Drums.True   (TrueDrumNote (..))
-import qualified Onyx.MIDI.Track.Drums.True   as TD
+import           Onyx.MIDI.Track.Drums.Elite  (EliteDrumNote (..))
+import qualified Onyx.MIDI.Track.Drums.Elite  as ED
 import qualified Onyx.MIDI.Track.FiveFret     as Five
 import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
@@ -206,7 +206,7 @@ drawDrums glStuff nowTime speed mode trk = drawDrumPlay glStuff nowTime speed mo
   , noteTimes = Set.empty -- not used
   }
 
-drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (TrueDrumNote TD.FlamStatus) TD.TrueGem)) -> IO ()
+drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (EliteDrumNote ED.FlamStatus) ED.EliteGem)) -> IO ()
 drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
   { events = let
     -- dummy game state with no inputs, but all notes marked as hit on time
@@ -269,51 +269,51 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         TDRightNearCrash -> Just True
         _                -> Nothing
       highwayParts = concat
-        [ if layoutLeftOpenHand then [TD.CrashL, TD.Hihat, TD.Snare] else [TD.Snare, TD.Hihat, TD.CrashL]
-        , [TD.Tom1, TD.Tom2, TD.Tom3]
-        , if layoutRightNearCrash then [TD.CrashR, TD.Ride] else [TD.Ride, TD.CrashR]
+        [ if layoutLeftOpenHand then [ED.CrashL, ED.Hihat, ED.Snare] else [ED.Snare, ED.Hihat, ED.CrashL]
+        , [ED.Tom1, ED.Tom2, ED.Tom3]
+        , if layoutRightNearCrash then [ED.CrashR, ED.Ride] else [ED.Ride, ED.CrashR]
         ]
       partWidth = \case
-        TD.Snare  -> 0.15
-        TD.Hihat  -> 0.125
-        TD.CrashL -> 0.125
-        TD.CrashR -> 0.125
-        TD.Ride   -> 0.125
-        TD.Tom1   -> 0.116666
-        TD.Tom2   -> 0.116666
-        TD.Tom3   -> 0.116666
+        ED.Snare  -> 0.15
+        ED.Hihat  -> 0.125
+        ED.CrashL -> 0.125
+        ED.CrashR -> 0.125
+        ED.Ride   -> 0.125
+        ED.Tom1   -> 0.116666
+        ED.Tom2   -> 0.116666
+        ED.Tom3   -> 0.116666
         _         -> 1 -- not used
       widthSum = sum $ map partWidth highwayParts
       lookupGemBounds g = let
         onLeft = sum $ map partWidth $ takeWhile (/= g) highwayParts
         in (fracToX $ onLeft / widthSum, fracToX $ (onLeft + partWidth g) / widthSum)
-      gemBounds :: TD.TrueGem -> (Float, Float)
+      gemBounds :: ED.EliteGem -> (Float, Float)
       gemBounds = \case
-        TD.Kick      -> (fracToX 0, fracToX 1)
-        TD.HihatFoot -> lookupGemBounds TD.Hihat
+        ED.Kick      -> (fracToX 0, fracToX 1)
+        ED.HihatFoot -> lookupGemBounds ED.Hihat
         gem          -> lookupGemBounds gem
-      hihatZoneBounds = map gemBounds [TD.Snare, TD.Hihat, TD.CrashL]
+      hihatZoneBounds = map gemBounds [ED.Snare, ED.Hihat, ED.CrashL]
       hihatZoneX1 = minimum $ map fst hihatZoneBounds
       hihatZoneX2 = maximum $ map snd hihatZoneBounds
-      -- drawGem _ _ note _ | tdn_gem note == TD.HihatFoot = return ()
+      -- drawGem _ _ note _ | tdn_gem note == ED.HihatFoot = return ()
       drawGem t _od note alpha = let
         (texid, obj) = case (tdn_gem note, tdn_type note) of
-          (TD.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
-          (TD.Snare    , TD.GemRim        ) -> (TextureRedGem      , Model ModelDrumRim       )
-          (TD.Snare    , _                ) -> (TextureRedGem      , Model ModelDrumTom       )
-          (TD.Hihat    , TD.GemHihatOpen  ) -> (TextureYellowCymbal, Model ModelDrumHihatOpen )
-          (TD.Hihat    , TD.GemHihatClosed) -> (TextureYellowCymbal, Model ModelDrumCymbalFlat)
-          (TD.Hihat    , _                ) -> (TextureYellowCymbal, Model ModelDrumCymbal    )
-          (TD.HihatFoot, _                ) -> (TextureHihatFoot   , Model ModelDrumHihatFoot )
-          (TD.CrashL   , _                ) -> (TextureBlueCymbal  , Model ModelDrumCymbal    )
-          (TD.Tom1     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
-          (TD.Tom1     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
-          (TD.Tom2     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
-          (TD.Tom2     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
-          (TD.Tom3     , TD.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
-          (TD.Tom3     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
-          (TD.CrashR   , _                ) -> (TextureGreenCymbal , Model ModelDrumCymbal    )
-          (TD.Ride     , _                ) -> (TexturePurpleCymbal, Model ModelDrumCymbal    )
+          (ED.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
+          (ED.Snare    , ED.GemRim        ) -> (TextureRedGem      , Model ModelDrumRim       )
+          (ED.Snare    , _                ) -> (TextureRedGem      , Model ModelDrumTom       )
+          (ED.Hihat    , ED.GemHihatOpen  ) -> (TextureYellowCymbal, Model ModelDrumHihatOpen )
+          (ED.Hihat    , ED.GemHihatClosed) -> (TextureYellowCymbal, Model ModelDrumCymbalFlat)
+          (ED.Hihat    , _                ) -> (TextureYellowCymbal, Model ModelDrumCymbal    )
+          (ED.HihatFoot, _                ) -> (TextureHihatFoot   , Model ModelDrumHihatFoot )
+          (ED.CrashL   , _                ) -> (TexturePurpleCymbal, Model ModelDrumCymbal    )
+          (ED.Tom1     , ED.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (ED.Tom1     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (ED.Tom2     , ED.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (ED.Tom2     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (ED.Tom3     , ED.GemRim        ) -> (TextureOrangeGem   , Model ModelDrumRim       )
+          (ED.Tom3     , _                ) -> (TextureOrangeGem   , Model ModelDrumTom       )
+          (ED.Ride     , _                ) -> (TextureBlueCymbal  , Model ModelDrumCymbal    )
+          (ED.CrashR   , _                ) -> (TextureGreenCymbal , Model ModelDrumCymbal    )
         shade = case alpha of
           Nothing -> case tdn_velocity note of
             D.VelocityNormal -> CSImage texid
@@ -328,11 +328,11 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             in (adjustX x1, adjustX x2)
           _ -> (x1, x2)
         reference = case tdn_gem note of
-          TD.Kick -> (x2' - x1') / 2
+          ED.Kick -> (x2' - x1') / 2
           _       -> 0.5 / 2
         xPairs = case tdn_extra note of
-          TD.Flam -> map (, obj) $ case tdn_gem note of
-            TD.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
+          ED.Flam -> map (, obj) $ case tdn_gem note of
+            ED.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _       -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
               flamWidth = (x2' - x1') * 0.75
@@ -343,11 +343,11 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
                 | snd noteRight > adjustedRight = adjustedRight - snd noteRight
                 | otherwise = 0
               in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
-          TD.NotFlam -> case tdn_gem note of
-            TD.HihatFoot ->
-              [ (gemBounds TD.Snare , Model ModelDrumHihatFootWings)
+          ED.NotFlam -> case tdn_gem note of
+            ED.HihatFoot ->
+              [ (gemBounds ED.Snare , Model ModelDrumHihatFootWings)
               , ((x1', x2'), obj)
-              , (gemBounds TD.CrashL, Model ModelDrumHihatFootWings)
+              , (gemBounds ED.CrashL, Model ModelDrumHihatFootWings)
               ]
             _            -> [((x1', x2'), obj)]
         (y1, y2) = (y - reference, y + reference)
@@ -373,14 +373,14 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
               then drawGem nowTime od gem $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
               else return ()
       targets =
-        [ ([TD.Snare ], TextureTargetRed         , TextureTargetRedLight         , Just $ V4 0 0 0 0.2)
-        , ([TD.Hihat ], TextureTargetYellow      , TextureTargetYellowLight      , Just $ V4 1 1 1 0.2)
-        , ([TD.CrashL], TextureTargetBlue        , TextureTargetBlueLight        , Just $ V4 0 0 0 0.2)
-        , ([TD.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
-        , ([TD.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.15)
-        , ([TD.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.1)
-        , ([TD.Ride  ], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ if layoutRightNearCrash then V4 1 1 1 0.2 else V4 0 0 0 0.2)
-        , ([TD.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ if layoutRightNearCrash then V4 0 0 0 0.2 else V4 1 1 1 0.2)
+        [ ([ED.Snare ], TextureTargetRed         , TextureTargetRedLight         , Just $ V4 0 0 0 0.2)
+        , ([ED.Hihat ], TextureTargetYellow      , TextureTargetYellowLight      , Just $ V4 1 1 1 0.2)
+        , ([ED.CrashL], TextureTargetPurple      , TextureTargetPurpleLight      , Just $ V4 0 0 0 0.2)
+        , ([ED.Tom1  ], TextureTargetOrangeLeft  , TextureTargetOrangeLeftLight  , Just $ V4 1 1 1 0.2)
+        , ([ED.Tom2  ], TextureTargetOrangeCenter, TextureTargetOrangeCenterLight, Just $ V4 1 1 1 0.15)
+        , ([ED.Tom3  ], TextureTargetOrangeRight , TextureTargetOrangeRightLight , Just $ V4 1 1 1 0.1)
+        , ([ED.Ride  ], TextureTargetBlue        , TextureTargetBlueLight        , Just $ if layoutRightNearCrash then V4 1 1 1 0.2 else V4 0 0 0 0.2)
+        , ([ED.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just $ if layoutRightNearCrash then V4 0 0 0 0.2 else V4 1 1 1 0.2)
         ]
   -- draw highway
   forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
@@ -477,16 +477,16 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         z1 = timeToZ startTime
         z2 = timeToZ endTime
         tex = case gem of
-          TD.Kick      -> TextureLaneOrange
-          TD.Snare     -> TextureLaneRed
-          TD.Hihat     -> TextureLaneYellow
-          TD.HihatFoot -> TextureLaneYellow
-          TD.CrashL    -> TextureLaneBlue
-          TD.Tom1      -> TextureLaneOrange
-          TD.Tom2      -> TextureLaneOrange
-          TD.Tom3      -> TextureLaneOrange
-          TD.CrashR    -> TextureLaneGreen
-          TD.Ride      -> TextureLanePurple
+          ED.Kick      -> TextureLaneOrange
+          ED.Snare     -> TextureLaneRed
+          ED.Hihat     -> TextureLaneYellow
+          ED.HihatFoot -> TextureLaneYellow
+          ED.CrashL    -> TextureLanePurple
+          ED.Tom1      -> TextureLaneOrange
+          ED.Tom2      -> TextureLaneOrange
+          ED.Tom3      -> TextureLaneOrange
+          ED.Ride      -> TextureLaneBlue
+          ED.CrashR    -> TextureLaneGreen
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) 1 globalLight
       drawLanes _        []                      = return ()
       drawLanes nextTime ((thisTime, cs) : rest) = do
@@ -496,13 +496,13 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleStart, ToggleRestart, ToggleOn]) $ do
           drawLane thisTime nextTime pad
         when (elem bre [ToggleStart, ToggleRestart, ToggleOn]) $ do
-          mapM_ (drawLane thisTime nextTime) [TD.Snare, TD.Hihat, TD.CrashL, TD.Tom1, TD.Tom2, TD.Tom3, TD.CrashR, TD.Ride]
+          mapM_ (drawLane thisTime nextTime) [ED.Snare, ED.Hihat, ED.CrashL, ED.Tom1, ED.Tom2, ED.Tom3, ED.CrashR, ED.Ride]
         -- draw past lanes if rest is empty
         when (null rest) $ do
           forM_ lanes $ \(pad, tog) -> when (elem tog [ToggleEnd, ToggleRestart, ToggleOn]) $ do
             drawLane nearTime thisTime pad
           when (elem bre [ToggleEnd, ToggleRestart, ToggleOn]) $ do
-            mapM_ (drawLane nearTime thisTime) [TD.Snare, TD.Hihat, TD.CrashL, TD.Tom1, TD.Tom2, TD.Tom3, TD.CrashR, TD.Ride]
+            mapM_ (drawLane nearTime thisTime) [ED.Snare, ED.Hihat, ED.CrashL, ED.Tom1, ED.Tom2, ED.Tom3, ED.CrashR, ED.Ride]
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
   -- draw target
@@ -528,7 +528,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   traverseDescWithKey_ drawNotes zoomed
   -- draw side hihat stomp indicators (disabled at the moment)
   {-
-  let stompWidth = case gemBounds TD.Hihat of
+  let stompWidth = case gemBounds ED.Hihat of
         (x1, x2) -> (x2 - x1) / 2
       outsideRailLeft  = adjustedLeft  - rail.x_width
       outsideRailRight = adjustedRight + rail.x_width

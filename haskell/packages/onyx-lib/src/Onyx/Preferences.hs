@@ -139,7 +139,7 @@ data TrueDrumLayoutHint
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON TrueDrumLayoutHint where
-  stackJSON = enumCodec "a true drums layout hint" $ \case
+  stackJSON = enumCodec "an elite drums layout hint" $ \case
     TDLeftCrossHand  -> "cross-hand"
     TDLeftOpenHand   -> "open-hand"
     TDRightFarCrash  -> "far-crash"

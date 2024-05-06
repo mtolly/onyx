@@ -59,7 +59,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
       true-layout: [open-hand]
       difficulty: 7
   # bass:

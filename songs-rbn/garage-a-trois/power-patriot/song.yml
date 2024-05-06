@@ -6,7 +6,7 @@ parts:
       kicks: 1
       difficulty:
         rank: 349
-      mode: 'true'
+      mode: elite
   guitar:
     grybo:
       difficulty:

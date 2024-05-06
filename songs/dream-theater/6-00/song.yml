@@ -72,7 +72,7 @@ parts:
     drums:
       kicks: both
       difficulty: 7
-      mode: 'true'
+      mode: elite
   vocal:
     vocal:
       count: 3

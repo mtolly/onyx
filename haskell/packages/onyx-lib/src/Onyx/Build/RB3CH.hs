@@ -34,7 +34,7 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                    (mapTrack)
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums             as Drums
-import qualified Onyx.MIDI.Track.Drums.True        as TD
+import qualified Onyx.MIDI.Track.Drums.Elite       as ED
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import           Onyx.MIDI.Track.FiveFret          as RBFive
@@ -261,7 +261,7 @@ buildDrums
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
   -> SongYaml f
-  -> Maybe (DrumTrack U.Beats, Maybe (TD.TrueDrumTrack U.Beats))
+  -> Maybe (DrumTrack U.Beats, Maybe (ED.EliteDrumTrack U.Beats))
 buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
   bd <- getPart drumsPart songYaml >>= anyDrums
 
@@ -434,10 +434,10 @@ deleteBRE song = song
       , eventsCodaResume = RTB.empty
       }
     , F.onyxParts = flip fmap (F.onyxParts $ F.s_tracks song) $ \opart -> opart
-      { F.onyxPartDrums       = deleteNormal $ F.onyxPartDrums       opart
-      , F.onyxPartDrums2x     = deleteNormal $ F.onyxPartDrums2x     opart
-      , F.onyxPartRealDrumsPS = deleteNormal $ F.onyxPartRealDrumsPS opart
-      , F.onyxPartTrueDrums   = deleteTrue   $ F.onyxPartTrueDrums   opart
+      { F.onyxPartDrums        = deleteNormal $ F.onyxPartDrums       opart
+      , F.onyxPartDrums2x      = deleteNormal $ F.onyxPartDrums2x     opart
+      , F.onyxPartRealDrumsPS  = deleteNormal $ F.onyxPartRealDrumsPS opart
+      , F.onyxPartEliteDrums   = deleteElite  $ F.onyxPartEliteDrums  opart
       , F.onyxPartGuitar       = (F.onyxPartGuitar    opart) { RBFive.fiveBRE = RTB.empty }
       , F.onyxPartKeys         = (F.onyxPartKeys      opart) { RBFive.fiveBRE = RTB.empty }
       , F.onyxPartGuitarExt    = (F.onyxPartGuitarExt opart) { RBFive.fiveBRE = RTB.empty }
@@ -456,8 +456,8 @@ deleteBRE song = song
     deleteNormal drums = drums
       { drumActivation = applyCoda $ drumActivation drums
       }
-    deleteTrue fd = fd
-      { TD.tdActivation = applyCoda $ TD.tdActivation fd
+    deleteElite fd = fd
+      { ED.tdActivation = applyCoda $ ED.tdActivation fd
       }
 
 processMIDI
@@ -522,17 +522,17 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       drumsPart = case target of
         SharedTargetRB rb3 _ -> rb3.drums
         SharedTargetPS ps    -> ps.drums
-      (drumsTrack, trueDrumsTrack) = case buildDrums drumsPart target input timing songYaml of
+      (drumsTrack, eliteDrumsTrack) = case buildDrums drumsPart target input timing songYaml of
         Nothing        -> (mempty, Nothing)
         Just (dt, mtd) -> let
           -- remove nonstandardized parts of true drums spec
           mtd' = flip fmap mtd $ \td -> td
-            { TD.tdSticking     = RTB.empty
-            , TD.tdChipOverride = RTB.empty
-            , TD.tdFooting      = RTB.empty
-            , TD.tdDifficulties = flip fmap (TD.tdDifficulties td) $ \diff -> diff
-              { TD.tdRim   = RTB.empty
-              , TD.tdChoke = RTB.empty
+            { ED.tdSticking     = RTB.empty
+            , ED.tdChipOverride = RTB.empty
+            , ED.tdFooting      = RTB.empty
+            , ED.tdDifficulties = flip fmap (ED.tdDifficulties td) $ \diff -> diff
+              { ED.tdRim   = RTB.empty
+              , ED.tdChoke = RTB.empty
               }
             }
           in (setDrumMix mixMode dt, mtd')
@@ -840,7 +840,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
     , F.fixedPartDrums = drumsTrack'
     , F.fixedPartDrums2x = mempty
     , F.fixedPartRealDrumsPS = mempty
-    , F.fixedPartTrueDrums = if isPS then fromMaybe mempty trueDrumsTrack else mempty
+    , F.fixedPartEliteDrums = if isPS then fromMaybe mempty eliteDrumsTrack else mempty
     , F.fixedPartGuitar = guitar
     , F.fixedPartGuitarGHL = if isPS then guitarGHL else mempty
     , F.fixedPartBass = bass

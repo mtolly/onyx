@@ -34,7 +34,7 @@ parts:
     drums:
       kicks: both
       difficulty: 7
-      mode: 'true'
+      mode: elite
   guitar:
     grybo:
       difficulty: 7

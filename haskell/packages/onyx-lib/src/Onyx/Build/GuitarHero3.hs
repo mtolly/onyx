@@ -35,8 +35,8 @@ import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     joinEdgesSimple, trackGlue)
 import           Onyx.MIDI.Track.Beat              (BeatEvent (..))
-import           Onyx.MIDI.Track.Drums.True        (TrueDrumNote (..),
-                                                    animationToTrueDrums)
+import           Onyx.MIDI.Track.Drums.Elite       (EliteDrumNote (..),
+                                                    animationToEliteDrums)
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
@@ -516,7 +516,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     Just pd -> let
       rbAnims = buildDrumAnimation pd (F.s_tempos song) $ F.getFlexPart partDrummer $ F.s_tracks song
       mapping = map swap gh3DrumMapping
-      notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn_gem tdn, hand) mapping) $ animationToTrueDrums rbAnims
+      notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn_gem tdn, hand) mapping) $ animationToEliteDrums rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
         $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (F.s_tempos song) notes
   in (emptyMidQB

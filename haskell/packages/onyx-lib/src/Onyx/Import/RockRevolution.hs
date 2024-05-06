@@ -30,7 +30,7 @@ import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import qualified Onyx.MIDI.Track.Drums.True       as TD
+import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -153,13 +153,13 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
               return (diff, rrd)
           return
             ( importRRDrums rrDiffs
-            , mempty { TD.tdDifficulties  = fmap importRRTrueDrums rrDiffs }
-            , mempty { TD.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
+            , mempty { ED.tdDifficulties  = fmap importRREliteDrums rrDiffs }
+            , mempty { ED.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
             )
       diffs = [("02", Easy), ("03", Medium), ("04", Hard), ("05", Expert)]
   guitar <- loadGuitarBass "guitar"
   bass <- loadGuitarBass "bass"
-  (drums, trueDrums, hiddenDrums) <- loadDrums
+  (drums, eliteDrums, hiddenDrums) <- loadDrums
 
   return SongYaml
     { metadata = def'
@@ -187,10 +187,10 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
                 })
               , (F.FlexDrums, mempty
                 { F.onyxPartDrums = drums
-                , F.onyxPartTrueDrums = trueDrums
+                , F.onyxPartEliteDrums = eliteDrums
                 })
               , (F.FlexExtra "hidden-drums", mempty
-                { F.onyxPartTrueDrums = hiddenDrums
+                { F.onyxPartEliteDrums = hiddenDrums
                 })
               ]
             , F.onyxEvents = mempty

@@ -31,7 +31,7 @@ parts:
         rank: 387
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
       difficulty:
         rank: 541

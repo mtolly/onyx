@@ -35,7 +35,7 @@ plans:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
 targets:
   rb3:

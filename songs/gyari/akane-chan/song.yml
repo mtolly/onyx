@@ -5,7 +5,7 @@ parts:
         base: bass-4
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: 1
 audio:
   youtube:

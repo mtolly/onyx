@@ -40,7 +40,7 @@ plans:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: 1
 
 # xxx..xxx..xxxx.xxxx.xxxxxxxx

@@ -66,7 +66,7 @@ parts:
       difficulty: 7
       kicks: 1
       kit: VintageKit
-      mode: 'true'
+      mode: elite
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
       difficulty-dtx: 9.40
   blue-ride:

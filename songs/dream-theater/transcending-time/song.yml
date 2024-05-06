@@ -14,7 +14,7 @@ parts:
     drums:
       difficulty: 5
       kicks: both
-      mode: 'true'
+      mode: elite
       file-dtx-kit: ../../../sound/onyx-dtx/output/onyx-mapping.hs
       difficulty-dtx: 8.90
       true-layout: [open-hand]

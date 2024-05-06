@@ -27,7 +27,7 @@ parts:
   drums:
     drums: # WIP
       kicks: 1
-      mode: 'true'
+      mode: elite
   bass:
     pro-guitar:
       tuning:

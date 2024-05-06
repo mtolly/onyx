@@ -148,7 +148,7 @@ jammit:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
       difficulty: 7
       # TODO may want to support per-target difficulty so certain songs can be lower

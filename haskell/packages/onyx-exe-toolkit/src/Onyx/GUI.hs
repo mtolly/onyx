@@ -704,7 +704,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               Drums5    -> "5-Lane Drums"
               DrumsPro  -> "Pro Drums"
               DrumsReal -> "Phase Shift Real Drums"
-              DrumsTrue -> "True Drums"
+              DrumsTrue -> "Elite Drums"
             getKicks <- makeChoice itemCheck pd.kicks $ \case
               Kicks1x   -> "1x Bass Pedal"
               Kicks2x   -> "2x Bass Pedal"
@@ -3899,14 +3899,14 @@ launchPreferences sink makeMenuBar = do
                   TDRightNearCrash -> Just True
                   _                -> Nothing
             getLeftSide <- makeDropdown box1
-              $ ("True drums hihat side: default"   , Nothing   , layoutLeftOpenHand == Nothing   ) NE.:|
-              [ ("True drums hihat side: cross hand", Just False, layoutLeftOpenHand == Just False)
-              , ("True drums hihat side: open hand" , Just True , layoutLeftOpenHand == Just True )
+              $ ("Elite drums hihat side: default"   , Nothing   , layoutLeftOpenHand == Nothing   ) NE.:|
+              [ ("Elite drums hihat side: cross hand", Just False, layoutLeftOpenHand == Just False)
+              , ("Elite drums hihat side: open hand" , Just True , layoutLeftOpenHand == Just True )
               ]
             getRightSide <- makeDropdown box2
-              $ ("True drums ride side: default"   , Nothing   , layoutRightNearCrash == Nothing   ) NE.:|
-              [ ("True drums ride side: far crash" , Just False, layoutRightNearCrash == Just False)
-              , ("True drums ride side: near crash", Just True , layoutRightNearCrash == Just True )
+              $ ("Elite drums ride side: default"   , Nothing   , layoutRightNearCrash == Nothing   ) NE.:|
+              [ ("Elite drums ride side: far crash" , Just False, layoutRightNearCrash == Just False)
+              , ("Elite drums ride side: near crash", Just True , layoutRightNearCrash == Just True )
               ]
             return $ do
               leftSide  <- getLeftSide

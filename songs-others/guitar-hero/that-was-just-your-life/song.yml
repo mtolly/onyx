@@ -25,7 +25,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
   guitar:
     grybo: {}
 plans:

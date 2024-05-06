@@ -124,7 +124,7 @@ parts:
       difficulty: 7
       kit: VintageKit
       kicks: both
-      mode: 'true'
+      mode: elite
       true-layout: [open-hand]
   guitar:
     grybo:

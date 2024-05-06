@@ -28,7 +28,7 @@ plans:
   album:
     song:
       mix:
-      - pad: [2.764, album-track]
+      - flip: {pad: [2.764, album-track]}
       - countin
   dev:
     song:
@@ -53,7 +53,7 @@ parts:
       difficulty: 7
       kicks: 1
       kit: HardRockKit
-      mode: 'true'
+      mode: elite
   keys:
     grybo:
       difficulty: 6

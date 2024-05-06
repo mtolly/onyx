@@ -35,7 +35,7 @@ parts:
       kicks: both
       difficulty:
         rank: 533
-      mode: 'true'
+      mode: elite
 plans:
   mogg:
     parts:

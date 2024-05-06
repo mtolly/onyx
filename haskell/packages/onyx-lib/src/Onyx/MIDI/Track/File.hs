@@ -50,7 +50,7 @@ import           Onyx.MIDI.Parse                   (getMIDI)
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Drums
-import           Onyx.MIDI.Track.Drums.True        (TrueDrumTrack)
+import           Onyx.MIDI.Track.Drums.Elite       (EliteDrumTrack)
 import           Onyx.MIDI.Track.Events
 import           Onyx.MIDI.Track.FiveFret
 import qualified Onyx.MIDI.Track.FiveFret          as Five
@@ -133,7 +133,7 @@ data FixedFile t = FixedFile
   { fixedPartDrums        :: DrumTrack t
   , fixedPartDrums2x      :: DrumTrack t
   , fixedPartRealDrumsPS  :: DrumTrack t
-  , fixedPartTrueDrums    :: TrueDrumTrack t
+  , fixedPartEliteDrums   :: EliteDrumTrack t
   , fixedPartGuitar       :: FiveTrack t
   , fixedPartBass         :: FiveTrack t
   , fixedPartKeys         :: FiveTrack t
@@ -204,7 +204,7 @@ instance ParseFile FixedFile where
     fixedPartDrums        <- fixedPartDrums        =. fileTrack ("PART DRUMS"          :| ["PART DRUM"])
     fixedPartDrums2x      <- fixedPartDrums2x      =. fileTrack ("PART DRUMS_2X"       :| [])
     fixedPartRealDrumsPS  <- fixedPartRealDrumsPS  =. fileTrack ("PART REAL_DRUMS_PS"  :| [])
-    fixedPartTrueDrums    <- fixedPartTrueDrums    =. fileTrack ("PART TRUE_DRUMS"     :| [])
+    fixedPartEliteDrums   <- fixedPartEliteDrums   =. fileTrack ("PART ELITE_DRUMS"    :| [])
     fixedPartGuitar       <- fixedPartGuitar       =. fileTrack ("PART GUITAR"         :| ["T1 GEMS", "Click"])
     fixedPartBass         <- fixedPartBass         =. fileTrack ("PART BASS"           :| [])
     fixedPartKeys         <- fixedPartKeys         =. fileTrack ("PART KEYS"           :| [])
@@ -305,7 +305,7 @@ data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
   , onyxPartDrums2x      :: DrumTrack t
   , onyxPartRealDrumsPS  :: DrumTrack t
-  , onyxPartTrueDrums    :: TrueDrumTrack t
+  , onyxPartEliteDrums   :: EliteDrumTrack t
   , onyxPartGuitar       :: FiveTrack t
   , onyxPartKeys         :: FiveTrack t
   , onyxPartGuitarExt    :: FiveTrack t
@@ -391,7 +391,7 @@ parseOnyxPart partName = do
   onyxPartDrums        <- onyxPartDrums        =. names (pure (FlexDrums, "PART DRUMS"))
   onyxPartDrums2x      <- onyxPartDrums2x      =. names (pure (FlexDrums, "PART DRUMS_2X"))
   onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (pure (FlexDrums, "PART REAL_DRUMS_PS"))
-  onyxPartTrueDrums    <- onyxPartTrueDrums    =. names (pure (FlexDrums, "PART TRUE_DRUMS"))
+  onyxPartEliteDrums   <- onyxPartEliteDrums   =. names (pure (FlexDrums, "PART ELITE_DRUMS"))
   onyxPartGuitar       <- onyxPartGuitar       =. names
     ( (FlexGuitar, "PART GUITAR") :|
     [ (FlexBass, "PART BASS")
@@ -808,7 +808,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopTake t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopTake t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopTake t               $ onyxPartRealDrumsPS  op
-    , onyxPartTrueDrums    = mapTrack (U.trackTake t) $ onyxPartTrueDrums    op -- TODO
+    , onyxPartEliteDrums   = mapTrack (U.trackTake t) $ onyxPartEliteDrums   op -- TODO
     , onyxPartGuitar       = chopTake t               $ onyxPartGuitar       op
     , onyxPartKeys         = chopTake t               $ onyxPartKeys         op
     , onyxPartGuitarExt    = chopTake t               $ onyxPartGuitarExt    op
@@ -840,7 +840,7 @@ instance ChopTrack OnyxPart where
     { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
     , onyxPartDrums2x      = chopDrop t               $ onyxPartDrums2x      op
     , onyxPartRealDrumsPS  = chopDrop t               $ onyxPartRealDrumsPS  op
-    , onyxPartTrueDrums    = mapTrack (U.trackDrop t) $ onyxPartTrueDrums    op -- TODO
+    , onyxPartEliteDrums   = mapTrack (U.trackDrop t) $ onyxPartEliteDrums   op -- TODO
     , onyxPartGuitar       = chopDrop t               $ onyxPartGuitar       op
     , onyxPartKeys         = chopDrop t               $ onyxPartKeys         op
     , onyxPartGuitarExt    = chopDrop t               $ onyxPartGuitarExt    op
@@ -874,7 +874,7 @@ onyxToFixed o = FixedFile
   { fixedPartDrums        = inPart FlexDrums                 onyxPartDrums
   , fixedPartDrums2x      = inPart FlexDrums                 onyxPartDrums2x
   , fixedPartRealDrumsPS  = inPart FlexDrums                 onyxPartRealDrumsPS
-  , fixedPartTrueDrums    = inPart FlexDrums                 onyxPartTrueDrums
+  , fixedPartEliteDrums   = inPart FlexDrums                 onyxPartEliteDrums
   , fixedPartGuitar       = inPart FlexGuitar                onyxPartGuitar
   , fixedPartBass         = inPart FlexBass                  onyxPartGuitar
   , fixedPartKeys         = inPart FlexKeys                  onyxPartKeys
@@ -938,7 +938,7 @@ fixedToOnyx f = OnyxFile
       { onyxPartDrums       = fixedPartDrums       f
       , onyxPartDrums2x     = fixedPartDrums2x     f
       , onyxPartRealDrumsPS = fixedPartRealDrumsPS f
-      , onyxPartTrueDrums   = fixedPartTrueDrums   f
+      , onyxPartEliteDrums  = fixedPartEliteDrums  f
       })
     , (FlexVocal, mempty
       { onyxPartVocals = fixedPartVocals f

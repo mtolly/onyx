@@ -10,7 +10,7 @@ audio:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
 plans:
   album:

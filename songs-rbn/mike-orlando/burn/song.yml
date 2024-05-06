@@ -5,7 +5,7 @@ parts:
     drums: # Onyxite
       kicks: both
       difficulty: 6
-      mode: 'true'
+      mode: elite
   guitar:
     # CyclopsDragon (Carpal Tunnel Hero 2)
     grybo:

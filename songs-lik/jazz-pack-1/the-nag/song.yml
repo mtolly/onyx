@@ -16,10 +16,14 @@ metadata:
 global:
   autogen-theme: PsychJamRock
 audio:
-  youtube:
-    file-path: audio-youtube.wav
+  album-track:
+    md5: f0ee95ff6530a3292294fc8f3a6c34d8
+    frames: 11639460
+  stems:
+    file-path: audio-stems.wav
     commands:
-    - ../../../scripts/youtube sp-4HR4pENQ 140
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   countin:
@@ -30,14 +34,29 @@ plans:
       mix:
       - countin
       - gain:
-        - 1.7
-        - pad: [2.508, youtube]
+        - 1.9
+        - pad: [2.544, album-track]
+  dev:
+    song:
+      pad: [2.544, album-track]
+    parts:
+      bass:
+        pad: [2.544, channels: [[0, 1], stems]]
+      drums:
+        pad: [2.544, channels: [[2, 3], stems]]
+      vocal:
+        pad: [2.544, channels: [[4, 5], stems]]
+      other:
+        pad: [2.544, channels: [[6, 7], stems]]
 parts:
   drums:
     drums:
       difficulty: 7
       kicks: 1
       kit: HardRockKit
+      # EDIT PROGRESS
+      # most of chart fixed (kicks, snares, rest)
+      # BRE TODO
   bass:
     grybo:
       difficulty: 7
@@ -58,7 +77,9 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200008
+    plan: album
   ps:
     game: ps
     loading-phrase: "Original drum chart by TheLieInKing; other instruments and edits by Onyxite."
     big-rock-ending: true # drums not charted
+    plan: album

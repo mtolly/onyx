@@ -28,7 +28,7 @@ parts:
       difficulty: 7
       kit: HardRockKit
       kicks: 1
-      mode: 'true'
+      mode: elite
   bass:
     grybo:
       difficulty: 6

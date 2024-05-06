@@ -42,7 +42,7 @@ parts:
     drums:
       kicks: 1
       kit: VintageKit
-      mode: 'true'
+      mode: elite
       difficulty: 7
 targets:
   rb3:

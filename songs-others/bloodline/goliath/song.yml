@@ -5,7 +5,7 @@ parts:
       difficulty:
         tier: 7
       kicks: 1
-      mode: 'true'
+      mode: elite
   bass: # Onyxite
     pro-guitar:
       tuning:

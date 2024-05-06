@@ -13,7 +13,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
       # TODO maybe flip toms in layout, see bar 38
 audio:
   album-track:

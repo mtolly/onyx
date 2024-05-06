@@ -12,7 +12,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
   bass:
     pro-guitar:
       tuning:

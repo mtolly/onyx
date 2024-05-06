@@ -15,7 +15,7 @@ metadata:
 parts:
   drums:
     drums: # Onyxite
-      mode: 'true'
+      mode: elite
       kicks: 1
   guitar:
     grybo: # gaebpls

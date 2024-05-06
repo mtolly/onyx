@@ -13,7 +13,7 @@ metadata:
   track-number: 4
   year: 2007
 parts:
-  # onyxite: rocksmith bass, true drums, pro drums, new tempo map
+  # onyxite: rocksmith bass, elite drums, pro drums, new tempo map
   bass:
     grybo:
       difficulty:
@@ -25,7 +25,7 @@ parts:
       picked-bass: true
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       difficulty:
         rank: 410
       fix-freeform: false

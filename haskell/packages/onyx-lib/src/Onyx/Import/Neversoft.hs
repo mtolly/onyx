@@ -41,7 +41,7 @@ import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import           Onyx.MIDI.Track.Drums.True       (tdDifficulties, tdGems,
+import           Onyx.MIDI.Track.Drums.Elite      (tdDifficulties, tdGems,
                                                    tdKick2)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
@@ -773,7 +773,7 @@ importGH3Song ghi = let
     let hasCoopGems = maybe False (not . nullFive . F.onyxPartGuitar)
           $ Map.lookup coopPart $ F.onyxParts $ F.s_tracks midiOnyx
         drums
-          = maybe mempty F.onyxPartTrueDrums
+          = maybe mempty F.onyxPartEliteDrums
           $ Map.lookup F.FlexDrums
           $ F.onyxParts
           $ F.s_tracks midiOnyx

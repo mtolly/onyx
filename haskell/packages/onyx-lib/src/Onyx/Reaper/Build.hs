@@ -35,7 +35,7 @@ import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Onyx.FeedBack.Load                    (loadRawMIDIOrChart)
 import           Onyx.MIDI.Common                      (Key (..), showKey)
-import           Onyx.MIDI.Track.Drums.True            (trueDrumNoteNames)
+import           Onyx.MIDI.Track.Drums.Elite           (eliteDrumNoteNames)
 import           Onyx.MIDI.Track.File                  (FlexPartName (..),
                                                         identifyFlexTrack)
 import           Onyx.MIDI.Track.ProGuitar             (GtrBase (..),
@@ -344,7 +344,7 @@ track tunings lenTicks lenSecs resn trk = let
           [ ("PART DRUMS", "colormap_drums.png")
           , ("PART DRUMS_2X", "colormap_drums.png")
           , ("PART REAL_DRUMS_PS", "colormap_drums.png")
-          , ("PART TRUE_DRUMS", "colormap_truedrums.png")
+          , ("PART ELITE_DRUMS", "colormap_elitedrums.png")
           , ("PART GUITAR", "colormap_grybo.png")
           , ("PART GUITAR EXT", "colormap_grybo.png")
           , ("PART BASS", "colormap_grybo.png")
@@ -372,7 +372,7 @@ track tunings lenTicks lenSecs resn trk = let
       [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
       , (("PART DRUMS_2X" `T.isSuffixOf`), drumNoteNames)
       , (("PART REAL_DRUMS_PS" `T.isSuffixOf`), drumNoteNames)
-      , (("PART TRUE_DRUMS" `T.isSuffixOf`), trueDrumNoteNames)
+      , (("PART ELITE_DRUMS" `T.isSuffixOf`), eliteDrumNoteNames)
       , (("PART GUITAR" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART GUITAR EXT" `T.isSuffixOf`), gryboNoteNames False)
       , (("PART BASS" `T.isSuffixOf`), gryboNoteNames False)
@@ -1180,7 +1180,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` name)
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
-  , "PART TRUE_DRUMS"
+  , "PART ELITE_DRUMS"
   , "PART BASS"
   , "PART BASS EXT"
   , "PART REAL_BASS"
@@ -1291,7 +1291,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rs.png"    -> colorMapRS    >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_rslow.png" -> colorMapRSLow >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
-    "colormap_truedrums.png" -> getResourcesPath "true-drums.png" >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
+    "colormap_elitedrums.png" -> getResourcesPath "elite-drums.png" >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     _ -> return ()
 
 makeReaperShake :: TuningInfo -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()

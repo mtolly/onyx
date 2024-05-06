@@ -27,7 +27,7 @@ parts:
     drums:
       fix-freeform: false
       kicks: both
-      mode: 'true'
+      mode: elite
   guitar:
     grybo: {}
 plans:

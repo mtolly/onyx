@@ -13,7 +13,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
       difficulty: 7
 audio:
   album-track: # bandcamp

@@ -2,7 +2,7 @@ parts:
   drums:
     drums:
       kicks: 1
-      mode: 'true'
+      mode: elite
       difficulty: 7
       true-layout: [open-hand]
 audio:

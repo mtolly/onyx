@@ -36,7 +36,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common                 (StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Beat
-import           Onyx.MIDI.Track.Drums.True
+import           Onyx.MIDI.Track.Drums.Elite
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import qualified Sound.MIDI.Util                  as U
@@ -480,7 +480,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
 
 -- Inputs from the player (minus opening the hihat pedal)
 data TrueDrumHit = TrueDrumHit
-  { gem      :: TrueGem
+  { gem      :: EliteGem
   , rim      :: Bool
   , velocity :: Double -- 0 to 1
   } deriving (Show)
@@ -492,7 +492,7 @@ data TrueDrumInput
 
 data TrueDrumPlayState t = TrueDrumPlayState
   { events    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
-  , track     :: Map.Map t (CommonState (TrueDrumState t (TrueDrumNote FlamStatus) TrueGem))
+  , track     :: Map.Map t (CommonState (TrueDrumState t (EliteDrumNote FlamStatus) EliteGem))
   , noteTimes :: Set.Set t
   } deriving (Show)
 
@@ -500,7 +500,7 @@ data TrueDrumGameState t = TrueDrumGameState
   { score       :: Int
   , combo       :: Int
   , hihatOpen   :: Bool
-  , noteResults :: [(t, Map.Map (TrueDrumNote FlamStatus) (NoteResult t))] -- times are of notes
+  , noteResults :: [(t, Map.Map (EliteDrumNote FlamStatus) (NoteResult t))] -- times are of notes
   , overhits    :: [(t, TrueDrumHit)] -- times are of inputs
   } deriving (Show)
 
@@ -521,7 +521,7 @@ initialTDState = TrueDrumGameState
   , overhits    = []
   }
 
-trueNoteStatus :: (Ord t) => t -> TrueDrumNote FlamStatus -> [(t, (Maybe TrueDrumInput, TrueDrumGameState t))] -> NoteStatus t
+trueNoteStatus :: (Ord t) => t -> EliteDrumNote FlamStatus -> [(t, (Maybe TrueDrumInput, TrueDrumGameState t))] -> NoteStatus t
 trueNoteStatus noteTime note events = let
   slices = case events of
     []                      -> []

@@ -125,7 +125,7 @@ import qualified Onyx.MIDI.Script.Base                as MS
 import qualified Onyx.MIDI.Script.Parse               as MS
 import qualified Onyx.MIDI.Script.Read                as MS
 import qualified Onyx.MIDI.Script.Scan                as MS
-import           Onyx.MIDI.Track.Drums.True           (convertTrueDrums)
+import           Onyx.MIDI.Track.Drums.Elite          (convertEliteDrums)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.Vocal                (nullVox)
 import           Onyx.Neversoft.CRC                   (knownKeys, qbKeyCRC)
@@ -1394,8 +1394,8 @@ commands =
         mid <- F.loadRawMIDI fmid
         raw <- F.readMIDIFile mid
         onyx <- F.interpretMIDIFile raw
-        let true = maybe mempty F.onyxPartTrueDrums $ Map.lookup F.FlexDrums $ F.onyxParts $ F.s_tracks onyx
-            (warnings, pro) = convertTrueDrums (F.s_tempos onyx) true
+        let true = maybe mempty F.onyxPartEliteDrums $ Map.lookup F.FlexDrums $ F.onyxParts $ F.s_tracks onyx
+            (warnings, pro) = convertEliteDrums (F.s_tempos onyx) true
             addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
             proTracks = F.showMIDITracks onyx
               { F.s_tracks = mempty

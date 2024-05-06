@@ -1,7 +1,7 @@
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: 1
       difficulty: 5
 audio:

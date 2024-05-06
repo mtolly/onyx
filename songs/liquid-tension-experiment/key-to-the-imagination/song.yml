@@ -27,7 +27,7 @@ parts:
   drums:
     drums:
       kicks: both
-      mode: 'true'
+      mode: elite
       difficulty: 6
 targets:
   rb3:

@@ -30,7 +30,7 @@ import           Onyx.MIDI.Read                   (ChannelType (..),
                                                    translateEdges)
 import           Onyx.MIDI.Track.Beat             (BeatEvent (..))
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.True       as TD
+import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.Sections
 import qualified Sound.MIDI.File.Event            as E
@@ -132,15 +132,15 @@ instance ChannelType RRChannel where
     RRC_Hidden  -> 8
     -- there are a few notes with channel 9. maybe should have been 8?
 
-rrChannel7Lane :: RRChannel -> Maybe TD.TrueGem
+rrChannel7Lane :: RRChannel -> Maybe ED.EliteGem
 rrChannel7Lane = \case
-  RRC_LowTom  -> Just TD.Tom3
-  RRC_HighTom -> Just TD.Tom1
-  RRC_Kick    -> Just TD.Kick
-  RRC_Snare   -> Just TD.Snare
-  RRC_CrashL  -> Just TD.CrashL
-  RRC_CrashR  -> Just TD.CrashR
-  RRC_Hihat   -> Just TD.Hihat
+  RRC_LowTom  -> Just ED.Tom3
+  RRC_HighTom -> Just ED.Tom1
+  RRC_Kick    -> Just ED.Kick
+  RRC_Snare   -> Just ED.Snare
+  RRC_CrashL  -> Just ED.CrashL
+  RRC_CrashR  -> Just ED.CrashR
+  RRC_Hihat   -> Just ED.Hihat
   RRC_Hidden  -> Nothing
 
 rrChannel4Lane :: RRChannel -> Maybe (D.Gem D.ProType)
@@ -156,32 +156,32 @@ rrChannel4Lane = \case
 
 -- These are just conventions (channel is what actually determines gem).
 -- Comments are channel counts from disc+dlc midis
-rrDrumGuessTD :: RRDrum -> (TD.TrueGem, TD.TrueGemType, D.DrumVelocity)
+rrDrumGuessTD :: RRDrum -> (ED.EliteGem, ED.EliteGemType, D.DrumVelocity)
 rrDrumGuessTD = \case
-  RR_Kick          -> (TD.Kick     , TD.GemNormal     , D.VelocityNormal) -- [48, [["Kick", 23132], ["HighTom", 4], ["Snare", 4]]]
-  RR_HandClap      -> (TD.Hihat    , TD.GemNormal     , D.VelocityNormal) -- [49, [["Hihat", 734], ["Kick", 69], ["Snare", 27], ["LowTom", 1]]]
-  RR_Snare         -> (TD.Snare    , TD.GemNormal     , D.VelocityNormal) -- [50, [["Snare", 16995], ["HighTom", 4], ["CrashR", 2], ["LowTom", 1]]]
-  RR_SideStick     -> (TD.Snare    , TD.GemRim        , D.VelocityNormal) -- [51, [["Snare", 548], ["Hihat", 409], ["CrashR", 59]]]
-  RR_ElectricSnare -> (TD.Snare    , TD.GemNormal     , D.VelocityNormal) -- [52, [["Snare", 31], ["LowTom", 30], ["Hihat", 27], ["HighTom", 24]]]
-  RR_Tom6          -> (TD.Tom3     , TD.GemNormal     , D.VelocityNormal) -- [53, [["Hihat", 304], ["LowTom", 298], ["Snare", 60]]]
-  RR_HihatClosed   -> (TD.Hihat    , TD.GemHihatClosed, D.VelocityNormal) -- [54, [["Hihat", 7161], ["LowTom", 10], ["HighTom", 9], ["CrashL", 6], ["Kick", 1]]]
-  RR_Tom5          -> (TD.Tom3     , TD.GemNormal     , D.VelocityNormal) -- [55, [["LowTom", 1766], ["Hihat", 188], ["HighTom", 82], ["Snare", 3], ["CrashR", 2]]]
-  RR_HihatPedal    -> (TD.HihatFoot, TD.GemNormal     , D.VelocityNormal) -- [56, [["Hihat", 4901], ["CrashL", 37]]]
-  RR_Tom4          -> (TD.Tom2     , TD.GemNormal     , D.VelocityNormal) -- [57, [["HighTom", 1078], ["LowTom", 291], ["Kick", 9], ["Snare", 7]]]
-  RR_HihatOpen     -> (TD.Hihat    , TD.GemHihatOpen  , D.VelocityNormal) -- [58, [["Hihat", 5923], ["CrashR", 205], ["CrashL", 6]]]
-  RR_Tom3          -> (TD.Tom1     , TD.GemNormal     , D.VelocityNormal) -- [59, [["HighTom", 657], ["CrashR", 12], ["LowTom", 11], ["Snare", 2]]]
-  RR_Tom2          -> (TD.Tom1     , TD.GemNormal     , D.VelocityNormal) -- [60, [["Hihat", 217], ["LowTom", 59], ["HighTom", 43], ["Snare", 5], ["CrashL", 2]]]
-  RR_Crash1        -> (TD.CrashR   , TD.GemNormal     , D.VelocityNormal) -- [61, [["CrashR", 2922], ["CrashL", 228], ["Snare", 33], ["Hihat", 1]]]
-  RR_Tom1          -> (TD.Tom1     , TD.GemNormal     , D.VelocityNormal) -- [62, [["CrashR", 234], ["LowTom", 69], ["CrashL", 31], ["Snare", 20], ["HighTom", 6]]]
-  RR_Ride          -> (TD.Ride     , TD.GemNormal     , D.VelocityNormal) -- [63, [["CrashR", 1440], ["Hihat", 70], ["Snare", 8], ["CrashL", 6]]]
-  RR_China         -> (TD.CrashR   , TD.GemNormal     , D.VelocityNormal) -- [64, [["CrashR", 146], ["CrashL", 126], ["Snare", 79], ["LowTom", 56], ["HighTom", 3], ["Hihat", 3]]]
-  RR_RideBell      -> (TD.Ride     , TD.GemNormal     , D.VelocityNormal) -- [65, [["CrashR", 196], ["LowTom", 66], ["CrashL", 8], ["Snare", 4], ["Hihat", 1]]]
-  RR_Tambourine    -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [66, [["CrashL", 3189], ["CrashR", 87], ["Hihat", 7]]]
-  RR_Splash        -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [67, [["CrashL", 187], ["HighTom", 2], ["CrashR", 1]]]
-  RR_Cowbell       -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [68, [["CrashL", 2100], ["CrashR", 60], ["Hihat", 2], ["Snare", 1]]]
-  RR_Crash2        -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [69, [["CrashL", 162], ["Kick", 10], ["HighTom", 2]]]
-  RR_Vibraslap     -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [70, [["CrashL", 352], ["CrashR", 72], ["Hihat", 6]]]
-  RR_Ride2         -> (TD.CrashL   , TD.GemNormal     , D.VelocityNormal) -- [71, [["CrashL", 36], ["Kick", 4]]]
+  RR_Kick          -> (ED.Kick     , ED.GemNormal     , D.VelocityNormal) -- [48, [["Kick", 23132], ["HighTom", 4], ["Snare", 4]]]
+  RR_HandClap      -> (ED.Hihat    , ED.GemNormal     , D.VelocityNormal) -- [49, [["Hihat", 734], ["Kick", 69], ["Snare", 27], ["LowTom", 1]]]
+  RR_Snare         -> (ED.Snare    , ED.GemNormal     , D.VelocityNormal) -- [50, [["Snare", 16995], ["HighTom", 4], ["CrashR", 2], ["LowTom", 1]]]
+  RR_SideStick     -> (ED.Snare    , ED.GemRim        , D.VelocityNormal) -- [51, [["Snare", 548], ["Hihat", 409], ["CrashR", 59]]]
+  RR_ElectricSnare -> (ED.Snare    , ED.GemNormal     , D.VelocityNormal) -- [52, [["Snare", 31], ["LowTom", 30], ["Hihat", 27], ["HighTom", 24]]]
+  RR_Tom6          -> (ED.Tom3     , ED.GemNormal     , D.VelocityNormal) -- [53, [["Hihat", 304], ["LowTom", 298], ["Snare", 60]]]
+  RR_HihatClosed   -> (ED.Hihat    , ED.GemHihatClosed, D.VelocityNormal) -- [54, [["Hihat", 7161], ["LowTom", 10], ["HighTom", 9], ["CrashL", 6], ["Kick", 1]]]
+  RR_Tom5          -> (ED.Tom3     , ED.GemNormal     , D.VelocityNormal) -- [55, [["LowTom", 1766], ["Hihat", 188], ["HighTom", 82], ["Snare", 3], ["CrashR", 2]]]
+  RR_HihatPedal    -> (ED.HihatFoot, ED.GemNormal     , D.VelocityNormal) -- [56, [["Hihat", 4901], ["CrashL", 37]]]
+  RR_Tom4          -> (ED.Tom2     , ED.GemNormal     , D.VelocityNormal) -- [57, [["HighTom", 1078], ["LowTom", 291], ["Kick", 9], ["Snare", 7]]]
+  RR_HihatOpen     -> (ED.Hihat    , ED.GemHihatOpen  , D.VelocityNormal) -- [58, [["Hihat", 5923], ["CrashR", 205], ["CrashL", 6]]]
+  RR_Tom3          -> (ED.Tom1     , ED.GemNormal     , D.VelocityNormal) -- [59, [["HighTom", 657], ["CrashR", 12], ["LowTom", 11], ["Snare", 2]]]
+  RR_Tom2          -> (ED.Tom1     , ED.GemNormal     , D.VelocityNormal) -- [60, [["Hihat", 217], ["LowTom", 59], ["HighTom", 43], ["Snare", 5], ["CrashL", 2]]]
+  RR_Crash1        -> (ED.CrashR   , ED.GemNormal     , D.VelocityNormal) -- [61, [["CrashR", 2922], ["CrashL", 228], ["Snare", 33], ["Hihat", 1]]]
+  RR_Tom1          -> (ED.Tom1     , ED.GemNormal     , D.VelocityNormal) -- [62, [["CrashR", 234], ["LowTom", 69], ["CrashL", 31], ["Snare", 20], ["HighTom", 6]]]
+  RR_Ride          -> (ED.Ride     , ED.GemNormal     , D.VelocityNormal) -- [63, [["CrashR", 1440], ["Hihat", 70], ["Snare", 8], ["CrashL", 6]]]
+  RR_China         -> (ED.CrashR   , ED.GemNormal     , D.VelocityNormal) -- [64, [["CrashR", 146], ["CrashL", 126], ["Snare", 79], ["LowTom", 56], ["HighTom", 3], ["Hihat", 3]]]
+  RR_RideBell      -> (ED.Ride     , ED.GemNormal     , D.VelocityNormal) -- [65, [["CrashR", 196], ["LowTom", 66], ["CrashL", 8], ["Snare", 4], ["Hihat", 1]]]
+  RR_Tambourine    -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [66, [["CrashL", 3189], ["CrashR", 87], ["Hihat", 7]]]
+  RR_Splash        -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [67, [["CrashL", 187], ["HighTom", 2], ["CrashR", 1]]]
+  RR_Cowbell       -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [68, [["CrashL", 2100], ["CrashR", 60], ["Hihat", 2], ["Snare", 1]]]
+  RR_Crash2        -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [69, [["CrashL", 162], ["Kick", 10], ["HighTom", 2]]]
+  RR_Vibraslap     -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [70, [["CrashL", 352], ["CrashR", 72], ["Hihat", 6]]]
+  RR_Ride2         -> (ED.CrashL   , ED.GemNormal     , D.VelocityNormal) -- [71, [["CrashL", 36], ["Kick", 4]]]
 
 data RRDrumDifficulty t = RRDrumDifficulty
   { rrdGems      :: RTB.T t (RRDrum, RRChannel) -- starting from 48. none of these should be RRC_Hidden
@@ -222,17 +222,17 @@ importRRDrums diffs = mempty
   , D.drumSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert diffs
   }
 
-importRRTrueDrums :: RRDrumDifficulty U.Beats -> TD.TrueDrumDifficulty U.Beats
-importRRTrueDrums rr = mempty
-  { TD.tdGems
-    = fmap (\gem -> (gem, TD.TBDefault, D.VelocityNormal))
+importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
+importRREliteDrums rr = mempty
+  { ED.tdGems
+    = fmap (\gem -> (gem, ED.TBDefault, D.VelocityNormal))
     $ RTB.mapMaybe (rrChannel7Lane . snd)
     $ rrdGems rr
   }
 
-importRRHiddenDrums :: RRDrumDifficulty U.Beats -> TD.TrueDrumDifficulty U.Beats
+importRRHiddenDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRRHiddenDrums rr
-  = TD.makeTrueDifficulty
+  = ED.makeEliteDifficulty
   $ fmap (rrDrumGuessTD . fst)
   $ RTB.merge (rrdGems rr) (rrdHidden rr)
 

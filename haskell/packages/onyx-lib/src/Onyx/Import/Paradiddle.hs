@@ -25,7 +25,7 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
 import           Onyx.MIDI.Read                   (mapTrack)
 import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
-import           Onyx.MIDI.Track.Drums.True
+import           Onyx.MIDI.Track.Drums.Elite
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Paradiddle
 import           Onyx.Project                     hiding (Difficulty (..))
@@ -36,7 +36,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
-paraToTrue :: Difficulty -> RLRR -> TrueDrumTrack U.Seconds
+paraToTrue :: Difficulty -> RLRR -> EliteDrumTrack U.Seconds
 paraToTrue diff rlrr = let
   ghostThreshold = rlrr.highwaySettings >>= \hs -> do
     guard $ fromMaybe False hs.ghostNotes
@@ -74,7 +74,7 @@ paraToTrue diff rlrr = let
   flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick) gems
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
-    { tdDifficulties = Map.singleton diff TrueDrumDifficulty
+    { tdDifficulties = Map.singleton diff EliteDrumDifficulty
       { tdGems        = fmap (\(gem, vel) -> (gem, TBDefault, vel)) gemsNoDupe
       , tdKick2       = RTB.empty -- TODO kick flams
       , tdFlam        = flams
@@ -150,7 +150,7 @@ importParadiddle diffs level = do
           , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
           , F.s_tracks = mempty
             { F.onyxParts = Map.singleton F.FlexDrums mempty
-              { F.onyxPartTrueDrums = mapTrack (U.unapplyTempoTrack tmap)
+              { F.onyxPartEliteDrums = mapTrack (U.unapplyTempoTrack tmap)
                 $ mconcat $ true : lowerDiffs
               }
             }

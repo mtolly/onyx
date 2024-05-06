@@ -36,7 +36,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Key (..),
 import qualified Onyx.MIDI.Common                 as RB
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.True       as TD
+import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -153,7 +153,7 @@ data DrumResult = DrumResult
   , hasRBMarks :: Bool -- True if `other` includes correct tom markers and mix events
   , source     :: T.Text
   , autochart  :: Bool
-  , trueDrums  :: Maybe (TD.TrueDrumTrack U.Beats)
+  , trueDrums  :: Maybe (ED.EliteDrumTrack U.Beats)
   }
 
 data DrumTarget
@@ -168,10 +168,10 @@ type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 nativeDrums :: Part f -> Maybe BuildDrums
 nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
-  src1x   =                                         F.onyxPartDrums       input.part
-  src2x   =                                         F.onyxPartDrums2x     input.part
-  srcReal = D.psRealToPro                         $ F.onyxPartRealDrumsPS input.part
-  srcTrue = snd $ TD.convertTrueDrums input.tempo $ F.onyxPartTrueDrums   input.part
+  src1x   =                                          F.onyxPartDrums       input.part
+  src2x   =                                          F.onyxPartDrums2x     input.part
+  srcReal = D.psRealToPro                          $ F.onyxPartRealDrumsPS input.part
+  srcTrue = snd $ ED.convertEliteDrums input.tempo $ F.onyxPartEliteDrums  input.part
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -237,7 +237,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , autochart = False
     , trueDrums = do
       guard $ pd.mode == DrumsTrue
-      Just $ F.onyxPartTrueDrums input.part
+      Just $ F.onyxPartEliteDrums input.part
     }
 
 anyDrums :: Part f -> Maybe BuildDrums
@@ -258,8 +258,8 @@ buildDrumAnimation pd tmap opart = let
   in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
-      DrumsTrue -> inRealTime (TD.trueDrumsToAnimation closeTime)
-        $ TD.getDifficulty (Just Expert) $ F.onyxPartTrueDrums opart
+      DrumsTrue -> inRealTime (ED.eliteDrumsToAnimation closeTime)
+        $ ED.getDifficulty (Just Expert) $ F.onyxPartEliteDrums opart
       -- TODO this could be made better for modes other than pro
       _ -> inRealTime (D.autoDrumAnimation closeTime)
         $ fmap fst $ D.computePro (Just Expert)

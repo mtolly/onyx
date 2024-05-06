@@ -29,7 +29,7 @@ audio:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       difficulty: 7
       kicks: 1
   bass:

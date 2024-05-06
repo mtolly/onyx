@@ -32,7 +32,7 @@ parts:
     drums:
       difficulty: 6
       kicks: both
-      mode: 'true'
+      mode: elite
   bass:
     grybo:
       difficulty: 4

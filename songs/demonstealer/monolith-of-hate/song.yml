@@ -44,7 +44,7 @@ plans:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
       difficulty: 7
 targets:

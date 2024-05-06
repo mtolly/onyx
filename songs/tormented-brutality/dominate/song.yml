@@ -12,7 +12,7 @@ metadata:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
       difficulty: 6
   bass:

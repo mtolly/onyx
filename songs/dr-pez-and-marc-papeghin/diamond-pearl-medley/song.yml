@@ -40,7 +40,7 @@ parts:
         base: bass-5
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: both
 metadata:
   title: Pokémon Diamond & Pearl Music Medley

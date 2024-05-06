@@ -33,7 +33,7 @@ import           Onyx.Guitar
 import           Onyx.MIDI.Common
 import qualified Onyx.MIDI.Track.Beat             as Beat
 import qualified Onyx.MIDI.Track.Drums            as D
-import qualified Onyx.MIDI.Track.Drums.True       as TD
+import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import           Onyx.MIDI.Track.Events           (eventsCoda, eventsSections)
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
@@ -59,7 +59,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums DrumMode (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (TD.TrueDrumNote TD.FlamStatus) TD.TrueGem)))
+  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (ED.EliteDrumNote ED.FlamStatus) ED.EliteGem)))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
@@ -206,7 +206,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     drumSrc   = maybe mempty F.onyxPartDrums   $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
     drumSrc2x = maybe mempty F.onyxPartDrums2x $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
     thisSrc = if pdrums.mode == DrumsTrue && D.nullDrums drumSrc && D.nullDrums drumSrc2x
-      then maybe mempty (snd . TD.convertTrueDrums tempos . F.onyxPartTrueDrums)
+      then maybe mempty (snd . ED.convertEliteDrums tempos . F.onyxPartEliteDrums)
         $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
       else case diff of
         Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
@@ -256,34 +256,34 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
 
   drumTrackTrue fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
-    thisSrc = maybe mempty F.onyxPartTrueDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
-    thisDiff = TD.getDifficulty diff thisSrc
-    drumMap :: Map.Map Double [TD.TrueDrumNote TD.FlamStatus]
+    thisSrc = maybe mempty F.onyxPartEliteDrums $ Map.lookup fpart $ F.onyxParts $ F.s_tracks song
+    thisDiff = ED.getDifficulty diff thisSrc
+    drumMap :: Map.Map Double [ED.EliteDrumNote ED.FlamStatus]
     drumMap = rtbToMap $ RTB.collectCoincident thisDiff
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
-      Nothing   -> (TD.tdActivation thisSrc, RTB.empty)
+      Nothing   -> (ED.tdActivation thisSrc, RTB.empty)
       Just coda ->
-        ( U.trackTake coda $ TD.tdActivation thisSrc
-        , RTB.delay coda $ U.trackDrop coda $ TD.tdActivation thisSrc
+        ( U.trackTake coda $ ED.tdActivation thisSrc
+        , RTB.delay coda $ U.trackDrop coda $ ED.tdActivation thisSrc
         )
     maxSolidOpenTime = 1   :: U.Seconds
     fadeOpenTime     = 0.5 :: U.Seconds
     hihatEvents
       = RTB.collectCoincident
-      $ RTB.mapMaybe (\tdn -> case TD.tdn_gem tdn of
-        TD.HihatFoot
-          | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventSplash
+      $ RTB.mapMaybe (\tdn -> case ED.tdn_gem tdn of
+        ED.HihatFoot
+          | ED.tdn_type tdn == ED.GemHihatOpen   -> Just HihatEventSplash
           | otherwise                            -> Just HihatEventStomp
-        TD.Hihat
-          | TD.tdn_type tdn == TD.GemHihatClosed -> Just HihatEventHitClosed
-          | TD.tdn_type tdn == TD.GemHihatOpen   -> Just HihatEventHitOpen
+        ED.Hihat
+          | ED.tdn_type tdn == ED.GemHihatClosed -> Just HihatEventHitClosed
+          | ED.tdn_type tdn == ED.GemHihatOpen   -> Just HihatEventHitOpen
         _                                        -> Nothing
         ) thisDiff
     stomps = Map.union notatedStomps implicitStomps -- Map.union prefers left values in conflict
     notatedStomps
       = rtbToMap
       $ fmap (const $ Just PNF.TrueHihatStompNotated)
-      $ RTB.filter (\tdn -> TD.tdn_gem tdn == TD.HihatFoot) thisDiff
+      $ RTB.filter (\tdn -> ED.tdn_gem tdn == ED.HihatFoot) thisDiff
     implicitStomps
       = rtbToMapSecs
       $ makeImplicitStomps
@@ -322,7 +322,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       RNil -> RNil
     drumStates = (\((((a, b), c), d), e) -> PNF.TrueDrumState a b c d e) <$> do
       (Set.fromList <$> drumMap)
-        `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ TD.tdLanes thisSrc)
+        `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ ED.tdLanes thisSrc)
         `PNF.zipStateMaps` toggle acts
         `PNF.zipStateMaps` stomps
         `PNF.zipStateMaps` openZones
@@ -331,9 +331,9 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       guard $ not $ diff == Nothing && pdrums.kicks == Kicks1x
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         drumStates
-          `PNF.zipStateMaps` toggle (TD.tdOverdrive thisSrc)
+          `PNF.zipStateMaps` toggle (ED.tdOverdrive thisSrc)
           `PNF.zipStateMaps` toggle bres
-          `PNF.zipStateMaps` toggle (TD.tdSolo thisSrc)
+          `PNF.zipStateMaps` toggle (ED.tdSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
   fiveTrack diff result = let
@@ -594,8 +594,8 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
               Nothing -> []
               Just trkTrue ->
                 [ ( case fpart of
-                    F.FlexDrums -> "True Drums (" <> letter <> ")"
-                    _           -> displayPartName fpart <> " [True Drums] (" <> letter <> ")"
+                    F.FlexDrums -> "Elite Drums (" <> letter <> ")"
+                    _           -> displayPartName fpart <> " [Elite Drums] (" <> letter <> ")"
                   , PreviewDrumsTrue pdrums.trueLayout trkTrue
                   )
                 ]

@@ -38,5 +38,5 @@ plans:
 parts:
   drums:
     drums:
-      mode: 'true'
+      mode: elite
       kicks: 1
