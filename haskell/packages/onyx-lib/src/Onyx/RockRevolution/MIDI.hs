@@ -250,29 +250,25 @@ data SectionMarker
   | SectionOutro       -- 71
   deriving (Eq, Show)
 
-importRRSections :: [T.Text] -> RTB.T t SectionMarker -> RTB.T t T.Text
-importRRSections strings = let
-  go prev = \case
-    RNil -> RNil
-    Wait t sect rest -> let
-      name = case sect of
-        SectionIntro       -> "Intro"
-        SectionVerse       -> "Verse"
-        SectionChorus      -> "Chorus"
-        SectionBridge      -> "Bridge"
-        SectionMiddleEight -> "Middle Eight"
-        SectionGuitarSolo  -> "Guitar Solo"
-        SectionCustom n    -> case drop (n + 2) strings of
-          []    -> "Custom Section " <> T.singleton (['A'..] !! n)
-          s : _ -> T.strip s
-        SectionOutro       -> "Outro"
-      numbered = if any (== sect) prev || any (== sect) rest
-        then name <> " " <> T.pack (show $ length (filter (== sect) prev) + 1)
-        else name
-      in Wait t numbered $ go (sect : prev) rest
-  in go []
+importRRSections :: [T.Text] -> RTB.T t (SectionMarker, Maybe Int) -> RTB.T t T.Text
+importRRSections strings = fmap $ \(sect, num) -> let
+  name = case sect of
+    SectionIntro       -> "Intro"
+    SectionVerse       -> "Verse"
+    SectionChorus      -> "Chorus"
+    SectionBridge      -> "Bridge"
+    SectionMiddleEight -> "Middle Eight"
+    SectionGuitarSolo  -> "Guitar Solo"
+    SectionCustom n    -> case drop (n + 2) strings of
+      []    -> "Custom Section " <> T.singleton (['A'..] !! n)
+      s : _ -> T.strip s
+    SectionOutro       -> "Outro"
+  numbered = case num of
+    Just n  -> name <> " " <> T.pack (show n)
+    Nothing -> name
+  in numbered
 
-makeRRSections :: RTB.T t Section -> (RTB.T t SectionMarker, [T.Text])
+makeRRSections :: RTB.T t Section -> (RTB.T t (SectionMarker, Maybe Int), [T.Text])
 makeRRSections sects = let
   stripNumberLetter t = case reverse $ T.words t of
     x : xs | isNumberLetter x -> T.unwords $ reverse xs
@@ -300,7 +296,13 @@ makeRRSections sects = let
   markers = flip fmap decideCustom $ \case
     Left  s      -> s
     Right custom -> SectionCustom $ fromMaybe (maxCustomSections - 1) $ elemIndex custom customList
-  in (markers, customList)
+  addNumbers _    RNil            = RNil
+  addNumbers prev (Wait t x rest) = let
+    num = case (length $ filter (== x) prev, any (== x) rest) of
+      (0, False) -> Nothing
+      (n, _    ) -> Just $ n + 1
+    in Wait t (x, num) $ addNumbers (x : prev) rest
+  in (addNumbers [] markers, customList)
 
 data RRControl t = RRControl
   { rrcAnimDrummer   :: RTB.T t Int -- DrummerSignalRuleActions.lua, (Male|Female)DrummerAnimations.lua
@@ -312,7 +314,7 @@ data RRControl t = RRControl
   , rrcGemsBass      :: RTB.T t (Edge () Five.Color)
   , rrcVenue         :: RTB.T t Int -- v0006_002.lua
   , rrcEnd           :: RTB.T t ()
-  , rrcSections      :: RTB.T t SectionMarker -- a0041.lua says: "-- SongSections set up in Album.cpp"
+  , rrcSections      :: RTB.T t (SectionMarker, Maybe Int) -- a0041.lua says: "-- SongSections set up in Album.cpp"
   , rrcBeat          :: RTB.T t (Maybe BeatEvent)
   } deriving (Show)
 
@@ -322,8 +324,12 @@ readRRControl trk = let
   getChannelBlips chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
     guard $ c == chan && isJust mv
     return p
+  getChannelBlipsVelocity chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
+    guard $ c == chan
+    v <- mv
+    return (p, v)
   chan14 = getChannelBlips 14
-  chan15 = getChannelBlips 15
+  chan15 = getChannelBlipsVelocity 15
   getGBAnim chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
     guard $ c == chan
     color <- lookup p [(72, Five.Green), (73, Five.Red), (74, Five.Yellow), (75, Five.Blue), (76, Five.Orange)]
@@ -341,17 +347,19 @@ readRRControl trk = let
     , rrcGemsBass      = force $ getGBAnim 13
     , rrcVenue         = force $ RTB.filter (/= 126) chan14
     , rrcEnd           = force $ void $ RTB.filter (== 126) chan14
-    , rrcSections      = force $ flip RTB.mapMaybe chan15 $ \case
-      48                     -> Just SectionIntro
-      49                     -> Just SectionVerse
-      50                     -> Just SectionChorus
-      51                     -> Just SectionBridge
-      52                     -> Just SectionMiddleEight
-      53                     -> Just SectionGuitarSolo
-      n | 54 <= n && n <= 70 -> Just $ SectionCustom $ n - 54
-      71                     -> Just SectionOutro
-      _                      -> Nothing
-    , rrcBeat          = force $ flip RTB.mapMaybe chan15 $ \case
+    , rrcSections      = force $ flip RTB.mapMaybe chan15 $ \(p, v) -> do
+      sect <- case p of
+        48                     -> Just SectionIntro
+        49                     -> Just SectionVerse
+        50                     -> Just SectionChorus
+        51                     -> Just SectionBridge
+        52                     -> Just SectionMiddleEight
+        53                     -> Just SectionGuitarSolo
+        n | 54 <= n && n <= 70 -> Just $ SectionCustom $ n - 54
+        71                     -> Just SectionOutro
+        _                      -> Nothing
+      return (sect, guard (v /= 100) >> Just v)
+    , rrcBeat          = force $ flip RTB.mapMaybe chan15 $ \(p, _) -> case p of
       96  -> Just $ Just Bar
       98  -> Just $ Just Beat
       100 -> Just Nothing
@@ -395,23 +403,30 @@ showRRControl rrc = foldr RTB.merge RTB.empty
     EdgeOn () color -> makeEdgeCPV 13 (fromEnum color + 72) (Just 96)
     EdgeOff   color -> makeEdgeCPV 13 (fromEnum color + 72) Nothing
   , showBlips 14 $ RTB.merge rrc.rrcVenue (126 <$ rrc.rrcEnd)
-  , showBlips 15 $ RTB.merge
-    (sectionToPitch <$> rrc.rrcSections)
-    (beatToPitch <$> rrc.rrcBeat)
+  , RTB.merge
+    (showBlipsVelocity 15 $ sectionToPitch <$> rrc.rrcSections)
+    (showBlips         15 $ beatToPitch    <$> rrc.rrcBeat    )
   ] where
     showBlips chan
       = fmap makeEdge'
       . blipEdgesRBNice
       . fmap (\p -> (96, (chan, p), Nothing))
-    sectionToPitch = \case
-      SectionIntro       -> 48
-      SectionVerse       -> 49
-      SectionChorus      -> 50
-      SectionBridge      -> 51
-      SectionMiddleEight -> 52
-      SectionGuitarSolo  -> 53
-      SectionCustom n    -> 54 + n
-      SectionOutro       -> 71
+    showBlipsVelocity chan
+      = fmap makeEdge'
+      . blipEdgesRBNice
+      . fmap (\(p, v) -> (v, (chan, p), Nothing))
+    sectionToPitch (sect, num) = let
+      p = case sect of
+        SectionIntro       -> 48
+        SectionVerse       -> 49
+        SectionChorus      -> 50
+        SectionBridge      -> 51
+        SectionMiddleEight -> 52
+        SectionGuitarSolo  -> 53
+        SectionCustom n    -> 54 + n
+        SectionOutro       -> 71
+      v = fromMaybe 100 num
+      in (p, v)
     beatToPitch = \case
       Just Bar  -> 96
       Just Beat -> 98

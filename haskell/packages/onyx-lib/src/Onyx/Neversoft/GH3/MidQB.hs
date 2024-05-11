@@ -480,7 +480,7 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
       Nothing      -> 1
       Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
     bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) -> let
-      force' = force && null (drop 1 gems) -- can't force chords
+      force' = force && null (drop 1 gems) -- can't force chords (though gh3LegalHOPOs should force strum)
       in (if force' then bit 5 else 0) .|. case gem of
         Five.Green  -> bit 0
         Five.Red    -> bit 1

@@ -41,7 +41,8 @@ import           Onyx.Audio.FSB.FEV
 import           Onyx.Background
 import           Onyx.Build.Common
 import           Onyx.FFMPEG                       (ffSource)
-import           Onyx.Guitar                       (noExtendedSustains',
+import           Onyx.Guitar                       (gh3LegalHOPOs,
+                                                    noExtendedSustains',
                                                     noOpenNotes,
                                                     standardBlipThreshold)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
@@ -53,6 +54,7 @@ import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     blipEdgesRB_, pattern RNil,
                                                     pattern Wait)
 import           Onyx.MIDI.Read
+import           Onyx.MIDI.Track.Beat              (BeatTrack (..))
 import qualified Onyx.MIDI.Track.Drums             as D
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
@@ -275,7 +277,8 @@ rrRules buildInfo dir rr = do
         , rrcVenue         = camera
         , rrcEnd           = eventsEnd $ F.onyxEvents $ F.s_tracks mid
         , rrcSections      = sections
-        , rrcBeat          = RTB.empty -- TODO
+        -- TODO add half-beats (do these even do anything?)
+        , rrcBeat          = fmap Just $ beatLines $ F.onyxBeat $ F.s_tracks mid
         }
       }
 
@@ -503,8 +506,6 @@ rrRules buildInfo dir rr = do
 
 makeRRFiveDifficulty :: FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RRFiveDifficulty U.Beats
 makeRRFiveDifficulty result gems = RRFiveDifficulty
-  -- TODO no hopo chords, need to turn into strum
-  -- TODO do repeated hopos work, like rb? or not, like neversoft gh
   { rrfStrums = blipEdgesRB_ $ flip RTB.mapMaybe processed $ \case
     ((color, Strum), len) -> Just (color, len)
     _                     -> Nothing
@@ -513,8 +514,9 @@ makeRRFiveDifficulty result gems = RRFiveDifficulty
     ((color, _    ), len) -> Just (color, len)
   , rrfSolo = RTB.empty -- added later
   } where
+    -- just use same hopo rules as GH3: no hopo chords, no repeated hopos
     processed = noOpenNotes result.settings.detectMutedOpens
-      $ noExtendedSustains' standardBlipThreshold gap gems
+      $ noExtendedSustains' standardBlipThreshold gap $ gh3LegalHOPOs gems
     gap = fromIntegral result.settings.sustainGap / 480
 
 makeRRFiveControl

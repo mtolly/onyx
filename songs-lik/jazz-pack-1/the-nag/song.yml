@@ -34,7 +34,7 @@ plans:
       mix:
       - countin
       - gain:
-        - 1.9
+        - 2.4
         - pad: [2.544, album-track]
   dev:
     song:
@@ -52,11 +52,8 @@ parts:
   drums:
     drums:
       difficulty: 7
-      kicks: 1
+      kicks: both # 2x only used in bre, so 1x RB version not needed
       kit: HardRockKit
-      # EDIT PROGRESS
-      # most of chart fixed (kicks, snares, rest)
-      # BRE TODO
   bass:
     grybo:
       difficulty: 7
@@ -80,6 +77,5 @@ targets:
     plan: album
   ps:
     game: ps
-    loading-phrase: "Original drum chart by TheLieInKing; other instruments and edits by Onyxite."
-    big-rock-ending: true # drums not charted
+    big-rock-ending: false # drums now charted
     plan: album

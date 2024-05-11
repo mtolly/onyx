@@ -43,6 +43,8 @@ makeBeatTrack mmap = go 0 where
     -- e.g. the sig must be at least 3.5 to get bar-beat-beat-beat.
     -- if it's 3.25, then you would get a beat 0.25 before the next bar,
     -- which Magma doesn't like...
+    -- TODO we may want to tweak this so 3.5 results in bar-beat-beat.
+    -- better animations and closer to harmonix songs
     thisMeasure = U.trackTake (fromInteger $ simpleRound len) infiniteMeasure
     -- simpleRound always rounds 0.5 up,
     -- unlike round which rounds to the nearest even number.

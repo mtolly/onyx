@@ -21,6 +21,7 @@ import           Control.Monad.IO.Class       (MonadIO (..))
 import           Control.Monad.Trans.Resource (register, runResourceT)
 import           Data.Bifunctor               (bimap)
 import qualified Data.ByteString              as B
+import           Data.Fixed                   (Fixed (..), Milli)
 import           Data.Foldable                (toList, traverse_)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
@@ -2674,14 +2675,23 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg use
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   forM_ previewSong $ \psong -> let
     songLength = U.applyTempoMap (previewTempo psong) $ timingEnd $ previewTiming psong
-    currentMB = showPosition (previewMeasures psong)
-      $ U.unapplyTempoMap (previewTempo psong) $ realToFrac time
+    currentBeats = U.unapplyTempoMap (previewTempo psong) (realToFrac time :: U.Seconds)
+    currentMB = showPosition (previewMeasures psong) currentBeats
     lengthMB = showPosition (previewMeasures psong) $ timingEnd $ previewTiming psong
-    in drawTimeBox glStuff dims $ concat
-      [ [showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength]
-      , [T.pack $ currentMB <> " / " <> lengthMB]
-      , toList $ fmap snd $ Map.lookupLE time $ previewSections psong
-      ]
+    currentBPM = realToFrac (U.getTempoAtTime (previewTempo psong) currentBeats) * 60 * realToFrac speed :: Rational
+    -- round into Fixed type, rather than realToFrac which uses floor
+    bpmMilli = MkFixed $ round $ currentBPM * 1000 :: Milli
+    bpmNumSpaces
+      | bpmMilli < 10   = 3
+      | bpmMilli < 100  = 2
+      | bpmMilli < 1000 = 1
+      | otherwise       = 0
+    bpmString = "BPM:" <> replicate bpmNumSpaces ' ' <> show bpmMilli
+    in drawTimeBox glStuff dims $
+      [ showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength
+      , T.pack $ currentMB <> " / " <> lengthMB
+      , T.pack bpmString
+      ] <> toList (fmap snd $ Map.lookupLE time $ previewSections psong)
 
   glDepthFunc GL_LESS
   glClear GL_DEPTH_BUFFER_BIT

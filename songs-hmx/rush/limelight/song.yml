@@ -30,7 +30,8 @@ plans:
     vols: [-1, -1, -1.3, -3, -3, -3, -3, -4, -4]
   mogg-stemless:
     parts: {}
-    pans: [-1, 1, 0, -1, 1, -1, 1, -1, 1]
+    # flipping pans for drums
+    pans: [1, -1, 0, 1, -1, 1, -1, 1, -1]
     file-mogg: limelight2.mogg
     multitrack: false
     vols: [-1, -1, -1.3, -3, -3, -3, -3, -4, -4]
@@ -47,7 +48,7 @@ targets:
   ps:
     game: ps
     plan: mogg-stemless
-    loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band DLC by Harmonix."
+    # loading-phrase: "Edited drum chart and 2x upgrade by Onyxite, original chart from Rock Band DLC by Harmonix."
     big-rock-ending: false # drums now charted
 metadata:
   rating: FamilyFriendly

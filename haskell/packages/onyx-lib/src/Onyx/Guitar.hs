@@ -458,17 +458,20 @@ noOpenNotesOldAlgorithm = let
   in openGreen . rev . fixForward . rev . fixForward
 
 -- | For GH3, turns taps into HOPOs, and then turns repeated HOPOs into strums
--- since they don't work played as HOPOs.
+-- since they don't work played as HOPOs. Also removes HOPO chords.
 gh3LegalHOPOs :: (NNC.C t, Ord color) => RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
 gh3LegalHOPOs = RTB.flatten . go . RTB.collectCoincident . noTaps where
   getColors = sort . map (fst . fst)
+  toStrum group = [ ((color, Strum), len) | ((color, _), len) <- group ]
   go = \case
-    Wait t1 group1 (Wait t2 group2 rest) -> Wait t1 group1 $
-      if getColors group1 == getColors group2
-        then let
-          group2Strum = [ ((color, Strum), len) | ((color, _), len) <- group2 ]
-          in go $ Wait t2 group2Strum rest
-        else go $ Wait t2 group2      rest
+    Wait t1 group1 (Wait t2 group2 rest) -> let
+      group1' = if null $ drop 1 group1
+        then group1
+        else toStrum group1 -- remove hopo chord
+      group2' = if getColors group1 == getColors group2
+        then toStrum group2 -- remove repeated note hopo
+        else group2
+      in Wait t1 group1' $ go $ Wait t2 group2' rest
     lessThan2 -> lessThan2
 
 -- | Turns all tap notes into HOPO notes.
