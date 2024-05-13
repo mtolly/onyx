@@ -204,6 +204,8 @@ rrRules buildInfo dir rr = do
           VenueTargetRB3
           -- TODO filter out based on which parts have notes
           (Map.fromList [(Guitar, rr.guitar), (Bass, rr.bass), (Drums, rr.drums)])
+          mid.s_tempos
+          endTime
           mid
         camera = RTB.mapMaybe (listToMaybe . catMaybes)
           $ flip evalRand (mkStdGen $ hash key)
