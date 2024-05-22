@@ -3535,7 +3535,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          let warnRR = warn "TODO rock rev warning text here"
+          let warnRR = warn "All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use \"Quick Convert > RR renumber\" to reassign IDs."
           case creator of
             RRLIVE fout -> do
               tmp <- buildRRLIVE target proj'

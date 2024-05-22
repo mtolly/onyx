@@ -1,0 +1,13 @@
+cabal-version:  2.2
+name:           onyx-fluent
+version:        0.1
+build-type:     Simple
+
+library
+  exposed-modules:
+    Text.Fluent.Syntax
+  hs-source-dirs:
+    src
+  ghc-options: -Wall
+  build-depends: base, bytestring, text, megaparsec
+  default-language: Haskell2010
