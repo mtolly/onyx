@@ -1,10 +1,13 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Text.Fluent.Syntax where
 
 import           Control.Monad   (guard, replicateM)
 import           Data.Foldable   (toList)
 import           Data.Functor    (void)
-import           Data.Maybe      (fromMaybe, isJust)
+import           Data.Maybe      (fromMaybe, isJust, mapMaybe)
+import           Data.Scientific (Scientific)
+import           Data.String     (IsString (..))
 import qualified Data.Text       as T
 import           Data.Void       (Void)
 import           Text.Megaparsec
@@ -50,21 +53,21 @@ resource = many
   <|>      fmap Junk       junk
 
 data Entry
-  = EMessage Message
-  | ETerm Term
+  = EMessage Identifier Message
+  | ETerm    Identifier Term
   | ECommentLine T.Text
   deriving (Show)
 
 entry :: Parser Entry
 entry
-  =   try (fmap EMessage     (message <* line_end))
-  <|> try (fmap ETerm        (term    <* line_end))
-  <|>      fmap ECommentLine commentLine
+  =   try (fmap (uncurry EMessage) (message <* line_end))
+  <|> try (fmap (uncurry ETerm   ) (term    <* line_end))
+  <|>      fmap ECommentLine       commentLine
 
-data Message = Message Identifier (Maybe Pattern) [Attribute]
+data Message = Message (Maybe Pattern) [Attribute]
   deriving (Show)
 
-message :: Parser Message
+message :: Parser (Identifier, Message)
 message = do
   ident <- identifier
   void $ optional blank_inline
@@ -72,14 +75,15 @@ message = do
   void $ optional blank_inline
   element1 <- try (Left <$> pattern) <|> (Right <$> attribute)
   rest <- many $ try attribute
-  return $ Message ident
+  return (ident, Message
     (case element1 of Left pat -> Just pat; _ -> Nothing)
     (case element1 of Left _ -> rest; Right attr -> attr : rest)
+    )
 
-data Term = Term Identifier Pattern [Attribute]
+data Term = Term Pattern [Attribute]
   deriving (Show)
 
-term :: Parser Term
+term :: Parser (Identifier, Term)
 term = do
   void $ single '-'
   ident <- identifier
@@ -88,7 +92,7 @@ term = do
   void $ optional blank_inline
   pat <- pattern
   attrs <- many $ try attribute
-  return $ Term ident pat attrs
+  return (ident, Term pat attrs)
 
 commentLine :: Parser T.Text
 commentLine = do
@@ -137,7 +141,20 @@ attribute = do
 type Pattern = [PatternElement]
 
 pattern :: Parser Pattern
-pattern = many1 $ try patternElement
+pattern = do
+  els <- many1 $ try patternElement
+  -- remove common leading space from block lines
+  let spaceLengths = flip mapMaybe els $ \case
+        BlockText      s   -> Just $ T.length $ T.takeWhile (== ' ') s
+        BlockPlaceable s _ -> Just $ T.length $ T.takeWhile (== ' ') s
+        _                  -> Nothing
+      dropSpaces = case spaceLengths of
+        n : ns -> T.drop $ foldr min n ns
+        []     -> id
+  return $ flip map els $ \case
+    BlockText      s   -> BlockText      (dropSpaces s)
+    BlockPlaceable s x -> BlockPlaceable (dropSpaces s) x
+    inline             -> inline
 
 data PatternElement
   = InlineText T.Text
@@ -186,9 +203,16 @@ data Expression
   | ESelect SelectExpression
   deriving (Show)
 
+data Value
+  = VString T.Text
+  | VNumber Scientific
+  deriving (Eq, Show)
+
+instance IsString Value where
+  fromString = VString . T.pack
+
 data InlineExpression
-  = IString T.Text
-  | INumber T.Text
+  = IValue Value
   | IFunction Identifier [Argument]
   | IMessage Identifier (Maybe T.Text)
   | ITerm Identifier (Maybe T.Text) (Maybe [Argument])
@@ -198,13 +222,17 @@ data InlineExpression
 
 inlineExpression :: Parser InlineExpression
 inlineExpression
-  = try (fmap IString stringLiteral)
-  <|> try (fmap INumber numberLiteral)
+  =   try (fmap IValue valueLiteral)
   <|> try functionReference
   <|> try messageReference
   <|> try termReference
   <|> try variableReference
   <|> fmap IPlaceable inline_placeable
+
+valueLiteral :: Parser Value
+valueLiteral
+  =   fmap VString stringLiteral
+  <|> fmap VNumber numberLiteralScientific
 
 stringLiteral :: Parser T.Text
 stringLiteral = do
@@ -212,6 +240,9 @@ stringLiteral = do
   cs <- many $ try quoted_char
   void "\""
   return $ T.pack cs
+
+numberLiteralScientific :: Parser Scientific
+numberLiteralScientific = read . T.unpack <$> numberLiteral
 
 numberLiteral :: Parser T.Text
 numberLiteral = pieces
@@ -252,7 +283,7 @@ attributeAccessor :: Parser T.Text
 attributeAccessor = "." >> identifier
 
 data Argument
-  = NamedArgument Identifier T.Text
+  = NamedArgument Identifier Value
   | InlineArgument InlineExpression
   deriving (Show)
 
@@ -286,7 +317,7 @@ namedArgument = do
   void $ optional blank'
   void ":"
   void $ optional blank'
-  x <- stringLiteral <|> numberLiteral
+  x <- valueLiteral
   return $ NamedArgument ident x
 
 data SelectExpression = SelectExpression InlineExpression VariantList
@@ -312,7 +343,7 @@ variant_list = do
   void line_end
   return $ VariantList vars1 dv vars2
 
-data Variant = Variant T.Text Pattern
+data Variant = Variant (Either Scientific T.Text) Pattern
   deriving (Show)
 
 variant :: Parser Variant
@@ -334,11 +365,11 @@ defaultVariant = do
   pat <- pattern
   return $ Variant k pat
 
-variantKey :: Parser T.Text
+variantKey :: Parser (Either Scientific T.Text)
 variantKey = do
   void "["
   void $ optional blank'
-  x <- numberLiteral <|> identifier
+  x <- fmap Left numberLiteralScientific <|> fmap Right identifier
   void $ optional blank'
   void "]"
   return x
