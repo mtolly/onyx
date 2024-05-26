@@ -14,6 +14,7 @@ import           Data.Scientific
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
 import           System.Info            (os)
+import           Text.Fluent.Locale
 import           Text.Fluent.Syntax
 import           Text.Megaparsec
 import           Text.Read              (readMaybe)
@@ -21,7 +22,8 @@ import           Text.Read              (readMaybe)
 data Fluent = Fluent
   { messages :: HM.HashMap Identifier Message
   , terms    :: HM.HashMap Identifier Term
-  } deriving (Show)
+  , plural   :: PluralRule
+  }
 
 loadFTL :: (MonadIO m, MonadFail m) => FilePath -> m Fluent
 loadFTL f = do
@@ -31,6 +33,7 @@ loadFTL f = do
     Right res -> return Fluent
       { messages = HM.fromList [ (i, x) | Entry (EMessage i x) <- res ]
       , terms    = HM.fromList [ (i, x) | Entry (ETerm    i x) <- res ]
+      , plural   = fromMaybe (const PluralOther) $ HM.lookup "en" pluralRules -- TODO load locale
       }
 
 getMessage :: Identifier -> HM.HashMap Identifier Value -> Fluent -> Maybe (T.Text, [(Identifier, T.Text)])
@@ -42,17 +45,11 @@ getMessage k args fluent = HM.lookup k fluent.messages >>= \(Message pat attrs) 
   in Just (result, attrResults)
 
 runPattern :: HM.HashMap Identifier Value -> Pattern -> Fluent -> T.Text
-runPattern args pat fluent = let
-  str = T.concat $ concat $ flip map pat $ \case
-    InlineText      t   -> [t]
-    BlockText       t   -> ["\n", t]
-    InlinePlaceable   x -> [runExpression args x fluent]
-    BlockPlaceable  t x -> ["\n", t, runExpression args x fluent]
-  in case pat of
-    -- remove first newline before block (text/placeable) if it's first pattern element
-    BlockText     {} : _ -> T.drop 1 str
-    BlockPlaceable{} : _ -> T.drop 1 str
-    _                    -> str
+runPattern args pat fluent = T.concat $ zip [0 :: Int ..] pat >>= \(i, pe) -> case pe of
+  InlineText      t   -> [t]
+  BlockText       t   -> ["\n" | i /= 0] <> [t]
+  InlinePlaceable   x -> [runExpression args x fluent]
+  BlockPlaceable  t x -> ["\n" | i /= 0] <> [t, runExpression args x fluent]
 
 runExpression :: HM.HashMap Identifier Value -> Expression -> Fluent -> T.Text
 runExpression args x fluent = case runExpressionValue args x fluent of
@@ -103,13 +100,19 @@ runExpressionValue args x fluent = case x of
     objNumber = case obj of
       VNumber n -> Just n
       VString s -> readMaybe $ T.unpack s
+    objPlural = fmap fluent.plural objNumber
     variants = vs1 <> [vdef] <> vs2
     matchVariant (Variant matcher pat) = do
       guard $ case matcher of
         Left  num   -> objNumber == Just num
         Right ident -> obj == VString ident || case ident of
-          -- TODO plural categories, per locale
-          _ -> False
+          "zero"  -> objPlural == Just PluralZero
+          "one"   -> objPlural == Just PluralOne
+          "two"   -> objPlural == Just PluralTwo
+          "few"   -> objPlural == Just PluralFew
+          "many"  -> objPlural == Just PluralMany
+          "other" -> objPlural == Just PluralOther
+          _       -> False
       Just $ runPattern args pat fluent
     in VString $ case mapMaybe matchVariant variants of
       [] -> case vdef of

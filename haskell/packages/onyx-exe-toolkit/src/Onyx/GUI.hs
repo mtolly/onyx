@@ -1136,6 +1136,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               tmp <- buildMagmaV2 tgt proj'
               copyDirRecursive tmp dout
               return [dout]
+      -- TODO warn here if they should use quick convert!
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
@@ -3389,6 +3390,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
+        -- TODO warn here if they should use quick convert!
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj

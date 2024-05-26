@@ -174,7 +174,7 @@ inline_text' = T.pack <$> many1 (try text_char)
 
 block_text :: Parser PatternElement
 block_text = do
-  void blank_block
+  void blank_block -- TODO we should be saving extra newlines here
   sp <- blank_inline
   c <- indented_char
   t <- optional inline_text'
@@ -194,7 +194,7 @@ inline_placeable' = do
 
 block_placeable :: Parser PatternElement
 block_placeable = do
-  void blank_block
+  void blank_block -- TODO we should be saving extra newlines here
   sp <- optional blank_inline
   BlockPlaceable (fromMaybe "" sp) <$> inline_placeable'
 
