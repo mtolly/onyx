@@ -1,9 +1,10 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiWayIf            #-}
-{-# LANGUAGE OverloadedRecordDot   #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE DuplicateRecordFields     #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MultiWayIf                #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedRecordDot       #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE TupleSections             #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import where
 
@@ -112,14 +113,15 @@ resourceTempDir = do
     (ignoringIOErrors . Dir.removePathForcibly)
 
 data Importable m = Importable
-  { impTitle   :: Maybe T.Text
-  , impArtist  :: Maybe T.Text
-  , impAuthor  :: Maybe T.Text
-  , impFormat  :: T.Text
-  , impPath    :: FilePath
-  , impIndex   :: Maybe Int
-  , impProject :: StackTraceT m Project
-  , imp2x      :: Bool -- True if only 2x bass pedal
+  { impTitle    :: Maybe T.Text
+  , impArtist   :: Maybe T.Text
+  , impAuthor   :: Maybe T.Text
+  , impFormat   :: T.Text
+  , impFormatRB :: Bool -- True if format is supported by RB Quick Convert
+  , impPath     :: FilePath
+  , impIndex    :: Maybe Int
+  , impProject  :: StackTraceT m Project
+  , imp2x       :: Bool -- True if only 2x bass pedal
   }
 
 findAllSongs :: (SendMessage m, MonadResource m)
@@ -180,6 +182,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           , impArtist = yml.metadata.artist
           , impAuthor = yml.metadata.author
           , impFormat = "Onyx"
+          , impFormatRB = False
           , impPath = dir
           , impIndex = Nothing
           , impProject = withYaml Nothing dir True Nothing loc
@@ -195,7 +198,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           [ case findFile ("songs" :| ["songs.dta"]) folder of
             Just _ -> do
               imps <- importSTFSFolder loc folder
-              foundImports "Rock Band (Xbox 360 CON/LIVE)" loc imps
+              foundImportsRB "Rock Band (Xbox 360 CON/LIVE)" loc imps
             Nothing -> return ([], [])
           , case findFile ("config" :| ["songs.dta"]) folder of
             Just _ -> do
@@ -231,7 +234,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             [ case findFile ("songs" :| ["songs.dta"]) folder of
               Just _ -> do
                 imps <- importSTFSFolder loc folder
-                foundImports "Rock Band (PS3 .pkg)" loc imps
+                foundImportsRB "Rock Band (PS3 .pkg)" loc imps
               Nothing -> return ([], [])
             , if any (\(name, _) -> ".PS3" `T.isSuffixOf` name) $ folderFiles folder
               then do
@@ -331,7 +334,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         foundImports "Guitar Hero III (extracted .sgh)" loc imps
       foundRagnarock loc = foundImport "Ragnaröck" loc $ importRagnarock loc
       foundParadiddle loc = foundImport "Paradiddle" loc $ importParadiddle $ NE.singleton (Expert, loc)
-      foundImports fmt path imports = do
+      foundImports = foundImports' False
+      foundImportsRB = foundImports' True
+      foundImports' isRB fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports $ \imp -> do
           errorToWarning (imp ImportQuick) >>= return . \case
@@ -345,6 +350,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             , impArtist = quick.metadata.artist
             , impAuthor = quick.metadata.author
             , impFormat = fmt
+            , impFormatRB = isRB
             , impPath = path
             , impIndex = index
             -- first, run "imp" before making the temp folder
@@ -379,7 +385,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               [] -> if hasRBDTA
                 then stackIO (crawlFolder fp)
                   >>= importSTFSFolder fp
-                  >>= foundImports "Rock Band Extracted" fp
+                  >>= foundImportsRB "Rock Band Extracted" fp
                 else if hasGHDTA
                   -- TODO this only works for xbox, not ps2
                   then stackIO (crawlFolder fp)
@@ -467,7 +473,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           _ -> do
             magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
             case magic of
-              "RBSF" -> foundImport "Magma RBA" fp $ importRBA fp
+              "RBSF" -> foundImportsRB "Magma RBA" fp [importRBA fp]
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
               _      -> return ([], [])

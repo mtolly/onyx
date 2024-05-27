@@ -54,7 +54,7 @@ batchPageRB3
   => (Event -> IO ())
   -> Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
+  -> (Bool -> (Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -80,7 +80,7 @@ batchPageRB3 sink rect tab build = do
         preset <- stackIO getPreset
         kicks <- stackIO getKicks
         newPreferences <- readPreferences
-        return $ \proj -> let
+        return (speed == 1, \proj -> let
           defRB3 = def :: TargetRB3 FilePath
           tgt = preset yaml defRB3
             { common = defRB3.common
@@ -119,21 +119,22 @@ batchPageRB3 sink rect tab build = do
               ]
             , yaml
             )
+          )
   makeTemplateRunner
     sink
     "Create Xbox 360 CON files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_rb3con")
-    (\template -> sink $ EventOnyx $ getTargetSong True RB3CON template >>= stackIO . build)
+    (\template -> sink $ EventOnyx $ getTargetSong True RB3CON template >>= \(qcPossible, x) -> stackIO $ build qcPossible x)
   makeTemplateRunner
     sink
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
-    (\template -> sink $ EventOnyx $ getTargetSong False RB3PKG template >>= stackIO . build)
+    (\template -> sink $ EventOnyx $ getTargetSong False RB3PKG template >>= \(qcPossible, x) -> stackIO $ build qcPossible x)
   makeTemplateRunner
     sink
     "Create Magma projects"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%_project")
-    (\template -> sink $ EventOnyx $ getTargetSong False RB3Magma template >>= stackIO . build)
+    (\template -> sink $ EventOnyx $ getTargetSong False RB3Magma template >>= \(_, x) -> stackIO $ build False x)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

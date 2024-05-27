@@ -47,7 +47,7 @@ songPageRB3
   -> Rectangle
   -> FL.Ref FL.Group
   -> Project
-  -> (TargetRB3 FilePath -> RB3Create -> IO ())
+  -> (Bool -> TargetRB3 FilePath -> RB3Create -> IO ())
   -> IO ()
 songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
@@ -112,6 +112,7 @@ songPageRB3 sink rect tab proj build = mdo
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- FL.buttonNew r1 $ Just "Create Xbox 360 CON file"
     FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
+      let qcPossible = fromMaybe 1 tgt.common.speed == 1
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 CON file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_rb3con" -- TODO add modifiers
@@ -121,10 +122,11 @@ songPageRB3 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> sink $ EventOnyx $ do
             newPreferences <- readPreferences
-            stackIO $ build tgt $ RB3CON $ trimXbox newPreferences f
+            stackIO $ build qcPossible tgt $ RB3CON $ trimXbox newPreferences f
         _ -> return ()
     btn2 <- FL.buttonNew r2 $ Just "Create PS3 PKG file"
     FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
+      let qcPossible = fromMaybe 1 tgt.common.speed == 1
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save RB3 PKG file"
       FL.setPresetFile picker $ T.pack $ projectTemplate proj <> ".pkg" -- TODO add modifiers
@@ -132,7 +134,7 @@ songPageRB3 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB3PKG $ if map toLower (takeExtension f) == ".pkg"
+          Just f  -> build qcPossible tgt $ RB3PKG $ if map toLower (takeExtension f) == ".pkg"
             then f
             else f <.> "pkg"
         _ -> return ()
@@ -149,7 +151,7 @@ songPageRB3 sink rect tab proj build = mdo
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
           Nothing -> return ()
-          Just f  -> build tgt $ RB3Magma f
+          Just f  -> build False tgt $ RB3Magma f
         _ -> return ()
     color <- taskColor
     FL.setColor btn1 color

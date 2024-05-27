@@ -25,18 +25,14 @@ import           Control.Concurrent                        (MVar, ThreadId,
                                                             forkIO, killThread,
                                                             modifyMVar,
                                                             modifyMVar_,
-                                                            newChan, newMVar,
-                                                            putMVar, readChan,
+                                                            newMVar, putMVar,
                                                             readMVar, takeMVar,
-                                                            withMVar, writeChan)
-import           Control.Concurrent.Async                  (async,
-                                                            waitAnyCancel)
+                                                            withMVar)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
-import           Control.Monad.Catch                       (catchIOError)
 import           Control.Monad.Extra                       (forM, forM_, guard,
                                                             unless, void, when,
                                                             (>=>))
@@ -46,8 +42,7 @@ import           Control.Monad.Trans.Class                 (lift)
 import           Control.Monad.Trans.Maybe                 (MaybeT (..))
 import           Control.Monad.Trans.Reader                (local, mapReaderT,
                                                             runReaderT)
-import           Control.Monad.Trans.Resource              (ResourceT, allocate,
-                                                            register, release,
+import           Control.Monad.Trans.Resource              (release,
                                                             runResourceT)
 import           Control.Monad.Trans.Writer                (execWriterT, tell)
 import qualified Data.Aeson                                as A
@@ -64,8 +59,7 @@ import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Int                                  (Int64)
-import           Data.IORef                                (IORef, newIORef,
-                                                            readIORef,
+import           Data.IORef                                (newIORef, readIORef,
                                                             writeIORef)
 import           Data.List.Extra                           (elemIndex, nubOrd)
 import qualified Data.List.NonEmpty                        as NE
@@ -78,7 +72,6 @@ import           Data.Maybe                                (catMaybes,
 import           Data.Monoid                               (Endo (..))
 import qualified Data.Text                                 as T
 import qualified Data.Text.Encoding                        as TE
-import           Data.Time                                 (getCurrentTime)
 import           Data.Time.Clock.System                    (SystemTime (..))
 import           Data.Version                              (showVersion)
 import           Data.Word                                 (Word32)
@@ -99,7 +92,6 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
-import qualified Network.Socket                            as Socket
 import           Numeric                                   (showHex)
 import           Onyx.Audio                                (Audio (..),
                                                             buildSource',
@@ -175,7 +167,6 @@ import           System.FilePath                           (dropExtension,
                                                             takeFileName,
                                                             (-<.>), (<.>),
                                                             (</>))
-import qualified System.FSNotify                           as FS
 import           System.Info                               (os)
 import           System.Random                             (randomIO)
 -- import qualified System.IO.Streams                         as Streams
@@ -187,6 +178,20 @@ import           Foreign                                   (intPtrToPtr)
 import           Graphics.Win32                            (loadIcon)
 import           System.Win32                              (HINSTANCE)
 #endif
+
+{-
+import           Control.Concurrent                        (newChan, readChan,
+                                                            writeChan)
+import           Control.Concurrent.Async                  (async,
+                                                            waitAnyCancel)
+import           Control.Monad.Catch                       (catchIOError)
+import           Control.Monad.Trans.Resource              (ResourceT, allocate,
+                                                            register)
+import           Data.IORef                                (IORef)
+import           Data.Time                                 (getCurrentTime)
+import qualified Network.Socket                            as Socket
+import qualified System.FSNotify                           as FS
+-}
 
 promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = do
@@ -262,7 +267,7 @@ continueImport makeMenuBar hasAudio imp = do
       withAudio song maybeAudio = stackIO $ sink $ EventOnyx $ do
         prefs <- readPreferences
         let ?preferences = prefs
-        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio albumArt
+        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio albumArt imp.impFormatRB
       selectPlan [] = withNoPlan
       selectPlan [k] = withPlan k
       selectPlan (k : ks) = stackIO $ sink $ EventIO $ do
@@ -418,8 +423,9 @@ launchWindow
   -> PreviewSong
   -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle)
   -> FilePath
+  -> Bool -- True if this song could be loaded by Quick Convert
   -> IO ()
-launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
+launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -1048,6 +1054,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
       stackIO $ sink $ EventIO $ mdo
         FL.begin pack
 
+        -- TODO when we add localization support, need to support different separators
+        -- (e.g. Spanish should use periods)
         let commafy n = T.pack $ reverse $ go $ reverse $ show n
             go (x : y : z : rest@(_ : _))
               = [x, y, z, ','] ++ go rest
@@ -1117,7 +1125,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
     return tab
   rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
-    songPageRB3 sink rect tab proj $ \tgt create -> do
+    songPageRB3 sink rect tab proj $ \qcPossible tgt create -> do
       proj' <- fullProjModify [] proj
       let name = case create of
             RB3CON   _ -> "Building RB3 CON (360)"
@@ -1136,8 +1144,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt = mdo
               tmp <- buildMagmaV2 tgt proj'
               copyDirRecursive tmp dout
               return [dout]
-      -- TODO warn here if they should use quick convert!
-      sink $ EventOnyx $ startTasks [(name, task)]
+          go = startTasks [(name, task)]
+      sink $ EventOnyx $ if qcPossible && isRB
+        then warnQuickConvert 1 sink go
+        else go
     return tab
   rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
     functionTabColor >>= setTabColor tab
@@ -3304,6 +3314,25 @@ launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx $ do
   let ?preferences = prefs
   stackIO $ launchBatch sink makeMenuBar startFiles
 
+-- Warn the user if they appear to be using normal compilation
+-- when they probably want Quick Convert
+warnQuickConvert :: Int -> (Event -> IO ()) -> Onyx () -> Onyx ()
+warnQuickConvert count sink go = let
+  warningText = T.concat
+    [ "You appear to be converting "
+    , if count == 1 then "a Rock Band song" else "Rock Band songs"
+    , " to RB3 at 100% speed.\n"
+    , "If you don't want to change anything about the "
+    , if count == 1 then "song" else "songs"
+    , " except console platform,\n"
+    , "you should use Quick Convert to preserve the "
+    , if count == 1 then "song ID" else "song IDs"
+    , " for online compatibility."
+    ]
+  in stackIO $ FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
+    1 -> sink $ EventOnyx go
+    _ -> return ()
+
 launchBatch
   :: (?preferences :: Preferences)
   => (Event -> IO ()) -> (Width -> Bool -> IO Int) -> [FilePath] -> IO ()
@@ -3388,26 +3417,28 @@ launchBatch sink makeMenuBar startFiles = mdo
   functionTabs <- sequence
     [ makeTab windowRect "RB3" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPageRB3 sink rect tab $ \settings -> sink $ EventOnyx $ do
+      batchPageRB3 sink rect tab $ \qcPossible settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        -- TODO warn here if they should use quick convert!
-        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
-          let (targets, yaml) = settings proj
-          proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          forM targets $ \(target, creator) -> do
-            case creator of
-              RB3CON fout -> do
-                tmp <- buildRB3CON target proj'
-                stackIO $ Dir.copyFile tmp fout
-                return fout
-              RB3PKG fout -> do
-                tmp <- buildRB3PKG target proj'
-                stackIO $ Dir.copyFile tmp fout
-                return fout
-              RB3Magma dout -> do
-                tmp <- buildMagmaV2 target proj'
-                copyDirRecursive tmp dout
-                return dout
+        let go = startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
+              let (targets, yaml) = settings proj
+              proj' <- stackIO $ filterParts yaml >>= saveProject proj
+              forM targets $ \(target, creator) -> do
+                case creator of
+                  RB3CON fout -> do
+                    tmp <- buildRB3CON target proj'
+                    stackIO $ Dir.copyFile tmp fout
+                    return fout
+                  RB3PKG fout -> do
+                    tmp <- buildRB3PKG target proj'
+                    stackIO $ Dir.copyFile tmp fout
+                    return fout
+                  RB3Magma dout -> do
+                    tmp <- buildMagmaV2 target proj'
+                    copyDirRecursive tmp dout
+                    return dout
+        if qcPossible && all (.impFormatRB) files
+          then warnQuickConvert (length files) sink go
+          else go
       return tab
     , makeTab windowRect "RB2" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
