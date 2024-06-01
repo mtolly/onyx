@@ -79,8 +79,8 @@ importRRGuitarBass rr = let
 
 -- drums
 
+-- Used for playing midi drum sounds (when enabled).
 -- This corresponds to pitches 36 through 59 of the General MIDI Percussion.
--- Don't put too much stock in the names, notes are occasionally misused!
 data RRDrum
   = RR_Kick
   | RR_SideStick

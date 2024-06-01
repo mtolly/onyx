@@ -153,7 +153,7 @@ data DrumResult = DrumResult
   , hasRBMarks :: Bool -- True if `other` includes correct tom markers and mix events
   , source     :: T.Text
   , autochart  :: Bool
-  , trueDrums  :: Maybe (ED.EliteDrumTrack U.Beats)
+  , eliteDrums :: Maybe (ED.EliteDrumTrack U.Beats)
   }
 
 data DrumTarget
@@ -235,7 +235,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , hasRBMarks = not isBasicSource
     , source = "drum chart"
     , autochart = False
-    , trueDrums = do
+    , eliteDrums = do
       guard $ pd.mode == DrumsTrue
       Just $ F.onyxPartEliteDrums input.part
     }
@@ -660,7 +660,7 @@ danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
       :: RTB.T U.Beats D.Animation
     , source = "converted dance chart to drums"
     , autochart = False
-    , trueDrums = Nothing
+    , eliteDrums = Nothing
     }
 
 maniaToDrums :: Part f -> Maybe BuildDrums
@@ -707,7 +707,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
       :: RTB.T U.Beats D.Animation
     , source = "converted Mania chart to drums"
     , autochart = pm.keys > laneCount
-    , trueDrums = Nothing
+    , eliteDrums = Nothing
     }
 
 drumResultToTrack :: DrumResult -> D.DrumTrack U.Beats
@@ -789,7 +789,7 @@ drumNoteShuffle dt = let
     , hasRBMarks = False
     , source     = ""
     , autochart  = False
-    , trueDrums  = Nothing
+    , eliteDrums = Nothing
     }
   audio = listToMaybe $ do
     dd <- Map.elems dt.drumDifficulties

@@ -229,12 +229,15 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     , parts = Parts $ HM.fromList
       [ (F.FlexGuitar, emptyPart
         { grybo = Just def
+        -- TODO import difficulty
         })
       , (F.FlexBass, emptyPart
         { grybo = Just def
+        -- TODO import difficulty
         })
       , (F.FlexDrums, (emptyPart :: Part SoftFile)
         { drums = Just $ emptyPartDrums DrumsTrue Kicks1x
+        -- TODO import difficulty
         })
       {-
       , (F.FlexExtra "hidden-drums", def

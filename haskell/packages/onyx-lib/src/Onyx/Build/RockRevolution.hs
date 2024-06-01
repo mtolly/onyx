@@ -298,7 +298,13 @@ rrRules buildInfo dir rr = do
       Wait dt _ _ -> return $ floor $ U.applyTempoMap (F.s_tempos mid) dt * 1000
       RNil        -> fatal "panic! no [end] in processed midi"
 
-    let lua = T.intercalate "\r\n"
+    let difficultyFromRank :: T.Text -> Integer -> T.Text
+        difficultyFromRank name rank = let
+          -- picked these rank cutoffs so RB 7 tiers convert to 1-1-2-2-3-4-5
+          -- on all of guitar/bass/drums
+          n = T.pack $ show $ length $ filter (<= rank) [0, 150, 242, 325, 400]
+          in name <> " = { 1, " <> T.intercalate ", " (replicate 5 n) <> " }"
+        lua = T.intercalate "\r\n"
           [ "Sex = Sex or {}"
           , "Playback = Playback or {}"
           , "QuantiseLevel = QuantiseLevel or {}"
@@ -306,20 +312,20 @@ rrRules buildInfo dir rr = do
           , "-- standard information"
           , "Year = " <> T.pack (show $ getYear songYaml.metadata)
           , ""
-          , "KitId = 1002" -- hopefully this works
+          , "KitId = 1002" -- disabling kit anyway with DrumPlayback below
           , "SoloGuitarId = 2200" -- ?
-          , "DrumPlayback = Playback.kMidi" -- ?
+          , "DrumPlayback = Playback.kStem" -- seems to prevent midi drum sounds (most songs have Playback.kMidi)
           , "DisplayArtist = true" -- on disc, this is only true for the 2 masters. in dlc, false even for the bemani pack oddly
           , ""
           -- in official songs this is different from the filename song id
           , "-- leaderboard - this MUST be unique"
           , "LeaderboardId = " <> maybe key (T.pack . show) rr.leaderboardID
           , ""
-          -- TODO looks like these can be 1 through 5. never actually different per level
+          -- these can be 1 through 5. never actually different per level
           , "-- star ratings for each difficulty level:"
-          , "DrumDifficulty = { 0, 5, 5, 5, 5, 5 }"
-          , "GuitarDifficulty = { 0, 5, 5, 5, 5, 5 }"
-          , "BassDifficulty = { 0, 4, 4, 4, 4, 4 }"
+          , difficultyFromRank "DrumDifficulty" 1 -- TODO
+          , difficultyFromRank "GuitarDifficulty" 1 -- TODO
+          , difficultyFromRank "BassDifficulty" 1 -- TODO
           , ""
           -- TODO
           , "-- top score for each difficulty level:"
@@ -385,6 +391,10 @@ rrRules buildInfo dir rr = do
       pathPad = dir </> "pad.txt"
       readPad :: Staction Int
       readPad = shk $ read <$> readFile' pathPad
+
+  -- TODO it appears on 360 RR using MP3 specifically,
+  -- we need to pad by another ~100 ms to get things to sync?
+  -- need to get exact number + check what ps3/rpcs3 does
 
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
@@ -536,12 +546,12 @@ makeRRDrumDifficulty6Lane gems = RRDrumDifficulty
   { rrdGems      = flip fmap gems $ \case
     (D.Kick                 , _) -> (RR_Kick     , RRC_Kick   )
     (D.Red                  , _) -> (RR_Snare    , RRC_Snare  )
-    (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_HighTom)
-    (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_LowTom )
-    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_LowTom )
-    (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_Hihat  )
-    (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_CrashL )
-    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_CrashR )
+    (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_HighTom)
+    (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_LowTom )
+    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_LowTom )
+    (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_Hihat  )
+    (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_CrashL )
+    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_CrashR )
     (D.Orange               , _) -> (RR_China    , RRC_CrashR )
   , rrdHidden    = RTB.empty
   , rrdFreestyle = RTB.empty -- TODO

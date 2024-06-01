@@ -327,7 +327,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
         $ drumsComplete mmap sections
         $ src
 
-  return (mainResult, drumResult.trueDrums)
+  return (mainResult, drumResult.eliteDrums)
 
 data BRERemover t = BRERemover
   { breRemoveEdges :: forall s a. (Ord s, Ord a) => RTB.T t (Edge s a) -> RTB.T t (Edge s a)
