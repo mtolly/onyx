@@ -225,7 +225,8 @@ importRRDrums diffs = mempty
 importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRREliteDrums rr = mempty
   { ED.tdGems
-    = fmap (\gem -> (D.RH <$ gem, ED.TBDefault, D.VelocityNormal))
+    = blipEdgesRBNice
+    $ fmap (\gem -> (D.VelocityNormal, (D.RH <$ gem, ED.TBDefault), Nothing))
     $ RTB.mapMaybe (rrChannel7Lane . snd)
     $ rrdGems rr
   }

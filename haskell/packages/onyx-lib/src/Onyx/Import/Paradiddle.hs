@@ -22,8 +22,8 @@ import           Linear                           (V3 (..))
 import           Onyx.Audio                       (Audio (..), audioChannels)
 import           Onyx.Codec.JSON
 import           Onyx.Import.Base
-import           Onyx.MIDI.Common                 (Difficulty (..))
-import           Onyx.MIDI.Read                   (mapTrack)
+import           Onyx.MIDI.Common                 (Difficulty (..),
+                                                   blipEdgesRBNice)
 import           Onyx.MIDI.Track.Drums            (DrumVelocity (..), Hand (..))
 import           Onyx.MIDI.Track.Drums.Elite
 import qualified Onyx.MIDI.Track.File             as F
@@ -36,8 +36,8 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
 
-paraToTrue :: Difficulty -> RLRR -> EliteDrumTrack U.Seconds
-paraToTrue diff rlrr = let
+paraToTrue :: U.TempoMap -> Difficulty -> RLRR -> EliteDrumTrack U.Beats
+paraToTrue tmap diff rlrr = let
   ghostThreshold = rlrr.highwaySettings >>= \hs -> do
     guard $ fromMaybe False hs.ghostNotes
     hs.ghostNoteThreshold
@@ -75,8 +75,10 @@ paraToTrue diff rlrr = let
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
     { tdDifficulties = Map.singleton diff EliteDrumDifficulty
-      { tdGems        = fmap (\(gem, vel) -> (gem, TBDefault, vel)) gemsNoDupe
-      , tdFlam        = flams
+      { tdGems        = blipEdgesRBNice
+        $ U.unapplyTempoTrack tmap
+        $ fmap (\(gem, vel) -> (vel, (gem, TBDefault), Nothing)) gemsNoDupe
+      , tdFlam        = U.unapplyTempoTrack tmap flams
       , tdHihatOpen   = RTB.empty
       , tdHihatClosed = RTB.empty
       , tdDisco       = RTB.empty
@@ -99,8 +101,8 @@ importParadiddle diffs level = do
         json <- stackIO (B.readFile f) >>= decodeJSONText . decodeGeneral
         mapStackTraceT (`runReaderT` json) fromJSON
   rlrr <- loadJSON path
-  let tmap = paraTempoMap    rlrr
-      true = paraToTrue diff rlrr
+  let tmap = paraTempoMap         rlrr
+      true = paraToTrue tmap diff rlrr
       art = case rlrr.recordingMetadata.coverImagePath of
         Nothing -> Nothing
         Just f  -> let
@@ -123,7 +125,7 @@ importParadiddle diffs level = do
     ImportQuick -> return []
     ImportFull  -> forM (NE.tail diffs) $ \(lowerDiff, lowerPath) -> do
       lowerRLRR <- loadJSON lowerPath
-      return $ paraToTrue lowerDiff lowerRLRR
+      return $ paraToTrue tmap lowerDiff lowerRLRR
   songAudio <- getAudio rlrr.audioFileData.songTracks
   drumAudio <- getAudio rlrr.audioFileData.drumTracks
   -- TODO probably need to apply calibrationOffset somewhere
@@ -149,8 +151,7 @@ importParadiddle diffs level = do
           , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
           , F.s_tracks = mempty
             { F.onyxParts = Map.singleton F.FlexDrums mempty
-              { F.onyxPartEliteDrums = mapTrack (U.unapplyTempoTrack tmap)
-                $ mconcat $ true : lowerDiffs
+              { F.onyxPartEliteDrums = mconcat $ true : lowerDiffs
               }
             }
           }

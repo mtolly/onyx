@@ -41,7 +41,6 @@ import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import           Onyx.MIDI.Track.Drums            (Hand (..))
 import qualified Onyx.MIDI.Track.Drums.Elite      as Elite
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
@@ -876,9 +875,7 @@ importGH3Song ghi = let
         , do
           let expert = fromMaybe mempty $ Map.lookup Expert $ Elite.tdDifficulties drums
           guard $ not $ RTB.null $ Elite.tdGems expert
-          let kicks = if any (\case (Elite.Kick LH, _, _) -> True; _ -> False) $ Elite.tdGems expert
-                then KicksBoth
-                else Kicks1x
+          let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
           Just (F.FlexDrums, emptyPart
             { drums = Just $ emptyPartDrums DrumsTrue kicks
             })

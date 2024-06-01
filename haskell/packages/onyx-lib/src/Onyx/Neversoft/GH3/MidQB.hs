@@ -21,7 +21,8 @@ import           Onyx.FeedBack.Load               (TrackEvent (..), emitTrack)
 import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
                                                    guitarify', strumHOPOTap)
 import           Onyx.MIDI.Common                 (Difficulty (..),
-                                                   StrumHOPOTap (..))
+                                                   StrumHOPOTap (..),
+                                                   blipEdgesRBNice)
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Drums.Elite
 import           Onyx.MIDI.Track.Events
@@ -433,7 +434,8 @@ gh3DrumsToElite toBeats notes = let
     { tdSticking = RTB.empty -- TODO
     , tdDifficulties = Map.singleton Expert mempty
       { tdGems
-        = fmap (\fgem -> (fgem, TBDefault, D.VelocityNormal))
+        = blipEdgesRBNice
+        $ fmap (\fgem -> (D.VelocityNormal, (fgem, TBDefault), Nothing))
         $ RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ fromPairs allGemPairs
       , tdFlam = flip RTB.mapMaybe hands $ \case
         [x, y] | x == y -> Just ()

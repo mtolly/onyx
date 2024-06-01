@@ -56,7 +56,7 @@ instance TraverseTrack EliteDrumTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
 
 data EliteDrumDifficulty t = EliteDrumDifficulty
-  { tdGems        :: RTB.T t (EliteGem D.Hand, EliteBasic, DrumVelocity)
+  { tdGems        :: RTB.T t (Edge DrumVelocity (EliteGem D.Hand, EliteBasic))
   , tdFlam        :: RTB.T t ()
   , tdHihatOpen   :: RTB.T t Bool
   , tdHihatClosed :: RTB.T t Bool
@@ -133,33 +133,41 @@ instance ParseTrack EliteDrumTrack where
             Medium -> 24
             Hard   -> 48
             Expert -> 72
-          decodeCV (drum, (c, v)) = let
-            basic = case c of
+          decodeEdge (gem, (chan, mv)) = let
+            basic = case chan of
               10 -> TBRed
               11 -> TBYellow
               12 -> TBBlue
               13 -> TBGreen
               _  -> TBDefault
-            vel = case v of
-              1   -> VelocityGhost
-              127 -> VelocityAccent
-              _   -> VelocityNormal
-            in (drum, basic, vel)
-          encodeCV (drum, basic, vel) = let
-            c = case basic of
+            in case mv of
+              Nothing -> EdgeOff (gem, basic)
+              Just v -> let
+                vel = case v of
+                  1   -> VelocityGhost
+                  127 -> VelocityAccent
+                  _   -> VelocityNormal
+                in EdgeOn vel (gem, basic)
+          encodeEdge e = let
+            (gem, basic) = case e of
+              EdgeOn _ x -> x
+              EdgeOff  x -> x
+            chan = case basic of
               TBDefault -> 0
               TBRed     -> 10
               TBYellow  -> 11
               TBBlue    -> 12
               TBGreen   -> 13
-            v = case vel of
-              VelocityGhost  -> 1
-              VelocityNormal -> 96
-              VelocityAccent -> 127
-            in (drum, (c, v))
+            mv = case e of
+              EdgeOn v _ -> Just $ case v of
+                VelocityGhost  -> 1
+                VelocityNormal -> 96
+                VelocityAccent -> 127
+              EdgeOff _ -> Nothing
+            in (gem, (chan, mv))
       tdGems <- tdGems =. do
-        dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey each $ \drum -> do
-          blipCV $ base + case drum of
+        dimap (fmap encodeEdge) (fmap decodeEdge) $ condenseMap $ eachKey each $ \drum -> do
+          edgesCV $ base + case drum of
             HihatFoot -> 0
             Kick D.LH -> 1
             Kick D.RH -> 2
@@ -299,7 +307,7 @@ getDifficulty :: (NNC.C t) => Maybe Difficulty -> EliteDrumTrack t -> RTB.T t (E
 getDifficulty diff trk = let
   base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ tdDifficulties trk
   events = foldr RTB.merge RTB.empty
-    $ fmap MergedNote (adjustKicks $ tdGems base)
+    $ fmap MergedNote (adjustKicks $ onlyOns $ tdGems base)
     : fmap (const MergedFlam) (tdFlam base)
     : fmap MergedSticking (tdSticking trk)
     : fmap MergedFooting (tdFooting trk)
@@ -309,6 +317,9 @@ getDifficulty diff trk = let
     _       -> RTB.filter $ \case
       (Kick D.LH, _, _) -> False
       _                 -> True
+  onlyOns = RTB.mapMaybe $ \case
+    EdgeOn vel (gem, basic) -> Just (gem, basic, vel)
+    EdgeOff _               -> Nothing
   processSlice (types, evts) = let
     notKick = do
       MergedNote (void -> gem, basic, vel) <- evts
@@ -542,9 +553,7 @@ convertEliteDrums tmap trk = let
     , D.drumSolo       = tdSolo trk
     , D.drumKick2x     = case Map.lookup Expert $ tdDifficulties trk of
       Nothing   -> RTB.empty
-      Just diff -> flip RTB.mapMaybe (tdGems diff) $ \case
-        (Kick D.LH, _, _) -> Just ()
-        _                 -> Nothing
+      Just diff -> edKicks2 diff
     })
 
 eliteDrumsToAnimation :: (NNC.C t) => t -> RTB.T t (EliteDrumNote FlamStatus) -> RTB.T t D.Animation
@@ -619,7 +628,7 @@ makeEliteDifficulty' basicMapping gems = let
     (\(m', b) -> guard (m == m') >> Just b)
     types
   in EliteDrumDifficulty
-    { tdGems        = (\(gem, _, vel) -> (gem, basicMapping gem, vel)) <$> gems
+    { tdGems        = blipEdgesRBNice $ (\(gem, _, vel) -> (vel, (gem, basicMapping gem), Nothing)) <$> gems
     , tdFlam        = RTB.empty
     , tdHihatOpen   = getModifier GemHihatOpen
     , tdHihatClosed = getModifier GemHihatClosed
@@ -638,6 +647,6 @@ makeEliteDifficultyDTX = makeEliteDifficulty' $ \case
   _      -> TBDefault
 
 edKicks2 :: (NNC.C t) => EliteDrumDifficulty t -> RTB.T t ()
-edKicks2 diff = flip RTB.mapMaybe (tdGems diff) $ \case
-  (Kick D.LH, _, _) -> Just ()
-  _                 -> Nothing
+edKicks2 diff =  flip RTB.mapMaybe (tdGems diff) $ \case
+  EdgeOn _ (Kick D.LH, _) -> Just ()
+  _                       -> Nothing
