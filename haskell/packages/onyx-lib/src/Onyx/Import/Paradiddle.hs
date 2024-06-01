@@ -75,15 +75,12 @@ paraToTrue tmap diff rlrr = let
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
     { tdDifficulties = Map.singleton diff EliteDrumDifficulty
-      { tdGems        = blipEdgesRBNice
+      { tdGems             = blipEdgesRBNice
         $ U.unapplyTempoTrack tmap
         $ fmap (\(gem, vel) -> (vel, (gem, TBDefault), Nothing)) gemsNoDupe
-      , tdFlam        = U.unapplyTempoTrack tmap flams
-      , tdHihatOpen   = RTB.empty
-      , tdHihatClosed = RTB.empty
-      , tdDisco       = RTB.empty
-      , tdRim         = RTB.empty
-      , tdChoke       = RTB.empty
+      , tdFlam             = U.unapplyTempoTrack tmap flams
+      , tdHihatIndifferent = RTB.empty
+      , tdDisco            = RTB.empty
       }
     }
 

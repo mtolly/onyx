@@ -530,10 +530,6 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             { ED.tdSticking     = RTB.empty
             , ED.tdChipOverride = RTB.empty
             , ED.tdFooting      = RTB.empty
-            , ED.tdDifficulties = flip fmap (ED.tdDifficulties td) $ \diff -> diff
-              { ED.tdRim   = RTB.empty
-              , ED.tdChoke = RTB.empty
-              }
             }
           in (setDrumMix mixMode dt, mtd')
       makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
