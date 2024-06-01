@@ -207,7 +207,7 @@ drawDrums glStuff nowTime speed mode trk = drawDrumPlay glStuff nowTime speed mo
   , noteTimes = Set.empty -- not used
   }
 
-drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (EliteDrumNote ED.FlamStatus) ED.EliteGem)) -> IO ()
+drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))) -> IO ()
 drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
   { events = let
     -- dummy game state with no inputs, but all notes marked as hit on time
@@ -285,12 +285,12 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         ED.Tom3   -> 0.116666
         _         -> 1 -- not used
       widthSum = sum $ map partWidth highwayParts
+      lookupGemBounds, gemBounds :: ED.EliteGem () -> (Float, Float)
       lookupGemBounds g = let
         onLeft = sum $ map partWidth $ takeWhile (/= g) highwayParts
         in (fracToX $ onLeft / widthSum, fracToX $ (onLeft + partWidth g) / widthSum)
-      gemBounds :: ED.EliteGem -> (Float, Float)
       gemBounds = \case
-        ED.Kick      -> (fracToX 0, fracToX 1)
+        ED.Kick ()   -> (fracToX 0, fracToX 1)
         ED.HihatFoot -> lookupGemBounds ED.Hihat
         gem          -> lookupGemBounds gem
       hihatZoneBounds = map gemBounds [ED.Snare, ED.Hihat, ED.CrashL]
@@ -299,7 +299,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
       -- drawGem _ _ note _ | tdn_gem note == ED.HihatFoot = return ()
       drawGem t _od note alpha = let
         (texid, obj) = case (tdn_gem note, tdn_type note) of
-          (ED.Kick     , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
+          (ED.Kick ()  , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
           (ED.Snare    , ED.GemRim        ) -> (TextureRedGem      , Model ModelDrumRim       )
           (ED.Snare    , _                ) -> (TextureRedGem      , Model ModelDrumTom       )
           (ED.Hihat    , ED.GemHihatOpen  ) -> (TextureYellowCymbal, Model ModelDrumHihatOpen )
@@ -329,12 +329,12 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             in (adjustX x1, adjustX x2)
           _ -> (x1, x2)
         reference = case tdn_gem note of
-          ED.Kick -> (x2' - x1') / 2
-          _       -> 0.5 / 2
+          ED.Kick () -> (x2' - x1') / 2
+          _          -> 0.5 / 2
         xPairs = case tdn_extra note of
           ED.Flam -> map (, obj) $ case tdn_gem note of
-            ED.Kick -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
-            _       -> let
+            ED.Kick () -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
+            _          -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
               flamWidth = (x2' - x1') * 0.75
               noteLeft = (xCenter - flamWidth, xCenter)
@@ -478,7 +478,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         z1 = timeToZ startTime
         z2 = timeToZ endTime
         tex = case gem of
-          ED.Kick      -> TextureLaneOrange
+          ED.Kick ()   -> TextureLaneOrange
           ED.Snare     -> TextureLaneRed
           ED.Hihat     -> TextureLaneYellow
           ED.HihatFoot -> TextureLaneYellow

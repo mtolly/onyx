@@ -4,7 +4,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Neversoft.GH3.MidQB where
 
-import           Control.Monad                    (forM, void)
+import           Control.Monad                    (forM)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bits                        (bit, testBit, (.|.))
 import qualified Data.ByteString                  as B
@@ -394,54 +394,48 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , F.s_tracks = fixed
     }
 
-gh3DrumMapping :: [(Word32, (EliteGem, D.Hand))]
+gh3DrumMapping :: [(Word32, (EliteGem (), D.Hand))]
 gh3DrumMapping =
-  [ (36, (Kick  , D.LH)) -- second kick drum
-  , (37, (Tom3  , D.LH))
-  , (38, (Tom2  , D.LH))
-  , (39, (Tom1  , D.LH))
-  , (40, (Snare , D.LH))
-  , (41, (Hihat , D.LH))
-  , (42, (Hihat , D.LH)) -- duplicate?
-  , (43, (Ride  , D.LH))
-  , (44, (CrashL, D.LH))
-  , (45, (CrashR, D.LH))
+  [ (36, (Kick (), D.LH)) -- second kick drum
+  , (37, (Tom3   , D.LH))
+  , (38, (Tom2   , D.LH))
+  , (39, (Tom1   , D.LH))
+  , (40, (Snare  , D.LH))
+  , (41, (Hihat  , D.LH))
+  , (42, (Hihat  , D.LH)) -- duplicate?
+  , (43, (Ride   , D.LH))
+  , (44, (CrashL , D.LH))
+  , (45, (CrashR , D.LH))
   --
-  , (48, (Kick  , D.RH)) -- normal kick
-  , (49, (Tom3  , D.RH))
-  , (50, (Tom2  , D.RH))
-  , (51, (Tom1  , D.RH))
-  , (52, (Snare , D.RH))
-  , (53, (Hihat , D.RH))
-  , (54, (Hihat , D.RH))
-  , (55, (Ride  , D.RH))
-  , (56, (CrashL, D.RH))
-  , (57, (CrashR, D.RH))
+  , (48, (Kick (), D.RH)) -- normal kick
+  , (49, (Tom3   , D.RH))
+  , (50, (Tom2   , D.RH))
+  , (51, (Tom1   , D.RH))
+  , (52, (Snare  , D.RH))
+  , (53, (Hihat  , D.RH))
+  , (54, (Hihat  , D.RH))
+  , (55, (Ride   , D.RH))
+  , (56, (CrashL , D.RH))
+  , (57, (CrashR , D.RH))
   ]
 
 gh3DrumsToElite :: (Word32 -> U.Beats) -> [[Word32]] -> EliteDrumTrack U.Beats
 gh3DrumsToElite toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  allGems = flip mapMaybe notes $ \case
-    time : pitch : _ -> (toBeats time,) <$> lookup pitch gh3DrumMapping
+  allGemPairs = flip mapMaybe notes $ \case
+    time : pitch : _ -> flip fmap (lookup pitch gh3DrumMapping)
+      $ \(gem, hand) -> (toBeats time, hand <$ gem)
     _                -> Nothing
-  kicks = fromPairs $ flip mapMaybe allGems $ \case
-    (time, (Kick, hand)) -> Just (time, hand == D.RH)
-    _                    -> Nothing
-  hands = RTB.collectCoincident $ fromPairs $ filter
-    (\(_time, (pad, _hand)) -> pad /= Kick)
-    allGems
-  handsNoSticking = fmap (map fst) hands
+  hands = RTB.collectCoincident $ fromPairs $ flip filter allGemPairs $ \case
+    (_time, Kick _) -> False
+    _               -> True
   in mempty
     { tdSticking = RTB.empty -- TODO
     , tdDifficulties = Map.singleton Expert mempty
       { tdGems
         = fmap (\fgem -> (fgem, TBDefault, D.VelocityNormal))
-        $ RTB.merge (Kick <$ RTB.filter id kicks)
-        $ RTB.flatten
-        $ fmap nubOrd handsNoSticking
-      , tdKick2 = void $ RTB.filter not kicks
-      , tdFlam = flip RTB.mapMaybe handsNoSticking $ \case
+        $ RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ fromPairs allGemPairs
+      , tdFlam = flip RTB.mapMaybe hands $ \case
         [x, y] | x == y -> Just ()
         _               -> Nothing
       }

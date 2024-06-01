@@ -8,6 +8,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.MIDI.Track.Drums.Elite where
 
 import           Control.Monad                    (guard, void)
@@ -36,7 +37,7 @@ import qualified Sound.MIDI.Util                  as U
 
 data EliteDrumTrack t = EliteDrumTrack
   { tdDifficulties :: Map.Map Difficulty (EliteDrumDifficulty t)
-  , tdLanes        :: RTB.T t (Edge () EliteGem)
+  , tdLanes        :: RTB.T t (Edge () (EliteGem ()))
   , tdOverdrive    :: RTB.T t Bool
   , tdActivation   :: RTB.T t Bool
   , tdSolo         :: RTB.T t Bool
@@ -55,8 +56,7 @@ instance TraverseTrack EliteDrumTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
 
 data EliteDrumDifficulty t = EliteDrumDifficulty
-  { tdGems        :: RTB.T t (EliteGem, EliteBasic, DrumVelocity)
-  , tdKick2       :: RTB.T t () -- TODO (gem type ?) and velocity
+  { tdGems        :: RTB.T t (EliteGem D.Hand, EliteBasic, DrumVelocity)
   , tdFlam        :: RTB.T t ()
   , tdHihatOpen   :: RTB.T t Bool
   , tdHihatClosed :: RTB.T t Bool
@@ -68,11 +68,11 @@ data EliteDrumDifficulty t = EliteDrumDifficulty
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EliteDrumDifficulty t)
 
 instance TraverseTrack EliteDrumDifficulty where
-  traverseTrack fn (EliteDrumDifficulty a b c d e f g h) = EliteDrumDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+  traverseTrack fn (EliteDrumDifficulty a b c d e f g) = EliteDrumDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g
 
-data EliteGem
-  = Kick
+data EliteGem a
+  = Kick a
   | Snare
   | Hihat
   | HihatFoot
@@ -82,7 +82,8 @@ data EliteGem
   | Tom3
   | CrashR
   | Ride
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Generic, Functor)
+  deriving (Enum, Bounded) via GenericFullEnum (EliteGem a)
 
 data EliteGemType
   = GemNormal
@@ -110,7 +111,7 @@ instance ParseTrack EliteDrumTrack where
     tdActivation <- tdActivation =. edges 106
     tdLanes <- (tdLanes =.) $ translateEdges
       $ condenseMap $ eachKey each $ \drum -> case drum of
-        Kick      -> edges $ 110 + 0
+        Kick ()   -> edges $ 110 + 0
         Snare     -> edges $ 110 + 1
         Hihat     -> edges $ 110 + 2
         HihatFoot -> return mempty
@@ -160,7 +161,8 @@ instance ParseTrack EliteDrumTrack where
         dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey each $ \drum -> do
           blipCV $ base + case drum of
             HihatFoot -> 0
-            Kick      -> 2
+            Kick D.LH -> 1
+            Kick D.RH -> 2
             Snare     -> 3
             Hihat     -> 4
             CrashL    -> 5
@@ -169,7 +171,6 @@ instance ParseTrack EliteDrumTrack where
             Tom3      -> 8
             Ride      -> 9
             CrashR    -> 10
-      tdKick2       <- tdKick2       =. blip  (base + 1)
       tdFlam        <- tdFlam        =. blip  (base + 15)
       tdHihatClosed <- tdHihatClosed =. edges (base + 16)
       tdHihatOpen   <- tdHihatOpen   =. edges (base + 17)
@@ -275,9 +276,8 @@ eliteDrumNoteNames = execWriter $ do
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
-data MergedEvent n1 n2
-  = MergedNote n1
-  | MergedNote2 n2
+data MergedEvent n
+  = MergedNote n
   | MergedSticking D.Hand
   | MergedFooting D.Hand
   | MergedFlam
@@ -287,7 +287,7 @@ data FlamStatus = NotFlam | Flam
   deriving (Eq, Ord, Show)
 
 data EliteDrumNote a = EliteDrumNote
-  { tdn_gem      :: EliteGem
+  { tdn_gem      :: EliteGem ()
   , tdn_type     :: EliteGemType
   , tdn_velocity :: DrumVelocity
   , tdn_limb     :: Maybe D.Hand -- hand, or foot
@@ -299,18 +299,24 @@ getDifficulty :: (NNC.C t) => Maybe Difficulty -> EliteDrumTrack t -> RTB.T t (E
 getDifficulty diff trk = let
   base = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ tdDifficulties trk
   events = foldr RTB.merge RTB.empty
-    $ fmap MergedNote (tdGems base)
+    $ fmap MergedNote (adjustKicks $ tdGems base)
     : fmap (const MergedFlam) (tdFlam base)
     : fmap MergedSticking (tdSticking trk)
     : fmap MergedFooting (tdFooting trk)
-    : case diff of
-      Nothing -> [fmap MergedNote2 $ tdKick2 base]
-      _       -> []
+    : []
+  adjustKicks = case diff of
+    Nothing -> id
+    _       -> RTB.filter $ \case
+      (Kick D.LH, _, _) -> False
+      _                 -> True
   processSlice (types, evts) = let
-    notKick = [ trio | MergedNote trio@(gem, _, _) <- evts, gem /= Kick ]
-    kick = [ trio | MergedNote trio@(Kick, _, _) <- evts ]
+    notKick = do
+      MergedNote (void -> gem, basic, vel) <- evts
+      guard $ gem /= Kick ()
+      return (gem, basic, vel)
+    kick1 = [ (basic, vel) | MergedNote (Kick D.RH, basic, vel) <- evts ]
+    kick2 = [ (basic, vel) | MergedNote (Kick D.LH, basic, vel) <- evts ]
     flam = any (\case MergedFlam -> True; _ -> False) evts
-    kick2 = any (\case MergedNote2 () -> True; _ -> False) evts
     foot = listToMaybe [ f | MergedFooting f <- evts ]
     hihatType  = fromMaybe GemNormal $ listToMaybe $ filter (`elem` [GemHihatOpen, GemHihatClosed]) types
     drumType   = fromMaybe GemNormal $ listToMaybe $ filter (== GemRim) types
@@ -329,28 +335,28 @@ getDifficulty diff trk = let
         CrashL    -> cymbalType
         CrashR    -> cymbalType
         Ride      -> cymbalType
-        Kick      -> GemNormal
+        Kick ()   -> GemNormal
       , tdn_velocity = vel
       , tdn_limb     = Nothing -- TODO
       , tdn_basic = basic
       , tdn_extra    = if flam && gem /= HihatFoot then Flam else NotFlam
       }
-    outputKick = case (kick, kick2) of
-      ([], True) -> return EliteDrumNote
-        { tdn_gem      = Kick
+    outputKick = case (kick1, kick2) of
+      ([], (basic, vel) : _) -> return EliteDrumNote
+        { tdn_gem      = Kick ()
         , tdn_type     = GemNormal
-        , tdn_velocity = VelocityNormal
+        , tdn_velocity = vel
         , tdn_limb     = Just $ fromMaybe D.LH foot
-        , tdn_basic    = TBDefault
+        , tdn_basic    = basic
         , tdn_extra    = NotFlam
         }
-      _          -> flip fmap kick $ \(gem, _, vel) -> EliteDrumNote
-        { tdn_gem      = gem
+      _          -> flip fmap kick1 $ \(basic, vel) -> EliteDrumNote
+        { tdn_gem      = Kick ()
         , tdn_type     = GemNormal
         , tdn_velocity = vel
         , tdn_limb     = Just $ fromMaybe D.RH foot
-        , tdn_basic    = TBDefault
-        , tdn_extra    = if kick2 then Flam else NotFlam
+        , tdn_basic    = basic
+        , tdn_extra    = if null kick2 then NotFlam else Flam
         }
     in outputNotKick <> outputKick
   statuses = foldr RTB.merge RTB.empty
@@ -435,11 +441,11 @@ eliteDrumsToRBWithWarnings tmap input = let
         Tom3      -> defaultTo (Just D.Green ) D.Tom
         Ride      -> defaultTo (Just D.Blue  ) D.Cymbal
         CrashR    -> defaultTo (Just D.Green ) D.Cymbal
-        Kick      -> Nothing
+        Kick ()   -> Nothing
         HihatFoot -> Nothing
     kicks = flip mapMaybe tdns $ \tdn -> case tdn.tdn_gem of
-      Kick -> Just (D.Kick, tdn.tdn_velocity)
-      _    -> Nothing
+      Kick () -> Just (D.Kick, tdn.tdn_velocity)
+      _       -> Nothing
     warnTooMany = guard (not $ null $ drop 2 handsBeforeMoving) >> ["More than 2 hand-played gems at this position!"]
     sortedHands = flip sortOn handsBeforeMoving $ \(gem, _vel) -> case gem of
       D.Red            -> 0 :: Int
@@ -516,7 +522,7 @@ splitFlams tmap tdns = let
     flamNotes = map (flipFoot . void) $ filter (\n -> tdn_extra n == Flam) notes
     -- for a kick flam, the second note should be on opposite foot from the first
     flipFoot tdn = case tdn_gem tdn of
-      Kick -> case tdn_limb tdn of
+      Kick () -> case tdn_limb tdn of
         Just D.LH -> tdn { tdn_limb = Just D.RH }
         Just D.RH -> tdn { tdn_limb = Just D.LH }
         Nothing   -> tdn
@@ -534,14 +540,18 @@ convertEliteDrums tmap trk = let
     { D.drumOverdrive  = tdOverdrive trk
     , D.drumActivation = tdActivation trk
     , D.drumSolo       = tdSolo trk
-    , D.drumKick2x     = maybe RTB.empty tdKick2 $ Map.lookup Expert $ tdDifficulties trk
+    , D.drumKick2x     = case Map.lookup Expert $ tdDifficulties trk of
+      Nothing   -> RTB.empty
+      Just diff -> flip RTB.mapMaybe (tdGems diff) $ \case
+        (Kick D.LH, _, _) -> Just ()
+        _                 -> Nothing
     })
 
 eliteDrumsToAnimation :: (NNC.C t) => t -> RTB.T t (EliteDrumNote FlamStatus) -> RTB.T t D.Animation
 eliteDrumsToAnimation closeTime tdns = let
   hands = D.autoDrumHands closeTime $ RTB.flatten $ flip fmap tdns $ \tdn -> do
     pad <- case tdn_gem tdn of
-      Kick      -> []
+      Kick ()   -> []
       Snare     -> pure D.AnimSnare
       Hihat     -> pure D.AnimHihat
       HihatFoot -> []
@@ -559,8 +569,8 @@ eliteDrumsToAnimation closeTime tdns = let
       , aiVelocity = tdn_velocity tdn
       }
   kicks = flip RTB.mapMaybe tdns $ \tdn -> case tdn_gem tdn of
-    Kick -> Just D.KickRF
-    _    -> Nothing
+    Kick () -> Just D.KickRF
+    _       -> Nothing
   -- TODO hihat pedal
   in RTB.merge kicks hands
 
@@ -568,17 +578,17 @@ eliteDrumsToAnimation closeTime tdns = let
 animationToEliteDrums :: (NNC.C t) => RTB.T t D.Animation -> RTB.T t (EliteDrumNote (), D.Hand)
 animationToEliteDrums anims = RTB.flatten $ flip fmap anims $ \case
   -- TODO need to handle two hits on same drum and turn into flam
-  D.Tom1       hand -> pure (note Tom1   GemNormal      VelocityNormal, hand)
-  D.Tom2       hand -> pure (note Tom2   GemNormal      VelocityNormal, hand)
-  D.FloorTom   hand -> pure (note Tom3   GemNormal      VelocityNormal, hand)
-  D.Hihat      hand -> pure (note Hihat  GemNormal      VelocityNormal, hand)
-  D.Snare  hit hand -> pure (note Snare  GemNormal      (fromHit hit) , hand)
-  D.Ride       hand -> pure (note Ride   GemNormal      VelocityNormal, hand)
-  D.Crash1 hit hand -> pure (note CrashL GemNormal      (fromHit hit) , hand)
-  D.Crash2 hit hand -> pure (note CrashR GemNormal      (fromHit hit) , hand)
-  D.KickRF          -> pure (note Kick   GemNormal      VelocityNormal, D.RH)
-  D.Crash1RHChokeLH -> pure (note CrashL GemCymbalChoke VelocityNormal, D.RH)
-  D.Crash2RHChokeLH -> pure (note CrashR GemCymbalChoke VelocityNormal, D.RH)
+  D.Tom1       hand -> pure (note Tom1      GemNormal      VelocityNormal, hand)
+  D.Tom2       hand -> pure (note Tom2      GemNormal      VelocityNormal, hand)
+  D.FloorTom   hand -> pure (note Tom3      GemNormal      VelocityNormal, hand)
+  D.Hihat      hand -> pure (note Hihat     GemNormal      VelocityNormal, hand)
+  D.Snare  hit hand -> pure (note Snare     GemNormal      (fromHit hit) , hand)
+  D.Ride       hand -> pure (note Ride      GemNormal      VelocityNormal, hand)
+  D.Crash1 hit hand -> pure (note CrashL    GemNormal      (fromHit hit) , hand)
+  D.Crash2 hit hand -> pure (note CrashR    GemNormal      (fromHit hit) , hand)
+  D.KickRF          -> pure (note (Kick ()) GemNormal      VelocityNormal, D.RH)
+  D.Crash1RHChokeLH -> pure (note CrashL    GemCymbalChoke VelocityNormal, D.RH)
+  D.Crash2RHChokeLH -> pure (note CrashR    GemCymbalChoke VelocityNormal, D.RH)
   -- TODO this should probably go on Tom1/Tom2 as needed, I think it's more behind those in the RB anim kit
   D.PercussionRH    -> pure (note Tom3   GemNormal      VelocityNormal, D.RH)
   _                 -> []
@@ -593,7 +603,7 @@ animationToEliteDrums anims = RTB.flatten $ flip fmap anims $ \case
           , tdn_extra = ()
           }
 
-makeEliteDifficulty' :: (EliteGem -> EliteBasic) -> RTB.T U.Beats (EliteGem, EliteGemType, DrumVelocity) -> EliteDrumDifficulty U.Beats
+makeEliteDifficulty' :: (EliteGem D.Hand -> EliteBasic) -> RTB.T U.Beats (EliteGem D.Hand, EliteGemType, DrumVelocity) -> EliteDrumDifficulty U.Beats
 makeEliteDifficulty' basicMapping gems = let
   types = U.trackJoin $ go $ RTB.collectCoincident gems
   go = \case
@@ -610,7 +620,6 @@ makeEliteDifficulty' basicMapping gems = let
     types
   in EliteDrumDifficulty
     { tdGems        = (\(gem, _, vel) -> (gem, basicMapping gem, vel)) <$> gems
-    , tdKick2       = RTB.empty
     , tdFlam        = RTB.empty
     , tdHihatOpen   = getModifier GemHihatOpen
     , tdHihatClosed = getModifier GemHihatClosed
@@ -619,7 +628,7 @@ makeEliteDifficulty' basicMapping gems = let
     , tdChoke       = getModifier GemCymbalChoke
     }
 
-makeEliteDifficulty, makeEliteDifficultyDTX :: RTB.T U.Beats (EliteGem, EliteGemType, DrumVelocity) -> EliteDrumDifficulty U.Beats
+makeEliteDifficulty, makeEliteDifficultyDTX :: RTB.T U.Beats (EliteGem D.Hand, EliteGemType, DrumVelocity) -> EliteDrumDifficulty U.Beats
 makeEliteDifficulty    = makeEliteDifficulty' $ const TBDefault
 makeEliteDifficultyDTX = makeEliteDifficulty' $ \case
   Hihat  -> TBYellow
@@ -627,3 +636,8 @@ makeEliteDifficultyDTX = makeEliteDifficulty' $ \case
   CrashR -> TBGreen
   Ride   -> TBGreen
   _      -> TBDefault
+
+edKicks2 :: (NNC.C t) => EliteDrumDifficulty t -> RTB.T t ()
+edKicks2 diff = flip RTB.mapMaybe (tdGems diff) $ \case
+  (Kick D.LH, _, _) -> Just ()
+  _                 -> Nothing

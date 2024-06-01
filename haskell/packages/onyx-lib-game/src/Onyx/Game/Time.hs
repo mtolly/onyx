@@ -480,7 +480,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
 
 -- Inputs from the player (minus opening the hihat pedal)
 data TrueDrumHit = TrueDrumHit
-  { gem      :: EliteGem
+  { gem      :: EliteGem ()
   , rim      :: Bool
   , velocity :: Double -- 0 to 1
   } deriving (Show)
@@ -492,7 +492,7 @@ data TrueDrumInput
 
 data TrueDrumPlayState t = TrueDrumPlayState
   { events    :: [(t, (Maybe TrueDrumInput, TrueDrumGameState t))]
-  , track     :: Map.Map t (CommonState (TrueDrumState t (EliteDrumNote FlamStatus) EliteGem))
+  , track     :: Map.Map t (CommonState (TrueDrumState t (EliteDrumNote FlamStatus) (EliteGem ())))
   , noteTimes :: Set.Set t
   } deriving (Show)
 

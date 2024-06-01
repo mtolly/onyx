@@ -234,7 +234,7 @@ dtxRules buildInfo dir dtx = do
                 $ ED.getDifficulty Nothing track
               toDTXNotes = fmap $ \(currentOverrides, tdn) -> let
                 lane = case ED.tdn_gem tdn of
-                  ED.Kick      -> case ED.tdn_limb tdn of
+                  ED.Kick ()   -> case ED.tdn_limb tdn of
                     Just D.LH -> DTX.LeftBass
                     _         -> DTX.BassDrum
                   ED.Snare     -> DTX.Snare

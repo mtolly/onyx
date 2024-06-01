@@ -371,7 +371,7 @@ importFoF src dir level = do
       hasKicks = if isJust maybe2x
         || not (RTB.null $ drumKick2x $ F.fixedPartDrums       $ F.s_tracks parsed)
         || not (RTB.null $ drumKick2x $ F.fixedPartRealDrumsPS $ F.s_tracks parsed)
-        || not (maybe False (RTB.null . ED.tdKick2) $ Map.lookup Expert $ ED.tdDifficulties $ F.fixedPartEliteDrums $ F.s_tracks parsed)
+        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert $ ED.tdDifficulties $ F.fixedPartEliteDrums $ F.s_tracks parsed)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 

@@ -132,11 +132,11 @@ instance ChannelType RRChannel where
     RRC_Hidden  -> 8
     -- there are a few notes with channel 9. maybe should have been 8?
 
-rrChannel7Lane :: RRChannel -> Maybe ED.EliteGem
+rrChannel7Lane :: RRChannel -> Maybe (ED.EliteGem ())
 rrChannel7Lane = \case
   RRC_LowTom  -> Just ED.Tom3
   RRC_HighTom -> Just ED.Tom1
-  RRC_Kick    -> Just ED.Kick
+  RRC_Kick    -> Just $ ED.Kick ()
   RRC_Snare   -> Just ED.Snare
   RRC_CrashL  -> Just ED.CrashL
   RRC_CrashR  -> Just ED.CrashR
@@ -156,9 +156,9 @@ rrChannel4Lane = \case
 
 -- These are just conventions (channel is what actually determines gem).
 -- Comments are channel counts from disc+dlc midis
-rrDrumGuessTD :: RRDrum -> (ED.EliteGem, ED.EliteGemType, D.DrumVelocity)
+rrDrumGuessTD :: RRDrum -> (ED.EliteGem D.Hand, ED.EliteGemType, D.DrumVelocity)
 rrDrumGuessTD = \case
-  RR_Kick          -> (ED.Kick     , ED.GemNormal     , D.VelocityNormal) -- [48, [["Kick", 23132], ["HighTom", 4], ["Snare", 4]]]
+  RR_Kick          -> (ED.Kick D.RH, ED.GemNormal     , D.VelocityNormal) -- [48, [["Kick", 23132], ["HighTom", 4], ["Snare", 4]]]
   RR_HandClap      -> (ED.Hihat    , ED.GemNormal     , D.VelocityNormal) -- [49, [["Hihat", 734], ["Kick", 69], ["Snare", 27], ["LowTom", 1]]]
   RR_Snare         -> (ED.Snare    , ED.GemNormal     , D.VelocityNormal) -- [50, [["Snare", 16995], ["HighTom", 4], ["CrashR", 2], ["LowTom", 1]]]
   RR_SideStick     -> (ED.Snare    , ED.GemRim        , D.VelocityNormal) -- [51, [["Snare", 548], ["Hihat", 409], ["CrashR", 59]]]
@@ -225,7 +225,7 @@ importRRDrums diffs = mempty
 importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRREliteDrums rr = mempty
   { ED.tdGems
-    = fmap (\gem -> (gem, ED.TBDefault, D.VelocityNormal))
+    = fmap (\gem -> (D.RH <$ gem, ED.TBDefault, D.VelocityNormal))
     $ RTB.mapMaybe (rrChannel7Lane . snd)
     $ rrdGems rr
   }

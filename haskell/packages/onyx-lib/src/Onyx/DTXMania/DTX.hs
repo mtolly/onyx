@@ -637,9 +637,9 @@ data DTXMapping = DTXMapping FilePath [DTXCondition] [DTXOverride]
   deriving (Read)
 
 data DTXCondition
-  = MatchNote     ED.EliteGem     DTXCondition
-  | MatchType     ED.EliteGemType DTXCondition
-  | MatchVelocity D.DrumVelocity  DTXCondition
+  = MatchNote     (ED.EliteGem ()) DTXCondition
+  | MatchType     ED.EliteGemType  DTXCondition
+  | MatchVelocity D.DrumVelocity   DTXCondition
   | Chip          Chip
   | Branch        [DTXCondition]
   deriving (Read)

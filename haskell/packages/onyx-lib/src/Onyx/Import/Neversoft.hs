@@ -41,8 +41,8 @@ import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
-import           Onyx.MIDI.Track.Drums.Elite      (tdDifficulties, tdGems,
-                                                   tdKick2)
+import           Onyx.MIDI.Track.Drums            (Hand (..))
+import qualified Onyx.MIDI.Track.Drums.Elite      as Elite
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
 import           Onyx.Neversoft.CRC               (qb8Hex, qbKeyCRC)
@@ -874,10 +874,13 @@ importGH3Song ghi = let
         [ Just (F.FlexGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
-          let expert = fromMaybe mempty $ Map.lookup Expert $ tdDifficulties drums
-          guard $ not $ RTB.null $ tdGems expert
+          let expert = fromMaybe mempty $ Map.lookup Expert $ Elite.tdDifficulties drums
+          guard $ not $ RTB.null $ Elite.tdGems expert
+          let kicks = if any (\case (Elite.Kick LH, _, _) -> True; _ -> False) $ Elite.tdGems expert
+                then KicksBoth
+                else Kicks1x
           Just (F.FlexDrums, emptyPart
-            { drums = Just $ emptyPartDrums DrumsTrue (if RTB.null $ tdKick2 expert then Kicks1x else KicksBoth)
+            { drums = Just $ emptyPartDrums DrumsTrue kicks
             })
         ]
       }

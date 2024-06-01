@@ -24,7 +24,7 @@ import           Onyx.Codec.JSON
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..))
 import           Onyx.MIDI.Read                   (mapTrack)
-import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
+import           Onyx.MIDI.Track.Drums            (DrumVelocity (..), Hand (..))
 import           Onyx.MIDI.Track.Drums.Elite
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Paradiddle
@@ -54,7 +54,7 @@ paraToTrue diff rlrr = let
     gem <- if
       -- should check for other classes
       -- TODO "Tambourine"
-      | "Kick"     `T.isInfixOf` inst.class_ -> return Kick
+      | "Kick"     `T.isInfixOf` inst.class_ -> return $ Kick RH -- TODO generate kick flams?
       | "Snare"    `T.isInfixOf` inst.class_ -> return Snare
       | "Crash"    `T.isInfixOf` inst.class_ -> return $ if isRightSide then CrashR else CrashL
       | "China"    `T.isInfixOf` inst.class_ -> return $ if isRightSide then CrashR else CrashL
@@ -71,12 +71,11 @@ paraToTrue diff rlrr = let
     return (realToFrac event.time :: U.Seconds, (gem, getVelocity event.vel))
   -- TODO in case of a flam this will randomly pick one of the velocities to keep
   gemsNoDupe = RTB.flatten $ fmap (nubOrdOn fst) $ RTB.collectCoincident gems
-  flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick) gems
+  flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick RH) gems
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
     { tdDifficulties = Map.singleton diff EliteDrumDifficulty
       { tdGems        = fmap (\(gem, vel) -> (gem, TBDefault, vel)) gemsNoDupe
-      , tdKick2       = RTB.empty -- TODO kick flams
       , tdFlam        = flams
       , tdHihatOpen   = RTB.empty
       , tdHihatClosed = RTB.empty

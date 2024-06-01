@@ -31,7 +31,7 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    pattern RNil, pattern Wait)
-import           Onyx.MIDI.Track.Drums            (DrumVelocity (..))
+import           Onyx.MIDI.Track.Drums            (DrumVelocity (..), Hand (..))
 import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
@@ -51,7 +51,7 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
       gems = flip RTB.mapMaybe notes $ \case
         HihatClose -> Just (ED.Hihat    , ED.GemHihatClosed, VelocityNormal)
         Snare      -> Just (ED.Snare    , ED.GemNormal     , VelocityNormal)
-        BassDrum   -> Just (ED.Kick     , ED.GemNormal     , VelocityNormal)
+        BassDrum   -> Just (ED.Kick RH  , ED.GemNormal     , VelocityNormal)
         HighTom    -> Just (ED.Tom1     , ED.GemNormal     , VelocityNormal)
         LowTom     -> Just (ED.Tom2     , ED.GemNormal     , VelocityNormal)
         Cymbal     -> Just (ED.CrashR   , ED.GemNormal     , VelocityNormal)
@@ -60,15 +60,13 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
         RideCymbal -> Just (ED.Ride     , ED.GemNormal     , VelocityNormal)
         LeftCymbal -> Just (ED.CrashL   , ED.GemNormal     , VelocityNormal)
         LeftPedal  -> Just (ED.HihatFoot, ED.GemNormal     , VelocityNormal)
-        LeftBass   -> Nothing
+        LeftBass   -> Just (ED.Kick LH  , ED.GemNormal     , VelocityNormal)
       -- if no open hihat, assume hihats are unmarked
       hasOpenHihat = any (\(_, typ, _) -> typ == ED.GemHihatOpen) gems
       gems' = if hasOpenHihat
         then gems
         else fmap (\(gem, _, vel) -> (gem, ED.GemNormal, vel)) gems
-      in (ED.makeEliteDifficultyDTX gems')
-        { ED.tdKick2 = RTB.mapMaybe (\case LeftBass -> Just (); _ -> Nothing) notes
-        }
+      in ED.makeEliteDifficultyDTX gems'
     }
   in F.Song tmap mmap $ F.editOnyxPart F.FlexDrums
     (\opart -> opart { F.onyxPartEliteDrums = importTrueDrums $ fmap fst $ dtx_Drums dtx })
