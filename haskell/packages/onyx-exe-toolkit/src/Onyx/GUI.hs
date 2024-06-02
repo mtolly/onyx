@@ -1894,10 +1894,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         , (,,) "Strip title tags"
           "Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc."
           $ return . stripTitleTags
-        , (,,) "Drum note shuffle"
-          "Work in progress!"
+        , (,,) "Note shuffle"
+          "Shuffles notes on 5-fret and drum parts."
           $ \qsong -> do
-            shuffled <- procFolder (applyToMIDI drumNoteShuffleMIDI) qsong
+            shuffled <- noteShuffle qsong
             seed <- randomIO
             return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
         ]

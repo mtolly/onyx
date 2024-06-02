@@ -18,13 +18,14 @@ import           Data.Bifunctor                   (first, second)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Foldable                    (find)
+import           Data.Foldable                    (find, toList)
 import           Data.Functor                     (void)
 import           Data.Hashable                    (hash)
 import           Data.List.Extra                  (nubOrd, sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
@@ -796,3 +797,46 @@ drumNoteShuffle dt = let
     (a, _) <- RTB.getBodies dd.drumMix
     return a
   in maybe id D.setDrumMix audio newTrack
+
+fiveNoteShuffle :: HOPOsAlgorithm -> U.Beats -> Five.FiveTrack U.Beats -> Five.FiveTrack U.Beats
+fiveNoteShuffle algo hopoThreshold ft = let
+  randomSeed = hash $ show ft
+  in fiveResultToTrack FiveResult
+    { settings  = def
+    , notes     = flip Map.mapWithKey ft.fiveDifficulties $ \diff fd -> let
+      chorded = guitarify'
+        $ applyForces (getForces5 fd)
+        $ strumHOPOTap algo hopoThreshold
+        $ computeFiveFretNotes fd
+      thisSeed = mkStdGen $ randomSeed + fromEnum diff
+      go prev = \case
+        Wait dt (thisPairs, len) rest -> do
+          let sht = case thisPairs of
+                (_, sht1) : _ -> sht1
+                []            -> Strum
+              this = map fst thisPairs
+              thisLength = length this
+          (new, newSet) <- if any isJust this
+            then uniform $ do
+              -- pick from all N-note chords which are different from the previously picked chord
+              opt <- concat <$> sequence [ [[], [Just color]] | color <- [Five.Green .. Five.Orange] ]
+              guard $ length opt == thisLength
+              let optSet = Set.fromList opt
+              guard $ maybe True (optSet /=) prev
+              return (opt, optSet)
+            else return (this, Set.fromList this) -- open note, don't shuffle
+          Wait dt [ ((x, sht), len) | x <- new ] <$> go (Just newSet) rest
+        RNil -> return RNil
+      in RTB.flatten $ flip evalRand thisSeed $ go Nothing chorded
+    , other     = ft
+    , source    = ""
+    , autochart = False
+    }
+
+fiveResultToTrack :: FiveResult -> Five.FiveTrack U.Beats
+fiveResultToTrack ft = ft.other
+  { Five.fiveDifficulties = Map.fromList $ do
+    diff <- [Easy .. Expert]
+    gems <- toList $ Map.lookup diff ft.notes
+    return (diff, emit5' gems)
+  }

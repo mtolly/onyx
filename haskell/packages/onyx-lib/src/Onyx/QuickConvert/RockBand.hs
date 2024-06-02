@@ -52,6 +52,7 @@ import           Data.Tuple.Extra                     (fst3, snd3, thd3)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
+import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
                                                        Tree (..), readDTABytes,
                                                        readDTASections,
@@ -81,7 +82,9 @@ import           Onyx.MIDI.Read                       (TrackCodec, parseTrack)
 import           Onyx.MIDI.Track.Drums                (DrumTrack)
 import           Onyx.MIDI.Track.File                 (parseTrackReport,
                                                        stripTrack)
-import           Onyx.Mode                            (drumNoteShuffle)
+import           Onyx.MIDI.Track.FiveFret             (FiveTrack)
+import           Onyx.Mode                            (drumNoteShuffle,
+                                                       fiveNoteShuffle)
 import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
@@ -111,17 +114,18 @@ data QuickSong = QuickSong
   }
 
 data QuickDTA = QuickDTA
-  { qdtaOriginal :: B.ByteString -- not used for output anymore, may get out of sync with parsed/comments
-  , qdtaParsed   :: Chunk B.ByteString
-  , qdtaComments :: [B.ByteString] -- c3 style extra comments
-  , qdtaFolder   :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
-  , qdtaSubname  :: T.Text -- in 'songs/foo/bar.mid', this is 'bar'
-  , qdtaRB3      :: Bool
-  , qdtaTitle    :: T.Text
-  , qdtaArtist   :: Maybe T.Text
-  , qdtaPreview  :: (Int32, Int32)
-  , qdtaPans     :: [Float]
-  , qdtaVols     :: [Float]
+  { qdtaOriginal      :: B.ByteString -- not used for output anymore, may get out of sync with parsed/comments
+  , qdtaParsed        :: Chunk B.ByteString
+  , qdtaComments      :: [B.ByteString] -- c3 style extra comments
+  , qdtaFolder        :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
+  , qdtaSubname       :: T.Text -- in 'songs/foo/bar.mid', this is 'bar'
+  , qdtaRB3           :: Bool
+  , qdtaTitle         :: T.Text
+  , qdtaArtist        :: Maybe T.Text
+  , qdtaPreview       :: (Int32, Int32)
+  , qdtaPans          :: [Float]
+  , qdtaVols          :: [Float]
+  , qdtaHOPOThreshold :: Maybe Int32
   }
 
 data QuickConvertFormat
@@ -210,18 +214,22 @@ splitSongsDTA r = do
           Parens (Tree _ xs) : _ -> getFloats xs
           _                      -> fatal "Couldn't get vols list"
         let comments = filter (\s -> B.take 1 s == ";") $ map B8.strip $ B8.lines bytes
+            hopoThreshold = case concat [x | Key "hopo_threshold" x <- data2] of
+              Int n : _ -> Just n
+              _         -> Nothing
         return QuickDTA
-          { qdtaOriginal = bytes
-          , qdtaParsed   = chunk
-          , qdtaComments = comments
-          , qdtaFolder   = folder
-          , qdtaSubname  = subname
-          , qdtaRB3      = rb3
-          , qdtaTitle    = readString title
-          , qdtaArtist   = readString <$> artist
-          , qdtaPreview  = preview
-          , qdtaPans     = pans
-          , qdtaVols     = vols
+          { qdtaOriginal      = bytes
+          , qdtaParsed        = chunk
+          , qdtaComments      = comments
+          , qdtaFolder        = folder
+          , qdtaSubname       = subname
+          , qdtaRB3           = rb3
+          , qdtaTitle         = readString title
+          , qdtaArtist        = readString <$> artist
+          , qdtaPreview       = preview
+          , qdtaPans          = pans
+          , qdtaVols          = vols
+          , qdtaHOPOThreshold = hopoThreshold
           }
       _ -> return Nothing
 
@@ -1066,24 +1074,45 @@ addTitleTag tag = modifyTitle $ \title -> if tag `B.isInfixOf` title
   then title
   else title <> " " <> tag
 
-drumNoteShuffleMIDI :: (SendMessage m) => F.T B.ByteString -> StackTraceT m (F.T B.ByteString)
-drumNoteShuffleMIDI (F.Cons typ dvn@(F.Ticks res) trks) = fmap (F.Cons typ dvn) $ forM trks $ \trk ->
-  if U.trackName trk == Just "PART DRUMS"
-    then do
-      let trk'
-            = RTB.mapTime (\tks -> realToFrac tks / realToFrac res)
-            $ RTB.mapBody (fmap TE.decodeLatin1) trk
-      drums <- parseTrackReport $ stripTrack trk'
-      let shuffled = drumNoteShuffle drums
-          parseTrack' :: TrackCodec (PureLog Identity) U.Beats (DrumTrack U.Beats)
-          parseTrack' = parseTrack
-      return
-        $ U.setTrackName "PART DRUMS"
-        $ RTB.discretize $ RTB.mapTime (* realToFrac res)
-        $ RTB.mapBody (fmap encodeLatin1)
-        $ execState (codecOut parseTrack' shuffled) RTB.empty
-    else return trk
-drumNoteShuffleMIDI (F.Cons _ F.SMPTE{} _) = fatal "SMPTE time not supported"
+noteShuffleMIDI :: (SendMessage m) => U.Beats -> F.T B.ByteString -> StackTraceT m (F.T B.ByteString)
+noteShuffleMIDI hopoThreshold (F.Cons typ dvn@(F.Ticks res) trks) = fmap (F.Cons typ dvn) $ forM trks $ \trk -> let
+  trk'
+    = RTB.mapTime (\tks -> realToFrac tks / realToFrac res)
+    $ RTB.mapBody (fmap TE.decodeLatin1) trk
+  name = U.trackName trk
+  reencodeTrack
+    = maybe id U.setTrackName name
+    . RTB.discretize . RTB.mapTime (* realToFrac res)
+    . RTB.mapBody (fmap encodeLatin1)
+  onFive algo = do
+    five <- parseTrackReport $ stripTrack trk'
+    let shuffled = fiveNoteShuffle algo hopoThreshold five
+        parseTrack' :: TrackCodec (PureLog Identity) U.Beats (FiveTrack U.Beats)
+        parseTrack' = parseTrack
+    return
+      $ reencodeTrack
+      $ execState (codecOut parseTrack' shuffled) RTB.empty
+  onDrums = do
+    drums <- parseTrackReport $ stripTrack trk'
+    let shuffled = drumNoteShuffle drums
+        parseTrack' :: TrackCodec (PureLog Identity) U.Beats (DrumTrack U.Beats)
+        parseTrack' = parseTrack
+    return
+      $ reencodeTrack
+      $ execState (codecOut parseTrack' shuffled) RTB.empty
+  in case name of
+    Just "PART DRUMS"  -> onDrums
+    Just "PART GUITAR" -> onFive HOPOsRBGuitar
+    Just "PART BASS"   -> onFive HOPOsRBGuitar
+    Just "PART KEYS"   -> onFive HOPOsRBKeys
+    _                  -> return trk
+noteShuffleMIDI _ (F.Cons _ F.SMPTE{} _) = fatal "SMPTE time not supported"
+
+noteShuffle :: (SendMessage m, MonadIO m) => QuickSong -> StackTraceT m QuickSong
+noteShuffle qsong = do
+  let hopoThreshold = fromIntegral (fromMaybe 170 qsong.quickSongDTA.qdtaHOPOThreshold) / 480
+  newFiles <- applyToMIDI (noteShuffleMIDI hopoThreshold) $ quickSongFiles qsong
+  return qsong { quickSongFiles = newFiles }
 
 -- Gives a new random song ID and file naming structure.
 refreshSong :: Int -> QuickSong -> QuickSong
