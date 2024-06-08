@@ -96,7 +96,7 @@ rrRules buildInfo dir rr = do
       str = T.unpack key
       bytes = TE.encodeUtf8 key
 
-      title  = getTitle  metadata
+      title  = targetTitle songYaml $ RR rr
       artist = getArtist metadata
 
   (planName, plan) <- case getPlan rr.common.plan songYaml of
@@ -393,7 +393,8 @@ rrRules buildInfo dir rr = do
       readPad = shk $ read <$> readFile' pathPad
 
   -- TODO it appears on 360 RR using MP3 specifically,
-  -- we need to pad by another ~100 ms to get things to sync?
+  -- we need to cut about ~50 ms from start of audio to get things to sync?
+  -- part of this is just cancelling out mp3EncodeHackAmount though...
   -- need to get exact number + check what ps3/rpcs3 does
 
   pathGuitar %> \out -> do

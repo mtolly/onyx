@@ -3341,7 +3341,7 @@ launchBatch sink makeMenuBar startFiles = mdo
   let windowWidth = Width 800
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
-  window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
+  window <- FL.windowNew windowSize Nothing $ Just "Batch Recompile"
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -4022,8 +4022,8 @@ launchGUI = withAL $ \hasAudio -> do
         FLTK.awake -- this makes waitFor finish so we can process the event
 
   -- terminal
-  let consoleWidth = Width 500
-      consoleHeight = Height 440
+  let consoleWidth = Width 650
+      consoleHeight = Height 480
   termWindow <- FL.windowNew
     (Size consoleWidth consoleHeight)
     Nothing
@@ -4053,7 +4053,7 @@ launchGUI = withAL $ \hasAudio -> do
                 , Just $ promptLoad sink makeMenuBar hasAudio
                 , FL.MenuItemFlags [FL.MenuItemNormal]
                 )
-              , ( "File/Batch Process"
+              , ( "File/Batch Recompile"
                 , Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b'
                 , Just $ launchBatch' sink makeMenuBar []
                 , FL.MenuItemFlags [FL.MenuItemNormal]
@@ -4164,15 +4164,15 @@ launchGUI = withAL $ \hasAudio -> do
   term <- FL.simpleTerminalNew
     (Rectangle
       (Position (X 10) (Y $ 45 + menuHeight))
-      (Size (Width 480) (Height $ 305 - menuHeight))
+      (Size (Width 630) (Height $ 345 - menuHeight))
     )
     Nothing
   FL.setHistoryLines term $ FL.Lines (-1) -- unlimited
   FL.setAnsi term True
   FL.setStayAtBottom term True
 
-  let bottomBar1 = Rectangle (Position (X 5) (Y 360)) (Size (Width 490) (Height 30))
-      bottomBar2 = Rectangle (Position (X 5) (Y 400)) (Size (Width 490) (Height 30))
+  let bottomBar1 = Rectangle (Position (X 5) (Y 400)) (Size (Width 640) (Height 30))
+      bottomBar2 = Rectangle (Position (X 5) (Y 440)) (Size (Width 640) (Height 30))
       [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
       [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
 
@@ -4188,7 +4188,7 @@ launchGUI = withAL $ \hasAudio -> do
 
   buttonBatch <- FL.buttonCustom
     areaBatch
-    (Just "Batch process")
+    (Just "Batch recompile")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just $ dragAndDrop (launchBatch' sink makeMenuBar) . FL.handleButtonBase . FL.safeCast
@@ -4232,11 +4232,34 @@ launchGUI = withAL $ \hasAudio -> do
       wait = if macOS
         then FLTK.waitFor 1e20 >> return True
         else fmap (/= 0) FLTK.wait
+
   -- TODO: catch errors that reach top level,
   -- and close the GUI with a nice error message
-  addTerm term $ TermLog $
-    "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
-  addTerm term $ TermLog "Select an option below to get started."
+
+  let fixLeadingSpace s = case span (== ' ') s of
+        -- leading space on a terminal line doesn't work for some reason.
+        -- just replace with black characters on black background
+        (""    , _   ) -> s
+        (spaces, rest) -> "\ESC[30m" <> ('.' <$ spaces) <> "\ESC[0m" <> rest
+  mapM_ (addTerm term . TermLog . fixLeadingSpace)
+    [ "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
+    , "Select an option below to get started."
+    , ""
+    , "  \ESC[32mLoad a song\ESC[0m     | bring songs to a new game"
+    , "                  | change song speed, reassign instruments"
+    , "                  | chart preview tool"
+    , ""
+    , "  \ESC[31mBatch recompile\ESC[0m | \"Load a song\" operations on multiple songs"
+    , ""
+    , "  \ESC[33mConvert/pack\ESC[0m    | edit songs without changing games"
+    , "                  | make packs, or extract from packs"
+    , "                  | switch console"
+    , ""
+    , "  \ESC[36mOther tools\ESC[0m     | midi/audio utilities"
+    , "                  | lipsync/dryvox tools"
+    , ""
+    ]
+
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     -- when we have processed a max number of messages, we want to do a quick
     -- redraw and then continue processing. hopefully awake can be used when

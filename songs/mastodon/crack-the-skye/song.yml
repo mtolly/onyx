@@ -19,7 +19,7 @@ parts:
     pro-guitar:
       tuning:
         base: bass-4
-        global: -2 # first down a whole step to CGCF (like The Last Baron)
+        global: -2 # first down a whole step to DGCF
         offsets: [-5, 0, 0, 0] # ...then down to AGCF. see https://youtu.be/FwaE6wkbIrM?t=32
 audio:
 

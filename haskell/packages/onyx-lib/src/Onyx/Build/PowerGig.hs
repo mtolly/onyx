@@ -55,6 +55,7 @@ pgRules buildInfo dir pg = do
       key           = fromMaybe "TodoAutoSongKey" pg.key -- TODO generate automatic
       k             = T.unpack key
       metadata      = getTargetMetadata songYaml $ PG pg
+      title         = targetTitle songYaml $ PG pg
 
       objSTFS       = dir </> "pglive"
       objAddContent = dir </> "stfs/AddContent.lua"
@@ -87,7 +88,7 @@ pgRules buildInfo dir pg = do
     thumb <- stackIO $ powerGigThumbnail >>= B.readFile
     titleThumb <- stackIO $ powerGigTitleThumbnail >>= B.readFile
     stackIO $ makeCONReadable CreateOptions
-      { createNames = [getTitle metadata]
+      { createNames = [title]
       , createDescriptions = [""]
       , createTitleID = 0x5A4607D1
       , createTitleName = "Power Gig: Rise of the Six String"
@@ -108,7 +109,7 @@ pgRules buildInfo dir pg = do
   objAddContent %> \out -> do
     template <- stackIO (getResourcesPath "power-gig/AddContent.lua") >>= compileMustacheFile
     stackIO $ B.writeFile out $ renderMustacheUTF8 template $ A.object
-      [ "package_name" .= escapeLuaString (getTitle metadata)
+      [ "package_name" .= escapeLuaString title
       , "song_key" .= escapeLuaString key
       ]
 
@@ -249,7 +250,7 @@ pgRules buildInfo dir pg = do
           }
         song = PG.Song
           { song_info   = PG.Info
-            { info_title            = getTitle metadata
+            { info_title            = title
             , info_title_short      = Nothing
             , info_title_shorter    = Nothing
             , info_artist           = getArtist metadata
