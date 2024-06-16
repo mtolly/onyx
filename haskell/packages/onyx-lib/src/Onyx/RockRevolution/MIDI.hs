@@ -15,6 +15,7 @@ import           Data.Functor                     (void)
 import           Data.List.Extra                  (elemIndex, nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
+import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
@@ -25,8 +26,8 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
 import           Onyx.MIDI.Read                   (ChannelType (..),
                                                    ParseTrack (..),
                                                    channelBlip_, condenseMap,
-                                                   eachKey, edges, fatBlips,
-                                                   forceTrackSpine,
+                                                   eachKey, edges, edgesCV,
+                                                   fatBlips, forceTrackSpine,
                                                    translateEdges)
 import           Onyx.MIDI.Track.Beat             (BeatEvent (..))
 import qualified Onyx.MIDI.Track.Drums            as D
@@ -186,7 +187,7 @@ rrDrumGuessTD = \case
 data RRDrumDifficulty t = RRDrumDifficulty
   { rrdGems      :: RTB.T t (RRDrum, RRChannel) -- starting from 48. none of these should be RRC_Hidden
   , rrdHidden    :: RTB.T t (RRDrum, RRChannel) -- starting from 72. these should all be RRC_Hidden
-  , rrdFreestyle :: RTB.T t (RRDrum, RRChannel) -- starting from 0
+  , rrdFreestyle :: RTB.T t (Edge () (RRDrum, RRChannel)) -- starting from 0
   , rrdSolo      :: RTB.T t Bool
   -- TODO pitch 126 (highway star)
   -- TODO pitch 105 (highway star)
@@ -196,7 +197,20 @@ instance ParseTrack RRDrumDifficulty where
   parseTrack = do
     rrdGems      <- (rrdGems      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 48
     rrdHidden    <- (rrdHidden    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 72
-    rrdFreestyle <- (rrdFreestyle =.) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum
+    rrdFreestyle <- rrdFreestyle =. let
+      decodeEdge :: (RRDrum, (Int, Maybe Int)) -> Edge () (RRDrum, RRChannel)
+      decodeEdge (drum, (chan, mv)) = let
+        chan' = fromMaybe RRC_Hidden $ lookup chan channelMap
+        in case mv of
+          Nothing -> EdgeOff   (drum, chan')
+          Just _  -> EdgeOn () (drum, chan')
+      encodeEdge :: Edge () (RRDrum, RRChannel) -> (RRDrum, (Int, Maybe Int))
+      encodeEdge = \case
+        EdgeOff   (drum, chan) -> (drum, (encodeChannel chan, Nothing))
+        EdgeOn () (drum, chan) -> (drum, (encodeChannel chan, Just 96))
+      in dimap (fmap encodeEdge) (fmap decodeEdge) $
+        condenseMap $ eachKey each $ \drum ->
+          edgesCV $ fromEnum drum
     rrdSolo      <- rrdSolo =. edges 127
     return RRDrumDifficulty{..}
 
@@ -206,7 +220,7 @@ importRRDrums diffs = mempty
     { D.drumMix         = RTB.empty
     , D.drumPSModifiers = RTB.empty
     , D.drumGems
-      -- are there ever both toms or both crashes at the same time (which would translate to the same 4-lane pad)?
+      -- pretty sure both toms or both crashes at the same time just translates to one 4-lane pad
       = RTB.flatten
       $ fmap nubOrd
       $ RTB.collectCoincident
@@ -223,13 +237,14 @@ importRRDrums diffs = mempty
   }
 
 importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
-importRREliteDrums rr = mempty
-  { ED.tdGems
-    = blipEdgesRBNice
-    $ fmap (\gem -> (D.VelocityNormal, (D.RH <$ gem, ED.TBDefault), Nothing))
-    $ RTB.mapMaybe (rrChannel7Lane . snd)
-    $ rrdGems rr
-  }
+importRREliteDrums
+  = ED.makeEliteDifficulty
+  . fmap (\gem -> (D.RH <$ gem, ED.GemNormal, D.VelocityNormal))
+  . RTB.mapMaybe (rrChannel7Lane . snd)
+  . rrdGems
+
+importRREliteLanes :: (NNC.C t) => RRDrumDifficulty t -> RTB.T t (Edge () (ED.EliteGem ()))
+importRREliteLanes rr = flip RTB.mapMaybe rr.rrdFreestyle $ mapM $ \(_, chan) -> rrChannel7Lane chan
 
 importRRHiddenDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRRHiddenDrums rr
@@ -432,3 +447,40 @@ showRRControl rrc = foldr RTB.merge RTB.empty
       Just Bar  -> 96
       Just Beat -> 98
       Nothing   -> 100
+
+--------------------------------------------------------------------------------
+
+-- These are a hack to account for MP3 audio being delayed when used on 360.
+-- When exporting, we delay all midi contents by the appropriate amount
+-- by changing initial tempos. When importing, we do that change in reverse.
+
+applyRR360MP3Hack, unapplyRR360MP3Hack :: U.TempoMap -> U.TempoMap
+applyRR360MP3Hack tmap = let
+  anchorSecondsOriginal = U.applyTempoMap tmap anchorBeats
+  anchorSecondsNew = anchorSecondsOriginal + rr360MP3HackAmount
+  newStartTempo = U.makeTempo anchorBeats anchorSecondsNew
+  in U.tempoMapFromBPS
+    $ Wait 0 newStartTempo
+    $ Wait anchorBeats (U.getTempoAtTime tmap anchorBeats)
+    $ U.trackDropZero
+    $ U.trackDrop anchorBeats
+    $ U.tempoMapToBPS tmap
+unapplyRR360MP3Hack tmap = let
+  anchorSecondsOriginal = U.applyTempoMap tmap anchorBeats
+  anchorSecondsNew = anchorSecondsOriginal NNC.-| rr360MP3HackAmount
+  in if anchorSecondsNew <= 0
+    then tmap -- TODO warn or something. too high tempos
+    else let
+      newStartTempo = U.makeTempo anchorBeats anchorSecondsNew
+      in U.tempoMapFromBPS
+        $ Wait 0 newStartTempo
+        $ Wait anchorBeats (U.getTempoAtTime tmap anchorBeats)
+        $ U.trackDropZero
+        $ U.trackDrop anchorBeats
+        $ U.tempoMapToBPS tmap
+
+anchorBeats :: U.Beats
+anchorBeats = 2
+
+rr360MP3HackAmount :: U.Seconds
+rr360MP3HackAmount = 0.060

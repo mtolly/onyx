@@ -403,7 +403,7 @@ buildTarget yamlPath fout opts = do
         RS    {} -> targetFolder </> "cst"
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
-        RR    {} -> undefined -- TODO
+        RR    {} -> targetFolder </> "rrlive"
   Identity built' <- shakeBuildFiles audioDirs yamlPath $ Identity built
   return (target, takeDirectory yamlPath </> built')
 

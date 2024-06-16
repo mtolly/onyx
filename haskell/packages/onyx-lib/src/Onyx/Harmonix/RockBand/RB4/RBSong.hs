@@ -466,7 +466,9 @@ getRBSongVenue beatTrack top = let
       , trackEvents     = flip map events $ \(time, event) -> AnimEvent
         { eventExtra = Nothing
         , eventName  = event
-        , eventTime  = realToFrac (U.applyTempoMap tmap (realToFrac time :: U.Beats) :: U.Seconds) * 30
+        , eventTime  = if time < 0
+          then 0 -- negative times seen in Capital Cities - Safe and Sound + (probably) Jimmy Eat World - All The Way (Stay)
+          else realToFrac (U.applyTempoMap tmap (realToFrac time :: U.Beats) :: U.Seconds) * 30
         }
       }
     }

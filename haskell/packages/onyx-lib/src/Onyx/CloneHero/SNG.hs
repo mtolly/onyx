@@ -148,6 +148,9 @@ makeSNG meta files = do
   filesWithSize <- forM files $ \(name, r) -> do
     size <- fromIntegral <$> useHandle r hFileSize
     return (name, r, size)
+  -- TODO CH as of v1.1.0.4261-PTB errors on reading a metadata pair from .sng
+  -- with an empty value. Should just remove these, also some other format
+  -- normalization e.g. bools should always be cased as True/False
   let totalFileSize = sum [ size | (_, _, size) <- filesWithSize ]
       seed = BL.toStrict $ runPut $ do
         -- look random but actually deterministic for simplicity

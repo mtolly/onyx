@@ -34,6 +34,7 @@ import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
+import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Audio                        (clampIfSilent,
                                                     sinkMP3PadWithHandle)
 import           Onyx.Audio.FSB
@@ -56,6 +57,7 @@ import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Beat              (BeatTrack (..))
 import qualified Onyx.MIDI.Track.Drums             as D
+import qualified Onyx.MIDI.Track.Drums.Elite       as E
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
@@ -153,7 +155,11 @@ rrRules buildInfo dir rr = do
       loadOnyxMidi = F.shakeMIDI $ planDir </> "processed.mid"
 
   (songBinEnglish : allMidis) %> \_ -> do
-    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    midPreHack <- applyTargetMIDI rr.common <$> loadOnyxMidi
+    let mid = if True -- TODO only do this for 360!
+          -- for MP3 on 360, decrease tempo at start of midi to account for (~50 ms?) mp3 delay
+          then midPreHack { F.s_tempos = applyRR360MP3Hack midPreHack.s_tempos }
+          else midPreHack
     endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
@@ -193,9 +199,12 @@ rrRules buildInfo dir rr = do
         makeDrums :: Difficulty -> File.T B.ByteString
         makeDrums diff = let
           gems = fromMaybe RTB.empty $ drums >>= \res -> Map.lookup diff res.notes
-          rrDiff = if rr.proTo4
-            then makeRRDrumDifficulty4Lane gems
-            else makeRRDrumDifficulty6Lane gems
+          elite = drums >>= (.eliteDrums) >>= fmap (.tdGems) . Map.lookup diff . (.tdDifficulties)
+          rrDiff = case elite of
+            Just e | not $ RTB.null e -> makeRRDrumDifficultyElite e
+            _                         -> if rr.proTo4
+              then makeRRDrumDifficulty4Lane gems
+              else makeRRDrumDifficulty6Lane gems
           in F.showMixedMIDI $ toTrackMidi rrDiff
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
             }
@@ -314,7 +323,7 @@ rrRules buildInfo dir rr = do
           , ""
           , "KitId = 1002" -- disabling kit anyway with DrumPlayback below
           , "SoloGuitarId = 2200" -- ?
-          , "DrumPlayback = Playback.kStem" -- seems to prevent midi drum sounds (most songs have Playback.kMidi)
+          , "DrumPlayback = Playback.kStem" -- kStem seems to prevent midi drum sounds (most songs have Playback.kMidi)
           , "DisplayArtist = true" -- on disc, this is only true for the 2 masters. in dlc, false even for the bemani pack oddly
           , ""
           -- in official songs this is different from the filename song id
@@ -542,6 +551,24 @@ makeRRFiveControl result gems = let
   gap = fromIntegral result.settings.sustainGap / 480
   in blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
 
+makeRRDrumDifficultyElite :: (NNC.C t) => RTB.T t (Edge D.DrumVelocity (E.EliteGem D.Hand, E.EliteBasic)) -> RRDrumDifficulty t
+makeRRDrumDifficultyElite trk = RRDrumDifficulty
+  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident trk) $ \instant -> let
+    gems = [ void gem | EdgeOn _ (gem, _) <- instant ]
+    in concat
+      [ [ (RR_Kick     , RRC_Kick   ) | elem (E.Kick ()) gems ]
+      , [ (RR_Snare    , RRC_Snare  ) | elem E.Snare     gems ]
+      , [ (RR_HihatOpen, RRC_Hihat  ) | elem E.Hihat     gems ]
+      , [ (RR_Crash1   , RRC_CrashL ) | elem E.CrashL    gems || (elem E.CrashR gems && elem E.Ride gems) ]
+      , [ (RR_Tom3     , RRC_HighTom) | elem E.Tom1      gems || (elem E.Tom2 gems && elem E.Tom3 gems) ]
+      , [ (RR_Tom5     , RRC_LowTom ) | elem E.Tom2      gems || elem E.Tom3 gems ]
+      , [ (RR_Ride     , RRC_CrashR ) | elem E.Ride      gems || elem E.CrashR gems ]
+      ]
+  , rrdHidden    = RTB.empty
+  , rrdFreestyle = RTB.empty -- TODO
+  , rrdSolo      = RTB.empty -- added later
+  }
+
 makeRRDrumDifficulty6Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
 makeRRDrumDifficulty6Lane gems = RRDrumDifficulty
   { rrdGems      = flip fmap gems $ \case
@@ -549,11 +576,11 @@ makeRRDrumDifficulty6Lane gems = RRDrumDifficulty
     (D.Red                  , _) -> (RR_Snare    , RRC_Snare  )
     (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_HighTom)
     (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_LowTom )
-    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_LowTom )
+    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_LowTom ) -- TODO handle B + G toms!
     (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_Hihat  )
     (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_CrashL )
-    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_CrashR )
-    (D.Orange               , _) -> (RR_China    , RRC_CrashR )
+    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_CrashR ) -- TODO handle B + G cymbals!
+    (D.Orange               , _) -> (RR_China    , RRC_CrashR ) -- shouldn't happen
   , rrdHidden    = RTB.empty
   , rrdFreestyle = RTB.empty -- TODO
   , rrdSolo      = RTB.empty -- added later
@@ -570,7 +597,7 @@ makeRRDrumDifficulty4Lane gems = RRDrumDifficulty
     (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_Hihat  )
     (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_HighTom)
     (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_CrashR )
-    (D.Orange               , _) -> (RR_China    , RRC_CrashR )
+    (D.Orange               , _) -> (RR_China    , RRC_CrashR ) -- shouldn't happen
   , rrdHidden    = RTB.empty
   , rrdFreestyle = RTB.empty -- TODO
   , rrdSolo      = RTB.empty -- added later

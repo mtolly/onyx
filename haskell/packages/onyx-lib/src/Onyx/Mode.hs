@@ -104,6 +104,56 @@ anyFiveFret p
   <|> danceToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
+convertFiveToDrums :: BuildFive -> BuildDrums
+convertFiveToDrums bf _dtarget input = let
+  fiveResult = bf FiveTypeKeys input
+  notes :: [(RB.Difficulty, RTB.T U.Beats (D.Gem D.ProType))]
+  notes = do
+    (diff, trk) <- Map.toList fiveResult.notes
+    let trk' = noOpenNotes fiveResult.settings.detectMutedOpens trk
+        eachInstant inst = let
+          handGems = inst >>= \((color, _sht), _len) -> case color of
+            Five.Green  -> []
+            Five.Red    -> [D.Red]
+            Five.Yellow -> [D.Pro D.Yellow D.Tom]
+            Five.Blue   -> [D.Pro D.Blue   D.Tom]
+            Five.Orange -> [D.Pro D.Green  D.Tom]
+          kick = [ D.Kick | ((Five.Green, _), _) <- inst ]
+          -- keep the min and max of the hand gems
+          handGems' = case sort handGems of
+            []          -> []
+            gem1 : rest -> gem1 : take 1 (reverse rest)
+          in kick <> handGems'
+    return (diff, RTB.flatten $ fmap eachInstant $ RTB.collectCoincident trk')
+  in DrumResult
+    { settings = PartDrums
+      { difficulty    = fiveResult.settings.difficulty
+      , mode          = Drums4
+      , kicks         = Kicks1x -- lol
+      , fixFreeform   = True
+      , kit           = HardRockKit
+      , layout        = StandardLayout
+      , fallback      = FallbackGreen
+      , fileDTXKit    = Nothing
+      , trueLayout    = []
+      , difficultyDTX = Nothing
+      }
+    , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
+    , other = mempty
+      { D.drumSolo = fiveResult.other.fiveSolo
+      }
+    , hasRBMarks = False
+    , animations
+      = U.unapplyTempoTrack input.tempo
+      $ D.autoDrumAnimation 0.25
+      $ U.applyTempoTrack input.tempo
+      $ fromMaybe RTB.empty $ lookup Expert notes
+      :: RTB.T U.Beats D.Animation
+    , source = "converted five-fret chart to drums"
+    , autochart = False
+    , eliteDrums = Nothing
+    }
+
 convertDrumsToFive :: BuildDrums -> BuildFive
 convertDrumsToFive bd _ftype input = let
   drumResult = bd DrumTargetRB2x input
@@ -246,6 +296,7 @@ anyDrums p
   = nativeDrums p
   <|> maniaToDrums p
   <|> danceToDrums p
+  <|> fmap convertFiveToDrums (nativeFiveFret p)
 
 buildDrumAnimation
   :: PartDrums f

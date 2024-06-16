@@ -403,7 +403,7 @@ gh3DrumMapping =
   , (39, (Tom1   , D.LH))
   , (40, (Snare  , D.LH))
   , (41, (Hihat  , D.LH))
-  , (42, (Hihat  , D.LH)) -- duplicate?
+  , (42, (Hihat  , D.LH)) -- duplicate? or are these open/closed
   , (43, (Ride   , D.LH))
   , (44, (CrashL , D.LH))
   , (45, (CrashR , D.LH))
@@ -433,6 +433,7 @@ gh3DrumsToElite toBeats notes = let
   in mempty
     { tdSticking = RTB.empty -- TODO
     , tdDifficulties = Map.singleton Expert mempty
+      -- TODO use makeEliteDifficulty so hihats are indifferent
       { tdGems
         = blipEdgesRBNice
         $ fmap (\fgem -> (D.VelocityNormal, (fgem, TBDefault), Nothing))

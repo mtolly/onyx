@@ -42,8 +42,8 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import           Text.Read                        (readMaybe)
 
-importRR :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [Import m]
-importRR dir = map (importRRSong dir) $ findRRSongKeys dir
+importRR :: (SendMessage m, MonadIO m) => Bool -> Folder T.Text Readable -> [Import m]
+importRR isPS3 dir = map (importRRSong isPS3 dir) $ findRRSongKeys dir
 
 findRRSongKeys :: Folder T.Text Readable -> [T.Text]
 findRRSongKeys dir = do
@@ -52,8 +52,8 @@ findRRSongKeys dir = do
   guard $ T.all isDigit key
   return key
 
-importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
-importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
+importRRSong :: (SendMessage m, MonadIO m) => Bool -> Folder T.Text Readable -> T.Text -> Import m
+importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) $ do
 
   when (level == ImportFull) $ lg $ "Importing Rock Revolution song [" <> T.unpack key <> "]"
 
@@ -77,7 +77,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         streams <- splitFSBStreams' fsb
         forM (zip names streams) $ \(streamName, stream) -> do
           (streamData, ext) <- getFSBStreamBytes stream
-          return (TE.decodeLatin1 streamName <> "." <> ext, streamData)
+          return (TE.decodeLatin1 streamName <> "." <> ext, streamData, ext)
 
   findDef <- case level of
     ImportQuick -> return $ const Nothing
@@ -118,8 +118,13 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       bassStream    = bassDef    >>= getStream
       drumsStream   = drumsDef   >>= getStream
       backingStream = backingDef >>= getStream
+      allAudioExtensions = do
+        (_, streams) <- loadedFSB
+        (_, _, ext) <- streams
+        return ext
+      is360MP3 = not isPS3 && elem "mp3" allAudioExtensions
 
-  (controlMid, control) <- case level of
+  (controlMidPreHack, control) <- case level of
     ImportQuick -> return (emptyChart, Nothing)
     ImportFull  -> do
       let midName = "s" <> key <> "_control.mid"
@@ -128,6 +133,12 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         let (parsedControl, unrec) = readRRControl $ F.s_tracks mid
         forM_ (nubSort $ RTB.getBodies unrec) $ \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
+  -- if this is a 360 file with an mp3 fsb,
+  -- undo the sync hack we would have done on export,
+  -- by increasing tempo at start of midi to account for mp3 delay
+  let controlMid = if is360MP3
+        then controlMidPreHack { F.s_tempos = unapplyRR360MP3Hack $ F.s_tempos controlMidPreHack }
+        else controlMidPreHack
 
   let loadGuitarBass inst = case level of
         ImportQuick -> return mempty
@@ -153,7 +164,10 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
               return (diff, rrd)
           return
             ( importRRDrums rrDiffs
-            , mempty { ED.tdDifficulties  = fmap importRREliteDrums rrDiffs }
+            , mempty
+              { ED.tdDifficulties = fmap importRREliteDrums rrDiffs
+              , ED.tdLanes = maybe RTB.empty importRREliteLanes $ Map.lookup Expert rrDiffs
+              }
             , mempty { ED.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
             )
       diffs = [("02", Easy), ("03", Medium), ("04", Hard), ("05", Expert)]
@@ -203,7 +217,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ do
-      (name, bs) <- catMaybes [guitarStream, bassStream, drumsStream, backingStream]
+      (name, bs, _) <- catMaybes [guitarStream, bassStream, drumsStream, backingStream]
       let str = T.unpack name
       return (name, AudioFile AudioInfo
         { md5 = Nothing
@@ -215,11 +229,11 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         , channels = 2 -- TODO maybe verify
         })
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
-      { song = Input . Named . fst <$> backingStream
+      { song = (\(s, _, _) -> Input $ Named s) <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream $ \(s, _) -> (F.FlexGuitar, PartSingle $ Input $ Named s)
-        , flip fmap bassStream   $ \(s, _) -> (F.FlexBass  , PartSingle $ Input $ Named s)
-        , flip fmap drumsStream  $ \(s, _) -> (F.FlexDrums , PartSingle $ Input $ Named s)
+        [ flip fmap guitarStream $ \(s, _, _) -> (F.FlexGuitar, PartSingle $ Input $ Named s)
+        , flip fmap bassStream   $ \(s, _, _) -> (F.FlexBass  , PartSingle $ Input $ Named s)
+        , flip fmap drumsStream  $ \(s, _, _) -> (F.FlexDrums , PartSingle $ Input $ Named s)
         ]
       , crowd = Nothing
       , comments = []

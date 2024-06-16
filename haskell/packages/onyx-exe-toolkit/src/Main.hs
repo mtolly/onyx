@@ -27,8 +27,9 @@ main = do
 #endif
   argv <- getArgs
   case argv of
-    [] -> launchGUI
-    _  -> do
+    []          -> launchGUI []
+    "open" : xs -> launchGUI xs
+    _           -> do
       res <- logStdout $ do
         case os of
           "mingw32" -> return ()

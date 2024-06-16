@@ -4011,8 +4011,8 @@ launchPreferences sink makeMenuBar = do
     FL.setResizable window $ Just tabs
     FL.showWidget window
 
-launchGUI :: IO ()
-launchGUI = withAL $ \hasAudio -> do
+launchGUI :: [FilePath] -> IO ()
+launchGUI initSongs = withAL $ \hasAudio -> do
   _ <- FLTK.setScheme "gtk+"
   void FLTK.lock -- this is required to get threads to work properly
 
@@ -4152,7 +4152,7 @@ launchGUI = withAL $ \hasAudio -> do
   labelLatest <- FL.boxNew
     (Rectangle
       (Position (X 120) (Y $ 10 + menuHeight))
-      (Size (Width 370) (Height 25))
+      (Size (Width 520) (Height 25))
     )
     (Just "Checking for updates…")
   _ <- forkIO $ isNewestRelease $ \comp -> sink $ EventIO $ do
@@ -4253,12 +4253,16 @@ launchGUI = withAL $ \hasAudio -> do
     , ""
     , "  \ESC[33mConvert/pack\ESC[0m    | edit songs without changing games"
     , "                  | make packs, or extract from packs"
-    , "                  | switch console"
+    , "                  | switch console, e.g. \ESC[32m360\ESC[0m -> \ESC[36mPS3\ESC[0m"
     , ""
     , "  \ESC[36mOther tools\ESC[0m     | midi/audio utilities"
     , "                  | lipsync/dryvox tools"
     , ""
     ]
+
+  case initSongs of
+    [] -> return ()
+    _  -> sink $ EventOnyx $ startLoad makeMenuBar hasAudio initSongs
 
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     -- when we have processed a max number of messages, we want to do a quick
