@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
@@ -41,8 +42,12 @@ import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
 import           Onyx.Background
 import           Onyx.Build.Common
+import           Onyx.Difficulty                   (bassDiffMap,
+                                                    computeDrumRank,
+                                                    computeFiveRank,
+                                                    drumsDiffMap, guitarDiffMap)
 import           Onyx.FFMPEG                       (ffSource)
-import           Onyx.Guitar                       (gh3LegalHOPOs,
+import           Onyx.Guitar                       (applyStatus, gh3LegalHOPOs,
                                                     noExtendedSustains',
                                                     noOpenNotes,
                                                     standardBlipThreshold)
@@ -53,7 +58,8 @@ import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
                                                     StrumHOPOTap (..),
                                                     blipEdgesRBNice,
                                                     blipEdgesRB_, pattern RNil,
-                                                    pattern Wait)
+                                                    pattern Wait,
+                                                    splitEdgesSimple)
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Beat              (BeatTrack (..))
 import qualified Onyx.MIDI.Track.Drums             as D
@@ -75,6 +81,8 @@ import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
 import           Onyx.Util.Handle                  (Folder (..))
 import           Onyx.Util.Text.Decode             (encodeLatin1)
+import           Onyx.WebPlayer                    (findTremolos, findTrills,
+                                                    laneDifficulty)
 import           Onyx.Xbox.STFS                    (rrpkg)
 import           Paths_onyx_lib                    (version)
 import qualified Sound.MIDI.File                   as File
@@ -198,13 +206,18 @@ rrRules buildInfo dir rr = do
 
         makeDrums :: Difficulty -> File.T B.ByteString
         makeDrums diff = let
-          gems = fromMaybe RTB.empty $ drums >>= \res -> Map.lookup diff res.notes
-          elite = drums >>= (.eliteDrums) >>= fmap (.tdGems) . Map.lookup diff . (.tdDifficulties)
-          rrDiff = case elite of
-            Just e | not $ RTB.null e -> makeRRDrumDifficultyElite e
-            _                         -> if rr.proTo4
-              then makeRRDrumDifficulty4Lane gems
-              else makeRRDrumDifficulty6Lane gems
+          nonElite =
+            (if rr.proTo4 then makeRRDrumDifficulty4Lane else makeRRDrumDifficulty6Lane)
+            diff
+            (fromMaybe RTB.empty $ drums >>= \dr -> Map.lookup diff dr.notes)
+            (maybe mempty (.other) drums)
+            mid.s_tracks.onyxEvents
+          rrDiff = case drums >>= (.eliteDrums) of
+            Nothing -> nonElite
+            Just elite -> case E.splitFlams mid.s_tempos $ E.getDifficulty (Just diff) elite of
+              eliteNotes | not $ RTB.null eliteNotes
+                -> makeRRDrumDifficultyElite eliteNotes elite mid.s_tracks.onyxEvents
+              _ -> nonElite
           in F.showMixedMIDI $ toTrackMidi rrDiff
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
             }
@@ -278,7 +291,10 @@ rrRules buildInfo dir rr = do
           Mood_play_solo     -> 3
         , rrcAnimVocalist  = RTB.empty
         , rrcGemsDrums     = fmap fst $ rrdGems $ makeRRDrumDifficulty4Lane
-          $ fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes
+          Expert
+          (fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes)
+          (maybe mempty (.other) drums)
+          mid.s_tracks.onyxEvents
         , rrcGemsGuitar    = fromMaybe RTB.empty $ do
           res <- guitar
           makeRRFiveControl res <$> Map.lookup Expert res.notes
@@ -311,7 +327,7 @@ rrRules buildInfo dir rr = do
         difficultyFromRank name rank = let
           -- picked these rank cutoffs so RB 7 tiers convert to 1-1-2-2-3-4-5
           -- on all of guitar/bass/drums
-          n = T.pack $ show $ length $ filter (<= rank) [0, 150, 242, 325, 400]
+          n = T.pack $ show $ length $ filter (<= rank) [1, 150, 242, 325, 400]
           in name <> " = { 1, " <> T.intercalate ", " (replicate 5 n) <> " }"
         lua = T.intercalate "\r\n"
           [ "Sex = Sex or {}"
@@ -332,9 +348,9 @@ rrRules buildInfo dir rr = do
           , ""
           -- these can be 1 through 5. never actually different per level
           , "-- star ratings for each difficulty level:"
-          , difficultyFromRank "DrumDifficulty" 1 -- TODO
-          , difficultyFromRank "GuitarDifficulty" 1 -- TODO
-          , difficultyFromRank "BassDifficulty" 1 -- TODO
+          , difficultyFromRank "DrumDifficulty"   $ computeDrumRank rr.drums  songYaml drumsDiffMap
+          , difficultyFromRank "GuitarDifficulty" $ computeFiveRank rr.guitar songYaml guitarDiffMap
+          , difficultyFromRank "BassDifficulty"   $ computeFiveRank rr.bass   songYaml bassDiffMap
           , ""
           -- TODO
           , "-- top score for each difficulty level:"
@@ -551,57 +567,152 @@ makeRRFiveControl result gems = let
   gap = fromIntegral result.settings.sustainGap / 480
   in blipEdgesRBNice $ (\((color, _), len) -> ((), color, len)) <$> processed
 
-makeRRDrumDifficultyElite :: (NNC.C t) => RTB.T t (Edge D.DrumVelocity (E.EliteGem D.Hand, E.EliteBasic)) -> RRDrumDifficulty t
-makeRRDrumDifficultyElite trk = RRDrumDifficulty
-  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident trk) $ \instant -> let
-    gems = [ void gem | EdgeOn _ (gem, _) <- instant ]
-    in concat
-      [ [ (RR_Kick     , RRC_Kick   ) | elem (E.Kick ()) gems ]
-      , [ (RR_Snare    , RRC_Snare  ) | elem E.Snare     gems ]
-      , [ (RR_HihatOpen, RRC_Hihat  ) | elem E.Hihat     gems ]
-      , [ (RR_Crash1   , RRC_CrashL ) | elem E.CrashL    gems || (elem E.CrashR gems && elem E.Ride gems) ]
-      , [ (RR_Tom3     , RRC_HighTom) | elem E.Tom1      gems || (elem E.Tom2 gems && elem E.Tom3 gems) ]
-      , [ (RR_Tom5     , RRC_LowTom ) | elem E.Tom2      gems || elem E.Tom3 gems ]
-      , [ (RR_Ride     , RRC_CrashR ) | elem E.Ride      gems || elem E.CrashR gems ]
-      ]
+removeGemsUnderFreestyle :: (NNC.C t) => RRDrumDifficulty t -> RRDrumDifficulty t
+removeGemsUnderFreestyle rrd = let
+  laneBools = flip fmap rrd.rrdFreestyle $ \case
+    EdgeOn _ (_, rrc) -> (rrc, True )
+    EdgeOff  (_, rrc) -> (rrc, False)
+  in rrd
+    { rrdGems = flip RTB.mapMaybe (applyStatus laneBools rrd.rrdGems)
+      $ \(currentLanes, pair@(_perc, chan)) -> do
+        guard $ notElem chan currentLanes
+        return pair
+    }
+
+condenseDupes :: (NNC.C t, Ord a) => RTB.T t (Edge () a) -> RTB.T t (Edge () a)
+condenseDupes = go Map.empty where
+  go activeCounts = \case
+    Wait dt e rest -> case e of
+      EdgeOn () x -> let
+        activeCounts' = Map.alter (Just . (+ 1) . fromMaybe 0) x activeCounts
+        in case fromMaybe 0 $ Map.lookup x activeCounts :: Int of
+          0 -> Wait dt e $ go activeCounts' rest
+          _ -> RTB.delay dt $ go activeCounts' rest
+      EdgeOff x -> let
+        activeCounts' = Map.alter (Just . subtract 1 . fromMaybe 0) x activeCounts
+        in case fromMaybe 0 $ Map.lookup x activeCounts :: Int of
+          1 -> Wait dt e $ go activeCounts' rest
+          _ -> RTB.delay dt $ go activeCounts' rest
+    RNil -> RNil
+
+data RRDrumInput t = RRDrumInput
+  { notes      :: RTB.T t (E.EliteGem ())
+  , lanes      :: RTB.T t (Edge () (E.EliteGem ()))
+  , activation :: RTB.T t Bool
+  , events     :: EventsTrack t
+  }
+
+makeRRDrumDifficulty :: (NNC.C t) => RRDrumInput t -> RRDrumDifficulty t
+makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
+  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident input.notes) $ \gems -> concat
+    [ [ (RR_Kick     , RRC_Kick   ) | elem (E.Kick ()) gems ]
+    , [ (RR_Snare    , RRC_Snare  ) | elem E.Snare     gems ]
+    , [ (RR_HihatOpen, RRC_Hihat  ) | elem E.Hihat     gems ]
+    , [ (RR_Crash1   , RRC_CrashL ) | elem E.CrashL    gems || (elem E.CrashR gems && elem E.Ride gems) ]
+    , [ (RR_Tom3     , RRC_HighTom) | elem E.Tom1      gems || (elem E.Tom2 gems && elem E.Tom3 gems) ]
+    , [ (RR_Tom5     , RRC_LowTom ) | elem E.Tom2      gems || elem E.Tom3 gems ]
+    , [ (RR_Ride     , RRC_CrashR ) | elem E.Ride      gems || elem E.CrashR gems ]
+    ]
   , rrdHidden    = RTB.empty
-  , rrdFreestyle = RTB.empty -- TODO
+  , rrdFreestyle = let
+    lanesNormal = flip RTB.mapMaybe input.lanes $ mapM $ \case
+      E.Kick ()   -> Just RRC_Kick
+      E.Snare     -> Just RRC_Snare
+      E.Hihat     -> Just RRC_Hihat
+      E.CrashL    -> Just RRC_CrashL
+      E.Tom1      -> Just RRC_HighTom
+      E.Tom2      -> Just RRC_LowTom
+      E.Tom3      -> Just RRC_LowTom
+      E.Ride      -> Just RRC_CrashR
+      E.CrashR    -> Just RRC_CrashR
+      E.HihatFoot -> Nothing
+    lanesBRE = case input.events.eventsCoda of
+      RNil -> RTB.empty
+      Wait codaTime _ _
+        -> RTB.flatten
+        $ fmap breEdge
+        $ RTB.delay codaTime
+        $ U.trackDrop codaTime input.activation
+    breEdge b = map (if b then EdgeOn () else EdgeOff)
+      [RRC_Kick, RRC_Snare, RRC_Hihat, RRC_CrashL, RRC_HighTom, RRC_LowTom, RRC_CrashR]
+    withPerc = fmap $ fmap $ \chan -> let
+      perc = case chan of
+        RRC_Kick    -> RR_Kick
+        RRC_Snare   -> RR_Snare
+        RRC_Hihat   -> RR_HihatOpen
+        RRC_CrashL  -> RR_Crash1
+        RRC_HighTom -> RR_Tom3
+        RRC_LowTom  -> RR_Tom5
+        RRC_CrashR  -> RR_Ride
+        RRC_Hidden  -> RR_Vibraslap -- shouldn't happen
+      in (perc, chan)
+    in withPerc $ condenseDupes $ RTB.merge lanesNormal lanesBRE
   , rrdSolo      = RTB.empty -- added later
   }
 
-makeRRDrumDifficulty6Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
-makeRRDrumDifficulty6Lane gems = RRDrumDifficulty
-  { rrdGems      = flip fmap gems $ \case
-    (D.Kick                 , _) -> (RR_Kick     , RRC_Kick   )
-    (D.Red                  , _) -> (RR_Snare    , RRC_Snare  )
-    (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_HighTom)
-    (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_LowTom )
-    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_LowTom ) -- TODO handle B + G toms!
-    (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_Hihat  )
-    (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_CrashL )
-    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_CrashR ) -- TODO handle B + G cymbals!
-    (D.Orange               , _) -> (RR_China    , RRC_CrashR ) -- shouldn't happen
-  , rrdHidden    = RTB.empty
-  , rrdFreestyle = RTB.empty -- TODO
-  , rrdSolo      = RTB.empty -- added later
+makeRRDrumDifficultyElite
+  :: (NNC.C t)
+  => RTB.T t (E.EliteDrumNote ())
+  -> E.EliteDrumTrack t
+  -> EventsTrack t
+  -> RRDrumDifficulty t
+makeRRDrumDifficultyElite trk elite events = makeRRDrumDifficulty RRDrumInput
+  { notes      = (.tdn_gem) <$> trk
+  , lanes      = elite.tdLanes
+  , activation = elite.tdActivation
+  , events     = events
   }
 
-makeRRDrumDifficulty4Lane :: RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity) -> RRDrumDifficulty U.Beats
-makeRRDrumDifficulty4Lane gems = RRDrumDifficulty
-  { rrdGems      = flip fmap gems $ \case
-    (D.Kick                 , _) -> (RR_Kick     , RRC_Kick   )
-    (D.Red                  , _) -> (RR_Snare    , RRC_Snare  )
-    (D.Pro D.Yellow D.Cymbal, _) -> (RR_HihatOpen, RRC_Hihat  )
-    (D.Pro D.Blue   D.Cymbal, _) -> (RR_Ride     , RRC_HighTom)
-    (D.Pro D.Green  D.Cymbal, _) -> (RR_Crash1   , RRC_CrashR )
-    (D.Pro D.Yellow D.Tom   , _) -> (RR_Tom3     , RRC_Hihat  )
-    (D.Pro D.Blue   D.Tom   , _) -> (RR_Tom4     , RRC_HighTom)
-    (D.Pro D.Green  D.Tom   , _) -> (RR_Tom5     , RRC_CrashR )
-    (D.Orange               , _) -> (RR_China    , RRC_CrashR ) -- shouldn't happen
-  , rrdHidden    = RTB.empty
-  , rrdFreestyle = RTB.empty -- TODO
-  , rrdSolo      = RTB.empty -- added later
-  }
+legacyLanes
+  :: (Num t, NNC.C t)
+  => Difficulty
+  -> RTB.T t (D.Gem D.ProType, D.DrumVelocity)
+  -> D.DrumTrack t
+  -> RTB.T t (Edge () (D.Gem D.ProType))
+legacyLanes diff gems trk = let
+  hands = RTB.filter (/= D.Kick) $ fmap fst gems
+  single = findTremolos hands $ laneDifficulty diff trk.drumSingleRoll
+  double = findTrills   hands $ laneDifficulty diff trk.drumDoubleRoll
+  in splitEdgesSimple $ fmap (\(gem, len) -> ((), gem, len)) $ RTB.merge single double
+
+makeRRDrumDifficulty6Lane, makeRRDrumDifficulty4Lane
+  :: (Num t, NNC.C t)
+  => Difficulty
+  -> RTB.T t (D.Gem D.ProType, D.DrumVelocity)
+  -> D.DrumTrack t
+  -> EventsTrack t
+  -> RRDrumDifficulty t
+makeRRDrumDifficulty6Lane diff gems trk events = let
+  gemTranslate = \case
+    D.Kick                  -> E.Kick ()
+    D.Red                   -> E.Snare
+    D.Pro D.Yellow D.Tom    -> E.Tom1
+    D.Pro D.Blue   D.Tom    -> E.Tom2
+    D.Pro D.Green  D.Tom    -> E.Tom3
+    D.Pro D.Yellow D.Cymbal -> E.Hihat
+    D.Pro D.Blue   D.Cymbal -> E.CrashL
+    D.Pro D.Green  D.Cymbal -> E.CrashR
+    D.Orange                -> E.Ride -- shouldn't happen
+  in makeRRDrumDifficulty RRDrumInput
+    { notes      = gemTranslate . fst <$> gems
+    , lanes      = fmap gemTranslate <$> legacyLanes diff gems trk
+    , activation = trk.drumActivation
+    , events     = events
+    }
+makeRRDrumDifficulty4Lane diff gems trk events = let
+  gemTranslate = \case
+    D.Kick           -> E.Kick ()
+    D.Red            -> E.Snare
+    D.Pro D.Yellow _ -> E.Hihat
+    D.Pro D.Blue   _ -> E.Tom2
+    D.Pro D.Green  _ -> E.CrashR
+    D.Orange         -> E.CrashR -- shouldn't happen
+  in makeRRDrumDifficulty RRDrumInput
+    { notes      = gemTranslate . fst <$> gems
+    , lanes      = fmap gemTranslate <$> legacyLanes diff gems trk
+    , activation = trk.drumActivation
+    , events     = events
+    }
 
 makeMainFEV :: B.ByteString -> Maybe Word32 -> Maybe Word32 -> Maybe Word32 -> Maybe Word32 -> FEV
 makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV

@@ -308,7 +308,7 @@ getDifficulty diff trk = let
     : []
   adjustKicks = case diff of
     Nothing -> id
-    _       -> RTB.filter $ \case
+    Just _  -> RTB.filter $ \case
       (Kick D.LH, _, _) -> False
       _                 -> True
   onlyOns = RTB.mapMaybe $ \case

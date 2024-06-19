@@ -42,6 +42,45 @@ data DifficultyRB3 = DifficultyRB3
   , rb3DrumsTier, rb3BassTier, rb3GuitarTier, rb3VocalTier, rb3KeysTier, rb3ProBassTier, rb3ProGuitarTier, rb3ProKeysTier, rb3BandTier :: Integer
   } deriving (Eq, Ord, Show, Read)
 
+computeDrumRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeDrumRank flex songYaml dmap = case getPart flex songYaml >>= anyDrums of
+  Nothing -> 0
+  Just builder -> let
+    result = builder DrumTargetRB2x ModeInput
+      { tempo  = U.tempoMapFromBPS RTB.empty
+      , events = mempty
+      , part   = mempty
+      }
+    in case result.settings.difficulty of
+      Rank r -> r
+      Tier t -> tierToRank dmap t
+
+computeFiveRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeFiveRank flex songYaml dmap = case getPart flex songYaml >>= anyFiveFret of
+  Nothing -> 0
+  Just builder -> let
+    result = builder FiveTypeGuitarExt ModeInput
+      { tempo  = U.tempoMapFromBPS RTB.empty
+      , events = mempty
+      , part   = mempty
+      }
+    in case result.settings.difficulty of
+      Rank r -> r
+      Tier t -> tierToRank dmap t
+
+computeProKeysRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeProKeysRank flex songYaml dmap = case getPart flex songYaml >>= anyProKeys of
+  Nothing -> 0
+  Just builder -> let
+    result = builder ModeInput
+      { tempo  = U.tempoMapFromBPS RTB.empty
+      , events = mempty
+      , part   = mempty
+      }
+    in case result.settings.difficulty of
+      Rank r -> r
+      Tier t -> tierToRank dmap t
+
 difficultyRB3 :: TargetRB3 f -> SongYaml f -> DifficultyRB3
 difficultyRB3 rb3 songYaml = let
 
@@ -50,46 +89,13 @@ difficultyRB3 rb3 songYaml = let
     Just mode -> case mode.difficulty of
       Rank r -> r
       Tier t -> tierToRank dmap t
-  drumRank flex dmap = case getPart flex songYaml >>= anyDrums of
-    Nothing -> 0
-    Just builder -> let
-      result = builder DrumTargetRB2x ModeInput
-        { tempo  = U.tempoMapFromBPS RTB.empty
-        , events = mempty
-        , part   = mempty
-        }
-      in case result.settings.difficulty of
-        Rank r -> r
-        Tier t -> tierToRank dmap t
-  fiveRank flex dmap = case getPart flex songYaml >>= anyFiveFret of
-    Nothing -> 0
-    Just builder -> let
-      result = builder FiveTypeGuitarExt ModeInput
-        { tempo  = U.tempoMapFromBPS RTB.empty
-        , events = mempty
-        , part   = mempty
-        }
-      in case result.settings.difficulty of
-        Rank r -> r
-        Tier t -> tierToRank dmap t
-  proKeysRank flex dmap = case getPart flex songYaml >>= anyProKeys of
-    Nothing -> 0
-    Just builder -> let
-      result = builder ModeInput
-        { tempo  = U.tempoMapFromBPS RTB.empty
-        , events = mempty
-        , part   = mempty
-        }
-      in case result.settings.difficulty of
-        Rank r -> r
-        Tier t -> tierToRank dmap t
 
-  rb3DrumsRank     = drumRank rb3.drums  drumsDiffMap
-  rb3BassRank'     = fiveRank rb3.bass   bassDiffMap
-  rb3GuitarRank'   = fiveRank rb3.guitar guitarDiffMap
-  rb3KeysRank'     = fiveRank rb3.keys   keysDiffMap
+  rb3DrumsRank     = computeDrumRank rb3.drums  songYaml drumsDiffMap
+  rb3BassRank'     = computeFiveRank rb3.bass   songYaml bassDiffMap
+  rb3GuitarRank'   = computeFiveRank rb3.guitar songYaml guitarDiffMap
+  rb3KeysRank'     = computeFiveRank rb3.keys   songYaml keysDiffMap
   rb3VocalRank     = simpleRank rb3.vocal (.vocal) vocalDiffMap
-  rb3ProKeysRank   = proKeysRank rb3.keys keysDiffMap
+  rb3ProKeysRank   = computeProKeysRank rb3.keys songYaml  keysDiffMap
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank else rb3KeysRank'
   rb3ProBassRank   = simpleRank rb3.bass   (.proGuitar) proBassDiffMap
   rb3ProGuitarRank = simpleRank rb3.guitar (.proGuitar) proGuitarDiffMap

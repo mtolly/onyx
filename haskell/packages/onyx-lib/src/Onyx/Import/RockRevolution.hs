@@ -71,6 +71,25 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
         $ mapMaybe (\case ["Year", "=", n] -> readMaybe $ T.unpack n; _ -> Nothing)
         $ map T.words $ T.lines lua
 
+      getStars :: T.Text -> Maybe Int
+      getStars diffKey = listToMaybe $ do
+        ln <- T.lines lua
+        braceList <- case T.words ln of
+          k : "=" : rest | k == diffKey -> [T.unwords rest]
+          _                             -> []
+        -- convert the brace list to brackets list and read as haskell [Int]
+        nums <- toList $ readMaybe $ T.unpack $ T.map (\case '{' -> '['; '}' -> ']'; c -> c) braceList
+        -- just take the last number
+        take 1 $ reverse nums
+      starsToTier = \case
+        Nothing -> Just $ Tier 0
+        Just 0  -> Nothing -- used by onyx export to mark non-present parts
+        Just 1  -> Just $ Tier 2
+        Just 2  -> Just $ Tier 4
+        Just 3  -> Just $ Tier 5
+        Just 4  -> Just $ Tier 6
+        _       -> Just $ Tier 7
+
       loadAudio r = do
         fsb <- parseFSB r
         let names = map fsbSongName $ either fsb3Songs fsb4Songs $ fsbHeader fsb
@@ -167,6 +186,7 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
             , mempty
               { ED.tdDifficulties = fmap importRREliteDrums rrDiffs
               , ED.tdLanes = maybe RTB.empty importRREliteLanes $ Map.lookup Expert rrDiffs
+              , ED.tdSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert rrDiffs
               }
             , mempty { ED.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
             )
@@ -240,19 +260,28 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
       , tuningCents = 0
       , fileTempo = Nothing
       }
-    , parts = Parts $ HM.fromList
-      [ (F.FlexGuitar, emptyPart
-        { grybo = Just def
-        -- TODO import difficulty
-        })
-      , (F.FlexBass, emptyPart
-        { grybo = Just def
-        -- TODO import difficulty
-        })
-      , (F.FlexDrums, (emptyPart :: Part SoftFile)
-        { drums = Just $ emptyPartDrums DrumsTrue Kicks1x
-        -- TODO import difficulty
-        })
+    , parts = Parts $ HM.fromList $ concat
+      [ case starsToTier $ getStars "GuitarDifficulty" of
+        Just tier -> [(F.FlexGuitar, emptyPart
+          { grybo = Just (def :: PartGRYBO)
+            { difficulty = tier
+            }
+          })]
+        Nothing -> []
+      , case starsToTier $ getStars "BassDifficulty" of
+        Just tier -> [(F.FlexBass, emptyPart
+          { grybo = Just (def :: PartGRYBO)
+            { difficulty = tier
+            }
+          })]
+        Nothing -> []
+      , case starsToTier $ getStars "DrumDifficulty" of
+        Just tier -> [(F.FlexDrums, (emptyPart :: Part SoftFile)
+          { drums = Just (emptyPartDrums DrumsTrue Kicks1x :: PartDrums SoftFile)
+            { difficulty = tier
+            }
+          })]
+        Nothing -> []
       {-
       , (F.FlexExtra "hidden-drums", def
         { partDrums = Just emptyPartDrums DrumsTrue Kicks1x
