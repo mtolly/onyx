@@ -189,8 +189,11 @@ data RRDrumDifficulty t = RRDrumDifficulty
   , rrdHidden    :: RTB.T t (RRDrum, RRChannel) -- starting from 72. these should all be RRC_Hidden
   , rrdFreestyle :: RTB.T t (Edge () (RRDrum, RRChannel)) -- starting from 0
   , rrdSolo      :: RTB.T t Bool
+  -- TODO pitch 96 (joker and the thief)
+  -- TODO pitch 98
+  -- TODO pitch 105 (highway star), appears to be a "required freestyle note". channel is RRChannel
+  -- TODO pitch 120 (youth gone wild)
   -- TODO pitch 126 (highway star)
-  -- TODO pitch 105 (highway star)
   } deriving (Show)
 
 instance ParseTrack RRDrumDifficulty where

@@ -22,6 +22,7 @@ import           Data.Char                         (toUpper)
 import qualified Data.Conduit.Audio                as CA
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Foldable                     (toList)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (hash)
 import           Data.Int                          (Int16)
@@ -81,6 +82,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
 import           Onyx.Util.Handle                  (Folder (..))
 import           Onyx.Util.Text.Decode             (encodeLatin1)
+import           Onyx.Util.Text.Transform          (replaceCharsRB)
 import           Onyx.WebPlayer                    (findTremolos, findTrills,
                                                     laneDifficulty)
 import           Onyx.Xbox.STFS                    (rrpkg)
@@ -106,8 +108,11 @@ rrRules buildInfo dir rr = do
       str = T.unpack key
       bytes = TE.encodeUtf8 key
 
-      title  = targetTitle songYaml $ RR rr
-      artist = getArtist metadata
+  -- not sure exactly which chars supported but probably latin-1-ish.
+  -- nonsupported chars like japanese don't break anything at least,
+  -- they just don't display anything
+  title  <- replaceCharsRB False $ targetTitle songYaml $ RR rr
+  artist <- replaceCharsRB False $ getArtist metadata
 
   (planName, plan) <- case getPlan rr.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rr
@@ -159,15 +164,17 @@ rrRules buildInfo dir rr = do
         , control
         ]
 
+      maxScores = dir </> "max-scores.lua"
+
   let loadOnyxMidi :: Staction (F.Song (F.OnyxFile U.Beats))
       loadOnyxMidi = F.shakeMIDI $ planDir </> "processed.mid"
 
-  (songBinEnglish : allMidis) %> \_ -> do
-    midPreHack <- applyTargetMIDI rr.common <$> loadOnyxMidi
-    let mid = if True -- TODO only do this for 360!
-          -- for MP3 on 360, decrease tempo at start of midi to account for (~50 ms?) mp3 delay
-          then midPreHack { F.s_tempos = applyRR360MP3Hack midPreHack.s_tempos }
-          else midPreHack
+  let pathPad = dir </> "pad.txt"
+      readPad :: Staction Int
+      readPad = shk $ read <$> readFile' pathPad
+
+  (songBinEnglish : maxScores : pathPad : allMidis) %> \_ -> do
+    mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
     endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
@@ -184,8 +191,25 @@ rrRules buildInfo dir rr = do
           completeDrumResult mid.s_signatures mid.s_tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
-        toTrackMidi :: (ParseTrack f) => f U.Beats -> F.Song (RTB.T U.Beats (Event.T B.ByteString))
-        toTrackMidi trk = mid
+    let startNotes = concat
+          [ toList (guitar >>= Map.lookup Expert . (.notes)) >>= take 1 . RTB.getTimes
+          , toList (bass   >>= Map.lookup Expert . (.notes)) >>= take 1 . RTB.getTimes
+          , toList (drums  >>= Map.lookup Expert . (.notes)) >>= take 1 . RTB.getTimes
+          ]
+        firstNoteSeconds = case startNotes of
+          n : ns -> U.applyTempoMap mid.s_tempos $ foldr min n ns
+          []     -> 10 -- shouldn't happen
+        padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
+        adjustMidiTiming
+          = (if True -- TODO determine if we should do this on ps3.
+            -- decrease tempo at start of midi to account for (~50 ms?) mp3 delay
+            then \m -> m { F.s_tempos = applyRR360MP3Hack m.s_tempos }
+            else id)
+          . F.padRawTrackFile padSeconds
+    stackIO $ B.writeFile pathPad $ B8.pack $ show (padSeconds :: Int)
+
+    let toTrackMidi :: (ParseTrack f) => f U.Beats -> F.Song (RTB.T U.Beats (Event.T B.ByteString))
+        toTrackMidi trk = adjustMidiTiming mid
           { F.s_tracks = fmap (fmap encodeLatin1) $ execState (codecOut (forcePure parseTrack) trk) RTB.empty
           }
 
@@ -196,15 +220,19 @@ rrRules buildInfo dir rr = do
 
         emptyMid = mid { F.s_tracks = RTB.empty }
 
-        makeGB :: Difficulty -> Maybe FiveResult -> File.T B.ByteString
-        makeGB _    Nothing       = F.showMixedMIDI emptyMid
+        makeGB :: Difficulty -> Maybe FiveResult -> (File.T B.ByteString, Int)
+        makeGB _    Nothing       = (F.showMixedMIDI emptyMid, 0)
         makeGB diff (Just result) = let
           gems = fromMaybe RTB.empty $ Map.lookup diff result.notes
-          in F.showMixedMIDI $ toTrackMidi $ (makeRRFiveDifficulty result gems)
+          rrDiff = makeRRFiveDifficulty result gems
+          numNotes
+            = length (RTB.collectCoincident rrDiff.rrfStrums)
+            + length (RTB.collectCoincident rrDiff.rrfHOPOs )
+          in (F.showMixedMIDI $ toTrackMidi rrDiff
             { rrfSolo = result.other.fiveSolo
-            }
+            }, numNotes)
 
-        makeDrums :: Difficulty -> File.T B.ByteString
+        makeDrums :: Difficulty -> (File.T B.ByteString, Int)
         makeDrums diff = let
           nonElite =
             (if rr.proTo4 then makeRRDrumDifficulty4Lane else makeRRDrumDifficulty6Lane)
@@ -213,19 +241,22 @@ rrRules buildInfo dir rr = do
             (maybe mempty (.other) drums)
             mid.s_tracks.onyxEvents
           rrDiff = case drums >>= (.eliteDrums) of
-            Nothing -> nonElite
-            Just elite -> case E.splitFlams mid.s_tempos $ E.getDifficulty (Just diff) elite of
+            Just elite | not rr.proTo4 -> case E.splitFlams mid.s_tempos $ E.getDifficulty (Just diff) elite of
               eliteNotes | not $ RTB.null eliteNotes
                 -> makeRRDrumDifficultyElite eliteNotes elite mid.s_tracks.onyxEvents
               _ -> nonElite
-          in F.showMixedMIDI $ toTrackMidi rrDiff
+            _ -> nonElite
+          in (F.showMixedMIDI $ toTrackMidi rrDiff
             { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
-            }
+            }, length rrDiff.rrdGems)
 
         venue = flip evalRand (mkStdGen $ hash key) $ getVenue
           VenueTargetRB3
-          -- TODO filter out based on which parts have notes
-          (Map.fromList [(Guitar, rr.guitar), (Bass, rr.bass), (Drums, rr.drums)])
+          (Map.fromList $ concat
+            [ [ (Guitar, rr.guitar) | isJust guitar ]
+            , [ (Bass  , rr.bass  ) | isJust bass   ]
+            , [ (Drums , rr.drums ) | isJust drums  ]
+            ])
           mid.s_tempos
           endTime
           mid
@@ -244,25 +275,35 @@ rrRules buildInfo dir rr = do
       : customSections
       ) songBinEnglish
 
-    stackIO $ Save.toFile bass01 $ makeGB Easy   bass
-    stackIO $ Save.toFile bass02 $ makeGB Easy   bass
-    stackIO $ Save.toFile bass03 $ makeGB Medium bass
-    stackIO $ Save.toFile bass04 $ makeGB Hard   bass
-    stackIO $ Save.toFile bass05 $ makeGB Expert bass
+    let midiOut path (m, numNotes) = do
+          stackIO $ Save.toFile path m
+          return numNotes
 
-    stackIO $ Save.toFile guitar01 $ makeGB Easy   guitar
-    stackIO $ Save.toFile guitar02 $ makeGB Easy   guitar
-    stackIO $ Save.toFile guitar03 $ makeGB Medium guitar
-    stackIO $ Save.toFile guitar04 $ makeGB Hard   guitar
-    stackIO $ Save.toFile guitar05 $ makeGB Expert guitar
+    numNotesBass <- sequence
+      [ midiOut bass01 $ makeGB Easy   bass
+      , midiOut bass02 $ makeGB Easy   bass
+      , midiOut bass03 $ makeGB Medium bass
+      , midiOut bass04 $ makeGB Hard   bass
+      , midiOut bass05 $ makeGB Expert bass
+      ]
 
-    stackIO $ Save.toFile drums01 $ makeDrums Easy
-    stackIO $ Save.toFile drums02 $ makeDrums Easy
-    stackIO $ Save.toFile drums03 $ makeDrums Medium
-    stackIO $ Save.toFile drums04 $ makeDrums Hard
-    stackIO $ Save.toFile drums05 $ makeDrums Expert
+    numNotesGuitar <- sequence
+      [ midiOut guitar01 $ makeGB Easy   guitar
+      , midiOut guitar02 $ makeGB Easy   guitar
+      , midiOut guitar03 $ makeGB Medium guitar
+      , midiOut guitar04 $ makeGB Hard   guitar
+      , midiOut guitar05 $ makeGB Expert guitar
+      ]
 
-    stackIO $ Save.toFile control $ F.showMixedMIDI $ mid
+    numNotesDrums <- sequence
+      [ midiOut drums01 $ makeDrums Easy
+      , midiOut drums02 $ makeDrums Easy
+      , midiOut drums03 $ makeDrums Medium
+      , midiOut drums04 $ makeDrums Hard
+      , midiOut drums05 $ makeDrums Expert
+      ]
+
+    stackIO $ Save.toFile control $ F.showMixedMIDI $ adjustMidiTiming mid
       { F.s_tracks = showRRControl RRControl
         { rrcAnimDrummer   = flip fmap (moodFor rr.drums) $ \case
           -- obviously not great, need to instead translate from drum animations
@@ -309,6 +350,14 @@ rrRules buildInfo dir rr = do
         }
       }
 
+    -- these are almost correct but not quite, must be some other thing that affects them
+    let guessMaxScores = T.intercalate ", " . map (\n -> T.pack $ show $ n * 150 * 8)
+    stackIO $ B.writeFile maxScores $ TE.encodeUtf8 $ T.intercalate "\r\n"
+      [   "DrumMaxScore = { 0, " <> guessMaxScores numNotesDrums  <> " }"
+      , "GuitarMaxScore = { 0, " <> guessMaxScores numNotesGuitar <> " }"
+      ,   "BassMaxScore = { 0, " <> guessMaxScores numNotesBass   <> " }"
+      ]
+
   let songLua = file $ "s" <> str <> ".lua"
   songLua %> \out -> do
 
@@ -322,6 +371,10 @@ rrRules buildInfo dir rr = do
     endMS <- case eventsEnd $ F.onyxEvents $ F.s_tracks mid of
       Wait dt _ _ -> return $ floor $ U.applyTempoMap (F.s_tempos mid) dt * 1000
       RNil        -> fatal "panic! no [end] in processed midi"
+    shk $ need [maxScores]
+    maxScoresContent <- stackIO $ TE.decodeUtf8 <$> B.readFile maxScores
+    pad <- readPad
+    let padMS = pad * 1000
 
     let difficultyFromRank :: T.Text -> Integer -> T.Text
         difficultyFromRank name rank = let
@@ -352,18 +405,15 @@ rrRules buildInfo dir rr = do
           , difficultyFromRank "GuitarDifficulty" $ computeFiveRank rr.guitar songYaml guitarDiffMap
           , difficultyFromRank "BassDifficulty"   $ computeFiveRank rr.bass   songYaml bassDiffMap
           , ""
-          -- TODO
           , "-- top score for each difficulty level:"
-          , "DrumMaxScore = { 0, 332900, 480000, 881175, 1104675, 1377450 }"
-          , "GuitarMaxScore = { 0, 358650, 542850, 820650, 1304250, 1550250 }"
-          , "BassMaxScore = { 0, 446250, 539850, 881250, 1162350, 1386750 }"
+          , T.strip maxScoresContent
           , ""
           -- shuffle is used on the main menu, whole song is fine
           , "-- FE music times = { min, sec, ms }"
           , "ShuffleStartTime = { 0, 0, 0 }"
-          , "ShuffleStopTime = " <> showTimeParts endMS
-          , "PreviewStartTime = " <> showTimeParts pstart
-          , "PreviewStopTime = " <> showTimeParts pend
+          , "ShuffleStopTime = "  <> showTimeParts (endMS  + padMS)
+          , "PreviewStartTime = " <> showTimeParts (pstart + padMS)
+          , "PreviewStopTime = "  <> showTimeParts (pend   + padMS)
           , ""
           , "-- character information"
           , "SingerSex = " <> case rrVocals >>= (.gender) of
@@ -401,8 +451,6 @@ rrRules buildInfo dir rr = do
 
     stackIO $ B.writeFile out $ TE.encodeUtf8 lua
 
-  dir </> "pad.txt" %> \out -> stackIO $ B.writeFile out "0" -- TODO
-
   let pathGuitar  = dir </> "guitar.mp3"
       pathBass    = dir </> "bass.mp3"
       pathDrums   = dir </> "drums.mp3"
@@ -413,14 +461,6 @@ rrRules buildInfo dir rr = do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 44100
-      pathPad = dir </> "pad.txt"
-      readPad :: Staction Int
-      readPad = shk $ read <$> readFile' pathPad
-
-  -- TODO it appears on 360 RR using MP3 specifically,
-  -- we need to cut about ~50 ms from start of audio to get things to sync?
-  -- part of this is just cancelling out mp3EncodeHackAmount though...
-  -- need to get exact number + check what ps3/rpcs3 does
 
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi

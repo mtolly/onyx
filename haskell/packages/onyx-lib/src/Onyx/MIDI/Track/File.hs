@@ -485,6 +485,11 @@ instance ParseFile RawFile where
     , codecOut = fmapArg $ tell . rawTracks
     }
 
+newtype RawTrack a t = RawTrack { rawTrack :: (RTB.T t a) }
+
+instance TraverseTrack (RawTrack a) where
+  traverseTrack f (RawTrack trk) = RawTrack <$> f trk
+
 data Song t = Song
   { s_tempos     :: U.TempoMap
   , s_signatures :: U.MeasureMap
@@ -699,6 +704,9 @@ padAnyFile seconds (Song temps sigs ff) = let
     _ -> error "RockBand.Codec.File.padAnyFile: internal error (no time signature at MIDI start)"
   padSimple = RTB.delay beats
   in Song temps' sigs' $ mapTrack padSimple ff
+
+padRawTrackFile :: Int -> Song (RTB.T U.Beats a) -> Song (RTB.T U.Beats a)
+padRawTrackFile n song = fmap rawTrack $ padAnyFile n $ RawTrack <$> song
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
 -- Also puts new beatlines in front of the BEAT track.

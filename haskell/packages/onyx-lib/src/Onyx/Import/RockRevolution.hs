@@ -71,8 +71,9 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
         $ mapMaybe (\case ["Year", "=", n] -> readMaybe $ T.unpack n; _ -> Nothing)
         $ map T.words $ T.lines lua
 
-      getStars :: T.Text -> Maybe Int
-      getStars diffKey = listToMaybe $ do
+      -- difficulty rating referred to as "stars" in lua but skulls in game
+      getSkulls :: T.Text -> Maybe Int
+      getSkulls diffKey = listToMaybe $ do
         ln <- T.lines lua
         braceList <- case T.words ln of
           k : "=" : rest | k == diffKey -> [T.unwords rest]
@@ -81,7 +82,7 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
         nums <- toList $ readMaybe $ T.unpack $ T.map (\case '{' -> '['; '}' -> ']'; c -> c) braceList
         -- just take the last number
         take 1 $ reverse nums
-      starsToTier = \case
+      skullsToTier = \case
         Nothing -> Just $ Tier 0
         Just 0  -> Nothing -- used by onyx export to mark non-present parts
         Just 1  -> Just $ Tier 2
@@ -261,21 +262,21 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
       , fileTempo = Nothing
       }
     , parts = Parts $ HM.fromList $ concat
-      [ case starsToTier $ getStars "GuitarDifficulty" of
+      [ case skullsToTier $ getSkulls "GuitarDifficulty" of
         Just tier -> [(F.FlexGuitar, emptyPart
           { grybo = Just (def :: PartGRYBO)
             { difficulty = tier
             }
           })]
         Nothing -> []
-      , case starsToTier $ getStars "BassDifficulty" of
+      , case skullsToTier $ getSkulls "BassDifficulty" of
         Just tier -> [(F.FlexBass, emptyPart
           { grybo = Just (def :: PartGRYBO)
             { difficulty = tier
             }
           })]
         Nothing -> []
-      , case starsToTier $ getStars "DrumDifficulty" of
+      , case skullsToTier $ getSkulls "DrumDifficulty" of
         Just tier -> [(F.FlexDrums, (emptyPart :: Part SoftFile)
           { drums = Just (emptyPartDrums DrumsTrue Kicks1x :: PartDrums SoftFile)
             { difficulty = tier
