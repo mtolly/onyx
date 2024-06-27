@@ -24,6 +24,18 @@ After installing `stack`, make sure MSYS2 is updated with:
 
 3. `stack exec -- pacman -Syu` again
 
+Open Git Bash and execute the following commands:
+
+  *  git config --global core.autocrlf false
+  *  git config --global core.eol lf
+  
+These commands ensure that when the repo is pulled, there are no formatting issues with end-of-line characters. An issue with the build dependencies can appear if this step is skipped.
+
+Using `cd`, navigate to the folder you wish to download the Onyx repo to
+
+Finally, pull the repo using Git Bash (and **not** GitHub GUI) with the following command:
+  *  git clone https://github.com/mtolly/onyx.git
+
 ## macOS
 
   * Xcode dev tools
