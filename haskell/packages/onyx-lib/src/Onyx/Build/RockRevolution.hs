@@ -201,10 +201,8 @@ rrRules buildInfo dir rr = do
           []     -> 10 -- shouldn't happen
         padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
         adjustMidiTiming
-          = (if True -- TODO determine if we should do this on ps3.
-            -- decrease tempo at start of midi to account for (~50 ms?) mp3 delay
-            then \m -> m { F.s_tempos = applyRR360MP3Hack m.s_tempos }
-            else id)
+          -- decrease tempo at start of midi to account for weird delay in our encoded mp3s
+          = (\m -> m { F.s_tempos = applyMIDIOffsetMS rrMP3HackAmountMS m.s_tempos })
           . F.padRawTrackFile padSeconds
     stackIO $ B.writeFile pathPad $ B8.pack $ show (padSeconds :: Int)
 
@@ -446,6 +444,9 @@ rrRules buildInfo dir rr = do
           , "}"
           , ""
           , "Quantise = QuantiseLevel.kNone"
+          , ""
+          -- put this in so we can reimport later and undo the midi sync hack
+          , rrMP3HackString <> T.pack (show rrMP3HackAmountMS)
           , ""
           ]
 

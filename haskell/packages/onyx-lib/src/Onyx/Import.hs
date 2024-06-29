@@ -217,7 +217,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               imps <- concat <$> mapM (importPowerGig folder) bases
               foundImports "Power Gig (Xbox 360 DLC)" loc imps
           , case findFolder ["data"] folder of
-            Just dataDir -> foundImports "Rock Revolution (Xbox 360 DLC)" loc $ importRR False dataDir
+            Just dataDir -> foundImports "Rock Revolution (Xbox 360 DLC)" loc $ importRR dataDir
             Nothing -> return ([], [])
           ]
       foundRS psarc = importRS (fileReadable psarc) >>= foundImports "Rocksmith" psarc
@@ -242,7 +242,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                 foundImports "Guitar Hero (Neversoft) (PS3)" loc imps
               else return ([], [])
             ]
-        rr <- foundImports "Rock Revolution (PS3 .pkg)" loc $ importRR True $ first TE.decodeLatin1 usrdir
+        rr <- foundImports "Rock Revolution (PS3 .pkg)" loc $ importRR $ first TE.decodeLatin1 usrdir
         return $ rbgh <> rr
       foundWAD loc = do
         imps <- importWAD loc
@@ -265,7 +265,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             Just gen -> foundGEN loc gen
         | isJust $ findFileCI ("Data" :| ["Frontend", "FE_Config.lua"]) dir = let
           songsDir = fromMaybe mempty $ findFolder ["Data", "Songs"] dir
-          in foundImports "Rock Revolution (360)" loc $ importRR False songsDir
+          in foundImports "Rock Revolution (360)" loc $ importRR songsDir
 
         -- using unique non-song files to distinguish Neversoft games
         | isJust $ findFileCI ("DATA" :| ["MOVIES", "BIK", "GH3_Intro.bik.xen"]) dir

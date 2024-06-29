@@ -42,8 +42,8 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import           Text.Read                        (readMaybe)
 
-importRR :: (SendMessage m, MonadIO m) => Bool -> Folder T.Text Readable -> [Import m]
-importRR isPS3 dir = map (importRRSong isPS3 dir) $ findRRSongKeys dir
+importRR :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [Import m]
+importRR dir = map (importRRSong dir) $ findRRSongKeys dir
 
 findRRSongKeys :: Folder T.Text Readable -> [T.Text]
 findRRSongKeys dir = do
@@ -52,8 +52,8 @@ findRRSongKeys dir = do
   guard $ T.all isDigit key
   return key
 
-importRRSong :: (SendMessage m, MonadIO m) => Bool -> Folder T.Text Readable -> T.Text -> Import m
-importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) $ do
+importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
+importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
 
   when (level == ImportFull) $ lg $ "Importing Rock Revolution song [" <> T.unpack key <> "]"
 
@@ -66,15 +66,23 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
   strings <- map TE.decodeUtf8 . B.split 0 . BL.toStrict <$> need ("English_s" <> key <> "_Strings.bin")
   lua <- TE.decodeLatin1 . BL.toStrict <$> need ("s" <> key <> ".lua")
 
-  let year :: Maybe Int
+  let luaLines = T.lines lua
+
+      syncHackMS :: Maybe Int
+      syncHackMS = listToMaybe $ do
+        ln <- luaLines
+        sfx <- toList $ T.stripPrefix rrMP3HackString ln
+        toList $ readMaybe $ T.unpack sfx
+
+      year :: Maybe Int
       year = listToMaybe
         $ mapMaybe (\case ["Year", "=", n] -> readMaybe $ T.unpack n; _ -> Nothing)
-        $ map T.words $ T.lines lua
+        $ map T.words luaLines
 
       -- difficulty rating referred to as "stars" in lua but skulls in game
       getSkulls :: T.Text -> Maybe Int
       getSkulls diffKey = listToMaybe $ do
-        ln <- T.lines lua
+        ln <- luaLines
         braceList <- case T.words ln of
           k : "=" : rest | k == diffKey -> [T.unwords rest]
           _                             -> []
@@ -138,11 +146,6 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
       bassStream    = bassDef    >>= getStream
       drumsStream   = drumsDef   >>= getStream
       backingStream = backingDef >>= getStream
-      allAudioExtensions = do
-        (_, streams) <- loadedFSB
-        (_, _, ext) <- streams
-        return ext
-      is360MP3 = not isPS3 && elem "mp3" allAudioExtensions
 
   (controlMidPreHack, control) <- case level of
     ImportQuick -> return (emptyChart, Nothing)
@@ -153,12 +156,13 @@ importRRSong isPS3 dir key level = inside ("Rock Revolution song " <> show key) 
         let (parsedControl, unrec) = readRRControl $ F.s_tracks mid
         forM_ (nubSort $ RTB.getBodies unrec) $ \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
-  -- if this is a 360 file with an mp3 fsb,
-  -- undo the sync hack we would have done on export,
+  -- undo the sync hack if we did that on exporting a custom song,
   -- by increasing tempo at start of midi to account for mp3 delay
-  let controlMid = if is360MP3
-        then controlMidPreHack { F.s_tempos = unapplyRR360MP3Hack $ F.s_tempos controlMidPreHack }
-        else controlMidPreHack
+  let controlMid = case syncHackMS of
+        Just ms | ms /= 0 -> controlMidPreHack
+          { F.s_tempos = applyMIDIOffsetMS (negate ms) controlMidPreHack.s_tempos
+          }
+        _ -> controlMidPreHack
 
   let loadGuitarBass inst = case level of
         ImportQuick -> return mempty

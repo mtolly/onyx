@@ -453,24 +453,17 @@ showRRControl rrc = foldr RTB.merge RTB.empty
 
 --------------------------------------------------------------------------------
 
--- These are a hack to account for MP3 audio being delayed when used on 360.
--- When exporting, we delay all midi contents by the appropriate amount
--- by changing initial tempos. When importing, we do that change in reverse.
+-- This are a hack to account for an odd delay in our encoded MP3s compared to
+-- the ones used on official PS3 content. When exporting, we delay all midi
+-- contents by the appropriate amount by changing initial tempos. When
+-- importing, we do that change in reverse.
 
-applyRR360MP3Hack, unapplyRR360MP3Hack :: U.TempoMap -> U.TempoMap
-applyRR360MP3Hack tmap = let
+applyMIDIOffsetMS :: Int -> U.TempoMap -> U.TempoMap
+applyMIDIOffsetMS ms tmap = let
   anchorSecondsOriginal = U.applyTempoMap tmap anchorBeats
-  anchorSecondsNew = anchorSecondsOriginal + rr360MP3HackAmount
-  newStartTempo = U.makeTempo anchorBeats anchorSecondsNew
-  in U.tempoMapFromBPS
-    $ Wait 0 newStartTempo
-    $ Wait anchorBeats (U.getTempoAtTime tmap anchorBeats)
-    $ U.trackDropZero
-    $ U.trackDrop anchorBeats
-    $ U.tempoMapToBPS tmap
-unapplyRR360MP3Hack tmap = let
-  anchorSecondsOriginal = U.applyTempoMap tmap anchorBeats
-  anchorSecondsNew = anchorSecondsOriginal NNC.-| rr360MP3HackAmount
+  anchorSecondsNew = if ms < 0
+    then anchorSecondsOriginal NNC.-| (fromIntegral (abs ms) / 1000)
+    else anchorSecondsOriginal +      (fromIntegral ms       / 1000)
   in if anchorSecondsNew <= 0
     then tmap -- TODO warn or something. too high tempos
     else let
@@ -485,5 +478,8 @@ unapplyRR360MP3Hack tmap = let
 anchorBeats :: U.Beats
 anchorBeats = 2
 
-rr360MP3HackAmount :: U.Seconds
-rr360MP3HackAmount = 0.060
+rrMP3HackAmountMS :: Int
+rrMP3HackAmountMS = 60
+
+rrMP3HackString :: T.Text
+rrMP3HackString = "-- OnyxSyncHack "
