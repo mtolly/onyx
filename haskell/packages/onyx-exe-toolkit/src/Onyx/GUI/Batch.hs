@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Batch where
@@ -777,6 +778,17 @@ batchPartPresetsCH =
     in tgt
       { rhythm = dod
       , drums = dod
+      }
+    )
+  , ("Copy guitar and drums to each other if one is missing", \song tgt -> let
+    fillPart p defPart parts = case filter (hasPartWith p song) (defPart : parts) of
+      part : _ -> part
+      []       -> defPart
+    TargetPS{..} = tgt
+    in TargetPS
+      { guitar = fillPart anyFiveFret FlexGuitar [FlexDrums]
+      , drums = fillPart anyDrums FlexDrums [FlexGuitar]
+      , ..
       }
     )
   ]
