@@ -2700,7 +2700,7 @@ miscPageMIDI
   -> IO ()
 miscPageMIDI sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (_, rectA) = chopLeft 120 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -2719,103 +2719,129 @@ miscPageMIDI sink rect tab startTasks = do
       FL.showWidget picker >>= \case
         FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
           Nothing -> return ()
-          Just f  -> void $ FL.setValue input f
+          Just f  -> do
+            void $ FL.setValue input f
+            FL.doCallback input -- runs the enable/disable function below
         _                          -> return ()
-    return $ fmap T.unpack $ FL.getValue input
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Fill in lower difficulties and drum animations"
-    taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
-      input <- pickedFile
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save reduced MIDI file"
-      FL.setFilter picker "*.mid"
-      FL.setPresetFile picker $ T.pack $ input -<.> "reduced.mid"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> let
-            ext = map toLower $ takeExtension f
-            f' = if elem ext [".mid", ".midi"]
-              then f
-              else f <.> "mid"
-            in sink $ EventOnyx $ let
-              task = do
-                simpleReduce input f'
-                return [f']
-              in startTasks [("Reduce MIDI: " <> input, task)]
-        _ -> return ()
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
-    taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
-      input <- pickedFile
-      sink $ EventOnyx $ let
-        task = do
-          mid <- loadMIDIOrChart input
-          lg $ T.unpack $ closeShiftsFile mid
-          return []
-        in startTasks [("Pro Keys range check: " <> input, task)]
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    btn <- FL.buttonNew rect' $ Just "Make REAPER project with RB template"
-    taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
-      input <- pickedFile
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save REAPER project"
-      FL.setFilter picker "*.RPP"
-      FL.setPresetFile picker $ T.pack $ input -<.> "RPP"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> let
-            ext = map toUpper $ takeExtension f
-            f' = if ext == ".RPP"
-              then f
-              else f <.> "RPP"
-            in sink $ EventOnyx $ let
-              task = do
-                makeReaper (TuningInfo [] 0) input input [] f'
-                return [f']
-              in startTasks [("Make REAPER project: " <> input, task)]
-        _ -> return ()
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    return (input, fmap T.unpack $ FL.getValue input)
 
-    let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
+  midiButtons <- sequence
 
-    btn1 <- FL.buttonNew rectLeft $ Just "Clean convert .chart to MIDI"
-    taskColor >>= FL.setColor btn1
-    FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
-      input <- pickedFile
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-      FL.setTitle picker "Save MIDI file"
-      FL.setFilter picker "*.mid"
-      FL.setPresetFile picker $ T.pack $ input -<.> ".mid"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> let
-            ext = map toLower $ takeExtension f
-            f' = if elem ext [".mid", ".midi"]
-              then f
-              else f <.> "mid"
-            in sink $ EventOnyx $ let
-              task = do
-                mid <- loadRawMIDIOrChart input
-                stackIO $ Save.toFile f' $ TE.encodeUtf8 <$> mid
-                return [f']
-              in startTasks [("Convert to MIDI: " <> input, task)]
-        _ -> return ()
+    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Fill in lower difficulties and drum animations"
+      taskColor >>= FL.setColor btn
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        input <- pickedFile
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save reduced MIDI file"
+        FL.setFilter picker "*.mid"
+        FL.setPresetFile picker $ T.pack $ input -<.> "reduced.mid"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> let
+              ext = map toLower $ takeExtension f
+              f' = if elem ext [".mid", ".midi"]
+                then f
+                else f <.> "mid"
+              in sink $ EventOnyx $ let
+                task = do
+                  simpleReduce input f'
+                  return [f']
+                in startTasks [("Reduce MIDI: " <> input, task)]
+          _ -> return ()
+      return btn
 
-    btn2 <- FL.buttonNew rectRight $ Just "Batch"
-    taskColor >>= FL.setColor btn2
-    FL.setCallback btn2 $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
-      sink $ EventOnyx $ let
-        task = do
-          results <- recursiveChartToMidi dir
-          when (null results) $ lg "No .chart files found."
-          return results
-        in startTasks [("Convert .chart to MIDI (batch): " <> dir, task)]
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
+      taskColor >>= FL.setColor btn
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        input <- pickedFile
+        sink $ EventOnyx $ let
+          task = do
+            mid <- loadMIDIOrChart input
+            lg $ T.unpack $ closeShiftsFile mid
+            return []
+          in startTasks [("Pro Keys range check: " <> input, task)]
+      return btn
+
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Make REAPER project with RB template"
+      taskColor >>= FL.setColor btn
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        input <- pickedFile
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save REAPER project"
+        FL.setFilter picker "*.RPP"
+        FL.setPresetFile picker $ T.pack $ input -<.> "RPP"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> let
+              ext = map toUpper $ takeExtension f
+              f' = if ext == ".RPP"
+                then f
+                else f <.> "RPP"
+              in sink $ EventOnyx $ let
+                task = do
+                  makeReaper (TuningInfo [] 0) input input [] f'
+                  return [f']
+                in startTasks [("Make REAPER project: " <> input, task)]
+          _ -> return ()
+      return btn
+
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+
+      let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
+
+      btn1 <- FL.buttonNew rectLeft $ Just "Clean convert .chart to MIDI"
+      taskColor >>= FL.setColor btn1
+      FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
+        input <- pickedFile
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save MIDI file"
+        FL.setFilter picker "*.mid"
+        FL.setPresetFile picker $ T.pack $ input -<.> ".mid"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> let
+              ext = map toLower $ takeExtension f
+              f' = if elem ext [".mid", ".midi"]
+                then f
+                else f <.> "mid"
+              in sink $ EventOnyx $ let
+                task = do
+                  mid <- loadRawMIDIOrChart input
+                  stackIO $ Save.toFile f' $ TE.encodeUtf8 <$> mid
+                  return [f']
+                in startTasks [("Convert to MIDI: " <> input, task)]
+          _ -> return ()
+
+      -- note, this button doesn't disable when path box is empty since it doesn't use it
+      btn2 <- FL.buttonNew rectRight $ Just "Batch"
+      taskColor >>= FL.setColor btn2
+      FL.setCallback btn2 $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
+        sink $ EventOnyx $ let
+          task = do
+            results <- recursiveChartToMidi dir
+            when (null results) $ lg "No .chart files found."
+            return results
+          in startTasks [("Convert .chart to MIDI (batch): " <> dir, task)]
+
+      return btn1
+
+    ]
+
+  -- disable midi buttons if the path box is empty
+  let updatePathInput = do
+        t <- FL.getValue pathInput
+        if T.any (not . isSpace) t
+          then mapM_ FL.activate   midiButtons
+          else mapM_ FL.deactivate midiButtons
+  updatePathInput
+  FL.setCallback pathInput $ \_ -> sink $ EventIO updatePathInput
+  FL.setWhen pathInput [FLE.WhenChanged]
 
   FL.end pack
   FL.setResizable tab $ Just pack
