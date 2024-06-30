@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -16,8 +17,10 @@ import           Data.Binary.Put
 import           Data.Bits            (xor, (.&.))
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.Char            (isSpace)
 import           Data.Foldable        (toList)
 import           Data.Hashable        (hash)
+import           Data.Maybe           (mapMaybe)
 import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
@@ -144,14 +147,22 @@ makeSongINI hdr = T.unlines $
   "[Song]" : [ k <> " = " <> v | (k, v) <- hdr.metadata ]
 
 makeSNG :: [(T.Text, T.Text)] -> [(T.Text, Readable)] -> IO [Readable]
-makeSNG meta files = do
+makeSNG metaOrig files = do
   filesWithSize <- forM files $ \(name, r) -> do
     size <- fromIntegral <$> useHandle r hFileSize
     return (name, r, size)
-  -- TODO CH as of v1.1.0.4261-PTB errors on reading a metadata pair from .sng
-  -- with an empty value. Should just remove these, also some other format
-  -- normalization e.g. bools should always be cased as True/False
   let totalFileSize = sum [ size | (_, _, size) <- filesWithSize ]
+      meta = flip mapMaybe metaOrig $ \pair@(k, v) -> if
+        -- CH as of v1.1.0.4261-PTB errors on reading a metadata pair from .sng
+        -- with an empty value. Should just remove these
+        | T.all isSpace v -> Nothing
+        -- don't try to normalize these
+        | elem k ["name", "artist", "album", "genre", "sub_genre", "year", "charter", "frets"] -> Just pair
+        -- normalize bool case as .sng spec says
+        | otherwise -> Just $ case T.toLower v of
+          "true"  -> (k, "True" )
+          "false" -> (k, "False")
+          _       -> pair
       seed = BL.toStrict $ runPut $ do
         -- look random but actually deterministic for simplicity
         putWord64be $ fromIntegral $ hash meta
