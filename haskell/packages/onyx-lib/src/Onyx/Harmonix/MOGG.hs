@@ -18,6 +18,7 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as CA
+import           Data.Maybe                   (listToMaybe)
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
 import           Foreign                      hiding (void)
@@ -140,9 +141,19 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case
 -- such moggs would work on 360 but not PS3, requiring reencryption,
 -- but it was just because their keymask value was not set correctly.
 
-c3PS3MaskBad, c3PS3MaskGood :: B.ByteString
-c3PS3MaskBad  = B.pack [0xC3, 0xC3, 0xC3, 0xC3, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B]
-c3PS3MaskGood = B.pack [0xA5, 0xCE, 0xFD, 0x06, 0x11, 0x93, 0x23, 0x21, 0xF8, 0x87, 0x85, 0xEA, 0x95, 0xE4, 0x94, 0xD4]
+-- [(encryption type, bad mask, good mask)]
+c3PS3MaskSubstitutions :: [(Maybe Word32, B.ByteString, B.ByteString)]
+c3PS3MaskSubstitutions =
+  [ ( Nothing -- this can probably be restricted to version 13
+    , B.pack [0xC3, 0xC3, 0xC3, 0xC3, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B]
+    , B.pack [0xA5, 0xCE, 0xFD, 0x06, 0x11, 0x93, 0x23, 0x21, 0xF8, 0x87, 0x85, 0xEA, 0x95, 0xE4, 0x94, 0xD4]
+    )
+  , ( Just 12
+    -- this is "llective-tools-b" from "customs-by-customscreatorscollective-tools-by-trojannemo-2015"
+    , B.pack [0x6C, 0x6C, 0x65, 0x63, 0x74, 0x69, 0x76, 0x65, 0x2D, 0x74, 0x6F, 0x6F, 0x6C, 0x73, 0x2D, 0x62]
+    , B.pack [0xF1, 0xB4, 0xB8, 0xB0, 0x48, 0xAF, 0xCB, 0x9B, 0x4B, 0x53, 0xE0, 0x56, 0x64, 0x57, 0x68, 0x39]
+    )
+  ]
 
 patchPosition :: Int -> B.ByteString -> B.ByteString -> B.ByteString
 patchPosition pos patch origData = if pos >= B.length origData || pos + B.length patch <= 0
@@ -158,23 +169,27 @@ fixOldC3Mogg r = Readable
   { rFilePath = Nothing
   , rOpen = do
     -- first figure out if we need to patch
-    patchLocation <- useHandle r $ \h -> do
+    patch <- useHandle r $ \h -> do
+      encType <- BL.hGet h 4 >>= runGetM getWord32le
       hSeek h AbsoluteSeek 16
       numEntries <- BL.hGet h 4 >>= runGetM getWord32le
       let patchLocation = 20 + fromIntegral numEntries * 8 + 16 + 16
       hSeek h AbsoluteSeek patchLocation
       mask <- B.hGet h 16
-      return $ guard (mask == c3PS3MaskBad) >> Just patchLocation
-    case patchLocation of
+      return $ listToMaybe $ do
+        (maybeEncType, badMask, goodMask) <- c3PS3MaskSubstitutions
+        guard $ maybe True (== encType) maybeEncType && mask == badMask
+        return (patchLocation, goodMask)
+    case patch of
       -- need to patch, wrap the original handle and modify output
-      Just loc -> do
+      Just (patchLocation, goodMask) -> do
         h <- rOpen r
         sh <- simplifyHandle h
         openSimpleHandle (handleLabel h <> " | fixOldC3Mogg") sh
           { shRead = \n -> do
             pos <- shTell sh
             origData <- shRead sh n
-            return $ patchPosition (fromIntegral $ loc - pos) c3PS3MaskGood origData
+            return $ patchPosition (fromIntegral $ patchLocation - pos) goodMask origData
           }
       -- don't need to patch, just pass through
       Nothing -> rOpen r

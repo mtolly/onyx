@@ -66,9 +66,9 @@ import           Onyx.Project                 (DrumMode (..), PartMania (..),
                                                VideoInfo (..))
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace              (QueueLog, SendMessage,
-                                               StackTraceT, fatal, getQueueLog,
-                                               inside, mapStackTraceT, stackIO,
-                                               warn)
+                                               StackTraceT, errorToWarning,
+                                               fatal, getQueueLog, inside,
+                                               mapStackTraceT, stackIO, warn)
 import           Onyx.Util.Text.Transform     (showTimestamp)
 import qualified Sound.MIDI.Util              as U
 import           System.Directory             (doesFileExist)
@@ -2069,118 +2069,8 @@ loadGLStuff scaleUI previewSong = do
 
   -- textures
 
-  textures <- forM [minBound .. maxBound] $ \texID -> do
-    let imageName = case texID of
-          TextureLongKick                -> "long-kick"
-          TextureLongOpen                -> "long-open"
-          TextureLongOpenHopo            -> "long-open-hopo"
-          TextureLongOpenTap             -> "long-open-tap"
-          TextureLongEnergy              -> "long-energy"
-          TextureLongEnergyHopo          -> "long-energy-hopo"
-          TextureLongEnergyTap           -> "long-energy-tap"
-          TextureHihatFoot               -> "hihat-foot"
-          TextureHihatZoneSolid          -> "hihat-zone-solid"
-          TextureHihatZoneFade           -> "hihat-zone-fade"
-          TextureGreenGem                -> "box-green"
-          TextureRedGem                  -> "box-red"
-          TextureYellowGem               -> "box-yellow"
-          TextureBlueGem                 -> "box-blue"
-          TextureOrangeGem               -> "box-orange"
-          TexturePurpleGem               -> "box-purple"
-          TextureEnergyGem               -> "box-energy"
-          TextureGreenHopo               -> "hopo-green"
-          TextureRedHopo                 -> "hopo-red"
-          TextureYellowHopo              -> "hopo-yellow"
-          TextureBlueHopo                -> "hopo-blue"
-          TextureOrangeHopo              -> "hopo-orange"
-          TextureEnergyHopo              -> "hopo-energy"
-          TextureGreenTap                -> "tap-green"
-          TextureRedTap                  -> "tap-red"
-          TextureYellowTap               -> "tap-yellow"
-          TextureBlueTap                 -> "tap-blue"
-          TextureOrangeTap               -> "tap-orange"
-          TextureEnergyTap               -> "tap-energy"
-          TextureRedCymbal               -> "cymbal-red"
-          TextureYellowCymbal            -> "cymbal-yellow"
-          TextureBlueCymbal              -> "cymbal-blue"
-          TextureGreenCymbal             -> "cymbal-green"
-          TexturePurpleCymbal            -> "cymbal-purple"
-          TextureOrangeCymbal            -> "cymbal-orange"
-          TextureEnergyCymbal            -> "cymbal-energy"
-          TextureLine1                   -> "line-1"
-          TextureLine2                   -> "line-2"
-          TextureLine3                   -> "line-3"
-          TextureTargetGreen             -> "target-green"
-          TextureTargetRed               -> "target-red"
-          TextureTargetYellow            -> "target-yellow"
-          TextureTargetBlue              -> "target-blue"
-          TextureTargetOrange            -> "target-orange"
-          TextureTargetPurple            -> "target-purple"
-          TextureTargetGreenLight        -> "target-green-light"
-          TextureTargetRedLight          -> "target-red-light"
-          TextureTargetYellowLight       -> "target-yellow-light"
-          TextureTargetBlueLight         -> "target-blue-light"
-          TextureTargetOrangeLight       -> "target-orange-light"
-          TextureTargetPurpleLight       -> "target-purple-light"
-          TextureTargetOrangeLeft        -> "target-orange-left"
-          TextureTargetOrangeLeftLight   -> "target-orange-left-light"
-          TextureTargetOrangeCenter      -> "target-orange-center"
-          TextureTargetOrangeCenterLight -> "target-orange-center-light"
-          TextureTargetOrangeRight       -> "target-orange-right"
-          TextureTargetOrangeRightLight  -> "target-orange-right-light"
-          TextureNumber0                 -> "number-0"
-          TextureNumber1                 -> "number-1"
-          TextureNumber2                 -> "number-2"
-          TextureNumber3                 -> "number-3"
-          TextureNumber4                 -> "number-4"
-          TextureNumber5                 -> "number-5"
-          TextureNumber6                 -> "number-6"
-          TextureNumber7                 -> "number-7"
-          TextureNumber8                 -> "number-8"
-          TextureNumber9                 -> "number-9"
-          TextureLaneGreen               -> "lane-green"
-          TextureLaneRed                 -> "lane-red"
-          TextureLaneYellow              -> "lane-yellow"
-          TextureLaneBlue                -> "lane-blue"
-          TextureLaneOrange              -> "lane-orange"
-          TextureLanePurple              -> "lane-purple"
-          TextureRS0                     -> "rs-0"
-          TextureRS1                     -> "rs-1"
-          TextureRS2                     -> "rs-2"
-          TextureRS3                     -> "rs-3"
-          TextureRS4                     -> "rs-4"
-          TextureRS5                     -> "rs-5"
-          TextureRS6                     -> "rs-6"
-          TextureRS7                     -> "rs-7"
-          TextureRS8                     -> "rs-8"
-          TextureRS9                     -> "rs-9"
-          TextureRS10                    -> "rs-10"
-          TextureRS11                    -> "rs-11"
-          TextureRS12                    -> "rs-12"
-          TextureRS13                    -> "rs-13"
-          TextureRS14                    -> "rs-14"
-          TextureRS15                    -> "rs-15"
-          TextureRS16                    -> "rs-16"
-          TextureRS17                    -> "rs-17"
-          TextureRS18                    -> "rs-18"
-          TextureRS19                    -> "rs-19"
-          TextureRS20                    -> "rs-20"
-          TextureRS21                    -> "rs-21"
-          TextureRS22                    -> "rs-22"
-          TextureRS23                    -> "rs-23"
-          TextureRS24                    -> "rs-24"
-          TextureRSRed                   -> "rs-red"
-          TextureRSYellow                -> "rs-yellow"
-          TextureRSBlue                  -> "rs-blue"
-          TextureRSOrange                -> "rs-orange"
-          TextureRSGreen                 -> "rs-green"
-          TextureRSPurple                -> "rs-purple"
-          TextureRSHopo                  -> "rs-hopo"
-          TextureRSTap                   -> "rs-tap"
-          TextureRSPalmMute              -> "rs-palm-mute"
-          TextureRSFretHandMute          -> "rs-fret-hand-mute"
-          TextureOverlayGhost            -> "overlay-ghost"
-          TextureOverlayAccent           -> "overlay-accent"
+  textures <- fmap catMaybes $ forM [minBound .. maxBound] $ \texID -> do
+    let imageName = textureToPath texID
     base <- stackIO $ getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
           TextureNumber0 -> False
@@ -2199,8 +2089,7 @@ loadGLStuff scaleUI previewSong = do
           True -> stackIO (readImage $ base <.> ext) >>= either fatal return
             >>= loadTexture isLinear . convertRGBA8
           False -> readExt rest
-    tex <- readExt ["png", "jpg", "jpeg"]
-    return (texID, tex)
+    fmap (texID,) <$> errorToWarning (readExt ["png", "jpg", "jpeg"])
 
   -- models
 
@@ -2308,9 +2197,13 @@ loadGLStuff scaleUI previewSong = do
         })
     _ -> return Nothing
   imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) $ \case
-    PreviewBGImage f -> do
-      tex <- stackIO (readImage f) >>= either fatal return >>= loadTexture True . convertRGBA8
-      return $ Just (f, tex)
+    PreviewBGImage f -> stackIO (readImage f) >>= \case
+      Left _err -> do
+        warn "Failed to load song image background"
+        return Nothing
+      Right img -> do
+        tex <- loadTexture True $ convertRGBA8 img
+        return $ Just (f, tex)
     _ -> return Nothing
 
   -- font
@@ -2322,6 +2215,119 @@ loadGLStuff scaleUI previewSong = do
   fontGlyphs <- stackIO $ newIORef HM.empty
 
   return GLStuff{..}
+
+textureToPath :: TextureID -> FilePath
+textureToPath = \case
+  TextureLongKick                -> "long-kick"
+  TextureLongOpen                -> "long-open"
+  TextureLongOpenHopo            -> "long-open-hopo"
+  TextureLongOpenTap             -> "long-open-tap"
+  TextureLongEnergy              -> "long-energy"
+  TextureLongEnergyHopo          -> "long-energy-hopo"
+  TextureLongEnergyTap           -> "long-energy-tap"
+  TextureHihatFoot               -> "hihat-foot"
+  TextureHihatZoneSolid          -> "hihat-zone-solid"
+  TextureHihatZoneFade           -> "hihat-zone-fade"
+  TextureGreenGem                -> "box-green"
+  TextureRedGem                  -> "box-red"
+  TextureYellowGem               -> "box-yellow"
+  TextureBlueGem                 -> "box-blue"
+  TextureOrangeGem               -> "box-orange"
+  TexturePurpleGem               -> "box-purple"
+  TextureEnergyGem               -> "box-energy"
+  TextureGreenHopo               -> "hopo-green"
+  TextureRedHopo                 -> "hopo-red"
+  TextureYellowHopo              -> "hopo-yellow"
+  TextureBlueHopo                -> "hopo-blue"
+  TextureOrangeHopo              -> "hopo-orange"
+  TextureEnergyHopo              -> "hopo-energy"
+  TextureGreenTap                -> "tap-green"
+  TextureRedTap                  -> "tap-red"
+  TextureYellowTap               -> "tap-yellow"
+  TextureBlueTap                 -> "tap-blue"
+  TextureOrangeTap               -> "tap-orange"
+  TextureEnergyTap               -> "tap-energy"
+  TextureRedCymbal               -> "cymbal-red"
+  TextureYellowCymbal            -> "cymbal-yellow"
+  TextureBlueCymbal              -> "cymbal-blue"
+  TextureGreenCymbal             -> "cymbal-green"
+  TexturePurpleCymbal            -> "cymbal-purple"
+  TextureOrangeCymbal            -> "cymbal-orange"
+  TextureEnergyCymbal            -> "cymbal-energy"
+  TextureLine1                   -> "line-1"
+  TextureLine2                   -> "line-2"
+  TextureLine3                   -> "line-3"
+  TextureTargetGreen             -> "target-green"
+  TextureTargetRed               -> "target-red"
+  TextureTargetYellow            -> "target-yellow"
+  TextureTargetBlue              -> "target-blue"
+  TextureTargetOrange            -> "target-orange"
+  TextureTargetPurple            -> "target-purple"
+  TextureTargetGreenLight        -> "target-green-light"
+  TextureTargetRedLight          -> "target-red-light"
+  TextureTargetYellowLight       -> "target-yellow-light"
+  TextureTargetBlueLight         -> "target-blue-light"
+  TextureTargetOrangeLight       -> "target-orange-light"
+  TextureTargetPurpleLight       -> "target-purple-light"
+  TextureTargetOrangeLeft        -> "target-orange-left"
+  TextureTargetOrangeLeftLight   -> "target-orange-left-light"
+  TextureTargetOrangeCenter      -> "target-orange-center"
+  TextureTargetOrangeCenterLight -> "target-orange-center-light"
+  TextureTargetOrangeRight       -> "target-orange-right"
+  TextureTargetOrangeRightLight  -> "target-orange-right-light"
+  TextureNumber0                 -> "number-0"
+  TextureNumber1                 -> "number-1"
+  TextureNumber2                 -> "number-2"
+  TextureNumber3                 -> "number-3"
+  TextureNumber4                 -> "number-4"
+  TextureNumber5                 -> "number-5"
+  TextureNumber6                 -> "number-6"
+  TextureNumber7                 -> "number-7"
+  TextureNumber8                 -> "number-8"
+  TextureNumber9                 -> "number-9"
+  TextureLaneGreen               -> "lane-green"
+  TextureLaneRed                 -> "lane-red"
+  TextureLaneYellow              -> "lane-yellow"
+  TextureLaneBlue                -> "lane-blue"
+  TextureLaneOrange              -> "lane-orange"
+  TextureLanePurple              -> "lane-purple"
+  TextureRS0                     -> "rs-0"
+  TextureRS1                     -> "rs-1"
+  TextureRS2                     -> "rs-2"
+  TextureRS3                     -> "rs-3"
+  TextureRS4                     -> "rs-4"
+  TextureRS5                     -> "rs-5"
+  TextureRS6                     -> "rs-6"
+  TextureRS7                     -> "rs-7"
+  TextureRS8                     -> "rs-8"
+  TextureRS9                     -> "rs-9"
+  TextureRS10                    -> "rs-10"
+  TextureRS11                    -> "rs-11"
+  TextureRS12                    -> "rs-12"
+  TextureRS13                    -> "rs-13"
+  TextureRS14                    -> "rs-14"
+  TextureRS15                    -> "rs-15"
+  TextureRS16                    -> "rs-16"
+  TextureRS17                    -> "rs-17"
+  TextureRS18                    -> "rs-18"
+  TextureRS19                    -> "rs-19"
+  TextureRS20                    -> "rs-20"
+  TextureRS21                    -> "rs-21"
+  TextureRS22                    -> "rs-22"
+  TextureRS23                    -> "rs-23"
+  TextureRS24                    -> "rs-24"
+  TextureRSRed                   -> "rs-red"
+  TextureRSYellow                -> "rs-yellow"
+  TextureRSBlue                  -> "rs-blue"
+  TextureRSOrange                -> "rs-orange"
+  TextureRSGreen                 -> "rs-green"
+  TextureRSPurple                -> "rs-purple"
+  TextureRSHopo                  -> "rs-hopo"
+  TextureRSTap                   -> "rs-tap"
+  TextureRSPalmMute              -> "rs-palm-mute"
+  TextureRSFretHandMute          -> "rs-fret-hand-mute"
+  TextureOverlayGhost            -> "overlay-ghost"
+  TextureOverlayAccent           -> "overlay-accent"
 
 setFramebufferSize :: (MonadIO m) => Framebuffers -> GLsizei -> GLsizei -> m ()
 setFramebufferSize fbufs w h = case fbufs of

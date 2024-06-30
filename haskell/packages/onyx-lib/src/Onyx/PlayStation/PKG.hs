@@ -322,7 +322,7 @@ tryDecryptEDAT dir name readable = do
   edat <- stackIO $ useHandle readable handleToByteString
   if BL.take 4 edat /= "NPD\0"
     then do
-      warn $ show name <> " does not appear to be an EDAT; assuming it is unencrypted for RPCS3."
+      -- warn $ show name <> " does not appear to be an EDAT; assuming it is unencrypted for RPCS3."
       return $ Just readable
     else do
       let contentID = BL.toStrict $ BL.takeWhile (/= 0) $ BL.take 0x30 $ BL.drop 0x10 edat
