@@ -60,6 +60,7 @@ import           Onyx.Harmonix.MOGG.Crypt             (decryptBink)
 import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        convertFromAnim,
                                                        decompressMilo,
+                                                       emptyLipsync,
                                                        miloToFolder, parseAnim,
                                                        parseMiloFile, putAnim,
                                                        putLipsync)
@@ -76,6 +77,7 @@ import           Onyx.MIDI.Track.Events               (eventsEnd)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
+import           Onyx.MIDI.Track.Venue
 import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
 import           Onyx.PlayStation.PSS                 (extractVGSStream,
                                                        extractVideoStream,
@@ -103,16 +105,17 @@ import           System.IO.Temp                       (withSystemTempDirectory)
 import           Text.Read                            (readMaybe)
 
 data RBImport = RBImport
-  { songPackage :: D.SongPackage
-  , comments    :: C3DTAComments
-  , mogg        :: Maybe SoftContents
-  , bink        :: Maybe SoftContents
-  , pss         :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
-  , albumArt    :: Maybe (IO (Either String SoftFile))
-  , milo        :: [(B.ByteString, BL.ByteString)]
-  , midi        :: Readable
-  , midiUpdate  :: Maybe (IO (Either String Readable))
-  , source      :: Maybe FilePath
+  { songPackage   :: D.SongPackage
+  , comments      :: C3DTAComments
+  , mogg          :: Maybe SoftContents
+  , bink          :: Maybe SoftContents
+  , pss           :: Maybe (IO (SoftFile, [BL.ByteString])) -- if ps2, load video and vgs channels
+  , albumArt      :: Maybe (IO (Either String SoftFile))
+  , milo          :: [(B.ByteString, BL.ByteString)]
+  , midi          :: Readable
+  , midiUpdate    :: Maybe (IO (Either String Readable))
+  , source        :: Maybe FilePath
+  , addSingalongs :: [B.ByteString] -- RB4 .lipsync_ps4 slot names
   }
 
 importSTFSFolder :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -206,6 +209,7 @@ importSTFSFolder src folder = do
         , midi = midi
         , midiUpdate = update
         , source = Just src
+        , addSingalongs = []
         } level
 
 importWAD :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
@@ -267,6 +271,7 @@ importRBA rba level = do
     , midi = midi
     , midiUpdate = Nothing
     , source = Nothing
+    , addSingalongs = []
     } level
 
 dtaIsRB3 :: D.SongPackage -> Bool
@@ -290,6 +295,26 @@ loadFlatMilo level milo = do
     _ -> return Nothing
   let flatten folder = folderFiles folder <> concatMap (flatten . snd) (folderSubfolders folder)
   return $ maybe [] flatten miloFolder
+
+-- adds singalong notes to the whole length of a song when importing RB4 .lipsync_ps4
+midiAddSingalongs :: [B.ByteString] -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
+midiAddSingalongs []    mid = mid
+midiAddSingalongs slots mid = mid
+  { F.s_tracks = mid.s_tracks
+    { F.onyxVenue = let
+      venue = mid.s_tracks.onyxVenue
+      addSlot slot orig = if elem slot slots
+        then case mid.s_tracks.onyxEvents.eventsEnd of
+          Wait dt () _ -> Wait 0 True $ Wait dt False RNil
+          RNil         -> orig -- no [end], shouldn't happen
+        else orig
+      in venue
+        { venueSingGuitar = addSlot "guitar" venue.venueSingGuitar
+        , venueSingBass   = addSlot "bass"   venue.venueSingBass
+        , venueSingDrums  = addSlot "drum"   venue.venueSingDrums
+        }
+    }
+  }
 
 importRB :: (SendMessage m, MonadIO m) => RBImport -> Import m
 importRB rbi level = do
@@ -498,7 +523,7 @@ importRB rbi level = do
         Wait endTime () _ -> chopTake endTime
   -- TODO we may need a smarter way to apply the song.anim data;
   -- various cases of data existing in both song.anim (or .rbsong) and the midi
-  midiOnyxWithAnim <- case songAnim of
+  midiOnyxWithAnim <- midiAddSingalongs rbi.addSingalongs <$> case songAnim of
     Just (_, Just parsedAnim) -> do
       converted <- convertFromAnim parsedAnim
       return midiOnyx
@@ -787,30 +812,46 @@ importRB4 fdta level = do
       True  -> do
         bs <- stackIO $ B.readFile rbsongPath
         inside "Loading .rbsong" $ errorToWarning $ runGetM getEntityResource $ BL.fromStrict bs
-  miloLipsync <- case level of
-    ImportQuick -> return []
+  (miloLipsync, singalongs) <- case level of
+    ImportQuick -> return ([], [])
     ImportFull -> stackIO (Dir.doesFileExist lipsyncPath) >>= \case
+
       True -> do
         lips <- fmap (fromMaybe []) $ inside "Loading .lipsync_ps4" $ errorToWarning $ do
           bs <- stackIO $ B.readFile lipsyncPath
           runGetM getLipsyncPS4 (BL.fromStrict bs) >>= fromLipsyncPS4
-        return $ lips >>= \case
-          -- TODO do we need to worry about any parts not being present?
-          ("mic"        , lip) -> [("song.lipsync" , runPut $ putLipsync lip)]
-          ("guitar"     , lip) -> [("part2.lipsync", runPut $ putLipsync lip)]
-          ("bass"       , lip) -> [("part3.lipsync", runPut $ putLipsync lip)]
-          ("drum"       , lip) -> [("part4.lipsync", runPut $ putLipsync lip)]
-          ("guitar+bass", lip) -> let
-            bs = runPut $ putLipsync lip
-            in [("part2.lipsync", bs), ("part3.lipsync", bs)]
-          _                    -> []
+
+        -- lipsync_ps4 has explicit mic,guitar,bass,drum slots.
+        -- to be simple we translate these to parts 1-4 in the default mapping.
+        -- no singalong notes are present in the venue, so we need to add them.
+        -- note, we need to fill in parts with empty lipsync if there are gaps in what is mapped.
+        -- see askyfullofstars which has just mic + drum.
+        -- and thesign which has mic bass drum.
+
+        -- TODO 100baddays and change have weird overlapping parts? ["bass+drum","guitar","guitar+bass","mic"]
+        -- and lockedoutofheaven has ["guitar+bass","mic","guitar+bass","mic"]
+
+        let lipMapping = do
+              (slotString, lip) <- lips
+              slot <- B8.split '+' slotString
+              return (slot, lip)
+            filePart4 = ("part4.lipsync",) <$>  lookup "drum"   lipMapping
+            filePart3 = ("part3.lipsync",) <$> (lookup "bass"   lipMapping <|> (guard (isJust filePart4) >> Just emptyLipsync))
+            filePart2 = ("part2.lipsync",) <$> (lookup "guitar" lipMapping <|> (guard (isJust filePart3) >> Just emptyLipsync))
+            fileSong  = ("song.lipsync" ,) <$> (lookup "mic"    lipMapping <|> (guard (isJust filePart2) >> Just emptyLipsync))
+            lipsyncs  = map (second $ runPut . putLipsync) $ catMaybes [fileSong, filePart2, filePart3, filePart4]
+        return (lipsyncs, map fst lipMapping)
+
       False -> case maybeRBSong of
-        Nothing -> return []
+        Nothing -> return ([], [])
         Just rbsong -> do
           lips <- inside "Loading lipsync from .rbsong" $ errorToWarning $ getRBSongLipsync rbsong
-          return $ do
-            (name, lip) <- fromMaybe [] lips
-            return (name <> ".lipsync", runPut $ putLipsync lip)
+          let results = do
+                (name, lip) <- fromMaybe [] lips
+                return (name <> ".lipsync", runPut $ putLipsync lip)
+          -- old .rbsong style has singalong notes in the venue, so we don't need to add any
+          return (results, [])
+
   let miloVenue = do
         guard $ level == ImportFull
         rbsong <- toList maybeRBSong
@@ -916,6 +957,7 @@ importRB4 fdta level = do
     , midi = midRead
     , midiUpdate = Nothing
     , source = Nothing
+    , addSingalongs = singalongs
     } level
 
 {-

@@ -38,9 +38,7 @@ convertMidiRB2 mid = fixUnisons mid
       pd = F.fixedPartDrums $ F.s_tracks mid
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
-        { drumSingleRoll = RTB.empty
-        , drumDoubleRoll = RTB.empty
-        , drumKick2x = RTB.empty
+        { drumKick2x = RTB.empty
         , drumDifficulties = flip fmap (drumDifficulties pd) $ \dd -> dd
           { drumMix = flip fmap (drumMix dd) $ \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
