@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Harmonix.RockBand.Milo.Lipsync where
 
 import           Control.Arrow                           (first)
@@ -19,7 +20,8 @@ import qualified Data.Aeson.Types                        as A
 import qualified Data.ByteString                         as B
 import qualified Data.ByteString.Char8                   as B8
 import qualified Data.ByteString.Lazy                    as BL
-import           Data.Char                               (isAlpha)
+import           Data.Char                               (isAlpha, toLower,
+                                                          toUpper)
 import qualified Data.EventList.Absolute.TimeBody        as ATB
 import qualified Data.EventList.Relative.TimeBody        as RTB
 import           Data.Foldable                           (toList)
@@ -120,14 +122,36 @@ magmaMiloDir ml = MiloDir
     MagmaLipsync4 h1 h2 h3 h4 -> [h2, h3, h4, h1]
   }
 
-rb2MiloDir :: Lipsync -> MiloDir
-rb2MiloDir lip = MiloDir
+-- Accepts multiple lipsyncs, since they can still be read in RB3.
+-- RB2 will only read the first.
+rb2MiloDir :: MagmaLipsync -> MiloDir
+rb2MiloDir ml = MiloDir
   { miloVersion = 25
   , miloType = "ObjectDir"
   , miloName = "lipsync"
-  , miloU1 = 4
-  , miloU2 = 0x15
-  , miloEntryNames = [("CharLipSync", "song.lipsync")]
+  , miloU1 = case ml of
+    MagmaLipsync1{} -> 4
+    MagmaLipsync2{} -> 6
+    MagmaLipsync3{} -> 8
+    MagmaLipsync4{} -> 10
+  , miloU2 = case ml of
+    MagmaLipsync1{} -> 0x15
+    MagmaLipsync2{} -> 0x23
+    MagmaLipsync3{} -> 0x31
+    MagmaLipsync4{} -> 0x3F
+  , miloEntryNames = concat
+    [ case ml of
+      MagmaLipsync1{} -> []
+      _               -> [("CharLipSync", "part2.lipsync")]
+    , case ml of
+      MagmaLipsync1{} -> []
+      MagmaLipsync2{} -> []
+      _               -> [("CharLipSync", "part3.lipsync")]
+    , case ml of
+      MagmaLipsync4{} -> [("CharLipSync", "part4.lipsync")]
+      _               -> []
+    , [("CharLipSync", "song.lipsync")]
+    ]
   , miloU3 = 20
   , miloU4 = Nothing
   , miloSubname = Nothing
@@ -143,7 +167,11 @@ rb2MiloDir lip = MiloDir
   , miloU11 = Nothing
   , miloSubdirs = []
   , miloUnknownBytes = "\NUL\NUL\NUL\NUL\NUL\NUL\STX\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
-  , miloFiles = [runPut $ putLipsync $ setRB2 lip]
+  , miloFiles = map (runPut . putLipsync . setRB2) $ case ml of
+    MagmaLipsync1 h1          -> [h1]
+    MagmaLipsync2 h1 h2       -> [h2, h1]
+    MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]
+    MagmaLipsync4 h1 h2 h3 h4 -> [h2, h3, h4, h1]
   }
 
 dummyMatrices :: [[Float]]
@@ -946,6 +974,20 @@ testConvertLipsync fmid fvocs fout = do
         in Map.alter fn F.FlexVocal orig
       }
     }
+
+-- Older RB4 lipsync stored in the rbsong has all lowercase visemes.
+-- RB3 requires them to be specific casing.
+standardVisemeCase :: Lipsync -> Lipsync
+standardVisemeCase lip = lip
+  { lipsyncVisemes = flip map lip.lipsyncVisemes $ \vis ->
+    if "singalong" `B.isSuffixOf` vis
+      -- bass_singalong etc. are all lower
+      then B8.map toLower vis
+      -- otherwise: first char upper, rest lower
+      else case B8.unpack vis of
+        []     -> vis
+        c : cs -> B8.pack $ toUpper c : map toLower cs
+  }
 
 data VocFile = VocFile
   { vocMystery1  :: Word32 -- RB: 1500, GH2: 1200

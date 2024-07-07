@@ -980,9 +980,12 @@ rbRules buildInfo dir rb3 mrb2 = do
           let _ = mid :: F.Song (F.FixedFile U.Beats)
               lipsyncLen :: U.Seconds
               lipsyncLen = fromIntegral (F.songLengthMS mid) / 1000 + 1
-              miloDir = rb2MiloDir $ extendLipsync lipsyncLen $ case lips of
-                lip : _ -> lip
-                []      -> emptyLipsync
+              miloDir = rb2MiloDir $ case map (extendLipsync lipsyncLen) lips of
+                []                    -> MagmaLipsync1 emptyLipsync
+                [l1]                  -> MagmaLipsync1 l1
+                [l1, l2]              -> MagmaLipsync2 l1 l2
+                [l1, l2, l3]          -> MagmaLipsync3 l1 l2 l3
+                l1 : l2 : l3 : l4 : _ -> MagmaLipsync4 l1 l2 l3 l4
           stackIO $ BL.writeFile out $ addMiloHeader $ makeMiloFile miloDir
         rb2Weights %> \out -> stackIO emptyWeightsRB2 >>= \mt -> shk $ copyFile' mt out
         rb2Art %> shk . copyFile' (biGen buildInfo "cover.png_xbox")

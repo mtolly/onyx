@@ -93,6 +93,7 @@ stripMidiMagmaV1 mid = mid
     , F.fixedHarm2      = mempty
     , F.fixedHarm3      = mempty
     }
+  -- TODO remove FogOn/FogOff, Magma v2 is ok with these but not v1
   } where
     noDrumLanes dt = dt
       { drumSingleRoll = RTB.empty

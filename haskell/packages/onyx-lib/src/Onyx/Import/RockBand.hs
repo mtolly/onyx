@@ -63,7 +63,8 @@ import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        emptyLipsync,
                                                        miloToFolder, parseAnim,
                                                        parseMiloFile, putAnim,
-                                                       putLipsync)
+                                                       putLipsync,
+                                                       standardVisemeCase)
 import           Onyx.Harmonix.RockBand.RB4.Lipsync
 import           Onyx.Harmonix.RockBand.RB4.RBMid
 import           Onyx.Harmonix.RockBand.RB4.RBSong
@@ -305,7 +306,8 @@ midiAddSingalongs slots mid = mid
       venue = mid.s_tracks.onyxVenue
       addSlot slot orig = if elem slot slots
         then case mid.s_tracks.onyxEvents.eventsEnd of
-          Wait dt () _ -> Wait 0 True $ Wait dt False RNil
+          -- in theory should be fine going the whole song length, but we'll shorten a bit to be safe
+          Wait dt () _ -> Wait 0 True $ Wait (dt - 0.25) False RNil
           RNil         -> orig -- no [end], shouldn't happen
         else orig
       in venue
@@ -839,7 +841,9 @@ importRB4 fdta level = do
             filePart3 = ("part3.lipsync",) <$> (lookup "bass"   lipMapping <|> (guard (isJust filePart4) >> Just emptyLipsync))
             filePart2 = ("part2.lipsync",) <$> (lookup "guitar" lipMapping <|> (guard (isJust filePart3) >> Just emptyLipsync))
             fileSong  = ("song.lipsync" ,) <$> (lookup "mic"    lipMapping <|> (guard (isJust filePart2) >> Just emptyLipsync))
-            lipsyncs  = map (second $ runPut . putLipsync) $ catMaybes [fileSong, filePart2, filePart3, filePart4]
+            -- probably don't need to fix viseme case on these but just making sure
+            lipsyncs  = map (second $ runPut . putLipsync . standardVisemeCase)
+              $ catMaybes [fileSong, filePart2, filePart3, filePart4]
         return (lipsyncs, map fst lipMapping)
 
       False -> case maybeRBSong of
@@ -848,7 +852,8 @@ importRB4 fdta level = do
           lips <- inside "Loading lipsync from .rbsong" $ errorToWarning $ getRBSongLipsync rbsong
           let results = do
                 (name, lip) <- fromMaybe [] lips
-                return (name <> ".lipsync", runPut $ putLipsync lip)
+                -- note, these have all lowercase visemes and we need to fix them for RB3
+                return (name <> ".lipsync", runPut $ putLipsync $ standardVisemeCase lip)
           -- old .rbsong style has singalong notes in the venue, so we don't need to add any
           return (results, [])
 
@@ -857,7 +862,7 @@ importRB4 fdta level = do
         rbsong <- toList maybeRBSong
         return ("song.anim", runPut $ putAnim $ getRBSongVenue beatTrackSeconds rbsong)
 
-  let decodeBS = TE.decodeUtf8 -- is this correct? find example with non-ascii char
+  let decodeBS = TE.decodeUtf8 -- UTF-8 verified with Thunder and Lightning (Motörhead)
       pkg = D.SongPackage
         { D.name              = decodeBS dta.name
         , D.artist            = Just $ decodeBS dta.artist

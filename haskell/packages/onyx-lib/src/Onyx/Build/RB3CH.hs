@@ -805,9 +805,11 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   camera <- stackIO $ buildCamera partsForVenue $ F.onyxCamera trks
   let isPS = case target of SharedTargetRB{} -> False; SharedTargetPS{} -> True
       compileVenue = case target of
-        SharedTargetRB _rb3 (Just _rb2) -> mapTrack (U.trackTake timingEnd) . compileVenueRB2
-        -- the trackTake is because otherwise new blips
-        -- introduced in rb3->rb2 can go past the end event
+        -- previously I had a trackTake here, because
+        -- "otherwise new blips introduced in rb3->rb2 can go past the end event"
+        -- now replaced with chopTake, but I don't think it actually prevents
+        -- blip note-off from going past [end]?
+        SharedTargetRB _rb3 (Just _rb2) -> chopTake timingEnd . compileVenueRB2
         _                               -> compileVenueRB3
       venue = compileVenue $ mconcat
         [ F.onyxVenue trks
