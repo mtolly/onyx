@@ -197,8 +197,8 @@ splitSongsDTA r = do
               String s : _ -> Just s
               _            -> Nothing
             isUTF8 = case concat [x | Key "encoding" x <- data1] of
-              String "utf8" : _ -> True
-              _                 -> False
+              Sym "utf8" : _ -> True
+              _              -> False
             readString = if isUTF8 then TE.decodeUtf8With lenientDecode else TE.decodeLatin1
         preview <- case concat [x | Key "preview" x <- data1] of
           [Int start, Int end] -> return (start, end)
@@ -217,7 +217,7 @@ splitSongsDTA r = do
             hopoThreshold = case concat [x | Key "hopo_threshold" x <- data2] of
               Int n : _ -> Just n
               _         -> Nothing
-        return QuickDTA
+        return $ enforceUTF8 QuickDTA
           { qdtaOriginal      = bytes
           , qdtaParsed        = chunk
           , qdtaComments      = comments
@@ -1119,6 +1119,26 @@ refreshSong :: Int -> QuickSong -> QuickSong
 refreshSong seed = let
   name = T.pack $ take 26 $ "oqc" <> dropWhile (== '-') (show seed)
   in newTopKey (encodeLatin1 name) . newFolderNames name name . newSongID seed
+
+enforceUTF8 :: QuickDTA -> QuickDTA
+enforceUTF8 dta = let
+  isUTF8 = case dta.qdtaParsed of
+    Parens (Tree _ data1) -> case concat [x | Key "encoding" x <- data1] of
+      Sym "utf8" : _ -> True
+      _              -> False
+    _                     -> False -- shouldn't happen
+  withEncodingSetting = case dta.qdtaParsed of
+    Parens (Tree n data1) -> Parens $ Tree n
+      $ filter (\case Key "encoding" _ -> False; _ -> True) data1
+      <> [Key "encoding" [Sym "utf8"]]
+    _                     -> dta.qdtaParsed -- shouldn't happen
+  reencode = TE.encodeUtf8 . TE.decodeLatin1
+  in if isUTF8
+    then dta -- nothing to do
+    else dta
+      { qdtaParsed   = reencode <$> withEncodingSetting
+      , qdtaComments = reencode <$> dta.qdtaComments
+      }
 
 ------------------------
 
