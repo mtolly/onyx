@@ -1856,7 +1856,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
 
   -- right side: processors to transform midis and other files
   packProcessors <- FL.packNew (trimClock 5 5 5 0 processorsRect) Nothing
-  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 45))
+  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 40))
       procFolder f qsong = do
         newFiles <- f $ quickSongFiles qsong
         return qsong { quickSongFiles = newFiles }
@@ -1911,12 +1911,11 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   let getSongTransform = do
         procs <- sequence processorGetters
         return $ foldr (>=>) return procs
-  getDecrypt360 <- return $ return False {- do
-    check <- FL.checkButtonNew processorBox $ Just "Decrypt MOGGs (360)"
+  getDecryptMOGGs <- do
+    check <- FL.checkButtonNew processorBox $ Just "Decrypt MOGGs"
     void $ FL.setValue check False
-    FL.setTooltip check "For CON/LIVE output, decrypt all MOGG files."
+    FL.setTooltip check "Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced."
     return $ FL.getValue check
-    -}
   FL.end packProcessors
 
   -- row2: select mode
@@ -2002,7 +2001,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       enc <- stackIO getEncrypt
       ps3Folder <- stackIO getFolderSetting
       songTransform <- stackIO getSongTransform
-      decrypt360 <- stackIO getDecrypt360
+      decryptMOGGs <- stackIO getDecryptMOGGs
       -- TODO this is a hack to avoid stale references after editing them.
       -- should come up with a better solution!
       stackIO clearFiles
@@ -2014,9 +2013,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           let tmp = fin <> ".tmp"
               isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
               ps3Settings = QuickPS3Settings
-                { qcPS3Folder  = ps3Folder
-                , qcPS3Encrypt = enc
-                , qcPS3RB3     = isRB3
+                { qcPS3Folder      = ps3Folder
+                , qcPS3EncryptMIDI = enc
+                , qcPS3EncryptMOGG = not decryptMOGGs
+                , qcPS3RB3         = isRB3
                 }
               xboxSettings live = stackIO $
                 (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
@@ -2026,8 +2026,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                 live
           case quickInputFormat qinput of
             QCInputTwoWay fmt -> case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts tmp
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts tmp
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
               QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
             fmt -> fatal $ "Unsupported format for transform mode (" <> show fmt <> ")"
           stackIO $ Dir.renameFile tmp fin
@@ -2061,7 +2061,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         enc <- stackIO getEncrypt
         ps3Folder <- stackIO getFolderSetting
         songTransform <- stackIO getSongTransform
-        decrypt360 <- stackIO getDecrypt360
+        decryptMOGGs <- stackIO getDecryptMOGGs
         newPreferences <- readPreferences
         startTasks $ flip map files $ \qinput -> let
           fin = quickInputPath qinput
@@ -2075,9 +2075,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                 fout = quickTemplate newPreferences fmt fin ext template Nothing
                 isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
                 ps3Settings = QuickPS3Settings
-                  { qcPS3Folder  = ps3Folder
-                  , qcPS3Encrypt = enc
-                  , qcPS3RB3     = isRB3
+                  { qcPS3Folder      = ps3Folder
+                  , qcPS3EncryptMIDI = enc
+                  , qcPS3EncryptMOGG = not decryptMOGGs
+                  , qcPS3RB3         = isRB3
                   }
                 xboxSettings live = stackIO $
                   (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
@@ -2085,8 +2086,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
                   live
             case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
               QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
             return [fout]
           in (fin, task)
@@ -2123,7 +2124,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       enc <- getEncrypt
       ps3Folder <- getFolderSetting
       songTransform <- getSongTransform
-      decrypt360 <- getDecrypt360
+      decryptMOGGs <- getDecryptMOGGs
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
         Just packs -> do
@@ -2154,9 +2155,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                           QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
                           _                 -> ps3Folder
                         ps3Settings = QuickPS3Settings
-                          { qcPS3Folder  = Just ps3Folder'
-                          , qcPS3Encrypt = enc
-                          , qcPS3RB3     = isRB3
+                          { qcPS3Folder      = Just ps3Folder'
+                          , qcPS3EncryptMIDI = enc
+                          , qcPS3EncryptMOGG = not decryptMOGGs
+                          , qcPS3RB3         = isRB3
                           }
                         xboxSettings live = stackIO $
                           (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
@@ -2164,8 +2166,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                           ""
                           live
                     case fmt of
-                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
-                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 qsongs' opts fout
+                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
                       QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
                     return [fout]
                   in ("Pack #" <> show (i :: Int), task)
@@ -2192,7 +2194,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         fmt <- getFormat
         enc <- getEncrypt
         songTransform <- getSongTransform
-        decrypt360 <- getDecrypt360
+        decryptMOGGs <- getDecryptMOGGs
         askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
           let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
           sink $ EventOnyx $ do
@@ -2207,9 +2209,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
               task = do
                 qsong' <- songTransform qsong
                 let ps3Settings = QuickPS3Settings
-                      { qcPS3Folder  = Just QCSeparateFolders
-                      , qcPS3Encrypt = enc
-                      , qcPS3RB3     = isRB3
+                      { qcPS3Folder      = Just QCSeparateFolders
+                      , qcPS3EncryptMIDI = enc
+                      , qcPS3EncryptMOGG = not decryptMOGGs
+                      , qcPS3RB3         = isRB3
                       }
                     xboxSettings live = stackIO $
                       (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
@@ -2217,8 +2220,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                       ""
                       live
                 case fmt of
-                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decrypt360 [qsong'] opts fout
-                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decrypt360 [qsong'] opts fout
+                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
+                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
                   QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
                 return [fout]
               in (T.unpack $ artistTitle qsong, task)

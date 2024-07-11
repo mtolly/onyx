@@ -504,12 +504,18 @@ getXboxFile decrypt (name, qfile) = case qfile of
   QFParsedMIDI mid -> getXboxFile decrypt (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
   QFOther r -> return (name, r)
 
-getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
-getPS3File mcrypt (name, qfile) = case qfile of
-  QFEncryptedMOGG r -> return (name, fixOldC3Mogg r)
-  QFUnencryptedMOGG r -> let
-    enc = makeHandle "encrypted mogg for ps3" $ encryptMOGGToByteString r >>= byteStringSimpleHandle
-    in return (name, enc)
+getPS3File :: (MonadResource m, SendMessage m) => Maybe (B.ByteString, Bool) -> Bool -> (T.Text, QuickFile Readable) -> StackTraceT m (T.Text, Readable)
+getPS3File cryptMid cryptMogg (name, qfile) = case qfile of
+  QFEncryptedMOGG r -> if cryptMogg
+    then return (name, fixOldC3Mogg r)
+    else let
+      dec = makeHandle "decrypted mogg" $ useHandle (decryptMOGG r) handleToByteString >>= byteStringSimpleHandle
+      in return (name, dec)
+  QFUnencryptedMOGG r -> if cryptMogg
+    then let
+      enc = makeHandle "encrypted mogg for ps3" $ encryptMOGGToByteString r >>= byteStringSimpleHandle
+      in return (name, enc)
+    else return (name, r)
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
     in return (name', r)
@@ -521,7 +527,7 @@ getPS3File mcrypt (name, qfile) = case qfile of
   QFPNGPS3 r -> return (name, r)
   QFEncryptedMIDI crypt r -> do
     let nameBytes = TE.encodeUtf8 name
-    r' <- case mcrypt of
+    r' <- case cryptMid of
       Nothing              -> decryptEDAT crypt (TE.encodeUtf8 name) r
       Just (newCrypt, rb3) -> if crypt == newCrypt
         then verifyCryptEDAT crypt nameBytes rb3 r
@@ -531,11 +537,11 @@ getPS3File mcrypt (name, qfile) = case qfile of
     let name' = case takeExtension $ T.unpack name of
           ".edat" -> name
           _       -> name <> ".edat"
-    r' <- case mcrypt of
+    r' <- case cryptMid of
       Nothing           -> return r
       Just (crypt, rb3) -> encryptEDAT crypt (TE.encodeUtf8 name') rb3 r
     return (name', r')
-  QFParsedMIDI mid -> getPS3File mcrypt (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
+  QFParsedMIDI mid -> getPS3File cryptMid cryptMogg (name, QFUnencryptedMIDI $ makeHandle "" $ byteStringSimpleHandle $ Save.toByteString mid)
   QFOther r -> return (name, r)
 
 makePS3DTA :: Chunk B.ByteString -> Chunk B.ByteString
@@ -689,9 +695,10 @@ data QuickPS3Folder
   | QCCustomFolder B.ByteString
 
 data QuickPS3Settings = QuickPS3Settings
-  { qcPS3Folder  :: Maybe QuickPS3Folder
-  , qcPS3Encrypt :: Bool
-  , qcPS3RB3     :: Bool
+  { qcPS3Folder      :: Maybe QuickPS3Folder
+  , qcPS3EncryptMIDI :: Bool
+  , qcPS3EncryptMOGG :: Bool
+  , qcPS3RB3         :: Bool
   }
 
 addSize :: size -> (T.Text, a) -> (T.Text, (size, a))
@@ -718,8 +725,8 @@ saveQuickSongsPKG qsongs settings fout = do
           Just QCOneFolder -> oneFolder -- one folder for whole pkg
           Just QCSeparateFolders -> separateFolder -- separate folder for each song
           Just (QCCustomFolder bs) -> bs
-        mcrypt = guard (qcPS3Encrypt settings) >> Just (chosenFolder, qcPS3RB3 settings)
-    ps3Folder <- mapMFilesWithName (getPS3File mcrypt . discardSize) $ quickSongFiles qsong
+        mcrypt = guard (qcPS3EncryptMIDI settings) >> Just (chosenFolder, qcPS3RB3 settings)
+    ps3Folder <- mapMFilesWithName (getPS3File mcrypt (qcPS3EncryptMOGG settings) . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
   let rootFolder = container "USRDIR" $ mconcat $ do
         (usrdirSub, songs) <- Map.toList qsongMapping
