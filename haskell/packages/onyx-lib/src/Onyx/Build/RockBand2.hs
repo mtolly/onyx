@@ -20,6 +20,7 @@ import           Onyx.MIDI.Track.Drums            as Drums
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.Overdrive                   (fixPartialUnisons)
 import           Onyx.StackTrace
@@ -92,8 +93,11 @@ stripMidiMagmaV1 mid = mid
     , F.fixedHarm1      = mempty
     , F.fixedHarm2      = mempty
     , F.fixedHarm3      = mempty
+    , F.fixedVenue      = (F.fixedVenue $ F.s_tracks mid)
+      -- Magma v2 is ok with these but not v1
+      { venueFog = RTB.empty
+      }
     }
-  -- TODO remove FogOn/FogOff, Magma v2 is ok with these but not v1
   } where
     noDrumLanes dt = dt
       { drumSingleRoll = RTB.empty

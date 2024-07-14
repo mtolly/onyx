@@ -18,7 +18,7 @@ import           Control.Applicative                  ((<|>))
 import           Control.Arrow                        (second)
 import           Control.Concurrent.Async             (forConcurrently)
 import           Control.Monad                        (forM, forM_, guard,
-                                                       unless, when)
+                                                       unless, void, when)
 import           Control.Monad.IO.Class               (MonadIO)
 import           Data.Bifunctor                       (bimap)
 import qualified Data.ByteString                      as B
@@ -42,8 +42,8 @@ import           Data.Text.Encoding.Error             (lenientDecode)
 import           Onyx.Audio                           (Audio (..), Edge (..))
 import           Onyx.Audio.VGS                       (splitOutVGSChannels,
                                                        vgsChannelCount)
-import           Onyx.Codec.Binary                    (bin, codecIn, runPut,
-                                                       (=.))
+import           Onyx.Codec.Binary                    (bin, codecIn, codecOut,
+                                                       runPut, (=.))
 import           Onyx.Codec.Common                    (req)
 import           Onyx.Difficulty
 import           Onyx.Harmonix.Ark.ArkTool            (ark_DecryptVgs)
@@ -814,6 +814,8 @@ importRB4 fdta level = do
       True  -> do
         bs <- stackIO $ B.readFile rbsongPath
         inside "Loading .rbsong" $ errorToWarning $ runGetM getEntityResource $ BL.fromStrict bs
+  let songMeta       = maybe [] rbSongMetadata   maybeRBSong
+      venueAuthoring = maybe [] rbVenueAuthoring maybeRBSong
   (miloLipsync, singalongs) <- case level of
     ImportQuick -> return ([], [])
     ImportFull -> stackIO (Dir.doesFileExist lipsyncPath) >>= \case
@@ -862,6 +864,26 @@ importRB4 fdta level = do
         rbsong <- toList maybeRBSong
         return ("song.anim", runPut $ putAnim $ getRBSongVenue beatTrackSeconds rbsong)
 
+      miloSongPref = do
+        guard $ level == ImportFull
+        let numToPart k fallback = case lookup k venueAuthoring of
+              Just (IntValue 0) -> "bass"
+              Just (IntValue 1) -> "drum"
+              Just (IntValue 2) -> "guitar"
+              _                 -> fallback
+            songPref = SongPref
+              { prefU1 = 3
+              , prefU2 = 2
+              , prefU3 = 0
+              , prefU4 = 0
+              , prefU5 = 0
+              , prefPart2 = numToPart "part2_instrument" "guitar"
+              , prefPart3 = numToPart "part3_instrument" "bass"
+              , prefPart4 = numToPart "part4_instrument" "drum"
+              , prefStyle = "rocker" -- does this exist anywhere? we don't import yet anyway
+              }
+        return ("BandSongPref", runPut $ void $ codecOut bin songPref)
+
   let decodeBS = TE.decodeUtf8 -- UTF-8 verified with Thunder and Lightning (Motörhead)
       pkg = D.SongPackage
         { D.name              = decodeBS dta.name
@@ -877,24 +899,39 @@ importRB4 fdta level = do
             $ Map.unionsWith (<>)
             $ map (uncurry Map.singleton)
             $ moggDTA.tracks
+            -- this will still have 'fake' and 'crowd' but they will be ignored
           , D.pans             = moggDTA.pans
           , D.vols             = moggDTA.vols
           , D.cores            = map (const (-1)) moggDTA.pans
-          , D.crowdChannels    = Nothing -- TODO
+          , D.crowdChannels    = lookup "crowd" moggDTA.tracks
           , D.vocalParts       = Just $ fromIntegral dta.vocalParts
-          , D.drumSolo         = D.DrumSounds [] -- not used
-          , D.drumFreestyle    = D.DrumSounds [] -- not used
-          , D.muteVolume       = Nothing -- not used
-          , D.muteVolumeVocals = Nothing -- not used
+          , D.drumSolo         = D.DrumSounds [] -- not used in import
+          , D.drumFreestyle    = D.DrumSounds [] -- not used in import
+          , D.muteVolume       = Nothing -- not used in import
+          , D.muteVolumeVocals = Nothing -- not used in import
           , D.hopoThreshold    = Just $ fromIntegral hopoThreshold
           , D.midiFile         = Nothing
           }
-        , D.songScrollSpeed   = 2300
+        , D.songScrollSpeed   = case lookup "vocal_track_scroll_duration_ms" songMeta of
+          Just (LongValue n) -> fromIntegral n
+          _                  -> 2300
+        -- bank could come from "vocal_percussion_patch" in RBSongMetadata,
+        -- but we just use midi events to distinguish cowbell/clap/tambourine anyway
         , D.bank              = Nothing
-        , D.drumBank          = Nothing
+        , D.drumBank          = case lookup "drum_kit_patch" songMeta of
+          Just (ResourcePathValue x _) -> case x of
+            "fusion/patches/kit01.fusion" -> Just "sfx/kit01_bank.milo"
+            "fusion/patches/kit02.fusion" -> Just "sfx/kit02_bank.milo"
+            "fusion/patches/kit03.fusion" -> Just "sfx/kit03_bank.milo"
+            "fusion/patches/kit04.fusion" -> Just "sfx/kit04_bank.milo"
+            "fusion/patches/kit05.fusion" -> Just "sfx/kit05_bank.milo"
+            _                             -> Nothing
+          _                            -> Nothing
         , D.animTempo         = case dta.animTempo of
+          -- TODO there's also "tempo" in RBSongMetadata? do these ever differ
+          "fast"   -> Left D.KTempoFast
           "medium" -> Left D.KTempoMedium
-          -- TODO
+          "slow"   -> Left D.KTempoSlow
           _        -> Left D.KTempoMedium
         , D.songLength        = Just $ round dta.songLength
         , D.preview           = (round dta.previewStart, round dta.previewEnd)
@@ -916,18 +953,23 @@ importRB4 fdta level = do
         , D.songFormat        = 10 -- we'll call it rb3 format for now
         , D.albumArt          = Just $ isJust art
         , D.yearReleased      = Just $ fromIntegral dta.albumYear
-        , D.rating            = 4 -- TODO
+        , D.rating            = 4 -- seemingly not there
         , D.subGenre          = Nothing
         , D.songId            = Just $ Left $ fromIntegral dta.songId
         , D.solo              = Nothing
-        , D.tuningOffsetCents = Nothing -- TODO
+        , D.tuningOffsetCents = case lookup "global_tuning_offset" songMeta of
+          Just (FloatValue cents) -> Just cents
+          _                       -> Nothing
         , D.guidePitchVolume  = Nothing
         , D.gameOrigin        = Just $ decodeBS dta.gameOrigin
-        , D.encoding          = Just "utf8" -- dunno
+        , D.encoding          = Just "utf8"
         , D.albumName         = Just $ decodeBS dta.albumName -- can this be blank?
         , D.albumTrackNumber  = Just $ fromIntegral dta.albumTrackNumber
-        , D.vocalTonicNote    = Nothing -- TODO
-        , D.songTonality      = Nothing -- TODO
+        , D.vocalTonicNote    = case lookup "vocal_tonic_note" songMeta of
+          Just (LongValue n) | 0 <= n && n <= 11 -> Just $ toEnum $ fromIntegral n
+          -- note, RBN rereleases have vocal_tonic_note -1
+          _                                      -> Nothing
+        , D.songTonality      = Nothing -- seemingly not there
         , D.realGuitarTuning  = Nothing
         , D.realBassTuning    = Nothing
         , D.bandFailCue       = Nothing
@@ -958,7 +1000,7 @@ importRB4 fdta level = do
     , bink = Nothing
     , pss = Nothing
     , albumArt = return . Right <$> art
-    , milo = miloLipsync <> miloVenue
+    , milo = miloLipsync <> miloVenue <> miloSongPref
     , midi = midRead
     , midiUpdate = Nothing
     , source = Nothing

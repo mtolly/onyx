@@ -528,9 +528,11 @@ complain that there are no notes under the phrase.
 -}
 fixEventOrder :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
 fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
-  where f x@(E.MetaEvent (Meta.TrackName _              )) = (-3, 0, x)
-        f x@(E.MetaEvent (Meta.TextEvent "[lighting ()]")) = (-1, 0, x) -- magma v1: ensure [lighting ()] comes after simultaneous [verse]
-        f x@(E.MetaEvent (Meta.TextEvent _              )) = (-2, 0, x)
+  where f x@(E.MetaEvent (Meta.TrackName _)) = (-3, 0, x)
+        f x@(E.MetaEvent (Meta.TextEvent s))
+          -- magma v1: ensure [lighting ...] comes after simultaneous [verse]/[chorus]
+          | "[lighting" `T.isPrefixOf` s = (-1, 0, x)
+          | otherwise                    = (-2, 0, x)
         f x = case isNoteEdge x of
           Nothing         -> (0 :: Int, 0       , x)
           Just (p, False) -> (1       , negate p, x)

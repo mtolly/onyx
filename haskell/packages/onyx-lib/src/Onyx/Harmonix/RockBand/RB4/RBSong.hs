@@ -19,6 +19,7 @@ module Onyx.Harmonix.RockBand.RB4.RBSong
 , getRBSongLipsync
 , getRBSongVenue
 , getArray, getString
+, rbSongMetadata, rbVenueAuthoring
 
 ) where
 
@@ -472,3 +473,21 @@ getRBSongVenue beatTrack top = let
         }
       }
     }
+
+rbSongMetadata :: EntityResource -> [(B.ByteString, Value)]
+rbSongMetadata top = do
+  (layer, _) <- top.entity.layers
+  object <- layer.objects
+  comp <- object.components
+  guard $ comp.name1 == "RBSongMetadata"
+  prop <- comp.props
+  return (prop.name, prop.value)
+
+rbVenueAuthoring :: EntityResource -> [(B.ByteString, Value)]
+rbVenueAuthoring top = do
+  (layer, _) <- top.entity.layers
+  object <- layer.objects
+  comp <- object.components
+  guard $ comp.name1 == "RBVenueAuthoring"
+  prop <- comp.props
+  return (prop.name, prop.value)
