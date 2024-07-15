@@ -565,7 +565,10 @@ rbRules buildInfo dir rb3 mrb2 = do
         (1, 0) -> do
           let origMogg = planDir </> "audio.mogg"
           shk $ need [origMogg]
-          stackIO $ saveReadable (decryptV17Mogg $ fixOldC3Mogg $ fileReadable origMogg) out
+          let maxMOGG = case mrb2 of
+                Nothing -> 0x10 -- rb3
+                Just _  -> 0x0F -- rb2
+          stackIO $ saveReadable (decryptMOGGIfNewerThan maxMOGG $ fixOldC3Mogg $ fileReadable origMogg) out
         _      -> do
           shk $ need [pathOgg]
           mapStackTraceT (liftIO . runResourceT) $ oggToMoggFiles pathOgg out

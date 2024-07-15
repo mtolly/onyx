@@ -3,7 +3,7 @@ module Onyx.Harmonix.MOGG
 ( moggToOggFiles, moggToOgg, oggToMogg, oggToMoggFiles, sourceVorbis
 , encryptMOGG, encryptMOGGFiles, encryptMOGGToByteString
 , decryptMOGG
-, decryptV17Mogg, fixOldC3Mogg
+, decryptMOGGIfNewerThan, fixOldC3Mogg
 , decryptBink
 ) where
 
@@ -195,13 +195,13 @@ fixOldC3Mogg r = Readable
       Nothing -> rOpen r
   }
 
--- Only decrypts moggs that are too new for RB3.
-decryptV17Mogg :: Readable -> Readable
-decryptV17Mogg r = Readable
+-- Only decrypts moggs that are too new for RB3 (> 0x10) or RB2 (> 0x0F).
+decryptMOGGIfNewerThan :: Word32 -> Readable -> Readable
+decryptMOGGIfNewerThan maxVersion r = Readable
   { rFilePath = Nothing
   , rOpen = do
     encType <- useHandle r $ \h -> BL.hGet h 4 >>= runGetM getWord32le
-    rOpen $ if encType >= 0x11
+    rOpen $ if encType > maxVersion
       then decryptMOGG r
       else r
   }
