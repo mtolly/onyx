@@ -12,8 +12,8 @@ import           Data.Text.UTF8Proc
 import           Onyx.Util.Text.ShiftJIS (kakasi)
 import qualified Sound.MIDI.Util         as U
 
--- | Transform a string to (mostly) only Latin-1 characters.
--- Allows Ÿ (not Latin-1) and ÿ (is Latin-1) for RB, but not in Magma .rbproj.
+-- | Transform a string to only Latin-1 characters.
+-- Allows ÿ (is Latin-1) for RB, but not in Magma .rbproj.
 replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
 replaceCharsRB _      txt | T.all isAscii txt = return txt -- usual case
 -- TODO after upgrading text on windows, use T.isAscii
@@ -49,6 +49,8 @@ replaceCharsRB rbproj txt                     = liftIO $ let
     , ('ĳ'     , "ij")
     , ('Ł'     , "L")
     , ('ł'     , "l")
+    , ('“'     , "\"")
+    , ('”'     , "\"")
     -- japanese/fullwidth stuff
     , ('\x301C', "~") -- "wave dash"
     , ('\xFF5E', "~") -- "full width tilde"
@@ -70,7 +72,7 @@ replaceCharsRB rbproj txt                     = liftIO $ let
   tryMark core cluster mark = do
     guard $ T.elem mark cluster
     [composed] <- return $ either (const []) T.unpack $ utf8proc_NFC $ T.pack [core, mark]
-    guard $ isLatin1 composed || (not rbproj && composed == 'Ÿ')
+    guard $ isLatin1 composed
     guard $ not $ rbproj && composed == 'ÿ'
     Just composed
   marks =

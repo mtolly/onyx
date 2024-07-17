@@ -63,6 +63,7 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Mode
 import           Onyx.Overdrive                   (calculateUnisons,
                                                    getOverdrive, printFlexParts)
+import           Onyx.Preferences                 (RBEncoding (Latin1))
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.Reaper.Build                (TuningInfo (..),
                                                    makeReaperShake)
@@ -488,6 +489,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , magma = rb2.magma
               , ps3Encrypt = rb2.ps3Encrypt
               , legalTempos = rb2.legalTempos
+              , encoding = Latin1
               }
             in rbRules buildInfo dir rb3 $ Just rb2
           GH1 gh1 -> gh1Rules buildInfo dir gh1

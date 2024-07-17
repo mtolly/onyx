@@ -9,7 +9,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.List.NonEmpty               as NE
 import           Onyx.MIDI.Track.File             (FlexPartName (..))
 import           Onyx.Mode
-import           Onyx.Preferences                 (MagmaSetting (..))
+import           Onyx.Preferences                 (MagmaSetting (..),
+                                                   RBEncoding (..))
 import           Onyx.Project
 import qualified Sound.MIDI.Util                  as U
 
@@ -142,6 +143,7 @@ difficultyPS ps songYaml = let
     , magma         = MagmaRequire
     , ps3Encrypt    = True
     , legalTempos   = True
+    , encoding      = UTF8
     }
   psDifficultyRB3 = difficultyRB3 rb3 songYaml
   simpleTier flex getMode dmap = case getPart flex songYaml >>= getMode of
@@ -179,6 +181,7 @@ difficultyGH5 TargetGH5{..} songYaml = let
     , magma         = MagmaRequire
     , ps3Encrypt    = True
     , legalTempos   = True
+    , encoding      = UTF8
     }
   DifficultyRB3{..} = difficultyRB3 rb3 songYaml
   rb3RankToGH5 = \case

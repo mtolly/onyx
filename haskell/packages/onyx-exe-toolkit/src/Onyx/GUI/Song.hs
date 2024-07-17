@@ -34,6 +34,7 @@ import           Onyx.Import
 import           Onyx.Mode                                 (anyDrums,
                                                             anyFiveFret)
 import           Onyx.Preferences                          (Preferences (..),
+                                                            RBEncoding (Latin1),
                                                             readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -106,6 +107,7 @@ songPageRB3 sink rect tab proj build = mdo
           , common = def
             { label2x = prefLabel2x newPreferences
             }
+          , encoding = Latin1
           }
       makeFinalTarget = readPreferences >>= stackIO . makeTarget
   fullWidth 35 $ \rect' -> do

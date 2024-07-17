@@ -154,3 +154,13 @@ instance StackJSON CHAudioFormat where
   stackJSON = enumCodec "a CH audio format" $ \case
     CHAudioOggVorbis -> "ogg"
     CHAudioOpus      -> "opus"
+
+data RBEncoding
+  = Latin1
+  | UTF8
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON RBEncoding where
+  stackJSON = enumCodec "an RB dta encoding" $ \case
+    Latin1 -> "latin1"
+    UTF8   -> "utf8"

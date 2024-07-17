@@ -75,7 +75,8 @@ import           Onyx.PlayStation.NPData               (npdContentID,
                                                         rb2CustomMidEdatConfig,
                                                         rb3CustomMidEdatConfig)
 import           Onyx.PlayStation.PKG                  (makePKG)
-import           Onyx.Preferences                      (MagmaSetting (..))
+import           Onyx.Preferences                      (MagmaSetting (..),
+                                                        RBEncoding (..))
 import           Onyx.Project                          hiding (Difficulty)
 import           Onyx.Reaper.Build                     (TuningInfo (..),
                                                         makeReaperShake)
@@ -524,7 +525,10 @@ rbRules buildInfo dir rb3 mrb2 = do
     editedParts <- loadEditedParts
     preview <- loadPreviewBounds
     songPkg <- makeRB3DTA songYaml plan rb3 False editedParts song pkg preview
-    liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments songYaml.metadata plan rb3
+    let writeEncode = case rb3.encoding of
+          Latin1 -> writeLatin1CRLF
+          UTF8   -> writeUtf8CRLF
+    liftIO $ writeEncode out $ prettyDTA pkg songPkg $ makeC3DTAComments songYaml.metadata plan rb3
   pathMid %> shk . copyFile' pathMagmaExport2
   pathOgg %> \out -> case plan of
     MoggPlan _ -> do
@@ -660,7 +664,10 @@ rbRules buildInfo dir rb3 mrb2 = do
     editedParts <- loadEditedParts
     preview <- loadPreviewBounds
     songPkg <- makeRB3DTA songYaml plan rb3 True editedParts song pkg preview
-    liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments songYaml.metadata plan rb3
+    let writeEncode = case rb3.encoding of
+          Latin1 -> writeLatin1CRLF
+          UTF8   -> writeUtf8CRLF
+    liftIO $ writeEncode out $ prettyDTA pkg songPkg $ makeC3DTAComments songYaml.metadata plan rb3
   rb3ps3Mid %> \out -> if rb3.ps3Encrypt
     then do
       shk $ need [pathMid]
@@ -920,18 +927,19 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.packName = D.packName rb3DTA
                     , D.author = D.author rb3DTA
                     , D.loadingPhrase = D.loadingPhrase rb3DTA
+                    , D.encoding = Just "latin1" -- only latin-1 is supported
+                    -- passing these through for rb3, shouldn't hurt rb2
+                    , D.vocalTonicNote = D.vocalTonicNote rb3DTA
+                    , D.songTonality = D.songTonality rb3DTA
+                    , D.songKey = D.songKey rb3DTA
+                    , D.drumBank = D.drumBank rb3DTA
                     -- not present
-                    , D.drumBank = Nothing
                     , D.bandFailCue = Nothing
                     , D.solo = Nothing
                     , D.shortVersion = Nothing
-                    , D.vocalTonicNote = Nothing
-                    , D.songTonality = Nothing
-                    , D.songKey = Nothing
                     , D.realGuitarTuning = Nothing
                     , D.realBassTuning = Nothing
                     , D.guidePitchVolume = Nothing
-                    , D.encoding = Nothing
                     , D.extraAuthoring = Nothing
                     , D.alternatePath = Nothing
                     , D.video = False
@@ -1104,7 +1112,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.albumName = T.strip $ T.take 74 $ fixString albumName
         -- "author: This field must be less than 75 characters."
         , Magma.author = T.strip $ T.take 74 $ fixString $ getAuthor metadata
-        , Magma.releaseLabel = "Onyxite Customs"
+        , Magma.releaseLabel = "Custom Songs"
         , Magma.country = "ugc_country_us"
         , Magma.price = 160
         , Magma.trackNumber = fromIntegral $ getTrackNumber metadata
@@ -1244,6 +1252,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
   songName <- replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
   artistName <- replaceCharsRB False $ getArtist metadata
   albumName <- mapM (replaceCharsRB False) metadata.album
+  author <- mapM (replaceCharsRB False) metadata.author
+  loadingPhrase <- mapM (replaceCharsRB False) metadata.loadingPhrase
   return D.SongPackage
     { D.name = songName
     , D.artist = Just artistName
@@ -1381,7 +1391,9 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.realBassTuning = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) $ \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
-    , D.encoding = Just "utf8"
+    , D.encoding = Just $ case rb3.encoding of
+      Latin1 -> "latin1"
+      UTF8   -> "utf8"
     , D.extraAuthoring = Nothing
     , D.alternatePath = Nothing
     , D.context = Nothing
@@ -1391,8 +1403,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.videoVenues = Nothing
     , D.dateReleased = Nothing
     , D.dateRecorded = Nothing
-    , D.author = metadata.author
-    , D.loadingPhrase = metadata.loadingPhrase
+    , D.author = author
+    , D.loadingPhrase = loadingPhrase
     , D.video = False
     }
 

@@ -88,6 +88,7 @@ import           Onyx.Mode                            (drumNoteShuffle,
 import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
+import           Onyx.Preferences                     (RBEncoding (..))
 import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                     (runGetM)
@@ -217,7 +218,7 @@ splitSongsDTA r = do
             hopoThreshold = case concat [x | Key "hopo_threshold" x <- data2] of
               Int n : _ -> Just n
               _         -> Nothing
-        return $ enforceUTF8 QuickDTA
+        return QuickDTA
           { qdtaOriginal      = bytes
           , qdtaParsed        = chunk
           , qdtaComments      = comments
@@ -1127,24 +1128,26 @@ refreshSong seed = let
   name = T.pack $ take 26 $ "oqc" <> dropWhile (== '-') (show seed)
   in newTopKey (encodeLatin1 name) . newFolderNames name name . newSongID seed
 
-enforceUTF8 :: QuickDTA -> QuickDTA
-enforceUTF8 dta = let
-  isUTF8 = case dta.qdtaParsed of
+enforceEncoding :: RBEncoding -> QuickDTA -> QuickDTA
+enforceEncoding enc dta = let
+  currentEncoding = case dta.qdtaParsed of
     Parens (Tree _ data1) -> case concat [x | Key "encoding" x <- data1] of
-      Sym "utf8" : _ -> True
-      _              -> False
-    _                     -> False -- shouldn't happen
+      Sym "utf8" : _ -> UTF8
+      _              -> Latin1
+    _                     -> Latin1 -- shouldn't happen
   withEncodingSetting = case dta.qdtaParsed of
     Parens (Tree n data1) -> Parens $ Tree n
       $ filter (\case Key "encoding" _ -> False; _ -> True) data1
-      <> [Key "encoding" [Sym "utf8"]]
+      <> [Key "encoding" [Sym $ case enc of Latin1 -> "latin1"; UTF8 -> "utf8"]]
     _                     -> dta.qdtaParsed -- shouldn't happen
-  reencode = TE.encodeUtf8 . TE.decodeLatin1
-  in if isUTF8
+  switchEncoding = case enc of
+    UTF8   -> TE.encodeUtf8 . TE.decodeLatin1
+    Latin1 -> encodeLatin1 . TE.decodeUtf8With lenientDecode
+  in if enc == currentEncoding
     then dta -- nothing to do
     else dta
-      { qdtaParsed   = reencode <$> withEncodingSetting
-      , qdtaComments = reencode <$> dta.qdtaComments
+      { qdtaParsed   = switchEncoding <$> withEncodingSetting
+      , qdtaComments = switchEncoding <$> dta.qdtaComments
       }
 
 ------------------------

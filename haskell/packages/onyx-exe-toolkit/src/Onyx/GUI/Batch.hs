@@ -27,6 +27,7 @@ import           Onyx.Import
 import           Onyx.MIDI.Track.File               (FlexPartName (..))
 import           Onyx.Mode                          (anyDrums, anyFiveFret)
 import           Onyx.Preferences                   (Preferences (..),
+                                                     RBEncoding (Latin1),
                                                      readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -94,6 +95,7 @@ batchPageRB3 sink rect tab build = do
             , songID = if prefRBNumberID newPreferences
               then SongIDAutoInt
               else SongIDAutoSymbol
+            , encoding = Latin1
             }
           -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of

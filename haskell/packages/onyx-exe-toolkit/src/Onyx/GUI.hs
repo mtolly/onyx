@@ -136,6 +136,7 @@ import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.Preferences                          (CHAudioFormat (..),
                                                             MagmaSetting (..),
                                                             Preferences (..),
+                                                            RBEncoding (..),
                                                             TrueDrumLayoutHint (..),
                                                             applyThreads,
                                                             readPreferences,
@@ -2127,7 +2128,11 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       decryptMOGGs <- getDecryptMOGGs
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
-        Just packs -> do
+        Just packsMixedEncoding -> do
+          -- for packs, save all .dta as latin-1 (since rb2 and some rb3dx features require it)
+          let packs = flip map packsMixedEncoding $ map $ \qsong -> qsong
+                { quickSongDTA = enforceEncoding Latin1 qsong.quickSongDTA
+                }
           picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
           FL.setTitle picker $ case packs of
             [_] -> "Save pack file"

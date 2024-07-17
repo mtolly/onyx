@@ -60,6 +60,7 @@ import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.Preferences                     (MagmaSetting (..),
+                                                       RBEncoding (..),
                                                        TrueDrumLayoutHint (..))
 import           Onyx.Sections                        (Section (..),
                                                        emitSection,
@@ -1150,6 +1151,7 @@ data TargetRB3 f = TargetRB3
   , vocal         :: F.FlexPartName
   , ps3Encrypt    :: Bool
   , legalTempos   :: Bool -- should tempos be kept in Magma-legal range of 40-300 BPM
+  , encoding      :: RBEncoding
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetRB3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRB3 f)
@@ -1166,6 +1168,7 @@ parseTargetRB3 = do
   vocal         <- (.vocal        ) =. opt  F.FlexVocal      "vocal"         stackJSON
   ps3Encrypt    <- (.ps3Encrypt   ) =. opt  True             "ps3-encrypt"   stackJSON
   legalTempos   <- (.legalTempos  ) =. opt  True             "legal-tempos"  stackJSON
+  encoding      <- (.encoding     ) =. opt  UTF8             "encoding"      stackJSON
   return TargetRB3{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where
