@@ -36,6 +36,7 @@
 * Fix another type of MOGG encrypted by older C3 CON Tools
   to load correctly on PS3
 * BPM display in 3D preview
+* Updates to Elite Drums (formerly True Drums) MIDI format spec
 * Import songs from:
   * Guitar Hero III leaked beta
   * Rock Band Wii .wad files
