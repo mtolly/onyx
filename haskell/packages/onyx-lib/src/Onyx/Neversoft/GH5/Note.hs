@@ -42,6 +42,7 @@ import           Onyx.Neversoft.CRC               (QBKey, getQBKeyBE,
                                                    putQBKeyBE, qbKeyCRC)
 import           Onyx.Neversoft.Pak
 import           Onyx.Sections                    (simpleSection)
+import           Onyx.StackTrace                  (StackTraceT, inside)
 import           Onyx.Util.Binary                 (runGetM)
 import qualified Sound.MIDI.Util                  as U
 
@@ -251,16 +252,16 @@ data GHNoteFile = GHNoteFile
   } deriving (Show)
 
 -- Load from an uncompressed _song.pak.xen
-loadSongPak :: (MonadFail m) => BL.ByteString -> m (HM.HashMap Word32 T.Text, GHNoteFile)
-loadSongPak bs = do
-  nodes <- splitPakNodes pakFormatWoR bs Nothing
+loadSongPak :: (Monad m) => BL.ByteString -> StackTraceT m (HM.HashMap Word32 T.Text, GHNoteFile)
+loadSongPak bs = inside "loading _song.pak.*" $ do
+  nodes <- inside "splitting pak nodes" $ splitPakNodes pakFormatWoR bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
       nodesOfType t = filter (\(n, _) -> nodeFileType n == t) nodes
       bank = qsBank $ nodesOfType ".qs.en"
   case findNodeKey ".note" of
     Nothing                -> fail ".note not found"
     Just (_node, noteData) -> do
-      noteFile <- loadNoteFile noteData
+      noteFile <- inside "loading .note file" $ loadNoteFile noteData
       return (bank, noteFile)
 
 loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile

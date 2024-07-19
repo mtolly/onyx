@@ -1,24 +1,47 @@
 # Version history
 
-# 20240418
+# 20240719
 
-* Prerelease version
+* Support for encrypted Rock Band MOGG files
+  * RB 1-4 (except TBRB)
+  * MOGG files in songs can be decrypted by Quick Convert
+* Export support to Rock Revolution DLC (360, RPCS3)
+  * Supports guitar/bass/drums
+  * Pro Drums can be converted to 6-pad or 4-pad modes
+  * See `README` for instructions on how to load songs
 * Fix regressions in PS3 output of RB Quick Convert
   * Song rating and song ID patches were not working since version `20230625`
+* Fix RB Quick Convert to encode all pack `songs.dta` files as Latin-1
+  for consistency
 * Small timing fixes for several cases of reading/writing MP3 files
-  * Affects GH:WoR, CH, osu
-* Don't add space to start of RB output when legal tempos checkbox is unchecked
-* Import support from GH3 leaked beta
-* (WIP) Import venue from RB3 `.milo_xbox` and RB4 formats,
-  also possibly lipsync from RB4 format (needs testing)
+  * Affects GH3 + GH:WoR import/export, CH import, osu import
+* Name/label improvements to reduce confusion for PS3 users converting
+  Xbox 360 RB files
+  * Text on launch console listing common functions for each button
+  * Renamed Batch Process to Batch Recompile
+  * When recompiling from RB to RB without changing speed,
+    a popup warning will recommend using Quick Convert
+* Note Shuffle (5-lane + drums) modifier in RB Quick Convert
 * Improvements to RB2 export
   * Use Magma "MIDI export" mode in all cases, significantly faster
   * Onyx-generated lipsync, like RB3 export
-  * Include some more RB3 features: freeform lanes, harmony vocal tracks
-* Note shuffle modifier for RB Quick Convert
-* Five fret to drums instrument part conversion support
+  * Include some more RB3 features: freeform lanes, harmony vocal tracks,
+    harmony lipsync files
+* Import RB3 `.milo_xbox` format venue tracks
+* Import venue and lipsync from RB4 format songs
+* Include RB3 update MIDI files to apply when importing pre-RB3 songs
+* Ability to convert 5-fret charts to drums (`GRYBO -> KRYBG`)
+* Fix including empty metadata values when converting to `.sng`,
+  which cause errors in CH
+* Fix another type of MOGG encrypted by older C3 CON Tools
+  to load correctly on PS3
 * BPM display in 3D preview
-* Fix app freeze in 20240413/20240414 when decoding audio from MOGG files
+* Import songs from:
+  * Guitar Hero III leaked beta
+  * Rock Band Wii .wad files
+  * Rock Revolution PS3 .pkg files
+
+Special thanks to Maxton for encrypted MOGG and Bink support.
 
 # 20240202
 

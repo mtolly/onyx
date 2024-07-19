@@ -165,6 +165,7 @@ nav a {
 <li><a href="#guitar-hero-guitar-hero-ii">Guitar Hero & Guitar Hero II</a></li>
 <li><a href="#guitar-hero-iii">Guitar Hero III</a></li>
 <li><a href="#guitar-hero-warriors-of-rock">Guitar Hero: Warriors of Rock</a></li>
+<li><a href="#rock-revolution">Rock Revolution</a></li>
 </ul>
 <li><a href="#preview-tools">Preview Tools</a></li>
 <ul>
@@ -245,20 +246,24 @@ nav a {
 <h2 id="supported-input-formats">Supported Input Formats</h2>
 <p>Onyx can import the following song formats:</p>
 <ul>
-<li><p>Rock Band (1, 2, 3, Beatles) Xbox 360 STFS (CON or LIVE) files</p>
+<li><p>Rock Band (1, 2, 3, Beatles) DLC files</p>
 <ul>
+<li>Supports Xbox 360 STFS (CON or LIVE), PlayStation 3 <code>.pkg</code>, and Wii <code>.wad</code>.</li>
 <li>Both single-song files and packs are supported.</li>
-</ul></li>
-<li><p>Rock Band (1, 2, 3, Beatles) PlayStation 3 <code>.pkg</code> files</p>
-<ul>
-<li>Official DLC whose <code>.mid.edat</code> are encrypted with RAP files are supported. Copy RAP files to <code>onyx-resources/raps/CONTENTID.RAP</code>.</li>
+<li>Official PS3 DLC whose <code>.mid.edat</code> are encrypted with RAP files are supported. Copy RAP files to <code>onyx-resources/raps/CONTENTID.RAP</code>.</li>
+<li>Encrypted audio is supported, except for Beatles-format encryption.</li>
 </ul></li>
 <li><p>Rock Band (1, 2, 3, Beatles) <code>.ARK</code> files for Xbox 360, PlayStation 3, and PlayStation 2</p>
 <ul>
 <li>Import from <code>MAIN.HDR</code>, <code>main_xbox.hdr</code>, or <code>main_ps3.hdr</code>.</li>
 <li>Xbox 360 and PS2 <code>.iso</code> files can also be imported directly. If extracting a PS2 disc yourself, use something like Apache3 to get the 2nd layer of the dual layer discs, as most programs do not support this.</li>
 </ul></li>
-<li><p>Rock Band 4 PlayStation 4 extracted files (tentative support, may not work for everything)</p></li>
+<li><p>Rock Band 4 PlayStation 4 extracted files</p>
+<ul>
+<li>Attempts to convert venue information back to RB3 format; results will vary.</li>
+<li>Encrypted audio is supported.</li>
+</ul>
+</li>
 <li><p>Magma (v1 or v2) RBA files</p></li>
 <li><p>Frets on Fire / Phase Shift / Clone Hero formats</p>
 <ul>
@@ -274,6 +279,7 @@ nav a {
   <ul>
     <li>Guitar Hero II</li>
     <li>Guitar Hero III</li>
+    <li>Guitar Hero III 2007-07-06 beta build</li>
     <li>Guitar Hero: Aerosmith</li>
     <li>Guitar Hero World Tour</li>
     <li>Guitar Hero Smash Hits</li>
@@ -359,7 +365,7 @@ nav a {
 <li><p>Rock Revolution (Xbox 360)</p>
 <ul>
 <li>Import disc data from the <code>.iso</code> or <code>default.xex</code>.</li>
-<li>Xbox 360 DLC is also supported.</li>
+<li>Xbox 360 and PS3 DLC are also supported.</li>
 </ul></li>
 <li><p>Freetar <code>.sng</code> files</p>
 <ul>
@@ -415,13 +421,10 @@ nav a {
 <li><p>If the “automatic tom markers” option is turned on, an FoF song that doesn’t have any tom markers and that does not have <code>pro_drums = True</code> in the song.ini will have tom markers added over the whole drum part, under the assumption that Pro Drums have not been authored for the chart.</p></li>
 <li><p>Open notes will usually be translated to green notes, but adjacent sequences will be adjusted if necessary to preserve motion.</p>
 <p>In addition, strummed open notes between chords are by default interpreted as muted strums, and are translated to the usual style of the lowest note of an adjacent chord. This behavior can be disabled in Preferences.</p></li>
-<li><p>The song speed can be modified to produce sped up or slowed down songs. This will modify both the audio and MIDI, and add <code>(X% Speed)</code> to the title. For CON inputs this only works with unencrypted MOGG files. Different speed versions may not pass Magma in all cases, if certain events become too close together or too far apart. If this happens, you can produce a Magma project and make any needed changes, then give the project back to Onyx to compile.</p></li>
+<li><p>The song speed can be modified to produce sped up or slowed down songs. This will modify both the audio and MIDI, and add <code>(X% Speed)</code> to the title. Different speed versions may not pass Magma in all cases, if certain events become too close together or too far apart. If this happens, you can produce a Magma project and make any needed changes, then give the project back to Onyx to compile.</p></li>
 <li><p>In batch mode, a few settings are available for moving/copying Guitar/Bass/Keys parts, as well as converting drums parts into guitar for an interesting challenge. When moving Keys parts to Guitar/Bass, force notes will be applied so charts keep their correct strum/HOPO notes according to the RB3 keytar algorithm. Note that in some cases (when the input and output both use MOGG audio) the output may assign multiple instruments to the same audio channel indexes, which works in game but will cut out the audio if either player misses.</p></li>
 <li><p>By default, an input format like Phase Shift that can contain both 1x and 2x Bass Pedal drums charts will generate two separate songs. If you are interested in only 1x or only 2x, select the appropriate Bass Pedal option. Songs that are detected as 2x Bass Pedal versions can also produce an automatic 1x version, using an algorithm to remove certain kick notes.</p></li>
-<li><p>When creating a Magma project, a REAPER project will also be generated so any remaining problems can be quickly edited and re-exported to MIDI. This avoids a few bugs in REAPER’s own MIDI import function. It also applies most of the C3 template to the MIDI tracks, so you get note names, colored tracks, and RBN preview windows. Because this must generate WAV audio files to give to Magma, encrypted MOGG files in input rb3cons are unsupported.</p></li>
-<ul>
-<li><p>Tip: to process a song with a C3-encrypted MOGG, one option is to use the Phase Shift converter in C3 CON Tools which mixes the audio down to a single file, and then just supply the Phase Shift song to Onyx.</p></li>
-</ul>
+<li><p>When creating a Magma project, a REAPER project will also be generated so any remaining problems can be quickly edited and re-exported to MIDI. This avoids a few bugs in REAPER’s own MIDI import function. It also applies most of the C3 template to the MIDI tracks, so you get note names, colored tracks, and RBN preview windows.</p></li>
 </ul>
 
 <h3 id="rock-band-2">Rock Band 2</h3>
@@ -505,6 +508,23 @@ nav a {
 <p>Currently, MP3 audio is used on both Xbox 360 and PS3. Official content (and previous Onyx output) for Xbox 360 used its own XMA format, which has some advantages, but is more difficult to generate without Microsoft tools.</p>
 <p>Non-separated audio may behave oddly in multiplayer. It appears the backing track is moved towards the center (mono), while the instrument tracks are positioned in space to match their highway position. More research is needed into whether this behavior can be disabled.</p></li>
 <li><p>Song titles and artists may sometimes get a prefix added in front; this is to prevent a game crash when sorting by title or artist caused by non-ASCII characters (even those that are supported by the game fonts).</p></li>
+</ul>
+
+<h3 id="rock-revolution">Rock Revolution</h3>
+<p>Creates DLC files for Rock Revolution, for use on a jailbroken Xbox 360 (RGH or JTAG) or RPCS3. PlayStation 3 consoles are not yet supported.</p>
+<ul>
+<li><p>Guitar, bass, and drums are supported.</p>
+<ul>
+<li>Guitar and bass support arbitrary HOPOs, but not repeated HOPOs on the same note, and no HOPO chords.</li>
+<li>Drums can be converted to target either the native 6-pad (7-lane) format, or the RB-compatible 4-pad (5-lane) format.</li>
+</ul>
+</li>
+<li><p>Because of the limited song ID space used by the game (every song must have a unique 4-digit ID), Onyx does not attempt to assign random IDs. Instead, all custom songs are created using the same ID, and a tool is provided to renumber songs once you have a set of songs you wish to load.</p>
+<ul>
+<li>Go to <code>Quick convert/pack > RR renumber</code>, load your songs (<code>LIVE</code> or <code>.pkg</code> format), hit <code>Start</code>, and the files will be edited and resaved in place.</li>
+</ul>
+</li>
+<li><p>It does not appear to be possible to prevent selecting an instrument part in game that has no chart; however if you try to play such a part, you will simply get a popup booting you back to the menu. Onyx will assign such parts a “zero skulls” difficulty rating.</p></li>
 </ul>
 
 
