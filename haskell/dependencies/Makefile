@@ -24,13 +24,13 @@ opus:
 	# and if we don't set the version, then libsndfile won't use any external libs
 	cd libs/opus && echo 'PACKAGE_VERSION="1.4"' > package_version
 	cd libs/opus && ./autogen.sh
-	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
+	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
 	cd libs/opus && make
 	cd libs/opus && make install
 
 flac:
 	cd libs/flac && ./autogen.sh
-	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
+	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
 	cd libs/flac && make
 	cd libs/flac && make install
 
