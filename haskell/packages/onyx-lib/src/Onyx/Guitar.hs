@@ -472,7 +472,12 @@ gh3LegalHOPOs = RTB.flatten . go . RTB.collectCoincident . noTaps where
         then toStrum group2 -- remove repeated note hopo
         else group2
       in Wait t1 group1' $ go $ Wait t2 group2' rest
-    lessThan2 -> lessThan2
+    Wait t1 group1 RNil -> let
+      group1' = if null $ drop 1 group1
+        then group1
+        else toStrum group1 -- remove hopo chord
+      in Wait t1 group1' RNil
+    RNil -> RNil
 
 -- | Turns all tap notes into HOPO notes.
 noTaps :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)

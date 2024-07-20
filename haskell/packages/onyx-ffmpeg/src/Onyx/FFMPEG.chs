@@ -24,6 +24,7 @@ import           Onyx.Util.Handle            (Readable, rOpen)
 import           Data.Typeable                (Typeable)
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
+import           Data.IORef                   (newIORef, writeIORef, readIORef)
 import           Foreign
 import           Foreign.C
 import           System.IO                    (Handle, SeekMode (..), hClose,
@@ -742,17 +743,27 @@ withStream
   -> (AVFormatContext -> AVCodecContext -> AVStream -> m a)
   -> m a
 withStream brkt mediaType input fn = do
-  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> let
+  -- avformat_open_input for some reason says
+  -- "Note that a user-supplied AVFormatContext will be freed on failure."
+  -- so we need to not call avformat_close_input in that case
+  openInputError <- liftIO $ newIORef False
+  let freeIfNeeded p = readIORef openInputError >>= \case
+        True  -> return ()
+        False -> with p avformat_close_input
+  runBracket brkt avformat_alloc_context freeIfNeeded $ \fmt_ctx -> let
+    handleOpenInputResult res = do
+      when (res /= 0) $ writeIORef openInputError True
+      ffCheck "avformat_open_input" (== 0) $ return res
     openInput = case input of
       Right f -> do
         liftIO $ with fmt_ctx $ \pctx -> do
           withCString f $ \s -> do
-            ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
+            avformat_open_input pctx s nullPtr nullPtr >>= handleOpenInputResult
         afterOpenInput
       Left r -> runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
         liftIO $ {#set AVFormatContext->pb #} fmt_ctx avio
         liftIO $ with fmt_ctx $ \pctx -> do
-          ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
+          avformat_open_input pctx nullPtr nullPtr nullPtr >>= handleOpenInputResult
         afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr

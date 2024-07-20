@@ -11,10 +11,12 @@ import           Control.Monad          (forM, forM_)
 import           Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Lazy   as BL
-import           Data.Char              (toLower)
+import           Data.Char              (isSpace, toLower)
+import           Data.Maybe             (catMaybes)
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
-import           Onyx.Audio             (audioIO, loadAudioInput)
+import           Onyx.Audio             (audioIO, audioLengthReadable,
+                                         audioRateReadable, loadAudioInput)
 import           Onyx.CloneHero.SNG
 import           Onyx.FeedBack.Load     (chartToBeats, chartToIni, chartToMIDI,
                                          loadChartFile, loadChartReadable)
@@ -33,6 +35,7 @@ import           System.FilePath        (dropTrailingPathSeparator,
                                          takeExtension, takeFileName, (</>))
 import           System.IO              (hClose)
 import           System.IO.Temp         (withSystemTempFile)
+import           UnliftIO.Exception     (catchAny)
 
 data QuickFoF = QuickFoF
   { metadata :: [(T.Text, T.Text)]
@@ -142,6 +145,37 @@ saveQuickFoFFolder out q = do
   removePathForcibly out
   renameDirectory temp out
 
+-- CH as of v1.1.0.4261-PTB seems to require song_length in .sng (not folder?), or you get:
+-- "ERROR: These folders either have no audio files, the audio files are named incorrectly or the audio files are in the wrong format!"
+fillRequiredMetadata :: QuickFoF -> IO QuickFoF
+fillRequiredMetadata = let
+  audioExts = [".ogg", ".mp3", ".wav", ".opus", ".flac"]
+  toLengthMS :: Integer -> Int -> Integer
+  toLengthMS frames rate = let
+    secs = fromIntegral frames / fromIntegral rate :: Double
+    in round $ secs * 1000
+  withSongLength q = case lookup "song_length" q.metadata of
+    Just s | T.any (not . isSpace) s -> return q
+    _ -> do
+      lens <- fmap catMaybes $ forM q.files $ \(name, r) -> let
+        path = T.unpack $ T.toLower name
+        in if elem (takeExtension path) audioExts
+          then do
+            mframes <- audioLengthReadable path r `catchAny` \_ -> return Nothing
+            mrate   <- audioRateReadable   path r `catchAny` \_ -> return Nothing
+            return $ liftA2 toLengthMS mframes mrate
+          else return Nothing
+      let ms = case lens of
+            []     -> 1 -- note, 0 does not work
+            n : ns -> foldr max n ns
+      return $ let QuickFoF{..} = q in QuickFoF
+        { metadata
+          =  [ p | p@(k, _) <- q.metadata, k /= "song_length" ]
+          <> [ ("song_length", T.pack $ show ms) ]
+        , ..
+        }
+  in withSongLength
+
 {-
 
 TODO game downconversion steps
@@ -150,7 +184,7 @@ PS (free):
 - convert taps and opens to sysex format (pull back opens)
 - optional: no opens since no hopo opens
 - bass.ogg -> rhythm.ogg (steam PS supports this)
-- remove <tags> from metadata and loading phrase
+- remove <tags> from metadata, loading phrase, lyrics
 
 FoFiX:
 - remove taps and opens, no sysex events allowed

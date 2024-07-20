@@ -2424,7 +2424,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
               qfof <- transform orig
               stackIO $ case qfof.format of
                 FoFFolder -> saveQuickFoFFolder loc qfof
-                FoFSNG    -> saveQuickFoFSNG    loc qfof
+                FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
               return [loc]
             in (loc, task)
         _ -> return ()
@@ -2495,7 +2495,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
           startTasks $ flip map tasks $ \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
-              stackIO $ saveQuickFoFSNG fout qfof
+              stackIO $ fillRequiredMetadata qfof >>= saveQuickFoFSNG fout
               case taskType of
                 QFoFDeleteOriginal -> stackIO $ Dir.removePathForcibly orig.location
                 _                  -> return ()

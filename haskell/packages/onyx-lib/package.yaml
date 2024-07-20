@@ -76,6 +76,7 @@ library:
   - profunctors
   - cryptonite
   - memory
+  - unliftio
   - unliftio-core
   - xml
   - zlib

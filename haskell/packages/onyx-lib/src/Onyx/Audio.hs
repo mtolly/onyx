@@ -24,10 +24,10 @@ module Onyx.Audio
 , loadAudioInput
 , clampFloat
 , audioMD5
-, audioLength
+, audioLength, audioLengthReadable
 , audioChannels
 , audioChannelsReadable
-, audioRate
+, audioRate, audioRateReadable
 , audioSeconds
 , applyPansVols
 , applyVolsMono
@@ -730,18 +730,24 @@ ffSourceFixPath dur = ffSourceFrom dur . Left . fileReadable
 ffSourceSimple :: FilePath -> IO (AudioSource (ResourceT IO) Int16)
 ffSourceSimple = ffSourceFixPath $ Frames 0
 
+ffSourceSimpleReadable :: Readable -> IO (AudioSource (ResourceT IO) Int16)
+ffSourceSimpleReadable = ffSourceFrom (Frames 0) . Left
+
 supportedFFExt :: FilePath -> Bool
 supportedFFExt f = map toLower (takeExtension f) `elem`
   [".flac", ".wav", ".ogg", ".opus", ".mp3", ".xma"]
 
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
-audioLength f = case map toLower $ takeExtension f of
+audioLength f = audioLengthReadable f $ fileReadable f
+
+audioLengthReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Integer)
+audioLengthReadable f r = case map toLower $ takeExtension f of
   -- ffmpeg fails to give 0 frames for empty ogg files, saying
   -- "Estimating duration from bitrate, this may be inaccurate"
   ".ogg" -> liftIO $ Just . fromIntegral . frames
-    <$> (sourceVorbis (Frames 0) (fileReadable f) :: IO (AudioSource (ResourceT IO) Float))
+    <$> (sourceVorbis (Frames 0) r :: IO (AudioSource (ResourceT IO) Float))
   _      -> if supportedFFExt f
-    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple f
+    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimpleReadable r
     else return Nothing
   -- TODO does this not work for .xma
 
@@ -762,8 +768,11 @@ audioChannelsReadable r = do
   return $ channels src
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
-audioRate f = if supportedFFExt f
-  then liftIO $ Just . round . rate <$> ffSourceSimple f
+audioRate f = audioRateReadable f $ fileReadable f
+
+audioRateReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Int)
+audioRateReadable f r = if supportedFFExt f
+  then liftIO $ Just . round . rate <$> ffSourceSimpleReadable r
   else return Nothing
 
 audioSeconds :: (MonadIO m, MonadFail m) => FilePath -> m U.Seconds
