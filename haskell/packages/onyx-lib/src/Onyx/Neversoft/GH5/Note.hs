@@ -498,10 +498,11 @@ ghToMidi bank pak = let
       expert = either (map $ \note -> NoteExpertDrums note 0) id $ drums_instrument drum
       in fromPairs $ expert >>= \note -> let
         noteBit gem b = do
-          guard $ noteBits (xdNote note) `testBit` b
+          let ghost = xdGhost note `testBit` b
+          guard $ (noteBits (xdNote note) `testBit` b) || ghost
           let vel | noteAccent (xdNote note) `testBit` b = D.VelocityAccent
-                  | xdGhost note `testBit` b = D.VelocityGhost
-                  | otherwise = D.VelocityNormal
+                  | ghost                                = D.VelocityGhost
+                  | otherwise                            = D.VelocityNormal
           return (toBeats $ noteTimeOffset $ xdNote note, (gem, vel))
         -- TODO handle drum sustains, translate to lanes?
         in concat

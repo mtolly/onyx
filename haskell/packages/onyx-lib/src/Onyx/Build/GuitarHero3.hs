@@ -113,7 +113,8 @@ gh3Rules buildInfo dir gh3 = do
       setup lame = liftIO $ do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
-        L.check $ L.setOutSamplerate lame 44100 -- SanicStudios uses this, seems to work
+        L.check $ L.setOutSamplerate lame 44100 -- SanicStudios uses this, seems to work.
+        -- TODO maybe use 48k instead? see rock revolution sync oddities
       pathPad = dir </> "pad.txt"
       readPad :: Staction Int
       readPad = shk $ read <$> readFile' pathPad

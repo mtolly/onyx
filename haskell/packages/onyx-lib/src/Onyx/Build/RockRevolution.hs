@@ -461,7 +461,7 @@ rrRules buildInfo dir rr = do
       setup lame = liftIO $ do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
-        L.check $ L.setOutSamplerate lame 44100
+        L.check $ L.setOutSamplerate lame 44100 -- TODO should we use 48k? maybe avoid the weird sync problems
 
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi

@@ -158,6 +158,7 @@ gh5Rules buildInfo dir gh5 = do
                 case getPart gh5.drums songYaml >>= (.drums) of
                   Nothing -> 0
                   Just pd -> case pd.kicks of
+                    -- TODO I think we need to set this if we have ghost notes even if no double kicks
                     Kicks1x   -> 0
                     Kicks2x   -> 1
                     KicksBoth -> 1

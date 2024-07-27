@@ -345,6 +345,9 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         Just (D.Orange         , _) -> 4
         Just (D.Kick           , _) -> 5
         Nothing                     -> 6
+      drumBitNoGhost = \case
+        Just (_, D.VelocityGhost) -> 0
+        drum                      -> drumBit drum
       accentBit drum = case drum of
         Just (D.Kick, _)           -> 0
         Just (_, D.VelocityAccent) -> drumBit drum
@@ -359,7 +362,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           { xdNote = Note
             { noteTimeOffset = beatsToMS t
             , noteDuration = 1 -- should be fine?
-            , noteBits = foldr (.|.) 0 $ map drumBit evts
+            , noteBits = foldr (.|.) 0 $ map drumBitNoGhost evts
             , noteAccent = foldr (.|.) 0 $ map accentBit evts
             }
           , xdGhost = foldr (.|.) 0 $ map ghostBit evts

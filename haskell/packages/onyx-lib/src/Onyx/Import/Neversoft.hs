@@ -41,6 +41,7 @@ import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
 import           Onyx.MIDI.Common                 (Difficulty (..))
+import           Onyx.MIDI.Track.Drums            (DrumTrack (..))
 import qualified Onyx.MIDI.Track.Drums.Elite      as Elite
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         (nullFive)
@@ -228,10 +229,12 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                 })
               , (F.FlexDrums, (emptyPart :: Part SoftFile)
                 { drums = readTier (songTierDrums info) $ \diff -> let
-                  -- TODO are there any WoR songs that have ghost note X+ with no double kicks?
-                  -- if so, do they have `double_kick` on?
-                  -- TODO check New Low and Sad To Know (Middle Class Rut), marked as 2x but aren't
-                  kicks = if songDoubleKick info then KicksBoth else Kicks1x
+                  -- can't use `songDoubleKick info` since some WoR songs like
+                  -- Aqualung say "double kick" but they only have ghost notes,
+                  -- no extra kicks
+                  kicks = if RTB.null midiFixed.s_tracks.fixedPartDrums.drumKick2x
+                    then Kicks1x
+                    else KicksBoth
                   in (emptyPartDrums Drums5 kicks :: PartDrums SoftFile)
                     { difficulty = diff
                     }
