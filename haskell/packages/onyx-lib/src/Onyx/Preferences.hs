@@ -48,6 +48,8 @@ data Preferences = Preferences
   , prefPreviewFPS    :: Int
   , prefCHDownmix     :: Bool
   , prefCHAudioFormat :: CHAudioFormat
+  , prefRB3Encoding   :: RBEncoding -- default encoding for rb3 compile targets
+  , prefPackEncoding  :: Maybe RBEncoding -- should quick convert packs enforce a single encoding
   }
 
 instance StackJSON Preferences where
@@ -80,6 +82,8 @@ instance StackJSON Preferences where
     prefPreviewFPS    <- prefPreviewFPS    =. fill 60               "preview-fps"     stackJSON
     prefCHDownmix     <- prefCHDownmix     =. opt  False            "ch-downmix"      stackJSON
     prefCHAudioFormat <- prefCHAudioFormat =. fill CHAudioOggVorbis "ch-audio-format" stackJSON
+    prefRB3Encoding   <- prefRB3Encoding   =. fill Latin1           "rb3-encoding"    stackJSON
+    prefPackEncoding  <- prefPackEncoding  =. fill (Just Latin1)    "pack-encoding"   stackJSON
     return Preferences{..}
 
 instance Default Preferences where

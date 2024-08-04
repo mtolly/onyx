@@ -308,7 +308,6 @@ importFoF src dir level = do
       md2 = audio_drums_2
       md3 = audio_drums_3
       md4 = audio_drums_4
-      -- TODO split out GH toms!
       (drumsAudio, kickAudio, snareAudio, tomsAudio) = case (md1, md2, md3, md4) of
         -- GH config with separate toms vs cymbals;
         -- note according to the phase shift forum post, cymbals are 3 and toms are 4

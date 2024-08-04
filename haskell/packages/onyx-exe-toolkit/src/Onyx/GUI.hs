@@ -2128,11 +2128,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       decryptMOGGs <- getDecryptMOGGs
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
-        Just packsMixedEncoding -> do
-          -- for packs, save all .dta as latin-1 (since rb2 and some rb3dx features require it)
-          let packs = flip map packsMixedEncoding $ map $ \qsong -> qsong
-                { quickSongDTA = enforceEncoding Latin1 qsong.quickSongDTA
-                }
+        Just packs -> do
           picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
           FL.setTitle picker $ case packs of
             [_] -> "Save pack file"
@@ -2150,32 +2146,42 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                 getOutputPath n = case fmt of
                   QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
                   _           -> userPath <> packNumber n
-                in sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
-                  fout = getOutputPath i
-                  task = do
-                    mapM_ (lg . T.unpack . artistTitle) qsongs
-                    qsongs' <- mapM songTransform qsongs
-                    let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
-                        ps3Folder' = case ps3Folder of
-                          QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
-                          _                 -> ps3Folder
-                        ps3Settings = QuickPS3Settings
-                          { qcPS3Folder      = Just ps3Folder'
-                          , qcPS3EncryptMIDI = enc
-                          , qcPS3EncryptMOGG = not decryptMOGGs
-                          , qcPS3RB3         = isRB3
-                          }
-                        xboxSettings live = stackIO $
-                          (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                          (defaultTitle qsongs')
-                          ""
-                          live
-                    case fmt of
-                      QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
-                      QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
-                      QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
-                    return [fout]
-                  in ("Pack #" <> show (i :: Int), task)
+                in sink $ EventOnyx $ do
+                  newPreferences <- readPreferences
+                  startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                    fout = getOutputPath i
+                    task = do
+                      mapM_ (lg . T.unpack . artistTitle) qsongs
+                      qsongs' <- mapM songTransform qsongs
+                      let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                          maybeEncoding = if isRB3
+                            then newPreferences.prefPackEncoding
+                            else Just Latin1
+                          qsongsReencode = case maybeEncoding of
+                            Nothing          -> qsongs'
+                            Just newEncoding -> flip map qsongs' $ \qsong -> qsong
+                              { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+                              }
+                          ps3Folder' = case ps3Folder of
+                            QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                            _                 -> ps3Folder
+                          ps3Settings = QuickPS3Settings
+                            { qcPS3Folder      = Just ps3Folder'
+                            , qcPS3EncryptMIDI = enc
+                            , qcPS3EncryptMOGG = not decryptMOGGs
+                            , qcPS3RB3         = isRB3
+                            }
+                          xboxSettings live = stackIO $
+                            (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                            (defaultTitle qsongsReencode)
+                            ""
+                            live
+                      case fmt of
+                        QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                        QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                        QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                      return [fout]
+                    in ("Pack #" <> show (i :: Int), task)
             _ -> return ()
     writeIORef packGoRef $ Just btnGo
 
@@ -3717,7 +3723,7 @@ launchPreferences :: (Event -> IO ()) -> (Width -> Bool -> IO Int) -> Onyx ()
 launchPreferences sink makeMenuBar = do
   loadedPrefs <- readPreferences
   let windowWidth = Width 800
-      windowHeight = Height 400
+      windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
       leaveLeftLabelSpace = snd . chopLeft 180
       lineBox = padded 5 10 5 10 (Size windowWidth (Height 40))
@@ -3820,6 +3826,25 @@ launchPreferences sink makeMenuBar = do
               ]
             void $ FL.setValue check $ prefLegalTempos loadedPrefs
             return $ (\b prefs -> prefs { prefLegalTempos = b }) <$> FL.getValue check
+          , do
+            getRB3Encoding <- lineBox $ \box -> do
+              let (boxA, boxB) = chopLeft 230 box
+              _ <- FL.boxNew boxA $ Just "RB3 recompile .dta"
+              horizRadio boxB
+                [ ("Latin-1", Latin1, prefRB3Encoding loadedPrefs == Latin1)
+                , ("UTF-8"  , UTF8  , prefRB3Encoding loadedPrefs == UTF8  )
+                ]
+            return $ maybe id (\v prefs -> prefs { prefRB3Encoding = v }) <$> getRB3Encoding
+          , do
+            getPackEncoding <- lineBox $ \box -> do
+              let (boxA, boxB) = chopLeft 230 box
+              _ <- FL.boxNew boxA $ Just "RB3 pack .dta"
+              horizRadio boxB
+                [ ("Latin-1", Just Latin1, prefPackEncoding loadedPrefs == Just Latin1)
+                , ("UTF-8"  , Just UTF8  , prefPackEncoding loadedPrefs == Just UTF8  )
+                , ("As is"  , Nothing    , prefPackEncoding loadedPrefs == Nothing    )
+                ]
+            return $ maybe id (\v prefs -> prefs { prefPackEncoding = v }) <$> getPackEncoding
           ]
         FL.end pack
         return fn

@@ -992,7 +992,7 @@ rbRules buildInfo dir rb3 mrb2 = do
               lipsyncLen :: U.Seconds
               lipsyncLen = fromIntegral (F.songLengthMS mid) / 1000 + 1
               miloDir = rb2MiloDir $ case map (extendLipsync lipsyncLen) lips of
-                []                    -> MagmaLipsync1 emptyLipsync
+                []                    -> MagmaLipsync1 $ extendLipsync lipsyncLen emptyLipsync
                 [l1]                  -> MagmaLipsync1 l1
                 [l1, l2]              -> MagmaLipsync2 l1 l2
                 [l1, l2, l3]          -> MagmaLipsync3 l1 l2 l3
