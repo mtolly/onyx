@@ -44,7 +44,8 @@ import           Onyx.Harmonix.Ark.GH2        (GH2Installation (..),
                                                detectGameGH)
 import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
                                                readFileDTA)
-import           Onyx.Import.Amplitude2016    (importAmplitude)
+import           Onyx.Import.Amplitude2016    (importAmplitude,
+                                               importAmplitudeArk)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
 import           Onyx.MIDI.Common             (Difficulty (..))
@@ -159,17 +160,19 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundHDR hdr = do
         let dir = takeDirectory hdr
         stackIO (crawlFolder dir) >>= foundGEN dir
-      foundGEN loc gen = stackIO (detectGameGH gen) >>= \case
-        Nothing -> do
-          warn $ "Couldn't detect GH game version for: " <> loc
-          return ([], [])
-        Just GameGH2DX2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II (DX)" loc
-        Just GameGH2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II" loc
-        Just GameGH1 -> GH1.importGH1 loc gen >>= foundImports "Guitar Hero (1)" loc
-        Just GameRB -> do
-          (hdr, arks) <- stackIO $ loadGEN gen
-          folder <- loadArkFolder hdr arks
-          importSTFSFolder loc (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" loc
+      foundGEN loc gen = importAmplitudeArk loc gen >>= \case
+        [] -> stackIO (detectGameGH gen) >>= \case
+          Nothing -> do
+            warn $ "Couldn't detect .ARK game for: " <> loc
+            return ([], [])
+          Just GameGH2DX2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II (DX)" loc
+          Just GameGH2 -> GH2.importGH2 loc gen >>= foundImports "Guitar Hero II" loc
+          Just GameGH1 -> GH1.importGH1 loc gen >>= foundImports "Guitar Hero (1)" loc
+          Just GameRB -> do
+            (hdr, arks) <- stackIO $ loadGEN gen
+            folder <- loadArkFolder hdr arks
+            importSTFSFolder loc (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" loc
+        amp@(_ : _) -> foundImports "Amplitude (2016)" loc amp
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
       foundDTX loc = foundImport "DTXMania" loc $ importDTX loc
       foundBME loc = foundImport "Be-Music Source" loc $ importBMS loc
@@ -243,7 +246,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               else return ([], [])
             ]
         rr <- foundImports "Rock Revolution (PS3 .pkg)" loc $ importRR $ first TE.decodeLatin1 usrdir
-        return $ rbgh <> rr
+        ampPS3 <- case findFile (pure "main_ps3.hdr") usrdir of
+          Just _  -> foundGEN loc $ first TE.decodeLatin1 usrdir
+          Nothing -> return ([], [])
+        return $ rbgh <> rr <> ampPS3
       foundWAD loc = do
         imps <- importWAD loc
         foundImports "Rock Band (Wii .wad)" loc imps

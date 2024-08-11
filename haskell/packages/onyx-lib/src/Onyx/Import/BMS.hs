@@ -27,6 +27,7 @@ import           Onyx.MIDI.Common                 (Edge (..), blipEdgesRB_,
                                                    pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.Mania
+import           Onyx.PhaseShift.Dance            (NoteType (NoteNormal))
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Files                  (fixFileCase)
@@ -182,8 +183,9 @@ importBMS bmsPath level = do
               ]
             guard $ not $ RTB.null indexed
             let opart = mempty
-                  { F.onyxPartMania = ManiaTrack
-                    { maniaNotes = blipEdgesRB_ indexed
+                  { F.onyxPartMania = Map.singleton "chart" ManiaTrack
+                    { maniaNotes = fmap (, NoteNormal) <$> blipEdgesRB_ indexed
+                    , maniaOverdrive = RTB.empty
                     }
                   }
             return (fpart, opart)
@@ -277,6 +279,9 @@ importBMS bmsPath level = do
             else if shouldCombine
               then False -- shouldn't happen
               else Set.member BMScratch usedKeys2
+          , difficulty = Tier 1 -- ?
+          , instrument = Nothing
+          , charts = pure "chart"
           }
         })
     }

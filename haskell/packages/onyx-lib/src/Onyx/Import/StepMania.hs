@@ -13,7 +13,8 @@ import qualified Data.Conduit.Audio                   as CA
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
 import qualified Data.HashMap.Strict                  as HM
-import           Data.List.Extra                      (nubOrd)
+import           Data.List.Extra                      (nubOrd, sortOn)
+import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        mapMaybe)
@@ -28,7 +29,8 @@ import           Onyx.MIDI.Common                     (blipEdgesRBNice,
                                                        pattern ANil, pattern At,
                                                        pattern Wait)
 import qualified Onyx.MIDI.Track.File                 as F
-import           Onyx.PhaseShift.Dance
+import           Onyx.MIDI.Track.Mania
+import           Onyx.PhaseShift.Dance                (NoteType (..))
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Files                      (fixFileCase)
@@ -102,16 +104,16 @@ buildSMTempo sm = let
       diff -> (dest + diff, Nothing)
   in (tempoMap, measureMap, translatePosition)
 
-getDanceDifficulty
+getManiaTrack
   :: SMNotes
   -> (U.Beats -> (U.Beats, Maybe U.Beats))
-  -> DanceDifficulty U.Beats
-getDanceDifficulty smn translate = let
-  sourceChars :: RTB.T U.Beats (Arrow, Char)
+  -> ManiaTrack U.Beats
+getManiaTrack smn translate = let
+  sourceChars :: RTB.T U.Beats (Int, Char)
   sourceChars
     = RTB.filter (\(_, x) -> x /= '0')
     $ RTB.flatten
-    $ fmap (zip [ArrowL, ArrowD, ArrowU, ArrowR] . T.unpack)
+    $ fmap (zip [0..] . T.unpack)
     $ foldr ($) RTB.empty
     $ concatMap (\divisions -> let
       barLength = 4 :: U.Beats -- will change in .ssc
@@ -119,28 +121,30 @@ getDanceDifficulty smn translate = let
       in map (\line -> Wait 0 line . RTB.delay divisionLength) divisions
       )
     $ smn_Notes smn
-  in DanceDifficulty
-    { danceNotes = blipEdgesRBNice $ foldr RTB.merge RTB.empty $ do
-      arrow <- [minBound .. maxBound]
-      let filtered = RTB.mapMaybe (\(arrow', c) -> guard (arrow == arrow') >> Just c) sourceChars
+  maxKey = foldr max 0 $ fst <$> toList sourceChars
+  in ManiaTrack
+    { maniaNotes = blipEdgesRBNice $ foldr RTB.merge RTB.empty $ do
+      key <- [0 .. maxKey]
+      let filtered = RTB.mapMaybe (\(key', c) -> guard (key == key') >> Just c) sourceChars
           go ANil = ANil
           go (At t x rest) = case x of
             -- normal notes: sustain if on a stop
-            '1' -> At posStart ((), (arrow, NoteNormal), sustainOnStop) $ go rest
-            '2' -> At posStart ((), (arrow, NoteNormal), normalSustain) $ go rest
-            '4' -> At posStart ((), (arrow, NoteRoll), normalSustain) $ go rest
-            'M' -> At posStart ((), (arrow, NoteMine), sustainOnStop) $ go rest -- do sustains work?
-            'L' -> At posStart ((), (arrow, NoteLift), sustainOnStop) $ go rest -- do sustains work?
+            '1' -> At posStart ((), (key, NoteNormal), sustainOnStop) $ go rest
+            '2' -> At posStart ((), (key, NoteNormal), normalSustain) $ go rest
+            '4' -> At posStart ((), (key, NoteRoll), normalSustain) $ go rest
+            'M' -> At posStart ((), (key, NoteMine), sustainOnStop) $ go rest -- do sustains work?
+            'L' -> At posStart ((), (key, NoteLift), sustainOnStop) $ go rest -- do sustains work?
             '3' -> go rest -- ignore, hopefully it stopped a previous hold/roll
-            _ -> go rest -- ignore unrecognized note types; could also assume NoteNormal
+            _   -> go rest -- ignore unrecognized note types; could also assume NoteNormal
             where (posStart, posEnd) = translate t
                   sustainOnStop = subtract posStart <$> posEnd
                   normalSustain = case rest of
                     ANil -> Nothing -- shouldn't happen?
-                    -- this is expected to be a '3' but we'll stop for any next event on this arrow
+                    -- this is expected to be a '3' but we'll stop for any next event on this key
                     At t2 _ _ -> case translate t2 of
                       (t2', _) -> Just $ t2' - posStart
       return $ RTB.fromAbsoluteEventList $ go $ RTB.toAbsoluteEventList 0 filtered
+    , maniaOverdrive = RTB.empty
     }
 
 importSM :: (SendMessage m, MonadIO m) => FilePath -> Import m
@@ -169,29 +173,17 @@ importSM src level = do
             ( Pad Start $ CA.Seconds $ realToFrac n
             , id
             )
+      importableSMN smn = elem (smn_ChartType smn) ["dance-single", "pump-single"]
   mid <- case level of
     ImportQuick -> return emptyChart
     ImportFull -> do
       let (tempos, sigs, translate) = buildSMTempo sm
-          getDanceTrack k = let
-            matches = flip mapMaybe (sm_NOTES sm) $ \smn -> if smn_ChartType smn == k
-              then case smn_Difficulty smn of
-                "Beginner"  -> Just (SMBeginner , smn)
-                "Easy"      -> Just (SMEasy     , smn)
-                "Medium"    -> Just (SMMedium   , smn)
-                "Hard"      -> Just (SMHard     , smn)
-                "Challenge" -> Just (SMChallenge, smn)
-                _           -> Nothing -- TODO warn?
-              else Nothing
-            in DanceTrack
-              { danceDifficulties = Map.fromList $ map
-                (\(diff, smn) -> (diff, getDanceDifficulty smn translate))
-                matches
-              , danceOverdrive = RTB.empty
-              }
       return $ delayMIDI $ F.Song tempos sigs mempty
         { F.onyxParts = Map.singleton (F.FlexExtra "dance") mempty
-          { F.onyxPartDance = getDanceTrack "dance-single"
+          { F.onyxPartMania = Map.fromList $ do
+            smn <- sm_NOTES sm
+            guard $ importableSMN smn
+            return (smn_Difficulty smn, getManiaTrack smn translate)
           }
         }
 
@@ -218,7 +210,7 @@ importSM src level = do
           }
 
   let imageExts = ["png", "jpg", "jpeg"]
-      isImageExt f = elem (map toLower $ takeExtension f) imageExts
+      isImageExt f = elem (dropWhile (== '.') $ map toLower $ takeExtension f) imageExts
       addImageExts f = map (f <.>) imageExts
       bannerOptions = concat
         -- try jacket (square art) first
@@ -283,6 +275,13 @@ importSM src level = do
         (Nothing, Just jp) -> (Just jp, Nothing)
         pair               -> pair
 
+  let diffNameList
+        = map smn_Difficulty
+        $ sortOn smn_NumericalMeter
+        $ filter importableSMN
+        $ sm_NOTES sm
+  diffNames <- maybe (fatal "No .sm importable difficulties found") return $ NE.nonEmpty diffNameList
+
   return SongYaml
     { metadata = def'
       { title = title
@@ -315,14 +314,23 @@ importSM src level = do
       }
     , targets = HM.empty
     , parts = Parts $ HM.singleton (F.FlexExtra "dance") (emptyPart :: Part SoftFile)
-      { dance = Just PartDance
+      { mania = Just PartMania
         { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)
           meters
             = map smn_NumericalMeter
-            $ filter (\smn -> smn_ChartType smn == "dance-single")
+            $ filter importableSMN
             $ sm_NOTES sm
           in fromIntegral $ foldr max 0 meters - 4
+        -- TODO I guess we ought to have each chart able to have its own keys count
+        , keys = foldr max 1 $ do
+          smn <- sm_NOTES sm
+          case concat $ smn_Notes smn of
+            line : _ -> [T.length line]
+            []       -> []
+        , turntable = False
+        , instrument = Nothing
+        , charts = diffNames
         }
       }
     , global = Global

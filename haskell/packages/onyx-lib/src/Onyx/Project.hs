@@ -36,6 +36,7 @@ import           Data.Foldable                        (toList)
 import           Data.Hashable                        (Hashable (..))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.Int                             (Int32)
+import qualified Data.List.NonEmpty                   as NE
 import           Data.Maybe                           (fromMaybe, mapMaybe)
 import           Data.Scientific                      (Scientific, toRealFloat)
 import           Data.String                          (IsString (..))
@@ -811,15 +812,6 @@ instance (Eq f, StackJSON f) => StackJSON (PartVocal f) where
     lipsyncRB3 <- (.lipsyncRB3) =. opt  Nothing  "lipsync-rb3" stackJSON
     return PartVocal{..}
 
-data PartAmplitude = PartAmplitude
-  { instrument :: Amp.Instrument
-  } deriving (Eq, Ord, Show)
-
-instance StackJSON PartAmplitude where
-  stackJSON = asStrictObject "PartAmplitude" $ do
-    instrument <- (.instrument) =. req "instrument" stackJSON
-    return PartAmplitude{..}
-
 instance StackJSON Amp.Instrument where
   stackJSON = enumCodec "amplitude instrument type" $ \case
     Amp.Drums  -> "drums"
@@ -828,24 +820,21 @@ instance StackJSON Amp.Instrument where
     Amp.Vocal  -> "vocal"
     Amp.Guitar -> "guitar"
 
-data PartDance = PartDance
-  { difficulty :: Difficulty
-  } deriving (Eq, Ord, Show)
-
-instance StackJSON PartDance where
-  stackJSON = asStrictObject "PartDance" $ do
-    difficulty <- (.difficulty) =. fill (Tier 1) "difficulty" stackJSON
-    return PartDance{..}
-
 data PartMania = PartMania
-  { keys      :: Int
-  , turntable :: Bool
+  { keys       :: Int
+  , turntable  :: Bool
+  , difficulty :: Difficulty
+  , instrument :: Maybe Amp.Instrument
+  , charts     :: NE.NonEmpty T.Text -- TODO put difficulties here maybe
   } deriving (Eq, Ord, Show)
 
 instance StackJSON PartMania where
   stackJSON = asStrictObject "PartMania" $ do
-    keys      <- (.keys)      =. req       "keys"      stackJSON
-    turntable <- (.turntable) =. opt False "turntable" stackJSON
+    keys       <- (.keys)       =. req           "keys"       stackJSON
+    turntable  <- (.turntable)  =. opt  False    "turntable"  stackJSON
+    difficulty <- (.difficulty) =. fill (Tier 1) "difficulty" stackJSON
+    instrument <- (.instrument) =. opt  Nothing  "instrument" stackJSON
+    charts     <- (.charts)     =. req           "charts"     stackJSON
     return PartMania{..}
 
 data Part f = Part
@@ -855,8 +844,6 @@ data Part f = Part
   , proGuitar :: Maybe (PartProGuitar f)
   , drums     :: Maybe (PartDrums f)
   , vocal     :: Maybe (PartVocal f)
-  , amplitude :: Maybe PartAmplitude
-  , dance     :: Maybe PartDance
   , mania     :: Maybe PartMania
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -868,13 +855,11 @@ instance (Eq f, StackJSON f) => StackJSON (Part f) where
     proGuitar <- (.proGuitar) =. opt Nothing "pro-guitar" stackJSON
     drums     <- (.drums    ) =. opt Nothing "drums"      stackJSON
     vocal     <- (.vocal    ) =. opt Nothing "vocal"      stackJSON
-    amplitude <- (.amplitude) =. opt Nothing "amplitude"  stackJSON
-    dance     <- (.dance    ) =. opt Nothing "dance"      stackJSON
     mania     <- (.mania    ) =. opt Nothing "mania"      stackJSON
     return Part{..}
 
 emptyPart :: Part f
-emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+emptyPart = Part Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 instance StackJSON Magma.AutogenTheme where
   stackJSON = enumCodecFull "the name of an autogen theme or null" $ \case

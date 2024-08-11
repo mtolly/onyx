@@ -12,7 +12,6 @@ module Onyx.WebPlayer
 ) where
 
 import           Control.Applicative              ((<|>))
-import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Key                   as K
@@ -302,17 +301,6 @@ makeDifficulties f = Difficulties $ catMaybes $ do
 makeDrumDifficulties :: (Maybe Difficulty -> Maybe (a t)) -> Difficulties a t
 makeDrumDifficulties f = Difficulties $ catMaybes $ do
   (d, name) <- [(Nothing, "X+"), (Just Expert, "X"), (Just Hard, "H"), (Just Medium, "M"), (Just Easy, "E")]
-  return $ (name,) <$> f d
-
-makeDanceDifficulties :: (Dance.SMDifficulty -> Maybe (a t)) -> Difficulties a t
-makeDanceDifficulties f = Difficulties $ catMaybes $ do
-  (d, name) <-
-    [ (Dance.SMChallenge, "C")
-    , (Dance.SMHard, "H")
-    , (Dance.SMMedium, "M")
-    , (Dance.SMEasy, "E")
-    , (Dance.SMBeginner, "B")
-    ]
   return $ (name,) <$> f d
 
 laneDifficulty :: (NNC.C t) => Difficulty -> RTB.T t (Maybe LaneDifficulty) -> RTB.T t t
@@ -666,25 +654,6 @@ instance A.ToJSON (Dance U.Seconds) where
     , (,) "energy" $ eventList (danceEnergy x) A.toJSON
     ]
 
-processDance :: U.TempoMap -> Dance.DanceTrack U.Beats -> Difficulties Dance U.Seconds
-processDance tmap trk = makeDanceDifficulties $ \diff -> let
-  thisDiff = fromMaybe mempty $ Map.lookup diff $ Dance.danceDifficulties trk
-  edges
-    = splitEdges
-    $ fmap (\((arr, ntype), mlen) -> (ntype, arr, mlen))
-    $ edgeBlips_ minSustainLengthRB
-    $ Dance.danceNotes thisDiff
-  getArrow arrow = realTrack tmap $ filterKey arrow edges
-  notes = Map.fromList $ do
-    arrow <- [minBound .. maxBound]
-    return (arrow, getArrow arrow)
-  in do
-    guard $ not $ RTB.null $ Dance.danceNotes thisDiff
-    return Dance
-      { danceNotes = notes
-      , danceEnergy = realTrack tmap $ Dance.danceOverdrive trk
-      }
-
 newtype Difficulties a t = Difficulties [(T.Text, a t)]
   deriving (Eq, Ord, Show)
 
@@ -796,23 +765,8 @@ makeDisplay songYaml song = let
         C.Vocal1 -> []
       solo = ("1", makeVox pvox (F.onyxPartVocals tracks) mempty mempty)
       in Difficulties $ reverse $ solo : harm
-    , flexCatch = flip fmap fpart.amplitude $ \amp -> let
-      ampDiffNames (Difficulties pairs) = Difficulties $ flip map pairs $ first $ \case
-        "X" -> "S/X"
-        "H" -> "A"
-        "M" -> "I"
-        "E" -> "B"
-        d   -> d
-      in ampDiffNames $ makeDifficulties $ \diff -> do
-        notes <- fmap Amp.catchGems $ Map.lookup diff $ Amp.catchDifficulties $ F.onyxCatch tracks
-        guard $ not $ RTB.null notes
-        return Amplitude
-          { ampNotes = U.applyTempoTrack (F.s_tempos song) notes
-          , ampInstrument = amp.instrument
-          }
-    , flexDance = flip fmap fpart.dance $ \_dance -> processDance
-      (F.s_tempos song)
-      (F.onyxPartDance tracks)
+    , flexCatch = Nothing -- removed, moved to mania
+    , flexDance = Nothing -- removed, moved to mania
     } where
       tracks = F.getFlexPart name $ F.s_tracks song
   parts = do

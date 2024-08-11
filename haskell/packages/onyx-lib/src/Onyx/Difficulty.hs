@@ -153,7 +153,7 @@ difficultyPS ps songYaml = let
       Rank r -> rankToTier dmap r
   psRhythmTier     = simpleTier ps.rhythm     (.grybo) guitarDiffMap
   psGuitarCoopTier = simpleTier ps.guitarCoop (.grybo) guitarDiffMap
-  psDanceTier      = simpleTier ps.dance      (.dance) drumsDiffMap
+  psDanceTier      = simpleTier ps.dance      (.mania) drumsDiffMap
   chGuitarGHLTier  = simpleTier ps.guitar     (.ghl  ) guitarDiffMap
   chBassGHLTier    = simpleTier ps.bass       (.ghl  ) guitarDiffMap
   in DifficultyPS{..}

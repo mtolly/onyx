@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
@@ -44,12 +45,13 @@ import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import           Onyx.MIDI.Track.File             (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.MIDI.Track.Mania            (ManiaTrack (..),
+                                                   danceDifficultyName)
 import           Onyx.MIDI.Track.ProGuitar        (nullPG)
 import           Onyx.MIDI.Track.ProKeys          (nullPK)
 import           Onyx.MIDI.Track.SixFret          (nullSix)
 import           Onyx.MIDI.Track.Vocal
 import qualified Onyx.MIDI.Track.Vocal.Legacy     as RBVox
-import           Onyx.PhaseShift.Dance            (nullDance)
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
@@ -397,8 +399,9 @@ importFoF src dir level = do
     { F.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ F.s_tracks parsed
     }
   let outputFixed = F.s_tracks outputMIDI
-      midi = SoftFile "notes.mid" $ SoftChart $ case delayMIDI outputMIDI of
+      outputOnyx = case delayMIDI outputMIDI of
         F.Song tempos sigs fixed -> F.Song tempos sigs $ F.fixedToOnyx fixed
+      midi = SoftFile "notes.mid" $ SoftChart outputOnyx
 
   maybeVideo <- case FoF.video song of
     _ | level == ImportQuick -> return Nothing
@@ -648,9 +651,24 @@ importFoF src dir level = do
           }
         })
       , ( FlexExtra "dance", (emptyPart :: Part SoftFile)
-        { dance = guard (isnt nullDance F.fixedPartDance && guardDifficulty FoF.diffDance) >> Just PartDance
-          { difficulty = toTier $ FoF.diffDance song
-          }
+        { mania = do
+          guard $ guardDifficulty FoF.diffDance
+          let maniaDiffList = do
+                diff <- [minBound .. maxBound]
+                let name = danceDifficultyName diff
+                maniaTrack <- toList
+                  $ Map.lookup (FlexExtra "dance") outputOnyx.s_tracks.onyxParts
+                  >>= Map.lookup name . (.onyxPartMania)
+                guard $ not $ RTB.null maniaTrack.maniaNotes
+                return name
+          maniaDiffs <- NE.nonEmpty maniaDiffList
+          Just PartMania
+            { difficulty = toTier $ FoF.diffDance song
+            , keys = 4 -- could be lower? hopefully not higher
+            , turntable = False
+            , instrument = Nothing
+            , charts = maniaDiffs
+            }
         })
       ]
     }

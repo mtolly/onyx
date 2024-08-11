@@ -34,6 +34,7 @@ import           Onyx.MIDI.Track.Drums
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.Mania
 import           Onyx.Osu.Base
+import           Onyx.PhaseShift.Dance            (NoteType (NoteNormal))
 import           Onyx.Project
 import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
@@ -188,7 +189,7 @@ importOsu separateSongs f = do
                 (partName, _, track) <- convertedTracks
                 case track of
                   Left  drums -> return (partName, mempty { F.onyxPartDrums = drums })
-                  Right mania -> return (partName, mempty { F.onyxPartMania = mania })
+                  Right mania -> return (partName, mempty { F.onyxPartMania = Map.singleton "chart" mania })
               , F.onyxSamples = Map.fromList taikoSampleTracks
               }
             }
@@ -244,6 +245,9 @@ importOsu separateSongs f = do
             { mania = Just PartMania
               { keys = fromIntegral $ maniaColumnCount osu
               , turntable = osu.general.specialStyle
+              , difficulty = Tier 1 -- ?
+              , instrument = Nothing
+              , charts = pure "chart"
               }
             })
       }
@@ -288,7 +292,8 @@ maniaToTrack tmap osu = let
       mania >>= \(secs, (column, endHold)) -> let
         startBeats = U.unapplyTempoMap tmap secs
         holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
-        in return (startBeats, (fromIntegral column, holdBeats))
+        in return (startBeats, ((fromIntegral column, NoteNormal), holdBeats))
+    , maniaOverdrive = RTB.empty
     }
 
 taikoToTrack :: U.TempoMap -> OsuFile -> DrumTrack U.Beats

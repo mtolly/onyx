@@ -758,14 +758,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 }
           mbMania <- forM part.mania $ \pm -> addType "Mania" $ \_itemCheck -> do
             return $ \isChecked curPart -> do
+              -- TODO difficulty
               return curPart { mania = guard isChecked >> Just pm }
-          mbDance <- forM part.dance $ \pd -> addType "Dance" $ \itemCheck -> do
-            getDiff <- makeDifficulty itemCheck pd.difficulty
-            return $ \isChecked curPart -> do
-              diff <- getDiff
-              return (curPart :: Part FilePath) { dance = guard isChecked >> Just (pd :: PartDance) { difficulty = diff } }
           return $ Just $ do
-            let modifiers = catMaybes [mbGRYBO, mbGHL, mbProKeys, mbProGuitar, mbDrums, mbVocal, mbMania, mbDance]
+            let modifiers = catMaybes [mbGRYBO, mbGHL, mbProKeys, mbProGuitar, mbDrums, mbVocal, mbMania]
             newPart <- foldl (>>=) (return part) modifiers
             return (fpart, newPart)
     let editParts = do

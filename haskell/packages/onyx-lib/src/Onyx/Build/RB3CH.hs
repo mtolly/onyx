@@ -22,6 +22,7 @@ import           Control.Monad.IO.Class            (MonadIO)
 import           Control.Monad.Trans.Writer.Strict (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Foldable                     (toList)
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isNothing)
@@ -38,6 +39,7 @@ import qualified Onyx.MIDI.Track.Drums.Elite       as ED
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File              as F
 import           Onyx.MIDI.Track.FiveFret          as RBFive
+import           Onyx.MIDI.Track.Mania             (maniaToDance)
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
@@ -828,9 +830,16 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         SharedTargetRB {} -> mempty
         SharedTargetPS ps -> let
           fpart = ps.dance
-          in case getPart fpart songYaml >>= (.dance) of
-            Nothing  -> mempty
-            Just _pd -> F.onyxPartDance $ F.getFlexPart fpart trks
+          in case getPart fpart songYaml >>= (.mania) of
+            Nothing -> mempty
+            Just pm -> if pm.keys <= 4
+              then let
+                -- TODO if the difficulties are named right, map them as is
+                diffMapping = zip
+                  (reverse [minBound .. maxBound])
+                  (reverse $ toList pm.charts)
+                in maniaToDance diffMapping $ F.onyxPartMania $ F.getFlexPart fpart trks
+              else mempty -- TODO autochart down!
   return (F.Song tempos' mmap' F.FixedFile
     { F.fixedBeat = timingBeat
     , F.fixedEvents = if isPS then eventsTrackPS else eventsTrack

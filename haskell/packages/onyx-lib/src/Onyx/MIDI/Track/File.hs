@@ -38,7 +38,6 @@ import qualified Data.Text.Encoding                as TE
 import           Development.Shake                 (Action, need)
 import           GHC.Generics                      (Generic)
 import qualified Numeric.NonNegative.Class         as NNC
-import           Onyx.Amplitude.Track
 import           Onyx.DeriveHelpers
 import           Onyx.Guitar                       (noExtendedSustains',
                                                     standardBlipThreshold,
@@ -324,14 +323,12 @@ data OnyxPart t = OnyxPart
   , onyxHarm1            :: VocalTrack t
   , onyxHarm2            :: VocalTrack t
   , onyxHarm3            :: VocalTrack t
-  , onyxCatch            :: CatchTrack t
   , onyxLipsync1         :: LipsyncTrack t
   , onyxLipsync2         :: LipsyncTrack t
   , onyxLipsync3         :: LipsyncTrack t
   , onyxLipsync4         :: LipsyncTrack t
   , onyxMelody           :: MelodyTrack t
-  , onyxPartDance        :: DanceTrack t
-  , onyxPartMania        :: ManiaTrack t
+  , onyxPartMania        :: Map.Map T.Text (ManiaTrack t)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
@@ -345,7 +342,7 @@ editOnyxPart pname edit onyx = onyx
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab ac ad)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s t u v w x y z aa ab)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -356,7 +353,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn s <*> traverseTrack fn t <*> traverseTrack fn u
       <*> traverseTrack fn v <*> traverseTrack fn w <*> traverseTrack fn x
       <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
-      <*> traverseTrack fn ab <*> traverseTrack fn ac <*> traverseTrack fn ad
+      <*> traverse (traverseTrack fn) ab
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -428,14 +425,25 @@ parseOnyxPart partName = do
   onyxHarm1            <- onyxHarm1            =. names ((FlexVocal, "HARM1") :| [(FlexVocal, "PART HARM1")])
   onyxHarm2            <- onyxHarm2            =. names ((FlexVocal, "HARM2") :| [(FlexVocal, "PART HARM2")])
   onyxHarm3            <- onyxHarm3            =. names ((FlexVocal, "HARM3") :| [(FlexVocal, "PART HARM3")])
-  onyxCatch            <- onyxCatch            =. names (pure (FlexExtra "undefined", "CATCH"))
   onyxMelody           <- onyxMelody           =. names (pure (FlexExtra "global", "MELODY'S ESCAPE"))
   onyxLipsync1         <- onyxLipsync1         =. names (pure (FlexVocal, "LIPSYNC1"))
   onyxLipsync2         <- onyxLipsync2         =. names (pure (FlexVocal, "LIPSYNC2"))
   onyxLipsync3         <- onyxLipsync3         =. names (pure (FlexVocal, "LIPSYNC3"))
   onyxLipsync4         <- onyxLipsync4         =. names (pure (FlexVocal, "LIPSYNC4"))
-  onyxPartDance        <- onyxPartDance        =. names (pure (FlexExtra "dance", "PART DANCE"))
-  onyxPartMania        <- onyxPartMania        =. names (pure (FlexKeys, "PART MANIA"))
+  onyxPartMania        <- onyxPartMania        =. let
+    prefix = "[" <> getPartName partName <> "] PART MANIA "
+    in Codec
+      { codecIn = do
+        trks <- lift get
+        let maniaNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix prefix) trks
+        results <- forM maniaNames $ \maniaName -> do
+          trk <- codecIn $ fileTrack $ pure $ prefix <> maniaName
+          return (maniaName, trk)
+        return $ Map.fromList results
+      , codecOut = fmapArg $ \m -> forM_ (Map.toAscList m) $ \(maniaName, trk) -> let
+        name = prefix <> maniaName
+        in codecOut (fileId $ fileTrack $ pure name) trk
+      }
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
@@ -837,14 +845,12 @@ instance ChopTrack OnyxPart where
     , onyxHarm1            = mapTrack (U.trackTake t) $ onyxHarm1            op -- TODO
     , onyxHarm2            = mapTrack (U.trackTake t) $ onyxHarm2            op -- TODO
     , onyxHarm3            = mapTrack (U.trackTake t) $ onyxHarm3            op -- TODO
-    , onyxCatch            = mapTrack (U.trackTake t) $ onyxCatch            op -- TODO
     , onyxLipsync1         = mapTrack (U.trackTake t) $ onyxLipsync1         op -- TODO
     , onyxLipsync2         = mapTrack (U.trackTake t) $ onyxLipsync2         op -- TODO
     , onyxLipsync3         = mapTrack (U.trackTake t) $ onyxLipsync3         op -- TODO
     , onyxLipsync4         = mapTrack (U.trackTake t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackTake t) $ onyxMelody           op -- TODO
-    , onyxPartDance        = mapTrack (U.trackTake t) $ onyxPartDance        op -- TODO
-    , onyxPartMania        = mapTrack (U.trackTake t) $ onyxPartMania        op -- TODO
+    , onyxPartMania        = mapTrack (U.trackTake t) <$> onyxPartMania      op -- TODO
     }
   chopDrop t op = OnyxPart
     { onyxPartDrums        = chopDrop t               $ onyxPartDrums        op
@@ -869,14 +875,12 @@ instance ChopTrack OnyxPart where
     , onyxHarm1            = mapTrack (U.trackDrop t) $ onyxHarm1            op -- TODO
     , onyxHarm2            = mapTrack (U.trackDrop t) $ onyxHarm2            op -- TODO
     , onyxHarm3            = mapTrack (U.trackDrop t) $ onyxHarm3            op -- TODO
-    , onyxCatch            = mapTrack (U.trackDrop t) $ onyxCatch            op -- TODO
     , onyxLipsync1         = mapTrack (U.trackDrop t) $ onyxLipsync1         op -- TODO
     , onyxLipsync2         = mapTrack (U.trackDrop t) $ onyxLipsync2         op -- TODO
     , onyxLipsync3         = mapTrack (U.trackDrop t) $ onyxLipsync3         op -- TODO
     , onyxLipsync4         = mapTrack (U.trackDrop t) $ onyxLipsync4         op -- TODO
     , onyxMelody           = mapTrack (U.trackDrop t) $ onyxMelody           op -- TODO
-    , onyxPartDance        = mapTrack (U.trackDrop t) $ onyxPartDance        op -- TODO
-    , onyxPartMania        = mapTrack (U.trackDrop t) $ onyxPartMania        op -- TODO
+    , onyxPartMania        = mapTrack (U.trackDrop t) <$> onyxPartMania      op -- TODO
     }
 
 onyxToFixed :: OnyxFile U.Beats -> FixedFile U.Beats
@@ -903,7 +907,7 @@ onyxToFixed o = FixedFile
   , fixedPartKeysAnimLH   = inPart FlexKeys                  onyxPartKeysAnimLH
   , fixedPartKeysAnimRH   = inPart FlexKeys                  onyxPartKeysAnimRH
   , fixedPartVocals       = inPart FlexVocal                 onyxPartVocals
-  , fixedPartDance        = inPart (FlexExtra "dance")       onyxPartDance
+  , fixedPartDance        = mempty
   , fixedHarm1            = inPart FlexVocal                 onyxHarm1
   , fixedHarm2            = inPart FlexVocal                 onyxHarm2
   , fixedHarm3            = inPart FlexVocal                 onyxHarm3
@@ -967,7 +971,7 @@ fixedToOnyx f = OnyxFile
       { onyxPartGuitar = fixedPartGuitarCoop f
       })
     , (FlexExtra "dance", mempty
-      { onyxPartDance = fixedPartDance f
+      { onyxPartMania = danceToMania $ fixedPartDance f
       })
     ]
   , onyxEvents   = fixedEvents f

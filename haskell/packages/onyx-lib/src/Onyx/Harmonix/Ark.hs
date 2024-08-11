@@ -7,11 +7,11 @@
 {-# LANGUAGE StrictData            #-}
 module Onyx.Harmonix.Ark where
 
-import           Control.Monad          (forM, replicateM, when)
+import           Control.Monad          (forM, replicateM, replicateM_, when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Bifunctor         (first)
-import           Data.Binary.Get        (getByteString, getInt32le, getWord32le,
-                                         getWord64le, skip)
+import           Data.Binary.Get        (getByteString, getInt32le, getInt64le,
+                                         getWord32le, getWord64le, skip)
 import           Data.Bits
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
@@ -156,6 +156,50 @@ readHdr bs = do
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
         return Hdr { arks = Just arks, files = entries' }
+      -- ARK v9: Amplitude (PS3 at least)
+      9 -> do
+        skip 20
+        arkCount <- getWord32le
+        arkCount2 <- getWord32le
+        when (arkCount /= arkCount2) $ fail $ "ARK version 9: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
+        arkSizes <- replicateM (fromIntegral arkCount) getWord32le
+        arkCount3 <- getWord32le
+        when (arkCount /= arkCount3) $ fail $ "ARK version 9: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
+        arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
+        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        -- all zeroes in amp ps3
+        arkCount4 <- getWord32le
+        when (arkCount /= arkCount4) $ fail $ "ARK version 9: ark count doesn't match unknown checksum count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
+        skip $ 4 * fromIntegral arkCount4
+        -- "new in version 7+: some sort of string table with game-specific data"
+        -- all empty in amp ps3
+        arkCount5 <- getWord32le
+        when (arkCount /= arkCount5) $ fail $ "ARK version 9: ark count doesn't match unknown string count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
+        replicateM_ (fromIntegral arkCount5) $ do
+          stringCount <- getWord32le
+          replicateM_ (fromIntegral stringCount) $ do
+            stringLen <- getWord32le
+            skip $ fromIntegral stringLen
+        -- new file table format, ignoring a bunch of details here
+        numFiles <- getWord32le
+        entries <- replicateM (fromIntegral numFiles) $ do
+          arkFileOffset <- getInt64le
+          path <- parseStrings
+          _flags <- getInt32le
+          size <- getWord32le
+          skip 4 -- in max's code, readHash is true for v9, false for v10
+          let (dir, file) = case reverse $ B8.split '/' path of
+                x : xs@(_ : _) -> (Just $ B8.intercalate "/" $ reverse xs, x)
+                _              -> (Nothing, path)
+          return FileEntry
+            { offset  = fromIntegral arkFileOffset
+            , name    = file
+            , folder  = dir
+            , size    = size
+            , inflate = 0
+            }
+        -- more stuff after this, ignoring for now
+        return Hdr { arks = Just arks, files = entries }
       _ -> fail $ "Unsupported ARK version " <> show arkVersion
 
 -- Decrypts .hdr for ARK version 4 and later

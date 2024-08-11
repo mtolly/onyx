@@ -146,7 +146,10 @@ parseToken = do
               -- * support '-' but not '+'
               -- * support 'e' notation in Float only
               -- * support '0x' notation (and '0o') in Int32 only
-              let maybeNumString = dropWhile (== '+') $ T.unpack x
+              -- * does not support leading dot floats (seen in Amplitude PS3)
+              let maybeNumString = case dropWhile (== '+') $ T.unpack x of
+                    leadingDot@('.' : _) -> '0' : leadingDot
+                    str                  -> str
               return $ ParseSuccess p $ case x of
                 "kDataUnhandled" -> Unhandled
                 _                -> case readMaybe maybeNumString of

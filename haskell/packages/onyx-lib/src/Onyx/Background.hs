@@ -30,8 +30,6 @@ import qualified Onyx.MIDI.Track.SixFret
 import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.VenueGen
 import qualified Onyx.MIDI.Track.Vocal
-import           Onyx.PhaseShift.Dance            (SMDifficulty (SMChallenge))
-import qualified Onyx.PhaseShift.Dance
 import qualified Sound.MIDI.Util                  as U
 
 -- character moods
@@ -48,7 +46,7 @@ getMoods tmap endTime opart = let
     , opart.onyxPartVocals.vocalMood
     , opart.onyxHarm1.vocalMood
     ]
-  autoMoods = mapMaybe (\t -> guard (not $ RTB.null t) >> Just (getAutoMoods t))
+  autoMoods = mapMaybe (\t -> guard (not $ RTB.null t) >> Just (getAutoMoods t)) $
     [ longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums
     , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums2x
     , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartRealDrumsPS
@@ -64,9 +62,7 @@ getMoods tmap endTime opart = let
     , longNotes Just (.pkNotes) opart.onyxPartRealKeysX
     , longVox opart.onyxPartVocals
     , longVox opart.onyxHarm1
-    , longNotes (\t -> Map.lookup SMChallenge t.danceDifficulties) (.danceNotes) opart.onyxPartDance
-    , longNotes Just (.maniaNotes) opart.onyxPartMania
-    ]
+    ] <> map (longNotes Just (.maniaNotes)) (Map.elems opart.onyxPartMania)
   longBlips getDiff getGems trk = maybe RTB.empty ((Blip () () <$) . getGems) $ getDiff trk
   longNotes getDiff getGems trk = maybe RTB.empty (fmap edgeToLong . getGems) $ getDiff trk
   longVox = fmap (\(_, b) -> if b then NoteOn () () else NoteOff ()) . (.vocalNotes)

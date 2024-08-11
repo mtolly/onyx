@@ -22,11 +22,13 @@ import           Data.Foldable                    (find, toList)
 import           Data.Functor                     (void)
 import           Data.Hashable                    (hash)
 import           Data.List.Extra                  (nubOrd, sort, unsnoc)
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
                                                    rockBand2x)
@@ -45,7 +47,6 @@ import           Onyx.MIDI.Track.Mania
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
-import           Onyx.PhaseShift.Dance
 import           Onyx.Project
 import qualified Sound.MIDI.Util                  as U
 
@@ -101,7 +102,6 @@ anyFiveFret p
   <|> proGuitarToFiveFret p
   <|> proKeysToFiveFret p
   <|> maniaToFiveFret p
-  <|> danceToFiveFret p
   <|> fmap convertDrumsToFive (nativeDrums p)
 
 convertFiveToDrums :: BuildFive -> BuildDrums
@@ -295,7 +295,6 @@ anyDrums :: Part f -> Maybe BuildDrums
 anyDrums p
   = nativeDrums p
   <|> maniaToDrums p
-  <|> danceToDrums p
   <|> fmap convertFiveToDrums (nativeFiveFret p)
 
 buildDrumAnimation
@@ -349,6 +348,11 @@ nativeProKeys part = flip fmap part.proKeys $ \ppk input -> let
     , autochart = False
     }
 
+getManiaNormalTopDifficulty :: (NNC.C t) => PartMania -> F.OnyxPart t -> RTB.T t (RB.Edge () Int)
+getManiaNormalTopDifficulty pm part = case Map.lookup (NE.last pm.charts) part.onyxPartMania of
+  Nothing  -> RTB.empty
+  Just trk -> getManiaNormalNotes trk
+
 maniaToProKeys :: Part f -> Maybe BuildProKeys
 maniaToProKeys part = do
   pm <- part.mania
@@ -373,7 +377,7 @@ maniaToProKeys part = do
         }
       , difficulties = Map.singleton Expert mempty
         { pkLanes = RTB.singleton 0 range
-        , pkNotes = fmap (fmap (keys !!)) $ maniaChordSnap $ maniaNotes input.part.onyxPartMania
+        , pkNotes = fmap (fmap (keys !!)) $ maniaChordSnap $ getManiaNormalTopDifficulty pm input.part
         }
       , source = "converted Mania chart to pro keys"
       , autochart = False
@@ -608,14 +612,14 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
         $ maniaChordSnap
-        $ maniaNotes $ F.onyxPartMania input.part
+        $ getManiaNormalTopDifficulty pm input.part
         -- TODO maybe offset if less than 4 keys? like RYB for 3-key
       else let
         chorded
           = RTB.toAbsoluteEventList 0
           $ guitarify'
           $ fmap (\((), key, len) -> (key, guard (len >= standardBlipThreshold) >> Just len))
-          $ RB.joinEdgesSimple $ maniaChordSnap $ maniaNotes $ F.onyxPartMania input.part
+          $ RB.joinEdgesSimple $ maniaChordSnap $ getManiaNormalTopDifficulty pm input.part
         autoResult = autoChart 5 $ do
           (bts, (notes, _len)) <- ATB.toPairList chorded
           pitch <- simplifyChord notes
@@ -639,82 +643,6 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
     , autochart = pm.keys > 5
     }
 
-danceToFiveFret :: Part f -> Maybe BuildFive
-danceToFiveFret part = flip fmap part.dance $ \pd _ftype input -> FiveResult
-  { settings = def
-    { difficulty = pd.difficulty
-    }
-  , notes = Map.fromList $ do
-    (diff, dd) <- zip [Expert, Hard, Medium, Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
-    let five :: RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
-        five
-          = RTB.mapMaybe (\case
-            ((_    , NoteMine), _  ) -> Nothing
-            ((arrow, _       ), len) -> Just
-              ((Just $ toEnum $ fromEnum arrow, Tap), len)
-            -- this turns rolls into sustains, probably fine but may want to revisit
-            )
-          $ RB.edgeBlips_ RB.minSustainLengthRB $ danceNotes dd
-    return (diff, five)
-  , other = mempty
-    { Five.fiveOverdrive = danceOverdrive $ F.onyxPartDance input.part
-    }
-  , source = "converted dance chart to five-fret"
-  , autochart = False
-  }
-
-danceToDrums :: Part f -> Maybe BuildDrums
-danceToDrums part = flip fmap part.dance $ \pd dtarget input -> let
-  notes :: [(RB.Difficulty, RTB.T U.Beats (D.Gem D.ProType))]
-  notes = do
-    (diff, dd) <- zip [Expert, Hard, Medium, Easy] $ getDanceDifficulties $ F.onyxPartDance input.part
-    let diffNotes
-          = RTB.flatten
-          $ fmap (\xs -> case xs of
-            -- max 2 notes at a time
-            _ : _ : _ : _ -> [minimum xs, maximum xs]
-            _             -> xs
-            )
-          $ RTB.collectCoincident
-          $ RTB.mapMaybe (\case
-            RB.EdgeOn _ (arrow, typ) | typ /= NoteMine -> Just $ case arrow of
-              ArrowL -> D.Red
-              ArrowD -> D.Pro D.Yellow D.Tom
-              ArrowU -> D.Pro D.Blue   D.Tom
-              ArrowR -> D.Pro D.Green  D.Tom
-            _                                          -> Nothing
-            )
-          $ danceNotes dd
-    return (diff, diffNotes)
-  in DrumResult
-    { settings = PartDrums
-      { difficulty  = pd.difficulty
-      , mode        = case dtarget of
-        DrumTargetGH -> Drums5
-        _            -> Drums4
-      , kicks       = Kicks1x
-      , fixFreeform = True
-      , kit         = HardRockKit
-      , layout      = StandardLayout
-      , fallback    = FallbackGreen
-      , fileDTXKit  = Nothing
-      , trueLayout  = []
-      , difficultyDTX = Nothing
-      }
-    , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
-    , other = mempty
-    , hasRBMarks = False
-    , animations
-      = U.unapplyTempoTrack input.tempo
-      $ D.autoDrumAnimation 0.25
-      $ U.applyTempoTrack input.tempo
-      $ fromMaybe RTB.empty $ lookup Expert notes
-      :: RTB.T U.Beats D.Animation
-    , source = "converted dance chart to drums"
-    , autochart = False
-    , eliteDrums = Nothing
-    }
-
 maniaToDrums :: Part f -> Maybe BuildDrums
 maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
   inputNotes :: RTB.T U.Beats Int
@@ -728,7 +656,7 @@ maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
     $ RTB.collectCoincident
     $ RTB.mapMaybe (\case RB.EdgeOn _ n -> Just n; RB.EdgeOff _ -> Nothing)
     $ maniaChordSnap
-    $ maniaNotes $ F.onyxPartMania input.part
+    $ getManiaNormalTopDifficulty pm input.part
   notes :: RTB.T U.Beats (D.Gem D.ProType)
   notes = if pm.keys <= laneCount
     then keyToDrum <$> inputNotes

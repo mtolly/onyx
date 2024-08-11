@@ -60,7 +60,7 @@ data NoteType
 instance ChannelType NoteType where
   encodeChannel = fromEnum
 
-data DanceDifficulty t = DanceDifficulty
+newtype DanceDifficulty t = DanceDifficulty
   { danceNotes :: RTB.T t (Edge () (Arrow, NoteType))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DanceDifficulty t)
