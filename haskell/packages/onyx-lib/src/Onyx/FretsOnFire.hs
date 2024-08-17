@@ -28,7 +28,7 @@ data Song = Song
   , artist           :: Maybe T.Text
   , album            :: Maybe T.Text
   , charter          :: Maybe T.Text -- ^ can be @frets@ or @charter@
-  , year             :: Maybe Int -- TODO probably shouldn't be restricted to int, I've seen "year = 2008-2009" which CH shows as-is but sorts under 2008
+  , year             :: Maybe T.Text -- not restricted to int, "year = 2008-2009" CH shows as-is but sorts under 2008
   , genre            :: Maybe T.Text
   , proDrums         :: Maybe Bool
   , songLength       :: Maybe Int
@@ -146,7 +146,7 @@ loadSong r = do
       artist = stripTags <$> str "artist"
       album = stripTags <$> str "album"
       charter = stripTags <$> (str "charter" <|> str "frets")
-      year = int "year"
+      year = stripTags <$> str "year"
       genre = stripTags <$> str "genre"
       proDrums = bool "pro_drums"
       songLength = int "song_length"
@@ -205,7 +205,7 @@ songToIniContents Song{..} = execWriter $ do
   str "album" album
   str "charter" charter
   str "frets" charter
-  shown "year" year
+  str "year" year
   str "genre" genre
   shown "pro_drums" proDrums
   shown "song_length" songLength

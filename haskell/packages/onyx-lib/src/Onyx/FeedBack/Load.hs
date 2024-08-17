@@ -48,7 +48,6 @@ import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
-import           Text.Read                        (readMaybe)
 
 atomStr :: Atom -> T.Text
 atomStr (Str  s) = s
@@ -156,10 +155,7 @@ chartToIni chart = def
   , FoF.album = HM.lookup "Album" song >>= atomStr'
   , FoF.genre = HM.lookup "Genre" song >>= atomStr'
   , FoF.charter = HM.lookup "Charter" song >>= atomStr'
-  , FoF.year = HM.lookup "Year" song >>= \case
-    Int i  -> Just $ fromIntegral i
-    Str s  -> T.stripPrefix ", " s >>= readMaybe . T.unpack
-    Real r -> Just $ floor r
+  , FoF.year = fmap noYearComma $ HM.lookup "Year" song >>= atomStr'
   , FoF.delay = fmap (floor . (* 1000)) $ HM.lookup "Offset" song >>= atomReal
   , FoF.previewStartTime = case (previewStart, previewEnd) of
     (0, 0) -> Nothing
@@ -175,6 +171,7 @@ chartToIni chart = def
           atomReal _        = Nothing
           previewStart = maybe 0 (floor . (* 1000)) $ HM.lookup "PreviewStart" song >>= atomReal
           previewEnd   = maybe 0 (floor . (* 1000)) $ HM.lookup "PreviewEnd"   song >>= atomReal
+          noYearComma s = fromMaybe s $ T.stripPrefix ", " s
 
 traverseWithAbsTime :: (Applicative m, Num t, NNC.C t) => (t -> a -> m b) -> RTB.T t a -> m (RTB.T t b)
 traverseWithAbsTime f

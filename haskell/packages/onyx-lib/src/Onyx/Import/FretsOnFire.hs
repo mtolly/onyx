@@ -15,7 +15,7 @@ import           Control.Monad                    (forM, forM_, guard, void,
                                                    when)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (isSpace, toLower)
+import           Data.Char                        (isDigit, isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -60,6 +60,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (dropExtension,
                                                    splitExtension,
                                                    takeExtension, (<.>))
+import           Text.Read                        (readMaybe)
 
 generateSwells
   :: (Eq a)
@@ -456,13 +457,21 @@ importFoF src dir level = do
           Just True -> 250 -- don't know exactly
           _         -> 170
 
+  year <- case FoF.year song of
+    Nothing -> return Nothing
+    Just s  -> case readMaybe $ T.unpack $ T.takeWhile isDigit s of
+      Just y  -> return $ Just y
+      Nothing -> do
+        warn "Couldn't recognize year from CH format"
+        return Nothing
+
   return SongYaml
     { metadata = def'
       { title        = title
       , artist       = FoF.artist song
       , album        = FoF.album song
       , genre        = FoF.genre song
-      , year         = FoF.year song
+      , year         = year
       , fileAlbumArt = albumArt
       , trackNumber  = FoF.track song
       , comments     = []

@@ -5,25 +5,34 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.QuickConvert.FretsOnFire where
 
-import           Control.Monad          (forM, forM_)
+import           Control.Monad.Extra    (forM, forM_, guard, mapMaybeM)
 import           Control.Monad.IO.Class (MonadIO)
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Char              (isSpace, toLower)
-import           Data.Maybe             (catMaybes)
+import           Data.Foldable          (toList)
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.List.NonEmpty     as NE
+import           Data.Maybe             (catMaybes, fromMaybe)
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
-import           Onyx.Audio             (audioIO, audioLengthReadable,
-                                         audioRateReadable, loadAudioInput)
+import           Onyx.Audio             (Audio (..), audioIO,
+                                         audioLengthReadable, audioRateReadable,
+                                         buildSource', loadAudioInput)
 import           Onyx.CloneHero.SNG
 import           Onyx.FeedBack.Load     (chartToBeats, chartToIni, chartToMIDI,
                                          loadChartFile, loadChartReadable)
 import           Onyx.FretsOnFire       (loadPSIni, songToIniContents,
                                          writePSIni)
+import           Onyx.Import.Encore     (EncoreInfo (..), encoreMidiToFoF,
+                                         loadEncoreInfo)
+import           Onyx.MIDI.Parse        (getMIDI)
 import           Onyx.MIDI.Track.File   (showMIDIFile')
 import           Onyx.StackTrace
+import           Onyx.Util.Binary       (runGetM)
 import           Onyx.Util.Files        (fixFileCase)
 import           Onyx.Util.Handle
 import qualified Sound.MIDI.File.Save   as Save
@@ -32,7 +41,8 @@ import           System.Directory       (createDirectoryIfMissing,
                                          renameDirectory, renameFile)
 import           System.FilePath        (dropTrailingPathSeparator,
                                          splitExtension, takeDirectory,
-                                         takeExtension, takeFileName, (</>))
+                                         takeExtension, takeFileName, (<.>),
+                                         (</>))
 import           System.IO              (hClose)
 import           System.IO.Temp         (withSystemTempFile)
 import           UnliftIO.Exception     (catchAny)
@@ -41,12 +51,17 @@ data QuickFoF = QuickFoF
   { metadata :: [(T.Text, T.Text)]
   , files    :: [(T.Text, Readable)]
   , location :: FilePath
-  , format   :: FoFFormat
+  , format   :: FoFFormatInput
   }
 
 data FoFFormat
   = FoFFolder
   | FoFSNG
+  deriving (Eq)
+
+data FoFFormatInput
+  = FoFEncore
+  | FoFFormat FoFFormat
   deriving (Eq)
 
 loadQuickFoF :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickFoF)
@@ -61,7 +76,7 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
         { metadata = ini
         , files    = filter (\(name, _) -> T.toLower name /= "song.ini") $ folderFiles folder
         , location = dir
-        , format   = FoFFolder
+        , format   = FoFFormat FoFFolder
         }
     "notes.chart" -> do
       let dir = takeDirectory fin
@@ -75,8 +90,15 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
             { metadata = ini
             , files    = folderFiles folder
             , location = dir
-            , format   = FoFFolder
+            , format   = FoFFormat FoFFolder
             }
+    "info.json" -> do
+      info <- loadEncoreInfo fin
+      stackIO $ Just <$> convertEncoreFoF fin info
+      -- TODO some songs have a song.ini and info.json. in this case:
+      -- * if the info.json midi is named "notes.mid", only load encore format.
+      --   it can't be a well formed fof format song due to the track names
+      -- * otherwise, load fof format
     _ -> if map toLower (takeExtension fin) == ".sng"
       then do
         hdr <- stackIO $ readSNGHeader r
@@ -85,7 +107,7 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
           { metadata = hdr.metadata
           , files    = folderFiles folder
           , location = fin
-          , format   = FoFSNG
+          , format   = FoFFormat FoFSNG
           }
       else return Nothing
 
@@ -175,6 +197,69 @@ fillRequiredMetadata = let
         , ..
         }
   in withSongLength
+
+convertEncoreFoF :: FilePath -> EncoreInfo FilePath -> IO QuickFoF
+convertEncoreFoF f info = do
+  newMidi <- generateCachedReadable $ do
+    midPath <- fixFileCase info.midi
+    bs <- useHandle (fileReadable midPath) handleToByteString
+    (mid, _warnings) <- runGetM getMIDI bs
+    return $ makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString $ encoreMidiToFoF mid
+  let audioMap =
+        [ ("song", "backing")
+        , ("guitar", "lead")
+        , ("rhythm", "bass")
+        , ("drums", "drums")
+        , ("vocals", "vocals")
+        ]
+  newStems <- fmap catMaybes $ forM audioMap $ \(nameCH, keyEncore) -> do
+    let paths = fromMaybe [] $ HM.lookup keyEncore info.stems
+    existingPaths <- flip mapMaybeM paths $ \p -> do
+      p' <- fixFileCase p
+      e <- doesFileExist p'
+      return $ guard e >> Just p'
+    case existingPaths of
+      [path] -> return $ Just (T.pack $ nameCH <.> takeExtension path, fileReadable path)
+      p : ps@(_ : _) -> do
+        let ext = "ogg" -- TODO use preference
+        r <- generateCachedReadable $ do
+          bs <- withSystemTempFile ("onyx-mix" <.> ext) $ \tmp h -> do
+            hClose h
+            src <- buildSource' $ Mix $ fmap Input $ p NE.:| ps
+            -- TODO use preference for ogg quality
+            audioIO Nothing src tmp
+            useHandle (fileReadable tmp) handleToByteString
+          return $ makeHandle ("onyx-mix" <.> ext) $ byteStringSimpleHandle bs
+        return $ Just (T.pack $ nameCH <.> ext, r)
+      [] -> return Nothing
+  artPath <- mapM fixFileCase info.art
+  return QuickFoF
+    { metadata = concat
+      [ [("name", info.title)]
+      , [("artist", info.artist)]
+      , ("album",) <$> toList info.album
+      , ("loading_phrase",) <$> toList info.loading_phrase
+      , [("multiplier_note", "116")]
+      , flip map (toList info.length_) $ \secs -> ("song_length", T.pack $ show $ secs * 1000)
+      , ("preview_start_time",) . T.pack . show <$> toList info.preview_start_time
+      , [("charter", T.intercalate ", " info.charters) | not $ null info.charters]
+      , ("year",) <$> toList info.release_year
+      , [("genre", T.intercalate ", " info.genres) | not $ null info.genres]
+      , ("diff_guitar",) . T.pack . show <$> toList (HM.lookup "plastic_guitar" info.diff)
+      , ("diff_bass"  ,) . T.pack . show <$> toList (HM.lookup "plastic_bass"   info.diff)
+      , ("diff_drums" ,) . T.pack . show <$> toList (HM.lookup "plastic_drums"  info.diff)
+      , ("diff_vocals",) . T.pack . show <$> toList (HM.lookup "pitched_vocals" info.diff)
+      ]
+    , files = concat
+      [ [("notes.mid", newMidi)]
+      , case artPath of
+        Nothing  -> []
+        Just art -> [(T.pack $ "album" <.> takeExtension art, fileReadable art)]
+      , newStems
+      ]
+    , location = takeDirectory f
+    , format   = FoFEncore
+    }
 
 {-
 

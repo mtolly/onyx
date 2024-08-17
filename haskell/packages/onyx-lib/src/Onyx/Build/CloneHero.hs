@@ -133,7 +133,7 @@ psRules buildInfo dir ps = do
           , FoF.name             = Just $ targetTitle songYaml $ PS ps
           , FoF.album            = metadata.album
           , FoF.charter          = metadata.author
-          , FoF.year             = metadata.year
+          , FoF.year             = T.pack . show <$> metadata.year
           , FoF.genre            = Just $ fofGenre $ fullGenre metadata
           , FoF.proDrums         = flip fmap dmode $ \case
             DrumsPro  -> True

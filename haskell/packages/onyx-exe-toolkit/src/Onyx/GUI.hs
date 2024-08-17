@@ -2330,8 +2330,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     $ \qfof -> let
       entry = T.pack $ qfof.location
       subline = case qfof.format of
-        FoFFolder -> "folder format"
-        FoFSNG    -> ".sng format"
+        FoFFormat FoFFolder -> "folder format"
+        FoFFormat FoFSNG    -> ".sng format"
+        FoFEncore           -> "Encore format"
       in (entry, [subline])
 
   -- right side: processors to transform midis and other files
@@ -2425,8 +2426,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
             task = do
               qfof <- transform orig
               stackIO $ case qfof.format of
-                FoFFolder -> saveQuickFoFFolder loc qfof
-                FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
+                FoFFormat FoFFolder -> saveQuickFoFFolder loc qfof
+                FoFFormat FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
+                FoFEncore           -> saveQuickFoFFolder loc qfof -- TODO forbid this!
               return [loc]
             in (loc, task)
         _ -> return ()
