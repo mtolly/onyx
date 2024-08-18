@@ -74,7 +74,7 @@ library:
   - async
   - req
   - profunctors
-  - cryptonite
+  - crypton
   - memory
   - unliftio
   - unliftio-core

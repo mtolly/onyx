@@ -35,6 +35,7 @@ module Onyx.Xbox.STFS
 , loadCreateOptions
 , packCombineFolders
 , rb3STFSOptions, rb2STFSOptions
+, bytesToInteger
 ) where
 
 import           Control.Monad.Codec
