@@ -98,6 +98,7 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
       -- TODO some songs have a song.ini and info.json. in this case:
       -- * if the info.json midi is named "notes.mid", only load encore format.
       --   it can't be a well formed fof format song due to the track names
+      -- * if there is no notes.mid or notes.chart, only load encore format
       -- * otherwise, load fof format
     _ -> if map toLower (takeExtension fin) == ".sng"
       then do

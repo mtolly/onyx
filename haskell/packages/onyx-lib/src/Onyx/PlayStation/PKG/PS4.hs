@@ -14,22 +14,27 @@ module Onyx.PlayStation.PKG.PS4 where
 import           Control.Monad
 import           Control.Monad.Codec
 import           Crypto.Cipher.AES        (AES128)
-import           Crypto.Cipher.Types      (cbcDecrypt, cipherInit, makeIV)
+import           Crypto.Cipher.Types      (cbcDecrypt, cipherInit, makeIV,
+                                           xtsDecrypt)
 import           Crypto.Error
 import           Crypto.Hash
+import           Crypto.MAC.HMAC          (HMAC, hmac, hmacGetDigest)
 import           Crypto.PubKey.RSA.PKCS15 (decrypt)
 import           Crypto.PubKey.RSA.Types  (PrivateKey (..), PublicKey (..))
 import           Data.Binary.Get
-import           Data.Binary.Put          (putWord32be, runPut)
+import           Data.Binary.Put          (putByteString, putWord32be,
+                                           putWord32le, putWord64le, runPut)
 import           Data.Bits                ((.&.))
 import           Data.ByteArray           (convert)
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Lazy     as BL
 import           Data.Foldable            (toList)
 import           Data.Int
+import           Data.IORef
 import           Data.Word
 import           Onyx.Rocksmith.Sng2014   (nullTerm)
 import           Onyx.Util.Binary         (runGetM)
+import           Onyx.Util.Handle
 import           Onyx.Xbox.STFS           (bytesToInteger)
 import           System.IO
 
@@ -257,7 +262,7 @@ data PfsHeader = PfsHeader
 
 type PfsMode = Word16
 
-data Inode a = Inode
+data Inode = Inode
   { mode           :: InodeMode
   , nlink          :: Word16
   , flags          :: InodeFlags
@@ -275,20 +280,13 @@ data Inode a = Inode
   , gid            :: Word32
   , unk1           :: Word64
   , unk2           :: Word64
-  , blocks         :: a
-  , db             :: [BlockSig a] -- count 12
-  , ib             :: [BlockSig a] -- count 5
   } deriving (Show)
 
 type InodeMode = Word16
 type InodeFlags = Word32
 
-type DinodeS64 = Inode Int64
-type DinodeS32 = Inode Int32
-type DinodeD32 = Inode Word32
-
-readInode :: Get a -> Get (Inode a)
-readInode getBlockType = do
+readInode :: Get Inode
+readInode = do
   mode           <- getWord16le
   nlink          <- getWord16le
   flags          <- getWord32le
@@ -306,9 +304,6 @@ readInode getBlockType = do
   gid            <- getWord32le
   unk1           <- getWord64le
   unk2           <- getWord64le
-  blocks         <- getBlockType
-  db             <- replicateM 12 $ readBlockSig getBlockType
-  ib             <- replicateM 5 $ readBlockSig getBlockType
   return Inode{..}
 
 data BlockSig a = BlockSig
@@ -321,6 +316,51 @@ readBlockSig getBlockType = do
   sig <- getByteString 32
   block <- getBlockType
   return BlockSig{..}
+
+data DinodeS64 = DinodeS64
+  { inode  :: Inode
+  , blocks :: Int64
+  , db     :: [BlockSig Int64] -- count 12
+  , ib     :: [BlockSig Int64] -- count 5
+  } deriving (Show)
+
+data DinodeS32 = DinodeS32
+  { inode  :: Inode
+  , blocks :: Word32
+  , db     :: [BlockSig Int32] -- count 12
+  , ib     :: [BlockSig Int32] -- count 5
+  } deriving (Show)
+
+data DinodeD32 = DinodeD32
+  { inode  :: Inode
+  , blocks :: Word32
+  , db     :: [Int32] -- count 12
+  , ib     :: [Int32] -- count 5
+  } deriving (Show)
+
+readDinodeS64 :: Get DinodeS64
+readDinodeS64 = do
+  inode <- readInode
+  blocks <- getInt64le
+  db <- replicateM 12 $ readBlockSig getInt64le
+  ib <- replicateM 5 $ readBlockSig getInt64le
+  return DinodeS64{..}
+
+readDinodeS32 :: Get DinodeS32
+readDinodeS32 = do
+  inode <- readInode
+  blocks <- getWord32le
+  db <- replicateM 12 $ readBlockSig getInt32le
+  ib <- replicateM 5 $ readBlockSig getInt32le
+  return DinodeS32{..}
+
+readDinodeD32 :: Get DinodeD32
+readDinodeD32 = do
+  inode <- readInode
+  blocks <- getWord32le
+  db <- replicateM 12 getInt32le
+  ib <- replicateM 5 getInt32le
+  return DinodeD32{..}
 
 readPfsHeader :: Get PfsHeader
 readPfsHeader = do
@@ -341,7 +381,7 @@ readPfsHeader = do
   ndblock          <- getInt64le
   dinodeBlockCount <- getInt64le
   skip 8 -- skip a 64-bit zero
-  inodeBlockSig    <- readInode getInt64le
+  inodeBlockSig    <- readDinodeS64
   when (version /= 1 || magic /= 20130315) $ fail "Invalid PFS superblock version or magic"
   current          <- bytesRead
   skip $ fromIntegral $ (start + 0x370) - current
@@ -358,17 +398,38 @@ data PfsDecrypt
   = EKPFS B.ByteString
   | TweakData B.ByteString B.ByteString
 
-readPfs :: Handle -> PKG -> IO Pfs
-readPfs h pkg = do
-  hSeek h AbsoluteSeek $ fromIntegral pkg.header0x400.pfs_image_offset
-  header <- BL.hGet h 0x400 >>= runGetM readPfsHeader
+readPfs :: Readable -> PKG -> IO Pfs
+readPfs orig pkg = do
 
-  let flagSigned    = (header.mode .&. 1) == 1
-      flagEncrypted = (header.mode .&. 4) == 4
+  let offset = subHandle (<> " | pfs image") (fromIntegral pkg.header0x400.pfs_image_offset) Nothing orig
 
-  -- TODO
-  let dinodes = Left []
-  return Pfs{..}
+  (header, reader, flagSigned) <- useHandle offset $ \h -> do
+    header <- BL.hGet h 0x400 >>= runGetM readPfsHeader
+    let flagSigned    = (header.mode .&. 1) == 1
+        flagEncrypted = (header.mode .&. 4) == 4
+        newCrypt = pkg.header0x400.pfs_flags .&. 0x2000000000000000 /= 0
+    reader <- if flagEncrypted
+      then do
+        let xtsSectorSize = 0x1000
+            xtsStartSector = quot header.blockSize xtsSectorSize
+        ekpfs <- getEkpfs pkg
+        let (tweakKey, dataKey) = pfsGenEncKey ekpfs header.seed newCrypt
+        return $ xtsReadable (dataKey, tweakKey) (fromIntegral xtsStartSector) (fromIntegral xtsSectorSize) offset
+      else return offset
+    return (header, reader, flagSigned)
+
+  useHandle reader $ \h -> do
+    let readDinodes dinodeReader dinodeSize = do
+          let maxPerSector = toInteger $ quot header.blockSize dinodeSize
+          fmap concat $ forM [0 .. fromIntegral header.dinodeBlockCount - 1] $ \i -> do
+            let dinodesInThisBlock = max maxPerSector $ toInteger header.dinodeCount - i * toInteger maxPerSector
+            hSeek h AbsoluteSeek $ fromIntegral $ toInteger header.blockSize * (1 + i)
+            bs <- BL.hGet h $ fromIntegral header.blockSize
+            runGetM (replicateM (fromIntegral dinodesInThisBlock) dinodeReader) bs
+    dinodes <- if flagSigned
+      then Left <$> readDinodes readDinodeS32 0x2C8
+      else Right <$> readDinodes readDinodeD32 0xA8
+    return Pfs{..}
 
 -- Decrypts the EKPFS for a fake PKG. Will not work on non-fake PKGs.
 getEkpfs :: (MonadFail m) => PKG -> m B.ByteString
@@ -413,7 +474,66 @@ getEkpfs pkg = do
     Right x -> return x
 
 pfsGenEncKey :: B.ByteString -> B.ByteString -> Bool -> (B.ByteString, B.ByteString)
-pfsGenEncKey = undefined
+pfsGenEncKey ekpfs seed newCrypt = let
+  encKey = pfsGenCryptoKey (if newCrypt then newHMAC else ekpfs) seed 1
+  newHMAC = convert $ hmacGetDigest (hmac ekpfs seed :: HMAC SHA256)
+  tweakKey = B.take 16 encKey
+  dataKey = B.take 16 $ B.drop 16 encKey
+  in (tweakKey, dataKey)
+
+pfsGenCryptoKey :: B.ByteString -> B.ByteString -> Word32 -> B.ByteString
+pfsGenCryptoKey ekpfs seed index = let
+  d = BL.toStrict $ runPut $ do
+    putWord32le index
+    putByteString seed
+  in convert $ hmacGetDigest (hmac ekpfs d :: HMAC SHA256)
+
+--------------------------------------------------------------------------------
+
+xtsReadable :: (B.ByteString, B.ByteString) -> Integer -> Integer -> Readable -> Readable
+xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS decryption" $ do
+  dataCipher <- case cipherInit dataKey of
+    CryptoPassed cipher -> return (cipher :: AES128)
+    CryptoFailed e      -> fail $ "Couldn't set up data cipher for XTS: " <> show e
+  tweakCipher <- case cipherInit tweakKey of
+    CryptoPassed cipher -> return (cipher :: AES128)
+    CryptoFailed e      -> fail $ "Couldn't set up tweak cipher for XTS: " <> show e
+  let ciphers = (dataCipher, tweakCipher)
+  h <- rOpen r
+  len <- hFileSize h
+  posn <- newIORef 0
+  decodedSector <- newIORef Nothing
+  let getSector :: Integer -> IO B.ByteString
+      getSector n = readIORef decodedSector >>= \case
+        Just (n', sector) | n == n' -> return sector
+        _ -> do
+          -- IV is little endian sector number! ivAdd would be big endian
+          let ivBytes = BL.toStrict $ runPut $ do
+                putWord64le $ fromIntegral n
+                putWord64le 0
+          iv <- maybe (fail $ "Couldn't make IV for XTS") return $ makeIV ivBytes
+          hSeek h AbsoluteSeek $ fromIntegral $ n * xtsSectorSize
+          bs <- B.hGet h $ fromIntegral xtsSectorSize
+          let sector = if n < xtsStartSector
+                then bs
+                else xtsDecrypt ciphers iv 0 bs
+          writeIORef decodedSector $ Just (n, sector)
+          return sector
+  return SimpleHandle
+    { shSize = len
+    , shSeek = writeIORef posn
+    , shTell = readIORef posn
+    , shClose = hClose h
+    , shRead = \n -> do
+      p <- readIORef posn
+      writeIORef posn $ p + n
+      let (firstSector, firstPosn) = quotRem p xtsSectorSize
+          (lastSector, lastPosn) = quotRem (p + n) xtsSectorSize
+      sectors <- mapM getSector $ case lastPosn of
+        0 -> [firstSector .. lastSector - 1]
+        _ -> [firstSector .. lastSector]
+      return $ BL.toStrict $ BL.take (fromIntegral n) $ BL.drop (fromIntegral firstPosn) $ BL.fromChunks sectors
+    }
 
 --------------------------------------------------------------------------------
 

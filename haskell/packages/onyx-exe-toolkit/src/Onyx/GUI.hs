@@ -4030,7 +4030,7 @@ launchPreferences sink makeMenuBar = do
             void $ FL.setValue sliderQuality $ prefOGGQuality loadedPrefs * 10
             return $ (\v prefs -> prefs { prefOGGQuality = v / 10 }) <$> FL.getValue sliderQuality
           , do
-            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Treat encrypted MOGGs as silent instead of an error"
+            check <- lineBox $ \box -> FL.checkButtonNew box $ Just "Treat undecryptable MOGGs as silent instead of an error"
             void $ FL.setValue check $ prefDecryptSilent loadedPrefs
             return $ (\b prefs -> prefs { prefDecryptSilent = b }) <$> FL.getValue check
           ]
