@@ -1,63 +1,74 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.GuitarHero5 (gh5Rules) where
 
-import           Control.Monad.Extra             (allM)
+import           Control.Monad.Extra               (allM)
 import           Control.Monad.IO.Class
+import           Control.Monad.Random.Strict       (evalRand, mkStdGen)
 import           Control.Monad.Trans.Resource
-import           Data.Binary.Put                 (runPut)
-import qualified Data.ByteString                 as B
-import qualified Data.ByteString.Char8           as B8
-import qualified Data.ByteString.Lazy            as BL
-import           Data.Char                       (toUpper)
+import           Data.Binary.Put                   (runPut)
+import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Char8             as B8
+import qualified Data.ByteString.Lazy              as BL
+import           Data.Char                         (toUpper)
 import           Data.Conduit.Audio
-import qualified Data.Conduit.Audio.LAME.Binding as L
+import qualified Data.Conduit.Audio.LAME.Binding   as L
 import           Data.Conduit.Audio.SampleRate
-import           Data.Foldable                   (toList)
-import           Data.Hashable                   (Hashable, hash)
-import qualified Data.HashMap.Strict             as HM
-import           Data.Maybe                      (fromMaybe)
-import qualified Data.Text                       as T
-import           Development.Shake               hiding (phony, (%>))
+import           Data.Foldable                     (toList)
+import           Data.Hashable                     (Hashable, hash)
+import qualified Data.HashMap.Strict               as HM
+import qualified Data.Map                          as Map
+import           Data.Maybe                        (fromMaybe)
+import qualified Data.Text                         as T
+import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
-import           Onyx.Audio.FSB                  (emitFSB, ghBandMP3sToFSB4)
-import           Onyx.Audio.Render               (computeDrumsPart)
+import           Onyx.Audio.FSB                    (emitFSB, ghBandMP3sToFSB4)
+import           Onyx.Audio.Render                 (computeDrumsPart)
+import           Onyx.Background                   (VenueTarget (VenueTargetRB3),
+                                                    getVenue)
 import           Onyx.Build.Common
-import           Onyx.Build.GuitarHero5.Logic    (makeGHWoRNote,
-                                                  packageNameHash,
-                                                  packageNameHashFormat,
-                                                  worFileBarePak,
-                                                  worFileManifest,
-                                                  worFilePS3EmptyVRAMPak,
-                                                  worFilePS3SongVRAMPak,
-                                                  worFileTextPak)
+import           Onyx.Build.GuitarHero5.Logic      (makeGHWoRNote,
+                                                    packageNameHash,
+                                                    packageNameHashFormat,
+                                                    worFileBarePak,
+                                                    worFileManifest,
+                                                    worFilePS3EmptyVRAMPak,
+                                                    worFilePS3SongVRAMPak,
+                                                    worFileTextPak)
 import           Onyx.Difficulty
 import           Onyx.Genre
-import qualified Onyx.MIDI.Track.File            as F
-import           Onyx.Neversoft.CRC              (putQBKeyBE, qbKeyCRC, qsKey)
-import           Onyx.Neversoft.Crypt            (ghworEncrypt)
-import           Onyx.Neversoft.GH4.Metadata     (makeVocalsCents)
-import           Onyx.Neversoft.GH5.Note         (makeWoRNoteFile, putNote)
-import           Onyx.Neversoft.Pak              (Node (..), buildPak, makeQS,
-                                                  parseQS, worMetadataString)
-import           Onyx.Neversoft.QB               (QBArray (..), QBSection (..),
-                                                  QBStructItem (..), putQB)
-import           Onyx.PlayStation.NPData         (ghworCustomMidEdatConfig,
-                                                  npdContentID, packNPData)
-import           Onyx.PlayStation.PKG            (makePKG)
-import           Onyx.Project                    hiding (Difficulty)
-import           Onyx.Resources                  (getResourcesPath,
-                                                  ghWoRSamplePerf,
-                                                  ghWoRThumbnail)
+import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
+import           Onyx.MIDI.Common                  (RB3Instrument (..),
+                                                    pattern RNil, pattern Wait)
+import           Onyx.MIDI.Track.Events            (EventsTrack (..))
+import qualified Onyx.MIDI.Track.File              as F
+import           Onyx.MIDI.Track.Venue             (venueCameraRB3)
+import           Onyx.Neversoft.CRC                (qbKeyCRC, qsKey)
+import           Onyx.Neversoft.Crypt              (ghworEncrypt)
+import           Onyx.Neversoft.GH4.Metadata       (makeVocalsCents)
+import           Onyx.Neversoft.GH5.Note           (makeWoRNoteFile, putNote)
+import           Onyx.Neversoft.GH5.Perf
+import           Onyx.Neversoft.Pak                (Node (..), buildPak, makeQS,
+                                                    parseQS, worMetadataString)
+import           Onyx.Neversoft.QB                 (QBArray (..),
+                                                    QBSection (..),
+                                                    QBStructItem (..), putQB)
+import           Onyx.PlayStation.NPData           (ghworCustomMidEdatConfig,
+                                                    npdContentID, packNPData)
+import           Onyx.PlayStation.PKG              (makePKG)
+import           Onyx.Project                      hiding (Difficulty)
+import           Onyx.Resources                    (getResourcesPath,
+                                                    ghWoRThumbnail)
 import           Onyx.StackTrace
-import           Onyx.Util.Handle                (Folder (..), fileReadable)
-import           Onyx.Xbox.STFS                  (CreateOptions (..),
-                                                  LicenseEntry (..),
-                                                  makeCONReadable)
-import qualified Sound.MIDI.Util                 as U
+import           Onyx.Util.Handle                  (Folder (..), fileReadable)
+import           Onyx.Xbox.STFS                    (CreateOptions (..),
+                                                    LicenseEntry (..),
+                                                    makeCONReadable)
+import qualified Sound.MIDI.Util                   as U
 
 hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 f -> Int
 hashGH5 songYaml gh5 = let
@@ -132,7 +143,7 @@ gh5Rules buildInfo dir gh5 = do
         qb =
           [ QBSectionArray "gh6_dlc_songlist" textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
-          , QBSectionStruct 4087958085 textQBFilenameKey
+          , QBSectionStruct "gh6_dlc_songlist_props" textQBFilenameKey
             [ QBStructHeader
             , QBStructItemStruct songKeyQB $
               [ QBStructHeader
@@ -148,7 +159,10 @@ gh5Rules buildInfo dir gh5 = do
               -- TODO can we omit year, or pick a better default than 1960
               , QBStructItemInteger "year" $ fromIntegral $ getYear metadata
               , QBStructItemQbKeyStringQs "album_title" $ fst albumQS
-              , QBStructItemQbKey "singer" "female" -- TODO change if male
+              , QBStructItemQbKey "singer" $ case getPart gh5.vocal songYaml >>= (.vocal) >>= (.gender) of
+                Nothing     -> "male" -- can we just omit?
+                Just Male   -> "male"
+                Just Female -> "female"
               , QBStructItemQbKey "genre" $ qbWoRGenre genre
               , QBStructItemInteger "leaderboard" 0 -- does setting this to 0 work?
               , QBStructItemInteger "duration"
@@ -167,11 +181,11 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemInteger "thin_fretbar_8note_params_high_bpm" 150
               , QBStructItemInteger "thin_fretbar_16note_params_low_bpm" 1
               , QBStructItemInteger "thin_fretbar_16note_params_high_bpm" 120
-              , QBStructItemInteger 437674840 $ fromIntegral $ gh5GuitarTier difficulties
-              , QBStructItemInteger 3733500155 $ fromIntegral $ gh5BassTier difficulties
-              , QBStructItemInteger 945984381 $ fromIntegral $ gh5VocalsTier difficulties
-              , QBStructItemInteger 178662704 $ fromIntegral $ gh5DrumsTier difficulties
-              , QBStructItemInteger 3512970546 10 -- what is this?
+              , QBStructItemInteger "guitar_difficulty_rating" $ fromIntegral $ gh5GuitarTier difficulties
+              , QBStructItemInteger "bass_difficulty_rating" $ fromIntegral $ gh5BassTier difficulties
+              , QBStructItemInteger "vocals_difficulty_rating" $ fromIntegral $ gh5VocalsTier difficulties
+              , QBStructItemInteger "drums_difficulty_rating" $ fromIntegral $ gh5DrumsTier difficulties
+              , QBStructItemInteger "band_difficulty_rating" 10 -- doesn't seem to be used anywhere, but we could fill in
               -- maybe we could figure out the options for these and match them to the RB kit options?
               , QBStructItemString "snare" "ModernRock"
               , QBStructItemString "kick" "ModernRock"
@@ -181,7 +195,7 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemString "cymbal" "ModernRock"
               , QBStructItemString "drum_kit" "ModernRock"
               , QBStructItemString "countoff" "Sticks_Normal"
-              , QBStructItemFloat 1179677752 0 -- dunno
+              , QBStructItemFloat "overall_song_volume" 0
               ] <> toList (makeVocalsCents $ getTuningCents plan)
             ]
           ]
@@ -196,9 +210,28 @@ gh5Rules buildInfo dir gh5 = do
     qsIDs <- case parseQS qsSections of
       Just pairs -> return $ map fst pairs
       Nothing    -> fatal "Couldn't reparse practice sections .qs file"
-    perf <- stackIO $ ghWoRSamplePerf >>= BL.readFile
-    let perf' = BL.take 4 perf <> runPut (putQBKeyBE songKeyQB) <> BL.drop 8 perf
-        qb =
+
+    mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
+      Wait dt _ _ -> return dt
+      RNil        -> fatal "panic! no [end] in processed midi"
+
+    let tmap = F.s_tempos mid
+        rbCamera = venueCameraRB3 $ flip evalRand (mkStdGen hashed) $ getVenue
+          VenueTargetRB3
+          partMap
+          tmap
+          endTime
+          mid
+        partMap = Map.fromList $ concat
+          -- TODO filter based on charted instruments
+          [ [(Guitar, gh5.guitar)]
+          , [(Bass  , gh5.bass  )]
+          , [(Drums , gh5.drums )]
+          , [(Vocal , gh5.vocal )]
+          ]
+
+    let qb =
           [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
           , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloatRaw []
           , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
@@ -207,7 +240,7 @@ gh5Rules buildInfo dir gh5 = do
           , QBSectionArray 1487281764 songQBFilenameKey $ QBArrayOfStruct
             [ [ QBStructHeader
               , QBStructItemInteger "time" 0
-              , QBStructItemQbKey "scr" 1861295691
+              , QBStructItemQbKey "scr" "LightShow_SetTime"
               , QBStructItemStruct "params"
                 [ QBStructHeader
                 , QBStructItemInteger "time" 3
@@ -241,13 +274,13 @@ gh5Rules buildInfo dir gh5 = do
             )
           , ( Node {nodeFileType = ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             -- nodeFilenameKey and nodeFilenameCRC here are same across songs
-            , putQB [QBSectionInteger 2519306321 4208822249 5377]
+            , putQB [QBSectionInteger "g_song_changelist" 4208822249 5377]
             )
           , ( Node {nodeFileType = ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
             )
           , ( Node {nodeFileType = ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , perf'
+            , makePerf $ rbCameraToPerf songKeyQB tmap rbCamera endTime
             )
           , ( Node {nodeFileType = ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , BL.replicate 4 0xAB

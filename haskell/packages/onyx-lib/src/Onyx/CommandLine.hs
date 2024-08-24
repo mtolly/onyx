@@ -399,7 +399,9 @@ buildTarget yamlPath fout opts = do
         GH2   {} -> targetFolder </> "gh2.zip"
         GH1   {} -> undefined -- TODO
         GH3   {} -> undefined -- TODO
-        GH5   {} -> undefined -- TODO
+        GH5   {} -> case map toLower $ takeExtension fout of
+          ".pkg" -> targetFolder </> "ps3.pkg"
+          _      -> targetFolder </> "ghworlive"
         RS    {} -> targetFolder </> "cst"
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
