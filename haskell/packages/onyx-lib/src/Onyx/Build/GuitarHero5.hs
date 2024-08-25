@@ -69,6 +69,7 @@ import           Onyx.Xbox.STFS                    (CreateOptions (..),
                                                     LicenseEntry (..),
                                                     makeCONReadable)
 import qualified Sound.MIDI.Util                   as U
+import           Text.Read                         (readMaybe)
 
 hashGH5 :: (Hashable f) => SongYaml f -> TargetGH5 f -> Int
 hashGH5 songYaml gh5 = let
@@ -204,7 +205,7 @@ gh5Rules buildInfo dir gh5 = do
       (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
 
   dir </> "song.pak.xen" %> \out -> do
-    shk $ need [dir </> "ghwor.note", dir </> "ghwor.qs"]
+    shk $ need [dir </> "ghwor.note", dir </> "ghwor.qs", dir </> "drum-anims.txt"]
     note <- stackIO $ BL.readFile $ dir </> "ghwor.note"
     qsSections <- stackIO $ BL.readFile $ dir </> "ghwor.qs"
     qsIDs <- case parseQS qsSections of
@@ -231,13 +232,18 @@ gh5Rules buildInfo dir gh5 = do
           , [(Vocal , gh5.vocal )]
           ]
 
-    let qb =
-          [ QBSectionArray 1441618440 songQBFilenameKey $ QBArrayOfInteger []
-          , QBSectionArray 2961626425 songQBFilenameKey $ QBArrayOfFloatRaw []
-          , QBSectionArray 3180084209 songQBFilenameKey $ QBArrayOfInteger []
-          , QBSectionArray 3250951858 songQBFilenameKey $ QBArrayOfFloatRaw []
-          , QBSectionArray 2096871117 songQBFilenameKey $ QBArrayOfInteger []
-          , QBSectionArray 1487281764 songQBFilenameKey $ QBArrayOfStruct
+    drumAnims <- stackIO (B.readFile $ dir </> "drum-anims.txt") >>= \bs -> case readMaybe $ B8.unpack bs of
+      Nothing -> fatal "panic! couldn't read back drums_notes WoR array"
+      Just ns -> return ns
+
+    let songKeyAnd s = qbKeyCRC $ B8.pack songKey <> s
+        qb =
+          [ QBSectionArray (songKeyAnd "_anim_notes") songQBFilenameKey $ QBArrayOfInteger []
+          , QBSectionArray (songKeyAnd "_anim") songQBFilenameKey $ QBArrayOfFloatRaw []
+          , QBSectionArray (songKeyAnd "_drums_notes") songQBFilenameKey $ QBArrayOfInteger drumAnims
+          , QBSectionArray (songKeyAnd "_crowd") songQBFilenameKey $ QBArrayOfFloatRaw []
+          , QBSectionArray (songKeyAnd "_lightshow_notes") songQBFilenameKey $ QBArrayOfInteger []
+          , QBSectionArray (songKeyAnd "_lightshow") songQBFilenameKey $ QBArrayOfStruct
             [ [ QBStructHeader
               , QBStructItemInteger "time" 0
               , QBStructItemQbKey "scr" "LightShow_SetTime"
@@ -247,8 +253,8 @@ gh5Rules buildInfo dir gh5 = do
                 ]
               ]
             ]
-          , QBSectionArray 926843683 songQBFilenameKey $ QBArrayOfStruct []
-          , QBSectionArray 183728976 songQBFilenameKey $ QBArrayOfQbKeyStringQs qsIDs
+          , QBSectionArray (songKeyAnd "_facial") songQBFilenameKey $ QBArrayOfStruct []
+          , QBSectionArray (songKeyAnd "_localized_strings") songQBFilenameKey $ QBArrayOfQbKeyStringQs qsIDs
           ]
         nodes =
           [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
@@ -280,6 +286,16 @@ gh5Rules buildInfo dir gh5 = do
             , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
             )
           , ( Node {nodeFileType = ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
+            -- , makePerf Perf
+            --   { perfDLCKey = songKeyQB
+            --   , perfUnknown1 = 0
+            --   , perfUnknown2 = 0
+            --   , perfUnknown3 = 0
+            --   , perfEntries =
+            --     [ ("autocutcameras", PerfGH5CameraNote [CameraNote 0 0xFFFF 25]) -- drum cam test
+            --     , ("momentcameras" , PerfGH5CameraNote [])
+            --     ]
+            --   }
             , makePerf $ rbCameraToPerf songKeyQB tmap rbCamera endTime
             )
           , ( Node {nodeFileType = ".last", nodeOffset = 10, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = "chunk.last", nodeFilenameCRC = "chunk", nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
@@ -288,14 +304,15 @@ gh5Rules buildInfo dir gh5 = do
           ]
     stackIO $ BL.writeFile out $ buildPak nodes
 
-  (dir </> "ghwor.note", dir </> "ghwor.qs") %> \(outNote, outQS) -> do
+  (dir </> "ghwor.note", dir </> "ghwor.qs", dir </> "drum-anims.txt") %> \(outNote, outQS, outDrumAnims) -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    (note, qs) <- makeGHWoRNote songYaml gh5
+    (note, qs, drumAnims) <- makeGHWoRNote songYaml gh5
       (applyTargetMIDI gh5.common mid)
       $ getAudioLength buildInfo planName plan
     stackIO $ BL.writeFile outNote $ runPut $
       putNote songKeyQB $ makeWoRNoteFile note
     stackIO $ BL.writeFile outQS $ makeQS $ HM.toList qs
+    stackIO $ writeFile outDrumAnims $ show drumAnims
 
   dir </> "preview.wav" %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "events.mid"

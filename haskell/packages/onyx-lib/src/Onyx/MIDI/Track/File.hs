@@ -26,6 +26,7 @@ import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
 import           Data.List.Extra                   (nubOrd, nubSort, partition,
                                                     sortOn)
+import           Data.List.HT                      (partitionMaybe)
 import           Data.List.NonEmpty                (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
@@ -280,6 +281,7 @@ data OnyxFile t = OnyxFile
   , onyxCameraBK :: CameraTrack t
   , onyxCameraGK :: CameraTrack t
   , onyxSamples  :: Map.Map T.Text (SamplesTrack t)
+  , onyxRaw      :: Map.Map T.Text (RTB.T t (E.T T.Text))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxFile t)
 
@@ -289,7 +291,7 @@ instance HasEvents OnyxFile where
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d e f g h i j)
+    (OnyxFile a b c d e f g h i j k)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
       <*> traverseTrack fn b <*> traverseTrack fn c
@@ -299,6 +301,7 @@ instance TraverseTrack OnyxFile where
       <*> traverseTrack fn h
       <*> traverseTrack fn i
       <*> traverse (traverseTrack fn) j
+      <*> traverse fn k
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -478,6 +481,18 @@ instance ParseFile OnyxFile where
       , codecOut = fmapArg $ \m -> forM_ (Map.toAscList m) $ \(audioName, trk) -> let
         name = "AUDIO " <> audioName
         in codecOut (fileId $ fileTrack $ pure name) trk
+      }
+    onyxRaw  <- onyxRaw =. Codec
+      { codecIn = do
+        trks <- lift get
+        let (yes, no) = flip partitionMaybe trks $ \trk -> case U.trackName trk of
+              Just (T.stripPrefix "RAW " -> Just name) -> Just (name, stripTrack trk)
+              _                                        -> Nothing
+        lift $ put no
+        return $ Map.fromList yes
+      , codecOut = fmapArg $ \m -> tell
+        $ map (\(name, trk) -> U.setTrackName ("RAW " <> name) trk)
+        $ Map.toList m
       }
     return OnyxFile{..}
 
@@ -807,6 +822,7 @@ instance ChopTrack OnyxFile where
     , onyxCameraBK = chopTake t $ onyxCameraBK o
     , onyxCameraGK = chopTake t $ onyxCameraGK o
     , onyxSamples  = chopTake t <$> onyxSamples o
+    , onyxRaw      = U.trackTake t <$> onyxRaw o
     }
   chopDrop t o = OnyxFile
     { onyxParts    = chopDrop t <$> onyxParts o
@@ -819,6 +835,7 @@ instance ChopTrack OnyxFile where
     , onyxCameraBK = chopDrop t $ onyxCameraBK o
     , onyxCameraGK = chopDrop t $ onyxCameraGK o
     , onyxSamples  = chopDrop t <$> onyxSamples o
+    , onyxRaw      = U.trackDrop t <$> onyxRaw o
     }
 
 instance ChopTrack OnyxPart where
@@ -983,6 +1000,7 @@ fixedToOnyx f = OnyxFile
   , onyxCameraBK = mempty
   , onyxCameraGK = mempty
   , onyxSamples  = mempty
+  , onyxRaw      = mempty
   }
 
 songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats

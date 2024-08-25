@@ -234,7 +234,7 @@ makeGHWoRNote
   -> TargetGH5 f
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds -- ^ get longest audio length
-  -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text)
+  -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text, [Word32])
 makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   secondsToMS :: U.Seconds -> Word32
   secondsToMS = floor . (* 1000)
@@ -292,16 +292,14 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gb_tapping = makeStarPower taps
       , gb_starpower = makeStarPower $ Five.fiveOverdrive result.other
       }
-  makeDrums fpart diff = case getPart fpart songYaml >>= anyDrums of
-    Just builder -> let
-      opart = fromMaybe mempty $ Map.lookup fpart $ F.onyxParts ofile
-      result = builder
-        DrumTargetGH
-        ModeInput
-          { tempo  = tmap
-          , events = F.getEventsTrack ofile
-          , part   = opart
-          }
+  drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) $ \builder ->
+    builder DrumTargetGH ModeInput
+      { tempo  = tmap
+      , events = F.getEventsTrack ofile
+      , part   = fromMaybe mempty $ Map.lookup target.drums $ F.onyxParts ofile
+      }
+  makeDrums diff = case drumResult of
+    Just result -> let
       trk = drumResultToTrack result
       dd = fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties trk
       add2x xs = case diff of
@@ -370,7 +368,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       in Drums
         { drums_instrument = case diff of
           Expert -> Right withGhost
-          _      -> Left $ map xdNote withGhost
+          _      -> Left $ map (.xdNote) withGhost
         , drums_starpower = makeStarPower $ D.drumOverdrive trk
         , drums_drumfill = flip map fills $ \(gapStart, gapEnd) ->
           Single (secondsToMS gapStart) (secondsToMS gapEnd)
@@ -460,6 +458,9 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           $ ATB.toPairList
           $ RTB.toAbsoluteEventList 0 sections'
         sectionBank = HM.fromList $ RTB.getBodies sections'
+        drumAnims = case drumResult of
+          Nothing -> []
+          Just dr -> makeDrumAnimations tmap dr.animations
     return (GHNoteFile
       { gh_guitareasy            = makeGB resultGuitar Easy
       , gh_guitarmedium          = makeGB resultGuitar Medium
@@ -471,10 +472,10 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gh_basshard              = makeGB resultBass Hard
       , gh_bassexpert            = makeGB resultBass Expert
 
-      , gh_drumseasy             = makeDrums target.drums Easy
-      , gh_drumsmedium           = makeDrums target.drums Medium
-      , gh_drumshard             = makeDrums target.drums Hard
-      , gh_drumsexpert           = makeDrums target.drums Expert
+      , gh_drumseasy             = makeDrums Easy
+      , gh_drumsmedium           = makeDrums Medium
+      , gh_drumshard             = makeDrums Hard
+      , gh_drumsexpert           = makeDrums Expert
 
       , gh_vocals                = voxNotes
       , gh_vocallyrics           = voxLyrics
@@ -496,7 +497,35 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gh_vocalmarkers          = voxMarkers
       , gh_backup_vocalmarkers   = Nothing
 
-      }, sectionBank)
+      }, sectionBank, drumAnims)
+
+-- very basic, no velocity, no hihat control
+makeDrumAnimations :: U.TempoMap -> RTB.T U.Beats D.Animation -> [Word32]
+makeDrumAnimations tmap anims = do
+  (secs, anim) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap anims
+  pitch <- case anim of
+    D.Tom1     D.LH   -> [4]
+    D.Tom1     D.RH   -> [34]
+    D.Tom2     D.LH   -> [3]
+    D.Tom2     D.RH   -> [33]
+    D.FloorTom D.LH   -> [2]
+    D.FloorTom D.RH   -> [32]
+    D.Hihat    D.LH   -> [11]
+    D.Hihat    D.RH   -> [41]
+    D.Snare  _ D.LH   -> [5]
+    D.Snare  _ D.RH   -> [35]
+    D.Ride     D.LH   -> [12]
+    D.Ride     D.RH   -> [42]
+    D.Crash1 _ D.LH   -> [17]
+    D.Crash1 _ D.RH   -> [47]
+    D.Crash2 _ D.LH   -> [18]
+    D.Crash2 _ D.RH   -> [48]
+    D.KickRF          -> [30]
+    D.Crash1RHChokeLH -> [47]
+    D.Crash2RHChokeLH -> [48]
+    D.PercussionRH    -> [33]
+    _                 -> []
+  [round $ secs * 1000, 0x77000000 + pitch * 0x10000 + 0x60]
 
 getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [TextPakSongStruct]
 getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input -> do

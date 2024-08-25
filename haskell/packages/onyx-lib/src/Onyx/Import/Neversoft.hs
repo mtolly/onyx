@@ -40,7 +40,8 @@ import           Onyx.Audio.FSB                   (getFSBStreamBytes, parseFSB,
 import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
-import           Onyx.MIDI.Common                 (Difficulty (..))
+import           Onyx.MIDI.Common                 (Difficulty (..),
+                                                   blipEdgesRBNice, makeEdge')
 import           Onyx.MIDI.Track.Drums            (DrumTrack (..))
 import qualified Onyx.MIDI.Track.Drums.Elite      as Elite
 import qualified Onyx.MIDI.Track.File             as F
@@ -64,6 +65,7 @@ import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
+import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -124,13 +126,22 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
         return $ Just $ \level -> do
           when (level == ImportFull) $ do
             lg $ "Importing GH song " <> show (songName info) <> " from: " <> src
-          midiFixed <- case level of
+          (midiFixed, extraTracks) <- case level of
             ImportFull -> do
-              (bank, songPak) <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPak
-              return $ ghToMidi bank songPak
-            ImportQuick -> return emptyChart
+              songPakContents <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPakContents (songName info)
+              return (ghToMidi songPakContents.stringBank songPakContents.noteFile, songPakContents.qbNotes)
+            ImportQuick -> return (emptyChart, [])
           let midiOnyx = midiFixed
-                { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
+                { F.s_tracks = F.fixedToOnyx (F.s_tracks midiFixed) <> midiExtra
+                }
+              midiExtra = mempty
+                { F.onyxRaw = Map.fromList $ do
+                  (name, trk) <- extraTracks
+                  let midiTrack = fmap makeEdge'
+                        $ blipEdgesRBNice
+                        $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
+                        $ U.unapplyTempoTrack (F.s_tempos midiFixed) trk
+                  return (TE.decodeLatin1 name, midiTrack)
                 }
               audioPrefix = if isDisc then "" else "a"
               getAudio getName = case level of
