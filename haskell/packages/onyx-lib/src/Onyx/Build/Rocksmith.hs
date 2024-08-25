@@ -153,7 +153,7 @@ rsRules buildInfo dir rs = do
               tuning0 = case (isBass slot, pg.tuningRSBass) of
                 (True, Just tun) -> tun
                 _                -> pg.tuning
-              tuning1 = map (+ gtrGlobal tuning0)
+              tuning1 = map (+ tuning0.gtrGlobal)
                 $ encodeTuningOffsets tuning0 (if isBass slot then TypeBass else TypeGuitar)
               tuning2 = tuning1 <> repeat (last tuning1) -- so 5-string bass has a consistent dummy top string
               octaveDown = head tuning2 < (if isBass slot then -4 else -7)
@@ -168,7 +168,7 @@ rsRules buildInfo dir rs = do
               then F.onyxPartRSBass   opart
               else F.onyxPartRSGuitar opart
               -- TODO maybe support using bass track for a guitar slot
-            in buildRS (F.s_tempos mid) (gtrCapo tuning0) trk
+            in buildRS (F.s_tempos mid) tuning0.gtrCapo trk
           let allNotes = Arr.lvl_notes $ rso_level rso
           time <- stackIO getZonedTime
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
@@ -197,7 +197,7 @@ rsRules buildInfo dir rs = do
               , Arr.tuning_string4 = fromMaybe 0 $ listToMaybe $ drop 4 tuning3
               , Arr.tuning_string5 = fromMaybe 0 $ listToMaybe $ drop 5 tuning3
               }
-            , Arr.arr_capo                   = gtrCapo tuning0
+            , Arr.arr_capo                   = tuning0.gtrCapo
             , Arr.arr_artistName             = getArtist metadata
             , Arr.arr_artistNameSort         = getArtist metadata -- TODO
             , Arr.arr_albumName              = getAlbum metadata

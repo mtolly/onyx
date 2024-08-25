@@ -320,12 +320,12 @@ processFive tmap result = makeDifficulties $ \diff -> let
   notes = Map.fromList $ do
     color <- Nothing : map Just [minBound .. maxBound]
     return (color, getColor color)
-  solo   = realTrack tmap $ Five.fiveSolo      result.other
-  energy = realTrack tmap $ Five.fiveOverdrive result.other
-  bre    = realTrack tmap $ Five.fiveBRE       result.other
+  solo   = realTrack tmap result.other.fiveSolo
+  energy = realTrack tmap result.other.fiveOverdrive
+  bre    = realTrack tmap result.other.fiveBRE
   ons    = RTB.normalize $ fmap (fst . fst) assigned
-  trems  = findTremolos ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTremolo result.other
-  trills = findTrills ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTrill result.other
+  trems  = findTremolos ons $ RTB.normalize $ laneDifficulty diff result.other.fiveTremolo
+  trills = findTrills   ons $ RTB.normalize $ laneDifficulty diff result.other.fiveTrill
   lanesAll = RTB.merge trems trills
   lanes = Map.fromList $ do
     color <- Nothing : fmap Just [Five.Green .. Five.Orange]
@@ -380,15 +380,15 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
 processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> D.DrumTrack U.Beats -> D.DrumTrack U.Beats -> Difficulties Drums U.Seconds
 processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
   -- TODO if only 2x kicks charted, label difficulty as X+ instead of X
-  has2x = all (not . D.nullDrums) [trk1x, trk2x] || any (not . RTB.null . D.drumKick2x) [trk1x, trk2x]
+  has2x = all (not . D.nullDrums) [trk1x, trk2x] || any (not . RTB.null . (.drumKick2x)) [trk1x, trk2x]
   trk = case (D.nullDrums trk1x, D.nullDrums trk2x, diff) of
     (True , _    , _      ) -> trk2x
     (_    , True , _      ) -> trk1x
     (False, False, Nothing) -> trk2x
     (False, False, Just _ ) -> trk1x
-  drumDiff = Map.lookup (fromMaybe Expert diff) $ D.drumDifficulties trk
-  nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> D.drumKick2x trk else id)
-    $ flip fmap (fmap fst $ maybe RTB.empty D.drumGems drumDiff) $ \case
+  drumDiff = Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
+  nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> trk.drumKick2x else id)
+    $ flip fmap (fmap fst $ maybe RTB.empty (.drumGems) drumDiff) $ \case
       D.Kick            -> D.Kick
       D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow $ if is5 then D.Cymbal else D.Tom
@@ -403,15 +403,15 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     C.DrumsTrue -> fmap (Right . fst) $ D.computePro diff trk -- TODO generate pro if needed
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes
-  solo   = realTrack tmap $ D.drumSolo trk
-  energy = realTrack tmap $ D.drumOverdrive trk
-  fills  = realTrack tmap $ D.drumActivation trk
+  solo   = realTrack tmap trk.drumSolo
+  energy = realTrack tmap trk.drumOverdrive
+  fills  = realTrack tmap trk.drumActivation
   bre    = case U.applyTempoMap tmap <$> coda of
     Nothing -> RTB.empty
     Just c  -> RTB.delay c $ U.trackDrop c fills
   hands  = RTB.filter (`notElem` [Right D.Kick, Left D.HHPedal]) $ RTB.flatten notesB
-  singles = findTremolos hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) $ D.drumSingleRoll trk
-  doubles = findTrills   hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) $ D.drumDoubleRoll trk
+  singles = findTremolos hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) trk.drumSingleRoll
+  doubles = findTrills   hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) trk.drumDoubleRoll
   lanesAll = RTB.merge singles doubles
   lanes = Map.fromList $ do
     gem <- map Right
@@ -424,7 +424,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     return $ (,) gem $ U.applyTempoTrack tmap $ splitEdgesBool $ flip RTB.mapMaybe lanesAll $ \(gem', len) -> do
       guard $ gem == gem'
       return len
-  disco = realTrack tmap $ maybe RTB.empty (fmap ((== D.Disco) . snd) . D.drumMix) drumDiff
+  disco = realTrack tmap $ maybe RTB.empty (fmap ((== D.Disco) . snd) . (.drumMix)) drumDiff
   in do
     guard $ not $ RTB.null notes
     guard $ diff /= Nothing || has2x
@@ -458,7 +458,7 @@ processProKeys tmap trk = let
 
 processProtar :: U.Beats -> PG.GtrTuning -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
 processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
-  thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties pg
+  thisDiff = fromMaybe mempty $ Map.lookup diff pg.pgDifficulties
   assigned = expandColors $ PG.guitarifyFull hopoThreshold thisDiff
   expandColors = splitEdges . RTB.flatten . fmap expandChord
   expandChord (shopo, gems, len) = do
@@ -471,22 +471,22 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
   protarNotes = Map.fromList $ do
     string <- [minBound .. maxBound]
     return (string, getString string)
-  protarSolo = realTrack tmap $ PG.pgSolo pg
-  protarEnergy = realTrack tmap $ PG.pgOverdrive pg
+  protarSolo = realTrack tmap pg.pgSolo
+  protarEnergy = realTrack tmap pg.pgOverdrive
   -- for protar we can treat tremolo/trill identically;
   -- in both cases it's just "get the strings the first note/chord is on"
-  onStrings = RTB.normalize $ flip RTB.mapMaybe (PG.pgNotes thisDiff) $ \case
+  onStrings = RTB.normalize $ flip RTB.mapMaybe thisDiff.pgNotes $ \case
     EdgeOn _ (str, _) -> Just str
     EdgeOff _         -> Nothing
   lanesAll = findTremolos onStrings $ RTB.normalize
-    $ laneDifficulty diff $ RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
+    $ laneDifficulty diff $ RTB.merge pg.pgTremolo pg.pgTrill
   protarLanes = Map.fromList $ do
     str <- [minBound .. maxBound]
     return $ (,) str $ U.applyTempoTrack tmap $ splitEdgesBool $ flip RTB.mapMaybe lanesAll $ \(str', len) -> do
       guard $ str == str'
       return len
-  protarBRE = realTrack tmap $ fmap snd $ PG.pgBRE pg
-  usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= toList . PG.pgNotes >>= map fst . toList
+  protarBRE = realTrack tmap $ fmap snd pg.pgBRE
+  usedStrings = nubOrd $ toList pg.pgDifficulties >>= toList . (.pgNotes) >>= map fst . toList
   pitches = PG.tuningPitches tuning { PG.gtrGlobal = 0 }
   protarStrings
     | not (null $ drop 7 pitches) || elem PG.S8 usedStrings = 8
@@ -496,8 +496,8 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
     | not (null $ drop 3 pitches) || elem PG.S3 usedStrings = 4
     | otherwise                                             = 3
   protarChords = realTrack tmap $ PG.computeChordNames diff pitches defaultFlat pg
-  protarArpeggio = realTrack tmap $ PG.pgArpeggio thisDiff
-  in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just Protar{..}
+  protarArpeggio = realTrack tmap thisDiff.pgArpeggio
+  in guard (not $ RTB.null thisDiff.pgNotes) >> Just Protar{..}
 
 newtype Beats t = Beats
   { beatLines :: RTB.T t Beat

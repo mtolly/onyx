@@ -1,8 +1,9 @@
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Overdrive
 ( HasOverdrive(..)
 , calculateUnisons
@@ -64,16 +65,16 @@ instance HasOverdrive OnyxFile where
   getOverdrive onyx = fmap (foldr RTB.merge RTB.empty) $ do
     forM (Map.toList $ onyxParts onyx) $ \(inst, opart) -> do
       combineOD inst
-        [ ("drums"          , drumOverdrive $ onyxPartDrums        opart)
-        , ("drums (2x)"     , drumOverdrive $ onyxPartDrums2x      opart)
-        , ("drums (PS)"     , drumOverdrive $ onyxPartRealDrumsPS  opart)
-        , ("5-fret (guitar)", fiveOverdrive $ onyxPartGuitar       opart)
-        , ("5-fret (keys)"  , fiveOverdrive $ onyxPartKeys         opart)
-        , ("5-fret (CH gtr)", fiveOverdrive $ onyxPartGuitarExt    opart)
-        , ("6-fret"         , sixOverdrive  $ onyxPartSix          opart)
-        , ("pro guitar"     , pgOverdrive   $ onyxPartRealGuitar   opart)
-        , ("pro guitar (22)", pgOverdrive   $ onyxPartRealGuitar22 opart)
-        , ("pro keys"       , pkOverdrive   $ onyxPartRealKeysX    opart)
+        [ ("drums"          , opart.onyxPartDrums.drumOverdrive      )
+        , ("drums (2x)"     , opart.onyxPartDrums2x.drumOverdrive    )
+        , ("drums (PS)"     , opart.onyxPartRealDrumsPS.drumOverdrive)
+        , ("5-fret (guitar)", opart.onyxPartGuitar.fiveOverdrive     )
+        , ("5-fret (keys)"  , opart.onyxPartKeys.fiveOverdrive       )
+        , ("5-fret (CH gtr)", opart.onyxPartGuitarExt.fiveOverdrive  )
+        , ("6-fret"         , opart.onyxPartSix.sixOverdrive         )
+        , ("pro guitar"     , opart.onyxPartRealGuitar.pgOverdrive   )
+        , ("pro guitar (22)", opart.onyxPartRealGuitar22.pgOverdrive )
+        , ("pro keys"       , opart.onyxPartRealKeysX.pkOverdrive    )
         ]
   putOverdrive onyx od = onyx
     { onyxParts = flip Map.mapWithKey (onyxParts onyx) $ \inst opart -> let
@@ -101,29 +102,29 @@ instance HasOverdrive FixedFile where
   getOverdrive rb3 = do
     foldr RTB.merge RTB.empty <$> sequence
       [ combineOD FlexDrums
-        [ ("PART DRUMS"         , drumOverdrive $ fixedPartDrums        rb3)
+        [ ("PART DRUMS"         , rb3.fixedPartDrums.drumOverdrive     )
         ]
       , combineOD FlexGuitar
-        [ ("PART GUITAR"        , fiveOverdrive $ fixedPartGuitar       rb3)
-        , ("PART GUITAR GHL"    , sixOverdrive  $ fixedPartGuitarGHL    rb3)
-        , ("PART REAL_GUITAR"   , pgOverdrive   $ fixedPartRealGuitar   rb3)
-        , ("PART REAL_GUITAR_22", pgOverdrive   $ fixedPartRealGuitar22 rb3)
+        [ ("PART GUITAR"        , rb3.fixedPartGuitar.fiveOverdrive    )
+        , ("PART GUITAR GHL"    , rb3.fixedPartGuitarGHL.sixOverdrive  )
+        , ("PART REAL_GUITAR"   , rb3.fixedPartRealGuitar.pgOverdrive  )
+        , ("PART REAL_GUITAR_22", rb3.fixedPartRealGuitar22.pgOverdrive)
         ]
       , combineOD FlexBass
-        [ ("PART BASS"          , fiveOverdrive $ fixedPartBass         rb3)
-        , ("PART BASS GHL"      , sixOverdrive  $ fixedPartBassGHL      rb3)
-        , ("PART REAL_BASS"     , pgOverdrive   $ fixedPartRealBass     rb3)
-        , ("PART REAL_BASS_22"  , pgOverdrive   $ fixedPartRealBass22   rb3)
+        [ ("PART BASS"          , rb3.fixedPartBass.fiveOverdrive      )
+        , ("PART BASS GHL"      , rb3.fixedPartBassGHL.sixOverdrive    )
+        , ("PART REAL_BASS"     , rb3.fixedPartRealBass.pgOverdrive    )
+        , ("PART REAL_BASS_22"  , rb3.fixedPartRealBass22.pgOverdrive  )
         ]
       , combineOD FlexKeys
-        [ ("PART KEYS"          , fiveOverdrive $ fixedPartKeys         rb3)
-        , ("PART REAL_KEYS"     , pkOverdrive   $ fixedPartRealKeysX    rb3)
+        [ ("PART KEYS"          , rb3.fixedPartKeys.fiveOverdrive      )
+        , ("PART REAL_KEYS"     , rb3.fixedPartRealKeysX.pkOverdrive   )
         ]
       , combineOD (FlexExtra "rhythm")
-        [ ("PART RHYTHM"        , fiveOverdrive $ fixedPartRhythm       rb3)
+        [ ("PART RHYTHM"        , rb3.fixedPartRhythm.fiveOverdrive    )
         ]
       , combineOD (FlexExtra "guitar-coop")
-        [ ("PART GUITAR COOP"   , fiveOverdrive $ fixedPartGuitarCoop   rb3)
+        [ ("PART GUITAR COOP"   , rb3.fixedPartGuitarCoop.fiveOverdrive)
         ]
       ]
   putOverdrive rb3 od = rb3
@@ -281,17 +282,19 @@ notesFromRB3
   => FixedFile t
   -> [(FlexPartName, [(String, RTB.T t ())])]
 notesFromRB3 FixedFile{..} = let
+  five :: (NNC.C t) => String -> FiveTrack t -> [(String, RTB.T t ())]
   five name part = do
-    (diff, fd) <- Map.toAscList $ fiveDifficulties part
-    return (show diff ++ " " ++ name, voidEdgeOn $ fiveGems fd)
+    (diff, fd) <- Map.toAscList part.fiveDifficulties
+    return (show diff ++ " " ++ name, voidEdgeOn fd.fiveGems)
+  protar :: (NNC.C t) => String -> ProGuitarTrack t -> [(String, RTB.T t ())]
   protar name part = do
-    (diff, pgd) <- Map.toAscList $ pgDifficulties part
-    return (show diff ++ " Pro " ++ name, voidEdgeOn $ pgNotes pgd)
+    (diff, pgd) <- Map.toAscList part.pgDifficulties
+    return (show diff ++ " Pro " ++ name, voidEdgeOn pgd.pgNotes)
   in do
     (fpart, notes) <-
       [ (FlexDrums,) $ do
-        (diff, dd) <- Map.toAscList $ drumDifficulties fixedPartDrums
-        return (show diff ++ " Drums", void $ drumGems dd)
+        (diff, dd) <- Map.toAscList fixedPartDrums.drumDifficulties
+        return (show diff ++ " Drums", void dd.drumGems)
       , (FlexGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
       , (FlexBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
       , (FlexKeys,) $ five "Keys" fixedPartKeys ++

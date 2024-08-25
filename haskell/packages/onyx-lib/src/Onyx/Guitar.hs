@@ -1,8 +1,10 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveTraversable   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Guitar where
 
 import           Control.Monad                    (guard)
@@ -25,10 +27,10 @@ data GuitarEvent a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 computeFiveFretNotes :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
-computeFiveFretNotes fd = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
-  $ applyStatus1 False (fiveOpen fd)
-  $ edgeBlips_ minSustainLengthRB
-  $ fiveGems fd
+computeFiveFretNotes fd
+  = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
+  $ applyStatus1 False fd.fiveOpen
+  $ edgeBlips_ minSustainLengthRB fd.fiveGems
 
 data HOPOsAlgorithm
   = HOPOsRBGuitar
@@ -107,10 +109,10 @@ strumHOPOTap algo threshold rtb = let
 
 getForces5 :: (NNC.C t) => FiveDifficulty t -> RTB.T t (StrumHOPOTap, Bool)
 getForces5 fd = RTB.merge
-  ((Strum ,) <$> fiveForceStrum fd)
+  ((Strum ,) <$> fd.fiveForceStrum)
   $ RTB.merge
-    ((HOPO ,) <$> fiveForceHOPO fd)
-    ((Tap ,) <$> fiveTap fd)
+    ((HOPO ,) <$> fd.fiveForceHOPO)
+    ((Tap ,) <$> fd.fiveTap)
 
 getForces6 :: (NNC.C t) => SixDifficulty t -> RTB.T t (StrumHOPOTap, Bool)
 getForces6 fd = RTB.merge

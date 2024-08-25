@@ -1,5 +1,6 @@
 -- | Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Drums.OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -49,8 +50,8 @@ phaseShiftKicks :: U.Seconds -> U.Seconds -> DrumTrack U.Seconds -> DrumTrack U.
 phaseShiftKicks tx ty dt = let
   kicks = RTB.merge
     (RTB.mapMaybe (\case (Kick, _) -> Just RH; _ -> Nothing)
-      $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties dt)
-    (fmap (const LH) $ drumKick2x dt)
+      $ (.drumGems) $ fromMaybe mempty $ Map.lookup Expert dt.drumDifficulties)
+    (fmap (const LH) dt.drumKick2x)
   in if LH `elem` kicks
     then dt
     else let
@@ -59,10 +60,10 @@ phaseShiftKicks tx ty dt = let
       rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just (Kick, VelocityNormal)) auto
       in dt
         { drumKick2x = lf
-        , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
+        , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties $ \diff dd ->
           case diff of
             Expert -> dd
-              { drumGems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) $ drumGems dd
+              { drumGems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) dd.drumGems
               }
             _ -> dd
         }
@@ -73,16 +74,15 @@ rockBand1x dt = dt { drumKick2x = RTB.empty }
 rockBand2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 rockBand2x dt = dt
   { drumKick2x = RTB.empty
-  , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
+  , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties $ \diff dd ->
     case diff of
       Expert -> dd
         { drumGems
           = RTB.flatten
           $ fmap nubOrd -- this is in case you have 95 + 96 kicks simultaneously
           $ RTB.collectCoincident
-          $ RTB.merge (drumGems dd)
-          $ fmap (const (Kick, VelocityNormal))
-          $ drumKick2x dt
+          $ RTB.merge dd.drumGems
+          $ (Kick, VelocityNormal) <$ dt.drumKick2x
         }
       _ -> dd
   }

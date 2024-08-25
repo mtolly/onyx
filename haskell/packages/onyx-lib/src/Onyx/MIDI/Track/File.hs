@@ -1,13 +1,14 @@
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DeriveTraversable   #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.MIDI.Track.File where
 
 import           Control.Monad                     (forM, forM_, guard, unless,
@@ -755,7 +756,7 @@ wiiNoFills (Song temps sigs ff) = let
     Nothing           -> drums
       { drumActivation = RTB.empty }
     Just ((dt, _), _) -> drums
-      { drumActivation = RTB.delay dt $ U.trackDrop dt $ drumActivation drums }
+      { drumActivation = RTB.delay dt $ U.trackDrop dt drums.drumActivation }
   in Song temps sigs ff
     { fixedPartDrums       = f $ fixedPartDrums       ff
     , fixedPartDrums2x     = f $ fixedPartDrums2x     ff
@@ -777,7 +778,7 @@ wiiMustang22 (Song temps sigs ff) = let
 wiiUnmute22 :: (NNC.C t) => Song (FixedFile t) -> Song (FixedFile t)
 wiiUnmute22 (Song temps sigs ff) = let
   unmuteTrack pg = pg
-    { pgDifficulties = fmap unmuteDiff $ pgDifficulties pg
+    { pgDifficulties = fmap unmuteDiff pg.pgDifficulties
     }
   unmuteDiff diff = diff
     { pgNotes
@@ -786,14 +787,13 @@ wiiUnmute22 (Song temps sigs ff) = let
         (fret, (str, Muted), len) | fret > 22 -> (fret, (str, NormalNote), len)
         x                                     -> x
       )
-      $ joinEdgesSimple
-      $ pgNotes diff
+      $ joinEdgesSimple diff.pgNotes
     }
   in Song temps sigs ff
-    { fixedPartRealGuitar   = unmuteTrack $ fixedPartRealGuitar   ff
-    , fixedPartRealGuitar22 = unmuteTrack $ fixedPartRealGuitar22 ff
-    , fixedPartRealBass     = unmuteTrack $ fixedPartRealBass     ff
-    , fixedPartRealBass22   = unmuteTrack $ fixedPartRealBass22   ff
+    { fixedPartRealGuitar   = unmuteTrack ff.fixedPartRealGuitar
+    , fixedPartRealGuitar22 = unmuteTrack ff.fixedPartRealGuitar22
+    , fixedPartRealBass     = unmuteTrack ff.fixedPartRealBass
+    , fixedPartRealBass22   = unmuteTrack ff.fixedPartRealBass22
     }
 
 convertToVenueGen :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
@@ -1023,50 +1023,50 @@ shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 hasSolo :: (NNC.C t) => RB3Instrument -> Song (FixedFile t) -> Bool
 hasSolo Guitar song = any (not . null)
-  [ fiveSolo $ fixedPartGuitar $ s_tracks song
-  , pgSolo $ fixedPartRealGuitar $ s_tracks song
-  , pgSolo $ fixedPartRealGuitar22 $ s_tracks song
+  [ song.s_tracks.fixedPartGuitar.fiveSolo
+  , song.s_tracks.fixedPartRealGuitar.pgSolo
+  , song.s_tracks.fixedPartRealGuitar22.pgSolo
   ]
 hasSolo Bass song = any (not . null)
-  [ fiveSolo $ fixedPartBass $ s_tracks song
-  , pgSolo $ fixedPartRealBass $ s_tracks song
-  , pgSolo $ fixedPartRealBass22 $ s_tracks song
+  [ song.s_tracks.fixedPartBass.fiveSolo
+  , song.s_tracks.fixedPartRealBass.pgSolo
+  , song.s_tracks.fixedPartRealBass22.pgSolo
   ]
 hasSolo Drums song = any (not . null)
-  [ drumSolo $ fixedPartDrums $ s_tracks song
+  [ song.s_tracks.fixedPartDrums.drumSolo
   ]
 hasSolo Keys song = any (not . null)
-  [ fiveSolo $ fixedPartKeys $ s_tracks song
-  , pkSolo $ fixedPartRealKeysX $ s_tracks song
+  [ song.s_tracks.fixedPartKeys.fiveSolo
+  , song.s_tracks.fixedPartRealKeysX.pkSolo
   ]
 hasSolo Vocal song = any (not . null)
-  [ vocalPerc $ fixedPartVocals $ s_tracks song
-  , vocalPerc $ fixedHarm1 $ s_tracks song
+  [ song.s_tracks.fixedPartVocals.vocalPerc
+  , song.s_tracks.fixedHarm1.vocalPerc
   ]
 
 fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
-fixFreeformDrums ft = ft
-  { drumSingleRoll = fixFreeform' gems $ drumSingleRoll ft
-  , drumDoubleRoll = fixFreeform' gems $ drumDoubleRoll ft
-  } where gems = maybe RTB.empty (void . drumGems) $ Map.lookup Expert $ drumDifficulties ft
+fixFreeformDrums trk = trk
+  { drumSingleRoll = fixFreeform' gems trk.drumSingleRoll
+  , drumDoubleRoll = fixFreeform' gems trk.drumDoubleRoll
+  } where gems = maybe RTB.empty (void . (.drumGems)) $ Map.lookup Expert trk.drumDifficulties
 
 fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
-fixFreeformFive ft = ft
-  { fiveTremolo = fixFreeform' gems $ fiveTremolo ft
-  , fiveTrill   = fixFreeform' gems $ fiveTrill   ft
-  } where gems = maybe RTB.empty (void . fiveGems) $ Map.lookup Expert $ fiveDifficulties ft
+fixFreeformFive trk = trk
+  { fiveTremolo = fixFreeform' gems trk.fiveTremolo
+  , fiveTrill   = fixFreeform' gems trk.fiveTrill
+  } where gems = maybe RTB.empty (void . (.fiveGems)) $ Map.lookup Expert trk.fiveDifficulties
 
 fixFreeformPK :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
-fixFreeformPK ft = ft
-  { pkGlissando = fixFreeform gems $ pkGlissando ft
-  , pkTrill     = fixFreeform gems $ pkTrill     ft
-  } where gems = void $ pkNotes ft
+fixFreeformPK trk = trk
+  { pkGlissando = fixFreeform gems trk.pkGlissando
+  , pkTrill     = fixFreeform gems trk.pkTrill
+  } where gems = void trk.pkNotes
 
 fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
-fixFreeformPG ft = ft
-  { pgTremolo = fixFreeform' gems $ pgTremolo ft
-  , pgTrill   = fixFreeform' gems $ pgTrill   ft
-  } where gems = maybe RTB.empty (void . pgNotes) $ Map.lookup Expert $ pgDifficulties ft
+fixFreeformPG trk = trk
+  { pgTremolo = fixFreeform' gems trk.pgTremolo
+  , pgTrill   = fixFreeform' gems trk.pgTrill
+  } where gems = maybe RTB.empty (void . (.pgNotes)) $ Map.lookup Expert trk.pgDifficulties
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
@@ -1102,19 +1102,18 @@ getPercType song = listToMaybe $ do
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
-  { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
+  { fiveDifficulties = flip fmap pg.pgDifficulties $ \pgd -> mempty
     { fiveGems
       = blipEdgesRB_
       $ fmap head
       $ RTB.collectCoincident
       $ noExtendedSustains' standardBlipThreshold standardSustainGap
       $ fmap (\(_, _, len) -> (Five.Green, len))
-      $ edgeBlips minSustainLengthRB
-      $ pgNotes pgd
+      $ edgeBlips minSustainLengthRB pgd.pgNotes
     }
-  , fiveOverdrive    = pgOverdrive pg
-  , fiveBRE          = fmap snd $ pgBRE pg
-  , fiveSolo         = pgSolo pg
+  , fiveOverdrive    = pg.pgOverdrive
+  , fiveBRE          = fmap snd pg.pgBRE
+  , fiveSolo         = pg.pgSolo
   }
 
 -- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
@@ -1128,13 +1127,12 @@ expertProKeysToKeys pk = mempty
         $ RTB.collectCoincident
         $ noExtendedSustains' standardBlipThreshold standardSustainGap
         $ fmap (\(_, len) -> (Five.Green, len))
-        $ edgeBlips_ minSustainLengthRB
-        $ pkNotes pk
+        $ edgeBlips_ minSustainLengthRB pk.pkNotes
       }
     in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
-  , fiveOverdrive    = pkOverdrive pk
-  , fiveBRE          = pkBRE pk
-  , fiveSolo         = pkSolo pk
+  , fiveOverdrive    = pk.pkOverdrive
+  , fiveBRE          = pk.pkBRE
+  , fiveSolo         = pk.pkSolo
   }
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
@@ -1143,15 +1141,15 @@ keysToProKeys d ft = ProKeysTrack
   { pkLanes     = RTB.singleton NNC.zero RangeA
   , pkTrainer   = RTB.empty
   , pkMood      = RTB.empty
-  , pkSolo      = if d == Expert then fiveSolo ft else RTB.empty
+  , pkSolo      = if d == Expert then ft.fiveSolo else RTB.empty
   , pkGlissando = RTB.empty
   , pkTrill     = case d of
-    Expert -> isJust <$> fiveTrill ft
+    Expert -> isJust <$> ft.fiveTrill
     -- TODO add Hard trills
     _      -> RTB.empty
-  , pkOverdrive = if d == Expert then fiveOverdrive ft else RTB.empty
-  , pkBRE       = if d == Expert then fiveBRE ft else RTB.empty
-  , pkNotes     = case Map.lookup d $ fiveDifficulties ft of
+  , pkOverdrive = if d == Expert then ft.fiveOverdrive else RTB.empty
+  , pkBRE       = if d == Expert then ft.fiveBRE else RTB.empty
+  , pkNotes     = case Map.lookup d ft.fiveDifficulties of
     Nothing -> RTB.empty
     Just fd -> let
       colorToKey = BlueGreen . \case
@@ -1160,7 +1158,7 @@ keysToProKeys d ft = ProKeysTrack
         Five.Yellow -> E
         Five.Blue   -> F
         Five.Orange -> G
-      in fmap colorToKey <$> fiveGems fd
+      in fmap colorToKey <$> fd.fiveGems
   }
 
 data SamplesTrack t = SamplesTrack

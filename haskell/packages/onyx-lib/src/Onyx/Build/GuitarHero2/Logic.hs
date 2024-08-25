@@ -236,18 +236,18 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                 od <- removeNotelessOD
                   mmap
                   [(fpart, [(show diff, void notes')])]
-                  ((fpart,) <$> RB.fiveOverdrive result.other)
+                  ((fpart,) <$> result.other.fiveOverdrive)
                 let emitted = emit5' notes'
                 return PartDifficulty
                   { partStarPower  = snd <$> od
-                  , partPlayer1    = RB.fivePlayer1 result.other
-                  , partPlayer2    = RB.fivePlayer2 result.other
-                  , partGems       = RB.fiveGems emitted
-                  , partForceHOPO  = if target.gh2Deluxe then RB.fiveForceHOPO  emitted else RTB.empty
-                  , partForceStrum = if target.gh2Deluxe then RB.fiveForceStrum emitted else RTB.empty
-                  , partForceTap   = if target.gh2Deluxe then RB.fiveTap        emitted else RTB.empty
+                  , partPlayer1    = result.other.fivePlayer1
+                  , partPlayer2    = result.other.fivePlayer2
+                  , partGems       = emitted.fiveGems
+                  , partForceHOPO  = if target.gh2Deluxe then emitted.fiveForceHOPO  else RTB.empty
+                  , partForceStrum = if target.gh2Deluxe then emitted.fiveForceStrum else RTB.empty
+                  , partForceTap   = if target.gh2Deluxe then emitted.fiveTap        else RTB.empty
                   }
-              (idle, play) = makeMoods (RB.fiveMood result.other)
+              (idle, play) = makeMoods result.other.fiveMood
                 $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
                 $ Map.lookup Expert result.notes
           diffs <- fmap Map.fromList
@@ -255,10 +255,10 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             $ Map.toList result.notes
           return mempty
             { partDifficulties = diffs
-            , partFretPosition = RB.fiveFretPosition result.other
+            , partFretPosition = result.other.fiveFretPosition
             , partIdle         = idle
             , partPlay         = play
-            , partHandMap      = flip fmap (RB.fiveHandMap result.other) $ \case
+            , partHandMap      = flip fmap result.other.fiveHandMap $ \case
               RB.HandMap_Default   -> HandMap_Default
               RB.HandMap_NoChords  -> HandMap_NoChords
               RB.HandMap_AllChords -> HandMap_AllChords
@@ -270,7 +270,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               RB.HandMap_Chord_D   -> HandMap_Default
               RB.HandMap_Chord_A   -> HandMap_Default
             , partSoloEdge     = if target.gh2Deluxe
-              then makeSoloEdges $ RB.fiveSolo result.other
+              then makeSoloEdges result.other.fiveSolo
               else RTB.empty
             }
       makeDrum fpart = case getPart fpart song >>= anyDrums of
@@ -284,14 +284,14 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               , part   = F.getFlexPart fpart onyx
               }
           in GH2DrumTrack
-            { gh2drumDifficulties = flip fmap (RB.drumDifficulties trackOrig) $ \diff -> GH2DrumDifficulty
-              { gh2drumStarPower = RB.drumOverdrive trackOrig
-              , gh2drumPlayer1   = RB.drumPlayer1 trackOrig
-              , gh2drumPlayer2   = RB.drumPlayer2 trackOrig
-              , gh2drumGems      = fmap fst $ RB.drumGems diff
+            { gh2drumDifficulties = flip fmap trackOrig.drumDifficulties $ \diff -> GH2DrumDifficulty
+              { gh2drumStarPower = trackOrig.drumOverdrive
+              , gh2drumPlayer1   = trackOrig.drumPlayer1
+              , gh2drumPlayer2   = trackOrig.drumPlayer2
+              , gh2drumGems      = fmap fst diff.drumGems
               }
             , gh2drumSoloEdge = if target.gh2Deluxe
-              then makeSoloEdges $ RB.drumSolo trackOrig
+              then makeSoloEdges trackOrig.drumSolo
               else RTB.empty
             }
       makeBandBass :: FiveResult -> BandBassTrack U.Beats
@@ -303,7 +303,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           . RTB.collectCoincident
           . fromMaybe mempty
           $ Map.lookup Expert result.notes
-        } where (idle, play) = makeMoods (RB.fiveMood result.other)
+        } where (idle, play) = makeMoods result.other.fiveMood
                   $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
                   $ Map.lookup Expert result.notes
       makeBandDrums trk = mempty
@@ -318,16 +318,16 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           RB.Crash1RHChokeLH -> True
           RB.Crash2RHChokeLH -> True
           _                  -> False
-        } where (idle, play) = makeMoods (RB.drumMood trk) $ Blip () () <$ anims
-                anims = RB.drumAnimation $ RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk
+        } where (idle, play) = makeMoods trk.drumMood $ Blip () () <$ anims
+                anims = (RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk).drumAnimation
       makeBandKeys :: FiveResult -> BandKeysTrack U.Beats
       makeBandKeys result = let
-        (idle, play) = makeMoods (RB.fiveMood result.other)
+        (idle, play) = makeMoods result.other.fiveMood
           $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
           $ Map.lookup Expert result.notes
         in mempty { keysIdle = idle, keysPlay = play }
       makeBandSinger trk = let
-        (idle, play) = makeMoods (RB.vocalMood trk)
+        (idle, play) = makeMoods trk.vocalMood
           $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
           $ RB.vocalNotes trk
         in mempty { singerIdle = idle, singerPlay = play }

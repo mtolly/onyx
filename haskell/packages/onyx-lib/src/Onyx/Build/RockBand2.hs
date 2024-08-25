@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Build.RockBand2 (convertMidiRB2, stripMidiMagmaV1, dryVoxAudio) where
 
 import           Control.Monad                    (guard)
@@ -40,13 +41,13 @@ convertMidiRB2 mid = fixUnisons mid
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
         { drumKick2x = RTB.empty
-        , drumDifficulties = flip fmap (drumDifficulties pd) $ \dd -> dd
-          { drumMix = flip fmap (drumMix dd) $ \case
+        , drumDifficulties = flip fmap pd.drumDifficulties $ \dd -> dd
+          { drumMix = flip fmap dd.drumMix $ \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
             x                  -> x
           }
         , drumAnimation = let
-          anims = flip fmap (drumAnimation pd) $ \case
+          anims = flip fmap pd.drumAnimation $ \case
             -- these were added in RB3
             Snare SoftHit hand -> Snare HardHit hand
             Ride LH            -> Hihat LH
@@ -56,13 +57,13 @@ convertMidiRB2 mid = fixUnisons mid
           -- we do nub for when a song, inexplicably,
           -- has simultaneous "soft snare LH" and "hard snare LH"
         }
-    , F.fixedPartGuitar = fixFiveColors $ fixGB True $ F.fixedPartGuitar $ F.s_tracks mid
-    , F.fixedPartBass = fixFiveColors $ fixGB False $ F.fixedPartBass $ F.s_tracks mid
-    , F.fixedPartVocals = (F.fixedPartVocals $ F.s_tracks mid)
+    , F.fixedPartGuitar = fixFiveColors $ fixGB True  mid.s_tracks.fixedPartGuitar
+    , F.fixedPartBass   = fixFiveColors $ fixGB False mid.s_tracks.fixedPartBass
+    , F.fixedPartVocals = mid.s_tracks.fixedPartVocals
       { vocalLyricShift = RTB.empty
       , vocalRangeShift = RTB.empty
       }
-    , F.fixedEvents = (F.fixedEvents $ F.s_tracks mid) { eventsSections = RTB.empty }
+    , F.fixedEvents = mid.s_tracks.fixedEvents { eventsSections = RTB.empty }
     , F.fixedBeat = F.fixedBeat $ F.s_tracks mid
     -- We now compile venue for RB2 already in Onyx.Build.RB3CH
     , F.fixedVenue = F.fixedVenue $ F.s_tracks mid
@@ -73,7 +74,7 @@ convertMidiRB2 mid = fixUnisons mid
     }
   } where
     fixGB hasSolos t = t
-      { fiveSolo = if hasSolos then fiveSolo t else RTB.empty
+      { fiveSolo = if hasSolos then t.fiveSolo else RTB.empty
       }
     fixUnisons song = let
       gtr  = F.fixedPartGuitar $ F.s_tracks song
@@ -110,14 +111,14 @@ stripMidiMagmaV1 mid = mid
 
 fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFiveColors trk = let
-  expert = maybe RTB.empty fiveGems $ Map.lookup Expert $ fiveDifficulties trk
+  expert = maybe RTB.empty (.fiveGems) $ Map.lookup Expert trk.fiveDifficulties
   usedColors = Set.fromList $ flip mapMaybe (RTB.getBodies expert) $ \case
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing
   in trk
-    { fiveDifficulties = flip Map.mapWithKey (fiveDifficulties trk) $ \diff fd -> case diff of
+    { fiveDifficulties = flip Map.mapWithKey trk.fiveDifficulties $ \diff fd -> case diff of
       Expert -> fd
-      _      -> fd { fiveGems = useColorsFive usedColors $ fiveGems fd }
+      _      -> fd { fiveGems = useColorsFive usedColors fd.fiveGems }
     }
 
 useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Edge () Five.Color) -> RTB.T U.Beats (Edge () Five.Color)
@@ -150,12 +151,12 @@ useColorFive newColor rtb = do
 
 fixDrumColors :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixDrumColors trk = let
-  expert = fmap fst $ maybe RTB.empty drumGems $ Map.lookup Expert $ drumDifficulties trk
+  expert = fmap fst $ maybe RTB.empty (.drumGems) $ Map.lookup Expert trk.drumDifficulties
   usedColors = Set.fromList $ RTB.getBodies expert
   in trk
-    { drumDifficulties = flip Map.mapWithKey (drumDifficulties trk) $ \diff dd -> case diff of
+    { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties $ \diff dd -> case diff of
       Expert -> dd
-      _      -> dd { drumGems = fmap (, VelocityNormal) $ useColorsDrums usedColors expert $ fmap fst $ drumGems dd }
+      _      -> dd { drumGems = fmap (, VelocityNormal) $ useColorsDrums usedColors expert $ fmap fst dd.drumGems }
     }
 
 useColorsDrums :: Set.Set (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ())

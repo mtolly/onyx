@@ -1,9 +1,10 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Harmonix.RockBand.Score where
 
 import           Control.Applicative              (liftA2)
@@ -144,18 +145,19 @@ baseAndSolo mid (scoreTrack, diff) = let
     _            -> id
   getDrums gem = let
     trk = F.fixedPartDrums mid
-    gems = adjustGems (Drums.drumActivation trk) $ Drums.computePro (Just diff) trk
+    gems = adjustGems trk.drumActivation $ Drums.computePro (Just diff) trk
     base = drumBase gem gems
-    solo = perfectSoloBonus 100 (Drums.drumSolo trk) gems
+    solo = perfectSoloBonus 100 trk.drumSolo gems
     in (base, solo)
+  getFive :: Int -> (F.FixedFile U.Beats -> Five.FiveTrack U.Beats) -> (Int, Int)
   getFive maxStreak getTrack = let
     trk = getTrack mid
-    gems = adjustGems (Five.fiveBRE trk)
+    gems = adjustGems trk.fiveBRE
       $ edgeBlips_ minSustainLengthRB
-      $ maybe RTB.empty Five.fiveGems
-      $ Map.lookup diff $ Five.fiveDifficulties trk
+      $ maybe RTB.empty (.fiveGems)
+      $ Map.lookup diff trk.fiveDifficulties
     base = gbkBase 25 12 maxStreak $ fmap snd gems
-    solo = perfectSoloBonus 100 (Five.fiveSolo trk) $ RTB.collectCoincident gems
+    solo = perfectSoloBonus 100 trk.fiveSolo $ RTB.collectCoincident gems
     in (base, solo)
   -- From what I can tell 17 and 22 are same cutoff, and it uses the 22 chart
   getPG maxStreak get22 get17 = let
@@ -163,12 +165,12 @@ baseAndSolo mid (scoreTrack, diff) = let
       trk22 | not $ PG.nullPG trk22 -> trk22
       _                             -> get17 mid
     gems
-      = adjustGems (snd <$> PG.pgBRE trk)
+      = adjustGems (snd <$> trk.pgBRE)
       $ edgeBlips minSustainLengthRB
-      $ maybe RTB.empty PG.pgNotes
-      $ Map.lookup diff $ PG.pgDifficulties trk
+      $ maybe RTB.empty (.pgNotes)
+      $ Map.lookup diff trk.pgDifficulties
     base = gbkBase 60 30 maxStreak $ maxChord2 $ fmap (\(_, (_, _), mlen) -> mlen) gems
-    solo = perfectSoloBonus 150 (PG.pgSolo trk) $ RTB.collectCoincident gems
+    solo = perfectSoloBonus 150 trk.pgSolo $ RTB.collectCoincident gems
     in (base, solo)
   maxChord2 = RTB.flatten . fmap (take 2) . RTB.collectCoincident
   getVox getTrack = voxBaseAndSolo diff $ getTrack mid
@@ -249,14 +251,14 @@ gh2BaseGems edges = let
   in gbkBase 50 25 1 $ fmap snd gems
 
 gh2Base :: Difficulty -> PartTrack U.Beats -> Int
-gh2Base diff pt = case Map.lookup diff $ partDifficulties pt of
+gh2Base diff pt = case Map.lookup diff pt.partDifficulties of
   Nothing -> 0
-  Just pd -> gh2BaseGems $ partGems pd
+  Just pd -> gh2BaseGems pd.partGems
 
 gh2BaseFixed :: Difficulty -> Five.FiveTrack U.Beats -> Int
-gh2BaseFixed diff ft = case Map.lookup diff $ Five.fiveDifficulties ft of
+gh2BaseFixed diff ft = case Map.lookup diff ft.fiveDifficulties of
   Nothing -> 0
-  Just fd -> gh2BaseGems $ Five.fiveGems fd
+  Just fd -> gh2BaseGems fd.fiveGems
 
 -- In GH2 coop_max_scores (either a .dtb on disc or .dta in 360 DLC)
 -- each song has an entry:

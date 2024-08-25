@@ -4,9 +4,12 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StrictData          #-}
 {-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.ProGuitar where
 
@@ -92,9 +95,9 @@ instance Default GtrTuning where
 
 tuningPitches :: GtrTuning -> [Int]
 tuningPitches t
-  = map (+ (gtrGlobal t + gtrCapo t))
-  $ zipWith (+) (gtrOffsets t ++ repeat 0)
-  $ case gtrBase t of
+  = map (+ (t.gtrGlobal + t.gtrCapo))
+  $ zipWith (+) (t.gtrOffsets ++ repeat 0)
+  $ case t.gtrBase of
     Guitar6      -> [40, 45, 50, 55, 59, 64]
     Guitar7      -> [35, 40, 45, 50, 55, 59, 64]
     Guitar8      -> [30, 35, 40, 45, 50, 55, 59, 64]
@@ -105,7 +108,7 @@ tuningPitches t
 
 -- True if this should use string colors starting from purple (5/6-string bass or similar)
 lowBassTuning :: GtrTuning -> Bool
-lowBassTuning tuning = case gtrBase tuning of
+lowBassTuning tuning = case tuning.gtrBase of
   Bass5             -> True
   Bass6             -> True
   GtrCustom (n : _) -> n < 28
@@ -168,46 +171,46 @@ data ProGuitarTrack t = ProGuitarTrack
 
 instance ChopTrack ProGuitarTrack where
   chopTake t pg = ProGuitarTrack
-    { pgDifficulties   = mapTrack (U.trackTake t) <$> pgDifficulties pg -- TODO
-    , pgTrainer        = U.trackTake    t $ pgTrainer        pg -- TODO
-    , pgTremolo        = chopTakeMaybe  t $ pgTremolo        pg
-    , pgTrill          = chopTakeMaybe  t $ pgTrill          pg
-    , pgOverdrive      = chopTakeBool   t $ pgOverdrive      pg
-    , pgBRE            = U.trackTake    t $ pgBRE            pg -- TODO
-    , pgSolo           = chopTakeBool   t $ pgSolo           pg
-    , pgHandPosition   = U.trackTake    t $ pgHandPosition   pg
-    , pgChordRoot      = U.trackTake    t $ pgChordRoot      pg
-    , pgNoChordNames   = chopTakeBool   t $ pgNoChordNames   pg
-    , pgSlashChords    = chopTakeBool   t $ pgSlashChords    pg
-    , pgSwapAccidental = chopTakeBool   t $ pgSwapAccidental pg
-    , pgOnyxOctave     = U.trackTake    t $ pgOnyxOctave     pg
-    , pgOnyxString     = U.trackTake    t $ pgOnyxString     pg
-    , pgMystery45      = chopTakeBool   t $ pgMystery45      pg
-    , pgMystery69      = chopTakeBool   t $ pgMystery69      pg
-    , pgMystery93      = chopTakeBool   t $ pgMystery93      pg
+    { pgDifficulties   = mapTrack (U.trackTake t) <$> pg.pgDifficulties -- TODO
+    , pgTrainer        = U.trackTake    t pg.pgTrainer -- TODO
+    , pgTremolo        = chopTakeMaybe  t pg.pgTremolo
+    , pgTrill          = chopTakeMaybe  t pg.pgTrill
+    , pgOverdrive      = chopTakeBool   t pg.pgOverdrive
+    , pgBRE            = U.trackTake    t pg.pgBRE -- TODO
+    , pgSolo           = chopTakeBool   t pg.pgSolo
+    , pgHandPosition   = U.trackTake    t pg.pgHandPosition
+    , pgChordRoot      = U.trackTake    t pg.pgChordRoot
+    , pgNoChordNames   = chopTakeBool   t pg.pgNoChordNames
+    , pgSlashChords    = chopTakeBool   t pg.pgSlashChords
+    , pgSwapAccidental = chopTakeBool   t pg.pgSwapAccidental
+    , pgOnyxOctave     = U.trackTake    t pg.pgOnyxOctave
+    , pgOnyxString     = U.trackTake    t pg.pgOnyxString
+    , pgMystery45      = chopTakeBool   t pg.pgMystery45
+    , pgMystery69      = chopTakeBool   t pg.pgMystery69
+    , pgMystery93      = chopTakeBool   t pg.pgMystery93
     }
   chopDrop t pg = ProGuitarTrack
-    { pgDifficulties   = mapTrack (U.trackDrop t) <$> pgDifficulties pg -- TODO
-    , pgTrainer        = U.trackDrop    t $ pgTrainer        pg -- TODO
-    , pgTremolo        = chopDropMaybe  t $ pgTremolo        pg
-    , pgTrill          = chopDropMaybe  t $ pgTrill          pg
-    , pgOverdrive      = chopDropBool   t $ pgOverdrive      pg
-    , pgBRE            = U.trackDrop    t $ pgBRE            pg -- TODO
-    , pgSolo           = chopDropBool   t $ pgSolo           pg
-    , pgHandPosition   = chopDropStatus t $ pgHandPosition   pg
-    , pgChordRoot      = chopDropStatus t $ pgChordRoot      pg
-    , pgNoChordNames   = chopDropBool   t $ pgNoChordNames   pg
-    , pgSlashChords    = chopDropBool   t $ pgSlashChords    pg
-    , pgSwapAccidental = chopDropBool   t $ pgSwapAccidental pg
-    , pgOnyxOctave     = chopDropStatus t $ pgOnyxOctave     pg
-    , pgOnyxString     = chopDropStatus t $ pgOnyxString     pg
-    , pgMystery45      = chopDropBool   t $ pgMystery45      pg
-    , pgMystery69      = chopDropBool   t $ pgMystery69      pg
-    , pgMystery93      = chopDropBool   t $ pgMystery93      pg
+    { pgDifficulties   = mapTrack (U.trackDrop t) <$> pg.pgDifficulties -- TODO
+    , pgTrainer        = U.trackDrop    t pg.pgTrainer -- TODO
+    , pgTremolo        = chopDropMaybe  t pg.pgTremolo
+    , pgTrill          = chopDropMaybe  t pg.pgTrill
+    , pgOverdrive      = chopDropBool   t pg.pgOverdrive
+    , pgBRE            = U.trackDrop    t pg.pgBRE -- TODO
+    , pgSolo           = chopDropBool   t pg.pgSolo
+    , pgHandPosition   = chopDropStatus t pg.pgHandPosition
+    , pgChordRoot      = chopDropStatus t pg.pgChordRoot
+    , pgNoChordNames   = chopDropBool   t pg.pgNoChordNames
+    , pgSlashChords    = chopDropBool   t pg.pgSlashChords
+    , pgSwapAccidental = chopDropBool   t pg.pgSwapAccidental
+    , pgOnyxOctave     = chopDropStatus t pg.pgOnyxOctave
+    , pgOnyxString     = chopDropStatus t pg.pgOnyxString
+    , pgMystery45      = chopDropBool   t pg.pgMystery45
+    , pgMystery69      = chopDropBool   t pg.pgMystery69
+    , pgMystery93      = chopDropBool   t pg.pgMystery93
     }
 
 nullPG :: ProGuitarTrack t -> Bool
-nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
+nullPG = all (RTB.null . (.pgNotes)) . toList . (.pgDifficulties)
 
 instance TraverseTrack ProGuitarTrack where
   traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p q) = ProGuitarTrack
@@ -243,7 +246,7 @@ instance ChannelType PGForce where
 
 instance ParseTrack ProGuitarTrack where
   parseTrack = do
-    pgTrainer   <- pgTrainer   =. let
+    pgTrainer      <- (.pgTrainer)=. let
       parse = toCommand >=> \case
         (t, k) | k == T.pack "pg" -> Just (TypeGuitar, t)
                | k == T.pack "pb" -> Just (TypeBass  , t)
@@ -251,42 +254,42 @@ instance ParseTrack ProGuitarTrack where
       unparse (TypeGuitar, t) = fromCommand (t, T.pack "pg")
       unparse (TypeBass  , t) = fromCommand (t, T.pack "pb")
       in commandMatch' parse unparse
-    pgTremolo      <- pgTremolo =. edgesLanes 126
-    pgTrill        <- pgTrill =. edgesLanes 127
-    pgOverdrive    <- pgOverdrive =. edges 116
+    pgTremolo      <- (.pgTremolo) =. edgesLanes 126
+    pgTrill        <- (.pgTrill) =. edgesLanes 127
+    pgOverdrive    <- (.pgOverdrive) =. edges 116
     -- note, we explicitly do TypeGuitar before TypeBass
     -- because we want to try to parse the 6-note version first
-    pgBRE          <- (pgBRE =.) $ condenseMap $ eachKey [TypeGuitar, TypeBass] $ edgesBRE . \case
+    pgBRE          <- (=.) (.pgBRE) $ condenseMap $ eachKey [TypeGuitar, TypeBass] $ edgesBRE . \case
       TypeGuitar -> [120 .. 125]
       TypeBass   -> [120 .. 123]
-    pgSolo         <- pgSolo =. edges 115
-    pgHandPosition <- pgHandPosition =. let
+    pgSolo         <- (.pgSolo) =. edges 115
+    pgHandPosition <- (.pgHandPosition) =. let
       fs fret = (0, fret + 100)
       fp (_c, v) = v - 100
       in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV 108
-    pgOnyxOctave   <- pgOnyxOctave =. let
+    pgOnyxOctave   <- (.pgOnyxOctave) =. let
       parse = \case
         ["onyx", "octave", x] -> readMaybe $ T.unpack x
         _                     -> Nothing
       unparse n = ["onyx", "octave", T.pack $ show n]
       in commandMatch' parse unparse
-    pgOnyxString   <- pgOnyxString =. let
+    pgOnyxString   <- (.pgOnyxString) =. let
       parse = \case
         "onyx" : "string" : xs -> mapM (readMaybe . ('S' :) . T.unpack) xs
         _                      -> Nothing
       unparse strs = "onyx" : "string" : map (T.pack . drop 1 . show) strs
       in commandMatch' parse unparse
-    pgMystery45    <- pgMystery45 =. edges 45
-    pgMystery69    <- pgMystery69 =. edges 69
-    pgMystery93    <- pgMystery93 =. edges 93
-    pgDifficulties <- (pgDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    pgMystery45    <- (.pgMystery45) =. edges 45
+    pgMystery69    <- (.pgMystery69) =. edges 69
+    pgMystery93    <- (.pgMystery93) =. edges 93
+    pgDifficulties <- (=.) (.pgDifficulties) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 24
             Medium -> 48
             Hard   -> 72
             Expert -> 96
       chordSnap [base - 2 .. base + 5]
-      pgNotes        <- (pgNotes =.) $ let
+      pgNotes        <- (=.) (.pgNotes) $ let
         fs = \case
           EdgeOn fret (str, nt) -> (str, (nt, Just $ fret + 100))
           EdgeOff (str, nt)     -> (str, (nt, Nothing))
@@ -294,18 +297,18 @@ instance ParseTrack ProGuitarTrack where
           (str, (nt, Just v))  -> EdgeOn (v - 100) (str, nt)
           (str, (nt, Nothing)) -> EdgeOff (str, nt)
         in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> channelEdges $ base + getStringIndex 6 str
-      pgForce       <- pgForce =. let
+      pgForce       <- (.pgForce) =. let
         fs = \case
           EdgeOn () sh -> (sh, True )
           EdgeOff   sh -> (sh, False)
         fp (sh, b) = (if b then EdgeOn () else EdgeOff) sh
         in dimap (fmap fs) (fmap fp) $ channelEdges_ (base + 6)
-      pgSlide        <- pgSlide =. channelBlip_ (base + 7)
-      pgArpeggio     <- pgArpeggio =. edges (base + 8)
-      pgPartialChord <- pgPartialChord =. channelBlip_ (base + 9)
-      pgMysteryBFlat <- pgMysteryBFlat =. edges (base + 10)
-      pgAllFrets     <- pgAllFrets =. edges (base + 11)
-      pgChordName    <- pgChordName =. let
+      pgSlide        <- (.pgSlide       ) =. channelBlip_ (base + 7)
+      pgArpeggio     <- (.pgArpeggio    ) =. edges (base + 8)
+      pgPartialChord <- (.pgPartialChord) =. channelBlip_ (base + 9)
+      pgMysteryBFlat <- (.pgMysteryBFlat) =. edges (base + 10)
+      pgAllFrets     <- (.pgAllFrets    ) =. edges (base + 11)
+      pgChordName    <- (.pgChordName   ) =. let
         cmd = T.pack $ "chrd" ++ show (fromEnum diff)
         parse = \case
           k : cname | k == cmd -> Just $ case cname of
@@ -315,7 +318,7 @@ instance ParseTrack ProGuitarTrack where
         unparse cname = cmd : toList cname
         in commandMatch' parse unparse
       return ProGuitarDifficulty{..}
-    pgChordRoot    <- (pgChordRoot =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
+    pgChordRoot    <- (=.) (.pgChordRoot) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
       E  -> 4
       F  -> 5
       Fs -> 6
@@ -328,9 +331,9 @@ instance ParseTrack ProGuitarTrack where
       Cs -> 13
       D  -> 14
       Ds -> 15
-    pgNoChordNames   <- pgNoChordNames   =. edges 17
-    pgSlashChords    <- pgSlashChords    =. edges 16
-    pgSwapAccidental <- pgSwapAccidental =. edges 18
+    pgNoChordNames   <- (.pgNoChordNames  ) =. edges 17
+    pgSlashChords    <- (.pgSlashChords   ) =. edges 16
+    pgSwapAccidental <- (.pgSwapAccidental) =. edges 18
     return ProGuitarTrack{..}
 
 standardGuitar :: [Int]
@@ -436,17 +439,16 @@ data ChordModifier = ModSwapAcc | ModNoName | ModSlash
 computeChordNames :: Difficulty -> [Int] -> Bool -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote T.Text ())
 computeChordNames diff tuning flatDefault pg = let
 
-  pgd = fromMaybe mempty $ Map.lookup diff $ pgDifficulties pg
+  pgd = fromMaybe mempty $ Map.lookup diff pg.pgDifficulties
   notes
-    = applyStatus1 E (pgChordRoot pg)
+    = applyStatus1 E pg.pgChordRoot
     $ applyStatus
-      (RTB.merge ((ModSwapAcc,) <$> pgSwapAccidental pg)
-        (RTB.merge ((ModNoName,) <$> pgNoChordNames pg)
-          ((ModSlash,) <$> pgSlashChords pg)))
+      (RTB.merge ((ModSwapAcc,) <$> pg.pgSwapAccidental)
+        (RTB.merge ((ModNoName,) <$> pg.pgNoChordNames)
+          ((ModSlash,) <$> pg.pgSlashChords)))
     $ RTB.collectCoincident
     $ fmap (\(fret, (str, nt), mlen) -> (str, (nt, fret, mlen)))
-    $ edgeBlips minSustainLengthRB
-    $ pgNotes pgd
+    $ edgeBlips minSustainLengthRB pgd.pgNotes
 
   chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
   chords = flip fmap notes $ \(root, (mods, chord)) -> case sort chord of
@@ -477,7 +479,7 @@ computeChordNames diff tuning flatDefault pg = let
     go (slideTypes, mcd) = if not $ null slideTypes
       then (\cd -> cd { chordLength = Nothing }) <$> mcd
       else mcd
-    in fmap go . applyBlipStatus (pgSlide pgd)
+    in fmap go . applyBlipStatus pgd.pgSlide
 
   -- For an arpeggio, get the chord computed at the start,
   -- and stretch it for the length of the arpeggio section.
@@ -492,7 +494,7 @@ computeChordNames diff tuning flatDefault pg = let
           cd  : _ -> RTB.cons dt (Just cd{ chordLength = Just arpLen }) . RTB.delay arpLen
         in fn $ go $ U.trackDrop arpLen rtb'
     in go . RTB.merge (Left <$> arpsList) . fmap Right
-  arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ (\b -> if b then EdgeOn () () else EdgeOff ()) <$> pgArpeggio pgd
+  arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ (\b -> if b then EdgeOn () () else EdgeOff ()) <$> pgd.pgArpeggio
 
   -- chrdX events override a single chord computed at a certain point.
   overrides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
@@ -500,7 +502,7 @@ computeChordNames diff tuning flatDefault pg = let
     go evs = case lefts evs of
       []           -> rights evs
       override : _ -> map (fmap $ \cd -> cd { chordName = fromMaybe "" override }) $ rights evs
-    in RTB.flatten . fmap go . RTB.collectCoincident . RTB.merge (Left <$> pgChordName pgd) . fmap Right
+    in RTB.flatten . fmap go . RTB.collectCoincident . RTB.merge (Left <$> pgd.pgChordName) . fmap Right
 
   -- The same chord strummed multiple times will keep the chord name next to
   -- the strikeline between them. Also, a muted strum can continue a chord name
@@ -511,13 +513,13 @@ computeChordNames diff tuning flatDefault pg = let
     Nothing -> RTB.empty
     Just ((dt, Nothing), rtb') -> RTB.delay dt $ stick rtb'
     Just ((dt, Just x), rtb')
-      | chordMuted x -> RTB.delay dt $ stick rtb'
+      | x.chordMuted -> RTB.delay dt $ stick rtb'
       | otherwise -> let
         stickThis next = case RTB.viewL next of
-          Just ((t, Just y), next') -> if chordFrets y == chordFrets x
-            then if chordMuted y
+          Just ((t, Just y), next') -> if y.chordFrets == x.chordFrets
+            then if y.chordMuted
               then first (t <>) <$> stickThis next'
-              else Just (t, (chordLength y, next'))
+              else Just (t, (y.chordLength, next'))
             else Nothing
           _ -> Nothing
         in case stickThis rtb' of
@@ -526,14 +528,14 @@ computeChordNames diff tuning flatDefault pg = let
             $ RTB.cons dt (Just x { chordLength = Just $ fromMaybe NNC.zero lastLen <> t }) $ RTB.delay t next
 
   in splitEdges
-    . RTB.mapMaybe (\cd -> guard (chordName cd /= "") >> Just (chordName cd, (), chordLength cd))
+    . RTB.mapMaybe (\cd -> guard (cd.chordName /= "") >> Just (cd.chordName, (), cd.chordLength))
     . stick . overrides . arps . slides
     $ chords
 
 -- | Renders all the chord names as explicit override events.
 freezeChordNames :: [Int] -> Bool -> ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 freezeChordNames tuning flatDefault pg = pg
-  { pgDifficulties = flip Map.mapWithKey (pgDifficulties pg) $ \diff pgd -> let
+  { pgDifficulties = flip Map.mapWithKey pg.pgDifficulties $ \diff pgd -> let
     chords = computeChordNames diff tuning flatDefault pg
     in pgd
       { pgChordName = flip RTB.mapMaybe chords $ \case
@@ -546,13 +548,13 @@ freezeChordNames tuning flatDefault pg = pg
 
 -- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
-autoHandPosition pg = if RTB.null $ pgHandPosition pg
+autoHandPosition pg = if RTB.null pg.pgHandPosition
   then let
     frets = foldr RTB.merge RTB.empty $ do
-      pgd <- Map.elems $ pgDifficulties pg
+      pgd <- Map.elems pg.pgDifficulties
       -- note, we do take ArpeggioForm notes into account because Magma does too
       -- TODO do we need to take muted notes into account?
-      return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
+      return $ flip RTB.mapMaybe pgd.pgNotes $ \case
         EdgeOn fret _ -> Just fret
         EdgeOff _     -> Nothing
     posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
@@ -569,12 +571,12 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
 -- | If there are no chord root notes, sets each chord to have its lowest
 -- pitch as the root.
 autoChordRoot :: (NNC.C t) => [Int] -> ProGuitarTrack t -> ProGuitarTrack t
-autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
+autoChordRoot tuning pg = if RTB.null pg.pgChordRoot
   then let
     getPitch str fret = indexTuning tuning str + fret
     notes = foldr RTB.merge RTB.empty $ do
-      (diff, pgd) <- Map.toList $ pgDifficulties pg
-      return $ flip RTB.mapMaybe (pgNotes pgd) $ \case
+      (diff, pgd) <- Map.toList pg.pgDifficulties
+      return $ flip RTB.mapMaybe pgd.pgNotes $ \case
         EdgeOn fret (str, _) -> Just (diff, getPitch str fret)
         EdgeOff _            -> Nothing
     roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
@@ -597,9 +599,9 @@ guitarifyHOPO :: U.Beats -> ProGuitarDifficulty U.Beats
 guitarifyHOPO threshold pgd = let
   gtr = joinEdges $ guitarify $ splitEdges
     $ (\(fret, (str, ntype), len) -> ((), (str, fret, ntype), len))
-    <$> edgeBlips minSustainLengthRB (pgNotes pgd)
+    <$> edgeBlips minSustainLengthRB pgd.pgNotes
     -- TODO above logic is inefficient (join, split, join)
-  withForce = applyStatus (forceEdge <$> pgForce pgd) gtr
+  withForce = applyStatus (forceEdge <$> pgd.pgForce) gtr
   forceEdge = \case
     EdgeOn () PGForceStrum -> (Strum, True )
     EdgeOff   PGForceStrum -> (Strum, False)
@@ -678,13 +680,13 @@ computeSlides slideMarkers hopo = let
 
 guitarifyFull :: U.Beats -> ProGuitarDifficulty U.Beats
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
-guitarifyFull threshold pgd = computeSlides (pgSlide pgd) $ guitarifyHOPO threshold pgd
+guitarifyFull threshold pgd = computeSlides pgd.pgSlide $ guitarifyHOPO threshold pgd
 
 -- | Ensures that frets do not go above the given maximum,
 -- first by lowering marked sections one octave and then by muting high notes.
 fretLimit :: (NNC.C t) => Int -> ProGuitarTrack t -> ProGuitarTrack t
 fretLimit maxFret pg = let
-  shouldLower = fmap (>= maxFret) $ pgOnyxOctave pg
+  shouldLower = fmap (>= maxFret) pg.pgOnyxOctave
   doLower _    0 = 0
   doLower down n = if down && n >= 12 then n - 12 else n
   lowerDiff diff = diff
@@ -698,22 +700,20 @@ fretLimit maxFret pg = let
           in (fret', (str, nt'), len)
         )
       $ applyStatus1 False shouldLower
-      $ joinEdgesSimple
-      $ pgNotes diff
+      $ joinEdgesSimple diff.pgNotes
     }
   in pg
-    { pgDifficulties = fmap lowerDiff $ pgDifficulties pg
+    { pgDifficulties = fmap lowerDiff pg.pgDifficulties
     , pgHandPosition
       = fmap (uncurry doLower)
-      $ applyStatus1 False shouldLower
-      $ pgHandPosition pg
+      $ applyStatus1 False shouldLower pg.pgHandPosition
     , pgOnyxOctave = RTB.empty -- fun fact: magma ignores these for some reason
     }
 
 -- | Shifts notes between strings to shrink a 7/8-string part to 6 strings.
 moveStrings :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
 moveStrings pg = let
-  mappers = flip fmap (pgOnyxString pg) $ \setting -> let
+  mappers = flip fmap pg.pgOnyxString $ \setting -> let
     strs = case unsnoc setting of
       Nothing      -> [S6 .. S1]
       Just (xs, x) -> xs ++ [x ..]
@@ -731,10 +731,9 @@ moveStrings pg = let
       = splitEdgesSimple
       $ fmap (\(mapper, (fret, (oldString, ntype), len)) -> (fret, (mapper oldString, ntype), len))
       $ applyStatus1 id mappers
-      $ joinEdgesSimple
-      $ pgNotes diff
+      $ joinEdgesSimple diff.pgNotes
     }
   in pg
-    { pgDifficulties = fmap moveDiff $ pgDifficulties pg
+    { pgDifficulties = fmap moveDiff pg.pgDifficulties
     , pgOnyxString = RTB.empty
     }

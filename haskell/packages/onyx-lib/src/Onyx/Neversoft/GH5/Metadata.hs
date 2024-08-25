@@ -1,8 +1,10 @@
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Neversoft.GH5.Metadata where
 
 import           Control.Monad.Extra         (guard, mapMaybeM)
@@ -40,8 +42,8 @@ readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Mayb
 readTextPakQB bs pab mqs = do
   nodes <- splitPakNodes pakFormatWoR bs pab
   let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
-      qbFiles _isWoR = filter (\(n, _) -> nodeFileType n == ".qb") nodes
-      qbWoRDisc = filter (\(n, _) -> nodeFilenameCRC n == 3114035354) nodes
+      qbFiles _isWoR = filter (\(n, _) -> n.nodeFileType == ".qb") nodes
+      qbWoRDisc = filter (\(n, _) -> n.nodeFilenameCRC == 3114035354) nodes
   (qbFile, _isWoR) <- case (qbWoRDisc, qbFiles True, qbFiles False) of
     ([qb], _, _) -> return (snd qb, True)
     (_, [qb], _) -> return (snd qb, True)
@@ -83,26 +85,26 @@ readTextPakQB bs pab mqs = do
       return $ TextPakQB fileID structs'
 
 combineTextPakQBs :: [TextPakQB] -> [TextPakSongStruct]
-combineTextPakQBs = nubOrdOn songDLCID . concatMap textPakSongStructs
+combineTextPakQBs = nubOrdOn (.songDLCID) . concatMap (.textPakSongStructs)
 
 showTextPakQBQS :: TextPakQB -> (BL.ByteString, BL.ByteString)
 showTextPakQBQS contents = let
   qbLists = do
-    songlistID <- nubOrd $ map songArrayID $ textPakSongStructs contents
+    songlistID <- nubOrd $ map (.songArrayID) contents.textPakSongStructs
     guard $ songlistID /= "gh4_2_songlist" && songlistID /= "gh4_3_songlist" -- We only want the metadata updates, not overwrite the setlists
-    return $ QBSectionArray songlistID (textPakFileKey contents) $ QBArrayOfQbKey $ do
-      struct <- textPakSongStructs contents
-      guard $ songArrayID struct == songlistID
-      return $ songDLCID struct
+    return $ QBSectionArray songlistID contents.textPakFileKey $ QBArrayOfQbKey $ do
+      struct <- contents.textPakSongStructs
+      guard $ struct.songArrayID == songlistID
+      return struct.songDLCID
   qbProps = do
-    propsID <- nubOrd $ map songStructID $ textPakSongStructs contents
-    return $ QBSectionStruct propsID (textPakFileKey contents) $ QBStructHeader : do
-      struct <- textPakSongStructs contents
-      guard $ songStructID struct == propsID
-      return $ QBStructItemStruct (songDLCID struct) (songData struct)
+    propsID <- nubOrd $ map (.songStructID) contents.textPakSongStructs
+    return $ QBSectionStruct propsID contents.textPakFileKey $ QBStructHeader : do
+      struct <- contents.textPakSongStructs
+      guard $ struct.songStructID == propsID
+      return $ QBStructItemStruct struct.songDLCID struct.songData
   qb = qbLists <> qbProps
   qs = nubOrdOn fst $ do
-    item <- textPakSongStructs contents >>= songData
+    item <- contents.textPakSongStructs >>= (.songData)
     KnownQS k txt <- allQS item
     return (k, txt)
   in (putQB $ discardQS qb, makeQS qs)

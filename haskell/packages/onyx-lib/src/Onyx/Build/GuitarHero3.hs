@@ -456,10 +456,10 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     in case getPart fpart songYaml >>= anyFiveFret of
       Nothing -> (mempty, GH3Part emptyTrack emptyTrack emptyTrack emptyTrack)
       Just builder -> let
-        result = completeFiveResult False (F.s_signatures song) $ builder FiveTypeGuitar ModeInput
-          { tempo  = F.s_tempos song
-          , events = F.onyxEvents $ F.s_tracks song
-          , part   = F.getFlexPart fpart $ F.s_tracks song
+        result = completeFiveResult False song.s_signatures $ builder FiveTypeGuitar ModeInput
+          { tempo  = song.s_tempos
+          , events = song.s_tracks.onyxEvents
+          , part   = F.getFlexPart fpart song.s_tracks
           }
         in (result.other, GH3Part
           { gh3Easy   = makeGH3Track Easy   result
@@ -475,9 +475,9 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ fromMaybe RTB.empty
       $ Map.lookup diff result.notes
-    starPower = makeGH3Spans (F.s_tempos song) (Five.fiveOverdrive result.other) sht
+    starPower = makeGH3Spans song.s_tempos result.other.fiveOverdrive sht
     in GH3Track
-      { gh3Notes       = makeGH3TrackNotes (F.s_tempos song) timeSigs beats sht
+      { gh3Notes       = makeGH3TrackNotes song.s_tempos timeSigs beats sht
       , gh3StarPower   = starPower
       , gh3BattleStars = starPower
       }
@@ -499,19 +499,18 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
   -- whatever difficulty is being played, it will work to extend the song length.
   -- So we'll add a dummy note to Rhythm/Bass on each difficulty.
   rhythmWithEndHack = rhythmPart
-    { gh3Easy   = addEndHack $ gh3Easy   rhythmPart
-    , gh3Medium = addEndHack $ gh3Medium rhythmPart
-    , gh3Hard   = addEndHack $ gh3Hard   rhythmPart
-    , gh3Expert = addEndHack $ gh3Expert rhythmPart
+    { gh3Easy   = addEndHack rhythmPart.gh3Easy
+    , gh3Medium = addEndHack rhythmPart.gh3Medium
+    , gh3Hard   = addEndHack rhythmPart.gh3Hard
+    , gh3Expert = addEndHack rhythmPart.gh3Expert
     }
-  addEndHack diff = diff { gh3Notes = gh3Notes diff <> endHack }
+  addEndHack diff = diff { gh3Notes = diff.gh3Notes <> endHack }
   endHack = [(fromSeconds $ U.applyTempoMap (F.s_tempos song) $ timingEnd timing, 1, 1)]
-  makeFaceoff getPlayer
+  makeFaceoff playerSpans
     = map (\(pos, len, _count) -> (pos, len))
-    $ makeGH3Spans (F.s_tempos song) (getPlayer leadTrack)
-    $ maybe RTB.empty Five.fiveGems
-    $ Map.lookup Expert
-    $ Five.fiveDifficulties leadTrack
+    $ makeGH3Spans (F.s_tempos song) playerSpans
+    $ maybe RTB.empty (.fiveGems)
+    $ Map.lookup Expert leadTrack.fiveDifficulties
   drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
@@ -526,8 +525,8 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     , gh3TimeSignatures  = timeSigs
     , gh3FretBars        = beats
     , gh3Markers         = sections
-    , gh3P1FaceOff       = makeFaceoff Five.fivePlayer1
-    , gh3P2FaceOff       = makeFaceoff Five.fivePlayer2
+    , gh3P1FaceOff       = makeFaceoff leadTrack.fivePlayer1
+    , gh3P2FaceOff       = makeFaceoff leadTrack.fivePlayer2
     , gh3BackgroundNotes = (GH3Background [] [] [] [] [] [] [] [])
       { gh3Drums = drumAnims
       }

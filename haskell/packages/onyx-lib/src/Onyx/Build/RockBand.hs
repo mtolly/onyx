@@ -703,8 +703,9 @@ rbRules buildInfo dir rb3 mrb2 = do
         bass22  = F.onyxPartRealGuitar22 $ F.getFlexPart rb3.bass $ F.s_tracks input
         pgThres = maybe 170 (.hopoThreshold) $ getPart rb3.guitar songYaml >>= (.proGuitar)
         pbThres = maybe 170 (.hopoThreshold) $ getPart rb3.bass songYaml >>= (.proGuitar)
+        playTrack :: Int -> PGPlay.Controller -> s -> ProGuitarTrack U.Beats -> RTB.T U.Beats (E.T s)
         playTrack thres cont name t = let
-          expert = fromMaybe mempty $ Map.lookup Expert $ pgDifficulties t
+          expert = fromMaybe mempty $ Map.lookup Expert t.pgDifficulties
           auto = PGPlay.autoplay (fromIntegral thres / 480) (F.s_tempos input) expert
           msgToSysEx msg
             = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]

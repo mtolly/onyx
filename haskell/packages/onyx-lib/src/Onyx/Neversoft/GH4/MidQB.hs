@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Neversoft.GH4.MidQB where
 
 import           Control.Monad                    (forM, guard)
@@ -397,12 +399,12 @@ from James Bond Theme (dlc50), strings matched with the help of Addy's code
 
 gh4ToMidi :: SongInfoGH4 -> HM.HashMap Word32 T.Text -> HM.HashMap QBKey T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
 gh4ToMidi info bankLyrics bankMarkers gh4 = let
-  tempos = readGH3TempoMap (gh4TimeSignatures gh4) (gh4FretBars gh4)
+  tempos = readGH3TempoMap gh4.gh4TimeSignatures gh4.gh4FretBars
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   markers = fromPairs $ do
-    (t, markerKey) <- gh4GuitarMarkers gh4
+    (t, markerKey) <- gh4.gh4GuitarMarkers
     let marker = case HM.lookup (QBKey markerKey) bankMarkers of
           -- just like WoR, not all songs have this but it overrides the default "end shortly after last note"
           Just "\\L_ENDOFSONG" -> Left ()
@@ -411,16 +413,16 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
           Nothing              -> Right $ simpleSection $ T.pack $ show markerKey
     return (toBeats t, marker)
   fixed = mempty
-    { F.fixedPartGuitar = getGuitarBass $ gh4Guitar gh4
-    , F.fixedPartBass = getGuitarBass $ gh4Rhythm gh4
-    , F.fixedPartDrums = getDrums $ gh4Drum gh4
+    { F.fixedPartGuitar = getGuitarBass gh4.gh4Guitar
+    , F.fixedPartBass = getGuitarBass gh4.gh4Rhythm
+    , F.fixedPartDrums = getDrums gh4.gh4Drum
     , F.fixedPartVocals = let
-      notes = [ VocalNote time (fromIntegral dur) (fromIntegral pitch) | (time, dur, pitch) <- gh4SongVocals gh4 ]
+      notes = [ VocalNote time (fromIntegral dur) (fromIntegral pitch) | (time, dur, pitch) <- gh4.gh4SongVocals ]
       lyrics = do
-        (time, lyricQs) <- gh4Lyrics gh4
+        (time, lyricQs) <- gh4.gh4Lyrics
         lyric <- toList $ HM.lookup lyricQs bankLyrics
         return $ Single time $ stripBackL lyric
-      phrases = map fst $ gh4VocalsPhrases gh4
+      phrases = map fst gh4.gh4VocalsPhrases
       in convertVocals toBeats notes lyrics phrases []
     , F.fixedEvents = mempty
       { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
@@ -430,8 +432,9 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   -- is this sustain cutoff still right? no trim this time
   sustainThreshold :: Word32
   sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
+  getGuitarBassDiff :: GH4Difficulty -> Five.FiveDifficulty U.Beats
   getGuitarBassDiff diff = emit5' $ fromPairs $ do
-    (time, bits) <- gh4Notes diff
+    (time, bits) <- diff.gh4Notes
     let pos = toBeats time
         len = bits .&. 0xFFFF -- think this is right but should confirm
         lenTrimmed = if len > sustainThreshold && not isOpen -- open notes don't sustain in game
@@ -441,7 +444,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
           0 -> Nothing
           l -> Just l
         isOpen = bits `testBit` 21
-        sht = if any (\(tapPos, tapLen, _) -> tapPos <= time && time < tapPos + tapLen) $ gh4Tapping diff
+        sht = if any (\(tapPos, tapLen, _) -> tapPos <= time && time < tapPos + tapLen) diff.gh4Tapping
           then Tap
           else if bits `testBit` 22
             then HOPO
@@ -454,20 +457,22 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
       , [(pos, ((Just Five.Orange, sht), lenBeats)) | bits `testBit` 20]
       , [(pos, ((Nothing         , sht), lenBeats)) | isOpen           ]
       ]
+  getGuitarBass :: GH4Part -> Five.FiveTrack U.Beats
   getGuitarBass part = mempty
     { Five.fiveDifficulties = Map.fromList
-      [ (Easy  , getGuitarBassDiff $ gh4Easy   part)
-      , (Medium, getGuitarBassDiff $ gh4Medium part)
-      , (Hard  , getGuitarBassDiff $ gh4Hard   part)
-      , (Expert, getGuitarBassDiff $ gh4Expert part)
+      [ (Easy  , getGuitarBassDiff part.gh4Easy  )
+      , (Medium, getGuitarBassDiff part.gh4Medium)
+      , (Hard  , getGuitarBassDiff part.gh4Hard  )
+      , (Expert, getGuitarBassDiff part.gh4Expert)
       ]
-    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) $ gh4StarPower $ gh4Expert part
-    , Five.fivePlayer1 = makeSpan $ gh4FaceOffP1 part
-    , Five.fivePlayer2 = makeSpan $ gh4FaceOffP2 part
+    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
+    , Five.fivePlayer1 = makeSpan part.gh4FaceOffP1
+    , Five.fivePlayer2 = makeSpan part.gh4FaceOffP2
     }
+  getDrumsDiff :: GH4Difficulty -> Drums.DrumDifficulty U.Beats
   getDrumsDiff diff = mempty
     { Drums.drumGems = fromPairs $ do
-      (time, bits) <- gh4Notes diff
+      (time, bits) <- diff.gh4Notes
       let pos = toBeats time
           dynamicBit n = if bits `testBit` n then Drums.VelocityAccent else Drums.VelocityNormal
       -- TODO handle drum sustains, translate to lanes?
@@ -481,22 +486,23 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
         -- For now since we don't support the separate tracks,
         -- only include 1x kicks if they are also 2x.
         , [ (pos, (Drums.Kick               , Drums.VelocityNormal))
-          | bits `testBit` 21 && (not (gh4DoubleKick info) || bits `testBit` 29)
+          | bits `testBit` 21 && (not info.gh4DoubleKick || bits `testBit` 29)
           ]
         ]
     }
+  getDrums :: GH4Part -> Drums.DrumTrack U.Beats
   getDrums part = mempty
     { Drums.drumDifficulties = Map.fromList
-      [ (Easy  , getDrumsDiff $ gh4Easy   part)
-      , (Medium, getDrumsDiff $ gh4Medium part)
-      , (Hard  , getDrumsDiff $ gh4Hard   part)
-      , (Expert, getDrumsDiff $ gh4Expert part)
+      [ (Easy  , getDrumsDiff part.gh4Easy  )
+      , (Medium, getDrumsDiff part.gh4Medium)
+      , (Hard  , getDrumsDiff part.gh4Hard  )
+      , (Expert, getDrumsDiff part.gh4Expert)
       ]
-    , Drums.drumOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) $ gh4StarPower $ gh4Expert part
-    , Drums.drumPlayer1 = makeSpan $ gh4FaceOffP1 part
-    , Drums.drumPlayer2 = makeSpan $ gh4FaceOffP2 part
+    , Drums.drumOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
+    , Drums.drumPlayer1 = makeSpan part.gh4FaceOffP1
+    , Drums.drumPlayer2 = makeSpan part.gh4FaceOffP2
     , Drums.drumKick2x = fromPairs $ do
-      (time, bits) <- gh4Notes $ gh4Expert part
+      (time, bits) <- part.gh4Expert.gh4Notes
       guard $ bits `testBit` 29 && not (bits `testBit` 21)
       return (toBeats time, ())
     }
@@ -506,7 +512,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   in F.Song
     { F.s_tempos = tempos
     , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
-      (time, num, den) <- gh4TimeSignatures gh4
+      (time, num, den) <- gh4.gh4TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)

@@ -87,7 +87,7 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
   (trk, algo) = fromMaybe (mempty, HOPOsRBGuitar) $ find (not . Five.nullFive . fst) trks
   in FiveResult
     { settings  = grybo
-    , notes     = flip fmap (Five.fiveDifficulties trk) $ \diff ->
+    , notes     = flip fmap trk.fiveDifficulties $ \diff ->
       applyForces (getForces5 diff)
         $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
         $ computeFiveFretNotes diff
@@ -173,22 +173,22 @@ convertDrumsToFive bd _ftype input = let
         in (Just color, Nothing)
     , other = Five.FiveTrack
       { Five.fiveDifficulties = Map.empty
-      , Five.fiveMood         = D.drumMood drumResult.other
+      , Five.fiveMood         = drumResult.other.drumMood
       , Five.fiveHandMap      = RTB.empty
       , Five.fiveStrumMap     = RTB.empty
       , Five.fiveFretPosition = RTB.empty
       , Five.fiveTremolo      = RTB.empty -- TODO include these sometimes?
       , Five.fiveTrill        = RTB.empty -- TODO include these sometimes?
-      , Five.fiveOverdrive    = D.drumOverdrive drumResult.other
+      , Five.fiveOverdrive    = drumResult.other.drumOverdrive
       , Five.fiveBRE          = let
         -- only copy over a fill that is actually a BRE
         coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda input.events
         in case coda of
           Nothing -> RTB.empty
-          Just c  -> RTB.delay c $ U.trackDrop c $ D.drumActivation drumResult.other
-      , Five.fiveSolo         = D.drumSolo drumResult.other
-      , Five.fivePlayer1      = D.drumPlayer1 drumResult.other
-      , Five.fivePlayer2      = D.drumPlayer2 drumResult.other
+          Just c  -> RTB.delay c $ U.trackDrop c $ drumResult.other.drumActivation
+      , Five.fiveSolo         = drumResult.other.drumSolo
+      , Five.fivePlayer1      = drumResult.other.drumPlayer1
+      , Five.fivePlayer2      = drumResult.other.drumPlayer2
       }
     , source = "converted drum chart to five-fret"
     , autochart = False
@@ -250,7 +250,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     (case pd.fallback of
       FallbackBlue  -> D.Blue
       FallbackGreen -> D.Green
-    ) . D.drumGems
+    ) . (.drumGems)
 
   isBasicSource = case pd.mode of
     Drums4 -> True
@@ -274,10 +274,10 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
       diff <- [minBound .. maxBound]
       let gems = if elem dtarget [DrumTargetCH, DrumTargetGH] && pd.mode == Drums5
             then fmap (first $ fmap $ const D.Cymbal)
-              $ D.drumGems $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
+              $ (.drumGems) $ fromMaybe mempty $ Map.lookup diff src'.drumDifficulties
             else case pd.mode of
               Drums4 -> first (basicToProType <$) <$> D.computePro (Just diff) src'
-              Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties src'
+              Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff src'.drumDifficulties
               _      -> D.computePro (Just diff) src'
       guard $ not $ RTB.null gems
       return (diff, gems)
@@ -306,7 +306,7 @@ buildDrumAnimation pd tmap opart = let
   rbTracks = map ($ opart) [F.onyxPartRealDrumsPS, F.onyxPartDrums2x, F.onyxPartDrums]
   inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
   closeTime = 0.25 :: U.Seconds
-  in case filter (not . RTB.null) $ map D.drumAnimation rbTracks of
+  in case filter (not . RTB.null) $ map (.drumAnimation) rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
       DrumsTrue -> inRealTime (ED.eliteDrumsToAnimation closeTime)
@@ -436,7 +436,7 @@ adjustRocksmithHST tempos = let
 loadProtarOutput :: ProGuitarTrack U.Beats -> RSRockBandOutput
 loadProtarOutput pgt = let
   -- could pass hopo threshold in via ModeInput if we really wanted
-  result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert $ pgDifficulties pgt
+  result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert pgt.pgDifficulties
   in RSRockBandOutput
     { notesWithHandshapes = flip fmap result $ \(sht, notes, sustain) ->
       ( do
@@ -523,9 +523,9 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
     , other = case maybePG of
       Nothing -> mempty
       Just pg -> mempty
-        { Five.fiveOverdrive = pgOverdrive   pg
-        , Five.fiveSolo      = pgSolo        pg
-        , Five.fiveBRE       = snd <$> pgBRE pg
+        { Five.fiveOverdrive = pg.pgOverdrive
+        , Five.fiveSolo      = pg.pgSolo
+        , Five.fiveBRE       = snd <$> pg.pgBRE
         }
     , source = "converted Rocksmith chart to five-fret"
     , autochart = True

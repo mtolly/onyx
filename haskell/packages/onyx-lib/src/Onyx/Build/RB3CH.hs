@@ -282,24 +282,25 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
 
       sections = eventsSections $ F.onyxEvents trks
 
-      drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
+      drumEachDiff f dt = dt { drumDifficulties = fmap f dt.drumDifficulties }
       drumsRemoveBRE = case removeBRE target $ F.onyxEvents trks of
         Just BRERemover{..}
-          -> drumEachDiff (\dd -> dd { drumGems = breRemoveBlips $ drumGems dd })
+          -> drumEachDiff (\dd -> dd { drumGems = breRemoveBlips dd.drumGems })
           . (\dt -> dt
-            { drumSingleRoll = breRemoveLanes $ drumSingleRoll dt
-            , drumDoubleRoll = breRemoveLanes $ drumDoubleRoll dt
+            { drumSingleRoll = breRemoveLanes dt.drumSingleRoll
+            , drumDoubleRoll = breRemoveLanes dt.drumDoubleRoll
             })
         Nothing -> id
 
       addMoods dt = dt
-        { drumMood = noEarlyMood $ if RTB.null $ drumMood dt
-          then makeMoods tempos timing $ Blip () () <$ drumAnimation dt
-          else drumMood dt
+        { drumMood = noEarlyMood $ if RTB.null dt.drumMood
+          then makeMoods tempos timing $ Blip () () <$ dt.drumAnimation
+          else dt.drumMood
         }
 
-      hasDynamics dt = flip any (drumDifficulties dt) $ \dd ->
-        flip any (drumGems dd) $ \(_gem, vel) ->
+      hasDynamics :: DrumTrack U.Beats -> Bool
+      hasDynamics dt = flip any dt.drumDifficulties $ \dd ->
+        flip any dd.drumGems $ \(_gem, vel) ->
           vel /= VelocityNormal
       enableDynamics dt = dt
         -- this will use the no-brackets version, so Magma is ok with it
@@ -311,7 +312,7 @@ buildDrums drumsPart target (F.Song tempos mmap trks) timing songYaml = do
       -- instead of RYBGO.
       flipGreenOrange = case (target, drumResult.settings.mode) of
         (SharedTargetPS{}, Drums5) -> drumEachDiff $ \dd -> dd
-          { drumGems = flip fmap (drumGems dd) $ \(gem, vel) -> let
+          { drumGems = flip fmap dd.drumGems $ \(gem, vel) -> let
             gem' = case gem of
               Drums.Pro Drums.Green () -> Drums.Orange
               Drums.Orange             -> Drums.Pro Drums.Green ()
@@ -365,11 +366,11 @@ addFiveMoods
   -> FiveTrack U.Beats
   -> FiveTrack U.Beats
 addFiveMoods tempos timing ft = ft
-  { fiveMood = noEarlyMood $ if RTB.null $ fiveMood ft
+  { fiveMood = noEarlyMood $ if RTB.null ft.fiveMood
     then makeMoods tempos timing $ let
-      expert = fromMaybe mempty $ Map.lookup Expert $ fiveDifficulties ft
-      in splitEdges $ (\(_, len) -> ((), (), len)) <$> edgeBlips_ minSustainLengthRB (fiveGems expert)
-    else fiveMood ft
+      expert = fromMaybe mempty $ Map.lookup Expert ft.fiveDifficulties
+      in splitEdges $ (\(_, len) -> ((), (), len)) <$> edgeBlips_ minSustainLengthRB expert.fiveGems
+    else ft.fiveMood
   }
 
 buildFive
@@ -456,10 +457,10 @@ deleteBRE song = song
       Wait t _ _ -> U.trackTake t
       RNil       -> id
     deleteNormal drums = drums
-      { drumActivation = applyCoda $ drumActivation drums
+      { drumActivation = applyCoda drums.drumActivation
       }
     deleteElite fd = fd
-      { ED.tdActivation = applyCoda $ ED.tdActivation fd
+      { ED.tdActivation = applyCoda fd.tdActivation
       }
 
 processMIDI
@@ -550,8 +551,8 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           src = F.getFlexPart fpart trks
           tuning = tuningPitches pg.tuning { gtrGlobal = 0 }
           applyType x = x
-            { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> pgTrainer x
-            , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> pgBRE     x
+            { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> x.pgTrainer
+            , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> x.pgBRE
             }
           extendedTuning = length pitches > case gtype of
             TypeGuitar -> 6
@@ -564,13 +565,13 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
             . autoChordRoot tuning
             . pgRemoveBRE
-          pgRemoveBRE trk = case removeBRE target $ F.onyxEvents trks of
+          pgRemoveBRE trk = case removeBRE target trks.onyxEvents of
             Just BRERemover{..} -> trk
-              { pgDifficulties = flip fmap (pgDifficulties trk) $ \pgd -> pgd
-                { pgNotes = breRemoveEdges $ pgNotes pgd
+              { pgDifficulties = flip fmap trk.pgDifficulties $ \pgd -> pgd
+                { pgNotes = breRemoveEdges pgd.pgNotes
                 }
-              , pgTremolo = breRemoveLanes $ pgTremolo trk
-              , pgTrill = breRemoveLanes $ pgTrill trk
+              , pgTremolo = breRemoveLanes trk.pgTremolo
+              , pgTrill = breRemoveLanes trk.pgTrill
               }
             Nothing -> trk
           src17  = F.onyxPartRealGuitar   src
@@ -677,7 +678,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
               , fiveHandMap = RTB.empty
               , fiveStrumMap = RTB.empty
               , fiveTremolo = RTB.empty
-              , fiveDifficulties = flip Map.mapWithKey (fiveDifficulties ft) $ \diff fd ->
+              , fiveDifficulties = flip Map.mapWithKey ft.fiveDifficulties $ \diff fd ->
                 if elem diff [Easy, Medium]
                   then fd { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty }
                   else fd
@@ -771,7 +772,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       hashTalkies vt = vt { vocalLyrics = T.replace "^" "#" <$> vocalLyrics vt }
 
   drumsTrack' <- let
-    fills = RTB.normalize $ drumActivation drumsTrack
+    fills = RTB.normalize drumsTrack.drumActivation
     fixCloseFills rtb = case RTB.viewL rtb of
       Just ((tx, True), rtb') -> case RTB.viewL rtb' of
         Just ((ty, False), rtb'')
@@ -1055,21 +1056,21 @@ magmaPad rb3@(F.Song tmap _ trks) = let
     Just ((dt, _), _) -> dt
     Nothing           -> 999
   firstNoteBeats = foldr min 999 $ concat
-    [ map (firstEvent . drumGems) $ Map.elems $ drumDifficulties $ F.fixedPartDrums        trks
-    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ F.fixedPartGuitar       trks
-    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ F.fixedPartBass         trks
-    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ F.fixedPartKeys         trks
-    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ F.fixedPartRealGuitar   trks
-    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ F.fixedPartRealGuitar22 trks
-    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ F.fixedPartRealBass     trks
-    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ F.fixedPartRealBass22   trks
-    , map (firstEvent . pkNotes )
+    [ map (firstEvent . (.drumGems)) $ Map.elems trks.fixedPartDrums.drumDifficulties
+    , map (firstEvent . (.fiveGems)) $ Map.elems trks.fixedPartGuitar.fiveDifficulties
+    , map (firstEvent . (.fiveGems)) $ Map.elems trks.fixedPartBass.fiveDifficulties
+    , map (firstEvent . (.fiveGems)) $ Map.elems trks.fixedPartKeys.fiveDifficulties
+    , map (firstEvent . (.pgNotes )) $ Map.elems trks.fixedPartRealGuitar.pgDifficulties
+    , map (firstEvent . (.pgNotes )) $ Map.elems trks.fixedPartRealGuitar22.pgDifficulties
+    , map (firstEvent . (.pgNotes )) $ Map.elems trks.fixedPartRealBass.pgDifficulties
+    , map (firstEvent . (.pgNotes )) $ Map.elems trks.fixedPartRealBass22.pgDifficulties
+    , map (firstEvent . (.pkNotes ))
       [ F.fixedPartRealKeysE trks
       , F.fixedPartRealKeysM trks
       , F.fixedPartRealKeysH trks
       , F.fixedPartRealKeysX trks
       ]
-    , map (firstEvent . vocalNotes)
+    , map (firstEvent . (.vocalNotes))
       [ F.fixedPartVocals trks
       , F.fixedHarm1      trks
       , F.fixedHarm2      trks
@@ -1090,15 +1091,15 @@ findProblems :: F.Song (F.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Every discobeat mix event should be simultaneous with,
   -- or immediately followed by, a set of notes not including red or yellow.
-  let drums = F.onyxPartDrums $ F.getFlexPart F.FlexDrums $ F.s_tracks song
+  let drums = F.onyxPartDrums $ F.getFlexPart F.FlexDrums song.s_tracks
       discos = foldr RTB.merge RTB.empty $ do
         d <- [minBound .. maxBound]
-        let diff = fromMaybe mempty $ Map.lookup d $ drumDifficulties drums
-        return $ flip RTB.mapMaybe (drumMix diff) $ \case
+        let diff = fromMaybe mempty $ Map.lookup d drums.drumDifficulties
+        return $ flip RTB.mapMaybe diff.drumMix $ \case
           (_, Drums.Disco) -> Just d
           _                -> Nothing
       badDiscos = void $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
-      drumsDiff d = drumGems $ fromMaybe mempty $ Map.lookup d $ drumDifficulties drums
+      drumsDiff d = (fromMaybe mempty $ Map.lookup d drums.drumDifficulties).drumGems
       isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
         Just ((_, evts), _) | any isDiscoGem evts -> True
         _                                         -> False

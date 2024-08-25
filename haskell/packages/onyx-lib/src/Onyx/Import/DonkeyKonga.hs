@@ -269,8 +269,8 @@ importDKSong chartName isMidi chartFile dsp level = do
           $ zip roundRobin
           $ RTB.toPairList
           $ RTB.collectCoincident
-          $ drumGems
-          $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties converted
+          $ (.drumGems)
+          $ fromMaybe mempty $ Map.lookup Expert converted.drumDifficulties
         }
 
   audio <- case level of

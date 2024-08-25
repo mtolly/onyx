@@ -391,8 +391,8 @@ importRB rbi level = do
   let drumEvents = F.fixedPartDrums $ F.s_tracks midiFixed
   (foundMix, foundMixStr) <- let
     drumMixes = do
-      (_, dd) <- Map.toList $ drumDifficulties drumEvents
-      (aud, _dsc) <- toList $ drumMix dd
+      (_, dd) <- Map.toList drumEvents.drumDifficulties
+      (aud, _dsc) <- toList dd.drumMix
       return aud
     in case drumMixes of
       [] -> return (Nothing, "MIDI has no mix")

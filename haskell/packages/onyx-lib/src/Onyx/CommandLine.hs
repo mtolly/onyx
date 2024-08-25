@@ -1104,21 +1104,21 @@ commands =
               ]
             digits = length $ show $ length nodes - 1
         forM_ (zip [0..] nodes) $ \(i, (node, contents)) -> do
-          let ext = fromMaybe ("." <> show (nodeFileType node))
-                $ find ((== nodeFileType node) . qbKeyCRC . B8.pack) knownExts
+          let ext = fromMaybe ("." <> show node.nodeFileType)
+                $ find ((== node.nodeFileType) . qbKeyCRC . B8.pack) knownExts
               name = reverse (take digits $ reverse (show (i :: Int)) <> repeat '0') <> ext
           stackIO $ BL.writeFile (dout </> name) contents
-          when (nodeFileType node == ".note") $ do
+          when (node.nodeFileType == ".note") $ do
             -- TODO handle failure
             note <- loadNoteFile contents
             stackIO $ writeFile (dout </> name <.> "parsed.txt") $ show note
-          when (nodeFileType node == ".qb") $ do
+          when (node.nodeFileType == ".qb") $ do
             let matchingQS = flip filter nodes $ \(otherNode, _) ->
-                  nodeFilenameCRC node == nodeFilenameCRC otherNode
-                    && nodeFileType otherNode == ".qs.en"
+                  node.nodeFilenameCRC == otherNode.nodeFilenameCRC
+                    && otherNode.nodeFileType == ".qs.en"
                 mappingQS = qsBank matchingQS
             inside ("Parsing QB file: " <> show name) $ do
-              let ?endian = pakByteOrder format
+              let ?endian = format.pakByteOrder
               mqb <- errorToWarning $ runGetM parseQB contents
               forM_ mqb $ \qb -> do
                 let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb

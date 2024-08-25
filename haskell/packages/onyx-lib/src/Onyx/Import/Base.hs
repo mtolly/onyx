@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.Import.Base where
 
 import           Codec.Picture
@@ -108,8 +109,8 @@ detectExtProBass :: F.FixedFile t -> PG.GtrBase
 detectExtProBass trks = let
   strs = do
     trk <- [F.fixedPartRealBass trks, F.fixedPartRealBass22 trks]
-    diff <- toList $ PG.pgDifficulties trk
-    (str, _) <- toList (PG.pgNotes diff) >>= toList
+    diff <- toList trk.pgDifficulties
+    (str, _) <- toList diff.pgNotes >>= toList
     return str
   in if elem PG.S1 strs
     then PG.GtrCustom [28, 33, 38, 43, 47, 52] -- bass with 2 high gtr strings
@@ -129,11 +130,11 @@ checkEnableDynamics
   :: F.Song (F.FixedFile U.Beats)
   -> F.Song (F.FixedFile U.Beats)
 checkEnableDynamics (F.Song tmap mmap ps) = let
-  checkTrack trk = if RTB.null $ drumEnableDynamics trk
-    then trk { drumDifficulties = noDynamics <$> drumDifficulties trk }
+  checkTrack trk = if RTB.null trk.drumEnableDynamics
+    then trk { drumDifficulties = noDynamics <$> trk.drumDifficulties }
     else trk
   noDynamics dd = dd
-    { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> drumGems dd
+    { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> dd.drumGems
     }
   in F.Song tmap mmap ps
     { F.fixedPartDrums       = checkTrack $ F.fixedPartDrums       ps

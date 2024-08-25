@@ -259,7 +259,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   makeGB Nothing       _    = GuitarBass [] [] []
   makeGB (Just result) diff = let
     notes = worGuitarEdits $ fromMaybe mempty $ Map.lookup diff result.notes
-    taps = pullBackTapEnds' notes $ Five.fiveTap $ emit5' notes
+    taps = pullBackTapEnds' notes (emit5' notes).fiveTap
     colorToBit = \case
       Just Five.Green  -> 0
       Just Five.Red    -> 1
@@ -290,7 +290,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
           }
       , gb_tapping = makeStarPower taps
-      , gb_starpower = makeStarPower $ Five.fiveOverdrive result.other
+      , gb_starpower = makeStarPower result.other.fiveOverdrive
       }
   drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) $ \builder ->
     builder DrumTargetGH ModeInput
@@ -301,14 +301,14 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   makeDrums diff = case drumResult of
     Just result -> let
       trk = drumResultToTrack result
-      dd = fromMaybe mempty $ Map.lookup diff $ D.drumDifficulties trk
+      dd = fromMaybe mempty $ Map.lookup diff trk.drumDifficulties
       add2x xs = case diff of
-        Expert -> RTB.merge (fmap Just xs) $ Nothing <$ D.drumKick2x trk
+        Expert -> RTB.merge (fmap Just xs) $ Nothing <$ trk.drumKick2x
         _      -> fmap Just xs
       fiveLane = case result.settings.mode of
-        Drums4 -> add2x $ D.drumGems dd
-        Drums5 -> add2x $ D.drumGems dd
-        _ | target.proTo4 -> add2x $ D.drumGems dd
+        Drums4 -> add2x dd.drumGems
+        Drums5 -> add2x dd.drumGems
+        _ | target.proTo4 -> add2x dd.drumGems
         _ -> let
           -- TODO this logic should be moved to Onyx.Mode DrumResult
           pro = add2x $ D.computePro (Just diff) trk
@@ -369,7 +369,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         { drums_instrument = case diff of
           Expert -> Right withGhost
           _      -> Left $ map (.xdNote) withGhost
-        , drums_starpower = makeStarPower $ D.drumOverdrive trk
+        , drums_starpower = makeStarPower trk.drumOverdrive
         , drums_drumfill = flip map fills $ \(gapStart, gapEnd) ->
           Single (secondsToMS gapStart) (secondsToMS gapEnd)
         }

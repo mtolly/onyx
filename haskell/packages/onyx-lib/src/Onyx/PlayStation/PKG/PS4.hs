@@ -390,7 +390,6 @@ readPfsHeader = do
 
 data Pfs = Pfs
   { header  :: PfsHeader
-  -- TODO
   , dinodes :: Either [DinodeS32] [DinodeD32]
   } deriving (Show)
 

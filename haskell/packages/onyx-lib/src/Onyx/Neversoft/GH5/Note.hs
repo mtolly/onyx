@@ -272,7 +272,7 @@ loadSongPakContents :: (Monad m) => B.ByteString -> BL.ByteString -> StackTraceT
 loadSongPakContents songKey bs = inside "loading _song.pak.*" $ do
   nodes <- inside "splitting pak nodes" $ splitPakNodes pakFormatWoR bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
-      nodesOfType t = filter (\(n, _) -> nodeFileType n == t) nodes
+      nodesOfType t = filter (\(n, _) -> n.nodeFileType == t) nodes
       bank = qsBank $ nodesOfType ".qs.en"
   case findNodeKey ".note" of
     Nothing                -> fail ".note not found"

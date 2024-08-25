@@ -114,14 +114,14 @@ redoSwells
 redoSwells (F.Song tmap mmap ps) = let
   fixTrack trk = let
     notes = RTB.collectCoincident
-      $ RTB.filter (\(gem, _vel) -> gem /= Drums.Kick) $ drumGems $ fromMaybe mempty
-      $ Map.lookup Expert $ drumDifficulties trk
+      $ RTB.filter (\(gem, _vel) -> gem /= Drums.Kick)
+      $ (fromMaybe mempty $ Map.lookup Expert trk.drumDifficulties).drumGems
 
     -- for single rolls, don't process ones that include snares.
     -- otherwise we will mess up single rolls under gravity blasts
     allSingleRolls = joinEdgesSimple $ fmap
       (\case Just _ -> EdgeOn () (); Nothing -> EdgeOff ())
-      (drumSingleRoll trk)
+      trk.drumSingleRoll
     allSingleRollsWithAbsTime
       = RTB.fromAbsoluteEventList
       $ ATB.fromPairList
@@ -140,7 +140,7 @@ redoSwells (F.Song tmap mmap ps) = let
     notesWithLanes = fmap (first $ not . null)
       $ flip applyStatus notes $ RTB.merge
         (('s',)          <$> singleRollsEditBools)
-        (('d',) . isJust <$> drumDoubleRoll trk  )
+        (('d',) . isJust <$> trk.drumDoubleRoll  )
     (lanes1, lanes2) = generateSwells
       $ U.applyTempoTrack tmap notesWithLanes
     in trk
@@ -371,9 +371,9 @@ importFoF src dir level = do
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
       hasKicks = if isJust maybe2x
-        || not (RTB.null $ drumKick2x $ F.fixedPartDrums       $ F.s_tracks parsed)
-        || not (RTB.null $ drumKick2x $ F.fixedPartRealDrumsPS $ F.s_tracks parsed)
-        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert $ ED.tdDifficulties $ F.fixedPartEliteDrums $ F.s_tracks parsed)
+        || not (RTB.null parsed.s_tracks.fixedPartDrums.drumKick2x)
+        || not (RTB.null parsed.s_tracks.fixedPartRealDrumsPS.drumKick2x)
+        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert parsed.s_tracks.fixedPartEliteDrums.tdDifficulties)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 
@@ -388,9 +388,9 @@ importFoF src dir level = do
           , F.fixedPartDrums2x = swapFiveLaneTrack $ F.fixedPartDrums2x trks
           }
         else trks
-      swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff $ drumDifficulties trk }
+      swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff trk.drumDifficulties }
       swapFiveLaneDiff dd = dd
-        { drumGems = flip fmap (drumGems dd) $ \case
+        { drumGems = flip fmap dd.drumGems $ \case
           (Drums.Orange            , vel) -> (Drums.Pro Drums.Green (), vel)
           (Drums.Pro Drums.Green (), vel) -> (Drums.Orange            , vel)
           x                               -> x
@@ -544,12 +544,12 @@ importFoF src dir level = do
           let mode = let
                 isTrue = isnt ED.nullEliteDrums F.fixedPartEliteDrums
                 isFiveLane = FoF.fiveLaneDrums song == Just True || any
-                  (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) $ drumGems dd)
-                  (Map.toList $ drumDifficulties $ F.fixedPartDrums outputFixed)
+                  (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.drumGems)
+                  (Map.toList outputFixed.fixedPartDrums.drumDifficulties)
                 isReal = isnt nullDrums F.fixedPartRealDrumsPS
                 isPro = case FoF.proDrums song of
                   Just b  -> b
-                  Nothing -> not (RTB.null $ drumToms $ F.fixedPartDrums outputFixed)
+                  Nothing -> not (RTB.null outputFixed.fixedPartDrums.drumToms)
                     || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
                 in if
                   | isTrue     -> DrumsTrue
@@ -684,8 +684,8 @@ importFoF src dir level = do
 
 removeDummyTracks :: (NNC.C t) => F.FixedFile t -> F.FixedFile t
 removeDummyTracks trks = let
-  five  fd = fd { Five.fiveDifficulties  = scan (onlyOn . Five.fiveGems) $ Five.fiveDifficulties  fd }
-  drums dd = dd { Drums.drumDifficulties = scan Drums.drumGems           $ Drums.drumDifficulties dd }
+  five  fd = fd { Five.fiveDifficulties  = scan (onlyOn . (.fiveGems)) fd.fiveDifficulties }
+  drums dd = dd { Drums.drumDifficulties = scan (.drumGems)            dd.drumDifficulties }
   onlyOn = RTB.filter $ \case EdgeOn{} -> True; _ -> False
   scan getGems = Map.filter
     $ not

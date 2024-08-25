@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Neversoft.Pak where
 
 import qualified Codec.Compression.Zlib.Internal as Z
@@ -98,10 +100,10 @@ pakFormatWoR = PakFormat { pakByteOrder = BigEndian, pakNewPabOffsets = True }
 getPakNodes :: (MonadFail m) => PakFormat -> Bool -> BL.ByteString -> m [Node]
 getPakNodes fmt hasPab = runGetM $ let
   go = do
-    posnOffset <- if hasPab && pakNewPabOffsets fmt
+    posnOffset <- if hasPab && fmt.pakNewPabOffsets
       then return 0
       else fromIntegral <$> bytesRead
-    let getW32 = case pakByteOrder fmt of
+    let getW32 = case fmt.pakByteOrder of
           BigEndian    -> getWord32be
           LittleEndian -> getWord32le
         getQBKey = QBKey <$> getW32
@@ -132,7 +134,7 @@ splitPakNodes fmt pak maybePab = do
   nodes     <- getPakNodes fmt (isJust maybePab') pak'
   let dataSection = case maybePab' of
         Nothing  -> pak'
-        Just pab -> if pakNewPabOffsets fmt
+        Just pab -> if fmt.pakNewPabOffsets
           then pab
           else let
             -- in GHWT qb.pak.xen, the pak is 0x10000 bytes long.
@@ -143,13 +145,14 @@ splitPakNodes fmt pak maybePab = do
             -- ...nevermind, gh3 ps2 DATAP/zones/global/global_net.pak.ps2
             -- has a useless pab we should ignore? very strange
             specifiedPakLength = case nodes of
-              node : _ -> fromIntegral $ nodeOffset node
+              node : _ -> fromIntegral node.nodeOffset
               []       -> 0
             in BL.take specifiedPakLength pak' <> pab
+      attachData :: Node -> (Node, BL.ByteString)
       attachData node = let
         goToData
-          = BL.take (fromIntegral $ nodeSize node)
-          . BL.drop (fromIntegral $ nodeOffset node)
+          = BL.take (fromIntegral node.nodeSize  )
+          . BL.drop (fromIntegral node.nodeOffset)
         in (node, goToData dataSection)
   return $ map attachData nodes
 
@@ -160,7 +163,7 @@ splitPakNodesAuto pak maybePab = let
     nodes <- splitPakNodes fmt pak maybePab
     case reverse nodes of
       (node, bs) : _
-        | elem (nodeFileType node) ["last", ".last"]
+        | elem node.nodeFileType ["last", ".last"]
           && bs == BL.replicate 4 0xAB
         -> return nodes
       _ -> fatal "Pak didn't contain proper 'last', probably not the right format"
@@ -216,7 +219,7 @@ buildPak nodes = let
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
 qsBank nodes = HM.fromList $ do
   (node, nodeData) <- nodes
-  guard $ elem (nodeFileType node) [".qs.en", ".qs"]
+  guard $ elem node.nodeFileType [".qs.en", ".qs"]
   fromMaybe [] $ parseQS nodeData
 
 parseQS :: BL.ByteString -> Maybe [(Word32, T.Text)]

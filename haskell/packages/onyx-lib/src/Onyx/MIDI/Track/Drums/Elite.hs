@@ -60,7 +60,8 @@ data EliteDrumDifficulty t = EliteDrumDifficulty
   , tdFlam             :: RTB.T t ()
   , tdHihatIndifferent :: RTB.T t Bool
   , tdDisco            :: RTB.T t Bool
-  -- TODO rim/bell and choke
+  -- , tdChoke            :: RTB.T t (Edge () D.Hand)
+  -- , tdBellRim          :: RTB.T t (Edge D.Hit D.Hand)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EliteDrumDifficulty t)
 
@@ -212,6 +213,10 @@ eliteDrumNoteNames = execWriter $ do
   o 104 "Overdrive"
   o 103 "Solo"
   x 95
+  o 94 "X Choke R"
+  o 93 "X Choke L"
+  o 92 "X Bell/Rim R"
+  o 91 "X Bell/Rim L"
   o 90 "X Discobeat"
   o 88 "X Hihat Indifferent"
   o 87 "X Flam"
@@ -228,6 +233,10 @@ eliteDrumNoteNames = execWriter $ do
   o 73 "X Kick 2x"
   o 72 "X Hihat Stomp"
   x 71
+  o 70 "H Choke R"
+  o 69 "H Choke L"
+  o 68 "H Bell/Rim R"
+  o 67 "H Bell/Rim L"
   o 66 "H Discobeat"
   o 64 "H Hihat Indifferent"
   o 63 "H Flam"
@@ -244,6 +253,10 @@ eliteDrumNoteNames = execWriter $ do
   o 49 "H Kick 2x"
   o 48 "H Hihat Stomp"
   x 47
+  o 46 "M Choke R"
+  o 45 "M Choke L"
+  o 44 "M Bell/Rim R"
+  o 43 "M Bell/Rim L"
   o 42 "M Discobeat"
   o 40 "M Hihat Indifferent"
   o 39 "M Flam"
@@ -260,6 +273,10 @@ eliteDrumNoteNames = execWriter $ do
   o 25 "M Kick 2x"
   o 24 "M Hihat Stomp"
   x 23
+  o 22 "E Choke R"
+  o 21 "E Choke L"
+  o 20 "E Bell/Rim R"
+  o 19 "E Bell/Rim L"
   o 18 "E Discobeat"
   o 16 "E Hihat Indifferent"
   o 15 "E Flam"

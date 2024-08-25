@@ -1102,7 +1102,7 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
       strO = (sc.orange, TextureTargetOrange, TextureTargetOrangeLight, TextureRSOrange)
       strG = (sc.green , TextureTargetGreen , TextureTargetGreenLight , TextureRSGreen )
       strP = (sc.purple, TextureTargetPurple, TextureTargetPurpleLight, TextureRSPurple)
-      allStrings = case PG.gtrBase tuning of
+      allStrings = case tuning.gtrBase of
         PG.Guitar6      -> zip [PG.S6 ..] [            strR, strY, strB, strO, strG, strP]
         PG.Guitar7      -> zip [PG.S7 ..] [      strP, strR, strY, strB, strO, strG, strP]
         PG.Guitar8      -> zip [PG.S8 ..] [strG, strP, strR, strY, strB, strO, strG, strP]

@@ -139,8 +139,8 @@ importOsu separateSongs f = do
                     ]
                   )
                 $ RTB.collectCoincident
-                $ drumGems
-                $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties drums
+                $ (.drumGems)
+                $ fromMaybe mempty $ Map.lookup Expert drums.drumDifficulties
               in [(keySamplesForPart partName, sampleTrack)]
             Right _mania -> []
 

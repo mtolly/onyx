@@ -1,8 +1,10 @@
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.Neversoft.GH3.Metadata where
 
 import           Control.Monad.Extra          (forM, forM_, guard, replicateM)
@@ -100,7 +102,7 @@ loadGH3TextSetDLC f = case map toLower $ takeExtension f of
 
 buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> (BL.ByteString, [T.Text])
 buildGH3TextSet prefs dlName lang paks = let
-  otherNodes = nubOrdOn (nodeFilenameKey . fst) $ paks >>= gh3OtherNodes
+  otherNodes = nubOrdOn ((.nodeFilenameKey) . fst) $ paks >>= (.gh3OtherNodes)
   unk1 = qbKeyCRC $ "1o99lm\\" <> dlName <> ".qb"
   unk2 = qbKeyCRC $ "7buqvk" <> dlName
   sortAlgo = if prefArtistSort prefs
@@ -109,10 +111,10 @@ buildGH3TextSet prefs dlName lang paks = let
   allSongData
     = sortSongs sortAlgo (\(k, items) -> case parseSongInfoGH3 items of
       Left  _    -> (T.pack $ show k, "") -- hopefully shouldn't happen?
-      Right song -> (gh3Title song, gh3Artist song)
+      Right song -> (song.gh3Title, song.gh3Artist)
       )
     $ nubOrdOn fst
-    $ paks >>= gh3TextPakSongStructs
+    $ paks >>= (.gh3TextPakSongStructs)
   allSongIDs = map fst allSongData
   metadataQB =
     ( Node
@@ -166,7 +168,7 @@ buildGH3TextSet prefs dlName lang paks = let
     )
   songsLog = flip map allSongData $ \(k, items) -> case parseSongInfoGH3 items of
     Left  _    -> "[" <> T.pack (show k) <> "] (couldn't recognize metadata keys)"
-    Right song -> T.pack (show $ gh3Title song) <> " (" <> gh3Artist song <> ")"
+    Right song -> T.pack (show song.gh3Title) <> " (" <> song.gh3Artist <> ")"
   in (buildPak $ otherNodes <> [metadataQB, end], songsLog)
 
 combineGH3SongCache360 :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> StackTraceT m ()
@@ -266,7 +268,7 @@ readGH3TextPakQB nodes = let
       , "gh3_songlist_props" -- GH3 DEMO BUILD
       ]
     songs
-  sortedNodes = flip map nodes $ \pair@(node, bs) -> if nodeFileType node == ".qb"
+  sortedNodes = flip map nodes $ \pair@(node, bs) -> if node.nodeFileType == ".qb"
     then let
       -- this will just be an empty list if we can't parse the qb,
       -- such as some parts of gh3 disc .pak we don't care about
@@ -285,7 +287,7 @@ readGH3TextPakQB nodes = let
   in GH3TextPakQB
     { gh3TextPakSongStructs = structs
     , gh3OtherNodes
-      = filter (\(node, _) -> nodeFileType node /= ".last")
+      = filter (\(node, _) -> node.nodeFileType /= ".last")
       $ lefts sortedNodes
     }
 

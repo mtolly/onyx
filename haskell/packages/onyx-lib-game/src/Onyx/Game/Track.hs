@@ -216,17 +216,17 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
         DrumsTrue -> D.computePro diff thisSrc
     hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
-    (acts, bres) = case fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song of
-      Nothing   -> (D.drumActivation thisSrc, RTB.empty)
+    (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.s_tracks.onyxEvents.eventsCoda of
+      Nothing   -> (thisSrc.drumActivation, RTB.empty)
       Just coda ->
-        ( U.trackTake coda $ D.drumActivation thisSrc
-        , RTB.delay coda $ U.trackDrop coda $ D.drumActivation thisSrc
+        ( U.trackTake coda thisSrc.drumActivation
+        , RTB.delay coda $ U.trackDrop coda thisSrc.drumActivation
         )
     drumStates = (\((a, b), c) -> PNF.DrumState a b c) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` (let
-          single = findTremolos hands $ laneDifficulty (fromMaybe Expert diff) $ D.drumSingleRoll thisSrc
-          double = findTrills   hands $ laneDifficulty (fromMaybe Expert diff) $ D.drumDoubleRoll thisSrc
+          single = findTremolos hands $ laneDifficulty (fromMaybe Expert diff) thisSrc.drumSingleRoll
+          double = findTrills   hands $ laneDifficulty (fromMaybe Expert diff) thisSrc.drumDoubleRoll
           in makeLanes (D.Red : (D.Pro <$> each <*> each)) (RTB.merge single double)
           )
         `PNF.zipStateMaps` toggle acts
@@ -235,9 +235,9 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       guard $ not $ diff == Nothing && pdrums.kicks == Kicks1x
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         drumStates
-          `PNF.zipStateMaps` toggle (D.drumOverdrive thisSrc)
+          `PNF.zipStateMaps` toggle thisSrc.drumOverdrive
           `PNF.zipStateMaps` toggle bres
-          `PNF.zipStateMaps` toggle (D.drumSolo thisSrc)
+          `PNF.zipStateMaps` toggle thisSrc.drumSolo
           `PNF.zipStateMaps` fmap Just beats
 
   drumTrackTrue fpart pdrums diff = let
@@ -328,7 +328,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     assigned :: RTB.T U.Beats (LongNote Bool (Maybe Five.Color, StrumHOPOTap))
     assigned = splitEdges
       $ fmap (\(a, (b, c)) -> (a, b, c))
-      $ applyStatus1 False (RTB.normalize $ Five.fiveOverdrive result.other)
+      $ applyStatus1 False (RTB.normalize result.other.fiveOverdrive)
       $ thisDiff
     assignedMap :: Map.Map Double (Map.Map (Maybe Five.Color) (PNF.PNF (PNF.GuitarSustain Double) StrumHOPOTap))
     assignedMap
@@ -369,15 +369,15 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       in At t this $ buildFiveStatus this rest
     fiveStates = (\((a, b), c) -> PNF.GuitarState a b c) <$> do
       assignedMap
-        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff $ Five.fiveTremolo result.other)
-        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTrills   ons $ laneDifficulty diff $ Five.fiveTrill   result.other)
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTremolos ons $ laneDifficulty diff result.other.fiveTremolo)
+        `PNF.zipStateMaps` (makeLanes (Nothing : map Just each) $ findTrills   ons $ laneDifficulty diff result.other.fiveTrill  )
     in do
       guard $ not $ RTB.null thisDiff
       Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         fiveStates
-          `PNF.zipStateMaps` toggle (Five.fiveOverdrive result.other)
-          `PNF.zipStateMaps` toggle (Five.fiveBRE result.other)
-          `PNF.zipStateMaps` toggle (Five.fiveSolo result.other)
+          `PNF.zipStateMaps` toggle result.other.fiveOverdrive
+          `PNF.zipStateMaps` toggle result.other.fiveBRE
+          `PNF.zipStateMaps` toggle result.other.fiveSolo
           `PNF.zipStateMaps` fmap Just beats
 
   pgRocksmith rso = let
@@ -460,12 +460,12 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       ]
 
   pgTrack fpart ppg diff = let
-    src = case Map.lookup fpart $ F.onyxParts $ F.s_tracks song of
+    src = case Map.lookup fpart song.s_tracks.onyxParts of
       Nothing -> mempty
       Just part
-        | not $ PG.nullPG $ F.onyxPartRealGuitar22 part -> F.onyxPartRealGuitar22 part
-        | otherwise                                          -> F.onyxPartRealGuitar   part
-    thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties src
+        | not $ PG.nullPG part.onyxPartRealGuitar22 -> part.onyxPartRealGuitar22
+        | otherwise                                 -> part.onyxPartRealGuitar
+    thisDiff = fromMaybe mempty $ Map.lookup diff src.pgDifficulties
     _tuning = PG.tuningPitches ppg.tuning { PG.gtrGlobal = 0 }
     _flatDefault = maybe False songKeyUsesFlats songYaml.metadata.key
     _chordNames = PG.computeChordNames diff _tuning _flatDefault src
@@ -476,7 +476,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     notes = let
       eachString str = let
         stringNotes :: RTB.T U.Beats (IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Beats, Maybe PG.Slide)))
-        stringNotes = applyStatus1 False (RTB.normalize $ PG.pgOverdrive src) $
+        stringNotes = applyStatus1 False (RTB.normalize src.pgOverdrive) $
           flip RTB.mapMaybe computed $ \(sht, trips, sust) ->
             case [ (fret, ntype) | (str', fret, ntype) <- trips, str == str' ] of
               []       -> Nothing
@@ -508,12 +508,12 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         `PNF.zipStateMaps` Map.empty -- TODO chords :: PNF T.Text T.Text
         `PNF.zipStateMaps` Map.empty -- TODO arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
     in do
-      guard $ not $ RTB.null $ PG.pgNotes thisDiff
+      guard $ not $ RTB.null thisDiff.pgNotes
       Just $ (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
         pgStates
-          `PNF.zipStateMaps` toggle (PG.pgOverdrive src)
-          `PNF.zipStateMaps` toggle (snd <$> PG.pgBRE src)
-          `PNF.zipStateMaps` toggle (PG.pgSolo src)
+          `PNF.zipStateMaps` toggle src.pgOverdrive
+          `PNF.zipStateMaps` toggle (snd <$> src.pgBRE)
+          `PNF.zipStateMaps` toggle src.pgSolo
           `PNF.zipStateMaps` fmap Just beats
 
   beats :: Map.Map Double (Maybe Beat.BeatEvent)

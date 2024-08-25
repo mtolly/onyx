@@ -145,12 +145,12 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
               od <- removeNotelessOD
                 mmap
                 [(fpart, [(show diff, void notes')])]
-                ((fpart,) <$> RB.fiveOverdrive result.other)
+                ((fpart,) <$> result.other.fiveOverdrive)
               return PartDifficulty
                 { partStarPower  = snd <$> od
-                , partPlayer1    = RB.fivePlayer1 result.other
-                , partPlayer2    = RB.fivePlayer2 result.other
-                , partGems       = RB.fiveGems $ emit5' notes'
+                , partPlayer1    = result.other.fivePlayer1
+                , partPlayer2    = result.other.fivePlayer2
+                , partGems       = (emit5' notes').fiveGems
                 , partForceHOPO  = RTB.empty
                 , partForceStrum = RTB.empty
                 , partForceTap   = RTB.empty
@@ -162,7 +162,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         builder <- getPart fpart song >>= anyFiveFret
         return $ builder FiveTypeGuitar ModeInput
           { tempo  = tmap
-          , events = F.onyxEvents onyx
+          , events = onyx.onyxEvents
           , part   = F.getFlexPart fpart onyx
           }
       getLeadData fpart = case getFive fpart of
@@ -170,7 +170,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         Just result -> return $ completeFiveResult False mmap result
       fiveResultMoods :: FiveResult -> RTB.T U.Beats Bool
       fiveResultMoods result
-        = makePlayBools (RB.fiveMood result.other)
+        = makePlayBools result.other.fiveMood
         $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
         $ Map.lookup Expert result.notes
   guitarResult <- getLeadData $ gh1LeadTrack audio
@@ -183,8 +183,8 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         Just part -> fmap snd $ RB.vocalNotes $ F.onyxPartVocals $ F.getFlexPart part onyx
       }
     , gh1Anim     = AnimTrack
-      { animFretPosition = first FretPosition <$> RB.fiveFretPosition guitarResult.other
-      , animHandMap = flip fmap (RB.fiveHandMap guitarResult.other) $ \case
+      { animFretPosition = first FretPosition <$> guitarResult.other.fiveFretPosition
+      , animHandMap = flip fmap guitarResult.other.fiveHandMap $ \case
         RB.HandMap_Default   -> HandMap_Default
         RB.HandMap_NoChords  -> HandMap_NoChords
         RB.HandMap_AllChords -> HandMap_AllChords
@@ -219,9 +219,9 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           Nothing -> RTB.empty
           Just part -> let
             trk = F.onyxPartDrums $ F.getFlexPart part onyx
-            anims = RB.drumAnimation $ RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk
+            anims = (RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk).drumAnimation
             in fmap (\b -> if b then Event_drum_on else Event_drum_off)
-              $ makePlayBools (RB.drumMood trk) $ Blip () () <$ anims
+              $ makePlayBools trk.drumMood $ Blip () () <$ anims
         , RTB.singleton (timingEnd timing) Event_end
         ]
       }

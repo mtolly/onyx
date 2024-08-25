@@ -1,7 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Neversoft.GH3.MidQB where
 
 import           Control.Monad                    (forM)
@@ -308,7 +310,7 @@ readGH3TempoMap sigs bars = let
 
 gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap QBKey T.Text -> GH3MidQB -> F.Song (F.OnyxFile U.Beats)
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
-  tempos = readGH3TempoMap (gh3TimeSignatures gh3) (gh3FretBars gh3)
+  tempos = readGH3TempoMap gh3.gh3TimeSignatures gh3.gh3FretBars
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
@@ -320,7 +322,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   -- This is overridden by some songs to 1.95. These correspond to roughly the 66/192 and 100/192 mentioned here
   -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L33
   hopoThreshold :: U.Beats
-  hopoThreshold = realToFrac $ 1 / fromMaybe 2.95 (gh3HammerOnMeasureScale songInfo)
+  hopoThreshold = realToFrac $ 1 / fromMaybe 2.95 songInfo.gh3HammerOnMeasureScale
   -- Weird sustain threshold algorithm, see
   -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L1537-L1546
   -- https://github.com/raynebc/editor-on-fire/blob/8d081c6cc2f/src/gh_import.c#L5814-L5832
@@ -329,8 +331,9 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
   sustainTrim :: Word32
   sustainTrim = quot sustainThreshold 2
+  getTrack :: GH3Track -> Five.FiveDifficulty U.Beats
   getTrack trk = emit5' $ emitTrack hopoThreshold $ fromPairs $ do
-    (time, len, bits) <- gh3Notes trk
+    (time, len, bits) <- trk.gh3Notes
     let pos = toBeats time
         lenTrimmed = if len > sustainThreshold
           then len - sustainTrim
@@ -344,25 +347,26 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       , [(pos, TrackNote (Just Five.Orange) lenBeats) | bits `testBit` 4]
       , [(pos, TrackForce                   lenBeats) | bits `testBit` 5]
       ]
+  getPart :: GH3Part -> Five.FiveTrack U.Beats
   getPart part = mempty
     { Five.fiveDifficulties = Map.fromList
-      [ (Expert, getTrack $ gh3Expert part)
-      , (Hard  , getTrack $ gh3Hard   part)
-      , (Medium, getTrack $ gh3Medium part)
-      , (Easy  , getTrack $ gh3Easy   part)
+      [ (Expert, getTrack part.gh3Expert)
+      , (Hard  , getTrack part.gh3Hard  )
+      , (Medium, getTrack part.gh3Medium)
+      , (Easy  , getTrack part.gh3Easy  )
       ]
-    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) $ gh3StarPower $ gh3Expert part
-    , Five.fivePlayer1 = makeSpan $ gh3P1FaceOff gh3
-    , Five.fivePlayer2 = makeSpan $ gh3P2FaceOff gh3
+    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) part.gh3Expert.gh3StarPower
+    , Five.fivePlayer1 = makeSpan gh3.gh3P1FaceOff
+    , Five.fivePlayer2 = makeSpan gh3.gh3P2FaceOff
     }
   makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
     (time, len) <- spans
     [(toBeats time, True), (toBeats $ time + len, False)]
-  trackLead = getPart $ if coopTracks then gh3CoopGuitar gh3 else gh3Guitar gh3
-  trackCoop = getPart $ if coopTracks then gh3CoopRhythm gh3 else gh3Rhythm gh3
+  trackLead = getPart $ if coopTracks then gh3.gh3CoopGuitar else gh3.gh3Guitar
+  trackCoop = getPart $ if coopTracks then gh3.gh3CoopRhythm else gh3.gh3Rhythm
   events = mempty
     { eventsSections = fromPairs $ do
-      (t, marker) <- gh3Markers gh3
+      (t, marker) <- gh3.gh3Markers
       let str = case marker of
             Right s -> s
             Left  n -> case HM.lookup n bank of
@@ -370,7 +374,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
               Nothing -> T.pack $ show n
       return (toBeats t, simpleSection str)
     }
-  drums = gh3DrumsToElite toBeats $ gh3Drums $ gh3BackgroundNotes gh3
+  drums = gh3DrumsToElite toBeats gh3.gh3BackgroundNotes.gh3Drums
   fixed = mempty
     { F.onyxParts = Map.fromList
       [ ( F.FlexGuitar
@@ -388,7 +392,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   in F.Song
     { F.s_tempos = tempos
     , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
-      (time, num, den) <- gh3TimeSignatures gh3
+      (time, num, den) <- gh3.gh3TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)

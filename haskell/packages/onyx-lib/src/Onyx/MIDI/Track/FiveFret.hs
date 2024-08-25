@@ -1,10 +1,13 @@
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE StrictData          #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.FiveFret where
 
 import           Control.Monad                    (void)
@@ -101,7 +104,7 @@ data FiveTrack t = FiveTrack
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveTrack t)
 
 nullFive :: FiveTrack t -> Bool
-nullFive = all (RTB.null . fiveGems) . toList . fiveDifficulties
+nullFive = all (RTB.null . (.fiveGems)) . toList . (.fiveDifficulties)
 
 instance TraverseTrack FiveTrack where
   traverseTrack fn (FiveTrack a b c d e f g h i j k l) = FiveTrack
@@ -111,32 +114,32 @@ instance TraverseTrack FiveTrack where
 
 instance ChopTrack FiveTrack where
   chopTake t ft = FiveTrack
-    { fiveDifficulties = chopTake t <$> fiveDifficulties ft
-    , fiveMood         = U.trackTake t                 $ fiveMood ft
-    , fiveHandMap      = U.trackTake t                 $ fiveHandMap ft
-    , fiveStrumMap     = U.trackTake t                 $ fiveStrumMap ft
-    , fiveFretPosition = chopEachPair (chopTakeBool t) $ fiveFretPosition ft
-    , fiveTremolo      = chopTakeMaybe t               $ fiveTremolo ft
-    , fiveTrill        = chopTakeMaybe t               $ fiveTrill ft
-    , fiveOverdrive    = chopTakeBool t                $ fiveOverdrive ft
-    , fiveBRE          = chopTakeBool t                $ fiveBRE ft
-    , fiveSolo         = chopTakeBool t                $ fiveSolo ft
-    , fivePlayer1      = chopTakeBool t                $ fivePlayer1 ft
-    , fivePlayer2      = chopTakeBool t                $ fivePlayer2 ft
+    { fiveDifficulties = chopTake t <$> ft.fiveDifficulties
+    , fiveMood         = U.trackTake t                 ft.fiveMood
+    , fiveHandMap      = U.trackTake t                 ft.fiveHandMap
+    , fiveStrumMap     = U.trackTake t                 ft.fiveStrumMap
+    , fiveFretPosition = chopEachPair (chopTakeBool t) ft.fiveFretPosition
+    , fiveTremolo      = chopTakeMaybe t               ft.fiveTremolo
+    , fiveTrill        = chopTakeMaybe t               ft.fiveTrill
+    , fiveOverdrive    = chopTakeBool t                ft.fiveOverdrive
+    , fiveBRE          = chopTakeBool t                ft.fiveBRE
+    , fiveSolo         = chopTakeBool t                ft.fiveSolo
+    , fivePlayer1      = chopTakeBool t                ft.fivePlayer1
+    , fivePlayer2      = chopTakeBool t                ft.fivePlayer2
     }
   chopDrop t ft = FiveTrack
-    { fiveDifficulties = chopDrop t <$> fiveDifficulties ft
-    , fiveMood         = chopDropStatus t              $ fiveMood ft
-    , fiveHandMap      = chopDropStatus t              $ fiveHandMap ft
-    , fiveStrumMap     = chopDropStatus t              $ fiveStrumMap ft
-    , fiveFretPosition = chopEachPair (chopDropBool t) $ fiveFretPosition ft
-    , fiveTremolo      = chopDropMaybe t               $ fiveTremolo ft
-    , fiveTrill        = chopDropMaybe t               $ fiveTrill ft
-    , fiveOverdrive    = chopDropBool t                $ fiveOverdrive ft
-    , fiveBRE          = chopDropBool t                $ fiveBRE ft
-    , fiveSolo         = chopDropBool t                $ fiveSolo ft
-    , fivePlayer1      = chopDropBool t                $ fivePlayer1 ft
-    , fivePlayer2      = chopDropBool t                $ fivePlayer2 ft
+    { fiveDifficulties = chopDrop t <$> ft.fiveDifficulties
+    , fiveMood         = chopDropStatus t              ft.fiveMood
+    , fiveHandMap      = chopDropStatus t              ft.fiveHandMap
+    , fiveStrumMap     = chopDropStatus t              ft.fiveStrumMap
+    , fiveFretPosition = chopEachPair (chopDropBool t) ft.fiveFretPosition
+    , fiveTremolo      = chopDropMaybe t               ft.fiveTremolo
+    , fiveTrill        = chopDropMaybe t               ft.fiveTrill
+    , fiveOverdrive    = chopDropBool t                ft.fiveOverdrive
+    , fiveBRE          = chopDropBool t                ft.fiveBRE
+    , fiveSolo         = chopDropBool t                ft.fiveSolo
+    , fivePlayer1      = chopDropBool t                ft.fivePlayer1
+    , fivePlayer2      = chopDropBool t                ft.fivePlayer2
     }
 
 data FiveDifficulty t = FiveDifficulty
@@ -150,18 +153,18 @@ data FiveDifficulty t = FiveDifficulty
 
 instance ChopTrack FiveDifficulty where
   chopTake t fd = FiveDifficulty
-    { fiveForceStrum = chopTakeBool t $ fiveForceStrum fd
-    , fiveForceHOPO  = chopTakeBool t $ fiveForceHOPO  fd
-    , fiveTap        = chopTakeBool t $ fiveTap        fd
-    , fiveOpen       = chopTakeBool t $ fiveOpen       fd
-    , fiveGems       = chopTakeEdge t $ fiveGems       fd
+    { fiveForceStrum = chopTakeBool t fd.fiveForceStrum
+    , fiveForceHOPO  = chopTakeBool t fd.fiveForceHOPO
+    , fiveTap        = chopTakeBool t fd.fiveTap
+    , fiveOpen       = chopTakeBool t fd.fiveOpen
+    , fiveGems       = chopTakeEdge t fd.fiveGems
     }
   chopDrop t fd = FiveDifficulty
-    { fiveForceStrum = chopDropBool t $ fiveForceStrum fd
-    , fiveForceHOPO  = chopDropBool t $ fiveForceHOPO  fd
-    , fiveTap        = chopDropBool t $ fiveTap        fd
-    , fiveOpen       = chopDropBool t $ fiveOpen       fd
-    , fiveGems       = chopDropEdge t $ fiveGems       fd
+    { fiveForceStrum = chopDropBool t fd.fiveForceStrum
+    , fiveForceHOPO  = chopDropBool t fd.fiveForceHOPO
+    , fiveTap        = chopDropBool t fd.fiveTap
+    , fiveOpen       = chopDropBool t fd.fiveOpen
+    , fiveGems       = chopDropEdge t fd.fiveGems
     }
 
 instance TraverseTrack FiveDifficulty where
@@ -200,36 +203,37 @@ instance ParseTrack FiveTrack where
       , codecOut = const $ return False
       }
 
-    fiveMood         <- fiveMood         =. command
-    fiveHandMap      <- fiveHandMap      =. command
-    fiveStrumMap     <- fiveStrumMap     =. command
-    fiveFretPosition <- (fiveFretPosition =.) $ condenseMap $ eachKey each
+    fiveMood         <- (.fiveMood      ) =. command
+    fiveHandMap      <- (.fiveHandMap   ) =. command
+    fiveStrumMap     <- (.fiveStrumMap  ) =. command
+    fiveFretPosition <- (=.) (.fiveFretPosition) $ condenseMap $ eachKey each
       $ \posn -> edges $ fromEnum posn + 40
       -- TODO does this need to check enhancedOpens to ignore high fret
-    fiveTremolo      <- fiveTremolo      =. edgesLanes 126
-    fiveTrill        <- fiveTrill        =. edgesLanes 127
-    fiveOverdrive    <- fiveOverdrive    =. edges 116
-    fiveBRE          <- fiveBRE          =. edgesBRE [120 .. 124]
-    fiveSolo         <- fiveSolo         =. edges 103
-    fivePlayer1      <- fivePlayer1      =. edges 105
-    fivePlayer2      <- fivePlayer2      =. edges 106
-    fiveDifficulties <- (fiveDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    fiveTremolo      <- (.fiveTremolo   ) =. edgesLanes 126
+    fiveTrill        <- (.fiveTrill     ) =. edgesLanes 127
+    fiveOverdrive    <- (.fiveOverdrive ) =. edges 116
+    fiveBRE          <- (.fiveBRE       ) =. edgesBRE [120 .. 124]
+    fiveSolo         <- (.fiveSolo      ) =. edges 103
+    fivePlayer1      <- (.fivePlayer1   ) =. edges 105
+    fivePlayer2      <- (.fivePlayer2   ) =. edges 106
+    fiveDifficulties <- (=.) (.fiveDifficulties) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
             Hard   -> 84
             Expert -> 96
-      fiveForceStrum <- fiveForceStrum =. edges (base + 6)
-      fiveForceHOPO  <- fiveForceHOPO  =. edges (base + 5)
-      fiveTap        <- fiveTap        =. sysexPS diff PS.TapNotes
-      fiveOpen'      <- fiveOpen       =. sysexPS diff PS.OpenStrum
+      fiveForceStrum <- (.fiveForceStrum) =. edges (base + 6)
+      fiveForceHOPO  <- (.fiveForceHOPO ) =. edges (base + 5)
+      fiveTap        <- (.fiveTap       ) =. sysexPS diff PS.TapNotes
+      fiveOpen'      <- (.fiveOpen      ) =. sysexPS diff PS.OpenStrum
       chordSnap [base - 1 .. base + 4]
-      fiveGems'      <- (fiveGems =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-        Green  -> base + 0
-        Red    -> base + 1
-        Yellow -> base + 2
-        Blue   -> base + 3
-        Orange -> base + 4
+      fiveGems'      <- (.fiveGems      ) =. do
+        translateEdges $ condenseMap $ eachKey each $ edges . \case
+          Green  -> base + 0
+          Red    -> base + 1
+          Yellow -> base + 2
+          Blue   -> base + 3
+          Orange -> base + 4
       -- Always support pitch 95 opens for expert since I am already using it in my midis
       (fiveGems, fiveOpen) <- if enhancedOpens || diff == Expert
         then do
