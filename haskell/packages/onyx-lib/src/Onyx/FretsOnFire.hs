@@ -1,20 +1,27 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.FretsOnFire where
 
 import           Control.Applicative        ((<|>))
 import           Control.Monad              (when, (>=>))
 import           Control.Monad.IO.Class     (MonadIO (liftIO))
 import           Control.Monad.Trans.Writer
+import           Data.Bifunctor             (first)
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
-import           Data.Char                  (isSpace)
+import           Data.Char                  (isDigit, isSpace)
 import           Data.Default.Class         (Default (..))
 import           Data.Fixed                 (Milli)
+import           Data.Foldable              (toList)
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (stripPrefix)
-import           Data.Maybe                 (mapMaybe)
+import           Data.Maybe                 (isNothing, mapMaybe)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
 import           Onyx.StackTrace
@@ -24,53 +31,57 @@ import           Onyx.Util.Text.Decode      (decodeGeneral)
 import           Text.Read                  (readMaybe)
 
 data Song = Song
-  { name             :: Maybe T.Text
-  , artist           :: Maybe T.Text
-  , album            :: Maybe T.Text
-  , charter          :: Maybe T.Text -- ^ can be @frets@ or @charter@
-  , year             :: Maybe T.Text -- not restricted to int, "year = 2008-2009" CH shows as-is but sorts under 2008
-  , genre            :: Maybe T.Text
-  , proDrums         :: Maybe Bool
-  , songLength       :: Maybe Int
-  , previewStartTime :: Maybe Int
-  , previewEndTime   :: Maybe Int
-  , diffBand         :: Maybe Int
-  , diffGuitar       :: Maybe Int
-  , diffGuitarGHL    :: Maybe Int
-  , diffBass         :: Maybe Int
-  , diffBassGHL      :: Maybe Int
-  , diffDrums        :: Maybe Int
-  , diffDrumsReal    :: Maybe Int
-  , diffKeys         :: Maybe Int
-  , diffKeysReal     :: Maybe Int
-  , diffVocals       :: Maybe Int
-  , diffVocalsHarm   :: Maybe Int
-  , diffDance        :: Maybe Int
-  , diffBassReal     :: Maybe Int
-  , diffGuitarReal   :: Maybe Int
-  , diffBassReal22   :: Maybe Int
-  , diffGuitarReal22 :: Maybe Int
-  , diffGuitarCoop   :: Maybe Int
-  , diffRhythm       :: Maybe Int
-  , diffDrumsRealPS  :: Maybe Int
-  , diffKeysRealPS   :: Maybe Int
-  , delay            :: Maybe Int
-  , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
-  , eighthNoteHOPO   :: Maybe Bool
-  , hopoFrequency    :: Maybe Int
-  , track            :: Maybe Int -- ^ either @track@ or @album_track@
-  , sysexSlider      :: Maybe Bool
-  , sysexOpenBass    :: Maybe Bool
-  , fiveLaneDrums    :: Maybe Bool
-  , drumFallbackBlue :: Maybe Bool
-  , loadingPhrase    :: Maybe T.Text
-  , video            :: Maybe FilePath -- ^ only used by PS, CH only accepts @video.*@
-  , videoStartTime   :: Maybe Milli
-  , videoEndTime     :: Maybe Milli
-  , videoLoop        :: Maybe Bool
-  , cassetteColor    :: Maybe T.Text -- ^ old FoF background color that label.png goes on top of
-  , tags             :: Maybe T.Text
-  , background       :: Maybe FilePath -- ^ probably only PS, CH finds @background.*@
+  { name               :: Maybe T.Text
+  , artist             :: Maybe T.Text
+  , album              :: Maybe T.Text
+  , charter            :: Maybe T.Text -- ^ can be @frets@ or @charter@
+  , year               :: Maybe T.Text -- not restricted to int, "year = 2008-2009" CH shows as-is but sorts under 2008
+  , genre              :: Maybe T.Text
+  , proDrums           :: Maybe Bool
+  , songLength         :: Maybe Int
+  , previewStartTime   :: Maybe Int
+  , previewEndTime     :: Maybe Int
+  , diffBand           :: Maybe Int
+  , diffGuitar         :: Maybe Int
+  , diffGuitarGHL      :: Maybe Int
+  , diffBass           :: Maybe Int
+  , diffBassGHL        :: Maybe Int
+  , diffDrums          :: Maybe Int
+  , diffDrumsReal      :: Maybe Int
+  , diffKeys           :: Maybe Int
+  , diffKeysReal       :: Maybe Int
+  , diffVocals         :: Maybe Int
+  , diffVocalsHarm     :: Maybe Int
+  , diffDance          :: Maybe Int
+  , diffBassReal       :: Maybe Int
+  , diffGuitarReal     :: Maybe Int
+  , diffBassReal22     :: Maybe Int
+  , diffGuitarReal22   :: Maybe Int
+  , diffGuitarCoop     :: Maybe Int
+  , diffRhythm         :: Maybe Int
+  , diffDrumsRealPS    :: Maybe Int
+  , diffKeysRealPS     :: Maybe Int
+  , delay              :: Maybe Int
+  , starPowerNote      :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
+  , eighthNoteHOPO     :: Maybe Bool
+  , hopoFrequency      :: Maybe Int
+  , track              :: Maybe Int -- ^ either @track@ or @album_track@
+  , sysexSlider        :: Maybe Bool
+  , sysexOpenBass      :: Maybe Bool
+  , fiveLaneDrums      :: Maybe Bool
+  , drumFallbackBlue   :: Maybe Bool
+  , loadingPhrase      :: Maybe T.Text
+  , video              :: Maybe FilePath -- ^ only used by PS, CH only accepts @video.*@
+  , videoStartTime     :: Maybe Milli
+  , videoEndTime       :: Maybe Milli
+  , videoLoop          :: Maybe Bool
+  , cassetteColor      :: Maybe T.Text -- ^ old FoF background color that label.png goes on top of
+  , tags               :: Maybe T.Text
+  , background         :: Maybe FilePath -- ^ probably only PS, CH finds @background.*@
+  , realGuitarTuning   :: Maybe PSTuning
+  , realGuitar22Tuning :: Maybe PSTuning
+  , realBassTuning     :: Maybe PSTuning
+  , realBass22Tuning   :: Maybe PSTuning
   {- TODO:
   banner_link_a
   link_name_a
@@ -86,8 +97,6 @@ data Song = Song
   count
   real_keys_lane_count_right
   real_keys_lane_count_left
-  real_guitar_tuning
-  real_bass_tuning
   sysex_high_hat_ctrl
   sysex_rimshot
   icon
@@ -102,7 +111,40 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def def def
+    def def def def def def def def def def
+    def
+
+data PSTuning = PSTuning
+  { offsets :: [Int]
+  , name    :: Maybe T.Text
+  } deriving (Eq, Ord, Show)
+
+readPSTuning :: T.Text -> Maybe PSTuning
+readPSTuning str = let
+  tryNumber :: T.Text -> Maybe (Int, T.Text)
+  tryNumber (T.stripStart -> stripped) = case T.uncons stripped of
+    Just ('-', xs) -> first negate <$> tryNumber xs
+    Just ('+', xs) -> tryNumber xs
+    Just (d, _) | isDigit d -> case T.span isDigit stripped of
+      (digits, rest) -> (, rest) <$> readMaybe (T.unpack digits)
+    _ -> Nothing
+  getNumbers :: T.Text -> ([Int], T.Text)
+  getNumbers t = case tryNumber t of
+    Nothing      -> ([], t)
+    Just (n, t') -> first (n :) $ getNumbers t'
+  in case getNumbers str of
+    (nums, rest) -> if T.all isSpace rest && not (null nums)
+      then Just PSTuning { offsets = nums, name = Nothing }
+      else case readMaybe $ T.unpack rest of
+        Just name -> Just PSTuning { offsets = nums, name = Just name }
+        Nothing   -> if null nums
+          then Nothing
+          else Just PSTuning { offsets = nums, name = Just $ T.strip rest }
+
+showPSTuning :: PSTuning -> T.Text
+showPSTuning t = T.unwords
+  $ map (T.pack . show) t.offsets
+  <> toList (T.pack . show <$> t.name)
 
 -- | Strips <b>bold</b>, <i>italic</i>, and <color=red>colored</color>
 -- which are supported by CH in metadata, lyrics, and sections.
@@ -141,6 +183,13 @@ loadSong r = do
         "1"     -> Just True
         "0"     -> Just False
         _       -> Nothing
+      tuning :: (SendMessage m) => T.Text -> StackTraceT m (Maybe PSTuning)
+      tuning k = case str k of
+        Just s -> do
+          let result = readPSTuning s
+          when (isNothing result) $ warn $ "Couldn't parse protar tuning: " <> show (k, s)
+          return result
+        Nothing -> return Nothing
 
       name = stripTags <$> str "name"
       artist = stripTags <$> str "artist"
@@ -189,6 +238,11 @@ loadSong r = do
       cassetteColor = str "cassettecolor"
       tags = str "tags"
       background = fmap T.unpack $ str "background"
+
+  realGuitarTuning   <- tuning "real_guitar_tuning"
+  realGuitar22Tuning <- tuning "real_guitar_22_tuning"
+  realBassTuning     <- tuning "real_bass_tuning"
+  realBass22Tuning   <- tuning "real_bass_22_tuning"
 
   return Song{..}
 

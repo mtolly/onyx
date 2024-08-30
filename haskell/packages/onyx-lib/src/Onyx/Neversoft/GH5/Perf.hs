@@ -115,24 +115,24 @@ rbCameraToPerf key tmap rb endTime = let
       n : _ -> n
       []    -> 30 -- only keys cuts here
   mapCut = \case
-    V3_coop_all_behind -> Just 31
-    V3_coop_all_far -> Just 28
-    V3_coop_all_near -> Just 30
-    V3_coop_front_behind -> Just 31
-    V3_coop_front_near -> Just 30
-    V3_coop_d_behind -> Just 26
-    V3_coop_d_near -> Just 25
-    V3_coop_v_behind -> Just 16
-    V3_coop_v_near -> Just 15
-    V3_coop_b_behind -> Just 21
-    V3_coop_b_near -> Just 20
-    V3_coop_g_behind -> Just 11
-    V3_coop_g_near -> Just 10
-    V3_coop_k_behind -> Just 255
-    V3_coop_k_near -> Just 255
+    V3_coop_all_behind     -> Just 31
+    V3_coop_all_far        -> Just 28
+    V3_coop_all_near       -> Just 30
+    V3_coop_front_behind   -> Just 31
+    V3_coop_front_near     -> Just 30
+    V3_coop_d_behind       -> Just 26
+    V3_coop_d_near         -> Just 25
+    V3_coop_v_behind       -> Just 16
+    V3_coop_v_near         -> Just 15
+    V3_coop_b_behind       -> Just 21
+    V3_coop_b_near         -> Just 20
+    V3_coop_g_behind       -> Just 11
+    V3_coop_g_near         -> Just 10
+    V3_coop_k_behind       -> Just 255
+    V3_coop_k_near         -> Just 255
     V3_coop_d_closeup_hand -> Just 35
     V3_coop_d_closeup_head -> Just 23
-    V3_coop_v_closeup -> Just 13
+    V3_coop_v_closeup      -> Just 13
     V3_coop_b_closeup_hand -> Just 36
     V3_coop_b_closeup_head -> Just 18
     V3_coop_g_closeup_hand -> Just 33
@@ -140,22 +140,22 @@ rbCameraToPerf key tmap rb endTime = let
     V3_coop_k_closeup_hand -> Just 255
     V3_coop_k_closeup_head -> Just 255
     -- just picking arbitrarily from duos
-    V3_coop_dv_near -> Just 25
-    V3_coop_bd_near -> Just 21
-    V3_coop_dg_near -> Just 10
-    V3_coop_bv_behind -> Just 21
-    V3_coop_bv_near -> Just 15
-    V3_coop_gv_behind -> Just 11
-    V3_coop_gv_near -> Just 15
-    V3_coop_kv_behind -> Just 16
-    V3_coop_kv_near -> Just 15
-    V3_coop_bg_behind -> Just 11
-    V3_coop_bg_near -> Just 20
-    V3_coop_bk_behind -> Just 21
-    V3_coop_bk_near -> Just 20
-    V3_coop_gk_behind -> Just 11
-    V3_coop_gk_near -> Just 10
-    _ -> Nothing -- directed cut
+    V3_coop_dv_near        -> Just 25
+    V3_coop_bd_near        -> Just 21
+    V3_coop_dg_near        -> Just 10
+    V3_coop_bv_behind      -> Just 21
+    V3_coop_bv_near        -> Just 15
+    V3_coop_gv_behind      -> Just 11
+    V3_coop_gv_near        -> Just 15
+    V3_coop_kv_behind      -> Just 16
+    V3_coop_kv_near        -> Just 15
+    V3_coop_bg_behind      -> Just 11
+    V3_coop_bg_near        -> Just 20
+    V3_coop_bk_behind      -> Just 21
+    V3_coop_bk_near        -> Just 20
+    V3_coop_gk_behind      -> Just 11
+    V3_coop_gk_near        -> Just 10
+    _                      -> Nothing -- directed cut
   toMS :: U.Seconds -> Word32
   toMS s = round (s * 1000)
   toCamLength :: Word32 -> Word32 -> Word16

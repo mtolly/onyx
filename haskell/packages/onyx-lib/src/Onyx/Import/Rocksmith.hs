@@ -638,6 +638,7 @@ importRSSong folder song level = do
                     , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
                       -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
                       n  -> n
+                    , gtrName    = Nothing
                     }
                   else GtrTuning
                     { gtrBase    = Guitar6
@@ -646,6 +647,7 @@ importRSSong folder song level = do
                     , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
                       -1 -> 0
                       n  -> n
+                    , gtrName    = Nothing
                     }
                 , tuningRSBass = Nothing
                 , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar

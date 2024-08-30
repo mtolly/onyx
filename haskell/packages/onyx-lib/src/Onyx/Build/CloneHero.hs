@@ -129,84 +129,89 @@ psRules buildInfo dir ps = do
               , maybe False isDrumAutochart $ getPart ps.drums      songYaml >>= anyDrums
               ]
         return FoF.Song
-          { FoF.artist           = metadata.artist
-          , FoF.name             = Just $ targetTitle songYaml $ PS ps
-          , FoF.album            = metadata.album
-          , FoF.charter          = metadata.author
-          , FoF.year             = T.pack . show <$> metadata.year
-          , FoF.genre            = Just $ fofGenre $ fullGenre metadata
-          , FoF.proDrums         = flip fmap dmode $ \case
+          { artist           = metadata.artist
+          , name             = Just $ targetTitle songYaml $ PS ps
+          , album            = metadata.album
+          , charter          = metadata.author
+          , year             = T.pack . show <$> metadata.year
+          , genre            = Just $ fofGenre $ fullGenre metadata
+          , proDrums         = flip fmap dmode $ \case
             DrumsPro  -> True
             DrumsReal -> True
             DrumsTrue -> True
             Drums4    -> False
             Drums5    -> False
-          , FoF.fiveLaneDrums    = case dmode of
+          , fiveLaneDrums    = case dmode of
             Just Drums5 -> Just True
             _           -> Nothing
           -- we use to not use five_lane_drums for easier MIDI output.
           -- but now we set it to true for 5-lane output for better compatibility
           -- (Moonscraper, YARG) and a nicer looking MIDI output (RYBOG in order)
-          , FoF.drumFallbackBlue = pd >>= \case
+          , drumFallbackBlue = pd >>= \case
             PartDrums{ mode = Drums5, fallback = FallbackBlue } -> Just True
             _                                                   -> Nothing
-          , FoF.songLength       = Just len
-          , FoF.previewStartTime = Just pstart
-          , FoF.previewEndTime   = Just pend
+          , songLength       = Just len
+          , previewStartTime = Just pstart
+          , previewEndTime   = Just pend
           -- difficulty tiers go from 0 to 6, or -1 for no part
-          , FoF.diffBand         = Just $ fromIntegral $ rb3BandTier      - 1
-          , FoF.diffGuitar       = Just $ fromIntegral $ rb3GuitarTier    - 1
-          , FoF.diffGuitarGHL    = Just $ fromIntegral $ chGuitarGHLTier  - 1
-          , FoF.diffBass         = Just $ fromIntegral $ rb3BassTier      - 1
-          , FoF.diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
-          , FoF.diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
-          , FoF.diffDrumsReal    = Just $ case dmode of
+          , diffBand         = Just $ fromIntegral $ rb3BandTier      - 1
+          , diffGuitar       = Just $ fromIntegral $ rb3GuitarTier    - 1
+          , diffGuitarGHL    = Just $ fromIntegral $ chGuitarGHLTier  - 1
+          , diffBass         = Just $ fromIntegral $ rb3BassTier      - 1
+          , diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
+          , diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
+          , diffDrumsReal    = Just $ case dmode of
             Just DrumsPro  -> fromIntegral $ rb3DrumsTier - 1
             Just DrumsReal -> fromIntegral $ rb3DrumsTier - 1
             Just DrumsTrue -> fromIntegral $ rb3DrumsTier - 1
             _              -> -1
-          , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
-          , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
-          , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
-          , FoF.diffVocalsHarm   = Just $ case vocalCount of
+          , diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
+          , diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
+          , diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
+          , diffVocalsHarm   = Just $ case vocalCount of
             Nothing     -> -1
             Just Vocal1 -> -1
             Just Vocal2 -> fromIntegral $ rb3VocalTier - 1
             Just Vocal3 -> fromIntegral $ rb3VocalTier - 1
-          , FoF.diffDance        = Just $ fromIntegral $ psDanceTier      - 1
-          , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
-          , FoF.diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
+          , diffDance        = Just $ fromIntegral $ psDanceTier      - 1
+          , diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
+          , diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
           -- TODO: are the 22-fret difficulties needed?
-          , FoF.diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier   - 1
-          , FoF.diffGuitarReal22 = Just $ fromIntegral $ rb3ProGuitarTier - 1
-          , FoF.diffGuitarCoop   = Just $ fromIntegral $ psGuitarCoopTier - 1
-          , FoF.diffRhythm       = Just $ fromIntegral $ psRhythmTier     - 1
-          , FoF.diffDrumsRealPS  = Just (-1)
-          , FoF.diffKeysRealPS   = Just (-1)
-          , FoF.delay            = Nothing
-          , FoF.starPowerNote    = Just 116
-          , FoF.eighthNoteHOPO   = Nothing
-          , FoF.hopoFrequency    = Nothing
-          , FoF.track            = metadata.trackNumber
-          , FoF.sysexSlider      = Just $ or $ do
+          , diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier   - 1
+          , diffGuitarReal22 = Just $ fromIntegral $ rb3ProGuitarTier - 1
+          , diffGuitarCoop   = Just $ fromIntegral $ psGuitarCoopTier - 1
+          , diffRhythm       = Just $ fromIntegral $ psRhythmTier     - 1
+          , diffDrumsRealPS  = Just (-1)
+          , diffKeysRealPS   = Just (-1)
+          , delay            = Nothing
+          , starPowerNote    = Just 116
+          , eighthNoteHOPO   = Nothing
+          , hopoFrequency    = Nothing
+          , track            = metadata.trackNumber
+          , sysexSlider      = Just $ or $ do
             five <- allFives
             fd <- toList five.fiveDifficulties
             return $ not $ RTB.null fd.fiveTap
-          , FoF.sysexOpenBass    = Just $ or $ do
+          , sysexOpenBass    = Just $ or $ do
             five <- allFives
             fd <- toList five.fiveDifficulties
             return $ not $ RTB.null fd.fiveOpen
-          , FoF.loadingPhrase    = metadata.loadingPhrase <|> do
+          , loadingPhrase    = metadata.loadingPhrase <|> do
             guard usesAutochart
             Just "Chart generated by Onyx with logic from Edward's midi-CH auto charter: https://efhiii.github.io/midi-ch/"
-          , FoF.cassetteColor    = Nothing
-          , FoF.tags             = guard metadata.cover >> Just "cover"
-          , FoF.background       = bgimg
+          , cassetteColor    = Nothing
+          , tags             = guard metadata.cover >> Just "cover"
+          , background       = bgimg
            -- TODO fill these in if we have a video
-          , FoF.video            = Nothing
-          , FoF.videoStartTime   = Nothing
-          , FoF.videoEndTime     = Nothing
-          , FoF.videoLoop        = Nothing
+          , video            = Nothing
+          , videoStartTime   = Nothing
+          , videoEndTime     = Nothing
+          , videoLoop        = Nothing
+          -- TODO
+          , realGuitarTuning   = Nothing
+          , realGuitar22Tuning = Nothing
+          , realBassTuning     = Nothing
+          , realBass22Tuning   = Nothing
           }
 
   dir </> "ps/song.ini" %> \out -> do

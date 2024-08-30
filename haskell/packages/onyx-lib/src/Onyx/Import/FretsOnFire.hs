@@ -47,7 +47,9 @@ import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania            (ManiaTrack (..),
                                                    danceDifficultyName)
-import           Onyx.MIDI.Track.ProGuitar        (nullPG)
+import           Onyx.MIDI.Track.ProGuitar        (GtrTuning (..),
+                                                   GuitarType (..), nullPG,
+                                                   offsetsToTuning)
 import           Onyx.MIDI.Track.ProKeys          (nullPK)
 import           Onyx.MIDI.Track.SixFret          (nullSix)
 import           Onyx.MIDI.Track.Vocal
@@ -185,13 +187,13 @@ importFoF src dir level = do
               chart <- FB.chartToBeats <$> FB.loadChartReadable rChart
               mid <- FB.chartToMIDI chart
               -- if .ini delay is 0 or absent, CH uses .chart Offset
-              ini' <- if fromMaybe 0 (FoF.delay ini) == 0
-                then case FoF.delay $ FB.chartToIni chart of
+              ini' <- if fromMaybe 0 ini.delay == 0
+                then case (FB.chartToIni chart).delay of
                   Just 0     -> return ini
                   Nothing    -> return ini
                   chartDelay -> do
                     lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
-                    return ini{ FoF.delay = chartDelay }
+                    return ini { FoF.delay = chartDelay }
                 else return ini
               return (ini', mid, True, hasCymbalMarkers chart)
             Nothing -> fatal "Found song.ini, but no notes.mid or notes.chart"
@@ -219,7 +221,7 @@ importFoF src dir level = do
                 _         -> do
                   warn $ "Couldn't read hex number: " <> s
                   return 0
-          bgColor <- case T.unpack <$> FoF.cassetteColor song of
+          bgColor <- case T.unpack <$> song.cassetteColor of
             -- these are the only 2 formats FoF supports (Theme.py, function hexToColor)
             Just ['#', r, g, b] -> PixelRGBA8
               <$> hex [r] <*> hex [g] <*> hex [b] <*> return 255
@@ -234,7 +236,7 @@ importFoF src dir level = do
           let img' = backgroundColor bgColor $ squareImage 30 img
           return $ Just $ SoftFile "cover.png" $ SoftImage $ dropAlphaLayer img'
 
-  backgroundImage <- case FoF.background song of
+  backgroundImage <- case song.background of
     _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS background reference
       -- Does not support a relative path that goes outside the folder
@@ -325,7 +327,7 @@ importFoF src dir level = do
               _       -> (catMaybes [md1, md2, md3, md4], [], [], []) -- either no drums, or weird configuration
       songAudio = toList $ if onlyGuitar then audio_guitar else audio_song
 
-  let (delayAudio, delayPreview, delayMIDI) = case FoF.delay song of
+  let (delayAudio, delayPreview, delayMIDI) = case song.delay of
         Nothing -> (id, id, id)
         Just n -> case compare n 0 of
           EQ -> (id, id, id)
@@ -367,7 +369,7 @@ importFoF src dir level = do
         then id
         else \mid -> mid { F.fixedPartDrums2x = trk2x }
     Nothing -> return id
-  let (title, is2x) = case FoF.name song of
+  let (title, is2x) = case song.name of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
       hasKicks = if isJust maybe2x
@@ -382,7 +384,7 @@ importFoF src dir level = do
         }
       -- TODO ugh newer CH/YARG rips always use the in-order format (RYBOG) without
       -- the song.ini tag. we may just need to assume it's always the case
-      swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
+      swapFiveLane trks = if fromMaybe False song.fiveLaneDrums
         then trks
           { F.fixedPartDrums   = swapFiveLaneTrack $ F.fixedPartDrums   trks
           , F.fixedPartDrums2x = swapFiveLaneTrack $ F.fixedPartDrums2x trks
@@ -404,7 +406,7 @@ importFoF src dir level = do
         F.Song tempos sigs fixed -> F.Song tempos sigs $ F.fixedToOnyx fixed
       midi = SoftFile "notes.mid" $ SoftChart outputOnyx
 
-  maybeVideo <- case FoF.video song of
+  maybeVideo <- case song.video of
     _ | level == ImportQuick -> return Nothing
     Just v | not $ all isSpace v -> do -- PS video
       -- Does not support a relative path that goes outside the folder
@@ -423,9 +425,9 @@ importFoF src dir level = do
       $ folderFiles dir
   let videoInfo = flip fmap maybeVideo $ \(name, rVideo) -> VideoInfo
         { fileVideo = SoftFile ("video" <.> takeExtension (T.unpack name)) $ SoftReadable rVideo
-        , videoStartTime = FoF.videoStartTime song
-        , videoEndTime = FoF.videoEndTime song
-        , videoLoop = fromMaybe False $ FoF.videoLoop song
+        , videoStartTime = song.videoStartTime
+        , videoEndTime = song.videoEndTime
+        , videoLoop = fromMaybe False song.videoLoop
         }
   -- TODO need to check how video start/end time interacts with audio delay,
   -- so we can adjust based on how we imported the delay
@@ -434,30 +436,30 @@ importFoF src dir level = do
   -- it explicitly disables it, even if there is a MIDI track for it.
   -- Clone Hero doesn't do this at all and will still show the part.
   -- As a compromise, we use the PS behavior for .mid, and CH for .chart.
-  let guardDifficulty getDiff = if isChart || True -- TODO temporarily doing this for midis also
+  let guardDifficulty diff = if isChart || True -- TODO temporarily doing this for midis also
         then True
-        else getDiff song /= Just (-1)
+        else diff /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (F.FixedFile U.Beats -> a) -> Bool
       isnt isEmpty f = not $ isEmpty $ f outputFixed
-      vocalMode = if isnt nullVox F.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
-        then if isnt nullVox F.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
+      vocalMode = if isnt nullVox F.fixedPartVocals && guardDifficulty song.diffVocals && fmap T.toLower song.charter /= Just "sodamlazy"
+        then if isnt nullVox F.fixedHarm2 && guardDifficulty song.diffVocalsHarm
           then if isnt nullVox F.fixedHarm3
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
         else Nothing
-      hasBass = isnt Five.nullFive F.fixedPartBass && guardDifficulty FoF.diffBass
-      hasRhythm = isnt Five.nullFive F.fixedPartRhythm && guardDifficulty FoF.diffRhythm
+      hasBass = isnt Five.nullFive F.fixedPartBass && guardDifficulty song.diffBass
+      hasRhythm = isnt Five.nullFive F.fixedPartRhythm && guardDifficulty song.diffRhythm
 
-  let hopoThreshold = case FoF.hopoFrequency song of
+  let hopoThreshold = case song.hopoFrequency of
         Just ht -> ht
         -- TODO does PS interpret this as out of 480? or the midi's actual resolution?
         -- for C3 converts it should always be 480 though.
-        Nothing -> case FoF.eighthNoteHOPO song of
+        Nothing -> case song.eighthNoteHOPO of
           Just True -> 250 -- don't know exactly
           _         -> 170
 
-  year <- case FoF.year song of
+  year <- case song.year of
     Nothing -> return Nothing
     Just s  -> case readMaybe $ T.unpack $ T.takeWhile isDigit s of
       Just y  -> return $ Just y
@@ -465,26 +467,48 @@ importFoF src dir level = do
         warn "Couldn't recognize year from CH format"
         return Nothing
 
+  tuningGtr <- case (song.realGuitarTuning, song.realGuitar22Tuning) of
+    (Nothing, Nothing) -> return FoF.PSTuning
+      { offsets = [0, 0, 0, 0, 0, 0]
+      , name = Nothing
+      }
+    (Just t, Nothing) -> return t
+    (Nothing, Just t) -> return t
+    (Just x, Just y) -> do
+      when (x.offsets /= y.offsets) $ warn "real_guitar_tuning and real_guitar_22_tuning are different; Onyx does not support this"
+      return x
+
+  tuningBass <- case (song.realBassTuning, song.realBass22Tuning) of
+    (Nothing, Nothing) -> return FoF.PSTuning
+      { offsets = [0, 0, 0, 0]
+      , name = Nothing
+      }
+    (Just t, Nothing) -> return t
+    (Nothing, Just t) -> return t
+    (Just x, Just y) -> do
+      when (x.offsets /= y.offsets) $ warn "real_bass_tuning and real_bass_22_tuning are different; Onyx does not support this"
+      return x
+
   return SongYaml
     { metadata = def'
       { title        = title
-      , artist       = FoF.artist song
-      , album        = FoF.album song
-      , genre        = FoF.genre song
+      , artist       = song.artist
+      , album        = song.album
+      , genre        = song.genre
       , year         = year
       , fileAlbumArt = albumArt
-      , trackNumber  = FoF.track song
+      , trackNumber  = song.track
       , comments     = []
-      , author       = FoF.charter song
-      , previewStart = case FoF.previewStartTime song of
+      , author       = song.charter
+      , previewStart = case song.previewStartTime of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ delayPreview $ fromIntegral ms / 1000
         _                 -> Nothing
-      , previewEnd   = case FoF.previewEndTime song of
+      , previewEnd   = case song.previewEndTime of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ delayPreview $ fromIntegral ms / 1000
         _                 -> Nothing
-      , difficulty   = toTier $ FoF.diffBand song
-      , cover        = maybe False ("cover" `T.isInfixOf`) $ FoF.tags song
-      , loadingPhrase = FoF.loadingPhrase song
+      , difficulty   = toTier song.diffBand
+      , cover        = maybe False ("cover" `T.isInfixOf`) song.tags
+      , loadingPhrase = song.loadingPhrase
       }
     , global = def'
       { backgroundVideo = videoInfo
@@ -540,14 +564,14 @@ importFoF src dir level = do
         { drums = do
           guard
             $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS || isnt ED.nullEliteDrums F.fixedPartEliteDrums)
-            && guardDifficulty FoF.diffDrums
+            && guardDifficulty song.diffDrums
           let mode = let
                 isTrue = isnt ED.nullEliteDrums F.fixedPartEliteDrums
-                isFiveLane = FoF.fiveLaneDrums song == Just True || any
+                isFiveLane = song.fiveLaneDrums == Just True || any
                   (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.drumGems)
                   (Map.toList outputFixed.fixedPartDrums.drumDifficulties)
                 isReal = isnt nullDrums F.fixedPartRealDrumsPS
-                isPro = case FoF.proDrums song of
+                isPro = case song.proDrums of
                   Just b  -> b
                   Nothing -> not (RTB.null outputFixed.fixedPartDrums.drumToms)
                     || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
@@ -558,15 +582,15 @@ importFoF src dir level = do
                   | isPro      -> DrumsPro
                   | otherwise  -> Drums4
           Just (emptyPartDrums mode hasKicks)
-            { difficulty = toTier $ FoF.diffDrums song
-            , fallback = if fromMaybe False $ FoF.drumFallbackBlue song
+            { difficulty = toTier song.diffDrums
+            , fallback = if fromMaybe False song.drumFallbackBlue
               then FallbackBlue
               else FallbackGreen
             }
         })
       , ( FlexGuitar, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
-          { difficulty = toTier $ FoF.diffGuitar song
+        { grybo = guard (isnt Five.nullFive F.fixedPartGuitar && guardDifficulty song.diffGuitar) >> Just PartGRYBO
+          { difficulty = toTier song.diffGuitar
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
           , smoothFrets = False
@@ -574,25 +598,27 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         , proGuitar = let
-          b =  (isnt nullPG F.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
-            || (isnt nullPG F.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
+          b =  (isnt nullPG F.fixedPartRealGuitar   && guardDifficulty song.diffGuitarReal  )
+            || (isnt nullPG F.fixedPartRealGuitar22 && guardDifficulty song.diffGuitarReal22)
           in guard b >> Just PartProGuitar
-            { difficulty    = toTier $ FoF.diffGuitarReal song
+            { difficulty    = toTier song.diffGuitarReal
             , hopoThreshold = hopoThreshold
-            , tuning        = def -- TODO actually import this
+            , tuning        = (offsetsToTuning TypeGuitar tuningGtr.offsets)
+              { gtrName = tuningGtr.name
+              }
             , tuningRSBass  = Nothing
             , fixFreeform   = False
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix F.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
-          { difficulty = toTier $ FoF.diffGuitarGHL song
+        , ghl = guard (isnt nullSix F.fixedPartGuitarGHL && guardDifficulty song.diffGuitarGHL) >> Just PartGHL
+          { difficulty = toTier song.diffGuitarGHL
           , hopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, (emptyPart :: Part SoftFile)
         { grybo = guard hasBass >> Just PartGRYBO
-          { difficulty = toTier $ FoF.diffBass song
+          { difficulty = toTier song.diffBass
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
           , smoothFrets = False
@@ -600,39 +626,41 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         , proGuitar = let
-          b =  (isnt nullPG F.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
-            || (isnt nullPG F.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
+          b =  (isnt nullPG F.fixedPartRealBass   && guardDifficulty song.diffBassReal  )
+            || (isnt nullPG F.fixedPartRealBass22 && guardDifficulty song.diffBassReal22)
           in guard b >> Just PartProGuitar
-            { difficulty    = toTier $ FoF.diffBassReal song
+            { difficulty    = toTier song.diffBassReal
             , hopoThreshold = hopoThreshold
-            , tuning        = def -- TODO actually import this
+            , tuning        = (offsetsToTuning TypeBass tuningBass.offsets)
+              { gtrName = tuningBass.name
+              }
             , tuningRSBass  = Nothing
             , fixFreeform   = False
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix F.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
-          { difficulty = toTier $ FoF.diffBassGHL song
+        , ghl = guard (isnt nullSix F.fixedPartBassGHL && guardDifficulty song.diffBassGHL) >> Just PartGHL
+          { difficulty = toTier song.diffBassGHL
           , hopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
-          { difficulty = toTier $ FoF.diffKeys song
+        { grybo = guard (isnt Five.nullFive F.fixedPartKeys && guardDifficulty song.diffKeys) >> Just PartGRYBO
+          { difficulty = toTier song.diffKeys
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
           , smoothFrets = False
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (isnt nullPK F.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
-          { difficulty = toTier $ FoF.diffKeysReal song
+        , proKeys = guard (isnt nullPK F.fixedPartRealKeysX && guardDifficulty song.diffKeysReal) >> Just PartProKeys
+          { difficulty = toTier song.diffKeysReal
           , fixFreeform = False
           }
         })
       , ( FlexExtra "rhythm", (emptyPart :: Part SoftFile)
         { grybo = guard hasRhythm >> Just PartGRYBO
-          { difficulty = toTier $ FoF.diffRhythm song
+          { difficulty = toTier song.diffRhythm
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
           , smoothFrets = False
@@ -641,8 +669,8 @@ importFoF src dir level = do
           }
         })
       , ( FlexExtra "guitar-coop", (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartGuitarCoop && guardDifficulty FoF.diffGuitarCoop) >> Just PartGRYBO
-          { difficulty = toTier $ FoF.diffGuitarCoop song
+        { grybo = guard (isnt Five.nullFive F.fixedPartGuitarCoop && guardDifficulty song.diffGuitarCoop) >> Just PartGRYBO
+          { difficulty = toTier song.diffGuitarCoop
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
           , smoothFrets = False
@@ -652,7 +680,7 @@ importFoF src dir level = do
         })
       , ( FlexVocal, (emptyPart :: Part SoftFile)
         { vocal = flip fmap vocalMode $ \vc -> PartVocal
-          { difficulty = toTier $ FoF.diffVocals song
+          { difficulty = toTier song.diffVocals
           , count = vc
           , gender = Nothing
           , key = Nothing
@@ -661,7 +689,7 @@ importFoF src dir level = do
         })
       , ( FlexExtra "dance", (emptyPart :: Part SoftFile)
         { mania = do
-          guard $ guardDifficulty FoF.diffDance
+          guard $ guardDifficulty song.diffDance
           let maniaDiffList = do
                 diff <- [minBound .. maxBound]
                 let name = danceDifficultyName diff
@@ -672,7 +700,7 @@ importFoF src dir level = do
                 return name
           maniaDiffs <- NE.nonEmpty maniaDiffList
           Just PartMania
-            { difficulty = toTier $ FoF.diffDance song
+            { difficulty = toTier song.diffDance
             , keys = 4 -- could be lower? hopefully not higher
             , turntable = False
             , instrument = Nothing
@@ -814,7 +842,7 @@ loadFoFMIDI ini r = do
         case isNoteEdgeCPV e of
           Just (_, n', _) | n == n' -> [()]
           _                         -> []
-  mid' <- case FoF.starPowerNote ini of
+  mid' <- case ini.starPowerNote of
     Just 103 -> do
       lg "Star Power note specified in song.ini to be 103 (old GH format), converting to RB"
       return midGH

@@ -121,6 +121,7 @@ fromGPIF gpif = do
         , gtrOffsets = []
         , gtrGlobal = 0
         , gtrCapo = 0 -- TODO
+        , gtrName = Nothing
         }
     let stringLookup = do
           str <- [minBound .. maxBound]

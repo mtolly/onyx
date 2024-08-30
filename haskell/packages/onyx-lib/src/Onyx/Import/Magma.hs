@@ -273,6 +273,7 @@ importMagma fin level = do
               , gtrOffsets = fromMaybe [] tuneGtr
               , gtrGlobal = 0
               , gtrCapo = 0
+              , gtrName = Nothing
               }
             , fixFreeform = False
             , tones = Nothing
@@ -299,6 +300,7 @@ importMagma fin level = do
               , gtrOffsets = fromMaybe [] tuneBass
               , gtrGlobal = 0
               , gtrCapo = 0
+              , gtrName = Nothing
               }
             , fixFreeform = False
             , tones = Nothing

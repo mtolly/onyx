@@ -713,6 +713,7 @@ importRB rbi level = do
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realGuitarTuning pkg
             , gtrGlobal = 0
             , gtrCapo = 0
+            , gtrName = Nothing
             }
           , tuningRSBass  = Nothing
           , fixFreeform   = False
@@ -737,6 +738,7 @@ importRB rbi level = do
             , gtrOffsets = map fromIntegral $ fromMaybe [] $ D.realBassTuning pkg
             , gtrGlobal = 0
             , gtrCapo = 0
+            , gtrName = Nothing
             }
           , tuningRSBass  = Nothing
           , fixFreeform   = False

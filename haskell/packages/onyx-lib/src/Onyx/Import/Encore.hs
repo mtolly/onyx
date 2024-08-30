@@ -34,7 +34,7 @@ data EncoreInfo f = EncoreInfo
   , midi               :: f
   , icon_drums         :: T.Text -- aka sid, usual value Drum
   , icon_bass          :: T.Text -- aka sib, usual value Bass
-  , icon_guitar        :: T.Text -- aka sig, usual value Guitar
+  , icon_guitar        :: T.Text -- aka sig, usual value Guitar or Keyboard
   , icon_vocals        :: T.Text -- aka siv, usual value Vocals
   -- rest optional
   , length_            :: Maybe Int

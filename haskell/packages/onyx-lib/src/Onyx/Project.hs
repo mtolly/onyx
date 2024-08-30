@@ -642,6 +642,7 @@ tuningFormat = asStrictObject "GtrTuning" $ do
   gtrOffsets <- (.gtrOffsets) =. opt []      "offsets" stackJSON
   gtrGlobal  <- (.gtrGlobal ) =. opt 0       "global"  stackJSON
   gtrCapo    <- (.gtrCapo   ) =. opt 0       "capo"    stackJSON
+  gtrName    <- (.gtrName   ) =. opt Nothing "name"    stackJSON
   return GtrTuning{..}
 
 instance (Eq f, StackJSON f) => StackJSON (PartProGuitar f) where
