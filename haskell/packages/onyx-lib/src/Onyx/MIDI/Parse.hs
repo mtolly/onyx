@@ -7,7 +7,7 @@ than the one that comes with the `midi` package.
 {-# LANGUAGE PatternSynonyms   #-}
 module Onyx.MIDI.Parse (getMIDI) where
 
-import           Control.Applicative                   (liftA2, (<|>))
+import           Control.Applicative                   (liftA2, optional, (<|>))
 import           Control.Monad                         (forM)
 import           Data.Binary.Get
 import           Data.Bits                             (shiftR, testBit, (.&.))
@@ -50,20 +50,25 @@ getMIDI = do
 getChunks :: Get [(B.ByteString, Int64, BL.ByteString, Maybe String)]
 getChunks = isEmpty >>= \case
   True -> return []
-  False -> let
-    getChunk = do
-      rootPosn <- bytesRead
-      magic <- getByteString 4
-      size <- getWord32be
-      posn <- bytesRead
-      chunk <- fmap Right (getLazyByteString $ fromIntegral size)
-        <|> fmap Left getRemainingLazyByteString
-      let (chunk', warning) = case chunk of
-            Right x -> (x, Nothing)
-            Left  x -> (x, Just $ "Chunk starting at byte " <> show rootPosn <>
-              " should be size " <> show size <> ", but there aren't enough bytes")
-      return (magic, posn, chunk', warning)
-    in liftA2 (:) getChunk getChunks
+  False -> do
+    rootPosn <- bytesRead
+    optional (getByteString 4) >>= \case
+      Nothing -> return [] -- not enough bytes for chunk identifier
+      Just magic -> optional getWord32be >>= \case
+        Nothing -> return [] -- not enough bytes for chunk size
+        Just size -> do
+          posn <- bytesRead
+          optional (getLazyByteString $ fromIntegral size) >>= \case
+            Nothing -> do
+              restBytes <- getRemainingLazyByteString
+              let warning
+                    = "Chunk starting at byte " <> show rootPosn
+                    <> " should be size " <> show size
+                    <> ", but there aren't enough bytes"
+              return [(magic, posn, restBytes, Just warning)]
+            Just chunk -> do
+              restChunks <- getChunks
+              return ((magic, posn, chunk, Nothing) : restChunks)
 
 getHeader :: Get (F.Type, Int, F.Division)
 getHeader = do
@@ -109,7 +114,10 @@ getTrack = removeEnd <$> go Nothing where
   go running = isEmpty >>= \case
     True -> return RTB.empty
     False -> (fmap Just (getEvent running) <|> return Nothing) >>= \case
-      Just (tks, e, running') -> RTB.cons tks e <$> go running'
+      Just (tks, e, running') -> case e of
+        -- ignore rest of data after we get end event, just in case
+        E.MetaEvent Meta.EndOfTrack -> return $ RTB.singleton tks e
+        _                           -> RTB.cons tks e <$> go running'
       Nothing                 -> return RTB.empty -- TODO should warn here, probably ran out of bytes
 
 getEvent :: Maybe RunningStatus -> Get (NN.Integer, E.T B.ByteString, Maybe RunningStatus)

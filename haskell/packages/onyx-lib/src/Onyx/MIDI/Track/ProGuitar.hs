@@ -94,18 +94,21 @@ data GtrTuning = GtrTuning
 instance Default GtrTuning where
   def = GtrTuning Guitar6 [] 0 0 Nothing
 
+tuningBasePitches :: GtrBase -> [Int]
+tuningBasePitches = \case
+  Guitar6      -> [40, 45, 50, 55, 59, 64]
+  Guitar7      -> [35, 40, 45, 50, 55, 59, 64]
+  Guitar8      -> [30, 35, 40, 45, 50, 55, 59, 64]
+  Bass4        -> [28, 33, 38, 43]
+  Bass5        -> [23, 28, 33, 38, 43]
+  Bass6        -> [23, 28, 33, 38, 43, 48]
+  GtrCustom ps -> ps
+
 tuningPitches :: GtrTuning -> [Int]
 tuningPitches t
   = map (+ (t.gtrGlobal + t.gtrCapo))
   $ zipWith (+) (t.gtrOffsets ++ repeat 0)
-  $ case t.gtrBase of
-    Guitar6      -> [40, 45, 50, 55, 59, 64]
-    Guitar7      -> [35, 40, 45, 50, 55, 59, 64]
-    Guitar8      -> [30, 35, 40, 45, 50, 55, 59, 64]
-    Bass4        -> [28, 33, 38, 43]
-    Bass5        -> [23, 28, 33, 38, 43]
-    Bass6        -> [23, 28, 33, 38, 43, 48]
-    GtrCustom ps -> ps
+  $ tuningBasePitches t.gtrBase
 
 -- True if this should use string colors starting from purple (5/6-string bass or similar)
 lowBassTuning :: GtrTuning -> Bool
@@ -127,24 +130,27 @@ encodeTuningOffsets tun typ = let
   this = take n $ tuningPitches tun { gtrGlobal = 0, gtrCapo = 0 }
   in map fromIntegral $ zipWith (-) this std
 
-offsetsToTuning :: GuitarType -> [Int] -> GtrTuning
-offsetsToTuning gtype ns = GtrTuning
-  { gtrBase = case gtype of
-    TypeGuitar -> case length ns of
-      6 -> Guitar6
-      7 -> Guitar7
-      8 -> Guitar8
-      n -> if n < 6 then Guitar6 else Guitar8
-    TypeBass -> case length ns of
-      4 -> Bass4
-      5 -> Bass5
-      6 -> Bass6
-      n -> if n < 4 then Bass4 else Bass6
+eadgbeOffsetsToTuning :: GuitarType -> [Int] -> GtrTuning
+eadgbeOffsetsToTuning TypeGuitar ns = GtrTuning
+  { gtrBase = Guitar6 -- not supporting 7/8 this route
   , gtrOffsets = ns
   , gtrGlobal = 0
   , gtrCapo = 0
   , gtrName = Nothing
   }
+eadgbeOffsetsToTuning TypeBass ns = let
+  base = case length ns of
+    5 -> Bass5
+    n -> if n <= 4 then Bass4 else Bass6
+  reference = map (subtract 12) $ tuningBasePitches Guitar6
+  pitches = zipWith (+) reference ns
+  in GtrTuning
+    { gtrBase = base
+    , gtrOffsets = zipWith subtract (tuningBasePitches base) pitches
+    , gtrGlobal = 0
+    , gtrCapo = 0
+    , gtrName = Nothing
+    }
 
 instance ChannelType NoteType where
   encodeChannel = fromEnum

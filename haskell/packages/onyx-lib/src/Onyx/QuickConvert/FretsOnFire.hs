@@ -250,6 +250,9 @@ convertEncoreFoF f info = do
       , ("diff_bass"  ,) . T.pack . show <$> toList (HM.lookup "plastic_bass"   info.diff)
       , ("diff_drums" ,) . T.pack . show <$> toList (HM.lookup "plastic_drums"  info.diff)
       , ("diff_vocals",) . T.pack . show <$> toList (HM.lookup "pitched_vocals" info.diff)
+      , case HM.lookup "plastic_drums" info.diff of
+        Just n | n /= (-1) -> [("pro_drums", "True")] -- assuming drums are always pro
+        _                  -> []
       ]
     , files = concat
       [ [("notes.mid", newMidi)]

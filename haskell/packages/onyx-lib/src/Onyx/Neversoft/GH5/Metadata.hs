@@ -7,22 +7,24 @@
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Neversoft.GH5.Metadata where
 
-import           Control.Monad.Extra         (guard, mapMaybeM)
-import qualified Data.ByteString             as B
-import qualified Data.ByteString.Lazy        as BL
-import           Data.List.Extra             (nubOrd, nubOrdOn)
-import           Data.Maybe                  (fromMaybe, listToMaybe, mapMaybe)
-import qualified Data.Text                   as T
+import           Control.Monad.Extra               (guard, mapMaybeM)
+import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Lazy              as BL
+import           Data.List.Extra                   (nubOrd, nubOrdOn)
+import           Data.Maybe                        (fromMaybe, listToMaybe,
+                                                    mapMaybe)
+import qualified Data.Text                         as T
 import           Data.Word
 import           GHC.ByteOrder
 import           Onyx.Genre
+import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Neversoft.CRC
-import           Onyx.Neversoft.GH4.Metadata (getOverallSongVolume,
-                                              getVocalsCents)
+import           Onyx.Neversoft.GH4.Metadata       (getOverallSongVolume,
+                                                    getVocalsCents)
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
 import           Onyx.StackTrace
-import           Onyx.Util.Binary            (runGetM)
+import           Onyx.Util.Binary                  (runGetM)
 
 -- Metadata in _text.pak.qb for GH5 and WoR
 
@@ -124,6 +126,7 @@ data SongInfo = SongInfo
   , songVocalsPitchScoreShift :: Int
   , songOverallSongVolume     :: Float -- decibels
   , songOriginalArtist        :: Bool
+  , songSinger                :: Maybe Gender
   } deriving (Show)
 
 parseSongInfoStruct :: [QBStructItem QSResult QBKey] -> Either String SongInfo
@@ -168,4 +171,8 @@ parseSongInfoStruct songEntries = do
       songOriginalArtist = case [ n | QBStructItemInteger "original_artist" n <- songEntries ] of
         b : _ -> b /= 0
         []    -> True
+      songSinger = case [ k | QBStructItemQbKey "singer" k <- songEntries ] of
+        "male"   : _ -> Just Male
+        "female" : _ -> Just Female
+        _            -> Nothing
   Right SongInfo{..}

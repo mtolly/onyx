@@ -100,11 +100,10 @@ instance StackJSON (EncoreInfo T.Text) where
 encoreMidiToFoF :: F.T B.ByteString -> F.T B.ByteString
 encoreMidiToFoF (F.Cons typ dvn trks) = let
   renameTrack trk = case U.trackName trk of
-    -- making up PAD track names just to keep them around
-    Just "PART DRUMS"     -> U.setTrackName "PAD DRUMS"   trk
-    Just "PART BASS"      -> U.setTrackName "PAD BASS"    trk
-    Just "PART GUITAR"    -> U.setTrackName "PAD GUITAR"  trk
-    Just "PART VOCALS"    -> U.setTrackName "PAD VOCALS"  trk
+    Just "PART DRUMS"     -> U.setTrackName "FNF DRUMS"   trk
+    Just "PART BASS"      -> U.setTrackName "FNF BASS"    trk
+    Just "PART GUITAR"    -> U.setTrackName "FNF GUITAR"  trk
+    Just "PART VOCALS"    -> U.setTrackName "FNF VOCALS"  trk
     Just "PLASTIC GUITAR" -> U.setTrackName "PART GUITAR" trk
     Just "PLASTIC BASS"   -> U.setTrackName "PART BASS"   trk
     Just "PLASTIC DRUMS"  -> U.setTrackName "PART DRUMS"  trk

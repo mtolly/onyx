@@ -15,6 +15,7 @@ import           Control.Monad.Trans.State
 import qualified Data.Aeson                 as A
 import qualified Data.Aeson.KeyMap          as KM
 import qualified Data.ByteString            as B
+import qualified Data.ByteString.Lazy       as BL
 import           Data.Fixed                 (Fixed, HasResolution)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
@@ -215,3 +216,11 @@ loadYaml fp = do
 -- This should use Data.Aeson.eitherDecodeStrictText but we need to upgrade (all platforms) to aeson-2.2.1.0 first
 decodeJSONText :: (MonadFail m) => T.Text -> m A.Value
 decodeJSONText t = either fail return $ A.eitherDecodeStrict' $ TE.encodeUtf8 t
+
+embeddedJSON :: (SendMessage m) => JSONCodec m a -> JSONCodec m a
+embeddedJSON c = Codec
+  { codecIn = codecIn stackJSON >>= \t -> case A.decodeStrict $ TE.encodeUtf8 t of
+    Nothing       -> fail $ "Couldn't decode embedded JSON string: " <> show t
+    Just newValue -> inside "embedded JSON" $ parseFrom newValue $ codecIn c
+  , codecOut = makeOut $ A.toJSON . TE.decodeUtf8 . BL.toStrict . A.encode . makeValue' c
+  }

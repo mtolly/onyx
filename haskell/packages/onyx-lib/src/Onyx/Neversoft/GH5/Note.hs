@@ -47,6 +47,7 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import qualified Onyx.MIDI.Track.Vocal            as V
 import           Onyx.Neversoft.CRC               (QBKey, getQBKeyBE,
                                                    putQBKeyBE, qbKeyCRC)
+import           Onyx.Neversoft.GH5.Perf          (Perf, getPerf)
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB                (QBArray (QBArrayOfInteger),
                                                    QBSection (QBSectionArray),
@@ -265,6 +266,7 @@ data SongPakContents = SongPakContents
   { stringBank :: HM.HashMap Word32 T.Text
   , noteFile   :: GHNoteFile
   , qbNotes    :: [(B.ByteString, RTB.T U.Seconds (Word8, Word8))]
+  , perf       :: Maybe Perf
   }
 
 -- Load from an uncompressed _song.pak.xen
@@ -293,10 +295,14 @@ loadSongPakContents songKey bs = inside "loading _song.pak.*" $ do
             QBSectionArray k _ (QBArrayOfInteger ns) <- qbSections
             suffix <- toList $ lookup k noteTrackNames
             return (suffix, RTB.fromAbsoluteEventList $ arrayToTrack ns)
+          perf = listToMaybe $ do
+            (_, bsPerf) <- nodesOfType ".perf"
+            runGetM getPerf bsPerf
       return SongPakContents
         { stringBank = bank
         , noteFile = noteFile
         , qbNotes = qbNotes
+        , perf = perf
         }
 
 loadNoteFile :: (MonadFail m) => BL.ByteString -> m GHNoteFile

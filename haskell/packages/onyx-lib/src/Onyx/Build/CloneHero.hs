@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
-module Onyx.Build.CloneHero (psRules) where
+module Onyx.Build.CloneHero (psRules, makeYARGTuning) where
 
 import           Codec.Picture                    (encodeJpegAtQuality)
 import           Codec.Picture.Types              (convertImage)
@@ -25,12 +25,16 @@ import           Onyx.Build.Common
 import qualified Onyx.Build.RB3CH                 as RB3
 import           Onyx.CloneHero.SNG               (makeSNG)
 import           Onyx.Difficulty
+import           Onyx.FretsOnFire                 (PSTuning (..))
 import qualified Onyx.FretsOnFire                 as FoF
 import           Onyx.Genre
 import qualified Onyx.MIDI.Track.Drums            as Drums
 import           Onyx.MIDI.Track.File             (saveMIDIUtf8, shakeMIDI)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
+import           Onyx.MIDI.Track.ProGuitar        (GtrBase (..), GtrTuning (..),
+                                                   GuitarType (..),
+                                                   encodeTuningOffsets)
 import           Onyx.Mode
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
@@ -128,6 +132,12 @@ psRules buildInfo dir ps = do
               , maybe False isFiveAutochart $ getPart ps.keys       songYaml >>= anyFiveFret
               , maybe False isDrumAutochart $ getPart ps.drums      songYaml >>= anyDrums
               ]
+            tuningGtr = do
+              pg <- getPart ps.guitar songYaml >>= (.proGuitar)
+              return $ makeYARGTuning pg.tuning
+            tuningBass = do
+              pb <- getPart ps.bass songYaml >>= (.proGuitar)
+              return $ makeYARGTuning pb.tuning
         return FoF.Song
           { artist           = metadata.artist
           , name             = Just $ targetTitle songYaml $ PS ps
@@ -208,10 +218,10 @@ psRules buildInfo dir ps = do
           , videoEndTime     = Nothing
           , videoLoop        = Nothing
           -- TODO
-          , realGuitarTuning   = Nothing
-          , realGuitar22Tuning = Nothing
-          , realBassTuning     = Nothing
-          , realBass22Tuning   = Nothing
+          , realGuitarTuning   = tuningGtr
+          , realGuitar22Tuning = tuningGtr
+          , realBassTuning     = tuningBass
+          , realBass22Tuning   = tuningBass
           }
 
   dir </> "ps/song.ini" %> \out -> do
@@ -362,3 +372,13 @@ psRules buildInfo dir ps = do
           return (T.pack name, fileReadable $ dir </> "ps" </> name)
     sngParts <- stackIO $ makeSNG (FoF.songToIniContents ini) filesForSNG
     stackIO $ saveReadables sngParts out
+
+makeYARGTuning :: GtrTuning -> PSTuning
+makeYARGTuning t = PSTuning
+  { offsets = let
+    gtrOffsets = encodeTuningOffsets t TypeGuitar
+    in if elem t.gtrBase [Bass4, Bass5, Bass6]
+      then map (+ 12) gtrOffsets
+      else gtrOffsets
+  , name = Nothing -- TODO
+  }

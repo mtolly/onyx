@@ -250,59 +250,64 @@ saveSong :: (MonadIO m) => FilePath -> Song -> m ()
 saveSong fp = writePSIni fp . songToIniContents
 
 songToIniContents :: Song -> [(T.Text, T.Text)]
-songToIniContents Song{..} = execWriter $ do
+songToIniContents ini = execWriter $ do
   let str k = maybe (return ()) $ \v -> tell [(k, v)]
       shown k = str k . fmap (T.pack . show)
       milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
-  str "name" name
-  str "artist" artist
-  str "album" album
-  str "charter" charter
-  str "frets" charter
-  str "year" year
-  str "genre" genre
-  shown "pro_drums" proDrums
-  shown "song_length" songLength
-  shown "preview_start_time" previewStartTime
-  shown "preview_end_time" previewEndTime
-  shown "diff_band" diffBand
-  shown "diff_guitar" diffGuitar
-  shown "diff_guitarghl" diffGuitarGHL
-  shown "diff_bass" diffBass
-  shown "diff_bassghl" diffBassGHL
-  shown "diff_drums" diffDrums
-  shown "diff_drums_real" diffDrumsReal
-  shown "diff_keys" diffKeys
-  shown "diff_keys_real" diffKeysReal
-  shown "diff_vocals" diffVocals
-  shown "diff_vocals_harm" diffVocalsHarm
-  shown "diff_dance" diffDance
-  shown "diff_bass_real" diffBassReal
-  shown "diff_guitar_real" diffGuitarReal
-  shown "diff_bass_real_22" diffBassReal22
-  shown "diff_guitar_real_22" diffGuitarReal22
-  shown "diff_guitar_coop" diffGuitarCoop
-  shown "diff_rhythm" diffRhythm
-  shown "diff_drums_real_ps" diffDrumsRealPS
-  shown "diff_keys_real_ps" diffKeysRealPS
-  shown "delay" delay
-  shown "star_power_note" starPowerNote
-  shown "multiplier_note" starPowerNote
-  shown "eighthnote_hopo" eighthNoteHOPO
-  shown "track" track
-  shown "album_track" track
-  shown "sysex_slider" sysexSlider
-  shown "sysex_open_bass" sysexOpenBass
-  shown "five_lane_drums" fiveLaneDrums
-  shown "drum_fallback_blue" drumFallbackBlue
-  str "loading_phrase" loadingPhrase
-  str "video" $ fmap T.pack video
-  milli "video_start_time" videoStartTime
-  milli "video_end_time" videoEndTime
-  shown "video_loop" videoLoop
-  str "cassettecolor" cassetteColor
-  str "tags" tags
-  str "background" $ fmap T.pack background
+      tuning k = str k . fmap showPSTuning
+  str "name" ini.name
+  str "artist" ini.artist
+  str "album" ini.album
+  str "charter" ini.charter
+  str "frets" ini.charter
+  str "year" ini.year
+  str "genre" ini.genre
+  shown "pro_drums" ini.proDrums
+  shown "song_length" ini.songLength
+  shown "preview_start_time" ini.previewStartTime
+  shown "preview_end_time" ini.previewEndTime
+  shown "diff_band" ini.diffBand
+  shown "diff_guitar" ini.diffGuitar
+  shown "diff_guitarghl" ini.diffGuitarGHL
+  shown "diff_bass" ini.diffBass
+  shown "diff_bassghl" ini.diffBassGHL
+  shown "diff_drums" ini.diffDrums
+  shown "diff_drums_real" ini.diffDrumsReal
+  shown "diff_keys" ini.diffKeys
+  shown "diff_keys_real" ini.diffKeysReal
+  shown "diff_vocals" ini.diffVocals
+  shown "diff_vocals_harm" ini.diffVocalsHarm
+  shown "diff_dance" ini.diffDance
+  shown "diff_bass_real" ini.diffBassReal
+  shown "diff_guitar_real" ini.diffGuitarReal
+  shown "diff_bass_real_22" ini.diffBassReal22
+  shown "diff_guitar_real_22" ini.diffGuitarReal22
+  shown "diff_guitar_coop" ini.diffGuitarCoop
+  shown "diff_rhythm" ini.diffRhythm
+  shown "diff_drums_real_ps" ini.diffDrumsRealPS
+  shown "diff_keys_real_ps" ini.diffKeysRealPS
+  shown "delay" ini.delay
+  shown "star_power_note" ini.starPowerNote
+  shown "multiplier_note" ini.starPowerNote
+  shown "eighthnote_hopo" ini.eighthNoteHOPO
+  shown "track" ini.track
+  shown "album_track" ini.track
+  shown "sysex_slider" ini.sysexSlider
+  shown "sysex_open_bass" ini.sysexOpenBass
+  shown "five_lane_drums" ini.fiveLaneDrums
+  shown "drum_fallback_blue" ini.drumFallbackBlue
+  str "loading_phrase" ini.loadingPhrase
+  str "video" $ fmap T.pack ini.video
+  milli "video_start_time" ini.videoStartTime
+  milli "video_end_time" ini.videoEndTime
+  shown "video_loop" ini.videoLoop
+  str "cassettecolor" ini.cassetteColor
+  str "tags" ini.tags
+  str "background" $ fmap T.pack ini.background
+  tuning "real_guitar_tuning" ini.realGuitarTuning
+  tuning "real_guitar_22_tuning" ini.realGuitar22Tuning
+  tuning "real_bass_tuning" ini.realBassTuning
+  tuning "real_bass_22_tuning" ini.realBass22Tuning
 
 loadPSIni :: (MonadIO m, SendMessage m) => Readable -> StackTraceT m [(T.Text, T.Text)]
 loadPSIni r = do

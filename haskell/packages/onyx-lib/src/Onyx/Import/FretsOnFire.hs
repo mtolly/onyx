@@ -48,8 +48,9 @@ import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania            (ManiaTrack (..),
                                                    danceDifficultyName)
 import           Onyx.MIDI.Track.ProGuitar        (GtrTuning (..),
-                                                   GuitarType (..), nullPG,
-                                                   offsetsToTuning)
+                                                   GuitarType (..),
+                                                   eadgbeOffsetsToTuning,
+                                                   nullPG)
 import           Onyx.MIDI.Track.ProKeys          (nullPK)
 import           Onyx.MIDI.Track.SixFret          (nullSix)
 import           Onyx.MIDI.Track.Vocal
@@ -259,6 +260,8 @@ importFoF src dir level = do
         []              -> Nothing
         (name, rBG) : _ -> Just $ SoftFile (map toLower $ T.unpack name) $ SoftReadable rBG
 
+  -- TODO seen cases of wrong extensions on files (e.g. mp3 file named song.ogg).
+  -- this confuses onyx down the line so we should fix extensions here
   let loadAudioFile _ | level == ImportQuick = return Nothing
       loadAudioFile x = stackIO $ let
         tryExt ext = do
@@ -603,7 +606,7 @@ importFoF src dir level = do
           in guard b >> Just PartProGuitar
             { difficulty    = toTier song.diffGuitarReal
             , hopoThreshold = hopoThreshold
-            , tuning        = (offsetsToTuning TypeGuitar tuningGtr.offsets)
+            , tuning        = (eadgbeOffsetsToTuning TypeGuitar tuningGtr.offsets)
               { gtrName = tuningGtr.name
               }
             , tuningRSBass  = Nothing
@@ -631,7 +634,7 @@ importFoF src dir level = do
           in guard b >> Just PartProGuitar
             { difficulty    = toTier song.diffBassReal
             , hopoThreshold = hopoThreshold
-            , tuning        = (offsetsToTuning TypeBass tuningBass.offsets)
+            , tuning        = (eadgbeOffsetsToTuning TypeBass tuningBass.offsets)
               { gtrName = tuningBass.name
               }
             , tuningRSBass  = Nothing

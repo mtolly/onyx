@@ -21,9 +21,11 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isDigit)
 import           Data.Default.Class               (def)
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (sort)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty               as NE
 import           Data.List.Split                  (chunksOf)
@@ -32,6 +34,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import           Data.Word                        (Word32)
 import           GHC.ByteOrder
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Audio.FSB                   (getFSBStreamBytes, parseFSB,
@@ -40,7 +43,7 @@ import           Onyx.Audio.FSB                   (getFSBStreamBytes, parseFSB,
 import           Onyx.Genre                       (displayWoRGenre, qbWoRGenre)
 import           Onyx.Import.Base
 import           Onyx.Import.GuitarHero2          (ImportMode (..))
-import           Onyx.MIDI.Common                 (Difficulty (..),
+import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    blipEdgesRBNice, makeEdge')
 import           Onyx.MIDI.Track.Drums            (DrumTrack (..))
 import qualified Onyx.MIDI.Track.Drums.Elite      as Elite
@@ -55,6 +58,7 @@ import           Onyx.Neversoft.GH4.MidQB         (gh4ToMidi, parseGH4MidQB,
                                                    worldTourDiscMarkers)
 import           Onyx.Neversoft.GH5.Metadata
 import           Onyx.Neversoft.GH5.Note
+import           Onyx.Neversoft.GH5.Perf
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.PS2
 import           Onyx.Neversoft.QB                (QBSection (..),
@@ -129,19 +133,35 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
           (midiFixed, extraTracks) <- case level of
             ImportFull -> do
               songPakContents <- stackIO (useHandle pakFile handleToByteString) >>= loadSongPakContents info.songName
-              return (ghToMidi songPakContents.stringBank songPakContents.noteFile, songPakContents.qbNotes)
+              let midiFixed = ghToMidi songPakContents.stringBank songPakContents.noteFile
+                  extraTracksQB = do
+                    (name, trk) <- songPakContents.qbNotes
+                    let midiTrack = fmap makeEdge'
+                          $ blipEdgesRBNice
+                          $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
+                          $ U.unapplyTempoTrack (F.s_tempos midiFixed) trk
+                    return (TE.decodeLatin1 name, midiTrack)
+                  msToBeats :: Word32 -> U.Beats
+                  msToBeats ms = U.unapplyTempoMap midiFixed.s_tempos $ U.Seconds $ fromIntegral ms / 1000
+                  extraTracksPerf = case songPakContents.perf of
+                    Nothing -> []
+                    Just perf -> do
+                      k <- ["autocutcameras", "momentcameras"]
+                      PerfGH5CameraNote cams <- toList $ lookup (qbKeyCRC $ TE.encodeUtf8 k) perf.perfEntries
+                      let cameraTrack = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+                            c <- cams
+                            guard $ c.camAngle <= 0x7F
+                            let on = (msToBeats c.camTime, makeEdge' $ EdgeOn 96 (0, fromIntegral c.camAngle))
+                                off = (msToBeats $ c.camTime + fromIntegral c.camLength, makeEdge' $ EdgeOff (0, fromIntegral c.camAngle))
+                            [on, off]
+                      return (k, cameraTrack)
+              return (midiFixed, extraTracksQB <> extraTracksPerf)
             ImportQuick -> return (emptyChart, [])
           let midiOnyx = midiFixed
                 { F.s_tracks = F.fixedToOnyx (F.s_tracks midiFixed) <> midiExtra
                 }
               midiExtra = mempty
-                { F.onyxRaw = Map.fromList $ do
-                  (name, trk) <- extraTracks
-                  let midiTrack = fmap makeEdge'
-                        $ blipEdgesRBNice
-                        $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
-                        $ U.unapplyTempoTrack (F.s_tempos midiFixed) trk
-                  return (TE.decodeLatin1 name, midiTrack)
+                { F.onyxRaw = Map.fromList extraTracks
                 }
               audioPrefix = if isDisc then "" else "a"
               getAudio getName = case level of
@@ -203,6 +223,11 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                 })
             , jammit = HM.empty
             , plans = HM.singleton "gh" $ StandardPlan StandardPlanInfo
+              -- TODO import countoff hits to backing track.
+              -- in drums notes from qb, these cause sound samples, probably others exist also
+              --   109: high stick hit
+              --   110: low stick hit
+              --   113: open hihat
               { song = case streams3 of
                 (x, _) : _ -> Just $ adjustedInput x
                 []         -> Nothing
@@ -254,7 +279,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                 { vocal = readTier info.songTierVocals $ \diff -> PartVocal
                   { difficulty = diff
                   , count      = Vocal1
-                  , gender     = Nothing -- TODO is this stored somewhere?
+                  , gender     = info.songSinger
                   , key        = Nothing
                   , lipsyncRB3 = Nothing
                   }
