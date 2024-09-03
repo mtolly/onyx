@@ -76,13 +76,13 @@ importOsu separateSongs f = do
       Nothing -> return Nothing
       Just version -> case osu.general.mode of
         1 -> let
-          track = taikoToTrack timingMid.s_tempos osu
+          track = taikoToTrack timingMid.tempos osu
           partName = if separateSongs
             then F.FlexDrums
             else F.FlexExtra version
           in return $ Just (partName, osu, Left track)
         3 -> let
-          track = maniaToTrack timingMid.s_tempos osu
+          track = maniaToTrack timingMid.tempos osu
           partName = if separateSongs
             then F.FlexKeys
             else F.FlexExtra version
@@ -184,7 +184,7 @@ importOsu separateSongs f = do
         , fileBackgroundImage = background
         , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
           ImportFull  -> timingMid
-            { F.s_tracks = mempty
+            { F.tracks = mempty
               { F.onyxParts = Map.fromList $ do
                 (partName, _, track) <- convertedTracks
                 case track of

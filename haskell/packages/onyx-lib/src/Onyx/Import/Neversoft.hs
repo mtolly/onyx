@@ -139,10 +139,10 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     let midiTrack = fmap makeEdge'
                           $ blipEdgesRBNice
                           $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
-                          $ U.unapplyTempoTrack midiFixed.s_tempos trk
+                          $ U.unapplyTempoTrack midiFixed.tempos trk
                     return (TE.decodeLatin1 name, midiTrack)
                   msToBeats :: Word32 -> U.Beats
-                  msToBeats ms = U.unapplyTempoMap midiFixed.s_tempos $ U.Seconds $ fromIntegral ms / 1000
+                  msToBeats ms = U.unapplyTempoMap midiFixed.tempos $ U.Seconds $ fromIntegral ms / 1000
                   extraTracksPerf = case songPakContents.perf of
                     Nothing -> []
                     Just perf -> do
@@ -158,7 +158,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               return (midiFixed, extraTracksQB <> extraTracksPerf)
             ImportQuick -> return (emptyChart, [])
           let midiOnyx = midiFixed
-                { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks <> midiExtra
+                { F.tracks = F.fixedToOnyx midiFixed.tracks <> midiExtra
                 }
               midiExtra = mempty
                 { F.onyxRaw = Map.fromList extraTracks
@@ -268,7 +268,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                   -- can't use `info.songDoubleKick` since some WoR songs like
                   -- Aqualung say "double kick" but they only have ghost notes,
                   -- no extra kicks
-                  kicks = if RTB.null midiFixed.s_tracks.fixedPartDrums.drumKick2x
+                  kicks = if RTB.null midiFixed.tracks.fixedPartDrums.drumKick2x
                     then Kicks1x
                     else KicksBoth
                   in (emptyPartDrums Drums5 kicks :: PartDrums SoftFile)
@@ -458,7 +458,7 @@ importGH4Song ghi level = do
           return $ gh4ToMidi info songBank combinedSectionMap midQB
     ImportQuick -> return emptyChart
   let midiOnyx = midiFixed
-        { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks
+        { F.tracks = F.fixedToOnyx midiFixed.tracks
         }
 
   let adjustedInput
@@ -809,11 +809,11 @@ importGH3Song ghi = let
       ImportQuick -> return emptyChart
     -- don't mark that we have a coop part if it has no notes (like many customs)
     let hasCoopGems = maybe False (not . nullFive . (.onyxPartGuitar))
-          $ Map.lookup coopPart midiOnyx.s_tracks.onyxParts
+          $ Map.lookup coopPart midiOnyx.tracks.onyxParts
         drums
           = maybe mempty (.onyxPartEliteDrums)
           $ Map.lookup F.FlexDrums
-          $ midiOnyx.s_tracks.onyxParts
+          $ midiOnyx.tracks.onyxParts
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> case ghi.audio of

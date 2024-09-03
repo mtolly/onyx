@@ -153,14 +153,14 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       let midName = "s" <> key <> "_control.mid"
       inside ("Loading " <> T.unpack midName) $ do
         mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-        let (parsedControl, unrec) = readRRControl mid.s_tracks
+        let (parsedControl, unrec) = readRRControl mid.tracks
         forM_ (nubSort $ RTB.getBodies unrec) $ \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
   -- undo the sync hack if we did that on exporting a custom song,
   -- by increasing tempo at start of midi to account for mp3 delay
   let controlMid = case syncHackMS of
         Just ms | ms /= 0 -> controlMidPreHack
-          { F.s_tempos = applyMIDIOffsetMS (negate ms) controlMidPreHack.s_tempos
+          { F.tempos = applyMIDIOffsetMS (negate ms) controlMidPreHack.tempos
           }
         _ -> controlMidPreHack
 
@@ -171,7 +171,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
             let midName = T.concat ["s", key, "_", inst, "_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-              rr <- F.parseTrackReport mid.s_tracks
+              rr <- F.parseTrackReport mid.tracks
               return (diff, (rr, importRRGuitarBass rr))
           return mempty
             { Five.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
@@ -184,7 +184,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
             let midName = T.concat ["s", key, "_drums_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-              rrd <- F.parseTrackReport mid.s_tracks
+              rrd <- F.parseTrackReport mid.tracks
               return (diff, rrd)
           return
             ( importRRDrums rrDiffs
@@ -216,7 +216,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       , fileBackgroundImage = Nothing
       , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
         ImportFull  -> controlMid
-          { F.s_tracks = mempty
+          { F.tracks = mempty
             { F.onyxParts = Map.fromList
               [ (F.FlexGuitar, mempty
                 { F.onyxPartGuitar = guitar

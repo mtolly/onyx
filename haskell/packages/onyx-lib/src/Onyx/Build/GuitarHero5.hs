@@ -213,11 +213,11 @@ gh5Rules buildInfo dir gh5 = do
       Nothing    -> fatal "Couldn't reparse practice sections .qs file"
 
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
+    endTime <- case mid.tracks.onyxEvents.eventsEnd of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
 
-    let tmap = mid.s_tempos
+    let tmap = mid.tempos
         rbCamera = venueCameraRB3 $ flip evalRand (mkStdGen hashed) $ getVenue
           VenueTargetRB3
           partMap

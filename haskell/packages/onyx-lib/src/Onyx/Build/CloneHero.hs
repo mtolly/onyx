@@ -74,8 +74,8 @@ psRules buildInfo dir ps = do
   dir </> "ps/expert+.mid" %> \out -> do
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     saveMIDIUtf8 out song
-      { F.s_tracks = song.s_tracks
-        { F.fixedPartDrums = Drums.expertWith2x song.s_tracks.fixedPartDrums
+      { F.tracks = song.tracks
+        { F.fixedPartDrums = Drums.expertWith2x song.tracks.fixedPartDrums
         }
       }
 
@@ -111,14 +111,14 @@ psRules buildInfo dir ps = do
             dmode = (.mode) <$> pd
             DifficultyRB3{..} = psDifficultyRB3
             allFives =
-              [ song.s_tracks.fixedPartGuitar
-              , song.s_tracks.fixedPartBass
-              , song.s_tracks.fixedPartKeys
-              , song.s_tracks.fixedPartRhythm
-              , song.s_tracks.fixedPartGuitarCoop
+              [ song.tracks.fixedPartGuitar
+              , song.tracks.fixedPartBass
+              , song.tracks.fixedPartKeys
+              , song.tracks.fixedPartRhythm
+              , song.tracks.fixedPartGuitarCoop
               ]
             emptyModeInput = ModeInput
-              { tempo = midEvents.s_tempos
+              { tempo = midEvents.tempos
               , events = mempty
               , part = mempty
               }
@@ -241,7 +241,7 @@ psRules buildInfo dir ps = do
         let midSegment = applyTargetMIDI ps.common midRaw
         timing <- RB3.basicTiming False midSegment $
           applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
-        let endSecs = U.applyTempoMap midSegment.s_tempos timing.timingEnd
+        let endSecs = U.applyTempoMap midSegment.tempos timing.timingEnd
         return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)
   let setInstLength secs s = stackIO $ runResourceT $ setAudioLengthOrEmpty secs s
   dir </> audioExt "audio/drums"   %> \out -> do

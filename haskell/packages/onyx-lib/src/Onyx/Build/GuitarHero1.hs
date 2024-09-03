@@ -323,9 +323,9 @@ gh1Rules buildInfo dir gh1 = do
   let loadGH1Midi = F.shakeMIDI $ dir </> "gh1/notes.mid" :: Staction (F.Song (GH1File U.Beats))
       correctAudioLength :: (Monad m) => F.Song (GH1File U.Beats) -> StackTraceT m U.Seconds
       correctAudioLength mid = do
-        endTime <- case RTB.filter (== Event_end) mid.s_tracks.gh1Events.eventsList of
+        endTime <- case RTB.filter (== Event_end) mid.tracks.gh1Events.eventsList of
           RNil       -> fatal "panic! couldn't find [end] event in GH1 output midi"
-          Wait t _ _ -> return $ U.applyTempoMap mid.s_tempos t
+          Wait t _ _ -> return $ U.applyTempoMap mid.tempos t
         return $ endTime + 5
         -- previously we went 0.5s past [end], but that still had issues,
         -- particularly in GH2 practice mode when playing the last section

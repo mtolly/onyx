@@ -218,7 +218,7 @@ importBMS bmsPath level = do
               { fileVideo = SoftFile ("background" <> ext)
                 $ SoftReadable $ fileReadable fp'
               , videoStartTime = Just $ negate $ realToFrac
-                $ U.applyTempoMap midi.s_tempos bts
+                $ U.applyTempoMap midi.tempos bts
               , videoEndTime = Nothing
               , videoLoop = False
               }

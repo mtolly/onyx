@@ -116,7 +116,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     . map (first secondsToDouble)
     . ATB.toPairList
     . RTB.toAbsoluteEventList 0
-  tempos = song.s_tempos
+  tempos = song.tempos
   toggle
     = PNF.makeToggle
     . rtbToMap
@@ -134,7 +134,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     in foldr (\x y -> fmap (uncurry Map.union) $ PNF.zipStateMaps x y) Map.empty gemSingletons
 
   maniaTracks pm fpart = do
-    part <- toList $ Map.lookup fpart song.s_tracks.onyxParts
+    part <- toList $ Map.lookup fpart song.tracks.onyxParts
     diffName <- reverse $ toList pm.charts -- list difficulties in reverse order (hardest first)
     mania <- toList $ Map.lookup diffName part.onyxPartMania
     trk <- toList $ maniaTrack mania
@@ -189,11 +189,11 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
   drumTrack fpart pdrums diff = let
     -- TODO support PS real
     -- TODO if kicks = 2, don't emit an X track, only X+
-    drumSrc   = maybe mempty (.onyxPartDrums  ) $ Map.lookup fpart song.s_tracks.onyxParts
-    drumSrc2x = maybe mempty (.onyxPartDrums2x) $ Map.lookup fpart song.s_tracks.onyxParts
+    drumSrc   = maybe mempty (.onyxPartDrums  ) $ Map.lookup fpart song.tracks.onyxParts
+    drumSrc2x = maybe mempty (.onyxPartDrums2x) $ Map.lookup fpart song.tracks.onyxParts
     thisSrc = if pdrums.mode == DrumsTrue && D.nullDrums drumSrc && D.nullDrums drumSrc2x
       then maybe mempty (snd . ED.convertEliteDrums tempos . (.onyxPartEliteDrums))
-        $ Map.lookup fpart song.s_tracks.onyxParts
+        $ Map.lookup fpart song.tracks.onyxParts
       else case diff of
         Nothing -> if D.nullDrums drumSrc2x then drumSrc else drumSrc2x
         Just _  -> drumSrc
@@ -216,7 +216,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
         DrumsTrue -> D.computePro diff thisSrc
     hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
-    (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.s_tracks.onyxEvents.eventsCoda of
+    (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.tracks.onyxEvents.eventsCoda of
       Nothing   -> (thisSrc.drumActivation, RTB.empty)
       Just coda ->
         ( U.trackTake coda thisSrc.drumActivation
@@ -242,11 +242,11 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
 
   drumTrackTrue fpart pdrums diff = let
     -- TODO if kicks = 2, don't emit an X track, only X+
-    thisSrc = maybe mempty (.onyxPartEliteDrums) $ Map.lookup fpart song.s_tracks.onyxParts
+    thisSrc = maybe mempty (.onyxPartEliteDrums) $ Map.lookup fpart song.tracks.onyxParts
     thisDiff = ED.getDifficulty diff thisSrc
     drumMap :: Map.Map Double [ED.EliteDrumNote ED.FlamStatus]
     drumMap = rtbToMap $ RTB.collectCoincident thisDiff
-    (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.s_tracks.onyxEvents.eventsCoda of
+    (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.tracks.onyxEvents.eventsCoda of
       Nothing   -> (ED.tdActivation thisSrc, RTB.empty)
       Just coda ->
         ( U.trackTake coda $ ED.tdActivation thisSrc
@@ -437,7 +437,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         `PNF.zipStateMaps` fmap Just beats
 
   rsTracks fpart ppg = sequence $ let
-    (srcG, srcB) = case Map.lookup fpart song.s_tracks.onyxParts of
+    (srcG, srcB) = case Map.lookup fpart song.tracks.onyxParts of
       Nothing   -> (mempty, mempty)
       Just part -> (part.onyxPartRSGuitar, part.onyxPartRSBass)
     in catMaybes
@@ -460,7 +460,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       ]
 
   pgTrack fpart ppg diff = let
-    src = case Map.lookup fpart song.s_tracks.onyxParts of
+    src = case Map.lookup fpart song.tracks.onyxParts of
       Nothing -> mempty
       Just part
         | not $ PG.nullPG part.onyxPartRealGuitar22 -> part.onyxPartRealGuitar22
@@ -518,7 +518,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
 
   beats :: Map.Map Double (Maybe Beat.BeatEvent)
   beats = let
-    sourceMidi = song.s_tracks.onyxBeat.beatLines
+    sourceMidi = song.tracks.onyxBeat.beatLines
     source = if RTB.null sourceMidi
       then (timingBeat timing).beatLines
       else sourceMidi
@@ -542,8 +542,8 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       Just buildFive -> let
         result = buildFive FiveTypeGuitarExt ModeInput
           { tempo = tempos
-          , events = song.s_tracks.onyxEvents
-          , part = fromMaybe mempty $ Map.lookup fpart song.s_tracks.onyxParts
+          , events = song.tracks.onyxEvents
+          , part = fromMaybe mempty $ Map.lookup fpart song.tracks.onyxParts
           }
         name = (case fpart of
           F.FlexGuitar              -> "Guitar"
@@ -619,14 +619,14 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     ]
 
   in tracks >>= \trk -> return $ PreviewSong
-    { previewTempo    = song.s_tempos
-    , previewMeasures = song.s_signatures
+    { previewTempo    = song.tempos
+    , previewMeasures = song.timesigs
     , previewTiming   = timing
     , previewTracks   = trk
     , previewBG       = bgs
     , previewSections = rtbToMap
       $ fmap (sectionBody . makeDisplaySection)
-      $ song.s_tracks.onyxEvents.eventsSections
+      $ song.tracks.onyxEvents.eventsSections
     }
 
 loadTracks

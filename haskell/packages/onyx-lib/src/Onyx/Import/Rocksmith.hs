@@ -588,7 +588,7 @@ importRSSong folder song level = do
             in go vocals2
 
           in midi
-            { F.s_tracks = midi.s_tracks
+            { F.tracks = midi.tracks
               { F.onyxParts = Map.insert F.FlexVocal mempty
                 { F.onyxPartVocals = fst $ fixShortVoxPhrasesTrack mempty
                   { vocalNotes
@@ -616,7 +616,7 @@ importRSSong folder song level = do
                       (t, (_, tend, _, end)) <- vocals3
                       (t, True) : [(tend, False) | end]
                   }
-                } midi.s_tracks.onyxParts
+                } midi.tracks.onyxParts
               }
             }
       removeDupePhraseStart = \case

@@ -245,10 +245,10 @@ importDKSong chartName isMidi chartFile dsp level = do
       then do
         mid <- F.loadMIDIReadable chartFile
         let _ = mid :: F.Song (F.RawFile U.Beats)
-            dk = readTrackDK2 $ U.applyTempoTrack mid.s_tempos $ case mid.s_tracks.rawTracks of
+            dk = readTrackDK2 $ U.applyTempoTrack mid.tempos $ case mid.tracks.rawTracks of
               t : _ -> t
               []    -> RTB.empty
-        return (mid.s_tempos, dk)
+        return (mid.tempos, dk)
       else do
         b <- stackIO $ useHandle chartFile handleToByteString
         (tempos, events) <- fmap binToMidi $ runGetM readSheetBin b
@@ -294,9 +294,9 @@ importDKSong chartName isMidi chartFile dsp level = do
       { backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
       , fileMidi = SoftFile "notes.mid" $ SoftChart $ F.Song
-        { F.s_tempos = tempos
-        , F.s_signatures = U.measureMapFromLengths U.Error $ RTB.singleton 0 4
-        , F.s_tracks = mempty
+        { F.tempos = tempos
+        , F.timesigs = U.measureMapFromLengths U.Error $ RTB.singleton 0 4
+        , F.tracks = mempty
           { F.onyxParts = Map.singleton F.FlexDrums mempty
             { F.onyxPartDrums = converted
             }

@@ -157,26 +157,26 @@ crawlFolderBytes p = liftIO $ fmap (first TE.encodeUtf8) $ crawlFolder p
 
 applyTargetMIDI :: TargetCommon f -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 applyTargetMIDI tgt mid = let
-  eval = fmap (U.unapplyTempoMap mid.s_tempos) . evalPreviewTime False (Just F.getEventsTrack) mid 0 False
+  eval = fmap (U.unapplyTempoMap mid.tempos) . evalPreviewTime False (Just F.getEventsTrack) mid 0 False
   applyEnd = case tgt.end >>= eval . (.notes) of
     Nothing -> id
     Just notesEnd -> \m -> m
-      { F.s_tracks = chopTake notesEnd m.s_tracks
+      { F.tracks = chopTake notesEnd m.tracks
       -- the RockBand3 module process functions will remove tempos and sigs after [end]
       }
   applyStart = case tgt.start >>= \seg -> liftA2 (,) (eval seg.fadeStart) (eval seg.notes) of
     Nothing -> id
     Just (audioStart, notesStart) -> \m -> m
-      { F.s_tracks
+      { F.tracks
         = mapTrack (RTB.delay $ notesStart - audioStart)
-        $ chopDrop notesStart m.s_tracks
-      , F.s_tempos = case U.trackSplit audioStart $ U.tempoMapToBPS m.s_tempos of
+        $ chopDrop notesStart m.tracks
+      , F.tempos = case U.trackSplit audioStart $ U.tempoMapToBPS m.tempos of
         -- cut time off the front of the tempo map, and copy the last tempo
         -- from before the cut point to the cut point if needed
         (cut, keep) -> U.tempoMapFromBPS $ case U.trackTakeZero keep of
           [] -> U.trackGlueZero (toList $ snd . snd <$> RTB.viewR cut) keep
           _  -> keep
-      , F.s_signatures = case U.trackSplit audioStart $ U.measureMapToTimeSigs m.s_signatures of
+      , F.timesigs = case U.trackSplit audioStart $ U.measureMapToTimeSigs m.timesigs of
         (cut, keep) -> U.measureMapFromTimeSigs U.Error $ case U.trackTakeZero keep of
           _ : _ -> keep -- already a time signature at the cut point
           []    -> case lastEvent cut of
@@ -198,10 +198,10 @@ applyTargetMIDI tgt mid = let
   applySpeed = case fromMaybe 1 tgt.speed of
     1     -> id
     speed -> \m -> m
-      { F.s_tempos
+      { F.tempos
         = U.tempoMapFromBPS
         $ fmap (* realToFrac speed)
-        $ U.tempoMapToBPS m.s_tempos
+        $ U.tempoMapToBPS m.tempos
       }
   applySections m = case tgt.sections of
     SectionsFull       -> m
@@ -215,9 +215,9 @@ applyTargetMIDI tgt mid = let
       else Wait t1 s1 $ makeMinimalSections rest1
     sections -> sections
   modifySections m f = m
-    { F.s_tracks = m.s_tracks
-      { F.onyxEvents = m.s_tracks.onyxEvents
-        { eventsSections = f $ m.s_tracks.onyxEvents.eventsSections
+    { F.tracks = m.tracks
+      { F.onyxEvents = m.tracks.onyxEvents
+        { eventsSections = f $ m.tracks.onyxEvents.eventsSections
         }
       }
     }

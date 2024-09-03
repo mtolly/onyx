@@ -142,7 +142,7 @@ testConvertAnim fmid fven fout = do
     Left err  -> error $ show err
     Right mid -> return mid
   ven <- fmap (runGet parseAnim) $ BL.readFile fven
-  let raw = animToDebugMIDI mid.s_tempos mid.s_signatures ven `asTypeOf` mid
+  let raw = animToDebugMIDI mid.tempos mid.timesigs ven `asTypeOf` mid
   F.saveMIDIUtf8 fout raw
 
 animAdjustSpeed :: Rational -> Anim Float -> Anim Float

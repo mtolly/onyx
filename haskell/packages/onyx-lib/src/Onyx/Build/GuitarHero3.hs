@@ -439,15 +439,15 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     Nothing           -> 999
   firstNoteBeats = foldr min 999 $ do
     part <- [partLead, partRhythm]
-    let opart = F.getFlexPart part origSong.s_tracks
+    let opart = F.getFlexPart part origSong.tracks
     builder <- toList $ getPart part songYaml >>= anyFiveFret
     let result = builder FiveTypeGuitar ModeInput
-          { tempo = origSong.s_tempos
-          , events = origSong.s_tracks.onyxEvents
+          { tempo = origSong.tempos
+          , events = origSong.tracks.onyxEvents
           , part = opart
           }
     map firstEvent $ Map.elems result.notes
-  firstNoteSeconds = U.applyTempoMap origSong.s_tempos firstNoteBeats
+  firstNoteSeconds = U.applyTempoMap origSong.tempos firstNoteBeats
   padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
   song = F.padAnyFile padSeconds origSong
 
@@ -456,10 +456,10 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     in case getPart fpart songYaml >>= anyFiveFret of
       Nothing -> (mempty, GH3Part emptyTrack emptyTrack emptyTrack emptyTrack)
       Just builder -> let
-        result = completeFiveResult False song.s_signatures $ builder FiveTypeGuitar ModeInput
-          { tempo  = song.s_tempos
-          , events = song.s_tracks.onyxEvents
-          , part   = F.getFlexPart fpart song.s_tracks
+        result = completeFiveResult False song.timesigs $ builder FiveTypeGuitar ModeInput
+          { tempo  = song.tempos
+          , events = song.tracks.onyxEvents
+          , part   = F.getFlexPart fpart song.tracks
           }
         in (result.other, GH3Part
           { gh3Easy   = makeGH3Track Easy   result
@@ -475,22 +475,22 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ fromMaybe RTB.empty
       $ Map.lookup diff result.notes
-    starPower = makeGH3Spans song.s_tempos result.other.fiveOverdrive sht
+    starPower = makeGH3Spans song.tempos result.other.fiveOverdrive sht
     in GH3Track
-      { gh3Notes       = makeGH3TrackNotes song.s_tempos timeSigs beats sht
+      { gh3Notes       = makeGH3TrackNotes song.tempos timeSigs beats sht
       , gh3StarPower   = starPower
       , gh3BattleStars = starPower
       }
   (beats, timeSigs) = makeGH3Timing
-    song.s_tempos
-    song.s_signatures
+    song.tempos
+    song.timesigs
     timing.timingEnd
   sections
     = map (\(secs, sect) -> (fromSeconds secs, Right $ sectionBody $ makeDisplaySection sect))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
-    $ U.applyTempoTrack song.s_tempos
-    $ (F.getEventsTrack song.s_tracks).eventsSections
+    $ U.applyTempoTrack song.tempos
+    $ (F.getEventsTrack song.tracks).eventsSections
   (leadTrack, leadPart  ) = makeGH3Part partLead
   (_        , rhythmPart) = makeGH3Part partRhythm
   -- Not sure if there's a real way to extend the end of the song past the last note.
@@ -505,20 +505,20 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     , gh3Expert = addEndHack rhythmPart.gh3Expert
     }
   addEndHack diff = diff { gh3Notes = diff.gh3Notes <> endHack }
-  endHack = [(fromSeconds $ U.applyTempoMap song.s_tempos timing.timingEnd, 1, 1)]
+  endHack = [(fromSeconds $ U.applyTempoMap song.tempos timing.timingEnd, 1, 1)]
   makeFaceoff playerSpans
     = map (\(pos, len, _count) -> (pos, len))
-    $ makeGH3Spans song.s_tempos playerSpans
+    $ makeGH3Spans song.tempos playerSpans
     $ maybe RTB.empty (.fiveGems)
     $ Map.lookup Expert leadTrack.fiveDifficulties
   drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
-      rbAnims = buildDrumAnimation pd song.s_tempos $ F.getFlexPart partDrummer song.s_tracks
+      rbAnims = buildDrumAnimation pd song.tempos $ F.getFlexPart partDrummer song.tracks
       mapping = map swap gh3DrumMapping
       notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn_gem tdn, hand) mapping) $ animationToEliteDrums rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
-        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack song.s_tempos notes
+        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack song.tempos notes
   in (emptyMidQB
     { gh3Guitar          = leadPart
     , gh3Rhythm          = rhythmWithEndHack

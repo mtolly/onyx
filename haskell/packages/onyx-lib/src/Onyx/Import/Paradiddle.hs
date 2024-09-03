@@ -144,9 +144,9 @@ importParadiddle diffs level = do
       , fileBackgroundImage = Nothing
       , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
         ImportFull  -> F.Song
-          { F.s_tempos = tmap
-          , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
-          , F.s_tracks = mempty
+          { F.tempos = tmap
+          , F.timesigs = U.measureMapFromTimeSigs U.Error RTB.empty
+          , F.tracks = mempty
             { F.onyxParts = Map.singleton F.FlexDrums mempty
               { F.onyxPartEliteDrums = mconcat $ true : lowerDiffs
               }

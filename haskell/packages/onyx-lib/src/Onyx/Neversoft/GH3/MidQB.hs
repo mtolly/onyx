@@ -390,13 +390,13 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , F.onyxEvents = events
     }
   in F.Song
-    { F.s_tempos = tempos
-    , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    { F.tempos = tempos
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
       (time, num, den) <- gh3.gh3TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
-    , F.s_tracks = fixed
+    , F.tracks = fixed
     }
 
 gh3DrumMapping :: [(Word32, (EliteGem (), D.Hand))]

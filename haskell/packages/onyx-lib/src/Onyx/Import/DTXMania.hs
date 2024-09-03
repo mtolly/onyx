@@ -246,7 +246,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       }
     }
   mid' = mid
-    { F.s_tracks = mid.s_tracks
+    { F.tracks = mid.tracks
       { F.onyxSamples = Map.fromList $ catMaybes
         $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, cymbalTrack', tomTrack]
         <> map snd extraResults

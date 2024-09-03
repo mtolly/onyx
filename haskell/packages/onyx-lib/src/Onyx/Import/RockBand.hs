@@ -301,11 +301,11 @@ loadFlatMilo level milo = do
 midiAddSingalongs :: [B.ByteString] -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 midiAddSingalongs []    mid = mid
 midiAddSingalongs slots mid = mid
-  { F.s_tracks = mid.s_tracks
+  { F.tracks = mid.tracks
     { F.onyxVenue = let
-      venue = mid.s_tracks.onyxVenue
+      venue = mid.tracks.onyxVenue
       addSlot slot orig = if elem slot slots
-        then case mid.s_tracks.onyxEvents.eventsEnd of
+        then case mid.tracks.onyxEvents.eventsEnd of
           -- in theory should be fine going the whole song length, but we'll shorten a bit to be safe
           Wait dt () _ -> Wait 0 True $ Wait (dt - 0.25) False RNil
           RNil         -> orig -- no [end], shouldn't happen
@@ -340,13 +340,13 @@ importRB rbi level = do
           Right umid -> do
             raw <- F.loadMIDIReadable umid
             let _ = raw :: F.Song (F.RawFile U.Beats)
-            return raw.s_tracks.rawTracks
+            return raw.tracks.rawTracks
       let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
           trksUpdated
             = filter ((`notElem` updatedNames) . U.trackName) trks1x
             ++ trksUpdate
       midiFixed <- fmap checkEnableDynamics $ F.interpretMIDIFile $ F.Song temps sigs trksUpdated
-      return (midiFixed, midiFixed { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks })
+      return (midiFixed, midiFixed { F.tracks = F.fixedToOnyx midiFixed.tracks })
     ImportQuick -> return (emptyChart, emptyChart)
 
   drumkit <- case D.drumBank pkg of
@@ -391,7 +391,7 @@ importRB rbi level = do
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  let drumEvents = midiFixed.s_tracks.fixedPartDrums
+  let drumEvents = midiFixed.tracks.fixedPartDrums
   (foundMix, foundMixStr) <- let
     drumMixes = do
       (_, dd) <- Map.toList drumEvents.drumDifficulties
@@ -460,7 +460,7 @@ importRB rbi level = do
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
 
-      bassBase = detectExtProBass midiFixed.s_tracks
+      bassBase = detectExtProBass midiFixed.tracks
 
   let lipsyncNames = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync"]
       getLipsyncFile name = do
@@ -523,7 +523,7 @@ importRB rbi level = do
           , F.onyxCameraBK = mempty
           , F.onyxCameraGK = mempty
           }
-      cutoffAnimAtEnd = case midiOnyx.s_tracks.onyxEvents.eventsEnd of
+      cutoffAnimAtEnd = case midiOnyx.tracks.onyxEvents.eventsEnd of
         RNil              -> id
         Wait endTime () _ -> chopTake endTime
   -- TODO we may need a smarter way to apply the song.anim data;
@@ -532,9 +532,9 @@ importRB rbi level = do
     Just (_, Just parsedAnim) -> do
       converted <- convertFromAnim parsedAnim
       return midiOnyx
-        { F.s_tracks = midiOnyx.s_tracks
+        { F.tracks = midiOnyx.tracks
           { F.onyxVenue = mempty -- pre-RB3 songs still have old VENUE tracks we can replace entirely
-          } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack midiOnyx.s_tempos) converted)
+          } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack midiOnyx.tempos) converted)
         }
     _ -> return midiOnyx
 
@@ -801,7 +801,7 @@ importRB4 fdta level = do
       return
         ( makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid
         , rbmid_HopoThreshold rbmid
-        , mapTrack (U.applyTempoTrack beatMidi.s_tempos) beatMidi.s_tracks.onyxBeat
+        , mapTrack (U.applyTempoTrack beatMidi.tempos) beatMidi.tracks.onyxBeat
         )
 
   -- dta.albumArt doesn't appear to be correct, it is False sometimes when song should have art

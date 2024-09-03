@@ -86,7 +86,7 @@ importAmplitudeSong songFolder moggSongName level = do
         guard $ "event:/FREESTYLE" `T.isPrefixOf` event
         ns
       parts = do
-        (n, Amp.Catch inst name trk) <- maybe [] (\m -> Map.toList m.s_tracks.ampTracks) ampMidi
+        (n, Amp.Catch inst name trk) <- maybe [] (\m -> Map.toList m.tracks.ampTracks) ampMidi
         return (FlexExtra name, getChannels n, inst, trk)
       midi = case ampMidi of
         Just (F.Song temps sigs _) -> F.Song temps sigs mempty

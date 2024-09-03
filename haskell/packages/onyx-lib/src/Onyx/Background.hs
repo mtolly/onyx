@@ -116,12 +116,12 @@ getVenue
   -> F.Song (F.OnyxFile U.Beats)
   -> m (VenueTrack U.Beats)
 getVenue target partMap tmap endTime ofile = do
-  camera <- buildCamera (Map.keys partMap) ofile.s_tracks.onyxCamera
+  camera <- buildCamera (Map.keys partMap) ofile.tracks.onyxCamera
   -- cut off at end mostly since new blips introduced in rb3->rb2 can go past the end event
   let trimEnd = mapTrack $ U.trackTake endTime
       gen = mconcat
-        [ ofile.s_tracks.onyxVenue
-        , buildLighting ofile.s_tracks.onyxLighting
+        [ ofile.tracks.onyxVenue
+        , buildLighting ofile.tracks.onyxLighting
         , camera
         ]
   -- TODO lighting autogen
@@ -141,7 +141,7 @@ autoCamera
   -> m (RTB.T U.Beats Camera3)
 autoCamera partMap tmap endTime ofile = do
   let moodMap = flip fmap partMap $ \fpart -> let
-        moods = getMoods tmap endTime $ fromMaybe mempty $ Map.lookup fpart $ ofile.s_tracks.onyxParts
+        moods = getMoods tmap endTime $ fromMaybe mempty $ Map.lookup fpart $ ofile.tracks.onyxParts
         in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 moods
       endSeconds = U.applyTempoMap tmap endTime
       cutTimes = map (U.unapplyTempoMap tmap) $ takeWhile (<= endSeconds) $ map fromRational [0, 2.5 ..]

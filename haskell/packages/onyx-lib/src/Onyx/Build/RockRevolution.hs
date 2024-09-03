@@ -175,20 +175,20 @@ rrRules buildInfo dir rr = do
 
   (songBinEnglish : maxScores : pathPad : allMidis) %> \_ -> do
     mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
-    endTime <- case mid.s_tracks.onyxEvents.eventsEnd of
+    endTime <- case mid.tracks.onyxEvents.eventsEnd of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
     let input partName = ModeInput
-          { tempo  = mid.s_tempos
-          , events = mid.s_tracks.onyxEvents
-          , part   = F.getFlexPart partName mid.s_tracks
+          { tempo  = mid.tempos
+          , events = mid.tracks.onyxEvents
+          , part   = F.getFlexPart partName mid.tracks
           }
         guitar = flip fmap rrPartGuitar $ \builder ->
-          completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar $ input rr.guitar
+          completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.guitar
         bass   = flip fmap rrPartBass $ \builder ->
-          completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar $ input rr.bass
+          completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
         drums  = flip fmap rrPartDrums $ \builder ->
-          completeDrumResult mid.s_signatures mid.s_tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
+          completeDrumResult mid.timesigs mid.tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
     let startNotes = concat
@@ -197,18 +197,18 @@ rrRules buildInfo dir rr = do
           , toList (drums  >>= Map.lookup Expert . (.notes)) >>= take 1 . RTB.getTimes
           ]
         firstNoteSeconds = case startNotes of
-          n : ns -> U.applyTempoMap mid.s_tempos $ foldr min n ns
+          n : ns -> U.applyTempoMap mid.tempos $ foldr min n ns
           []     -> 10 -- shouldn't happen
         padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
         adjustMidiTiming
           -- decrease tempo at start of midi to account for weird delay in our encoded mp3s
-          = (\m -> m { F.s_tempos = applyMIDIOffsetMS rrMP3HackAmountMS m.s_tempos })
+          = (\m -> m { F.tempos = applyMIDIOffsetMS rrMP3HackAmountMS m.tempos })
           . F.padRawTrackFile padSeconds
     stackIO $ B.writeFile pathPad $ B8.pack $ show (padSeconds :: Int)
 
     let toTrackMidi :: (ParseTrack f) => f U.Beats -> F.Song (RTB.T U.Beats (Event.T B.ByteString))
         toTrackMidi trk = adjustMidiTiming mid
-          { F.s_tracks = fmap (fmap encodeLatin1) $ execState (codecOut (forcePure parseTrack) trk) RTB.empty
+          { F.tracks = fmap (fmap encodeLatin1) $ execState (codecOut (forcePure parseTrack) trk) RTB.empty
           }
 
         forcePure
@@ -216,7 +216,7 @@ rrRules buildInfo dir rr = do
           -> TrackCodec (PureLog Identity) U.Beats (trk U.Beats)
         forcePure = id
 
-        emptyMid = mid { F.s_tracks = RTB.empty }
+        emptyMid = mid { F.tracks = RTB.empty }
 
         makeGB :: Difficulty -> Maybe FiveResult -> (File.T B.ByteString, Int)
         makeGB _    Nothing       = (F.showMixedMIDI emptyMid, 0)
@@ -237,11 +237,11 @@ rrRules buildInfo dir rr = do
             diff
             (fromMaybe RTB.empty $ drums >>= \dr -> Map.lookup diff dr.notes)
             (maybe mempty (.other) drums)
-            mid.s_tracks.onyxEvents
+            mid.tracks.onyxEvents
           rrDiff = case drums >>= (.eliteDrums) of
-            Just elite | not rr.proTo4 -> case E.splitFlams mid.s_tempos $ E.getDifficulty (Just diff) elite of
+            Just elite | not rr.proTo4 -> case E.splitFlams mid.tempos $ E.getDifficulty (Just diff) elite of
               eliteNotes | not $ RTB.null eliteNotes
-                -> makeRRDrumDifficultyElite eliteNotes elite mid.s_tracks.onyxEvents
+                -> makeRRDrumDifficultyElite eliteNotes elite mid.tracks.onyxEvents
               _ -> nonElite
             _ -> nonElite
           in (F.showMixedMIDI $ toTrackMidi rrDiff
@@ -255,17 +255,17 @@ rrRules buildInfo dir rr = do
             , [ (Bass  , rr.bass  ) | isJust bass   ]
             , [ (Drums , rr.drums ) | isJust drums  ]
             ])
-          mid.s_tempos
+          mid.tempos
           endTime
           mid
         camera = RTB.mapMaybe (listToMaybe . catMaybes)
           $ flip evalRand (mkStdGen $ hash key)
           $ mapM (\cuts -> mapM rrCameraCut $ reverse $ sort cuts)
           $ RTB.collectCoincident venue.venueCameraRB3
-        moodFor part = maybe RTB.empty (getMoods mid.s_tempos endTime)
-          $ Map.lookup part mid.s_tracks.onyxParts
+        moodFor part = maybe RTB.empty (getMoods mid.tempos endTime)
+          $ Map.lookup part mid.tracks.onyxParts
 
-        (sections, customSections) = makeRRSections mid.s_tracks.onyxEvents.eventsSections
+        (sections, customSections) = makeRRSections mid.tracks.onyxEvents.eventsSections
 
     makeStringsBin
       ( artist
@@ -302,7 +302,7 @@ rrRules buildInfo dir rr = do
       ]
 
     stackIO $ Save.toFile control $ F.showMixedMIDI $ adjustMidiTiming mid
-      { F.s_tracks = showRRControl RRControl
+      { F.tracks = showRRControl RRControl
         { rrcAnimDrummer   = flip fmap (moodFor rr.drums) $ \case
           -- obviously not great, need to instead translate from drum animations
           Mood_idle          -> 109 -- Drummer_NoPlay
@@ -333,7 +333,7 @@ rrRules buildInfo dir rr = do
           Expert
           (fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes)
           (maybe mempty (.other) drums)
-          mid.s_tracks.onyxEvents
+          mid.tracks.onyxEvents
         , rrcGemsGuitar    = fromMaybe RTB.empty $ do
           res <- guitar
           makeRRFiveControl res <$> Map.lookup Expert res.notes
@@ -341,10 +341,10 @@ rrRules buildInfo dir rr = do
           res <- bass
           makeRRFiveControl res <$> Map.lookup Expert res.notes
         , rrcVenue         = camera
-        , rrcEnd           = mid.s_tracks.onyxEvents.eventsEnd
+        , rrcEnd           = mid.tracks.onyxEvents.eventsEnd
         , rrcSections      = sections
         -- TODO add half-beats (do these even do anything?)
-        , rrcBeat          = fmap Just $ mid.s_tracks.onyxBeat.beatLines
+        , rrcBeat          = fmap Just $ mid.tracks.onyxBeat.beatLines
         }
       }
 
@@ -366,8 +366,8 @@ rrRules buildInfo dir rr = do
           (minutes, afterMinutes) = quotRem ms 60000
           (seconds, milliseconds) = quotRem afterMinutes 1000
           in T.pack $ "{ " <> show minutes <> ", " <> show seconds <> ", " <> show milliseconds <> " }"
-    endMS <- case mid.s_tracks.onyxEvents.eventsEnd of
-      Wait dt _ _ -> return $ floor $ U.applyTempoMap mid.s_tempos dt * 1000
+    endMS <- case mid.tracks.onyxEvents.eventsEnd of
+      Wait dt _ _ -> return $ floor $ U.applyTempoMap mid.tempos dt * 1000
       RNil        -> fatal "panic! no [end] in processed midi"
     shk $ need [maxScores]
     maxScoresContent <- stackIO $ TE.decodeUtf8 <$> B.readFile maxScores

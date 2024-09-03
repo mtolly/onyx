@@ -29,14 +29,14 @@ import           Onyx.Vocal.DryVox                (sineDryVox)
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
-dryVoxAudio f = sineDryVox $ mapTrack (U.applyTempoTrack f.s_tempos) f.s_tracks.fixedPartVocals
+dryVoxAudio f = sineDryVox $ mapTrack (U.applyTempoTrack f.tempos) f.tracks.fixedPartVocals
 
 -- Should be given a valid RB3 .mid
 convertMidiRB2 :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
 convertMidiRB2 mid = fixUnisons mid
-  { F.s_tracks = mempty
+  { F.tracks = mempty
     { F.fixedPartDrums = fixDrumColors $ let
-      pd = mid.s_tracks.fixedPartDrums
+      pd = mid.tracks.fixedPartDrums
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
         { drumKick2x = RTB.empty
@@ -56,20 +56,20 @@ convertMidiRB2 mid = fixUnisons mid
           -- we do nub for when a song, inexplicably,
           -- has simultaneous "soft snare LH" and "hard snare LH"
         }
-    , F.fixedPartGuitar = fixFiveColors $ fixGB True  mid.s_tracks.fixedPartGuitar
-    , F.fixedPartBass   = fixFiveColors $ fixGB False mid.s_tracks.fixedPartBass
-    , F.fixedPartVocals = mid.s_tracks.fixedPartVocals
+    , F.fixedPartGuitar = fixFiveColors $ fixGB True  mid.tracks.fixedPartGuitar
+    , F.fixedPartBass   = fixFiveColors $ fixGB False mid.tracks.fixedPartBass
+    , F.fixedPartVocals = mid.tracks.fixedPartVocals
       { vocalLyricShift = RTB.empty
       , vocalRangeShift = RTB.empty
       }
-    , F.fixedEvents = mid.s_tracks.fixedEvents { eventsSections = RTB.empty }
-    , F.fixedBeat = mid.s_tracks.fixedBeat
+    , F.fixedEvents = mid.tracks.fixedEvents { eventsSections = RTB.empty }
+    , F.fixedBeat = mid.tracks.fixedBeat
     -- We now compile venue for RB2 already in Onyx.Build.RB3CH
-    , F.fixedVenue = mid.s_tracks.fixedVenue
+    , F.fixedVenue = mid.tracks.fixedVenue
     -- include these for RB2 but remove for Magma (stripMidiMagmaV1)
-    , F.fixedHarm1 = mid.s_tracks.fixedHarm1
-    , F.fixedHarm2 = mid.s_tracks.fixedHarm2
-    , F.fixedHarm3 = mid.s_tracks.fixedHarm3
+    , F.fixedHarm1 = mid.tracks.fixedHarm1
+    , F.fixedHarm2 = mid.tracks.fixedHarm2
+    , F.fixedHarm3 = mid.tracks.fixedHarm3
     }
   } where
     fixGB hasSolos t = t
@@ -77,9 +77,9 @@ convertMidiRB2 mid = fixUnisons mid
       }
     fixUnisons :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
     fixUnisons song = let
-      gtr  = song.s_tracks.fixedPartGuitar
-      bass = song.s_tracks.fixedPartBass
-      drum = song.s_tracks.fixedPartDrums
+      gtr  = song.tracks.fixedPartGuitar
+      bass = song.tracks.fixedPartBass
+      drum = song.tracks.fixedPartDrums
       in if not $ nullFive gtr || nullFive bass || nullDrums drum
         then fixPartialUnisons [F.FlexGuitar, F.FlexBass, F.FlexDrums] song
         else return song
@@ -87,14 +87,14 @@ convertMidiRB2 mid = fixUnisons mid
 -- Should be given the output of convertMidiRB2
 stripMidiMagmaV1 :: F.Song (F.FixedFile U.Beats) -> F.Song (F.FixedFile U.Beats)
 stripMidiMagmaV1 mid = mid
-  { F.s_tracks = mid.s_tracks
-    { F.fixedPartDrums  = noDrumLanes mid.s_tracks.fixedPartDrums
-    , F.fixedPartGuitar = noFiveLanes mid.s_tracks.fixedPartGuitar
-    , F.fixedPartBass   = noFiveLanes mid.s_tracks.fixedPartBass
+  { F.tracks = mid.tracks
+    { F.fixedPartDrums  = noDrumLanes mid.tracks.fixedPartDrums
+    , F.fixedPartGuitar = noFiveLanes mid.tracks.fixedPartGuitar
+    , F.fixedPartBass   = noFiveLanes mid.tracks.fixedPartBass
     , F.fixedHarm1      = mempty
     , F.fixedHarm2      = mempty
     , F.fixedHarm3      = mempty
-    , F.fixedVenue      = mid.s_tracks.fixedVenue
+    , F.fixedVenue      = mid.tracks.fixedVenue
       -- Magma v2 is ok with these but not v1
       { venueFog = RTB.empty
       }

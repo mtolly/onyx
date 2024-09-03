@@ -138,13 +138,13 @@ showPitch = \case
 
 closeShiftsFile :: F.Song (F.OnyxFile U.Beats) -> T.Text
 closeShiftsFile song = T.unlines $ do
-  (partName, part) <- Map.toAscList song.s_tracks.onyxParts
+  (partName, part) <- Map.toAscList song.tracks.onyxParts
   let xpk = part.onyxPartRealKeysX
   guard $ not $ nullPK xpk
-  let close = U.unapplyTempoTrack song.s_tempos $ closeShifts 1 $ mapTrack (U.applyTempoTrack song.s_tempos) xpk
+  let close = U.unapplyTempoTrack song.tempos $ closeShifts 1 $ mapTrack (U.applyTempoTrack song.tempos) xpk
       showSeconds secs = T.pack (show (realToFrac secs :: Milli)) <> "s"
       showClose (t, (rng1, rng2, dt, p)) = T.unwords
-        [ showTimestamp (U.applyTempoMap song.s_tempos t) <> ":"
+        [ showTimestamp (U.applyTempoMap song.tempos t) <> ":"
         , "expert pro keys shift to"
         , T.pack $ show rng2
         , "is"

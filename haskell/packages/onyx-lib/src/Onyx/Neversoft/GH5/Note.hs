@@ -636,11 +636,11 @@ ghToMidi bank nf = let
       }
     }
   in F.Song
-    { F.s_tempos = tempos
-    , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    { F.tempos = tempos
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
       ts <- nf.gh_timesig
       let unit = 4 / fromIntegral ts.tsDenominator
           len = fromIntegral ts.tsNumerator * unit
       return (toBeats ts.tsTimestamp, U.TimeSig len unit)
-    , F.s_tracks = fixed
+    , F.tracks = fixed
     }

@@ -369,7 +369,7 @@ importFoF src dir level = do
     Just (_, rMidi2x) -> do
       parsed2x <- F.loadMIDIReadable rMidi2x
       let _ = parsed2x :: F.Song (F.FixedFile U.Beats)
-          trk2x = parsed2x.s_tracks.fixedPartDrums
+          trk2x = parsed2x.tracks.fixedPartDrums
       return $ if nullDrums trk2x
         then id
         else \mid -> mid { F.fixedPartDrums2x = trk2x }
@@ -378,9 +378,9 @@ importFoF src dir level = do
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
       hasKicks = if isJust maybe2x
-        || not (RTB.null parsed.s_tracks.fixedPartDrums.drumKick2x)
-        || not (RTB.null parsed.s_tracks.fixedPartRealDrumsPS.drumKick2x)
-        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert parsed.s_tracks.fixedPartEliteDrums.tdDifficulties)
+        || not (RTB.null parsed.tracks.fixedPartDrums.drumKick2x)
+        || not (RTB.null parsed.tracks.fixedPartRealDrumsPS.drumKick2x)
+        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert parsed.tracks.fixedPartEliteDrums.tdDifficulties)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 
@@ -404,9 +404,9 @@ importFoF src dir level = do
         }
 
   outputMIDI <- fixShortVoxPhrases $ checkEnableDynamics $ redoSwells parsed
-    { F.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x parsed.s_tracks
+    { F.tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x parsed.tracks
     }
-  let outputFixed = outputMIDI.s_tracks
+  let outputFixed = outputMIDI.tracks
       outputOnyx = case delayMIDI outputMIDI of
         F.Song tempos sigs fixed -> F.Song tempos sigs $ F.fixedToOnyx fixed
       midi = SoftFile "notes.mid" $ SoftChart outputOnyx
@@ -699,7 +699,7 @@ importFoF src dir level = do
                 diff <- [minBound .. maxBound]
                 let name = danceDifficultyName diff
                 maniaTrack <- toList
-                  $ Map.lookup (FlexExtra "dance") outputOnyx.s_tracks.onyxParts
+                  $ Map.lookup (FlexExtra "dance") outputOnyx.tracks.onyxParts
                   >>= Map.lookup name . (.onyxPartMania)
                 guard $ not $ RTB.null maniaTrack.maniaNotes
                 return name

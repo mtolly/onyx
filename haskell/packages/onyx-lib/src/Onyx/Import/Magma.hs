@@ -49,7 +49,7 @@ importMagma fin level = do
 
   midiLoc <- locate $ T.unpack $ RBProj.midiFile $ RBProj.midi rbproj
   let midi = SoftFile "notes.mid" $ SoftReadable $ fileReadable midiLoc
-  bassBase <- detectExtProBass . (.s_tracks) <$> case level of
+  bassBase <- detectExtProBass . (.tracks) <$> case level of
     ImportFull  -> F.loadMIDI midiLoc
     ImportQuick -> return emptyChart
 

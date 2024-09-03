@@ -516,9 +516,9 @@ instance TraverseTrack (RawTrack a) where
   traverseTrack f (RawTrack trk) = RawTrack <$> f trk
 
 data Song t = Song
-  { s_tempos     :: U.TempoMap
-  , s_signatures :: U.MeasureMap
-  , s_tracks     :: t
+  { tempos   :: U.TempoMap
+  , timesigs :: U.MeasureMap
+  , tracks   :: t
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 {- |
@@ -565,7 +565,7 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
 
 readMIDIFile :: (SendMessage m) => F.T T.Text -> StackTraceT m (Song [RTB.T U.Beats (E.T T.Text)])
 readMIDIFile mid = do
-  (s_tempos, s_signatures, s_tracks) <- case U.decodeFile mid of
+  (tempos, timesigs, tracks) <- case U.decodeFile mid of
     Right trks -> let
       tempos = U.tempoMapFromBPS $ RTB.singleton 0 2
       sigs = U.measureMapFromTimeSigs U.Truncate $ RTB.singleton 0 $ U.TimeSig 4 1
@@ -593,9 +593,9 @@ readMixedMIDI :: (Monad m) => F.T s -> StackTraceT m (Song (RTB.T U.Beats (E.T s
 readMixedMIDI mid = case mid of
   F.Cons F.Mixed _ _ -> case U.decodeFile mid of
     Left [trk] -> let
-      s_tempos = U.makeTempoMap trk
-      s_signatures = U.makeMeasureMap U.Truncate trk
-      s_tracks = flip RTB.filter trk $ \case
+      tempos = U.makeTempoMap trk
+      timesigs = U.makeMeasureMap U.Truncate trk
+      tracks = flip RTB.filter trk $ \case
         -- various events we don't need to look at
         E.MetaEvent Meta.TrackName{}      -> False
         E.MetaEvent Meta.SetTempo{}       -> False
@@ -610,11 +610,11 @@ readMixedMIDI mid = case mid of
 
 showMixedMIDI :: (Ord s) => Song (RTB.T U.Beats (E.T s)) -> F.T s
 showMixedMIDI s = let
-  tempos = U.unmakeTempoMap s.s_tempos
-  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs s.s_signatures of
+  tempos = U.unmakeTempoMap s.tempos
+  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs s.timesigs of
     Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
     Just evts -> evts
-  trk = RTB.merge (RTB.merge tempos sigs) s.s_tracks
+  trk = RTB.merge (RTB.merge tempos sigs) s.tracks
   in U.encodeFileBeats F.Mixed 480 [trk]
 
 -- | Strips comments and track names from the track before handing it to a track parser.
@@ -630,7 +630,7 @@ data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
 -- | Copies tracks from the second file into the first, repositioning events by timestamp.
 mergeCharts :: TrackOffset -> Song (RawFile U.Beats) -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
 mergeCharts offset base new = let
-  newTracks = flip map new.s_tracks.rawTracks $ \trk -> let
+  newTracks = flip map new.tracks.rawTracks $ \trk -> let
     name = U.trackName trk
     applyOffset = case offset of
       TrackPad  t -> RTB.delay t
@@ -639,10 +639,10 @@ mergeCharts offset base new = let
     -- TODO: need to ensure notes don't have 0 length
     in maybe id U.setTrackName name
       $ removeTrackName
-      $ U.unapplyTempoTrack base.s_tempos
+      $ U.unapplyTempoTrack base.tempos
       $ applyOffset
-      $ U.applyTempoTrack new.s_tempos trk
-  in base { s_tracks = RawFile newTracks }
+      $ U.applyTempoTrack new.tempos trk
+  in base { tracks = RawFile newTracks }
 
 parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats (E.T T.Text)] -> T.Text -> StackTraceT m (trk U.Beats)
 parseTracks trks name = do
@@ -695,12 +695,12 @@ loadMIDIReadable r = loadRawMIDIReadable r >>= readMIDIFile'
 
 showMIDIFile :: Song [RTB.T U.Beats (E.T T.Text)] -> F.T T.Text
 showMIDIFile s = let
-  tempos = U.unmakeTempoMap s.s_tempos
-  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs s.s_signatures of
+  tempos = U.unmakeTempoMap s.tempos
+  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs s.timesigs of
     Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
     Just evts -> evts
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
-  in U.encodeFileBeats F.Parallel 480 $ map (fixMoonTaps . fixEventOrder) $ tempoTrk : s.s_tracks
+  in U.encodeFileBeats F.Parallel 480 $ map (fixMoonTaps . fixEventOrder) $ tempoTrk : s.tracks
 
 showMIDITracks :: (ParseFile f) => Song (f U.Beats) -> Song [RTB.T U.Beats (E.T T.Text)]
 showMIDITracks (Song tempos mmap trks)
@@ -1005,13 +1005,13 @@ fixedToOnyx f = OnyxFile
   }
 
 songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
-songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack s.s_tracks of
+songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack s.tracks of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
 songLengthMS :: (HasEvents f) => Song (f U.Beats) -> Int
-songLengthMS song = floor $ U.applyTempoMap song.s_tempos (songLengthBeats song) * 1000
+songLengthMS song = floor $ U.applyTempoMap song.tempos (songLengthBeats song) * 1000
 
 saveMIDILatin1 :: (MonadIO m, ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
 saveMIDILatin1 fp song = liftIO $ Save.toFile fp $ fmap encodeLatin1 $ showMIDIFile' song
@@ -1024,25 +1024,25 @@ shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 hasSolo :: (NNC.C t) => RB3Instrument -> Song (FixedFile t) -> Bool
 hasSolo Guitar song = any (not . null)
-  [ song.s_tracks.fixedPartGuitar.fiveSolo
-  , song.s_tracks.fixedPartRealGuitar.pgSolo
-  , song.s_tracks.fixedPartRealGuitar22.pgSolo
+  [ song.tracks.fixedPartGuitar.fiveSolo
+  , song.tracks.fixedPartRealGuitar.pgSolo
+  , song.tracks.fixedPartRealGuitar22.pgSolo
   ]
 hasSolo Bass song = any (not . null)
-  [ song.s_tracks.fixedPartBass.fiveSolo
-  , song.s_tracks.fixedPartRealBass.pgSolo
-  , song.s_tracks.fixedPartRealBass22.pgSolo
+  [ song.tracks.fixedPartBass.fiveSolo
+  , song.tracks.fixedPartRealBass.pgSolo
+  , song.tracks.fixedPartRealBass22.pgSolo
   ]
 hasSolo Drums song = any (not . null)
-  [ song.s_tracks.fixedPartDrums.drumSolo
+  [ song.tracks.fixedPartDrums.drumSolo
   ]
 hasSolo Keys song = any (not . null)
-  [ song.s_tracks.fixedPartKeys.fiveSolo
-  , song.s_tracks.fixedPartRealKeysX.pkSolo
+  [ song.tracks.fixedPartKeys.fiveSolo
+  , song.tracks.fixedPartRealKeysX.pkSolo
   ]
 hasSolo Vocal song = any (not . null)
-  [ song.s_tracks.fixedPartVocals.vocalPerc
-  , song.s_tracks.fixedHarm1.vocalPerc
+  [ song.tracks.fixedPartVocals.vocalPerc
+  , song.tracks.fixedHarm1.vocalPerc
   ]
 
 fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
@@ -1092,10 +1092,10 @@ fixFreeform' initGems = go initGems . RTB.normalize where
 getPercType :: (NNC.C t) => Song (FixedFile t) -> Maybe Percussion
 getPercType song = listToMaybe $ do
   trk <-
-    [ song.s_tracks.fixedPartVocals
-    , song.s_tracks.fixedHarm1
-    , song.s_tracks.fixedHarm2
-    , song.s_tracks.fixedHarm3
+    [ song.tracks.fixedPartVocals
+    , song.tracks.fixedHarm1
+    , song.tracks.fixedHarm2
+    , song.tracks.fixedHarm3
     ]
   (perc, _) <- RTB.getBodies $ vocalPercAnimation trk
   return perc

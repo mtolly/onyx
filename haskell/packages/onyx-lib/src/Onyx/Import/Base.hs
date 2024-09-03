@@ -120,9 +120,9 @@ detectExtProBass trks = let
 
 emptyChart :: (Monoid a) => F.Song a
 emptyChart = F.Song
-  { F.s_tempos = U.makeTempoMap RTB.empty
-  , F.s_signatures = U.makeMeasureMap U.Ignore RTB.empty
-  , F.s_tracks = mempty
+  { F.tempos = U.makeTempoMap RTB.empty
+  , F.timesigs = U.makeMeasureMap U.Ignore RTB.empty
+  , F.tracks = mempty
   }
 
 -- | Discards drum accents/ghosts unless [ENABLE_CHART_DYNAMICS] is present.

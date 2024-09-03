@@ -109,9 +109,9 @@ binToMidi bin = let
 --   F.saveMIDIUtf8 (f <> ".mid") $ let
 --     (tempos, track) = binToMidi bin
 --     in F.Song
---       { F.s_tempos = tempos
---       , F.s_signatures = U.measureMapFromLengths U.Error $ RTB.singleton 0 4
---       , F.s_tracks = F.RawFile
+--       { F.tempos = tempos
+--       , F.timesigs = U.measureMapFromLengths U.Error $ RTB.singleton 0 4
+--       , F.tracks = F.RawFile
 --         [ fmap (E.MetaEvent . Meta.TextEvent . (`showHex` "")) $ RTB.filter (/= 0) track
 --         ]
 --       }

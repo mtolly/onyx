@@ -200,8 +200,8 @@ miscPageLipsync sink rect tab startTasks = do
             $ BL.writeFile voc
             $ runPut $ putVocFile
             $ gh2Lipsync vowels
-            $ mapTrack (U.applyTempoTrack mid.s_tempos)
-            $ mid.s_tracks.fixedPartVocals
+            $ mapTrack (U.applyTempoTrack mid.tempos)
+            $ mid.tracks.fixedPartVocals
           return [voc]
         in startTasks [("Make GH2 .voc: " <> voc, task)]
 
@@ -222,7 +222,7 @@ miscPageLipsync sink rect tab startTasks = do
           _                          -> return ()
       hasLipsyncTracks :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m Bool
       hasLipsyncTracks mid = let
-        trks = mid.s_tracks
+        trks = mid.tracks
         lipsyncTracks =
           [ trks.fixedLipsyncJohn, trks.fixedLipsyncPaul, trks.fixedLipsyncGeorge, trks.fixedLipsyncRingo
           , trks.fixedLipsync1, trks.fixedLipsync2, trks.fixedLipsync3, trks.fixedLipsync4
@@ -261,17 +261,17 @@ miscPageLipsync sink rect tab startTasks = do
             lip4 = getLipsync (.fixedLipsync4)
             empty = lipsyncFromStates []
             getVocal getTracks = do
-              trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.s_tracks) getTracks
+              trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
               Just
                 $ autoLipsync trans vmapRB3 vowels
-                $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+                $ mapTrack (U.applyTempoTrack mid.tempos) trk
             getLipsync getTrack = let
-              trk = getTrack mid.s_tracks
+              trk = getTrack mid.tracks
               in do
                 guard $ trk /= mempty
                 Just
                   $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
-                  $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
             in case (lip1, lip2, lip3, lip4) of
               (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
               (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
@@ -316,15 +316,15 @@ miscPageLipsync sink rect tab startTasks = do
                 , miloSubdirs = map editDir $ miloSubdirs dir
                 }
               getVocal getTracks = let
-                trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.s_tracks) getTracks
+                trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
                 in runPut $ putLipsync
                   $ autoLipsync trans vmapRB3 vowels
-                  $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
               getLipsync tgt vmap getTrack = let
-                trk = getTrack mid.s_tracks
+                trk = getTrack mid.tracks
                 in runPut $ putLipsync
                   $ lipsyncFromMIDITrack' tgt vmap
-                  $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update .milo with MIDI lipsync: " <> milo, task)]
@@ -350,12 +350,12 @@ miscPageLipsync sink rect tab startTasks = do
                 , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync4     )
                 ]
               makeFixed name tgt vmap getTrack = let
-                trk = getTrack mid.s_tracks
+                trk = getTrack mid.tracks
                 in do
                   guard $ trk /= mempty
                   Just (dout </> name, runPut $ putLipsync
                     $ lipsyncFromMIDITrack' tgt vmap
-                    $ mapTrack (U.applyTempoTrack mid.s_tempos) trk)
+                    $ mapTrack (U.applyTempoTrack mid.tempos) trk)
           forM tracks $ \(path, bs) -> do
             stackIO $ BL.writeFile path bs
             return path
@@ -377,26 +377,26 @@ miscPageLipsync sink rect tab startTasks = do
                   then Nothing
                   else Just mempty
                     { lipEvents
-                      = U.unapplyTempoTrack mid.s_tempos
+                      = U.unapplyTempoTrack mid.tempos
                       $ toEvents trans vmap vowels
-                      $ mapTrack (U.applyTempoTrack mid.s_tempos) vox
+                      $ mapTrack (U.applyTempoTrack mid.tempos) vox
                     }
-                lipsync1 = makeLipsync mid.s_tracks.fixedHarm1
-                  <|>      makeLipsync mid.s_tracks.fixedPartVocals
-                lipsync2 = makeLipsync mid.s_tracks.fixedHarm2
-                lipsync3 = makeLipsync mid.s_tracks.fixedHarm3
+                lipsync1 = makeLipsync mid.tracks.fixedHarm1
+                  <|>      makeLipsync mid.tracks.fixedPartVocals
+                lipsync2 = makeLipsync mid.tracks.fixedHarm2
+                lipsync3 = makeLipsync mid.tracks.fixedHarm3
                 notLipsync trk = notElem (U.trackName trk) [Just "LIPSYNC1", Just "LIPSYNC2", Just "LIPSYNC3", Just "LIPSYNC4"]
                 lipsyncRaw = F.showMIDITracks mid
-                  { F.s_tracks = mempty
+                  { F.tracks = mempty
                     { F.fixedLipsync1 = fromMaybe mempty lipsync1
                     , F.fixedLipsync2 = fromMaybe mempty lipsync2
                     , F.fixedLipsync3 = fromMaybe mempty lipsync3
                     }
                   }
                 combinedRaw = midRaw
-                  { F.s_tracks = F.RawFile
-                    $ filter notLipsync midRaw.s_tracks.rawTracks
-                    <> lipsyncRaw.s_tracks
+                  { F.tracks = F.RawFile
+                    $ filter notLipsync midRaw.tracks.rawTracks
+                    <> lipsyncRaw.tracks
                   }
             F.saveMIDIUtf8 input combinedRaw
             return [input]
@@ -458,10 +458,10 @@ miscPageDryVox sink rect tab startTasks = do
     return $ join <$> fn
   let getSelectedVox = \case
         Nothing            -> const mempty
-        Just Nothing       -> (.s_tracks.fixedPartVocals)
-        Just (Just Vocal1) -> (.s_tracks.fixedHarm1     )
-        Just (Just Vocal2) -> (.s_tracks.fixedHarm2     )
-        Just (Just Vocal3) -> (.s_tracks.fixedHarm3     )
+        Just Nothing       -> (.tracks.fixedPartVocals)
+        Just (Just Vocal1) -> (.tracks.fixedHarm1     )
+        Just (Just Vocal2) -> (.tracks.fixedHarm2     )
+        Just (Just Vocal3) -> (.tracks.fixedHarm3     )
       defaultSuffix = \case
         Nothing            -> "-blank"
         Just Nothing       -> "-solovox"
@@ -485,7 +485,7 @@ miscPageDryVox sink rect tab startTasks = do
                 task = do
                   mid <- F.loadMIDI input
                   let _ = mid :: F.Song (F.FixedFile U.Beats)
-                      trk = mapTrack (U.applyTempoTrack mid.s_tempos) $ getSelectedVox voc mid
+                      trk = mapTrack (U.applyTempoTrack mid.tempos) $ getSelectedVox voc mid
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
                   return [f]

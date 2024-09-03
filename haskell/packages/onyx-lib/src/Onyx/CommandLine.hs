@@ -1327,12 +1327,12 @@ commands =
         _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
       mid <- F.loadMIDI pathMid
       let _ = mid :: F.Song (F.RawFile U.Beats)
-          existingTracks = mid.s_tracks.rawTracks
+          existingTracks = mid.tracks.rawTracks
           existingNames = mapMaybe U.trackName existingTracks
       case filter (`notElem` existingNames) $ map T.pack args of
         []      -> return ()
         newTrks -> stackIO $ F.saveMIDIUtf8 pathMid mid
-          { F.s_tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
+          { F.tracks = F.RawFile $ existingTracks ++ map (`U.setTrackName` RTB.empty) newTrks
           }
       return [pathMid]
     }
@@ -1398,24 +1398,24 @@ commands =
         raw <- F.readMIDIFile mid
         onyx <- F.interpretMIDIFile raw
         let _ = onyx :: F.Song (F.OnyxFile U.Beats)
-            elite = maybe mempty (.onyxPartEliteDrums) $ Map.lookup F.FlexDrums onyx.s_tracks.onyxParts
-            (warnings, pro) = convertEliteDrums onyx.s_tempos elite
+            elite = maybe mempty (.onyxPartEliteDrums) $ Map.lookup F.FlexDrums onyx.tracks.onyxParts
+            (warnings, pro) = convertEliteDrums onyx.tempos elite
             addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
             proTracks = F.showMIDITracks onyx
-              { F.s_tracks = mempty
+              { F.tracks = mempty
                 { F.onyxParts = Map.singleton F.FlexDrums mempty
                   { F.onyxPartDrums = pro
                   }
                 }
               }
             raw' = raw
-              { F.s_tracks = F.RawFile $ concat
-                [ filter (\trk -> U.trackName trk /= Just "PART DRUMS") raw.s_tracks
-                , map addWarnings proTracks.s_tracks
+              { F.tracks = F.RawFile $ concat
+                [ filter (\trk -> U.trackName trk /= Just "PART DRUMS") raw.tracks
+                , map addWarnings proTracks.tracks
                 ]
               }
         forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 warnings) $ \(posn, warning) -> do
-          inside (showPosition onyx.s_signatures posn) $ do
+          inside (showPosition onyx.timesigs posn) $ do
             warn $ T.unpack warning
         F.saveMIDIUtf8 fmid raw'
         return [fmid]
@@ -1590,10 +1590,10 @@ _oldCommands =
           _        -> fatal "Unsupported game for lipsync-gen"
         let template = dropExtension fmid
             tracks =
-              [ (mid.s_tracks.fixedPartVocals, "_solovox.lipsync", False)
-              , (mid.s_tracks.fixedHarm1     , "_harm1.lipsync"  , False)
-              , (mid.s_tracks.fixedHarm2     , "_harm2.lipsync"  , False)
-              , (mid.s_tracks.fixedHarm3     , "_harm3.lipsync"  , False)
+              [ (mid.tracks.fixedPartVocals, "_solovox.lipsync", False)
+              , (mid.tracks.fixedHarm1     , "_harm1.lipsync"  , False)
+              , (mid.tracks.fixedHarm2     , "_harm2.lipsync"  , False)
+              , (mid.tracks.fixedHarm3     , "_harm3.lipsync"  , False)
               , (mempty                      , "_empty.lipsync"  , True )
               ]
         fmap catMaybes $ forM tracks $ \(trk, suffix, alwaysWrite) -> do
@@ -1601,7 +1601,7 @@ _oldCommands =
           if nullVox trk && not alwaysWrite
             then return Nothing
             else do
-              let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+              let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.tempos) trk
               stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
               return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -1632,14 +1632,14 @@ _oldCommands =
             voxToLip
               = (if game == GameTBRB then setBeatles else id)
               . lipsyncFromMIDITrack vmap
-        fmap concat $ forM (Map.toList mid.s_tracks.onyxParts) $ \(fpart, opart) -> do
+        fmap concat $ forM (Map.toList mid.tracks.onyxParts) $ \(fpart, opart) -> do
           fmap catMaybes $ forM tracks $ \(getter, suffix) -> do
             let trk = getter opart
                 fout = template <> "_" <> T.unpack (F.getPartName fpart) <> suffix
             if trk == mempty
               then return Nothing
               else do
-                let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
+                let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.tempos) trk
                 stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
                 return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -1662,7 +1662,7 @@ _oldCommands =
         case players of
           [] -> stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
             forM_ [minBound .. maxBound] $ \diff -> do
-              let stars = starCutoffs mid.s_tracks [(scoreTrack, diff)]
+              let stars = starCutoffs mid.tracks [(scoreTrack, diff)]
               when (any (maybe False (> 0)) stars) $ do
                 putStrLn $ unwords [show scoreTrack, show diff, show stars]
           _ -> let
@@ -1678,9 +1678,9 @@ _oldCommands =
               Left  err   -> fatal err
               Right pairs -> stackIO $ do
                 forM_ pairs $ \pair -> let
-                  (base, solo) = baseAndSolo mid.s_tracks pair
+                  (base, solo) = baseAndSolo mid.tracks pair
                   in putStrLn $ show pair <> ": base " <> show base <> ", solo bonuses " <> show solo
-                print $ starCutoffs mid.s_tracks pairs
+                print $ starCutoffs mid.tracks pairs
         return []
       _ -> fatal "Expected 1 argument (input midi)"
     }
@@ -1720,12 +1720,12 @@ _oldCommands =
       [fin] -> do
         mid <- F.loadMIDI fin
         let _ = mid :: F.Song (GH2File U.Beats)
-            p1 = if nullPart mid.s_tracks.gh2PartGuitarCoop
-              then mid.s_tracks.gh2PartGuitar
-              else mid.s_tracks.gh2PartGuitarCoop
-            p2 = if nullPart mid.s_tracks.gh2PartBass
-              then mid.s_tracks.gh2PartRhythm
-              else mid.s_tracks.gh2PartBass
+            p1 = if nullPart mid.tracks.gh2PartGuitarCoop
+              then mid.tracks.gh2PartGuitar
+              else mid.tracks.gh2PartGuitarCoop
+            p2 = if nullPart mid.tracks.gh2PartBass
+              then mid.tracks.gh2PartRhythm
+              else mid.tracks.gh2PartBass
             scores1 = map (\diff -> gh2Base diff p1) [Easy .. Expert]
             scores2 = map (\diff -> gh2Base diff p2) [Easy .. Expert]
             scoresCoop = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]

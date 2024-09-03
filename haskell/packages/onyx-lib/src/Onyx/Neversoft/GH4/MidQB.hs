@@ -510,13 +510,13 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
     (time, len) <- spans
     [(toBeats time, True), (toBeats $ time + len, False)]
   in F.Song
-    { F.s_tempos = tempos
-    , F.s_signatures = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    { F.tempos = tempos
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
       (time, num, den) <- gh4.gh4TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
-    , F.s_tracks = fixed
+    , F.tracks = fixed
     }
 
 -- Some DLC doesn't include a .qs file with markers because they are all already on the disc

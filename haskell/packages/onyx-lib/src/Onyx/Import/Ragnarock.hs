@@ -239,9 +239,9 @@ ragnarockToDrums info maps = let
       change <- (snd $ snd $ head maps').customData.bpmChanges
       return (realToFrac change.time, toBPS change.bpm)
   in F.Song
-    { F.s_tempos = tmap
-    , F.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty -- TODO maybe
-    , F.s_tracks = mempty
+    { F.tempos = tmap
+    , F.timesigs = U.measureMapFromTimeSigs U.Error RTB.empty -- TODO maybe
+    , F.tracks = mempty
       { F.onyxParts = Map.singleton F.FlexDrums mempty
         { F.onyxPartDrums = mempty
           { drumDifficulties = Map.fromList $ flip map maps' $ fmap $ \(_, beatmap) -> mempty

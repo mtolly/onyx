@@ -127,9 +127,9 @@ songToMidi song = let
       )
     $ V.toList song.data_
   in F.Song
-    { s_tempos = tempos
-    , s_signatures = sigs
-    , s_tracks = mempty
+    { tempos = tempos
+    , timesigs = sigs
+    , tracks = mempty
       { F.onyxParts = Map.singleton F.FlexGuitar mempty
         { F.onyxPartGuitar = mempty
           { Five.fiveDifficulties = Map.singleton Expert gtr

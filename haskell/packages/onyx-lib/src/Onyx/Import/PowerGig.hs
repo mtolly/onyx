@@ -284,11 +284,11 @@ importPowerGigSong key song folder level = do
             $ applyStatus1 False hopos notes
 
       onyxMid = F.Song
-        { F.s_tempos     = tempo
+        { F.tempos     = tempo
         -- unfortunately .gev does not contain time sig info (_cue.gev has the gevtType = 20 events, but no data!)
         -- maybe we can optionally look for .mid just to load time sigs?
-        , F.s_signatures = U.measureMapFromLengths U.Error RTB.empty
-        , F.s_tracks     = onyxFile
+        , F.timesigs = U.measureMapFromLengths U.Error RTB.empty
+        , F.tracks     = onyxFile
         }
 
   combinedAudio <- case audio_combined_audio $ song_audio song of
