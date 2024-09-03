@@ -136,7 +136,7 @@ baseAndSolo :: F.FixedFile U.Beats -> (ScoreTrack, Difficulty) -> (Int, Int)
 baseAndSolo mid (scoreTrack, diff) = let
   adjustGems breLanes = ignoreBRE breLanes . fixSloppyNotes (10 / 480)
   -- have to ignore notes under the BRE lanes, but not the ones after
-  ignoreBRE breLanes = case E.eventsCoda $ F.fixedEvents mid of
+  ignoreBRE breLanes = case mid.fixedEvents.eventsCoda of
     Wait breStart () _ -> case RTB.filter not $ U.trackDrop breStart breLanes of
       Wait breLength _ _ -> \gems -> let
         breEnd = breStart <> breLength
@@ -144,14 +144,13 @@ baseAndSolo mid (scoreTrack, diff) = let
       RNil -> U.trackTake breStart -- shouldn't happen
     _            -> id
   getDrums gem = let
-    trk = F.fixedPartDrums mid
+    trk = mid.fixedPartDrums
     gems = adjustGems trk.drumActivation $ Drums.computePro (Just diff) trk
     base = drumBase gem gems
     solo = perfectSoloBonus 100 trk.drumSolo gems
     in (base, solo)
-  getFive :: Int -> (F.FixedFile U.Beats -> Five.FiveTrack U.Beats) -> (Int, Int)
-  getFive maxStreak getTrack = let
-    trk = getTrack mid
+  getFive :: Int -> Five.FiveTrack U.Beats -> (Int, Int)
+  getFive maxStreak trk = let
     gems = adjustGems trk.fiveBRE
       $ edgeBlips_ minSustainLengthRB
       $ maybe RTB.empty (.fiveGems)
@@ -160,10 +159,8 @@ baseAndSolo mid (scoreTrack, diff) = let
     solo = perfectSoloBonus 100 trk.fiveSolo $ RTB.collectCoincident gems
     in (base, solo)
   -- From what I can tell 17 and 22 are same cutoff, and it uses the 22 chart
-  getPG maxStreak get22 get17 = let
-    trk = case get22 mid of
-      trk22 | not $ PG.nullPG trk22 -> trk22
-      _                             -> get17 mid
+  getPG maxStreak trk22 trk17 = let
+    trk = if PG.nullPG trk22 then trk17 else trk22
     gems
       = adjustGems (snd <$> trk.pgBRE)
       $ edgeBlips minSustainLengthRB
@@ -173,28 +170,28 @@ baseAndSolo mid (scoreTrack, diff) = let
     solo = perfectSoloBonus 150 trk.pgSolo $ RTB.collectCoincident gems
     in (base, solo)
   maxChord2 = RTB.flatten . fmap (take 2) . RTB.collectCoincident
-  getVox getTrack = voxBaseAndSolo diff $ getTrack mid
+  getVox = voxBaseAndSolo diff
   getPK = let
     trk = case diff of
-      Easy   -> F.fixedPartRealKeysE mid
-      Medium -> F.fixedPartRealKeysM mid
-      Hard   -> F.fixedPartRealKeysH mid
-      Expert -> F.fixedPartRealKeysX mid
-    expert = F.fixedPartRealKeysX mid
-    gems = adjustGems (PK.pkBRE expert) $ edgeBlips_ minSustainLengthRB $ PK.pkNotes trk
+      Easy   -> mid.fixedPartRealKeysE
+      Medium -> mid.fixedPartRealKeysM
+      Hard   -> mid.fixedPartRealKeysH
+      Expert -> mid.fixedPartRealKeysX
+    expert = mid.fixedPartRealKeysX
+    gems = adjustGems expert.pkBRE $ edgeBlips_ minSustainLengthRB trk.pkNotes
     base = gbkBase 60 30 4 $ fmap snd gems
-    solo = perfectSoloBonus 100 (PK.pkSolo expert) $ RTB.collectCoincident gems
+    solo = perfectSoloBonus 100 expert.pkSolo $ RTB.collectCoincident gems
     in (base, solo)
   in case scoreTrack of
     ScoreDrums     -> getDrums 25
     ScoreProDrums  -> getDrums 30
-    ScoreGuitar    -> getFive 4 F.fixedPartGuitar
-    ScoreBass      -> getFive 6 F.fixedPartBass
-    ScoreKeys      -> getFive 4 F.fixedPartKeys
-    ScoreProGuitar -> getPG 4 F.fixedPartRealGuitar22 F.fixedPartRealGuitar
-    ScoreProBass   -> getPG 6 F.fixedPartRealBass22 F.fixedPartRealBass
-    ScoreVocals    -> getVox F.fixedPartVocals
-    ScoreHarmonies -> getVox F.fixedHarm1
+    ScoreGuitar    -> getFive 4 mid.fixedPartGuitar
+    ScoreBass      -> getFive 6 mid.fixedPartBass
+    ScoreKeys      -> getFive 4 mid.fixedPartKeys
+    ScoreProGuitar -> getPG 4 mid.fixedPartRealGuitar22 mid.fixedPartRealGuitar
+    ScoreProBass   -> getPG 6 mid.fixedPartRealBass22 mid.fixedPartRealBass
+    ScoreVocals    -> getVox mid.fixedPartVocals
+    ScoreHarmonies -> getVox mid.fixedHarm1
     ScoreProKeys   -> getPK
 
 annotateMultiplier :: Int -> RTB.T t a -> RTB.T t (a, Int)
@@ -282,9 +279,9 @@ getScoreTracksGH2 mid = do
   strack <- [minBound .. maxBound]
   diff   <- [minBound .. maxBound]
   let base = gh2BaseFixed diff $ case strack of
-        ScoreGH2Guitar -> F.fixedPartGuitar mid
-        ScoreGH2Bass   -> F.fixedPartBass   mid
-        ScoreGH2Rhythm -> F.fixedPartRhythm mid
+        ScoreGH2Guitar -> mid.fixedPartGuitar
+        ScoreGH2Bass   -> mid.fixedPartBass
+        ScoreGH2Rhythm -> mid.fixedPartRhythm
   guard $ base /= 0
   return (strack, diff, base)
 

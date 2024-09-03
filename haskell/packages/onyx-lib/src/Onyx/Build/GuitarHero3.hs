@@ -439,15 +439,15 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     Nothing           -> 999
   firstNoteBeats = foldr min 999 $ do
     part <- [partLead, partRhythm]
-    let opart = F.getFlexPart part $ F.s_tracks origSong
+    let opart = F.getFlexPart part origSong.s_tracks
     builder <- toList $ getPart part songYaml >>= anyFiveFret
     let result = builder FiveTypeGuitar ModeInput
-          { tempo = F.s_tempos origSong
-          , events = F.onyxEvents $ F.s_tracks origSong
+          { tempo = origSong.s_tempos
+          , events = origSong.s_tracks.onyxEvents
           , part = opart
           }
     map firstEvent $ Map.elems result.notes
-  firstNoteSeconds = U.applyTempoMap (F.s_tempos origSong) firstNoteBeats
+  firstNoteSeconds = U.applyTempoMap origSong.s_tempos firstNoteBeats
   padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
   song = F.padAnyFile padSeconds origSong
 
@@ -482,15 +482,15 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       , gh3BattleStars = starPower
       }
   (beats, timeSigs) = makeGH3Timing
-    (F.s_tempos song)
-    (F.s_signatures song)
-    (timingEnd timing)
+    song.s_tempos
+    song.s_signatures
+    timing.timingEnd
   sections
     = map (\(secs, sect) -> (fromSeconds secs, Right $ sectionBody $ makeDisplaySection sect))
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
-    $ U.applyTempoTrack (F.s_tempos song)
-    $ eventsSections (F.getEventsTrack $ F.s_tracks song)
+    $ U.applyTempoTrack song.s_tempos
+    $ (F.getEventsTrack song.s_tracks).eventsSections
   (leadTrack, leadPart  ) = makeGH3Part partLead
   (_        , rhythmPart) = makeGH3Part partRhythm
   -- Not sure if there's a real way to extend the end of the song past the last note.
@@ -505,20 +505,20 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     , gh3Expert = addEndHack rhythmPart.gh3Expert
     }
   addEndHack diff = diff { gh3Notes = diff.gh3Notes <> endHack }
-  endHack = [(fromSeconds $ U.applyTempoMap (F.s_tempos song) $ timingEnd timing, 1, 1)]
+  endHack = [(fromSeconds $ U.applyTempoMap song.s_tempos timing.timingEnd, 1, 1)]
   makeFaceoff playerSpans
     = map (\(pos, len, _count) -> (pos, len))
-    $ makeGH3Spans (F.s_tempos song) playerSpans
+    $ makeGH3Spans song.s_tempos playerSpans
     $ maybe RTB.empty (.fiveGems)
     $ Map.lookup Expert leadTrack.fiveDifficulties
   drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
-      rbAnims = buildDrumAnimation pd (F.s_tempos song) $ F.getFlexPart partDrummer $ F.s_tracks song
+      rbAnims = buildDrumAnimation pd song.s_tempos $ F.getFlexPart partDrummer song.s_tracks
       mapping = map swap gh3DrumMapping
       notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn_gem tdn, hand) mapping) $ animationToEliteDrums rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
-        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack (F.s_tempos song) notes
+        $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack song.s_tempos notes
   in (emptyMidQB
     { gh3Guitar          = leadPart
     , gh3Rhythm          = rhythmWithEndHack

@@ -90,9 +90,9 @@ printOverdrive :: FilePath -> StackTraceT (QueueLog Action) ()
 printOverdrive mid = do
   song <- F.shakeMIDI mid
   let _ = song :: F.Song (F.OnyxFile U.Beats)
-  od <- calculateUnisons <$> getOverdrive (F.s_tracks song)
+  od <- calculateUnisons <$> getOverdrive song.s_tracks
   forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 od) $ \(posn, unison) -> do
-    let posn' = showPosition (F.s_signatures song) posn
+    let posn' = showPosition song.s_signatures posn
     if all (== 0) [ t | (t, _, _) <- NE.toList unison ]
       then lg $ posn' <> ": " <> printFlexParts [ inst | (_, inst, _) <- NE.toList unison ]
       else lg $ intercalate "\n" $ (posn' <> ":") : do
@@ -175,9 +175,9 @@ dtxRules buildInfo dir dtx = do
           Nothing          -> (RTB.empty, RTB.empty)
           Just (buildFive, partName) -> let
             input = ModeInput
-              { tempo  = F.s_tempos mid
-              , events = F.onyxEvents $ F.s_tracks mid
-              , part   = F.getFlexPart partName $ F.s_tracks mid
+              { tempo  = mid.s_tempos
+              , events = mid.s_tracks.onyxEvents
+              , part   = F.getFlexPart partName mid.s_tracks
               }
             result = buildFive FiveTypeGuitarExt input
             noteGroups = guitarify' $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
@@ -217,20 +217,18 @@ dtxRules buildInfo dir dtx = do
           , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
           , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
           , DTX.dtx_AVI           = HM.empty
-          , DTX.dtx_MeasureMap    = F.s_signatures mid
-          , DTX.dtx_TempoMap      = F.s_tempos mid
+          , DTX.dtx_MeasureMap    = mid.s_signatures
+          , DTX.dtx_TempoMap      = mid.s_tempos
           , DTX.dtx_Drums         = case dtxPartDrums of
             Nothing          -> RTB.empty
             Just (part, _pd) -> let
               track
-                = maybe mempty F.onyxPartEliteDrums
-                $ Map.lookup part
-                $ F.onyxParts
-                $ F.s_tracks mid
+                = maybe mempty (.onyxPartEliteDrums)
+                $ Map.lookup part mid.s_tracks.onyxParts
               -- TODO need to properly handle blip overrides on flams!
               trueNotes
                 = applyLongStatus (ED.tdChipOverride track)
-                $ ED.splitFlams (F.s_tempos mid)
+                $ ED.splitFlams mid.s_tempos
                 $ ED.addExplicitStomps (4 :: U.Beats)
                 $ ED.getDifficulty Nothing track
               toDTXNotes = fmap $ \(currentOverrides, tdn) -> let
@@ -336,12 +334,11 @@ _melodyRules buildInfo dir tgt = do
   melodyChart %> \out -> do
     shk $ need [midraw, melodyAudio]
     mid <- F.shakeMIDI midraw
+    let _ = mid :: F.Song (F.OnyxFile U.Beats)
     melody <- liftIO
       $ Melody.randomNotes
-      $ maybe mempty F.onyxMelody
-      $ Map.lookup tgt.part
-      $ F.onyxParts
-      $ F.s_tracks mid
+      $ maybe mempty (.onyxMelody)
+      $ Map.lookup tgt.part mid.s_tracks.onyxParts
     info <- liftIO $ Snd.getFileInfo melodyAudio
     let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
         str = unlines
@@ -352,8 +349,8 @@ _melodyRules buildInfo dir tgt = do
             , "420"
             ]
             , "4"
-          , Melody.writeTransitions (F.s_tempos mid) melody
-          , Melody.writeNotes (F.s_tempos mid) melody
+          , Melody.writeTransitions mid.s_tempos melody
+          , Melody.writeNotes mid.s_tempos melody
           ]
     liftIO $ writeFile out str
   phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
@@ -639,7 +636,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           lg "Loading the MIDI file..."
           input <- F.shakeMIDI $ gen "notes.mid"
           let _ = input :: F.Song (F.RawFile U.Beats)
-          tempos <- fmap F.s_tempos $ case getFileTempo plan of
+          tempos <- fmap (.s_tempos) $ case getFileTempo plan of
             Nothing -> return input
             Just m  -> F.shakeMIDI m
           F.saveMIDIUtf8 out input { F.s_tempos = tempos }
@@ -652,8 +649,8 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           -- to use for timing and audio processing
           F.saveMIDIUtf8 midevents output
             { F.s_tracks = mempty
-              { F.onyxEvents  = F.onyxEvents  $ F.s_tracks output
-              , F.onyxSamples = F.onyxSamples $ F.s_tracks output
+              { F.onyxEvents  = output.s_tracks.onyxEvents
+              , F.onyxSamples = output.s_tracks.onyxSamples
               }
             }
 
@@ -661,12 +658,13 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           input <- F.shakeMIDI midraw
           let _ = input :: F.Song (F.OnyxFile U.Beats)
               output :: [(T.Text, [(Double, T.Text, T.Text)])]
-              output = map (second getSampleList) $ Map.toList $ F.onyxSamples $ F.s_tracks input
-              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . F.sampleTriggers
+              output = map (second getSampleList) $ Map.toList input.s_tracks.onyxSamples
+              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . (.sampleTriggers)
+              makeSampleTriple :: (U.Beats, F.SampleTrigger) -> (Double, T.Text, T.Text)
               makeSampleTriple (bts, trigger) =
-                ( realToFrac $ U.applyTempoMap (F.s_tempos input) bts
-                , F.sampleGroup trigger
-                , F.sampleAudio trigger
+                ( realToFrac $ U.applyTempoMap input.s_tempos bts
+                , trigger.sampleGroup
+                , trigger.sampleAudio
                 )
           stackIO $ writeFile out $ show output
 

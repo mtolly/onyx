@@ -140,10 +140,10 @@ pgRules buildInfo dir pg = do
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
             [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) $ \builder -> let
-              result = completeFiveResult False (F.s_signatures mid) $ builder FiveTypeGuitar ModeInput
-                { tempo = F.s_tempos mid
-                , events = F.onyxEvents $ F.s_tracks mid
-                , part = F.getFlexPart pg.guitar $ F.s_tracks mid
+              result = completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar ModeInput
+                { tempo = mid.s_tempos
+                , events = mid.s_tracks.onyxEvents
+                , part = F.getFlexPart pg.guitar mid.s_tracks
                 }
               notes :: RTB.T U.Beats ([(Maybe Color, StrumHOPOTap)], Maybe U.Beats)
               notes = guitarify' $ fromMaybe mempty $ Map.lookup Expert result.notes
@@ -158,11 +158,11 @@ pgRules buildInfo dir pg = do
                 , gelsGEVT      = V.fromList $ do
                   -- TODO hopos
                   (absBeats, (fretsSHT, mlen)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 notes
-                  let startSecs = realToFrac $ U.applyTempoMap (F.s_tempos mid) absBeats
+                  let startSecs = realToFrac $ U.applyTempoMap mid.s_tempos absBeats
                       sustSecs = case mlen of
                         Nothing  -> 0
                         Just len -> let
-                          endSecs = realToFrac $ U.applyTempoMap (F.s_tempos mid) $ absBeats + len
+                          endSecs = realToFrac $ U.applyTempoMap mid.s_tempos $ absBeats + len
                           in endSecs - startSecs
                       frets = map fst fretsSHT
                   return PG.GEVT
@@ -186,7 +186,7 @@ pgRules buildInfo dir pg = do
             ]
           , gevSTRH = strh
           , gevSTRS = strs
-          , gevTMPO = PG.makeTempos $ F.s_tempos mid
+          , gevTMPO = PG.makeTempos mid.s_tempos
           }
     stackIO $ BL.writeFile out $ runPut $ PG.showGEV gev
 
@@ -204,7 +204,7 @@ pgRules buildInfo dir pg = do
           , gevGELH = PG.GELH $ V.fromList []
           , gevSTRH = strh
           , gevSTRS = strs
-          , gevTMPO = PG.makeTempos $ F.s_tempos mid
+          , gevTMPO = PG.makeTempos mid.s_tempos
           }
     stackIO $ BL.writeFile out $ runPut $ PG.showGEV gev
 

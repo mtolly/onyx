@@ -250,7 +250,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   resultGB fpart = getPart fpart songYaml >>= anyFiveFret >>= \builder ->
     return $ completeFiveResult False mmap $ builder FiveTypeGuitarExt ModeInput
       { tempo  = tmap
-      , events = F.onyxEvents ofile
+      , events = ofile.onyxEvents
       , part   = F.getFlexPart fpart ofile
       }
   resultGuitar = resultGB target.guitar
@@ -296,7 +296,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
     builder DrumTargetGH ModeInput
       { tempo  = tmap
       , events = F.getEventsTrack ofile
-      , part   = fromMaybe mempty $ Map.lookup target.drums $ F.onyxParts ofile
+      , part   = fromMaybe mempty $ Map.lookup target.drums ofile.onyxParts
       }
   makeDrums diff = case drumResult of
     Just result -> let
@@ -378,10 +378,10 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
     timing <- basicTiming False song getAudioLength
     (voxNotes, voxLyrics, voxSP, voxPhrases, voxMarkers) <- case getPart target.vocal songYaml >>= (.vocal) of
       Just _pv -> do
-        let opart = fromMaybe mempty $ Map.lookup target.vocal $ F.onyxParts ofile
-            trk = if nullVox $ F.onyxPartVocals opart
-              then harm1ToPartVocals $ F.onyxHarm1 opart
-              else F.onyxPartVocals opart
+        let opart = fromMaybe mempty $ Map.lookup target.vocal ofile.onyxParts
+            trk = if nullVox opart.onyxPartVocals
+              then harm1ToPartVocals opart.onyxHarm1
+              else opart.onyxPartVocals
             sp = makeStarPower $ vocalOverdrive trk
             phrases = map secondsToMS $ makePhrasePoints
               (mapTrack (U.applyTempoTrack tmap) $ timingBeat timing)
@@ -444,7 +444,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap (eventsSections $ F.onyxEvents ofile) $ \section -> let
+        sections = flip fmap ofile.onyxEvents.eventsSections $ \section -> let
           sectionPrint = sectionBody $ makeDisplaySection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)

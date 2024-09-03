@@ -179,9 +179,9 @@ rrRules buildInfo dir rr = do
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
     let input partName = ModeInput
-          { tempo  = F.s_tempos mid
-          , events = F.onyxEvents $ F.s_tracks mid
-          , part   = F.getFlexPart partName $ F.s_tracks mid
+          { tempo  = mid.s_tempos
+          , events = mid.s_tracks.onyxEvents
+          , part   = F.getFlexPart partName mid.s_tracks
           }
         guitar = flip fmap rrPartGuitar $ \builder ->
           completeFiveResult False mid.s_signatures $ builder FiveTypeGuitar $ input rr.guitar
@@ -341,10 +341,10 @@ rrRules buildInfo dir rr = do
           res <- bass
           makeRRFiveControl res <$> Map.lookup Expert res.notes
         , rrcVenue         = camera
-        , rrcEnd           = eventsEnd $ F.onyxEvents $ F.s_tracks mid
+        , rrcEnd           = mid.s_tracks.onyxEvents.eventsEnd
         , rrcSections      = sections
         -- TODO add half-beats (do these even do anything?)
-        , rrcBeat          = fmap Just $ beatLines $ F.onyxBeat $ F.s_tracks mid
+        , rrcBeat          = fmap Just $ mid.s_tracks.onyxBeat.beatLines
         }
       }
 
@@ -366,8 +366,8 @@ rrRules buildInfo dir rr = do
           (minutes, afterMinutes) = quotRem ms 60000
           (seconds, milliseconds) = quotRem afterMinutes 1000
           in T.pack $ "{ " <> show minutes <> ", " <> show seconds <> ", " <> show milliseconds <> " }"
-    endMS <- case eventsEnd $ F.onyxEvents $ F.s_tracks mid of
-      Wait dt _ _ -> return $ floor $ U.applyTempoMap (F.s_tempos mid) dt * 1000
+    endMS <- case mid.s_tracks.onyxEvents.eventsEnd of
+      Wait dt _ _ -> return $ floor $ U.applyTempoMap mid.s_tempos dt * 1000
       RNil        -> fatal "panic! no [end] in processed midi"
     shk $ need [maxScores]
     maxScoresContent <- stackIO $ TE.decodeUtf8 <$> B.readFile maxScores

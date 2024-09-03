@@ -76,13 +76,13 @@ importOsu separateSongs f = do
       Nothing -> return Nothing
       Just version -> case osu.general.mode of
         1 -> let
-          track = taikoToTrack (F.s_tempos timingMid) osu
+          track = taikoToTrack timingMid.s_tempos osu
           partName = if separateSongs
             then F.FlexDrums
             else F.FlexExtra version
           in return $ Just (partName, osu, Left track)
         3 -> let
-          track = maniaToTrack (F.s_tempos timingMid) osu
+          track = maniaToTrack timingMid.s_tempos osu
           partName = if separateSongs
             then F.FlexKeys
             else F.FlexExtra version

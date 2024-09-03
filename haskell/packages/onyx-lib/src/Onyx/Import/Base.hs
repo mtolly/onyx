@@ -108,7 +108,7 @@ bothFirstSecond t1 t2 = let
 detectExtProBass :: F.FixedFile t -> PG.GtrBase
 detectExtProBass trks = let
   strs = do
-    trk <- [F.fixedPartRealBass trks, F.fixedPartRealBass22 trks]
+    trk <- [trks.fixedPartRealBass, trks.fixedPartRealBass22]
     diff <- toList trk.pgDifficulties
     (str, _) <- toList diff.pgNotes >>= toList
     return str
@@ -137,7 +137,7 @@ checkEnableDynamics (F.Song tmap mmap ps) = let
     { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> dd.drumGems
     }
   in F.Song tmap mmap ps
-    { F.fixedPartDrums       = checkTrack $ F.fixedPartDrums       ps
-    , F.fixedPartDrums2x     = checkTrack $ F.fixedPartDrums2x     ps
-    , F.fixedPartRealDrumsPS = checkTrack $ F.fixedPartRealDrumsPS ps
+    { F.fixedPartDrums       = checkTrack ps.fixedPartDrums
+    , F.fixedPartDrums2x     = checkTrack ps.fixedPartDrums2x
+    , F.fixedPartRealDrumsPS = checkTrack ps.fixedPartRealDrumsPS
     }

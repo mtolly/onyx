@@ -707,82 +707,81 @@ instance A.ToJSON (Processed U.Seconds) where
 makeDisplay :: C.SongYaml FilePath -> F.Song (F.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
-  coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ F.onyxEvents $ F.s_tracks song
+  coda = fmap (fst . fst) $ RTB.viewL song.s_tracks.onyxEvents.eventsCoda
   defaultFlat = maybe False songKeyUsesFlats songYaml.metadata.key
   -- the above gets imported from first song_key then vocal_tonic_note
   makePart :: F.FlexPartName -> C.Part FilePath -> Flex U.Seconds
   makePart name fpart = Flex
     { flexFive = flip fmap (nativeFiveFret fpart) $ \builder -> let
       result = builder FiveTypeGuitarExt ModeInput
-        { tempo  = F.s_tempos song
-        , events = F.onyxEvents $ F.s_tracks song
+        { tempo  = song.s_tempos
+        , events = song.s_tracks.onyxEvents
         , part   = tracks
         }
-      in processFive (F.s_tempos song) result
-    , flexSix = flip fmap fpart.ghl $ \ghl -> processSix (ht ghl.hopoThreshold) (F.s_tempos song) (F.onyxPartSix tracks)
+      in processFive song.s_tempos result
+    , flexSix = flip fmap fpart.ghl $ \ghl -> processSix (ht ghl.hopoThreshold) song.s_tempos tracks.onyxPartSix
     , flexDrums = case fpart.drums of
       Nothing -> []
       Just pd -> case pd.mode of
         C.DrumsReal -> let
-          realDrumTrack = if D.nullDrums $ F.onyxPartRealDrumsPS tracks
-            then F.onyxPartDrums tracks
-            else F.onyxPartRealDrumsPS tracks
-          real = processDrums C.DrumsReal (F.s_tempos song) coda realDrumTrack mempty
-          proDrumTrack = if D.nullDrums $ F.onyxPartDrums tracks
-            then D.psRealToPro $ F.onyxPartRealDrumsPS tracks
-            else F.onyxPartDrums tracks
-          pro = processDrums C.DrumsPro (F.s_tempos song) coda proDrumTrack mempty
+          realDrumTrack = if D.nullDrums tracks.onyxPartRealDrumsPS
+            then tracks.onyxPartDrums
+            else tracks.onyxPartRealDrumsPS
+          real = processDrums C.DrumsReal song.s_tempos coda realDrumTrack mempty
+          proDrumTrack = if D.nullDrums tracks.onyxPartDrums
+            then D.psRealToPro tracks.onyxPartRealDrumsPS
+            else tracks.onyxPartDrums
+          pro = processDrums C.DrumsPro song.s_tempos coda proDrumTrack mempty
           in [real, pro]
-        mode -> (: []) $ processDrums mode (F.s_tempos song) coda
-          (F.onyxPartDrums tracks)
-          (F.onyxPartDrums2x tracks)
+        mode -> (: []) $ processDrums mode song.s_tempos coda
+          tracks.onyxPartDrums
+          tracks.onyxPartDrums2x
     , flexProKeys = flip fmap fpart.proKeys $ \_ -> makeDifficulties $ \diff ->
-      processProKeys (F.s_tempos song) $ let
-        solos = pkSolo $ F.onyxPartRealKeysX tracks
+      processProKeys song.s_tempos $ let
+        solos = tracks.onyxPartRealKeysX.pkSolo
         in case diff of
-          Easy   -> (F.onyxPartRealKeysE tracks) { pkSolo = solos }
-          Medium -> (F.onyxPartRealKeysM tracks) { pkSolo = solos }
-          Hard   -> (F.onyxPartRealKeysH tracks) { pkSolo = solos }
-          Expert ->  F.onyxPartRealKeysX tracks
+          Easy   -> tracks.onyxPartRealKeysE { pkSolo = solos }
+          Medium -> tracks.onyxPartRealKeysM { pkSolo = solos }
+          Hard   -> tracks.onyxPartRealKeysH { pkSolo = solos }
+          Expert -> tracks.onyxPartRealKeysX
     , flexProtar = flip fmap fpart.proGuitar $ \pg -> processProtar
       (ht pg.hopoThreshold)
       pg.tuning
       defaultFlat
-      (F.s_tempos song)
-      $ let mustang = F.onyxPartRealGuitar tracks
-            squier  = F.onyxPartRealGuitar22 tracks
+      song.s_tempos
+      $ let mustang = tracks.onyxPartRealGuitar
+            squier  = tracks.onyxPartRealGuitar22
         in if PG.nullPG squier then mustang else squier
     , flexVocal = flip fmap fpart.vocal $ \pvox -> let
       harm = case pvox.count of
         C.Vocal3 -> [("H", makeVox pvox
-          (F.onyxHarm1 tracks)
-          (F.onyxHarm2 tracks)
-          (F.onyxHarm3 tracks))]
+          tracks.onyxHarm1
+          tracks.onyxHarm2
+          tracks.onyxHarm3)]
         C.Vocal2 -> [("H", makeVox pvox
-          (F.onyxHarm1 tracks)
-          (F.onyxHarm2 tracks)
+          tracks.onyxHarm1
+          tracks.onyxHarm2
           mempty)]
         C.Vocal1 -> []
-      solo = ("1", makeVox pvox (F.onyxPartVocals tracks) mempty mempty)
+      solo = ("1", makeVox pvox tracks.onyxPartVocals mempty mempty)
       in Difficulties $ reverse $ solo : harm
     , flexCatch = Nothing -- removed, moved to mania
     , flexDance = Nothing -- removed, moved to mania
     } where
-      tracks = F.getFlexPart name $ F.s_tracks song
+      tracks = F.getFlexPart name song.s_tracks
   parts = do
     (name, fpart) <- sort $ HM.toList $ HM.filter (/= C.emptyPart) songYaml.parts.getParts
     return (F.getPartName name, makePart name fpart)
-  makeVox pvox h1 h2 h3 = processVocal (F.s_tempos song)
+  makeVox pvox h1 h2 h3 = processVocal song.s_tempos
     (Vox.vocalToLegacy h1) (Vox.vocalToLegacy h2) (Vox.vocalToLegacy h3)
     $ fmap fromEnum pvox.key
     <|> fmap (fromEnum . songKey) songYaml.metadata.key
-  beat = processBeat (F.s_tempos song)
-    $ Beat.beatLines $ F.onyxBeat $ F.s_tracks song
-  end = U.applyTempoMap (F.s_tempos song) $ F.songLengthBeats song
+  beat = processBeat song.s_tempos song.s_tracks.onyxBeat.beatLines
+  end = U.applyTempoMap song.s_tempos $ F.songLengthBeats song
   title  = fromMaybe "" songYaml.metadata.title
   artist = fromMaybe "" songYaml.metadata.artist
   author = fromMaybe "" songYaml.metadata.author
-  sections = U.applyTempoTrack (F.s_tempos song)
+  sections = U.applyTempoTrack song.s_tempos
     $ fmap (sectionBody . makeDisplaySection . makeDisplaySection)
-    $ eventsSections $ F.onyxEvents $ F.s_tracks song
+      song.s_tracks.onyxEvents.eventsSections
   in A.encode $ Processed title artist author beat end sections parts

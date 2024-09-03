@@ -1,9 +1,10 @@
 {- |
 Algorithm for generating automatic Pro Keys range shifts.
 -}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.Keys.Ranges (completeFile, completeRanges, closeShifts, closeShiftsFile) where
 
 import           Control.Monad                    (guard)
@@ -30,17 +31,17 @@ completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 completeFile fin fout = do
   F.Song tempos mmap trks <- F.loadMIDI fin
   liftIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap trks
-    { F.onyxParts = flip fmap (F.onyxParts trks) $ \flex -> flex
-      { F.onyxPartRealKeysE = completeRanges $ F.onyxPartRealKeysE flex
-      , F.onyxPartRealKeysM = completeRanges $ F.onyxPartRealKeysM flex
-      , F.onyxPartRealKeysH = completeRanges $ F.onyxPartRealKeysH flex
-      , F.onyxPartRealKeysX = completeRanges $ F.onyxPartRealKeysX flex
+    { F.onyxParts = flip fmap trks.onyxParts $ \part -> part
+      { F.onyxPartRealKeysE = completeRanges part.onyxPartRealKeysE
+      , F.onyxPartRealKeysM = completeRanges part.onyxPartRealKeysM
+      , F.onyxPartRealKeysH = completeRanges part.onyxPartRealKeysH
+      , F.onyxPartRealKeysX = completeRanges part.onyxPartRealKeysX
       }
     }
 
 -- | Adds ranges if there are none.
 completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
-completeRanges trk = if RTB.null $ pkLanes trk
+completeRanges trk = if RTB.null trk.pkLanes
   then let
     held = heldNotes $ U.trackJoin $ flip fmap (edgeBlips_ minSustainLengthRB $ pkNotes trk)
       $ \(p, mlen) -> RTB.fromPairList
@@ -137,13 +138,13 @@ showPitch = \case
 
 closeShiftsFile :: F.Song (F.OnyxFile U.Beats) -> T.Text
 closeShiftsFile song = T.unlines $ do
-  (partName, part) <- Map.toAscList $ F.onyxParts $ F.s_tracks song
-  let xpk = F.onyxPartRealKeysX part
+  (partName, part) <- Map.toAscList song.s_tracks.onyxParts
+  let xpk = part.onyxPartRealKeysX
   guard $ not $ nullPK xpk
-  let close = U.unapplyTempoTrack (F.s_tempos song) $ closeShifts 1 $ mapTrack (U.applyTempoTrack $ F.s_tempos song) xpk
+  let close = U.unapplyTempoTrack song.s_tempos $ closeShifts 1 $ mapTrack (U.applyTempoTrack song.s_tempos) xpk
       showSeconds secs = T.pack (show (realToFrac secs :: Milli)) <> "s"
       showClose (t, (rng1, rng2, dt, p)) = T.unwords
-        [ showTimestamp (U.applyTempoMap (F.s_tempos song) t) <> ":"
+        [ showTimestamp (U.applyTempoMap song.s_tempos t) <> ":"
         , "expert pro keys shift to"
         , T.pack $ show rng2
         , "is"

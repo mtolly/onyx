@@ -76,9 +76,9 @@ type BuildFive = FiveType -> ModeInput -> FiveResult
 
 nativeFiveFret :: Part f -> Maybe BuildFive
 nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
-  gtr  = (F.onyxPartGuitar    input.part, HOPOsRBGuitar)
-  keys = (F.onyxPartKeys      input.part, HOPOsRBKeys  )
-  ext  = (F.onyxPartGuitarExt input.part, HOPOsRBGuitar)
+  gtr  = (input.part.onyxPartGuitar   , HOPOsRBGuitar)
+  keys = (input.part.onyxPartKeys     , HOPOsRBKeys  )
+  ext  = (input.part.onyxPartGuitarExt, HOPOsRBGuitar)
   trks = case ftype of
     FiveTypeGuitar    -> [gtr, ext, keys]
     FiveTypeKeys      -> [keys, ext, gtr] -- prefer ext due to sustains? or gtr due to no opens? dunno
@@ -219,10 +219,10 @@ type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 nativeDrums :: Part f -> Maybe BuildDrums
 nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
-  src1x   =                                          F.onyxPartDrums       input.part
-  src2x   =                                          F.onyxPartDrums2x     input.part
-  srcReal = D.psRealToPro                          $ F.onyxPartRealDrumsPS input.part
-  srcTrue = snd $ ED.convertEliteDrums input.tempo $ F.onyxPartEliteDrums  input.part
+  src1x   =                                          input.part.onyxPartDrums
+  src2x   =                                          input.part.onyxPartDrums2x
+  srcReal = D.psRealToPro                          $ input.part.onyxPartRealDrumsPS
+  srcTrue = snd $ ED.convertEliteDrums input.tempo $ input.part.onyxPartEliteDrums
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -288,7 +288,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , autochart = False
     , eliteDrums = do
       guard $ pd.mode == DrumsTrue
-      Just $ F.onyxPartEliteDrums input.part
+      Just input.part.onyxPartEliteDrums
     }
 
 anyDrums :: Part f -> Maybe BuildDrums
@@ -303,14 +303,14 @@ buildDrumAnimation
   -> F.OnyxPart U.Beats
   -> RTB.T U.Beats D.Animation
 buildDrumAnimation pd tmap opart = let
-  rbTracks = map ($ opart) [F.onyxPartRealDrumsPS, F.onyxPartDrums2x, F.onyxPartDrums]
+  rbTracks = [opart.onyxPartRealDrumsPS, opart.onyxPartDrums2x, opart.onyxPartDrums]
   inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
   closeTime = 0.25 :: U.Seconds
   in case filter (not . RTB.null) $ map (.drumAnimation) rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
       DrumsTrue -> inRealTime (ED.eliteDrumsToAnimation closeTime)
-        $ ED.getDifficulty (Just Expert) $ F.onyxPartEliteDrums opart
+        $ ED.getDifficulty (Just Expert) opart.onyxPartEliteDrums
       -- TODO this could be made better for modes other than pro
       _ -> inRealTime (D.autoDrumAnimation closeTime)
         $ fmap fst $ D.computePro (Just Expert)
@@ -464,17 +464,17 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
   -- * maybe split bent notes into multiple
   (rsOutput, maybePG) = fromMaybe (RSRockBandOutput RTB.empty RTB.empty, Nothing) $ listToMaybe $ catMaybes
     [ do
-      guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSGuitar input.part
-      return (rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSGuitar input.part, Nothing)
+      guard $ not $ RTB.null input.part.onyxPartRSGuitar.rsNotes
+      return (rsToRockBand (TremoloBeats 0.25) input.tempo input.part.onyxPartRSGuitar, Nothing)
     , do
-      guard $ not $ RTB.null $ rsNotes $ F.onyxPartRSBass input.part
-      return (rsToRockBand (TremoloBeats 0.25) input.tempo $ F.onyxPartRSBass input.part, Nothing)
+      guard $ not $ RTB.null input.part.onyxPartRSBass.rsNotes
+      return (rsToRockBand (TremoloBeats 0.25) input.tempo input.part.onyxPartRSBass, Nothing)
     , do
-      let pg = F.onyxPartRealGuitar22 input.part
+      let pg = input.part.onyxPartRealGuitar22
       guard $ not $ nullPG pg
       return (loadProtarOutput pg, Just pg)
     , do
-      let pg = F.onyxPartRealGuitar input.part
+      let pg = input.part.onyxPartRealGuitar
       guard $ not $ nullPG pg
       return (loadProtarOutput pg, Just pg)
     ]
@@ -533,7 +533,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
 
 proKeysToFiveFret :: Part f -> Maybe BuildFive
 proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
-  expertPK = F.onyxPartRealKeysX input.part
+  expertPK = input.part.onyxPartRealKeysX
   in FiveResult
     { settings = (def :: PartGRYBO)
       { difficulty = ppk.difficulty

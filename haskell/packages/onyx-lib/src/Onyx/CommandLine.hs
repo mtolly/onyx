@@ -1326,7 +1326,8 @@ commands =
         FileRBProj -> undone
         _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
       mid <- F.loadMIDI pathMid
-      let existingTracks = F.rawTracks $ F.s_tracks mid
+      let _ = mid :: F.Song (F.RawFile U.Beats)
+          existingTracks = mid.s_tracks.rawTracks
           existingNames = mapMaybe U.trackName existingTracks
       case filter (`notElem` existingNames) $ map T.pack args of
         []      -> return ()
@@ -1396,8 +1397,9 @@ commands =
         mid <- F.loadRawMIDI fmid
         raw <- F.readMIDIFile mid
         onyx <- F.interpretMIDIFile raw
-        let elite = maybe mempty F.onyxPartEliteDrums $ Map.lookup F.FlexDrums $ F.onyxParts $ F.s_tracks onyx
-            (warnings, pro) = convertEliteDrums (F.s_tempos onyx) elite
+        let _ = onyx :: F.Song (F.OnyxFile U.Beats)
+            elite = maybe mempty (.onyxPartEliteDrums) $ Map.lookup F.FlexDrums onyx.s_tracks.onyxParts
+            (warnings, pro) = convertEliteDrums onyx.s_tempos elite
             addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
             proTracks = F.showMIDITracks onyx
               { F.s_tracks = mempty
@@ -1408,12 +1410,12 @@ commands =
               }
             raw' = raw
               { F.s_tracks = F.RawFile $ concat
-                [ filter (\trk -> U.trackName trk /= Just "PART DRUMS") $ F.s_tracks raw
-                , map addWarnings $ F.s_tracks proTracks
+                [ filter (\trk -> U.trackName trk /= Just "PART DRUMS") raw.s_tracks
+                , map addWarnings proTracks.s_tracks
                 ]
               }
         forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 warnings) $ \(posn, warning) -> do
-          inside (showPosition (F.s_signatures onyx) posn) $ do
+          inside (showPosition onyx.s_signatures posn) $ do
             warn $ T.unpack warning
         F.saveMIDIUtf8 fmid raw'
         return [fmid]
@@ -1579,7 +1581,8 @@ _oldCommands =
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- F.loadMIDI fmid
-        let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+        let _ = mid :: F.Song (F.FixedFile U.Beats)
+            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
         voxToLip <- case game of
           GameRB3  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
           GameRB2  -> (\vmap -> autoLipsync    defaultTransition vmap englishSyllables) <$> loadVisemesRB3
@@ -1587,19 +1590,18 @@ _oldCommands =
           _        -> fatal "Unsupported game for lipsync-gen"
         let template = dropExtension fmid
             tracks =
-              [ (F.fixedPartVocals, "_solovox.lipsync", False)
-              , (F.fixedHarm1, "_harm1.lipsync", False)
-              , (F.fixedHarm2, "_harm2.lipsync", False)
-              , (F.fixedHarm3, "_harm3.lipsync", False)
-              , (const mempty, "_empty.lipsync", True)
+              [ (mid.s_tracks.fixedPartVocals, "_solovox.lipsync", False)
+              , (mid.s_tracks.fixedHarm1     , "_harm1.lipsync"  , False)
+              , (mid.s_tracks.fixedHarm2     , "_harm2.lipsync"  , False)
+              , (mid.s_tracks.fixedHarm3     , "_harm3.lipsync"  , False)
+              , (mempty                      , "_empty.lipsync"  , True )
               ]
-        fmap catMaybes $ forM tracks $ \(getter, suffix, alwaysWrite) -> do
-          let trk = getter $ F.s_tracks mid
-              fout = template <> suffix
+        fmap catMaybes $ forM tracks $ \(trk, suffix, alwaysWrite) -> do
+          let fout = template <> suffix
           if nullVox trk && not alwaysWrite
             then return Nothing
             else do
-              let lip = voxToLip $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
+              let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
               stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
               return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -1613,7 +1615,8 @@ _oldCommands =
     , commandRun = \args opts -> case args of
       [fmid] -> do
         mid <- F.loadMIDI fmid
-        let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
+        let _ = mid :: F.Song (F.OnyxFile U.Beats)
+            game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
         vmap <- case game of
           GameRB3  -> loadVisemesRB3
           GameRB2  -> loadVisemesRB3
@@ -1621,22 +1624,22 @@ _oldCommands =
           _        -> fatal "Unsupported game for lipsync-track-gen"
         let template = dropExtension fmid
             tracks =
-              [ (F.onyxLipsync1, "_1.lipsync")
-              , (F.onyxLipsync2, "_2.lipsync")
-              , (F.onyxLipsync3, "_3.lipsync")
-              , (F.onyxLipsync4, "_4.lipsync")
+              [ ((.onyxLipsync1), "_1.lipsync")
+              , ((.onyxLipsync2), "_2.lipsync")
+              , ((.onyxLipsync3), "_3.lipsync")
+              , ((.onyxLipsync4), "_4.lipsync")
               ]
             voxToLip
               = (if game == GameTBRB then setBeatles else id)
               . lipsyncFromMIDITrack vmap
-        fmap concat $ forM (Map.toList $ F.onyxParts $ F.s_tracks mid) $ \(fpart, opart) -> do
+        fmap concat $ forM (Map.toList mid.s_tracks.onyxParts) $ \(fpart, opart) -> do
           fmap catMaybes $ forM tracks $ \(getter, suffix) -> do
             let trk = getter opart
                 fout = template <> "_" <> T.unpack (F.getPartName fpart) <> suffix
             if trk == mempty
               then return Nothing
               else do
-                let lip = voxToLip $ mapTrack (U.applyTempoTrack $ F.s_tempos mid) trk
+                let lip = voxToLip $ mapTrack (U.applyTempoTrack mid.s_tempos) trk
                 stackIO $ BL.writeFile fout $ runPut $ putLipsync lip
                 return $ Just fout
       _ -> fatal "Expected 1 argument (input midi)"
@@ -1659,7 +1662,7 @@ _oldCommands =
         case players of
           [] -> stackIO $ forM_ [minBound .. maxBound] $ \scoreTrack -> do
             forM_ [minBound .. maxBound] $ \diff -> do
-              let stars = starCutoffs (F.s_tracks mid) [(scoreTrack, diff)]
+              let stars = starCutoffs mid.s_tracks [(scoreTrack, diff)]
               when (any (maybe False (> 0)) stars) $ do
                 putStrLn $ unwords [show scoreTrack, show diff, show stars]
           _ -> let
@@ -1675,9 +1678,9 @@ _oldCommands =
               Left  err   -> fatal err
               Right pairs -> stackIO $ do
                 forM_ pairs $ \pair -> let
-                  (base, solo) = baseAndSolo (F.s_tracks mid) pair
+                  (base, solo) = baseAndSolo mid.s_tracks pair
                   in putStrLn $ show pair <> ": base " <> show base <> ", solo bonuses " <> show solo
-                print $ starCutoffs (F.s_tracks mid) pairs
+                print $ starCutoffs mid.s_tracks pairs
         return []
       _ -> fatal "Expected 1 argument (input midi)"
     }
@@ -1716,12 +1719,13 @@ _oldCommands =
     , commandRun = \args _opts -> case args of
       [fin] -> do
         mid <- F.loadMIDI fin
-        let p1 = if nullPart $ gh2PartGuitarCoop $ F.s_tracks mid
-              then gh2PartGuitar     $ F.s_tracks mid
-              else gh2PartGuitarCoop $ F.s_tracks mid
-            p2 = if nullPart $ gh2PartBass $ F.s_tracks mid
-              then gh2PartRhythm $ F.s_tracks mid
-              else gh2PartBass   $ F.s_tracks mid
+        let _ = mid :: F.Song (GH2File U.Beats)
+            p1 = if nullPart mid.s_tracks.gh2PartGuitarCoop
+              then mid.s_tracks.gh2PartGuitar
+              else mid.s_tracks.gh2PartGuitarCoop
+            p2 = if nullPart mid.s_tracks.gh2PartBass
+              then mid.s_tracks.gh2PartRhythm
+              else mid.s_tracks.gh2PartBass
             scores1 = map (\diff -> gh2Base diff p1) [Easy .. Expert]
             scores2 = map (\diff -> gh2Base diff p2) [Easy .. Expert]
             scoresCoop = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]

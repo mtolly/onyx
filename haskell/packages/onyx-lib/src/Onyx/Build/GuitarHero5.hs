@@ -217,7 +217,7 @@ gh5Rules buildInfo dir gh5 = do
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
 
-    let tmap = F.s_tempos mid
+    let tmap = mid.s_tempos
         rbCamera = venueCameraRB3 $ flip evalRand (mkStdGen hashed) $ getVenue
           VenueTargetRB3
           partMap

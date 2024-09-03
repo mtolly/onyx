@@ -63,7 +63,7 @@ combineOD part trks = case filter (not . RTB.null . snd) trks of
 
 instance HasOverdrive OnyxFile where
   getOverdrive onyx = fmap (foldr RTB.merge RTB.empty) $ do
-    forM (Map.toList $ onyxParts onyx) $ \(inst, opart) -> do
+    forM (Map.toList onyx.onyxParts) $ \(inst, opart) -> do
       combineOD inst
         [ ("drums"          , opart.onyxPartDrums.drumOverdrive      )
         , ("drums (2x)"     , opart.onyxPartDrums2x.drumOverdrive    )
@@ -77,24 +77,22 @@ instance HasOverdrive OnyxFile where
         , ("pro keys"       , opart.onyxPartRealKeysX.pkOverdrive    )
         ]
   putOverdrive onyx od = onyx
-    { onyxParts = flip Map.mapWithKey (onyxParts onyx) $ \inst opart -> let
-      fn isEmpty getTrk addOD = let
-        trk = getTrk opart
-        in if isEmpty trk then trk else addOD trk
+    { onyxParts = flip Map.mapWithKey onyx.onyxParts $ \inst opart -> let
+      fn isEmpty trk addOD = if isEmpty trk then trk else addOD trk
       bools = flip RTB.mapMaybe od $ \case
         (inst', b) | inst == inst' -> Just b
         _                          -> Nothing
       in opart
-        { onyxPartDrums        = fn nullDrums onyxPartDrums        $ \x -> x { drumOverdrive = bools }
-        , onyxPartDrums2x      = fn nullDrums onyxPartDrums2x      $ \x -> x { drumOverdrive = bools }
-        , onyxPartRealDrumsPS  = fn nullDrums onyxPartRealDrumsPS  $ \x -> x { drumOverdrive = bools }
-        , onyxPartGuitar       = fn nullFive  onyxPartGuitar       $ \x -> x { fiveOverdrive = bools }
-        , onyxPartKeys         = fn nullFive  onyxPartKeys         $ \x -> x { fiveOverdrive = bools }
-        , onyxPartGuitarExt    = fn nullFive  onyxPartGuitarExt    $ \x -> x { fiveOverdrive = bools }
-        , onyxPartSix          = fn nullSix   onyxPartSix          $ \x -> x { sixOverdrive  = bools }
-        , onyxPartRealGuitar   = fn nullPG    onyxPartRealGuitar   $ \x -> x { pgOverdrive   = bools }
-        , onyxPartRealGuitar22 = fn nullPG    onyxPartRealGuitar22 $ \x -> x { pgOverdrive   = bools }
-        , onyxPartRealKeysX    = fn nullPK    onyxPartRealKeysX    $ \x -> x { pkOverdrive   = bools }
+        { onyxPartDrums        = fn nullDrums opart.onyxPartDrums        $ \x -> x { drumOverdrive = bools }
+        , onyxPartDrums2x      = fn nullDrums opart.onyxPartDrums2x      $ \x -> x { drumOverdrive = bools }
+        , onyxPartRealDrumsPS  = fn nullDrums opart.onyxPartRealDrumsPS  $ \x -> x { drumOverdrive = bools }
+        , onyxPartGuitar       = fn nullFive  opart.onyxPartGuitar       $ \x -> x { fiveOverdrive = bools }
+        , onyxPartKeys         = fn nullFive  opart.onyxPartKeys         $ \x -> x { fiveOverdrive = bools }
+        , onyxPartGuitarExt    = fn nullFive  opart.onyxPartGuitarExt    $ \x -> x { fiveOverdrive = bools }
+        , onyxPartSix          = fn nullSix   opart.onyxPartSix          $ \x -> x { sixOverdrive  = bools }
+        , onyxPartRealGuitar   = fn nullPG    opart.onyxPartRealGuitar   $ \x -> x { pgOverdrive   = bools }
+        , onyxPartRealGuitar22 = fn nullPG    opart.onyxPartRealGuitar22 $ \x -> x { pgOverdrive   = bools }
+        , onyxPartRealKeysX    = fn nullPK    opart.onyxPartRealKeysX    $ \x -> x { pkOverdrive   = bools }
         }
     }
 
@@ -128,23 +126,21 @@ instance HasOverdrive FixedFile where
         ]
       ]
   putOverdrive rb3 od = rb3
-    { fixedPartDrums        = fn nullDrums fixedPartDrums        $ \x -> x { drumOverdrive = drums }
-    , fixedPartGuitar       = fn nullFive  fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
-    , fixedPartGuitarGHL    = fn nullSix   fixedPartGuitarGHL    $ \x -> x { sixOverdrive = gtr }
-    , fixedPartRealGuitar   = fn nullPG    fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
-    , fixedPartRealGuitar22 = fn nullPG    fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
-    , fixedPartBass         = fn nullFive  fixedPartBass         $ \x -> x { fiveOverdrive = bass }
-    , fixedPartBassGHL      = fn nullSix   fixedPartBassGHL      $ \x -> x { sixOverdrive = bass }
-    , fixedPartRealBass     = fn nullPG    fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
-    , fixedPartRealBass22   = fn nullPG    fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
-    , fixedPartKeys         = fn nullFive  fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
-    , fixedPartRealKeysX    = fn nullPK    fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
-    , fixedPartRhythm       = fn nullFive  fixedPartRhythm       $ \x -> x { fiveOverdrive = rhythm }
-    , fixedPartGuitarCoop   = fn nullFive  fixedPartGuitarCoop   $ \x -> x { fiveOverdrive = coop }
+    { fixedPartDrums        = fn nullDrums rb3.fixedPartDrums        $ \x -> x { drumOverdrive = drums }
+    , fixedPartGuitar       = fn nullFive  rb3.fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
+    , fixedPartGuitarGHL    = fn nullSix   rb3.fixedPartGuitarGHL    $ \x -> x { sixOverdrive = gtr }
+    , fixedPartRealGuitar   = fn nullPG    rb3.fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
+    , fixedPartRealGuitar22 = fn nullPG    rb3.fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
+    , fixedPartBass         = fn nullFive  rb3.fixedPartBass         $ \x -> x { fiveOverdrive = bass }
+    , fixedPartBassGHL      = fn nullSix   rb3.fixedPartBassGHL      $ \x -> x { sixOverdrive = bass }
+    , fixedPartRealBass     = fn nullPG    rb3.fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
+    , fixedPartRealBass22   = fn nullPG    rb3.fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
+    , fixedPartKeys         = fn nullFive  rb3.fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
+    , fixedPartRealKeysX    = fn nullPK    rb3.fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
+    , fixedPartRhythm       = fn nullFive  rb3.fixedPartRhythm       $ \x -> x { fiveOverdrive = rhythm }
+    , fixedPartGuitarCoop   = fn nullFive  rb3.fixedPartGuitarCoop   $ \x -> x { fiveOverdrive = coop }
     } where
-      fn isEmpty getTrk addOD = let
-        trk = getTrk rb3
-        in if isEmpty trk then trk else addOD trk
+      fn isEmpty trk addOD = if isEmpty trk then trk else addOD trk
       drums = bools FlexDrums
       gtr = bools FlexGuitar
       bass = bools FlexBass

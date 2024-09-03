@@ -153,7 +153,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       let midName = "s" <> key <> "_control.mid"
       inside ("Loading " <> T.unpack midName) $ do
         mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-        let (parsedControl, unrec) = readRRControl $ F.s_tracks mid
+        let (parsedControl, unrec) = readRRControl mid.s_tracks
         forM_ (nubSort $ RTB.getBodies unrec) $ \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
   -- undo the sync hack if we did that on exporting a custom song,
@@ -171,7 +171,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
             let midName = T.concat ["s", key, "_", inst, "_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-              rr <- F.parseTrackReport $ F.s_tracks mid
+              rr <- F.parseTrackReport mid.s_tracks
               return (diff, (rr, importRRGuitarBass rr))
           return mempty
             { Five.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
@@ -184,7 +184,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
             let midName = T.concat ["s", key, "_drums_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
-              rrd <- F.parseTrackReport $ F.s_tracks mid
+              rrd <- F.parseTrackReport mid.s_tracks
               return (diff, rrd)
           return
             ( importRRDrums rrDiffs

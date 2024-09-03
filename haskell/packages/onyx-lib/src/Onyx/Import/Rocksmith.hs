@@ -2,6 +2,7 @@
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
@@ -587,7 +588,7 @@ importRSSong folder song level = do
             in go vocals2
 
           in midi
-            { F.s_tracks = (F.s_tracks midi)
+            { F.s_tracks = midi.s_tracks
               { F.onyxParts = Map.insert F.FlexVocal mempty
                 { F.onyxPartVocals = fst $ fixShortVoxPhrasesTrack mempty
                   { vocalNotes
@@ -615,7 +616,7 @@ importRSSong folder song level = do
                       (t, (_, tend, _, end)) <- vocals3
                       (t, True) : [(tend, False) | end]
                   }
-                } $ F.onyxParts $ F.s_tracks midi
+                } midi.s_tracks.onyxParts
               }
             }
       removeDupePhraseStart = \case

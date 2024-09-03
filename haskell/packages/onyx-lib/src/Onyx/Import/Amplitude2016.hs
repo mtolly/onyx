@@ -33,6 +33,7 @@ import           Onyx.PhaseShift.Dance                 (NoteType (NoteNormal))
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
+import qualified Sound.MIDI.Util                       as U
 import           System.FilePath                       (takeDirectory,
                                                         takeFileName)
 
@@ -76,6 +77,7 @@ importAmplitudeSong songFolder moggSongName level = do
   ampMidi <- case level of
     ImportQuick -> return Nothing
     ImportFull  -> Just <$> F.loadMIDIReadable mid
+  let _ = ampMidi :: Maybe (F.Song (Amp.AmplitudeFile U.Beats))
   mogg <- split song.mogg_path >>= \p -> maybe (fatal "MOGG not found") return $ findFileCI p songFolder
   let getChannels n = case song.tracks !! (n - 1) of
         (_, (chans, _)) -> map fromIntegral chans
@@ -84,7 +86,7 @@ importAmplitudeSong songFolder moggSongName level = do
         guard $ "event:/FREESTYLE" `T.isPrefixOf` event
         ns
       parts = do
-        (n, Amp.Catch inst name trk) <- maybe [] (Map.toList . Amp.ampTracks . F.s_tracks) ampMidi
+        (n, Amp.Catch inst name trk) <- maybe [] (\m -> Map.toList m.s_tracks.ampTracks) ampMidi
         return (FlexExtra name, getChannels n, inst, trk)
       midi = case ampMidi of
         Just (F.Song temps sigs _) -> F.Song temps sigs mempty

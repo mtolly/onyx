@@ -244,10 +244,11 @@ importDKSong chartName isMidi chartFile dsp level = do
     ImportFull -> if isMidi
       then do
         mid <- F.loadMIDIReadable chartFile
-        let dk = readTrackDK2 $ U.applyTempoTrack (F.s_tempos mid) $ case F.rawTracks $ F.s_tracks mid of
+        let _ = mid :: F.Song (F.RawFile U.Beats)
+            dk = readTrackDK2 $ U.applyTempoTrack mid.s_tempos $ case mid.s_tracks.rawTracks of
               t : _ -> t
               []    -> RTB.empty
-        return (F.s_tempos mid, dk)
+        return (mid.s_tempos, dk)
       else do
         b <- stackIO $ useHandle chartFile handleToByteString
         (tempos, events) <- fmap binToMidi $ runGetM readSheetBin b

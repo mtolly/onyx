@@ -92,20 +92,21 @@ gh2Rules buildInfo dir gh2 = do
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDILatin1 out mid
-    let p1 = gh2PartGuitar $ F.s_tracks mid
+    let p1 = mid.s_tracks.gh2PartGuitar
         p2 = case gh2.coop of
-          GH2Bass   -> gh2PartBass   $ F.s_tracks mid
-          GH2Rhythm -> gh2PartRhythm $ F.s_tracks mid
+          GH2Bass   -> mid.s_tracks.gh2PartBass
+          GH2Rhythm -> mid.s_tracks.gh2PartRhythm
         scores = map (\diff -> gh2Base diff p1 + gh2Base diff p2) [Easy .. Expert]
         dta = "(" <> T.unpack key <> " (" <> unwords (map show scores) <> "))"
     stackIO $ writeFile coop dta
     stackIO $ writeFile pad $ show padSeconds
 
   let loadGH2Midi = F.shakeMIDI $ dir </> "gh2/notes.mid" :: Staction (F.Song (GH2File U.Beats))
+      correctAudioLength :: (Monad m) => F.Song (GH2File U.Beats) -> StackTraceT m U.Seconds
       correctAudioLength mid = do
-        endTime <- case RTB.filter (== GH2.End) $ GH2.eventsOther $ gh2Events $ F.s_tracks mid of
+        endTime <- case RTB.filter (== GH2.End) mid.s_tracks.gh2Events.eventsOther of
           RNil       -> fatal "panic! couldn't find [end] event in GH2 output midi"
-          Wait t _ _ -> return $ U.applyTempoMap (F.s_tempos mid) t
+          Wait t _ _ -> return $ U.applyTempoMap mid.s_tempos t
         return $ endTime + 5
         -- previously we went 0.5s past [end], but that still had issues,
         -- particularly in practice mode when playing the last section
@@ -230,10 +231,9 @@ gh2Rules buildInfo dir gh2 = do
 
   dir </> "gh2/lipsync.voc" %> \out -> do
     midi <- F.shakeMIDI $ planDir </> "raw.mid"
-    let vox = F.getFlexPart gh2.vocal $ F.s_tracks midi
-        auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
-    stackIO $ BL.writeFile out $ runPut $ putVocFile
-      $ auto $ F.onyxPartVocals vox
+    let vox = F.getFlexPart gh2.vocal midi.s_tracks
+        auto = gh2Lipsync englishSyllables . mapTrack (U.applyTempoTrack midi.s_tempos)
+    stackIO $ BL.writeFile out $ runPut $ putVocFile $ auto vox.onyxPartVocals
 
   dir </> "gh2/symbol" %> \out -> do
     stackIO $ B.writeFile out $ B8.pack pkg

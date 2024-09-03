@@ -74,9 +74,8 @@ psRules buildInfo dir ps = do
   dir </> "ps/expert+.mid" %> \out -> do
     song <- shakeMIDI $ dir </> "ps/notes.mid"
     saveMIDIUtf8 out song
-      { F.s_tracks = (F.s_tracks song)
-        { F.fixedPartDrums = Drums.expertWith2x
-          $ F.fixedPartDrums $ F.s_tracks song
+      { F.s_tracks = song.s_tracks
+        { F.fixedPartDrums = Drums.expertWith2x song.s_tracks.fixedPartDrums
         }
       }
 
@@ -100,6 +99,7 @@ psRules buildInfo dir ps = do
   let makeSongIni = do
         midEvents <- shakeMIDI $ planDir </> "events.mid"
         song <- shakeMIDI $ dir </> "ps/notes.mid"
+        let _ = song :: F.Song (F.FixedFile U.Beats)
         (DifficultyPS{..}, vocalCount) <- loadEditedParts
         let (pstart, pend) = previewBoundsTarget
               metadata
@@ -111,14 +111,14 @@ psRules buildInfo dir ps = do
             dmode = (.mode) <$> pd
             DifficultyRB3{..} = psDifficultyRB3
             allFives =
-              [ F.fixedPartGuitar     $ F.s_tracks song
-              , F.fixedPartBass       $ F.s_tracks song
-              , F.fixedPartKeys       $ F.s_tracks song
-              , F.fixedPartRhythm     $ F.s_tracks song
-              , F.fixedPartGuitarCoop $ F.s_tracks song
+              [ song.s_tracks.fixedPartGuitar
+              , song.s_tracks.fixedPartBass
+              , song.s_tracks.fixedPartKeys
+              , song.s_tracks.fixedPartRhythm
+              , song.s_tracks.fixedPartGuitarCoop
               ]
             emptyModeInput = ModeInput
-              { tempo = F.s_tempos midEvents
+              { tempo = midEvents.s_tempos
               , events = mempty
               , part = mempty
               }
@@ -241,7 +241,7 @@ psRules buildInfo dir ps = do
         let midSegment = applyTargetMIDI ps.common midRaw
         timing <- RB3.basicTiming False midSegment $
           applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
-        let endSecs = U.applyTempoMap (F.s_tempos midSegment) $ RB3.timingEnd timing
+        let endSecs = U.applyTempoMap midSegment.s_tempos timing.timingEnd
         return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)
   let setInstLength secs s = stackIO $ runResourceT $ setAudioLengthOrEmpty secs s
   dir </> audioExt "audio/drums"   %> \out -> do

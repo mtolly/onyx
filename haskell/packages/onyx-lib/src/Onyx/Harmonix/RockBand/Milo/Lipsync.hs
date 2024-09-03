@@ -961,11 +961,11 @@ testConvertLipsync fmid fvocs fout = do
     trk <- BL.readFile fvoc >>= return . case takeExtension fvoc of
       ".voc" -> vocToMIDITrack     . runGet parseVocFile
       _      -> lipsyncToMIDITrack . runGet parseLipsync
-    return $ mapTrack (U.unapplyTempoTrack $ F.s_tempos mid) trk
+    return $ mapTrack (U.unapplyTempoTrack mid.s_tempos) trk
   F.saveMIDIUtf8 fout mid
-    { F.s_tracks = (F.s_tracks mid)
+    { F.s_tracks = mid.s_tracks
       { F.onyxParts = let
-        orig = F.onyxParts $ F.s_tracks mid
+        orig = mid.s_tracks.onyxParts
         fn vox = Just (fromMaybe mempty vox)
           { F.onyxLipsync1 = fromMaybe mempty $ listToMaybe trks
           , F.onyxLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks

@@ -1722,9 +1722,9 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
   PreviewSeconds secs -> Just $ secs + padding
   PreviewMIDI mb -> Just $ addLeadin
     $ addMIDIPadding
-    $ U.applyTempoMap (F.s_tempos song)
-    $ U.unapplyMeasureMap (F.s_signatures song) mb
-  PreviewSection sect -> addLeadin . addMIDIPadding . U.applyTempoMap (F.s_tempos song)
+    $ U.applyTempoMap song.s_tempos
+    $ U.unapplyMeasureMap song.s_signatures mb
+  PreviewSection sect -> addLeadin . addMIDIPadding . U.applyTempoMap song.s_tempos
     <$> findSection sect
   where addLeadin = if leadin then (NNC.-| 0.6) else id
         addMIDIPadding = if prepadded then id else (+ padding)
@@ -1732,4 +1732,4 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
           sectDisplay = makeDisplaySection sect
           in getEvents >>= \f ->
             fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sectDisplay) . makeDisplaySection)
-              $ eventsSections $ f $ F.s_tracks song
+              $ eventsSections $ f song.s_tracks

@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
@@ -217,7 +218,7 @@ importBMS bmsPath level = do
               { fileVideo = SoftFile ("background" <> ext)
                 $ SoftReadable $ fileReadable fp'
               , videoStartTime = Just $ negate $ realToFrac
-                $ U.applyTempoMap (F.s_tempos midi) bts
+                $ U.applyTempoMap midi.s_tempos bts
               , videoEndTime = Nothing
               , videoLoop = False
               }

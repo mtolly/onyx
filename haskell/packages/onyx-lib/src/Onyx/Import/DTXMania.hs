@@ -202,7 +202,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     , sampleAudio = "hihat-silencer"
     }
   cymbalTrack' = flip fmap cymbalTrack $ fmap $ \trk -> trk
-    { F.sampleTriggers = RTB.merge (F.sampleTriggers trk) $
+    { F.sampleTriggers = RTB.merge trk.sampleTriggers $
       RTB.flatten $ flip fmap (RTB.collectCoincident $ dtx_Drums dtx) $ \instant ->
         if any (\(lane, _) -> elem lane [LeftPedal, HihatClose]) instant
           then case length $ filter (\(lane, _) -> elem lane [HihatClose, HihatOpen]) instant of
@@ -246,7 +246,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       }
     }
   mid' = mid
-    { F.s_tracks = (F.s_tracks mid)
+    { F.s_tracks = mid.s_tracks
       { F.onyxSamples = Map.fromList $ catMaybes
         $ [songTrack, guitarTrack, bassTrack, kickTrack, snareTrack, cymbalTrack', tomTrack]
         <> map snd extraResults

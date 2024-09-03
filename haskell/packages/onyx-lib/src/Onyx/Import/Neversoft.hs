@@ -139,7 +139,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     let midiTrack = fmap makeEdge'
                           $ blipEdgesRBNice
                           $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
-                          $ U.unapplyTempoTrack (F.s_tempos midiFixed) trk
+                          $ U.unapplyTempoTrack midiFixed.s_tempos trk
                     return (TE.decodeLatin1 name, midiTrack)
                   msToBeats :: Word32 -> U.Beats
                   msToBeats ms = U.unapplyTempoMap midiFixed.s_tempos $ U.Seconds $ fromIntegral ms / 1000
@@ -158,7 +158,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               return (midiFixed, extraTracksQB <> extraTracksPerf)
             ImportQuick -> return (emptyChart, [])
           let midiOnyx = midiFixed
-                { F.s_tracks = F.fixedToOnyx (F.s_tracks midiFixed) <> midiExtra
+                { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks <> midiExtra
                 }
               midiExtra = mempty
                 { F.onyxRaw = Map.fromList extraTracks
@@ -458,7 +458,7 @@ importGH4Song ghi level = do
           return $ gh4ToMidi info songBank combinedSectionMap midQB
     ImportQuick -> return emptyChart
   let midiOnyx = midiFixed
-        { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed
+        { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks
         }
 
   let adjustedInput
@@ -808,13 +808,12 @@ importGH3Song ghi = let
               midQB
       ImportQuick -> return emptyChart
     -- don't mark that we have a coop part if it has no notes (like many customs)
-    let hasCoopGems = maybe False (not . nullFive . F.onyxPartGuitar)
-          $ Map.lookup coopPart $ F.onyxParts $ F.s_tracks midiOnyx
+    let hasCoopGems = maybe False (not . nullFive . (.onyxPartGuitar))
+          $ Map.lookup coopPart midiOnyx.s_tracks.onyxParts
         drums
-          = maybe mempty F.onyxPartEliteDrums
+          = maybe mempty (.onyxPartEliteDrums)
           $ Map.lookup F.FlexDrums
-          $ F.onyxParts
-          $ F.s_tracks midiOnyx
+          $ midiOnyx.s_tracks.onyxParts
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> case ghi.audio of

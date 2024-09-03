@@ -180,7 +180,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
       { gemsDifficulties = leadDiffs
       , gemsMouthOpen    = case gh1AnimVocal audio of
         Nothing   -> RTB.empty
-        Just part -> fmap snd $ RB.vocalNotes $ F.onyxPartVocals $ F.getFlexPart part onyx
+        Just part -> fmap snd (F.getFlexPart part onyx).onyxPartVocals.vocalNotes
       }
     , gh1Anim     = AnimTrack
       { animFretPosition = first FretPosition <$> guitarResult.other.fiveFretPosition
@@ -204,7 +204,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         , case gh1AnimVocal audio of
           Nothing -> RTB.empty
           Just part -> let
-            trk = F.onyxPartVocals $ F.getFlexPart part onyx
+            trk = (F.getFlexPart part onyx).onyxPartVocals
             in fmap (\b -> if b then Event_sing_on else Event_sing_off)
               $ makePlayBools (RB.vocalMood trk)
               $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
@@ -218,7 +218,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         , case gh1AnimDrums audio of
           Nothing -> RTB.empty
           Just part -> let
-            trk = F.onyxPartDrums $ F.getFlexPart part onyx
+            trk = (F.getFlexPart part onyx).onyxPartDrums
             anims = (RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk).drumAnimation
             in fmap (\b -> if b then Event_drum_on else Event_drum_off)
               $ makePlayBools trk.drumMood $ Blip () () <$ anims
@@ -321,10 +321,11 @@ gh1Rules buildInfo dir gh1 = do
     stackIO $ writeFile pad $ show padSeconds
 
   let loadGH1Midi = F.shakeMIDI $ dir </> "gh1/notes.mid" :: Staction (F.Song (GH1File U.Beats))
+      correctAudioLength :: (Monad m) => F.Song (GH1File U.Beats) -> StackTraceT m U.Seconds
       correctAudioLength mid = do
-        endTime <- case RTB.filter (== Event_end) $ eventsList $ gh1Events $ F.s_tracks mid of
+        endTime <- case RTB.filter (== Event_end) mid.s_tracks.gh1Events.eventsList of
           RNil       -> fatal "panic! couldn't find [end] event in GH1 output midi"
-          Wait t _ _ -> return $ U.applyTempoMap (F.s_tempos mid) t
+          Wait t _ _ -> return $ U.applyTempoMap mid.s_tempos t
         return $ endTime + 5
         -- previously we went 0.5s past [end], but that still had issues,
         -- particularly in GH2 practice mode when playing the last section

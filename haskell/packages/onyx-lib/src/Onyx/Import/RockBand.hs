@@ -337,13 +337,16 @@ importRB rbi level = do
         Nothing -> return []
         Just getUpdate -> stackIO getUpdate >>= \case
           Left  err  -> warn err >> return []
-          Right umid -> F.rawTracks . F.s_tracks <$> F.loadMIDIReadable umid
+          Right umid -> do
+            raw <- F.loadMIDIReadable umid
+            let _ = raw :: F.Song (F.RawFile U.Beats)
+            return raw.s_tracks.rawTracks
       let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
           trksUpdated
             = filter ((`notElem` updatedNames) . U.trackName) trks1x
             ++ trksUpdate
       midiFixed <- fmap checkEnableDynamics $ F.interpretMIDIFile $ F.Song temps sigs trksUpdated
-      return (midiFixed, midiFixed { F.s_tracks = F.fixedToOnyx $ F.s_tracks midiFixed })
+      return (midiFixed, midiFixed { F.s_tracks = F.fixedToOnyx midiFixed.s_tracks })
     ImportQuick -> return (emptyChart, emptyChart)
 
   drumkit <- case D.drumBank pkg of
@@ -388,7 +391,7 @@ importRB rbi level = do
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
 
-  let drumEvents = F.fixedPartDrums $ F.s_tracks midiFixed
+  let drumEvents = midiFixed.s_tracks.fixedPartDrums
   (foundMix, foundMixStr) <- let
     drumMixes = do
       (_, dd) <- Map.toList drumEvents.drumDifficulties
@@ -457,7 +460,7 @@ importRB rbi level = do
         (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
         (Nothing, Nothing ) -> (Nothing                , Nothing )
 
-      bassBase = detectExtProBass $ F.s_tracks midiFixed
+      bassBase = detectExtProBass midiFixed.s_tracks
 
   let lipsyncNames = ["song.lipsync", "part2.lipsync", "part3.lipsync", "part4.lipsync"]
       getLipsyncFile name = do
@@ -503,24 +506,24 @@ importRB rbi level = do
   let adjustAnimMidi orig = case (hasRankStr "guitar", hasRankStr "bass", hasRankStr "keys") of
         (True, True, True) -> orig
         (_, _, False) -> orig
-          { F.onyxCamera = F.onyxCameraBG orig
+          { F.onyxCamera = orig.onyxCameraBG
           , F.onyxCameraBG = mempty
           , F.onyxCameraBK = mempty
           , F.onyxCameraGK = mempty
           }
         (False, _, True) -> orig
-          { F.onyxCamera = F.onyxCameraBK orig
+          { F.onyxCamera = orig.onyxCameraBK
           , F.onyxCameraBG = mempty
           , F.onyxCameraBK = mempty
           , F.onyxCameraGK = mempty
           }
         (True, False, True) -> orig
-          { F.onyxCamera = F.onyxCameraGK orig
+          { F.onyxCamera = orig.onyxCameraGK
           , F.onyxCameraBG = mempty
           , F.onyxCameraBK = mempty
           , F.onyxCameraGK = mempty
           }
-      cutoffAnimAtEnd = case eventsEnd $ F.onyxEvents $ F.s_tracks midiOnyx of
+      cutoffAnimAtEnd = case midiOnyx.s_tracks.onyxEvents.eventsEnd of
         RNil              -> id
         Wait endTime () _ -> chopTake endTime
   -- TODO we may need a smarter way to apply the song.anim data;
@@ -529,9 +532,9 @@ importRB rbi level = do
     Just (_, Just parsedAnim) -> do
       converted <- convertFromAnim parsedAnim
       return midiOnyx
-        { F.s_tracks = (F.s_tracks midiOnyx)
+        { F.s_tracks = midiOnyx.s_tracks
           { F.onyxVenue = mempty -- pre-RB3 songs still have old VENUE tracks we can replace entirely
-          } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack $ F.s_tempos midiOnyx) converted)
+          } <> cutoffAnimAtEnd (adjustAnimMidi $ mapTrack (U.unapplyTempoTrack midiOnyx.s_tempos) converted)
         }
     _ -> return midiOnyx
 
@@ -794,10 +797,11 @@ importRB4 fdta level = do
       beatMidi <- F.readMIDIFile' $ fmap decodeLatin1 $ case mid of
         Cons typ dvn []       -> Cons typ dvn []
         Cons typ dvn (t : ts) -> Cons typ dvn $ t : filter (\trk -> U.trackName trk == Just "BEAT") ts
+      let _ = beatMidi :: F.Song (F.OnyxFile U.Beats)
       return
         ( makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid
         , rbmid_HopoThreshold rbmid
-        , mapTrack (U.applyTempoTrack $ F.s_tempos beatMidi) $ F.onyxBeat $ F.s_tracks beatMidi
+        , mapTrack (U.applyTempoTrack beatMidi.s_tempos) beatMidi.s_tracks.onyxBeat
         )
 
   -- dta.albumArt doesn't appear to be correct, it is False sometimes when song should have art

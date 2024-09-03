@@ -70,6 +70,7 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.Venue
+import           Onyx.MIDI.Track.Vocal                 (VocalTrack)
 import           Onyx.PlayStation.NPData               (npdContentID,
                                                         packNPData,
                                                         rb2CustomMidEdatConfig,
@@ -274,10 +275,10 @@ rbRules buildInfo dir rb3 mrb2 = do
       , (rb3.vocal , rb3VocalRank )
       ]
     runAudio (clampIfSilent s) out
-  let saveClip m out vox = do
+  let saveClip :: F.Song (F.FixedFile U.Beats) -> FilePath -> VocalTrack U.Beats -> Staction ()
+      saveClip m out vox = do
         let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-            clip = clipDryVox $ U.applyTempoTrack (F.s_tempos m)
-              $ fmap isJust $ vocalTubes vox
+            clip = clipDryVox $ U.applyTempoTrack m.s_tempos $ fmap isJust $ vocalTubes vox
         unclippedVox <- shk $ buildSource $ Input pathMagmaVocal
         unclipped <- case frames unclippedVox of
           0 -> shk $ buildSource $ Input pathMagmaSong
@@ -287,16 +288,16 @@ rbRules buildInfo dir rb3 mrb2 = do
         lg $ "Finished writing dry vocals to " ++ out
   pathMagmaDryvox0 %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
-    saveClip m out $ F.fixedPartVocals $ F.s_tracks m
+    saveClip m out m.s_tracks.fixedPartVocals
   pathMagmaDryvox1 %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
-    saveClip m out $ F.fixedHarm1 $ F.s_tracks m
+    saveClip m out m.s_tracks.fixedHarm1
   pathMagmaDryvox2 %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
-    saveClip m out $ F.fixedHarm2 $ F.s_tracks m
+    saveClip m out m.s_tracks.fixedHarm2
   pathMagmaDryvox3 %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
-    saveClip m out $ F.fixedHarm3 $ F.s_tracks m
+    saveClip m out m.s_tracks.fixedHarm3
   pathMagmaDryvoxSine %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
     let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -376,7 +377,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         fallback = do
           userMid <- F.shakeMIDI pathMagmaMid
           F.saveMIDILatin1 out userMid
-            { F.s_tracks = (F.s_tracks userMid)
+            { F.s_tracks = userMid.s_tracks
               { F.fixedVenue = blackVenueTrack
               -- TODO sections if midi didn't supply any
               }
@@ -399,18 +400,18 @@ rbRules buildInfo dir rb3 mrb2 = do
           Just () -> return ()
       MagmaDisable -> fallback
   let midRealSections :: F.Song (F.OnyxFile U.Beats) -> Staction (RTB.T U.Beats Section)
-      midRealSections = notSingleSection . eventsSections . F.onyxEvents . F.s_tracks
+      midRealSections = notSingleSection . (.s_tracks.onyxEvents.eventsSections)
       -- also applies the computed pad + tempo hacks
       getRealSections' :: Staction (RTB.T U.Beats Section)
       getRealSections' = do
         raw <- fmap (applyTargetMIDI rb3.common) $ F.shakeMIDI $ planDir </> "raw.mid"
-        let sects = eventsSections $ F.onyxEvents $ F.s_tracks raw
+        let sects = raw.s_tracks.onyxEvents.eventsSections
         maybeAdjuster <- if rb3.legalTempos
           then do
             (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
               (sum (RTB.getTimes sects) + 20) -- whatever
-              (F.s_tempos raw)
-              (F.s_signatures raw)
+              raw.s_tempos
+              raw.s_signatures
             return $ Just adjuster
           else return Nothing
         padSeconds <- shk $ read <$> readFile' pathMagmaPad
@@ -432,8 +433,8 @@ rbRules buildInfo dir rb3 mrb2 = do
     magmaMid <- F.shakeMIDI pathMagmaExport
     sects <- getRealSections'
     let trackOr x y = if x == mergeEmpty then y else x
-        user = F.s_tracks userMid
-        magma = F.s_tracks magmaMid
+        user = userMid.s_tracks
+        magma = magmaMid.s_tracks
         reauthor f = f user `trackOr` f magma
     F.saveMIDILatin1 out $ userMid
       { F.s_tracks = user
@@ -465,13 +466,13 @@ rbRules buildInfo dir rb3 mrb2 = do
               , venueFog = venueFog venue
               }
             in mconcat
-              [ reauthor $ onlyLightingPP . F.fixedVenue
-              , reauthor $ onlyCamera . F.fixedVenue
-              , reauthor $ onlyOther . F.fixedVenue
+              [ reauthor $ onlyLightingPP . (.fixedVenue)
+              , reauthor $ onlyCamera . (.fixedVenue)
+              , reauthor $ onlyOther . (.fixedVenue)
               ]
         , F.fixedEvents = if RTB.null sects
-          then F.fixedEvents magma
-          else (F.fixedEvents magma)
+          then magma.fixedEvents
+          else magma.fixedEvents
             { eventsSections = fmap makeRB3Section sects
             }
         }
@@ -484,11 +485,11 @@ rbRules buildInfo dir rb3 mrb2 = do
     let (magmaSects, invalid) = makeRBN2Sections sects
         magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
         adjustEvents trks = trks
-          { F.onyxEvents = (F.onyxEvents trks)
+          { F.onyxEvents = trks.onyxEvents
             { eventsSections = magmaSects'
             }
           }
-        input' = input { F.s_tracks = adjustEvents $ F.s_tracks input }
+        input' = input { F.s_tracks = adjustEvents input.s_tracks }
     (output, diffs, vc, pad) <- case plan of
       StandardPlan _ | rb3.legalTempos -> RB3.processRBPad
         (rb3, mrb2)
@@ -605,23 +606,23 @@ rbRules buildInfo dir rb3 mrb2 = do
               let t = evalPreviewTime False Nothing midi 0 False segment.fadeEnd
               when (isNothing t) $ warn "Couldn't evaluate segment end time to modify lipsync"
               return t
-          let vox = F.getFlexPart rb3.vocal $ F.s_tracks midi
-              lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
-              auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack $ F.s_tempos midi)
+          let vox = F.getFlexPart rb3.vocal midi.s_tracks
+              lip = lipsyncFromMIDITrack vmap . mapTrack (U.applyTempoTrack midi.s_tempos)
+              auto = autoLipsync defaultTransition vmap englishSyllables . mapTrack (U.applyTempoTrack midi.s_tempos)
               padSeconds = fromIntegral (pad :: Int) :: U.Seconds
               speed = realToFrac $ fromMaybe 1 rb3.common.speed :: Rational
               segmentStart = maybe id lipsyncDrop secsStart
               segmentEnd   = maybe id lipsyncTake secsEnd
               fromSource = fmap (lipsyncPad padSeconds . lipsyncAdjustSpeed speed . segmentStart . segmentEnd) . \case
-                LipsyncTrack1 -> return $ lip $ F.onyxLipsync1 vox
-                LipsyncTrack2 -> return $ lip $ F.onyxLipsync2 vox
-                LipsyncTrack3 -> return $ lip $ F.onyxLipsync3 vox
-                LipsyncTrack4 -> return $ lip $ F.onyxLipsync4 vox
+                LipsyncTrack1 -> return $ lip vox.onyxLipsync1
+                LipsyncTrack2 -> return $ lip vox.onyxLipsync2
+                LipsyncTrack3 -> return $ lip vox.onyxLipsync3
+                LipsyncTrack4 -> return $ lip vox.onyxLipsync4
                 LipsyncVocal mvc -> return $ auto $ case mvc of
-                  Nothing     -> F.onyxPartVocals vox
-                  Just Vocal1 -> F.onyxHarm1 vox
-                  Just Vocal2 -> F.onyxHarm2 vox
-                  Just Vocal3 -> F.onyxHarm3 vox
+                  Nothing     -> vox.onyxPartVocals
+                  Just Vocal1 -> vox.onyxHarm1
+                  Just Vocal2 -> vox.onyxHarm2
+                  Just Vocal3 -> vox.onyxHarm3
                 LipsyncFile f -> stackIO (BL.fromStrict <$> B.readFile f) >>= runGetM parseLipsync
           mapM fromSource srcs
 
@@ -697,16 +698,16 @@ rbRules buildInfo dir rb3 mrb2 = do
   -- Guitar rules
   dir </> "protar-mpa.mid" %> \out -> do
     input <- F.shakeMIDI pathMagmaMid
-    let gtr17   = F.onyxPartRealGuitar   $ F.getFlexPart rb3.guitar $ F.s_tracks input
-        gtr22   = F.onyxPartRealGuitar22 $ F.getFlexPart rb3.guitar $ F.s_tracks input
-        bass17  = F.onyxPartRealGuitar   $ F.getFlexPart rb3.bass $ F.s_tracks input
-        bass22  = F.onyxPartRealGuitar22 $ F.getFlexPart rb3.bass $ F.s_tracks input
+    let gtr17   = (F.getFlexPart rb3.guitar input.s_tracks).onyxPartRealGuitar
+        gtr22   = (F.getFlexPart rb3.guitar input.s_tracks).onyxPartRealGuitar22
+        bass17  = (F.getFlexPart rb3.bass   input.s_tracks).onyxPartRealGuitar
+        bass22  = (F.getFlexPart rb3.bass   input.s_tracks).onyxPartRealGuitar22
         pgThres = maybe 170 (.hopoThreshold) $ getPart rb3.guitar songYaml >>= (.proGuitar)
         pbThres = maybe 170 (.hopoThreshold) $ getPart rb3.bass songYaml >>= (.proGuitar)
         playTrack :: Int -> PGPlay.Controller -> s -> ProGuitarTrack U.Beats -> RTB.T U.Beats (E.T s)
         playTrack thres cont name t = let
           expert = fromMaybe mempty $ Map.lookup Expert t.pgDifficulties
-          auto = PGPlay.autoplay (fromIntegral thres / 480) (F.s_tempos input) expert
+          auto = PGPlay.autoplay (fromIntegral thres / 480) input.s_tempos expert
           msgToSysEx msg
             = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
           in U.setTrackName name $ msgToSysEx <$> auto
@@ -954,16 +955,16 @@ rbRules buildInfo dir rb3 mrb2 = do
           maybeMagmaTracks <- doesExportV1Exist >>= \case
             True -> do
               shk $ need [pathMagmaExportV1]
-              Just . F.s_tracks <$> F.loadMIDI pathMagmaExportV1
+              Just . (.s_tracks) <$> F.loadMIDI pathMagmaExportV1
             False -> return Nothing
           sects <- getRealSections'
           let mid = F.Song tempos sigs origTracks
                 { F.fixedEvents = if RTB.null sects
-                  then F.fixedEvents $ fromMaybe origTracks maybeMagmaTracks
-                  else (F.fixedEvents origTracks)
+                  then (fromMaybe origTracks maybeMagmaTracks).fixedEvents
+                  else origTracks.fixedEvents
                     { eventsSections = fmap makeRB2Section sects
                     }
-                , F.fixedVenue = if F.fixedVenue origTracks == mempty
+                , F.fixedVenue = if origTracks.fixedVenue == mempty
                   then case maybeMagmaTracks of
                     Nothing -> mempty
                       { venueCameraRB2      = RTB.flatten $ RTB.singleton 0
@@ -980,8 +981,8 @@ rbRules buildInfo dir rb3 mrb2 = do
                       , venueLighting       = RTB.singleton 0 Lighting_
                       , venueLightingMode   = RTB.singleton 0 ModeVerse
                       }
-                    Just magmaTracks -> F.fixedVenue magmaTracks
-                  else F.fixedVenue origTracks
+                    Just magmaTracks -> magmaTracks.fixedVenue
+                  else origTracks.fixedVenue
                 }
           F.saveMIDILatin1 out mid
         rb2Mogg %> shk . copyFile' pathMogg

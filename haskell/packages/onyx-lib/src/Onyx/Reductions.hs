@@ -539,25 +539,25 @@ drumsReduce diff   mmap od sections trk = let
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
-  let sections = eventsSections $ F.onyxEvents onyx
+  let sections = onyx.onyxEvents.eventsSections
   stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
-    { F.onyxParts = flip fmap (F.onyxParts onyx) $ \trks -> let
-      pkX = F.onyxPartRealKeysX trks
-      pkH = F.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
-      pkM = F.onyxPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
-      pkE = F.onyxPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
+    { F.onyxParts = flip fmap onyx.onyxParts $ \trks -> let
+      pkX = trks.onyxPartRealKeysX
+      pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
+      pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH
+      pkE = trks.onyxPartRealKeysE `pkOr` pkReduce Easy   mmap od pkM
       od = pkOverdrive pkX
       trkX `pkOr` trkY
         | nullPK pkX  = mempty
         | nullPK trkX = trkY
         | otherwise   = trkX
       in trks
-      { F.onyxPartGuitar = gryboComplete (Just 170) mmap $ F.onyxPartGuitar trks
-      , F.onyxPartKeys = gryboComplete Nothing mmap $ F.onyxPartKeys trks
+      { F.onyxPartGuitar = gryboComplete (Just 170) mmap trks.onyxPartGuitar
+      , F.onyxPartKeys = gryboComplete Nothing mmap trks.onyxPartKeys
       , F.onyxPartDrums
         = D.fillDrumAnimation (0.25 :: U.Seconds) tempos
         $ drumsComplete mmap sections
-        $ F.onyxPartDrums trks
+        $ trks.onyxPartDrums
       , F.onyxPartRealKeysX = pkX
       , F.onyxPartRealKeysH = pkH
       , F.onyxPartRealKeysM = pkM

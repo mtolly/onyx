@@ -156,9 +156,9 @@ redoSwells (F.Song tmap mmap ps) = let
         $ U.unapplyTempoTrack tmap lanes2
       }
   in F.Song tmap mmap ps
-    { F.fixedPartDrums       = fixTrack $ F.fixedPartDrums       ps
-    , F.fixedPartDrums2x     = fixTrack $ F.fixedPartDrums2x     ps
-    , F.fixedPartRealDrumsPS = fixTrack $ F.fixedPartRealDrumsPS ps
+    { F.fixedPartDrums       = fixTrack ps.fixedPartDrums
+    , F.fixedPartDrums2x     = fixTrack ps.fixedPartDrums2x
+    , F.fixedPartRealDrumsPS = fixTrack ps.fixedPartRealDrumsPS
     }
 
 data LaneNotes = LaneSingle | LaneDouble
@@ -320,6 +320,7 @@ importFoF src dir level = do
         -- GH config with separate toms vs cymbals;
         -- note according to the phase shift forum post, cymbals are 3 and toms are 4
         -- (swapped from actual GH order)
+        -- TODO ugh are newer rips flipping this back to toms 3 cymbals 4, whyyyyyyyy
         (Just d1, Just d2, Just d3, Just d4) -> ([d3], [d1], [d2], [d4])
         _ -> case (md1, md2, md3) of
           (Just d1, Just d2, Just d3) -> ([d3], [d1], [d2], []) -- RB drum mix 1, 2, or 3
@@ -367,7 +368,8 @@ importFoF src dir level = do
   add2x <- case maybe2x of
     Just (_, rMidi2x) -> do
       parsed2x <- F.loadMIDIReadable rMidi2x
-      let trk2x = F.fixedPartDrums $ F.s_tracks parsed2x
+      let _ = parsed2x :: F.Song (F.FixedFile U.Beats)
+          trk2x = parsed2x.s_tracks.fixedPartDrums
       return $ if nullDrums trk2x
         then id
         else \mid -> mid { F.fixedPartDrums2x = trk2x }
@@ -383,14 +385,14 @@ importFoF src dir level = do
         else if is2x then Kicks2x else Kicks1x
 
   let fixGHVox trks = trks
-        { F.fixedPartVocals = stripTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ F.fixedPartVocals trks
+        { F.fixedPartVocals = stripTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy trks.fixedPartVocals
         }
       -- TODO ugh newer CH/YARG rips always use the in-order format (RYBOG) without
       -- the song.ini tag. we may just need to assume it's always the case
       swapFiveLane trks = if fromMaybe False song.fiveLaneDrums
         then trks
-          { F.fixedPartDrums   = swapFiveLaneTrack $ F.fixedPartDrums   trks
-          , F.fixedPartDrums2x = swapFiveLaneTrack $ F.fixedPartDrums2x trks
+          { F.fixedPartDrums   = swapFiveLaneTrack trks.fixedPartDrums
+          , F.fixedPartDrums2x = swapFiveLaneTrack trks.fixedPartDrums2x
           }
         else trks
       swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff trk.drumDifficulties }
@@ -402,9 +404,9 @@ importFoF src dir level = do
         }
 
   outputMIDI <- fixShortVoxPhrases $ checkEnableDynamics $ redoSwells parsed
-    { F.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x $ F.s_tracks parsed
+    { F.s_tracks = fixGHVox $ swapFiveLane $ removeDummyTracks $ add2x parsed.s_tracks
     }
-  let outputFixed = F.s_tracks outputMIDI
+  let outputFixed = outputMIDI.s_tracks
       outputOnyx = case delayMIDI outputMIDI of
         F.Song tempos sigs fixed -> F.Song tempos sigs $ F.fixedToOnyx fixed
       midi = SoftFile "notes.mid" $ SoftChart outputOnyx
@@ -444,15 +446,15 @@ importFoF src dir level = do
         else diff /= Just (-1)
       isnt :: (Eq a, Monoid a) => (a -> Bool) -> (F.FixedFile U.Beats -> a) -> Bool
       isnt isEmpty f = not $ isEmpty $ f outputFixed
-      vocalMode = if isnt nullVox F.fixedPartVocals && guardDifficulty song.diffVocals && fmap T.toLower song.charter /= Just "sodamlazy"
-        then if isnt nullVox F.fixedHarm2 && guardDifficulty song.diffVocalsHarm
-          then if isnt nullVox F.fixedHarm3
+      vocalMode = if isnt nullVox (.fixedPartVocals) && guardDifficulty song.diffVocals && fmap T.toLower song.charter /= Just "sodamlazy"
+        then if isnt nullVox (.fixedHarm2) && guardDifficulty song.diffVocalsHarm
+          then if isnt nullVox (.fixedHarm3)
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
         else Nothing
-      hasBass = isnt Five.nullFive F.fixedPartBass && guardDifficulty song.diffBass
-      hasRhythm = isnt Five.nullFive F.fixedPartRhythm && guardDifficulty song.diffRhythm
+      hasBass = isnt Five.nullFive (.fixedPartBass) && guardDifficulty song.diffBass
+      hasRhythm = isnt Five.nullFive (.fixedPartRhythm) && guardDifficulty song.diffRhythm
 
   let hopoThreshold = case song.hopoFrequency of
         Just ht -> ht
@@ -566,14 +568,14 @@ importFoF src dir level = do
       [ ( FlexDrums, (emptyPart :: Part SoftFile)
         { drums = do
           guard
-            $ (isnt nullDrums F.fixedPartDrums || isnt nullDrums F.fixedPartRealDrumsPS || isnt ED.nullEliteDrums F.fixedPartEliteDrums)
+            $ (isnt nullDrums (.fixedPartDrums) || isnt nullDrums (.fixedPartRealDrumsPS) || isnt ED.nullEliteDrums (.fixedPartEliteDrums))
             && guardDifficulty song.diffDrums
           let mode = let
-                isTrue = isnt ED.nullEliteDrums F.fixedPartEliteDrums
+                isTrue = isnt ED.nullEliteDrums (.fixedPartEliteDrums)
                 isFiveLane = song.fiveLaneDrums == Just True || any
                   (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.drumGems)
                   (Map.toList outputFixed.fixedPartDrums.drumDifficulties)
-                isReal = isnt nullDrums F.fixedPartRealDrumsPS
+                isReal = isnt nullDrums (.fixedPartRealDrumsPS)
                 isPro = case song.proDrums of
                   Just b  -> b
                   Nothing -> not (RTB.null outputFixed.fixedPartDrums.drumToms)
@@ -592,7 +594,7 @@ importFoF src dir level = do
             }
         })
       , ( FlexGuitar, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartGuitar && guardDifficulty song.diffGuitar) >> Just PartGRYBO
+        { grybo = guard (isnt Five.nullFive (.fixedPartGuitar) && guardDifficulty song.diffGuitar) >> Just PartGRYBO
           { difficulty = toTier song.diffGuitar
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -601,8 +603,8 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         , proGuitar = let
-          b =  (isnt nullPG F.fixedPartRealGuitar   && guardDifficulty song.diffGuitarReal  )
-            || (isnt nullPG F.fixedPartRealGuitar22 && guardDifficulty song.diffGuitarReal22)
+          b =  (isnt nullPG (.fixedPartRealGuitar)   && guardDifficulty song.diffGuitarReal  )
+            || (isnt nullPG (.fixedPartRealGuitar22) && guardDifficulty song.diffGuitarReal22)
           in guard b >> Just PartProGuitar
             { difficulty    = toTier song.diffGuitarReal
             , hopoThreshold = hopoThreshold
@@ -614,7 +616,7 @@ importFoF src dir level = do
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix F.fixedPartGuitarGHL && guardDifficulty song.diffGuitarGHL) >> Just PartGHL
+        , ghl = guard (isnt nullSix (.fixedPartGuitarGHL) && guardDifficulty song.diffGuitarGHL) >> Just PartGHL
           { difficulty = toTier song.diffGuitarGHL
           , hopoThreshold = hopoThreshold
           }
@@ -629,8 +631,8 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         , proGuitar = let
-          b =  (isnt nullPG F.fixedPartRealBass   && guardDifficulty song.diffBassReal  )
-            || (isnt nullPG F.fixedPartRealBass22 && guardDifficulty song.diffBassReal22)
+          b =  (isnt nullPG (.fixedPartRealBass)   && guardDifficulty song.diffBassReal  )
+            || (isnt nullPG (.fixedPartRealBass22) && guardDifficulty song.diffBassReal22)
           in guard b >> Just PartProGuitar
             { difficulty    = toTier song.diffBassReal
             , hopoThreshold = hopoThreshold
@@ -642,13 +644,13 @@ importFoF src dir level = do
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix F.fixedPartBassGHL && guardDifficulty song.diffBassGHL) >> Just PartGHL
+        , ghl = guard (isnt nullSix (.fixedPartBassGHL) && guardDifficulty song.diffBassGHL) >> Just PartGHL
           { difficulty = toTier song.diffBassGHL
           , hopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartKeys && guardDifficulty song.diffKeys) >> Just PartGRYBO
+        { grybo = guard (isnt Five.nullFive (.fixedPartKeys) && guardDifficulty song.diffKeys) >> Just PartGRYBO
           { difficulty = toTier song.diffKeys
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -656,7 +658,7 @@ importFoF src dir level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (isnt nullPK F.fixedPartRealKeysX && guardDifficulty song.diffKeysReal) >> Just PartProKeys
+        , proKeys = guard (isnt nullPK (.fixedPartRealKeysX) && guardDifficulty song.diffKeysReal) >> Just PartProKeys
           { difficulty = toTier song.diffKeysReal
           , fixFreeform = False
           }
@@ -672,7 +674,7 @@ importFoF src dir level = do
           }
         })
       , ( FlexExtra "guitar-coop", (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive F.fixedPartGuitarCoop && guardDifficulty song.diffGuitarCoop) >> Just PartGRYBO
+        { grybo = guard (isnt Five.nullFive (.fixedPartGuitarCoop) && guardDifficulty song.diffGuitarCoop) >> Just PartGRYBO
           { difficulty = toTier song.diffGuitarCoop
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -726,14 +728,14 @@ removeDummyTracks trks = let
     . RTB.collectCoincident
     . getGems
   in trks
-    { F.fixedPartGuitar      = five  $ F.fixedPartGuitar      trks
-    , F.fixedPartBass        = five  $ F.fixedPartBass        trks
-    , F.fixedPartKeys        = five  $ F.fixedPartKeys        trks
-    , F.fixedPartRhythm      = five  $ F.fixedPartRhythm      trks
-    , F.fixedPartGuitarCoop  = five  $ F.fixedPartGuitarCoop  trks
-    , F.fixedPartDrums       = drums $ F.fixedPartDrums       trks
-    , F.fixedPartDrums2x     = drums $ F.fixedPartDrums2x     trks
-    , F.fixedPartRealDrumsPS = drums $ F.fixedPartRealDrumsPS trks
+    { F.fixedPartGuitar      = five  trks.fixedPartGuitar
+    , F.fixedPartBass        = five  trks.fixedPartBass
+    , F.fixedPartKeys        = five  trks.fixedPartKeys
+    , F.fixedPartRhythm      = five  trks.fixedPartRhythm
+    , F.fixedPartGuitarCoop  = five  trks.fixedPartGuitarCoop
+    , F.fixedPartDrums       = drums trks.fixedPartDrums
+    , F.fixedPartDrums2x     = drums trks.fixedPartDrums2x
+    , F.fixedPartRealDrumsPS = drums trks.fixedPartRealDrumsPS
     }
 
 fixShortVoxPhrasesTrack
@@ -794,12 +796,12 @@ fixShortVoxPhrases
   => F.Song (F.FixedFile U.Beats)
   -> StackTraceT m (F.Song (F.FixedFile U.Beats))
 fixShortVoxPhrases song@(F.Song tmap mmap ps)
-  | not $ nullVox $ F.fixedHarm1 ps = return song
+  | not $ nullVox ps.fixedHarm1 = return song
     -- not touching songs with harmonies
-  | not $ RTB.null $ vocalPhrase2 $ F.fixedPartVocals ps = return song
+  | not $ RTB.null ps.fixedPartVocals.vocalPhrase2 = return song
     -- not touching songs with separate p1/p2 phrases
   | otherwise = inside "Track PART VOCALS" $ do
-    let vox = F.fixedPartVocals ps
+    let vox = ps.fixedPartVocals
         (vox', differenceTimes) = fixShortVoxPhrasesTrack vox
     case differenceTimes of
       [] -> return ()

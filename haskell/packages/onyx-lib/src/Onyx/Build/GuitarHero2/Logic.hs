@@ -332,21 +332,20 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           $ RB.vocalNotes trk
         in mempty { singerIdle = idle, singerPlay = play }
       events = mempty
-        { eventsSections      = fmap (makeGH2Section . sectionBody)
-          $ RB.eventsSections $ F.onyxEvents onyx
+        { eventsSections      = fmap (makeGH2Section . sectionBody) onyx.onyxEvents.eventsSections
         , eventsOther         = foldr RTB.merge RTB.empty
           [ RTB.cons (timingMusicStart timing) MusicStart RTB.empty
           , RTB.cons (timingEnd        timing) End        RTB.empty
           ]
         }
       triggers = mempty
-        { triggersBacking = RB.eventsBacking $ F.onyxEvents onyx
+        { triggersBacking = onyx.onyxEvents.eventsBacking
         }
       getFive' fpart = do
         builder <- getPart fpart song >>= anyFiveFret
         return $ builder FiveTypeGuitar ModeInput
           { tempo  = tmap
-          , events = F.onyxEvents onyx
+          , events = onyx.onyxEvents
           , part   = F.getFlexPart fpart onyx
           }
   gh2PartGuitar <- makeGRYBO audio.leadTrack
@@ -363,9 +362,9 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             GH2Bass   -> mempty
         , gh2PartDrum = maybe mempty makeDrum audio.drumTrack
         , gh2BandBass       = maybe mempty (\part -> maybe mempty makeBandBass $ getFive' part) audio.animBass
-        , gh2BandDrums      = maybe mempty (\part -> makeBandDrums $ F.onyxPartDrums   $ F.getFlexPart part onyx) audio.animDrums
+        , gh2BandDrums      = maybe mempty (\part -> makeBandDrums (F.getFlexPart part onyx).onyxPartDrums) audio.animDrums
         , gh2BandKeys       = maybe mempty (\part -> maybe mempty makeBandKeys $ getFive' part) audio.animKeys
-        , gh2BandSinger     = maybe mempty (\part -> makeBandSinger $ F.onyxPartVocals $ F.getFlexPart part onyx) audio.animVocal
+        , gh2BandSinger     = maybe mempty (\part -> makeBandSinger (F.getFlexPart part onyx).onyxPartVocals) audio.animVocal
         , gh2Events         = events
         , gh2Triggers       = triggers
         , ..

@@ -1043,7 +1043,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     sink $ EventOnyx $ void $ forkOnyx $ do
       let input = takeDirectory (projectLocation proj) </> "notes.mid"
       mid <- F.loadMIDI input
-      let fixed = F.onyxToFixed $ F.s_tracks mid
+      let fixed = F.onyxToFixed mid.s_tracks
           foundTracksRB3 = getScoreTracks    fixed
           foundTracksGH2 = getScoreTracksGH2 fixed
       -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
