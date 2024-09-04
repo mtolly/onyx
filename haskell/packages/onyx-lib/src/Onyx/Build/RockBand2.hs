@@ -81,7 +81,7 @@ convertMidiRB2 mid = fixUnisons mid
       bass = song.tracks.fixedPartBass
       drum = song.tracks.fixedPartDrums
       in if not $ nullFive gtr || nullFive bass || nullDrums drum
-        then fixPartialUnisons [F.FlexGuitar, F.FlexBass, F.FlexDrums] song
+        then fixPartialUnisons [F.PartGuitar, F.PartBass, F.PartDrums] song
         else return song
 
 -- Should be given the output of convertMidiRB2

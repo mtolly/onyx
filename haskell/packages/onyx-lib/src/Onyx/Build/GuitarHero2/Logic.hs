@@ -81,8 +81,8 @@ gh2Pad rb3@(F.Song tmap _ trks) = let
       return (F.padAnyFile padSeconds rb3, padSeconds)
 
 data GH2AudioSection
-  = GH2PartStereo F.FlexPartName
-  | GH2PartMono F.FlexPartName
+  = GH2PartStereo F.PartName
+  | GH2PartMono F.PartName
   | GH2Band -- stereo
   | GH2Silent -- mono
 
@@ -92,15 +92,15 @@ data GH2Audio = GH2Audio
   , coopChannels  :: [Int]
   , drumChannels  :: [Int]
   , backChannels  :: [Int]
-  , leadTrack     :: F.FlexPartName
-  , coopTrack     :: F.FlexPartName
-  , drumTrack     :: Maybe F.FlexPartName
+  , leadTrack     :: F.PartName
+  , coopTrack     :: F.PartName
+  , drumTrack     :: Maybe F.PartName
   , coopType      :: GH2Coop
-  , animBass      :: Maybe F.FlexPartName
-  , animDrums     :: Maybe F.FlexPartName
-  , animVocal     :: Maybe F.FlexPartName
-  , animKeys      :: Maybe F.FlexPartName
-  , practice      :: [Maybe F.FlexPartName]
+  , animBass      :: Maybe F.PartName
+  , animDrums     :: Maybe F.PartName
+  , animVocal     :: Maybe F.PartName
+  , animKeys      :: Maybe F.PartName
+  , practice      :: [Maybe F.PartName]
   , leadPractice  :: Int
   , coopPractice  :: Int
   , drumPractice  :: Maybe Int
@@ -111,7 +111,7 @@ computeGH2Audio
   => SongYaml f
   -> TargetGH2 f
   -> Bool -- xbox 360
-  -> (F.FlexPartName -> Bool) -- True if part has own audio
+  -> (F.PartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH2Audio
 computeGH2Audio song target is360 hasAudio = do
   let canGetFiveFret = \case

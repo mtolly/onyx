@@ -42,7 +42,6 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Track.Drums            as Drums
 import qualified Onyx.MIDI.Track.Drums.Elite      as ED
-import           Onyx.MIDI.Track.File             (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.Mania            (ManiaTrack (..),
@@ -535,22 +534,22 @@ importFoF src dir level = do
     , plans = HM.singleton "fof" $ StandardPlan StandardPlanInfo
       { song         = audioExpr songAudio
       , parts        = Parts $ HM.fromList $ concat
-        [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(FlexGuitar, PartSingle x)]
+        [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(F.PartGuitar, PartSingle x)]
         , case (audioExpr bassAudio, audioExpr rhythmAudio) of
           -- the complicated assignment of rhythm.ogg/bass.ogg to rhythm/bass parts
           (Nothing, Nothing) -> []
-          (Just b , Just r ) -> [(FlexBass, PartSingle b), (FlexExtra "rhythm", PartSingle r)]
-          (Just b , Nothing) -> [(FlexBass, PartSingle b)]
+          (Just b , Just r ) -> [(F.PartBass, PartSingle b), (F.PartName "rhythm", PartSingle r)]
+          (Just b , Nothing) -> [(F.PartBass, PartSingle b)]
           (Nothing, Just r ) -> case (hasBass, hasRhythm) of
-            (True , True) -> [(FlexExtra "rhythm-bass", PartSingle r)] -- make up a part so neither bass nor rhythm gets the audio
-            (False, True) -> [(FlexExtra "rhythm"     , PartSingle r)]
-            _             -> [(FlexBass               , PartSingle r)]
-        , case audioExpr keysAudio of Nothing -> []; Just x -> [(FlexKeys, PartSingle x)]
-        , case audioExpr voxAudio of Nothing -> []; Just x -> [(FlexVocal, PartSingle x)]
+            (True , True) -> [(F.PartName "rhythm-bass", PartSingle r)] -- make up a part so neither bass nor rhythm gets the audio
+            (False, True) -> [(F.PartName "rhythm"     , PartSingle r)]
+            _             -> [(F.PartBass              , PartSingle r)]
+        , case audioExpr keysAudio of Nothing -> []; Just x -> [(F.PartKeys, PartSingle x)]
+        , case audioExpr voxAudio of Nothing -> []; Just x -> [(F.PartVocal, PartSingle x)]
         , case (audioExpr drumsAudio, audioExpr kickAudio, audioExpr snareAudio, audioExpr tomsAudio) of
           (Nothing, Nothing, Nothing, Nothing) -> []
-          (Just kit, Nothing, Nothing, Nothing) -> [(FlexDrums, PartSingle kit)]
-          (Just kit, kick, snare, toms) -> [(FlexDrums, PartDrumKit
+          (Just kit, Nothing, Nothing, Nothing) -> [(F.PartDrums, PartSingle kit)]
+          (Just kit, kick, snare, toms) -> [(F.PartDrums, PartDrumKit
             { kit   = kit
             , kick  = kick
             , toms  = toms
@@ -565,7 +564,7 @@ importFoF src dir level = do
       }
     , targets = HM.singleton "ps" $ PS def
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, (emptyPart :: Part SoftFile)
+      [ ( F.PartDrums, (emptyPart :: Part SoftFile)
         { drums = do
           guard
             $ (isnt nullDrums (.fixedPartDrums) || isnt nullDrums (.fixedPartRealDrumsPS) || isnt ED.nullEliteDrums (.fixedPartEliteDrums))
@@ -593,8 +592,8 @@ importFoF src dir level = do
               else FallbackGreen
             }
         })
-      , ( FlexGuitar, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive (.fixedPartGuitar) && guardDifficulty song.diffGuitar) >> Just PartGRYBO
+      , ( F.PartGuitar, (emptyPart :: Part SoftFile)
+        { grybo = guard (isnt Five.nullFive (.fixedPartGuitar) && guardDifficulty song.diffGuitar) >> Just ModeFive
           { difficulty = toTier song.diffGuitar
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -605,7 +604,7 @@ importFoF src dir level = do
         , proGuitar = let
           b =  (isnt nullPG (.fixedPartRealGuitar)   && guardDifficulty song.diffGuitarReal  )
             || (isnt nullPG (.fixedPartRealGuitar22) && guardDifficulty song.diffGuitarReal22)
-          in guard b >> Just PartProGuitar
+          in guard b >> Just ModeProGuitar
             { difficulty    = toTier song.diffGuitarReal
             , hopoThreshold = hopoThreshold
             , tuning        = (eadgbeOffsetsToTuning TypeGuitar tuningGtr.offsets)
@@ -616,13 +615,13 @@ importFoF src dir level = do
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix (.fixedPartGuitarGHL) && guardDifficulty song.diffGuitarGHL) >> Just PartGHL
+        , ghl = guard (isnt nullSix (.fixedPartGuitarGHL) && guardDifficulty song.diffGuitarGHL) >> Just ModeSix
           { difficulty = toTier song.diffGuitarGHL
           , hopoThreshold = hopoThreshold
           }
         })
-      , ( FlexBass, (emptyPart :: Part SoftFile)
-        { grybo = guard hasBass >> Just PartGRYBO
+      , ( F.PartBass, (emptyPart :: Part SoftFile)
+        { grybo = guard hasBass >> Just ModeFive
           { difficulty = toTier song.diffBass
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -633,7 +632,7 @@ importFoF src dir level = do
         , proGuitar = let
           b =  (isnt nullPG (.fixedPartRealBass)   && guardDifficulty song.diffBassReal  )
             || (isnt nullPG (.fixedPartRealBass22) && guardDifficulty song.diffBassReal22)
-          in guard b >> Just PartProGuitar
+          in guard b >> Just ModeProGuitar
             { difficulty    = toTier song.diffBassReal
             , hopoThreshold = hopoThreshold
             , tuning        = (eadgbeOffsetsToTuning TypeBass tuningBass.offsets)
@@ -644,13 +643,13 @@ importFoF src dir level = do
             , tones         = Nothing
             , pickedBass    = False
             }
-        , ghl = guard (isnt nullSix (.fixedPartBassGHL) && guardDifficulty song.diffBassGHL) >> Just PartGHL
+        , ghl = guard (isnt nullSix (.fixedPartBassGHL) && guardDifficulty song.diffBassGHL) >> Just ModeSix
           { difficulty = toTier song.diffBassGHL
           , hopoThreshold = hopoThreshold
           }
         })
-      , ( FlexKeys, (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive (.fixedPartKeys) && guardDifficulty song.diffKeys) >> Just PartGRYBO
+      , ( F.PartKeys, (emptyPart :: Part SoftFile)
+        { grybo = guard (isnt Five.nullFive (.fixedPartKeys) && guardDifficulty song.diffKeys) >> Just ModeFive
           { difficulty = toTier song.diffKeys
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -658,13 +657,13 @@ importFoF src dir level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (isnt nullPK (.fixedPartRealKeysX) && guardDifficulty song.diffKeysReal) >> Just PartProKeys
+        , proKeys = guard (isnt nullPK (.fixedPartRealKeysX) && guardDifficulty song.diffKeysReal) >> Just ModeProKeys
           { difficulty = toTier song.diffKeysReal
           , fixFreeform = False
           }
         })
-      , ( FlexExtra "rhythm", (emptyPart :: Part SoftFile)
-        { grybo = guard hasRhythm >> Just PartGRYBO
+      , ( F.PartName "rhythm", (emptyPart :: Part SoftFile)
+        { grybo = guard hasRhythm >> Just ModeFive
           { difficulty = toTier song.diffRhythm
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -673,8 +672,8 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         })
-      , ( FlexExtra "guitar-coop", (emptyPart :: Part SoftFile)
-        { grybo = guard (isnt Five.nullFive (.fixedPartGuitarCoop) && guardDifficulty song.diffGuitarCoop) >> Just PartGRYBO
+      , ( F.PartName "guitar-coop", (emptyPart :: Part SoftFile)
+        { grybo = guard (isnt Five.nullFive (.fixedPartGuitarCoop) && guardDifficulty song.diffGuitarCoop) >> Just ModeFive
           { difficulty = toTier song.diffGuitarCoop
           , hopoThreshold = hopoThreshold
           , fixFreeform = False
@@ -683,8 +682,8 @@ importFoF src dir level = do
           , detectMutedOpens = True
           }
         })
-      , ( FlexVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode $ \vc -> PartVocal
+      , ( F.PartVocal, (emptyPart :: Part SoftFile)
+        { vocal = flip fmap vocalMode $ \vc -> ModeVocal
           { difficulty = toTier song.diffVocals
           , count = vc
           , gender = Nothing
@@ -692,19 +691,19 @@ importFoF src dir level = do
           , lipsyncRB3 = Nothing
           }
         })
-      , ( FlexExtra "dance", (emptyPart :: Part SoftFile)
+      , ( F.PartName "dance", (emptyPart :: Part SoftFile)
         { mania = do
           guard $ guardDifficulty song.diffDance
           let maniaDiffList = do
                 diff <- [minBound .. maxBound]
                 let name = danceDifficultyName diff
                 maniaTrack <- toList
-                  $ Map.lookup (FlexExtra "dance") outputOnyx.tracks.onyxParts
+                  $ Map.lookup (F.PartName "dance") outputOnyx.tracks.onyxParts
                   >>= Map.lookup name . (.onyxPartMania)
                 guard $ not $ RTB.null maniaTrack.maniaNotes
                 return name
           maniaDiffs <- NE.nonEmpty maniaDiffList
-          Just PartMania
+          Just ModeMania
             { difficulty = toTier song.diffDance
             , keys = 4 -- could be lower? hopefully not higher
             , turntable = False

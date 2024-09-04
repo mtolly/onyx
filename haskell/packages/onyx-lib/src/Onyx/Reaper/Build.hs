@@ -36,8 +36,7 @@ import qualified Numeric.NonNegative.Wrapper           as NN
 import           Onyx.FeedBack.Load                    (loadRawMIDIOrChart)
 import           Onyx.MIDI.Common                      (Key (..), showKey)
 import           Onyx.MIDI.Track.Drums.Elite           (eliteDrumNoteNames)
-import           Onyx.MIDI.Track.File                  (FlexPartName (..),
-                                                        identifyFlexTrack)
+import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.MIDI.Track.ProGuitar             (GtrBase (..),
                                                         GtrTuning (..),
                                                         lowBassTuning,
@@ -193,10 +192,10 @@ reaSynthBytes rs = do
 track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t (E.T T.Text) -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
-  fpart = identifyFlexTrack name
+  fpart = F.identifyFlexTrack name
   tuning = flip fromMaybe (fpart >>= (`lookup` tunings.guitars)) $ case fpart of
-    Just FlexBass -> GtrTuning Bass4   [] 0 0 Nothing
-    _             -> GtrTuning Guitar6 [] 0 0 Nothing
+    Just F.PartBass -> GtrTuning Bass4   [] 0 0 Nothing
+    _               -> GtrTuning Guitar6 [] 0 0 Nothing
   in block "TRACK" [] $ do
     line "NAME" [name]
     let yellow = (255, 221, 0)
@@ -206,13 +205,13 @@ track tunings lenTicks lenSecs resn trk = let
         orange = (255, 119, 0)
         purple = (153, 17, 170)
         color = fpart >>= \case
-          FlexDrums          -> Just yellow
-          FlexGuitar         -> Just blue
-          FlexBass           -> Just red
-          FlexVocal          -> Just orange
-          FlexKeys           -> Just green
-          FlexExtra "rhythm" -> Just purple
-          _                  -> Nothing
+          F.PartDrums         -> Just yellow
+          F.PartGuitar        -> Just blue
+          F.PartBass          -> Just red
+          F.PartVocal         -> Just orange
+          F.PartKeys          -> Just green
+          F.PartName "rhythm" -> Just purple
+          _                   -> Nothing
     case color of
       Nothing -> return ()
       Just (r, g, b) -> let
@@ -1216,7 +1215,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`T.isSuffixOf` name)
 
 -- TODO this should be extended to support pgTuningRSBass
 data TuningInfo = TuningInfo
-  { guitars :: [(FlexPartName, GtrTuning)]
+  { guitars :: [(F.PartName, GtrTuning)]
   , cents   :: Int
   }
 

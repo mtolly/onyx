@@ -710,7 +710,7 @@ makeDisplay songYaml song = let
   coda = fmap (fst . fst) $ RTB.viewL song.tracks.onyxEvents.eventsCoda
   defaultFlat = maybe False songKeyUsesFlats songYaml.metadata.key
   -- the above gets imported from first song_key then vocal_tonic_note
-  makePart :: F.FlexPartName -> C.Part FilePath -> Flex U.Seconds
+  makePart :: F.PartName -> C.Part FilePath -> Flex U.Seconds
   makePart name fpart = Flex
     { flexFive = flip fmap (nativeFiveFret fpart) $ \builder -> let
       result = builder FiveTypeGuitarExt ModeInput

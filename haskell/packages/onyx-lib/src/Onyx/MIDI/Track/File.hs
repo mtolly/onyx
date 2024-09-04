@@ -8,6 +8,7 @@
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ViewPatterns        #-}
 module Onyx.MIDI.Track.File where
@@ -242,38 +243,32 @@ instance ParseFile FixedFile where
     fixedVenue            <- (.fixedVenue           ) =. fileTrack ("VENUE"               :| [])
     return FixedFile{..}
 
-data FlexPartName
-  = FlexGuitar
-  | FlexBass
-  | FlexDrums
-  | FlexKeys
-  | FlexVocal
-  | FlexExtra T.Text
+newtype PartName = PartName T.Text
   deriving (Eq, Ord, Show)
 
-readPartName :: T.Text -> FlexPartName
-readPartName = \case
-  "guitar" -> FlexGuitar
-  "bass"   -> FlexBass
-  "drums"  -> FlexDrums
-  "keys"   -> FlexKeys
-  "vocal"  -> FlexVocal
-  t        -> FlexExtra t
+pattern PartGuitar :: PartName
+pattern PartGuitar = PartName "guitar"
 
-getPartName :: FlexPartName -> T.Text
-getPartName = \case
-  FlexGuitar  -> "guitar"
-  FlexBass    -> "bass"
-  FlexDrums   -> "drums"
-  FlexKeys    -> "keys"
-  FlexVocal   -> "vocal"
-  FlexExtra t -> t
+pattern PartBass   :: PartName
+pattern PartBass   = PartName "bass"
 
-instance Hashable FlexPartName where
+pattern PartDrums  :: PartName
+pattern PartDrums  = PartName "drums"
+
+pattern PartKeys   :: PartName
+pattern PartKeys   = PartName "keys"
+
+pattern PartVocal  :: PartName
+pattern PartVocal  = PartName "vocal"
+
+getPartName :: PartName -> T.Text
+getPartName (PartName t) = t
+
+instance Hashable PartName where
   hashWithSalt salt = hashWithSalt salt . getPartName
 
 data OnyxFile t = OnyxFile
-  { onyxParts    :: Map.Map FlexPartName (OnyxPart t)
+  { onyxParts    :: Map.Map PartName (OnyxPart t)
   , onyxEvents   :: EventsTrack t
   , onyxBeat     :: BeatTrack t
   , onyxVenue    :: VenueTrack t
@@ -337,7 +332,7 @@ data OnyxPart t = OnyxPart
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (OnyxPart t)
 
-editOnyxPart :: (NNC.C t) => FlexPartName -> (OnyxPart t -> OnyxPart t) -> OnyxFile t -> OnyxFile t
+editOnyxPart :: (NNC.C t) => PartName -> (OnyxPart t -> OnyxPart t) -> OnyxFile t -> OnyxFile t
 editOnyxPart pname edit onyx = onyx
   { onyxParts = Map.alter
     (Just . edit . fromMaybe mempty)
@@ -360,81 +355,81 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn y <*> traverseTrack fn z <*> traverseTrack fn aa
       <*> traverse (traverseTrack fn) ab
 
-getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
+getFlexPart :: (NNC.C t) => PartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . (.onyxParts)
 
-identifyFlexTrack :: T.Text -> Maybe FlexPartName
+identifyFlexTrack :: T.Text -> Maybe PartName
 identifyFlexTrack name = case T.stripPrefix "[" name of
-  Just name' -> Just $ readPartName $ T.takeWhile (/= ']') name'
+  Just name' -> Just $ PartName $ T.takeWhile (/= ']') name'
   Nothing
-    | "RHYTHM"      `T.isInfixOf` name -> Just $ FlexExtra "rhythm"
-    | "GUITAR COOP" `T.isInfixOf` name -> Just $ FlexExtra "guitar-coop"
-    | "DRUM"        `T.isInfixOf` name -> Just FlexDrums
-    | "GUITAR"      `T.isInfixOf` name -> Just FlexGuitar
-    | "LEAD"        `T.isInfixOf` name -> Just FlexGuitar
-    | "T1 GEMS"     `T.isInfixOf` name -> Just FlexGuitar
-    | "Click"       `T.isInfixOf` name -> Just FlexGuitar
-    | "BASS"        `T.isInfixOf` name -> Just FlexBass
-    | "KEYS"        `T.isInfixOf` name -> Just FlexKeys
-    | "VOCAL"       `T.isInfixOf` name -> Just FlexVocal
-    | "HARM"        `T.isInfixOf` name -> Just FlexVocal
-    | "MELODY"      `T.isInfixOf` name -> Just $ FlexExtra "global"
-    | "KONGA"       `T.isInfixOf` name -> Just $ FlexExtra "global"
-    | "DANCE"       `T.isInfixOf` name -> Just $ FlexExtra "dance"
-    | "MANIA"       `T.isInfixOf` name -> Just FlexKeys
+    | "RHYTHM"      `T.isInfixOf` name -> Just $ PartName "rhythm"
+    | "GUITAR COOP" `T.isInfixOf` name -> Just $ PartName "guitar-coop"
+    | "DRUM"        `T.isInfixOf` name -> Just PartDrums
+    | "GUITAR"      `T.isInfixOf` name -> Just PartGuitar
+    | "LEAD"        `T.isInfixOf` name -> Just PartGuitar
+    | "T1 GEMS"     `T.isInfixOf` name -> Just PartGuitar
+    | "Click"       `T.isInfixOf` name -> Just PartGuitar
+    | "BASS"        `T.isInfixOf` name -> Just PartBass
+    | "KEYS"        `T.isInfixOf` name -> Just PartKeys
+    | "VOCAL"       `T.isInfixOf` name -> Just PartVocal
+    | "HARM"        `T.isInfixOf` name -> Just PartVocal
+    | "MELODY"      `T.isInfixOf` name -> Just $ PartName "global"
+    | "KONGA"       `T.isInfixOf` name -> Just $ PartName "global"
+    | "DANCE"       `T.isInfixOf` name -> Just $ PartName "dance"
+    | "MANIA"       `T.isInfixOf` name -> Just PartKeys
     | otherwise                        -> Nothing
 
-parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
+parseOnyxPart :: (SendMessage m) => PartName -> FileCodec m U.Beats (OnyxPart U.Beats)
 parseOnyxPart partName = do
   let names pairs = let
         rawNames = fmap snd $ NE.filter ((== partName) . fst) pairs
         in fileTrack $ foldr NE.cons (fmap adorn pairs) rawNames
       adorn (_, trkName) = "[" <> getPartName partName <> "] " <> trkName
-  onyxPartDrums        <- (.onyxPartDrums       ) =. names (pure (FlexDrums, "PART DRUMS"))
-  onyxPartDrums2x      <- (.onyxPartDrums2x     ) =. names (pure (FlexDrums, "PART DRUMS_2X"))
-  onyxPartRealDrumsPS  <- (.onyxPartRealDrumsPS ) =. names (pure (FlexDrums, "PART REAL_DRUMS_PS"))
-  onyxPartEliteDrums   <- (.onyxPartEliteDrums  ) =. names (pure (FlexDrums, "PART ELITE_DRUMS"))
+  onyxPartDrums        <- (.onyxPartDrums       ) =. names (pure (PartDrums, "PART DRUMS"))
+  onyxPartDrums2x      <- (.onyxPartDrums2x     ) =. names (pure (PartDrums, "PART DRUMS_2X"))
+  onyxPartRealDrumsPS  <- (.onyxPartRealDrumsPS ) =. names (pure (PartDrums, "PART REAL_DRUMS_PS"))
+  onyxPartEliteDrums   <- (.onyxPartEliteDrums  ) =. names (pure (PartDrums, "PART ELITE_DRUMS"))
   onyxPartGuitar       <- (.onyxPartGuitar      ) =. names
-    ( (FlexGuitar, "PART GUITAR") :|
-    [ (FlexBass, "PART BASS")
-    , (FlexExtra "rhythm", "PART RHYTHM")
-    , (FlexExtra "guitar-coop", "PART GUITAR COOP")
+    ( (PartGuitar, "PART GUITAR") :|
+    [ (PartBass, "PART BASS")
+    , (PartName "rhythm", "PART RHYTHM")
+    , (PartName "guitar-coop", "PART GUITAR COOP")
     ])
-  onyxPartKeys         <- (.onyxPartKeys        ) =. names (pure (FlexKeys, "PART KEYS"))
+  onyxPartKeys         <- (.onyxPartKeys        ) =. names (pure (PartKeys, "PART KEYS"))
   onyxPartGuitarExt    <- (.onyxPartGuitarExt   ) =. names
-    ( (FlexGuitar, "PART GUITAR EXT") :|
-    [ (FlexBass, "PART BASS EXT")
-    , (FlexExtra "rhythm", "PART RHYTHM EXT")
-    , (FlexExtra "guitar-coop", "PART GUITAR COOP EXT")
+    ( (PartGuitar, "PART GUITAR EXT") :|
+    [ (PartBass, "PART BASS EXT")
+    , (PartName "rhythm", "PART RHYTHM EXT")
+    , (PartName "guitar-coop", "PART GUITAR COOP EXT")
     ])
   onyxPartSix          <- (.onyxPartSix         ) =. names
-    ((FlexGuitar, "PART GUITAR GHL") :|
-    [ (FlexBass, "PART BASS GHL") ])
+    ((PartGuitar, "PART GUITAR GHL") :|
+    [ (PartBass, "PART BASS GHL") ])
   onyxPartRealGuitar   <- (.onyxPartRealGuitar  ) =. names
-    ( (FlexGuitar, "PART REAL_GUITAR") :|
-    [ (FlexBass, "PART REAL_BASS") ])
+    ( (PartGuitar, "PART REAL_GUITAR") :|
+    [ (PartBass, "PART REAL_BASS") ])
   onyxPartRealGuitar22 <- (.onyxPartRealGuitar22) =. names
-    ( (FlexGuitar, "PART REAL_GUITAR_22") :|
-    [ (FlexBass, "PART REAL_BASS_22") ])
+    ( (PartGuitar, "PART REAL_GUITAR_22") :|
+    [ (PartBass, "PART REAL_BASS_22") ])
   onyxPartRSGuitar <- (.onyxPartRSGuitar) =. names
-    ( (FlexGuitar, "PART RS LEAD") :|
-    [ (FlexExtra "rhythm", "PART RS RHYTHM") ])
-  onyxPartRSBass <- (.onyxPartRSBass) =. names (pure (FlexBass, "PART RS BASS"))
-  onyxPartRealKeysE    <- (.onyxPartRealKeysE ) =. names (pure (FlexKeys, "PART REAL_KEYS_E"))
-  onyxPartRealKeysM    <- (.onyxPartRealKeysM ) =. names (pure (FlexKeys, "PART REAL_KEYS_M"))
-  onyxPartRealKeysH    <- (.onyxPartRealKeysH ) =. names (pure (FlexKeys, "PART REAL_KEYS_H"))
-  onyxPartRealKeysX    <- (.onyxPartRealKeysX ) =. names (pure (FlexKeys, "PART REAL_KEYS_X"))
-  onyxPartKeysAnimLH   <- (.onyxPartKeysAnimLH) =. names (pure (FlexKeys, "PART KEYS_ANIM_LH"))
-  onyxPartKeysAnimRH   <- (.onyxPartKeysAnimRH) =. names (pure (FlexKeys, "PART KEYS_ANIM_RH"))
-  onyxPartVocals       <- (.onyxPartVocals    ) =. names (pure (FlexVocal, "PART VOCALS"))
-  onyxHarm1            <- (.onyxHarm1         ) =. names ((FlexVocal, "HARM1") :| [(FlexVocal, "PART HARM1")])
-  onyxHarm2            <- (.onyxHarm2         ) =. names ((FlexVocal, "HARM2") :| [(FlexVocal, "PART HARM2")])
-  onyxHarm3            <- (.onyxHarm3         ) =. names ((FlexVocal, "HARM3") :| [(FlexVocal, "PART HARM3")])
-  onyxMelody           <- (.onyxMelody        ) =. names (pure (FlexExtra "global", "MELODY'S ESCAPE"))
-  onyxLipsync1         <- (.onyxLipsync1      ) =. names (pure (FlexVocal, "LIPSYNC1"))
-  onyxLipsync2         <- (.onyxLipsync2      ) =. names (pure (FlexVocal, "LIPSYNC2"))
-  onyxLipsync3         <- (.onyxLipsync3      ) =. names (pure (FlexVocal, "LIPSYNC3"))
-  onyxLipsync4         <- (.onyxLipsync4      ) =. names (pure (FlexVocal, "LIPSYNC4"))
+    ( (PartGuitar, "PART RS LEAD") :|
+    [ (PartName "rhythm", "PART RS RHYTHM") ])
+  onyxPartRSBass <- (.onyxPartRSBass) =. names (pure (PartBass, "PART RS BASS"))
+  onyxPartRealKeysE    <- (.onyxPartRealKeysE ) =. names (pure (PartKeys, "PART REAL_KEYS_E"))
+  onyxPartRealKeysM    <- (.onyxPartRealKeysM ) =. names (pure (PartKeys, "PART REAL_KEYS_M"))
+  onyxPartRealKeysH    <- (.onyxPartRealKeysH ) =. names (pure (PartKeys, "PART REAL_KEYS_H"))
+  onyxPartRealKeysX    <- (.onyxPartRealKeysX ) =. names (pure (PartKeys, "PART REAL_KEYS_X"))
+  onyxPartKeysAnimLH   <- (.onyxPartKeysAnimLH) =. names (pure (PartKeys, "PART KEYS_ANIM_LH"))
+  onyxPartKeysAnimRH   <- (.onyxPartKeysAnimRH) =. names (pure (PartKeys, "PART KEYS_ANIM_RH"))
+  onyxPartVocals       <- (.onyxPartVocals    ) =. names (pure (PartVocal, "PART VOCALS"))
+  onyxHarm1            <- (.onyxHarm1         ) =. names ((PartVocal, "HARM1") :| [(PartVocal, "PART HARM1")])
+  onyxHarm2            <- (.onyxHarm2         ) =. names ((PartVocal, "HARM2") :| [(PartVocal, "PART HARM2")])
+  onyxHarm3            <- (.onyxHarm3         ) =. names ((PartVocal, "HARM3") :| [(PartVocal, "PART HARM3")])
+  onyxMelody           <- (.onyxMelody        ) =. names (pure (PartName "global", "MELODY'S ESCAPE"))
+  onyxLipsync1         <- (.onyxLipsync1      ) =. names (pure (PartVocal, "LIPSYNC1"))
+  onyxLipsync2         <- (.onyxLipsync2      ) =. names (pure (PartVocal, "LIPSYNC2"))
+  onyxLipsync3         <- (.onyxLipsync3      ) =. names (pure (PartVocal, "LIPSYNC3"))
+  onyxLipsync4         <- (.onyxLipsync4      ) =. names (pure (PartVocal, "LIPSYNC4"))
   onyxPartMania        <- (.onyxPartMania     ) =. let
     prefix = "[" <> getPartName partName <> "] PART MANIA "
     in Codec
@@ -903,36 +898,36 @@ instance ChopTrack OnyxPart where
 
 onyxToFixed :: OnyxFile U.Beats -> FixedFile U.Beats
 onyxToFixed o = FixedFile
-  { fixedPartDrums        = inPart FlexDrums                 (.onyxPartDrums)
-  , fixedPartDrums2x      = inPart FlexDrums                 (.onyxPartDrums2x)
-  , fixedPartRealDrumsPS  = inPart FlexDrums                 (.onyxPartRealDrumsPS)
-  , fixedPartEliteDrums   = inPart FlexDrums                 (.onyxPartEliteDrums)
-  , fixedPartGuitar       = inPart FlexGuitar                (.onyxPartGuitar)
-  , fixedPartBass         = inPart FlexBass                  (.onyxPartGuitar)
-  , fixedPartKeys         = inPart FlexKeys                  (.onyxPartKeys)
-  , fixedPartRhythm       = inPart (FlexExtra "rhythm")      (.onyxPartGuitar)
-  , fixedPartGuitarCoop   = inPart (FlexExtra "guitar-coop") (.onyxPartGuitar)
-  , fixedPartRealGuitar   = inPart FlexGuitar                (.onyxPartRealGuitar)
-  , fixedPartRealGuitar22 = inPart FlexGuitar                (.onyxPartRealGuitar22)
-  , fixedPartRealBass     = inPart FlexBass                  (.onyxPartRealGuitar)
-  , fixedPartRealBass22   = inPart FlexBass                  (.onyxPartRealGuitar22)
-  , fixedPartGuitarGHL    = inPart FlexGuitar                (.onyxPartSix)
-  , fixedPartBassGHL      = inPart FlexBass                  (.onyxPartSix)
-  , fixedPartRealKeysE    = inPart FlexKeys                  (.onyxPartRealKeysE)
-  , fixedPartRealKeysM    = inPart FlexKeys                  (.onyxPartRealKeysM)
-  , fixedPartRealKeysH    = inPart FlexKeys                  (.onyxPartRealKeysH)
-  , fixedPartRealKeysX    = inPart FlexKeys                  (.onyxPartRealKeysX)
-  , fixedPartKeysAnimLH   = inPart FlexKeys                  (.onyxPartKeysAnimLH)
-  , fixedPartKeysAnimRH   = inPart FlexKeys                  (.onyxPartKeysAnimRH)
-  , fixedPartVocals       = inPart FlexVocal                 (.onyxPartVocals)
+  { fixedPartDrums        = inPart PartDrums                 (.onyxPartDrums)
+  , fixedPartDrums2x      = inPart PartDrums                 (.onyxPartDrums2x)
+  , fixedPartRealDrumsPS  = inPart PartDrums                 (.onyxPartRealDrumsPS)
+  , fixedPartEliteDrums   = inPart PartDrums                 (.onyxPartEliteDrums)
+  , fixedPartGuitar       = inPart PartGuitar                (.onyxPartGuitar)
+  , fixedPartBass         = inPart PartBass                  (.onyxPartGuitar)
+  , fixedPartKeys         = inPart PartKeys                  (.onyxPartKeys)
+  , fixedPartRhythm       = inPart (PartName "rhythm")      (.onyxPartGuitar)
+  , fixedPartGuitarCoop   = inPart (PartName "guitar-coop") (.onyxPartGuitar)
+  , fixedPartRealGuitar   = inPart PartGuitar                (.onyxPartRealGuitar)
+  , fixedPartRealGuitar22 = inPart PartGuitar                (.onyxPartRealGuitar22)
+  , fixedPartRealBass     = inPart PartBass                  (.onyxPartRealGuitar)
+  , fixedPartRealBass22   = inPart PartBass                  (.onyxPartRealGuitar22)
+  , fixedPartGuitarGHL    = inPart PartGuitar                (.onyxPartSix)
+  , fixedPartBassGHL      = inPart PartBass                  (.onyxPartSix)
+  , fixedPartRealKeysE    = inPart PartKeys                  (.onyxPartRealKeysE)
+  , fixedPartRealKeysM    = inPart PartKeys                  (.onyxPartRealKeysM)
+  , fixedPartRealKeysH    = inPart PartKeys                  (.onyxPartRealKeysH)
+  , fixedPartRealKeysX    = inPart PartKeys                  (.onyxPartRealKeysX)
+  , fixedPartKeysAnimLH   = inPart PartKeys                  (.onyxPartKeysAnimLH)
+  , fixedPartKeysAnimRH   = inPart PartKeys                  (.onyxPartKeysAnimRH)
+  , fixedPartVocals       = inPart PartVocal                 (.onyxPartVocals)
   , fixedPartDance        = mempty
-  , fixedHarm1            = inPart FlexVocal                 (.onyxHarm1)
-  , fixedHarm2            = inPart FlexVocal                 (.onyxHarm2)
-  , fixedHarm3            = inPart FlexVocal                 (.onyxHarm3)
-  , fixedLipsync1         = inPart FlexVocal                 (.onyxLipsync1)
-  , fixedLipsync2         = inPart FlexVocal                 (.onyxLipsync2)
-  , fixedLipsync3         = inPart FlexVocal                 (.onyxLipsync3)
-  , fixedLipsync4         = inPart FlexVocal                 (.onyxLipsync4)
+  , fixedHarm1            = inPart PartVocal                 (.onyxHarm1)
+  , fixedHarm2            = inPart PartVocal                 (.onyxHarm2)
+  , fixedHarm3            = inPart PartVocal                 (.onyxHarm3)
+  , fixedLipsync1         = inPart PartVocal                 (.onyxLipsync1)
+  , fixedLipsync2         = inPart PartVocal                 (.onyxLipsync2)
+  , fixedLipsync3         = inPart PartVocal                 (.onyxLipsync3)
+  , fixedLipsync4         = inPart PartVocal                 (.onyxLipsync4)
   , fixedLipsyncJohn      = mempty
   , fixedLipsyncPaul      = mempty
   , fixedLipsyncGeorge    = mempty
@@ -945,19 +940,19 @@ onyxToFixed o = FixedFile
 fixedToOnyx :: FixedFile U.Beats -> OnyxFile U.Beats
 fixedToOnyx f = OnyxFile
   { onyxParts    = Map.fromList
-    [ (FlexGuitar, mempty
+    [ (PartGuitar, mempty
       { onyxPartGuitar       = f.fixedPartGuitar
       , onyxPartRealGuitar   = f.fixedPartRealGuitar
       , onyxPartRealGuitar22 = f.fixedPartRealGuitar22
       , onyxPartSix          = f.fixedPartGuitarGHL
       })
-    , (FlexBass, mempty
+    , (PartBass, mempty
       { onyxPartGuitar       = f.fixedPartBass
       , onyxPartRealGuitar   = f.fixedPartRealBass
       , onyxPartRealGuitar22 = f.fixedPartRealBass22
       , onyxPartSix          = f.fixedPartBassGHL
       })
-    , (FlexKeys, mempty
+    , (PartKeys, mempty
       { onyxPartKeys       = f.fixedPartKeys
       , onyxPartRealKeysE  = f.fixedPartRealKeysE
       , onyxPartRealKeysM  = f.fixedPartRealKeysM
@@ -966,13 +961,13 @@ fixedToOnyx f = OnyxFile
       , onyxPartKeysAnimLH = f.fixedPartKeysAnimLH
       , onyxPartKeysAnimRH = f.fixedPartKeysAnimRH
       })
-    , (FlexDrums, mempty
+    , (PartDrums, mempty
       { onyxPartDrums       = f.fixedPartDrums
       , onyxPartDrums2x     = f.fixedPartDrums2x
       , onyxPartRealDrumsPS = f.fixedPartRealDrumsPS
       , onyxPartEliteDrums  = f.fixedPartEliteDrums
       })
-    , (FlexVocal, mempty
+    , (PartVocal, mempty
       { onyxPartVocals = f.fixedPartVocals
       , onyxHarm1      = f.fixedHarm1
       , onyxHarm2      = f.fixedHarm2
@@ -982,13 +977,13 @@ fixedToOnyx f = OnyxFile
       , onyxLipsync3   = f.fixedLipsync3
       , onyxLipsync4   = f.fixedLipsync4
       })
-    , (FlexExtra "rhythm", mempty
+    , (PartName "rhythm", mempty
       { onyxPartGuitar = f.fixedPartRhythm
       })
-    , (FlexExtra "guitar-coop", mempty
+    , (PartName "guitar-coop", mempty
       { onyxPartGuitar = f.fixedPartGuitarCoop
       })
-    , (FlexExtra "dance", mempty
+    , (PartName "dance", mempty
       { onyxPartMania = danceToMania f.fixedPartDance
       })
     ]

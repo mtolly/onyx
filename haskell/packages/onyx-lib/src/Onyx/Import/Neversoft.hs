@@ -233,7 +233,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                 []         -> Nothing
               , parts = Parts $ HM.fromList $ let
                 drums = case map fst streams1 of
-                  d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
+                  d1 : d2 : d3 : d4 : _ -> [(F.PartDrums, PartDrumKit
                     { kick = Just $ adjustedInput d1
                     , snare = Just $ adjustedInput d2
                     , toms = Just $ adjustedInput d3
@@ -242,9 +242,9 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                   _ -> []
                 gbv = case map fst streams2 of
                   g : b : v : _ ->
-                    [ (F.FlexGuitar, PartSingle $ adjustedInput g)
-                    , (F.FlexBass  , PartSingle $ adjustedInput b)
-                    , (F.FlexVocal , PartSingle $ adjustedInput v)
+                    [ (F.PartGuitar, PartSingle $ adjustedInput g)
+                    , (F.PartBass  , PartSingle $ adjustedInput b)
+                    , (F.PartVocal , PartSingle $ adjustedInput v)
                     ]
                   _ -> []
                 in drums <> gbv
@@ -257,13 +257,13 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               }
             , targets = HM.empty
             , parts = Parts $ HM.fromList
-              [ (F.FlexGuitar, (emptyPart :: Part SoftFile)
+              [ (F.PartGuitar, (emptyPart :: Part SoftFile)
                 { grybo = readTier info.songTierGuitar $ \diff -> def { difficulty = diff }
                 })
-              , (F.FlexBass, (emptyPart :: Part SoftFile)
+              , (F.PartBass, (emptyPart :: Part SoftFile)
                 { grybo = readTier info.songTierBass $ \diff -> def { difficulty = diff }
                 })
-              , (F.FlexDrums, (emptyPart :: Part SoftFile)
+              , (F.PartDrums, (emptyPart :: Part SoftFile)
                 { drums = readTier info.songTierDrums $ \diff -> let
                   -- can't use `info.songDoubleKick` since some WoR songs like
                   -- Aqualung say "double kick" but they only have ghost notes,
@@ -271,12 +271,12 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                   kicks = if RTB.null midiFixed.tracks.fixedPartDrums.drumKick2x
                     then Kicks1x
                     else KicksBoth
-                  in (emptyPartDrums Drums5 kicks :: PartDrums SoftFile)
+                  in (emptyPartDrums Drums5 kicks :: ModeDrums SoftFile)
                     { difficulty = diff
                     }
                 })
-              , (F.FlexVocal, (emptyPart :: Part SoftFile)
-                { vocal = readTier info.songTierVocals $ \diff -> PartVocal
+              , (F.PartVocal, (emptyPart :: Part SoftFile)
+                { vocal = readTier info.songTierVocals $ \diff -> ModeVocal
                   { difficulty = diff
                   , count      = Vocal1
                   , gender     = info.songSinger
@@ -502,7 +502,7 @@ importGH4Song ghi level = do
               []         -> Nothing
             , parts = Parts $ HM.fromList $ let
               drums = case map fst streams1 of
-                d1 : d2 : d3 : d4 : _ -> [(F.FlexDrums, PartDrumKit
+                d1 : d2 : d3 : d4 : _ -> [(F.PartDrums, PartDrumKit
                   { kick  = Just $ adjustedInput d1
                   , snare = Just $ adjustedInput d2
                   , toms  = Just $ adjustedInput d3
@@ -511,9 +511,9 @@ importGH4Song ghi level = do
                 _ -> []
               gbv = case map fst streams2 of
                 g : b : v : _ ->
-                  [ (F.FlexGuitar, PartSingle $ adjustedInput g)
-                  , (F.FlexBass  , PartSingle $ adjustedInput b)
-                  , (F.FlexVocal , PartSingle $ adjustedInput v)
+                  [ (F.PartGuitar, PartSingle $ adjustedInput g)
+                  , (F.PartBass  , PartSingle $ adjustedInput b)
+                  , (F.PartVocal , PartSingle $ adjustedInput v)
                   ]
                 _ -> []
               in drums <> gbv
@@ -557,11 +557,11 @@ importGH4Song ghi level = do
           plan = StandardPlan StandardPlanInfo
             { song = adjustedInputNS <$> streamSong
             , parts = Parts $ HM.fromList $ catMaybes
-              [ (\pair -> (F.FlexGuitar, PartSingle $ adjustedInputNS pair)) <$> streamGuitar
-              , (\pair -> (F.FlexBass, PartSingle $ adjustedInputNS pair)) <$> streamBass
+              [ (\pair -> (F.PartGuitar, PartSingle $ adjustedInputNS pair)) <$> streamGuitar
+              , (\pair -> (F.PartBass, PartSingle $ adjustedInputNS pair)) <$> streamBass
               , case (streamKick, streamCymbals, streamSnareToms) of
                 (Just kick, Just cymbals, Just snareToms) ->
-                  Just (F.FlexDrums, PartDrumKit
+                  Just (F.PartDrums, PartDrumKit
                     { kick = Just $ adjustedInputNS kick
                     , snare = Nothing
                     , toms = Nothing
@@ -603,19 +603,19 @@ importGH4Song ghi level = do
     , plans = HM.singleton "gh" plan
     , targets = HM.empty
     , parts = Parts $ HM.fromList
-      [ (F.FlexGuitar, (emptyPart :: Part SoftFile)
+      [ (F.PartGuitar, (emptyPart :: Part SoftFile)
         { grybo = Just def
         })
-      , (F.FlexBass, (emptyPart :: Part SoftFile)
+      , (F.PartBass, (emptyPart :: Part SoftFile)
         { grybo = Just def
         })
-      , (F.FlexDrums, (emptyPart :: Part SoftFile)
+      , (F.PartDrums, (emptyPart :: Part SoftFile)
         { drums = Just $ let
           kicks = if info.gh4DoubleKick then KicksBoth else Kicks1x
           in emptyPartDrums Drums5 kicks
         })
-      , (F.FlexVocal, (emptyPart :: Part SoftFile)
-        { vocal = Just PartVocal
+      , (F.PartVocal, (emptyPart :: Part SoftFile)
+        { vocal = Just ModeVocal
           { difficulty = Tier 1
           , count      = Vocal1
           , gender     = info.gh4Singer
@@ -775,7 +775,7 @@ importGH3Song ghi = let
     -- We Three Kings is only DLC with rhythm coop but use coop notetracks = false.
     let thisRhythmTrack = info.gh3RhythmTrack && hasRealCoop
         hasRealCoop     = mode == ImportCoop || not info.gh3UseCoopNotetracks
-        coopPart        = if thisRhythmTrack then F.FlexExtra "rhythm" else F.FlexBass
+        coopPart        = if thisRhythmTrack then F.PartName "rhythm" else F.PartBass
     midiOnyx <- case level of
       ImportFull -> do
         let ?endian = case ghi.audio of
@@ -812,7 +812,7 @@ importGH3Song ghi = let
           $ Map.lookup coopPart midiOnyx.tracks.onyxParts
         drums
           = maybe mempty (.onyxPartEliteDrums)
-          $ Map.lookup F.FlexDrums
+          $ Map.lookup F.PartDrums
           $ midiOnyx.tracks.onyxParts
     audio <- case level of
       ImportQuick -> return []
@@ -897,7 +897,7 @@ importGH3Song ghi = let
             PansVols [-1, 1] bandVol $ toExpr group
           , parts = Parts $ HM.fromList $ catMaybes
             [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
-              (F.FlexGuitar, PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
+              (F.PartGuitar, PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
             , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \group ->
               (coopPart    , PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
             ]
@@ -908,13 +908,13 @@ importGH3Song ghi = let
           }
       , targets = HM.empty
       , parts = Parts $ HM.fromList $ catMaybes
-        [ Just (F.FlexGuitar, emptyPart { grybo = Just def })
+        [ Just (F.PartGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
           let expert = fromMaybe mempty $ Map.lookup Expert $ Elite.tdDifficulties drums
           guard $ not $ RTB.null $ Elite.tdGems expert
           let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
-          Just (F.FlexDrums, emptyPart
+          Just (F.PartDrums, emptyPart
             { drums = Just $ emptyPartDrums DrumsTrue kicks
             })
         ]

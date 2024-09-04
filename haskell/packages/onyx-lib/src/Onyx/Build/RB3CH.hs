@@ -253,7 +253,7 @@ makeMoods tmap timing
   . U.applyTempoTrack tmap
 
 buildDrums
-  :: F.FlexPartName
+  :: F.PartName
   -> SharedTarget f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
@@ -369,7 +369,7 @@ addFiveMoods tempos timing ft = ft
   }
 
 buildFive
-  :: F.FlexPartName
+  :: F.PartName
   -> SharedTarget f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
@@ -480,9 +480,9 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
           , drums         = rb3.drums
           , keys          = rb3.keys
           , vocal         = rb3.vocal
-          , rhythm        = F.FlexExtra "undefined"
-          , guitarCoop    = F.FlexExtra "undefined"
-          , dance         = F.FlexExtra "undefined"
+          , rhythm        = F.PartName "undefined"
+          , guitarCoop    = F.PartName "undefined"
+          , dance         = F.PartName "undefined"
           , bigRockEnding = True
           , audioFormat   = "ogg"
           }
@@ -589,12 +589,12 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       bass   = makeGRYBOTrack False bassPart
 
       rhythmPart = case target of
-        SharedTargetRB {} -> F.FlexExtra "undefined"
+        SharedTargetRB {} -> F.PartName "undefined"
         SharedTargetPS ps -> ps.rhythm
       rhythmPS = makeGRYBOTrack False rhythmPart
 
       guitarCoopPart = case target of
-        SharedTargetRB {} -> F.FlexExtra "undefined"
+        SharedTargetRB {} -> F.PartName "undefined"
         SharedTargetPS ps -> ps.guitarCoop
       guitarCoopPS = makeGRYBOTrack False guitarCoopPart
 
@@ -1086,7 +1086,7 @@ findProblems :: F.Song (F.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Every discobeat mix event should be simultaneous with,
   -- or immediately followed by, a set of notes not including red or yellow.
-  let drums = (F.getFlexPart F.FlexDrums song.tracks).onyxPartDrums
+  let drums = (F.getFlexPart F.PartDrums song.tracks).onyxPartDrums
       discos = foldr RTB.merge RTB.empty $ do
         d <- [minBound .. maxBound]
         let diff = fromMaybe mempty $ Map.lookup d drums.drumDifficulties
@@ -1104,10 +1104,10 @@ findProblems song = execWriter $ do
         _                             -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox   = RBVox.vocalToLegacy $ (F.getFlexPart F.FlexVocal song.tracks).onyxPartVocals
-      harm1 = RBVox.vocalToLegacy $ (F.getFlexPart F.FlexVocal song.tracks).onyxHarm1
-      harm2 = RBVox.vocalToLegacy $ (F.getFlexPart F.FlexVocal song.tracks).onyxHarm2
-      harm3 = RBVox.vocalToLegacy $ (F.getFlexPart F.FlexVocal song.tracks).onyxHarm3
+  let vox   = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxPartVocals
+      harm1 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm1
+      harm2 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm2
+      harm3 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm3
       phraseOff = RBVox.Phrase False
       isLyric = \case RBVox.Lyric _ -> True; _ -> False
       voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do

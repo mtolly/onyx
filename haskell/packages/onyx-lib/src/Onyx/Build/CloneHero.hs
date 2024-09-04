@@ -158,7 +158,7 @@ psRules buildInfo dir ps = do
           -- but now we set it to true for 5-lane output for better compatibility
           -- (Moonscraper, YARG) and a nicer looking MIDI output (RYBOG in order)
           , drumFallbackBlue = pd >>= \case
-            PartDrums{ mode = Drums5, fallback = FallbackBlue } -> Just True
+            ModeDrums{ mode = Drums5, fallback = FallbackBlue } -> Just True
             _                                                   -> Nothing
           , songLength       = Just len
           , previewStartTime = Just pstart
@@ -186,7 +186,7 @@ psRules buildInfo dir ps = do
           , diffDance        = Just $ fromIntegral $ psDanceTier      - 1
           , diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
           , diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
-          -- TODO: are the 22-fret difficulties needed?
+          -- TODO probably only include 22 difficulties if 22 is present
           , diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier   - 1
           , diffGuitarReal22 = Just $ fromIntegral $ rb3ProGuitarTier - 1
           , diffGuitarCoop   = Just $ fromIntegral $ psGuitarCoopTier - 1
@@ -217,7 +217,7 @@ psRules buildInfo dir ps = do
           , videoStartTime   = Nothing
           , videoEndTime     = Nothing
           , videoLoop        = Nothing
-          -- TODO
+          -- TODO probably only include 22 tunings if 22 is present
           , realGuitarTuning   = tuningGtr
           , realGuitar22Tuning = tuningGtr
           , realBassTuning     = tuningBass

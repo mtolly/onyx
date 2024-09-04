@@ -131,7 +131,6 @@ import           Onyx.Import.GuitarHero2                   (Setlist (..),
 import           Onyx.Keys.Ranges                          (closeShiftsFile)
 import           Onyx.MIDI.Common                          (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                          as RB
-import           Onyx.MIDI.Track.File                      (FlexPartName (..))
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.Preferences                          (CHAudioFormat (..),
                                                             MagmaSetting (..),
@@ -688,22 +687,22 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { grybo = guard isChecked >> Just (pg :: PartGRYBO) { difficulty = diff } }
+              return curPart { grybo = guard isChecked >> Just (pg :: ModeFive) { difficulty = diff } }
           mbGHL <- forM part.ghl $ \pg -> addType "6-Fret" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { ghl = guard isChecked >> Just (pg :: PartGHL) { difficulty = diff } }
+              return curPart { ghl = guard isChecked >> Just (pg :: ModeSix) { difficulty = diff } }
           mbProKeys <- forM part.proKeys $ \pk -> addType "Pro Keys" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pk.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { proKeys = guard isChecked >> Just (pk :: PartProKeys) { difficulty = diff } }
+              return curPart { proKeys = guard isChecked >> Just (pk :: ModeProKeys) { difficulty = diff } }
           mbProGuitar <- forM part.proGuitar $ \pg -> addType "Pro Guitar" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return $ \isChecked curPart -> do
               diff <- getDiff
-              return curPart { proGuitar = guard isChecked >> Just (pg :: PartProGuitar FilePath) { difficulty = diff } }
+              return curPart { proGuitar = guard isChecked >> Just (pg :: ModeProGuitar FilePath) { difficulty = diff } }
           mbDrums <- forM part.drums $ \pd -> addType "Drums" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pd.difficulty
             getMode <- makeChoice itemCheck pd.mode $ \case
@@ -3413,11 +3412,11 @@ launchBatch sink makeMenuBar startFiles = mdo
       let subrects = splitHorizN 7 importToggles
           insts =
             [ ("Guitar", Just Guitar)
-            , ("Bass", Just Bass)
-            , ("Drums", Just Drums)
-            , ("Keys", Just Keys)
-            , ("Vocals", Just Vocal)
-            , ("Other", Nothing)
+            , ("Bass"  , Just Bass  )
+            , ("Drums" , Just Drums )
+            , ("Keys"  , Just Keys  )
+            , ("Vocals", Just Vocal )
+            , ("Other" , Nothing    )
             ]
       void $ FL.boxNew (head subrects) $ Just "Import:"
       getters <- forM (zip insts $ drop 1 subrects) $ \((txt, inst), subrect) -> do
@@ -3431,12 +3430,12 @@ launchBatch sink makeMenuBar startFiles = mdo
         return (songYaml :: SongYaml FilePath)
           { parts = Parts $ flip HM.filterWithKey songYaml.parts.getParts
             $ \part _ -> case part of
-              FlexGuitar -> elem (Just Guitar) active
-              FlexBass   -> elem (Just Bass  ) active
-              FlexDrums  -> elem (Just Drums ) active
-              FlexKeys   -> elem (Just Keys  ) active
-              FlexVocal  -> elem (Just Vocal ) active
-              _          -> elem Nothing       active
+              F.PartGuitar -> elem (Just Guitar) active
+              F.PartBass   -> elem (Just Bass  ) active
+              F.PartDrums  -> elem (Just Drums ) active
+              F.PartKeys   -> elem (Just Keys  ) active
+              F.PartVocal  -> elem (Just Vocal ) active
+              _            -> elem Nothing       active
           }
     FL.setResizable tab $ Just group
     return (tab, getter)

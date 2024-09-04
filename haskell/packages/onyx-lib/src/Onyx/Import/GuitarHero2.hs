@@ -205,32 +205,32 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
   , parts = Parts $ HM.fromList $ catMaybes
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
-      return (F.FlexGuitar, emptyPart
-        { grybo = Just (def :: PartGRYBO)
+      return (F.PartGuitar, emptyPart
+        { grybo = Just (def :: ModeFive)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
           }
         })
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
-      return (F.FlexBass, emptyPart
-        { grybo = Just (def :: PartGRYBO)
+      return (F.PartBass, emptyPart
+        { grybo = Just (def :: ModeFive)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
           }
         })
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
-      return (F.FlexExtra "rhythm", emptyPart
-        { grybo = Just (def :: PartGRYBO)
+      return (F.PartName "rhythm", emptyPart
+        { grybo = Just (def :: ModeFive)
           { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
           , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
           }
         })
     , do
       guard $ maybe False (not . null) $ lookup "drum" $ D.fromDictList $ tracks songChunk
-      return (F.FlexDrums, emptyPart
-        { drums = Just (emptyPartDrums Drums4 Kicks1x :: PartDrums SoftFile)
+      return (F.PartDrums, emptyPart
+        { drums = Just (emptyPartDrums Drums4 Kicks1x :: ModeDrums SoftFile)
           { difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
           -- TODO should probably save kicks 1x/2x so we can reimport here
           }
@@ -305,9 +305,9 @@ importGH2Song mode pkg displayPath folder level = do
                 { song = mixChans 0 songChans
                 , parts = Parts $ HM.fromList $ catMaybes
                   -- I made up these volume adjustments but they seem to work
-                  [ (F.FlexGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
-                  , (F.FlexBass ,) . PartSingle <$> mixChans (-3) bassChans
-                  , (F.FlexExtra "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
+                  [ (F.PartGuitar ,) . PartSingle <$> mixChans (-0.5) guitarChans
+                  , (F.PartBass ,) . PartSingle <$> mixChans (-3) bassChans
+                  , (F.PartName "rhythm" ,) . PartSingle <$> mixChans (-1.5) rhythmChans
                   ]
                 , crowd = Nothing
                 , comments = []
@@ -335,9 +335,9 @@ getGH2MoggPlan mogg songChunk = let
     { fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable mogg
     , moggMD5 = Nothing
     , parts = Parts $ HM.fromList $ concat
-      [ [ (F.FlexGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-      , [ (F.FlexBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-      , [ (F.FlexExtra "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
+      [ [ (F.PartGuitar        , PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+      , [ (F.PartBass          , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+      , [ (F.PartName "rhythm", PartSingle ns) | ns <- toList $ lookup "rhythm" instChans ]
       ]
     , crowd = []
     , pans = map realToFrac $ pans songChunk

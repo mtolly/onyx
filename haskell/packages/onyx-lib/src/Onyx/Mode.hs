@@ -59,7 +59,7 @@ data ModeInput = ModeInput
 ------------------------------------------------------------------
 
 data FiveResult = FiveResult
-  { settings  :: PartGRYBO
+  { settings  :: ModeFive
   , notes     :: Map.Map RB.Difficulty (RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats))
   , other     :: Five.FiveTrack U.Beats
   , source    :: T.Text
@@ -126,7 +126,7 @@ convertFiveToDrums bf _dtarget input = let
           in kick <> handGems'
     return (diff, RTB.flatten $ fmap eachInstant $ RTB.collectCoincident trk')
   in DrumResult
-    { settings = PartDrums
+    { settings = ModeDrums
       { difficulty    = fiveResult.settings.difficulty
       , mode          = Drums4
       , kicks         = Kicks1x -- lol
@@ -158,7 +158,7 @@ convertDrumsToFive :: BuildDrums -> BuildFive
 convertDrumsToFive bd _ftype input = let
   drumResult = bd DrumTargetRB2x input
   in FiveResult
-    { settings = (def :: PartGRYBO)
+    { settings = (def :: ModeFive)
       { difficulty = drumResult.settings.difficulty
       }
     , notes = flip fmap drumResult.notes $ \drumGems ->
@@ -197,7 +197,7 @@ convertDrumsToFive bd _ftype input = let
 ------------------------------------------------------------------
 
 data DrumResult = DrumResult
-  { settings   :: PartDrums ()
+  { settings   :: ModeDrums ()
   , notes      :: Map.Map RB.Difficulty (RTB.T U.Beats (D.Gem D.ProType, D.DrumVelocity))
   , other      :: D.DrumTrack U.Beats -- includes 2x kicks when CH/GH format is requested
   , animations :: RTB.T U.Beats D.Animation
@@ -298,7 +298,7 @@ anyDrums p
   <|> fmap convertFiveToDrums (nativeFiveFret p)
 
 buildDrumAnimation
-  :: PartDrums f
+  :: ModeDrums f
   -> U.TempoMap
   -> F.OnyxPart U.Beats
   -> RTB.T U.Beats D.Animation
@@ -321,7 +321,7 @@ buildDrumAnimation pd tmap opart = let
 ------------------------------------------------------------------
 
 data ProKeysResult = ProKeysResult
-  { settings     :: PartProKeys
+  { settings     :: ModeProKeys
   , difficulties :: Map.Map RB.Difficulty (ProKeysTrack U.Beats)
   , source       :: T.Text
   , autochart    :: Bool
@@ -348,7 +348,7 @@ nativeProKeys part = flip fmap part.proKeys $ \ppk input -> let
     , autochart = False
     }
 
-getManiaNormalTopDifficulty :: (NNC.C t) => PartMania -> F.OnyxPart t -> RTB.T t (RB.Edge () Int)
+getManiaNormalTopDifficulty :: (NNC.C t) => ModeMania -> F.OnyxPart t -> RTB.T t (RB.Edge () Int)
 getManiaNormalTopDifficulty pm part = case Map.lookup (NE.last pm.charts) part.onyxPartMania of
   Nothing  -> RTB.empty
   Just trk -> getManiaNormalNotes trk
@@ -371,7 +371,7 @@ maniaToProKeys part = do
       8 -> (RangeC, [             RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D             ])
       _ -> (RangeC, [RedYellow C, RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E])
     in ProKeysResult
-      { settings = PartProKeys
+      { settings = ModeProKeys
         { difficulty  = Tier 1
         , fixFreeform = False
         }
@@ -498,7 +498,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
     (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
     autoResult
   in FiveResult
-    { settings = (def :: PartGRYBO)
+    { settings = (def :: ModeFive)
       { difficulty = ppg.difficulty
       }
     , notes = Map.singleton Expert
@@ -535,7 +535,7 @@ proKeysToFiveFret :: Part f -> Maybe BuildFive
 proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
   expertPK = input.part.onyxPartRealKeysX
   in FiveResult
-    { settings = (def :: PartGRYBO)
+    { settings = (def :: ModeFive)
       { difficulty = ppk.difficulty
       }
     , notes = let
@@ -607,7 +607,7 @@ maniaChordSnap = U.trackJoin . RTB.flatten . go . RTB.collectCoincident where
 maniaToFiveFret :: Part f -> Maybe BuildFive
 maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
   in FiveResult
-    { settings = def :: PartGRYBO
+    { settings = def :: ModeFive
     , notes = Map.singleton Expert $ if pm.keys <= 5
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB

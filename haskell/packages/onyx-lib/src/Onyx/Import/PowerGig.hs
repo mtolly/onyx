@@ -205,7 +205,7 @@ importPowerGigSong key song folder level = do
 
   let onyxFile = mempty
         { F.onyxParts = Map.fromList
-          [ (F.FlexGuitar, mempty
+          [ (F.PartGuitar, mempty
             { F.onyxPartGuitar = mempty
               { Five.fiveDifficulties = Map.fromList
                 [ (Easy  , getGuitarGEV "guitar_1_easy"  )
@@ -218,7 +218,7 @@ importPowerGigSong key song folder level = do
                 Just trk -> RTB.merge (getController 81 trk) (getController 82 trk)
               }
             })
-          , (F.FlexDrums, mempty
+          , (F.PartDrums, mempty
             { F.onyxPartDrums = mempty
               { D.drumDifficulties = Map.fromList
                 [ (Easy  , getDrumsGEV "drums_1_easy"  )
@@ -231,7 +231,7 @@ importPowerGigSong key song folder level = do
                 Just trk -> RTB.merge (getController 80 trk) (getController 82 trk)
               }
             })
-          , (F.FlexVocal, mempty
+          , (F.PartVocal, mempty
             { F.onyxPartVocals = vox
             })
           ]
@@ -430,9 +430,9 @@ importPowerGigSong key song folder level = do
     , plans = HM.singleton "powergig" $ StandardPlan StandardPlanInfo
       { song = audioBacking
       , parts = Parts $ HM.fromList $ catMaybes
-        [ (F.FlexGuitar,) <$> audioGuitar
-        , (F.FlexDrums ,) <$> audioDrums
-        , (F.FlexVocal ,) <$> audioVocals
+        [ (F.PartGuitar,) <$> audioGuitar
+        , (F.PartDrums ,) <$> audioDrums
+        , (F.PartVocal ,) <$> audioVocals
         ]
       , crowd = Nothing
       , comments = []
@@ -447,16 +447,16 @@ importPowerGigSong key song folder level = do
       }
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
-      [ (F.FlexGuitar, emptyPart
-        { grybo = Just (def :: PartGRYBO)
+      [ (F.PartGuitar, emptyPart
+        { grybo = Just (def :: ModeFive)
           { difficulty = Tier 1 -- TODO
           }
         })
-      , (F.FlexDrums, (emptyPart :: Part SoftFile)
+      , (F.PartDrums, (emptyPart :: Part SoftFile)
         { drums = Just $ emptyPartDrums Drums4 Kicks1x -- TODO difficulty
         })
-      , (F.FlexVocal, (emptyPart :: Part SoftFile)
-        { vocal = Just PartVocal
+      , (F.PartVocal, (emptyPart :: Part SoftFile)
+        { vocal = Just ModeVocal
           { difficulty = Tier 1 -- TODO
           , gender = info_singer_gender (song_info song) >>= \case
             "male"   -> Just Male

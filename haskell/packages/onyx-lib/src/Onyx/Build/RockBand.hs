@@ -343,8 +343,8 @@ rbRules buildInfo dir rb3 mrb2 = do
           { guitars = do
             (fpart, part) <- HM.toList songYaml.parts.getParts
             fpart' <- toList $ lookup fpart
-              [ (rb3.guitar, F.FlexGuitar)
-              , (rb3.bass  , F.FlexBass  )
+              [ (rb3.guitar, F.PartGuitar)
+              , (rb3.bass  , F.PartBass  )
               ]
             pg <- toList part.proGuitar
             return (fpart', pg.tuning)
@@ -1221,7 +1221,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       len = F.songLengthMS midi
       perctype = F.getPercType midi
       thisFullGenre = fullGenre metadata
-      lookupPart :: Integer -> F.FlexPartName -> Parts a -> Maybe a
+      lookupPart :: Integer -> F.PartName -> Parts a -> Maybe a
       lookupPart rank part parts = guard (rank /= 0) >> HM.lookup part parts.getParts
       -- all the following are only used for Plan, not MoggPlan.
       -- we don't need to handle more than 1 game part mapping to the same flex part,

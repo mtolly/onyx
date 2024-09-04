@@ -218,17 +218,17 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         ImportFull  -> controlMid
           { F.tracks = mempty
             { F.onyxParts = Map.fromList
-              [ (F.FlexGuitar, mempty
+              [ (F.PartGuitar, mempty
                 { F.onyxPartGuitar = guitar
                 })
-              , (F.FlexBass, mempty
+              , (F.PartBass, mempty
                 { F.onyxPartGuitar = bass
                 })
-              , (F.FlexDrums, mempty
+              , (F.PartDrums, mempty
                 { F.onyxPartDrums = drums
                 , F.onyxPartEliteDrums = eliteDrums
                 })
-              , (F.FlexExtra "hidden-drums", mempty
+              , (F.PartName "hidden-drums", mempty
                 { F.onyxPartEliteDrums = hiddenDrums
                 })
               ]
@@ -256,9 +256,9 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
       { song = (\(s, _, _) -> Input $ Named s) <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream $ \(s, _, _) -> (F.FlexGuitar, PartSingle $ Input $ Named s)
-        , flip fmap bassStream   $ \(s, _, _) -> (F.FlexBass  , PartSingle $ Input $ Named s)
-        , flip fmap drumsStream  $ \(s, _, _) -> (F.FlexDrums , PartSingle $ Input $ Named s)
+        [ flip fmap guitarStream $ \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
+        , flip fmap bassStream   $ \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
+        , flip fmap drumsStream  $ \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
         ]
       , crowd = Nothing
       , comments = []
@@ -267,28 +267,28 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       }
     , parts = Parts $ HM.fromList $ concat
       [ case skullsToTier $ getSkulls "GuitarDifficulty" of
-        Just tier -> [(F.FlexGuitar, emptyPart
-          { grybo = Just (def :: PartGRYBO)
+        Just tier -> [(F.PartGuitar, emptyPart
+          { grybo = Just (def :: ModeFive)
             { difficulty = tier
             }
           })]
         Nothing -> []
       , case skullsToTier $ getSkulls "BassDifficulty" of
-        Just tier -> [(F.FlexBass, emptyPart
-          { grybo = Just (def :: PartGRYBO)
+        Just tier -> [(F.PartBass, emptyPart
+          { grybo = Just (def :: ModeFive)
             { difficulty = tier
             }
           })]
         Nothing -> []
       , case skullsToTier $ getSkulls "DrumDifficulty" of
-        Just tier -> [(F.FlexDrums, (emptyPart :: Part SoftFile)
-          { drums = Just (emptyPartDrums DrumsTrue Kicks1x :: PartDrums SoftFile)
+        Just tier -> [(F.PartDrums, (emptyPart :: Part SoftFile)
+          { drums = Just (emptyPartDrums DrumsTrue Kicks1x :: ModeDrums SoftFile)
             { difficulty = tier
             }
           })]
         Nothing -> []
       {-
-      , (F.FlexExtra "hidden-drums", def
+      , (F.PartName "hidden-drums", def
         { partDrums = Just emptyPartDrums DrumsTrue Kicks1x
         })
       -}

@@ -55,7 +55,7 @@ import           Onyx.Build.Common                         (getTargetMetadata)
 import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.Ark.GH2                     (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.MIDI.Track.File                      (FlexPartName (..))
+import           Onyx.MIDI.Track.File                      (PartName (..))
 import qualified Onyx.MIDI.Track.File                      as F
 import qualified Onyx.PlayStation.PKG                      as PKG
 import           Onyx.Preferences                          (Preferences (..),
@@ -827,7 +827,7 @@ partSelectors
   :: (Default tgt)
   => Rectangle
   -> Project
-  -> [(T.Text, tgt -> FlexPartName, FlexPartName -> tgt -> tgt, Part FilePath -> Bool)]
+  -> [(T.Text, tgt -> PartName, PartName -> tgt -> tgt, Part FilePath -> Bool)]
   -> BuildYamlControl tgt (Bool -> IO ())
 partSelectors rect proj slots = let
   rects = splitHorizN (length slots) rect
@@ -852,7 +852,7 @@ partSelectors rect proj slots = let
       FL.AtIndex i <- FL.getValue choice
       return $ Endo $ setter $ case drop (i - 1) fparts' of
         (fpart, _, _) : _ | i /= 0 -> fpart
-        _                          -> FlexExtra "undefined"
+        _                          -> PartName "undefined"
     return $ \b -> if b then FL.activate choice else FL.deactivate choice
   in do
     controls <- mapM instSelector $ zip slots rects

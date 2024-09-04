@@ -291,10 +291,10 @@ importRSSong folder song level = do
       goNameParts prev ((slot, sng, bnkPath, meta, isBass, tones) : rest) = let
         n = length $ filter (== slot) prev
         name = case (slot, n) of
-          (RSArrSlot RSDefault RSLead  , 0) -> F.FlexGuitar
-          (RSArrSlot RSDefault RSRhythm, 0) -> F.FlexExtra "rhythm"
-          (RSArrSlot RSDefault RSBass  , 0) -> F.FlexBass
-          _ -> F.FlexExtra $ rsArrSlot slot <> case n of
+          (RSArrSlot RSDefault RSLead  , 0) -> F.PartGuitar
+          (RSArrSlot RSDefault RSRhythm, 0) -> F.PartName "rhythm"
+          (RSArrSlot RSDefault RSBass  , 0) -> F.PartBass
+          _ -> F.PartName $ rsArrSlot slot <> case n of
             0 -> ""
             _ -> "-" <> T.pack (show $ n + 1)
         in ((slot, name), sng, bnkPath, meta, isBass, tones) : goNameParts (slot : prev) rest
@@ -307,10 +307,10 @@ importRSSong folder song level = do
             then ((slot, n2), sng, bnkPath, meta, isBass, tones)
             else orig
         in if
-          | elem F.FlexGuitar originalNames                 -> input
-          | elem (F.FlexExtra "combo-lead"  ) originalNames -> replaceName (F.FlexExtra "combo-lead"  ) F.FlexGuitar
-          | elem (F.FlexExtra "combo-rhythm") originalNames -> replaceName (F.FlexExtra "combo-rhythm") F.FlexGuitar
-          | elem (F.FlexExtra "rhythm"      ) originalNames -> replaceName (F.FlexExtra "rhythm"      ) F.FlexGuitar
+          | elem F.PartGuitar originalNames                 -> input
+          | elem (F.PartName "combo-lead"  ) originalNames -> replaceName (F.PartName "combo-lead"  ) F.PartGuitar
+          | elem (F.PartName "combo-rhythm") originalNames -> replaceName (F.PartName "combo-rhythm") F.PartGuitar
+          | elem (F.PartName "rhythm"      ) originalNames -> replaceName (F.PartName "rhythm"      ) F.PartGuitar
           | otherwise                                       -> input
       toSeconds = realToFrac :: Float -> U.Seconds
       midi = case level of
@@ -589,7 +589,7 @@ importRSSong folder song level = do
 
           in midi
             { F.tracks = midi.tracks
-              { F.onyxParts = Map.insert F.FlexVocal mempty
+              { F.onyxParts = Map.insert F.PartVocal mempty
                 { F.onyxPartVocals = fst $ fixShortVoxPhrasesTrack mempty
                   { vocalNotes
                     = U.unapplyTempoTrack temps
@@ -626,7 +626,7 @@ importRSSong folder song level = do
       partsMap = HM.fromList $ do
         ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
         let part = emptyPart
-              { proGuitar = Just PartProGuitar
+              { proGuitar = Just ModeProGuitar
                 { difficulty    = Tier 1
                 , hopoThreshold = 170
                 , tuning        = if isBass
@@ -661,8 +661,8 @@ importRSSong folder song level = do
               }
         return (partName, part)
       partsMapWithVox = if isJust maybeVoxSNG
-        then HM.insert F.FlexVocal (emptyPart :: Part SoftFile)
-          { vocal = Just PartVocal
+        then HM.insert F.PartVocal (emptyPart :: Part SoftFile)
+          { vocal = Just ModeVocal
             { difficulty = Tier 1
             , count      = Vocal1
             , gender     = Nothing

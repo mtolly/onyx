@@ -68,15 +68,15 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
         else fmap (\(gem, _, vel) -> (gem, ED.GemNormal, vel)) gems
       in ED.makeEliteDifficultyDTX gems'
     }
-  in F.Song tmap mmap $ F.editOnyxPart F.FlexDrums
+  in F.Song tmap mmap $ F.editOnyxPart F.PartDrums
     (\opart -> opart { F.onyxPartEliteDrums = importTrueDrums $ fmap fst $ dtx_Drums dtx })
     onyx
 dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> F.editOnyxPart
-  F.FlexGuitar
+  F.PartGuitar
   (\opart -> opart { F.onyxPartGuitar = five })
   onyx
 dtxConvertBass   = dtxConvertGB dtx_Bass   dtx_BassLong   $ \onyx five -> F.editOnyxPart
-  F.FlexBass
+  F.PartBass
   (\opart -> opart { F.onyxPartGuitar = five })
   onyx
 
@@ -222,9 +222,9 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
       { song        = flip fmap songAudio $ \(name, _) -> audioExpr name
       , parts       = Parts $ HM.fromList $ concat
-        [ toList $ flip fmap guitarAudio $ \(name, _) -> (F.FlexGuitar, PartSingle $ audioExpr name)
-        , toList $ flip fmap bassAudio $ \(name, _) -> (F.FlexBass, PartSingle $ audioExpr name)
-        , toList $ (F.FlexDrums ,) <$> case cymbalAudio of
+        [ toList $ flip fmap guitarAudio $ \(name, _) -> (F.PartGuitar, PartSingle $ audioExpr name)
+        , toList $ flip fmap bassAudio $ \(name, _) -> (F.PartBass, PartSingle $ audioExpr name)
+        , toList $ (F.PartDrums ,) <$> case cymbalAudio of
           Just (name, _) -> Just PartDrumKit
             { kick  = flip fmap kickAudio $ \(n, _) -> audioExpr n
             , snare = flip fmap snareAudio $ \(n, _) -> audioExpr n
@@ -237,7 +237,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
               (name, _) :| [] -> audioExpr name
               _               -> audiosExpr $ fmap fst xs
         , flip mapMaybe extraResults $ \(extraAudio, _) -> flip fmap extraAudio
-          $ \(name, _) -> (F.FlexExtra name, PartSingle $ audioExpr name)
+          $ \(name, _) -> (F.PartName name, PartSingle $ audioExpr name)
         ]
       , crowd       = Nothing
       , comments    = []
@@ -385,7 +385,7 @@ importSetDef setDefPath song level = do
         , plans = HM.empty
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
-          [ flip fmap topDrumDiff $ \diff -> (F.FlexDrums, emptyPart
+          [ flip fmap topDrumDiff $ \diff -> (F.PartDrums, emptyPart
             { drums = Just $ let
               kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
                 then KicksBoth
@@ -394,13 +394,13 @@ importSetDef setDefPath song level = do
                 { difficulty = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
                 }
             })
-          , flip fmap topGuitarDiff $ \diff -> (F.FlexGuitar, emptyPart
-            { grybo = Just (def :: PartGRYBO)
+          , flip fmap topGuitarDiff $ \diff -> (F.PartGuitar, emptyPart
+            { grybo = Just (def :: ModeFive)
               { difficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
               }
             })
-          , flip fmap topBassDiff $ \diff -> (F.FlexBass, emptyPart
-            { grybo = Just (def :: PartGRYBO)
+          , flip fmap topBassDiff $ \diff -> (F.PartBass, emptyPart
+            { grybo = Just (def :: ModeFive)
               { difficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
               }
             })

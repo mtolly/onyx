@@ -971,7 +971,7 @@ testConvertLipsync fmid fvocs fout = do
           , F.onyxLipsync2 = fromMaybe mempty $ listToMaybe $ drop 1 trks
           , F.onyxLipsync3 = fromMaybe mempty $ listToMaybe $ drop 2 trks
           }
-        in Map.alter fn F.FlexVocal orig
+        in Map.alter fn F.PartVocal orig
       }
     }
 

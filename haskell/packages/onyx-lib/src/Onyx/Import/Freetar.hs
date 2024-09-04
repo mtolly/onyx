@@ -130,7 +130,7 @@ songToMidi song = let
     { tempos = tempos
     , timesigs = sigs
     , tracks = mempty
-      { F.onyxParts = Map.singleton F.FlexGuitar mempty
+      { F.onyxParts = Map.singleton F.PartGuitar mempty
         { F.onyxPartGuitar = mempty
           { Five.fiveDifficulties = Map.singleton Expert gtr
           }
@@ -182,7 +182,7 @@ importFreetar sng level = do
         }
       in ("freetar", plan)
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.FlexGuitar emptyPart
+    , parts = Parts $ HM.singleton F.PartGuitar emptyPart
       { grybo = Just def
       }
     }

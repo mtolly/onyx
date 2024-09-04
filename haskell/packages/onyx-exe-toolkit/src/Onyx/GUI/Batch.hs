@@ -24,7 +24,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS   as FL
 import           Graphics.UI.FLTK.LowLevel.GlWindow ()
 import           Onyx.Harmonix.Ark.GH2              (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.MIDI.Track.File               (FlexPartName (..))
+import qualified Onyx.MIDI.Track.File               as F
 import           Onyx.Mode                          (anyDrums, anyFiveFret)
 import           Onyx.Preferences                   (Preferences (..),
                                                      readPreferences)
@@ -97,7 +97,7 @@ batchPageRB3 sink rect tab build = do
             , encoding = prefRB3Encoding newPreferences
             }
           -- TODO need to use anyDrums
-          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
+          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart F.PartDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
@@ -158,18 +158,18 @@ batchPageGH1 sink rect tab build = do
         speed <- getSpeed
         go $ \proj -> let
           leadPart = find (hasPartWith anyFiveFret $ projectSongYaml proj)
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexKeys
-            , FlexBass
-            , FlexDrums
-            , FlexExtra "dance"
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartKeys
+            , F.PartBass
+            , F.PartDrums
+            , F.PartName "dance"
             ]
           tgt = (def :: TargetGH1 FilePath)
             { common = (def :: TargetGH1 FilePath).common
               { speed = Just speed
               }
-            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , guitar = fromMaybe (F.PartName "undefined") leadPart
             , offset = prefGH2Offset newPrefs
             }
           fout = T.unpack $ foldr ($) template
@@ -224,26 +224,26 @@ batchPageGH3 sink rect tab build = do
         go $ \proj -> let
           hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
           leadPart = find hasPart
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexKeys
-            , FlexBass
-            , FlexDrums
-            , FlexExtra "dance"
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartKeys
+            , F.PartBass
+            , F.PartDrums
+            , F.PartName "dance"
             ]
           coopPart = find (\(p, _) -> hasPart p && leadPart /= Just p)
-            [ (FlexGuitar        , GH2Rhythm)
-            , (FlexExtra "rhythm", GH2Rhythm)
-            , (FlexBass          , GH2Bass  )
-            , (FlexKeys          , GH2Rhythm)
-            , (FlexDrums         , GH2Rhythm)
-            , (FlexExtra "dance" , GH2Rhythm)
+            [ (F.PartGuitar        , GH2Rhythm)
+            , (F.PartName "rhythm", GH2Rhythm)
+            , (F.PartBass          , GH2Bass  )
+            , (F.PartKeys          , GH2Rhythm)
+            , (F.PartDrums         , GH2Rhythm)
+            , (F.PartName "dance" , GH2Rhythm)
             ]
           tgt = (def :: TargetGH3 FilePath)
             { common = (def :: TargetGH3 FilePath).common
               { speed = Just speed
               }
-            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , guitar = fromMaybe (F.PartName "undefined") leadPart
             , bass = case coopPart of
               Just (x, GH2Bass) -> x
               _                 -> (def :: TargetGH3 FilePath).bass
@@ -302,27 +302,27 @@ batchPageGH2 sink rect tab build = do
           defGH2 = def :: TargetGH2 FilePath
           hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
           leadPart = find hasPart
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexKeys
-            , FlexBass
-            , FlexDrums
-            , FlexExtra "dance"
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartKeys
+            , F.PartBass
+            , F.PartDrums
+            , F.PartName "dance"
             ]
           coopPart = find (\(p, _) -> hasPart p && leadPart /= Just p)
-            [ (FlexGuitar        , GH2Rhythm)
-            , (FlexExtra "rhythm", GH2Rhythm)
-            , (FlexBass          , GH2Bass  )
-            , (FlexKeys          , GH2Rhythm)
-            , (FlexDrums         , GH2Rhythm)
-            , (FlexExtra "dance" , GH2Rhythm)
+            [ (F.PartGuitar        , GH2Rhythm)
+            , (F.PartName "rhythm", GH2Rhythm)
+            , (F.PartBass          , GH2Bass  )
+            , (F.PartKeys          , GH2Rhythm)
+            , (F.PartDrums         , GH2Rhythm)
+            , (F.PartName "dance" , GH2Rhythm)
             ]
           tgt = defGH2
             { common = defGH2.common
               { speed = Just speed
               }
             , practiceAudio = practiceAudio
-            , guitar = fromMaybe (FlexExtra "undefined") leadPart
+            , guitar = fromMaybe (F.PartName "undefined") leadPart
             , bass = case coopPart of
               Just (x, GH2Bass) -> x
               _                 -> defGH2.bass
@@ -401,16 +401,16 @@ batchPageGHWOR sink rect tab build = do
         return $ \proj -> let
           hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexKeys
-            , FlexBass
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartKeys
+            , F.PartBass
             ]
           pickedBass = find (\p -> hasPart p && pickedGuitar /= Just p)
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexBass
-            , FlexKeys
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartBass
+            , F.PartKeys
             ]
           defGH5 = def :: TargetGH5 FilePath
           tgt = (defGH5 :: TargetGH5 FilePath)
@@ -472,16 +472,16 @@ batchPageRR sink rect tab build = do
         return $ \proj -> let
           hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexKeys
-            , FlexBass
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartKeys
+            , F.PartBass
             ]
           pickedBass = find (\p -> hasPart p && pickedGuitar /= Just p)
-            [ FlexGuitar
-            , FlexExtra "rhythm"
-            , FlexBass
-            , FlexKeys
+            [ F.PartGuitar
+            , F.PartName "rhythm"
+            , F.PartBass
+            , F.PartKeys
             ]
           defRR = def :: TargetRR FilePath
           tgt = (defRR :: TargetRR FilePath)
@@ -558,7 +558,7 @@ batchPageRB2 sink rect tab build = do
             , ps3Encrypt  = prefPS3Encrypt newPreferences
             }
           -- TODO need to use anyDrums
-          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart FlexDrums yaml >>= (.drums)) of
+          kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart F.PartDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
             (Kicks2x  , _      ) -> [(True , "_2x")]
@@ -664,14 +664,14 @@ forceProDrums song = song
 
 -- Batch mode presets for changing parts around
 
-hasPartWith :: (Part f -> Maybe a) -> SongYaml f -> FlexPartName -> Bool
+hasPartWith :: (Part f -> Maybe a) -> SongYaml f -> F.PartName -> Bool
 hasPartWith p song flex = isJust $ getPart flex song >>= p
 
-getDrumsOrDance :: SongYaml f -> FlexPartName
+getDrumsOrDance :: SongYaml f -> F.PartName
 getDrumsOrDance song
-  | hasPartWith Just song (FlexExtra "dance") && not (hasPartWith anyDrums song FlexDrums)
-    = FlexExtra "dance"
-  | otherwise = FlexDrums
+  | hasPartWith Just song (F.PartName "dance") && not (hasPartWith anyDrums song F.PartDrums)
+    = F.PartName "dance"
+  | otherwise = F.PartDrums
 
 batchPartPresetsRB3 :: [(T.Text, (Bool, SongYaml f -> TargetRB3 f -> TargetRB3 f))]
 batchPartPresetsRB3 =
@@ -683,15 +683,15 @@ batchPartPresetsRB3 =
       part : _ -> part
       []       -> defPart
     in tgt
-      { guitar = fillPart anyFiveFret FlexGuitar [FlexDrums, FlexExtra "dance"]
-      , bass = fillPart anyFiveFret FlexBass [FlexGuitar, FlexDrums, FlexExtra "dance"]
-      , keys = fillPart anyFiveFret FlexKeys [FlexGuitar, FlexDrums, FlexExtra "dance"]
-      , drums = fillPart anyDrums FlexDrums [FlexGuitar, FlexExtra "dance"]
+      { guitar = fillPart anyFiveFret F.PartGuitar [F.PartDrums, F.PartName "dance"]
+      , bass = fillPart anyFiveFret F.PartBass [F.PartGuitar, F.PartDrums, F.PartName "dance"]
+      , keys = fillPart anyFiveFret F.PartKeys [F.PartGuitar, F.PartDrums, F.PartName "dance"]
+      , drums = fillPart anyDrums F.PartDrums [F.PartGuitar, F.PartName "dance"]
       }))
   , ("Copy guitar to bass/keys/drums", (False, \_song tgt -> tgt
-    { bass = FlexGuitar
-    , keys = FlexGuitar
-    , drums = FlexGuitar
+    { bass = F.PartGuitar
+    , keys = F.PartGuitar
+    , drums = F.PartGuitar
     }))
   , ("Copy drums/dance to guitar/bass/keys", (False, \song tgt -> let
     dod = getDrumsOrDance song
@@ -710,31 +710,31 @@ batchPartPresetsRB2 =
     { drums = getDrumsOrDance song
     })
   , ("Copy guitar to bass if empty", \song tgt -> tgt
-    { bass = if hasPartWith anyFiveFret song FlexBass then FlexBass else FlexGuitar
+    { bass = if hasPartWith anyFiveFret song F.PartBass then F.PartBass else F.PartGuitar
     , drums = getDrumsOrDance song
     })
   , ("Copy guitar to bass", \song tgt -> tgt
-    { bass = FlexGuitar
+    { bass = F.PartGuitar
     , drums = getDrumsOrDance song
     })
   , ("Keys on guitar/bass if empty", \song tgt -> tgt
-    { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else FlexKeys
-    , bass   = if hasPartWith anyFiveFret song FlexBass   then FlexBass   else FlexKeys
+    { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else F.PartKeys
+    , bass   = if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else F.PartKeys
     , drums = getDrumsOrDance song
     })
   , ("Keys on guitar", \song tgt -> tgt
-    { guitar = FlexKeys
+    { guitar = F.PartKeys
     , drums = getDrumsOrDance song
     })
   , ("Keys on bass", \song tgt -> tgt
-    { bass = FlexKeys
+    { bass = F.PartKeys
     , drums = getDrumsOrDance song
     })
   , ("Copy drums/dance to guitar/bass if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else dod
-      , bass   = if hasPartWith anyFiveFret song FlexBass   then FlexBass   else dod
+      { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
+      , bass   = if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else dod
       , drums  = dod
       }
     )
@@ -756,7 +756,7 @@ batchPartPresetsCH =
   , ("Copy drums/dance to guitar if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = if hasPartWith anyFiveFret song FlexGuitar then FlexGuitar else dod
+      { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
       , drums = dod
       }
     )
@@ -770,7 +770,7 @@ batchPartPresetsCH =
   , ("Copy drums/dance to rhythm if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { rhythm = if hasPartWith anyFiveFret song $ FlexExtra "rhythm" then FlexExtra "rhythm" else dod
+      { rhythm = if hasPartWith anyFiveFret song $ F.PartName "rhythm" then F.PartName "rhythm" else dod
       , drums = dod
       }
     )
@@ -787,8 +787,8 @@ batchPartPresetsCH =
       []       -> defPart
     TargetPS{..} = tgt
     in TargetPS
-      { guitar = fillPart anyFiveFret FlexGuitar [FlexDrums]
-      , drums = fillPart anyDrums FlexDrums [FlexGuitar]
+      { guitar = fillPart anyFiveFret F.PartGuitar [F.PartDrums]
+      , drums = fillPart anyDrums F.PartDrums [F.PartGuitar]
       , ..
       }
     )

@@ -110,7 +110,7 @@ data VenueTarget
 getVenue
   :: (R.MonadRandom m)
   => VenueTarget
-  -> Map.Map RB3Instrument F.FlexPartName -- map of target parts to project parts
+  -> Map.Map RB3Instrument F.PartName -- map of target parts to project parts
   -> U.TempoMap
   -> U.Beats
   -> F.Song (F.OnyxFile U.Beats)
@@ -134,7 +134,7 @@ getVenue target partMap tmap endTime ofile = do
 
 autoCamera
   :: (R.MonadRandom m)
-  => Map.Map RB3Instrument F.FlexPartName
+  => Map.Map RB3Instrument F.PartName
   -> U.TempoMap
   -> U.Beats
   -> F.Song (F.OnyxFile U.Beats)

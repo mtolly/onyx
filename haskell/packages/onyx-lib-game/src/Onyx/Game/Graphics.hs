@@ -63,7 +63,7 @@ import qualified Onyx.MIDI.Track.ProGuitar    as PG
 import           Onyx.Preferences             (Preferences (..),
                                                TrueDrumLayoutHint (..),
                                                readPreferences)
-import           Onyx.Project                 (DrumMode (..), PartMania (..),
+import           Onyx.Project                 (DrumMode (..), ModeMania (..),
                                                VideoInfo (..))
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace              (QueueLog, SendMessage,
@@ -1294,7 +1294,7 @@ drawPG glStuff@GLStuff{..} nowTime speed tuning trk = do
 
 data ManiaColor = ManiaRed | ManiaWhite | ManiaBlack
 
-drawMania :: GLStuff -> Double -> Double -> PartMania -> Map.Map Double (CommonState ManiaState) -> IO ()
+drawMania :: GLStuff -> Double -> Double -> ModeMania -> Map.Map Double (CommonState ManiaState) -> IO ()
 drawMania glStuff@GLStuff{..} nowTime speed pmania trk = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set

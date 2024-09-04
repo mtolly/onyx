@@ -78,14 +78,14 @@ importOsu separateSongs f = do
         1 -> let
           track = taikoToTrack timingMid.tempos osu
           partName = if separateSongs
-            then F.FlexDrums
-            else F.FlexExtra version
+            then F.PartDrums
+            else F.PartName version
           in return $ Just (partName, osu, Left track)
         3 -> let
           track = maniaToTrack timingMid.tempos osu
           partName = if separateSongs
-            then F.FlexKeys
-            else F.FlexExtra version
+            then F.PartKeys
+            else F.PartName version
           in return $ Just (partName, osu, Right track)
         _ -> return Nothing
 
@@ -242,7 +242,7 @@ importOsu separateSongs f = do
             { drums = Just $ emptyPartDrums Drums4 Kicks1x
             })
           Right _mania -> return $ (partName, emptyPart
-            { mania = Just PartMania
+            { mania = Just ModeMania
               { keys = fromIntegral $ maniaColumnCount osu
               , turntable = osu.general.specialStyle
               , difficulty = Tier 1 -- ?

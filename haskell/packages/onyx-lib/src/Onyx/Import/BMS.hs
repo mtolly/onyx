@@ -179,8 +179,8 @@ importBMS bmsPath level = do
         ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
           { F.onyxParts = Map.fromList $ do
             (fpart, indexed) <-
-              [ (F.FlexKeys          , player1Indexed)
-              , (F.FlexExtra "rhythm", player2Indexed)
+              [ (F.PartKeys          , player1Indexed)
+              , (F.PartName "rhythm", player2Indexed)
               ]
             guard $ not $ RTB.null indexed
             let opart = mempty
@@ -251,8 +251,8 @@ importBMS bmsPath level = do
     , plans = HM.singleton "bms" $ StandardPlan StandardPlanInfo
       { song        = guard (isJust songSampleTrack) >> Just (audioExpr "audio-bgm")
       , parts       = Parts $ HM.fromList $ catMaybes
-        [ guard (isJust p1SampleTrack) >> Just (F.FlexKeys          , PartSingle $ audioExpr "audio-p1")
-        , guard (isJust p2SampleTrack) >> Just (F.FlexExtra "rhythm", PartSingle $ audioExpr "audio-p2")
+        [ guard (isJust p1SampleTrack) >> Just (F.PartKeys          , PartSingle $ audioExpr "audio-p1")
+        , guard (isJust p2SampleTrack) >> Just (F.PartName "rhythm", PartSingle $ audioExpr "audio-p2")
         ]
       , crowd       = Nothing
       , comments    = []
@@ -262,12 +262,12 @@ importBMS bmsPath level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (fpart, indexed, p1) <-
-        [ (F.FlexKeys          , player1Indexed, True )
-        , (F.FlexExtra "rhythm", player2Indexed, False)
+        [ (F.PartKeys          , player1Indexed, True )
+        , (F.PartName "rhythm", player2Indexed, False)
         ]
       guard $ not $ RTB.null indexed
       return (fpart, emptyPart
-        { mania = Just PartMania
+        { mania = Just ModeMania
           { keys      = if p1
             then if shouldCombine
               then Set.size usedKeys1 + Set.size usedKeys2

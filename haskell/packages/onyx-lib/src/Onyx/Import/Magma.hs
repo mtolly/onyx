@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Magma where
 
@@ -26,7 +27,11 @@ import qualified Onyx.Harmonix.DTA.Serialize       as D
 import qualified Onyx.Harmonix.DTA.Serialize.Magma as RBProj
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common
-import           Onyx.MIDI.Track.File              (FlexPartName (..))
+import           Onyx.MIDI.Track.File              (pattern PartBass,
+                                                    pattern PartDrums,
+                                                    pattern PartGuitar,
+                                                    pattern PartKeys,
+                                                    pattern PartVocal)
 import qualified Onyx.MIDI.Track.File              as F
 import           Onyx.MIDI.Track.ProGuitar         (GtrBase (..),
                                                     GtrTuning (..))
@@ -218,7 +223,7 @@ importMagma fin level = do
         [ case drums of
           Nothing -> []
           Just (drumsAud, _) ->
-            [(FlexDrums, case (kick, snare) of
+            [(PartDrums, case (kick, snare) of
               (Nothing, Nothing) -> PartSingle drumsAud
               _ -> PartDrumKit
                 { kick = fmap fst kick
@@ -227,10 +232,10 @@ importMagma fin level = do
                 , kit = drumsAud
                 }
             )]
-        , toList $ fmap (\(aud, _) -> (FlexGuitar, PartSingle aud)) gtr
-        , toList $ fmap (\(aud, _) -> (FlexBass  , PartSingle aud)) bass
-        , toList $ fmap (\(aud, _) -> (FlexKeys  , PartSingle aud)) keys
-        , toList $ fmap (\(aud, _) -> (FlexVocal , PartSingle aud)) vox
+        , toList $ fmap (\(aud, _) -> (PartGuitar, PartSingle aud)) gtr
+        , toList $ fmap (\(aud, _) -> (PartBass  , PartSingle aud)) bass
+        , toList $ fmap (\(aud, _) -> (PartKeys  , PartSingle aud)) keys
+        , toList $ fmap (\(aud, _) -> (PartVocal , PartSingle aud)) vox
         ]
       , crowd = fmap fst crowd
       , comments = []
@@ -239,7 +244,7 @@ importMagma fin level = do
       }
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList
-      [ ( FlexDrums, (emptyPart :: Part SoftFile)
+      [ ( PartDrums, (emptyPart :: Part SoftFile)
         { drums = guard (isJust drums) >> let
           mode = DrumsPro -- TODO set to Drums4 for magma v1?
           kicks = if is2x then Kicks2x else Kicks1x
@@ -255,8 +260,8 @@ importMagma fin level = do
               Just _  -> HardRockKit
             }
         })
-      , ( FlexGuitar, emptyPart
-        { grybo = guard (isJust gtr) >> Just PartGRYBO
+      , ( PartGuitar, emptyPart
+        { grybo = guard (isJust gtr) >> Just ModeFive
           { difficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -266,7 +271,7 @@ importMagma fin level = do
           }
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
-          Just PartProGuitar
+          Just ModeProGuitar
             { difficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
@@ -282,8 +287,8 @@ importMagma fin level = do
             , tuningRSBass = Nothing
             }
         })
-      , ( FlexBass, emptyPart
-        { grybo = guard (isJust bass) >> Just PartGRYBO
+      , ( PartBass, emptyPart
+        { grybo = guard (isJust bass) >> Just ModeFive
           { difficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -293,7 +298,7 @@ importMagma fin level = do
           }
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
-          Just PartProGuitar
+          Just ModeProGuitar
             { difficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
@@ -309,8 +314,8 @@ importMagma fin level = do
             , tuningRSBass = Nothing
             }
         })
-      , ( FlexKeys, emptyPart
-        { grybo = guard (isJust keys) >> Just PartGRYBO
+      , ( PartKeys, emptyPart
+        { grybo = guard (isJust keys) >> Just ModeFive
           { difficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -318,13 +323,13 @@ importMagma fin level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
+        , proKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just ModeProKeys
           { difficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj
           , fixFreeform = False
           }
         })
-      , ( FlexVocal, (emptyPart :: Part SoftFile)
-        { vocal = guard (isJust vox) >> Just PartVocal
+      , ( PartVocal, (emptyPart :: Part SoftFile)
+        { vocal = guard (isJust vox) >> Just ModeVocal
           { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
           , count = if
             | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3

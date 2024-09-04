@@ -377,13 +377,13 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   drums = gh3DrumsToElite toBeats gh3.gh3BackgroundNotes.gh3Drums
   fixed = mempty
     { F.onyxParts = Map.fromList
-      [ ( F.FlexGuitar
+      [ ( F.PartGuitar
         , mempty { F.onyxPartGuitar = trackLead }
         )
-      , ( if coopRhythm then F.FlexExtra "rhythm" else F.FlexBass
+      , ( if coopRhythm then F.PartName "rhythm" else F.PartBass
         , mempty { F.onyxPartGuitar = trackCoop }
         )
-      , ( F.FlexDrums
+      , ( F.PartDrums
         , mempty { F.onyxPartEliteDrums = drums }
         )
       ]

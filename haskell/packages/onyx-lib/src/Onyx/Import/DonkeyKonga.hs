@@ -297,7 +297,7 @@ importDKSong chartName isMidi chartFile dsp level = do
         { F.tempos = tempos
         , F.timesigs = U.measureMapFromLengths U.Error $ RTB.singleton 0 4
         , F.tracks = mempty
-          { F.onyxParts = Map.singleton F.FlexDrums mempty
+          { F.onyxParts = Map.singleton F.PartDrums mempty
             { F.onyxPartDrums = converted
             }
           , F.onyxSamples = Map.singleton "bongos" bongoSampleTrack
@@ -320,14 +320,14 @@ importDKSong chartName isMidi chartFile dsp level = do
       Nothing -> HM.empty
       Just _ -> HM.singleton "plan" $ StandardPlan StandardPlanInfo
         { song        = Just $ PansVols [-1, 1] [-2, -2] $ Input $ Named "song"
-        , parts       = Parts $ HM.singleton F.FlexDrums $ PartSingle $ Input $ Named "bongos"
+        , parts       = Parts $ HM.singleton F.PartDrums $ PartSingle $ Input $ Named "bongos"
         , crowd       = Nothing
         , comments    = []
         , tuningCents = 0
         , fileTempo   = Nothing
         }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.FlexDrums (emptyPart :: Part SoftFile)
+    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
       { drums = Just $ emptyPartDrums Drums4 Kicks1x
       }
     }

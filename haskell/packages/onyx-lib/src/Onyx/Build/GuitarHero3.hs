@@ -427,9 +427,9 @@ makeGH3MidQB
   :: SongYaml f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
-  -> F.FlexPartName
-  -> F.FlexPartName
-  -> F.FlexPartName
+  -> F.PartName
+  -> F.PartName
+  -> F.PartName
   -> (GH3MidQB, Int)
 makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
 

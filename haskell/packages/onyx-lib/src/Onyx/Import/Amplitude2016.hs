@@ -26,7 +26,7 @@ import qualified Onyx.Harmonix.DTA.Serialize.Amplitude as Amp
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                      (Difficulty (..),
                                                         blipEdgesRB_)
-import           Onyx.MIDI.Track.File                  (FlexPartName (..))
+import           Onyx.MIDI.Track.File                  (PartName (..))
 import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.MIDI.Track.Mania                 (ManiaTrack (..))
 import           Onyx.PhaseShift.Dance                 (NoteType (NoteNormal))
@@ -87,7 +87,7 @@ importAmplitudeSong songFolder moggSongName level = do
         ns
       parts = do
         (n, Amp.Catch inst name trk) <- maybe [] (\m -> Map.toList m.tracks.ampTracks) ampMidi
-        return (FlexExtra name, getChannels n, inst, trk)
+        return (PartName name, getChannels n, inst, trk)
       midi = case ampMidi of
         Just (F.Song temps sigs _) -> F.Song temps sigs mempty
           { F.onyxParts = Map.fromList $ do
@@ -143,7 +143,7 @@ importAmplitudeSong songFolder moggSongName level = do
     , targets = HM.empty
     , parts = Parts $ HM.fromList $ do
       (name, _, inst, _) <- parts
-      return (name, emptyPart { mania = Just PartMania
+      return (name, emptyPart { mania = Just ModeMania
         { keys = 3
         , turntable = False
         , difficulty = Tier 1 -- ?

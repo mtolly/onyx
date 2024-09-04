@@ -61,7 +61,7 @@ data PreviewTrack
   | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (ED.EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
-  | PreviewMania PartMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
+  | PreviewMania ModeMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
   deriving (Show)
 
 data PreviewBG
@@ -81,14 +81,14 @@ data PreviewSong = PreviewSong
 
 type IsOverdrive = Bool
 
-displayPartName :: F.FlexPartName -> T.Text
+displayPartName :: F.PartName -> T.Text
 displayPartName = \case
-  F.FlexGuitar  -> "Guitar"
-  F.FlexBass    -> "Bass"
-  F.FlexDrums   -> "Drums"
-  F.FlexKeys    -> "Keys"
-  F.FlexVocal   -> "Vocal"
-  F.FlexExtra t -> T.unwords $ map T.toTitle $ T.words $ T.replace "-" " " t
+  F.PartGuitar  -> "Guitar"
+  F.PartBass    -> "Bass"
+  F.PartDrums   -> "Drums"
+  F.PartKeys    -> "Keys"
+  F.PartVocal   -> "Vocal"
+  F.PartName t -> T.unwords $ map T.toTitle $ T.words $ T.replace "-" " " t
 
 data HihatEvent
   = HihatEventHitOpen
@@ -444,18 +444,18 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       [ do
         guard $ not $ RTB.null $ rsNotes srcG
         let name = case fpart of
-              F.FlexGuitar               -> "RS Lead"
-              F.FlexExtra "rhythm"       -> "RS Rhythm"
-              F.FlexExtra "bonus-lead"   -> "RS Bonus Lead"
-              F.FlexExtra "bonus-rhythm" -> "RS Bonus Rhythm"
+              F.PartGuitar               -> "RS Lead"
+              F.PartName "rhythm"       -> "RS Rhythm"
+              F.PartName "bonus-lead"   -> "RS Bonus Lead"
+              F.PartName "bonus-rhythm" -> "RS Bonus Rhythm"
               _                          -> displayPartName fpart <> " [RS Guitar]"
         return $ (\rso -> (name, PreviewPG ppg.tuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcG
       , do
         guard $ not $ RTB.null $ rsNotes srcB
         let name = case fpart of
-              F.FlexBass               -> "RS Bass"
-              F.FlexExtra "bonus-bass" -> "RS Bonus Bass"
-              _                        -> displayPartName fpart <> " [RS Bass]"
+              F.PartBass              -> "RS Bass"
+              F.PartName "bonus-bass" -> "RS Bonus Bass"
+              _                       -> displayPartName fpart <> " [RS Bass]"
         return $ (\rso -> (name, PreviewPG ppg.tuning $ pgRocksmith rso)) <$> buildRS tempos 0 srcB
       ]
 
@@ -546,12 +546,12 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
           , part = fromMaybe mempty $ Map.lookup fpart song.tracks.onyxParts
           }
         name = (case fpart of
-          F.FlexGuitar              -> "Guitar"
-          F.FlexBass                -> "Bass"
-          F.FlexKeys                -> "Keys"
-          F.FlexExtra "rhythm"      -> "Rhythm"
-          F.FlexExtra "guitar-coop" -> "Guitar Coop"
-          _                         -> displayPartName fpart <> " [5]"
+          F.PartGuitar             -> "Guitar"
+          F.PartBass               -> "Bass"
+          F.PartKeys               -> "Keys"
+          F.PartName "rhythm"      -> "Rhythm"
+          F.PartName "guitar-coop" -> "Guitar Coop"
+          _                        -> displayPartName fpart <> " [5]"
           ) <> if result.autochart
             then " (Autochart)"
             else ""
@@ -564,7 +564,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       Nothing     -> []
       Just pdrums -> let
         name = case fpart of
-          F.FlexDrums -> case pdrums.mode of
+          F.PartDrums -> case pdrums.mode of
             Drums4    -> "Drums"
             Drums5    -> "Drums"
             DrumsPro  -> "Pro Drums"
@@ -580,7 +580,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
               Nothing -> []
               Just trkTrue ->
                 [ ( case fpart of
-                    F.FlexDrums -> "Elite Drums (" <> letter <> ")"
+                    F.PartDrums -> "Elite Drums (" <> letter <> ")"
                     _           -> displayPartName fpart <> " [Elite Drums] (" <> letter <> ")"
                   , PreviewDrumsTrue pdrums.trueLayout trkTrue
                   )
@@ -597,8 +597,8 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       Nothing     -> []
       Just ppg -> let
         name = case fpart of
-          F.FlexGuitar -> "Pro Guitar"
-          F.FlexBass   -> "Pro Bass"
+          F.PartGuitar -> "Pro Guitar"
+          F.PartBass   -> "Pro Bass"
           _            -> displayPartName fpart <> " [PG]"
         in diffPairs >>= \(diff, letter) -> case pgTrack fpart ppg diff of
           Nothing  -> []

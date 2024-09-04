@@ -147,7 +147,7 @@ importParadiddle diffs level = do
           { F.tempos = tmap
           , F.timesigs = U.measureMapFromTimeSigs U.Error RTB.empty
           , F.tracks = mempty
-            { F.onyxParts = Map.singleton F.FlexDrums mempty
+            { F.onyxParts = Map.singleton F.PartDrums mempty
               { F.onyxPartEliteDrums = mconcat $ true : lowerDiffs
               }
             }
@@ -160,14 +160,14 @@ importParadiddle diffs level = do
       { song = audioExpr songAudio
       , parts = Parts $ HM.fromList $ do
         drumExpr <- toList $ audioExpr drumAudio
-        return (F.FlexDrums, PartSingle drumExpr)
+        return (F.PartDrums, PartSingle drumExpr)
       , crowd = Nothing
       , comments = []
       , tuningCents = 0
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.FlexDrums (emptyPart :: Part SoftFile)
+    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
       { drums = Just $ emptyPartDrums DrumsTrue Kicks1x
       }
     }

@@ -236,7 +236,7 @@ importGPIF gpif level = do
         { F.onyxParts = Map.fromList do
           (name, _, trk) <- imported
           let opart = mempty { F.onyxPartRSGuitar = trk }
-          return (F.FlexExtra name, opart)
+          return (F.PartName name, opart)
         }
   return SongYaml
     { metadata = def'
@@ -265,7 +265,7 @@ importGPIF gpif level = do
     , parts = Parts $ HM.fromList $ do
       (name, tuning, _) <- imported
       let part = emptyPart
-            { proGuitar = Just PartProGuitar
+            { proGuitar = Just ModeProGuitar
               { difficulty    = Tier 1
               , hopoThreshold = 170
               , tuning        = tuning
@@ -275,6 +275,6 @@ importGPIF gpif level = do
               , pickedBass    = False
               }
             }
-      return (F.FlexExtra name, part)
+      return (F.PartName name, part)
     }
 

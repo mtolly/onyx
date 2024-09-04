@@ -75,18 +75,18 @@ data GH1Audio = GH1Audio
   { gh1AudioSections :: [GH2AudioSection]
   , gh1LeadChannels  :: [Int]
   , gh1BackChannels  :: [Int]
-  , gh1LeadTrack     :: F.FlexPartName
-  , gh1AnimBass      :: Maybe F.FlexPartName
-  , gh1AnimDrums     :: Maybe F.FlexPartName
-  , gh1AnimVocal     :: Maybe F.FlexPartName
-  , gh1AnimKeys      :: Maybe F.FlexPartName
+  , gh1LeadTrack     :: F.PartName
+  , gh1AnimBass      :: Maybe F.PartName
+  , gh1AnimDrums     :: Maybe F.PartName
+  , gh1AnimVocal     :: Maybe F.PartName
+  , gh1AnimKeys      :: Maybe F.PartName
   }
 
 computeGH1Audio
   :: (Monad m)
   => SongYaml f
   -> TargetGH1 f
-  -> (F.FlexPartName -> Bool) -- True if part has own audio
+  -> (F.PartName -> Bool) -- True if part has own audio
   -> StackTraceT m GH1Audio
 computeGH1Audio song target hasAudio = do
   let canGetFiveFret = \case

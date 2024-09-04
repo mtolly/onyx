@@ -179,7 +179,7 @@ importSM src level = do
     ImportFull -> do
       let (tempos, sigs, translate) = buildSMTempo sm
       return $ delayMIDI $ F.Song tempos sigs mempty
-        { F.onyxParts = Map.singleton (F.FlexExtra "dance") mempty
+        { F.onyxParts = Map.singleton (F.PartName "dance") mempty
           { F.onyxPartMania = Map.fromList $ do
             smn <- sm_NOTES sm
             guard $ importableSMN smn
@@ -313,8 +313,8 @@ importSM src level = do
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton (F.FlexExtra "dance") (emptyPart :: Part SoftFile)
-      { mania = Just PartMania
+    , parts = Parts $ HM.singleton (F.PartName "dance") (emptyPart :: Part SoftFile)
+      { mania = Just ModeMania
         { difficulty = Tier $ max 1 $ let
           -- as a hack, get max meter value and subtract 4 (so 10 becomes 6)
           meters

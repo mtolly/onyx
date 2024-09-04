@@ -283,7 +283,7 @@ data SpecSetting
 
 sourceKick, sourceSnare, sourceKit, sourceToms, sourceCymbals, sourceSimplePart
   :: (MonadResource m)
-  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> SpecSetting -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
+  => BuildInfo -> [F.PartName] -> TargetCommon g -> F.Song f -> Int -> SpecSetting -> T.Text -> Plan FilePath -> F.PartName -> Integer
   -> Staction (AudioSource m Float)
 
 sourceKick buildInfo gameParts tgt mid pad specSetting planName plan fpart rank = do
@@ -384,7 +384,7 @@ sourceKit buildInfo gameParts tgt mid pad specSetting planName plan fpart rank =
 
 getPartSource
   :: (MonadResource m)
-  => BuildInfo -> [(Double, Double)] -> T.Text -> Plan FilePath -> F.FlexPartName -> Integer
+  => BuildInfo -> [(Double, Double)] -> T.Text -> Plan FilePath -> F.PartName -> Integer
   -> Staction (AudioSource m Float)
 getPartSource buildInfo spec planName plan fpart rank = case plan of
   MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
@@ -396,7 +396,7 @@ getPartSource buildInfo spec planName plan fpart rank = case plan of
 
 sourceStereoParts
   :: (MonadResource m)
-  => BuildInfo -> [F.FlexPartName] -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
+  => BuildInfo -> [F.PartName] -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.PartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
   let spec = [(-1, 0), (1, 0)]
@@ -427,7 +427,7 @@ sourceCrowd buildInfo tgt mid pad planName plan = do
 
 sourceBacking
   :: (MonadResource m)
-  => BuildInfo -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.FlexPartName, Integer)]
+  => BuildInfo -> TargetCommon g -> F.Song f -> Int -> T.Text -> Plan FilePath -> [(F.PartName, Integer)]
   -> Staction (AudioSource m Float)
 sourceBacking buildInfo tgt mid pad planName plan fparts = do
   let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
@@ -493,7 +493,7 @@ isSilentSource src = do
   return $ length chans == channels src
 
 -- Silences out an audio stream if more than 1 game part maps to the same flex part
-zeroIfMultiple :: (Monad m) => [F.FlexPartName] -> F.FlexPartName -> AudioSource m Float -> AudioSource m Float
+zeroIfMultiple :: (Monad m) => [F.PartName] -> F.PartName -> AudioSource m Float -> AudioSource m Float
 zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
   _ : _ : _ -> takeStart (Frames 0) src
   _         -> src

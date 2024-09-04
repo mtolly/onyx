@@ -481,7 +481,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
               , bass = rb2.bass
               , drums = rb2.drums
               , vocal = rb2.vocal
-              , keys = F.FlexExtra "undefined"
+              , keys = F.PartName "undefined"
               , harmonix = False
               , magma = rb2.magma
               , ps3Encrypt = rb2.ps3Encrypt
@@ -504,7 +504,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         let dir = gen $ "plan" </> T.unpack planName
 
         -- plan audio, currently only used for REAPER project
-        let allPlanParts :: [(F.FlexPartName, PartAudio ())]
+        let allPlanParts :: [(F.PartName, PartAudio ())]
             allPlanParts = case plan of
               StandardPlan x -> HM.toList $ (void <$> x.parts).getParts
               MoggPlan     x -> do

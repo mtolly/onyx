@@ -41,10 +41,10 @@ import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                  as U
 
 class HasOverdrive file where
-  getOverdrive :: (SendMessage m, NNC.C t) => file t -> StackTraceT m (RTB.T t (FlexPartName, Bool))
-  putOverdrive :: (NNC.C t) => file t -> RTB.T t (FlexPartName, Bool) -> file t
+  getOverdrive :: (SendMessage m, NNC.C t) => file t -> StackTraceT m (RTB.T t (PartName, Bool))
+  putOverdrive :: (NNC.C t) => file t -> RTB.T t (PartName, Bool) -> file t
 
-combineOD :: (Eq t, SendMessage m) => FlexPartName -> [(String, RTB.T t Bool)] -> StackTraceT m (RTB.T t (FlexPartName, Bool))
+combineOD :: (Eq t, SendMessage m) => PartName -> [(String, RTB.T t Bool)] -> StackTraceT m (RTB.T t (PartName, Bool))
 combineOD part trks = case filter (not . RTB.null . snd) trks of
   []                            -> return RTB.empty
   hasOD@((firstTrk, od) : rest) -> fmap (part,) <$> if all (== od) $ map snd rest
@@ -99,29 +99,29 @@ instance HasOverdrive OnyxFile where
 instance HasOverdrive FixedFile where
   getOverdrive rb3 = do
     foldr RTB.merge RTB.empty <$> sequence
-      [ combineOD FlexDrums
+      [ combineOD PartDrums
         [ ("PART DRUMS"         , rb3.fixedPartDrums.drumOverdrive     )
         ]
-      , combineOD FlexGuitar
+      , combineOD PartGuitar
         [ ("PART GUITAR"        , rb3.fixedPartGuitar.fiveOverdrive    )
         , ("PART GUITAR GHL"    , rb3.fixedPartGuitarGHL.sixOverdrive  )
         , ("PART REAL_GUITAR"   , rb3.fixedPartRealGuitar.pgOverdrive  )
         , ("PART REAL_GUITAR_22", rb3.fixedPartRealGuitar22.pgOverdrive)
         ]
-      , combineOD FlexBass
+      , combineOD PartBass
         [ ("PART BASS"          , rb3.fixedPartBass.fiveOverdrive      )
         , ("PART BASS GHL"      , rb3.fixedPartBassGHL.sixOverdrive    )
         , ("PART REAL_BASS"     , rb3.fixedPartRealBass.pgOverdrive    )
         , ("PART REAL_BASS_22"  , rb3.fixedPartRealBass22.pgOverdrive  )
         ]
-      , combineOD FlexKeys
+      , combineOD PartKeys
         [ ("PART KEYS"          , rb3.fixedPartKeys.fiveOverdrive      )
         , ("PART REAL_KEYS"     , rb3.fixedPartRealKeysX.pkOverdrive   )
         ]
-      , combineOD (FlexExtra "rhythm")
+      , combineOD (PartName "rhythm")
         [ ("PART RHYTHM"        , rb3.fixedPartRhythm.fiveOverdrive    )
         ]
-      , combineOD (FlexExtra "guitar-coop")
+      , combineOD (PartName "guitar-coop")
         [ ("PART GUITAR COOP"   , rb3.fixedPartGuitarCoop.fiveOverdrive)
         ]
       ]
@@ -141,12 +141,12 @@ instance HasOverdrive FixedFile where
     , fixedPartGuitarCoop   = fn nullFive  rb3.fixedPartGuitarCoop   $ \x -> x { fiveOverdrive = coop }
     } where
       fn isEmpty trk addOD = if isEmpty trk then trk else addOD trk
-      drums = bools FlexDrums
-      gtr = bools FlexGuitar
-      bass = bools FlexBass
-      keys = bools FlexKeys
-      rhythm = bools (FlexExtra "rhythm")
-      coop = bools (FlexExtra "guitar-coop")
+      drums = bools PartDrums
+      gtr = bools PartGuitar
+      bass = bools PartBass
+      keys = bools PartKeys
+      rhythm = bools (PartName "rhythm")
+      coop = bools (PartName "guitar-coop")
       bools fpart = flip RTB.mapMaybe od $ \case
         (fpart', b) | fpart == fpart' -> Just b
         _                             -> Nothing
@@ -174,9 +174,9 @@ How unisons work:
 
 -- | Overdrive phrases organized into unisons.
 -- Each list entry is (time from unison start to inst phrase start, inst, inst phrase length)
-type Unisons t = RTB.T t (NE.NonEmpty (t, FlexPartName, t))
+type Unisons t = RTB.T t (NE.NonEmpty (t, PartName, t))
 
-calculateUnisons :: RTB.T U.Beats (FlexPartName, Bool) -> Unisons U.Beats
+calculateUnisons :: RTB.T U.Beats (PartName, Bool) -> Unisons U.Beats
 calculateUnisons = let
   joinOD = joinEdgesSimple . fmap (\(inst, b) -> if b then EdgeOn () inst else EdgeOff inst)
   findUnisons = RTB.viewL >>> \case
@@ -189,7 +189,7 @@ calculateUnisons = let
       in RTB.cons dt unisonList $ RTB.delay 1 $ findUnisons after
   in findUnisons . joinOD
 
-renderUnisons :: (NNC.C t) => Unisons t -> RTB.T t (FlexPartName, Bool)
+renderUnisons :: (NNC.C t) => Unisons t -> RTB.T t (PartName, Bool)
 renderUnisons = let
   f (t, part, len) = RTB.cons t (part, True) $ RTB.singleton len (part, False)
   in U.trackJoin . fmap (foldr RTB.merge RTB.empty . fmap f)
@@ -198,8 +198,8 @@ renderUnisons = let
 removeBrokenUnisons
   :: (SendMessage m)
   => U.MeasureMap
-  -> RTB.T U.Beats (FlexPartName, Bool)
-  -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
+  -> RTB.T U.Beats (PartName, Bool)
+  -> StackTraceT m (RTB.T U.Beats (PartName, Bool))
 removeBrokenUnisons mmap = fmap renderUnisons . go 0 . calculateUnisons where
   go :: (SendMessage m) => U.Beats -> Unisons U.Beats -> StackTraceT m (Unisons U.Beats)
   go !time = RTB.viewL >>> \case
@@ -228,7 +228,7 @@ fixBrokenUnisons (Song tmap mmap rb3) = do
   od' <- removeBrokenUnisons mmap od
   return $ Song tmap mmap $ putOverdrive rb3 od'
 
-printFlexParts :: [FlexPartName] -> String
+printFlexParts :: [PartName] -> String
 printFlexParts = let
   part inst = let
     s = show inst
@@ -238,10 +238,10 @@ printFlexParts = let
 -- | Removes overdrive phrases to prevent partial unisons that cause errors in Magma v1.
 removePartialUnisons
   :: (SendMessage m)
-  => [FlexPartName]
+  => [PartName]
   -> U.MeasureMap
-  -> RTB.T U.Beats (FlexPartName, Bool)
-  -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
+  -> RTB.T U.Beats (PartName, Bool)
+  -> StackTraceT m (RTB.T U.Beats (PartName, Bool))
 removePartialUnisons parts mmap = fmap renderUnisons . go 0 . calculateUnisons where
   parts' = sort parts
   go :: (SendMessage m) => U.Beats -> Unisons U.Beats -> StackTraceT m (Unisons U.Beats)
@@ -262,7 +262,7 @@ removePartialUnisons parts mmap = fmap renderUnisons . go 0 . calculateUnisons w
 
 fixPartialUnisons
   :: (SendMessage m, HasOverdrive f)
-  => [FlexPartName]
+  => [PartName]
   -> Song (f U.Beats)
   -> StackTraceT m (Song (f U.Beats))
 fixPartialUnisons parts (Song tmap mmap rb3) = do
@@ -276,7 +276,7 @@ voidEdgeOn = RTB.mapMaybe $ \case EdgeOn{} -> Just (); EdgeOff{} -> Nothing
 notesFromRB3
   :: (NNC.C t)
   => FixedFile t
-  -> [(FlexPartName, [(String, RTB.T t ())])]
+  -> [(PartName, [(String, RTB.T t ())])]
 notesFromRB3 FixedFile{..} = let
   five :: (NNC.C t) => String -> FiveTrack t -> [(String, RTB.T t ())]
   five name part = do
@@ -288,12 +288,12 @@ notesFromRB3 FixedFile{..} = let
     return (show diff ++ " Pro " ++ name, voidEdgeOn pgd.pgNotes)
   in do
     (fpart, notes) <-
-      [ (FlexDrums,) $ do
+      [ (PartDrums,) $ do
         (diff, dd) <- Map.toAscList fixedPartDrums.drumDifficulties
         return (show diff ++ " Drums", void dd.drumGems)
-      , (FlexGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
-      , (FlexBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
-      , (FlexKeys,) $ five "Keys" fixedPartKeys ++
+      , (PartGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
+      , (PartBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
+      , (PartKeys,) $ five "Keys" fixedPartKeys ++
         [ ("Easy Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysE)
         , ("Medium Pro Keys", voidEdgeOn $ pkNotes fixedPartRealKeysM)
         , ("Hard Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysH)
@@ -309,9 +309,9 @@ notesFromRB3 FixedFile{..} = let
 removeNotelessOD
   :: (SendMessage m)
   => U.MeasureMap
-  -> [(FlexPartName, [(String, RTB.T U.Beats ())])]
-  -> RTB.T U.Beats (FlexPartName, Bool)
-  -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
+  -> [(PartName, [(String, RTB.T U.Beats ())])]
+  -> RTB.T U.Beats (PartName, Bool)
+  -> StackTraceT m (RTB.T U.Beats (PartName, Bool))
 removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
   forM (nubOrd $ map fst $ toList allOD) $ \fpart -> do
     let thisODEdges = fmap snd $ RTB.filter ((== fpart) . fst) allOD

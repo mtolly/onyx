@@ -188,9 +188,9 @@ gh2Rules buildInfo dir gh2 = do
       addExtraIfDX input audio = let
         difficulty = difficultyPS (def :: TargetPS FilePath)
           { guitar = audio.leadTrack
-          , bass   = case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.FlexExtra "undefined"
-          , rhythm = case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.FlexExtra "undefined"
-          , drums  = fromMaybe (F.FlexExtra "undefined") audio.drumTrack
+          , bass   = case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.PartName "undefined"
+          , rhythm = case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.PartName "undefined"
+          , drums  = fromMaybe (F.PartName "undefined") audio.drumTrack
           } songYaml
         translateDiff = \case
           0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later

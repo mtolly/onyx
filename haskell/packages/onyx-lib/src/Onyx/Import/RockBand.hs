@@ -616,11 +616,11 @@ importRB rbi level = do
         { fileMOGG = Just $ SoftFile name soft
         , moggMD5 = Nothing
         , parts = Parts $ HM.fromList $ concat
-          [ [ (F.FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
-          , [ (F.FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
-          , [ (F.FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
-          , [ (F.FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
-          , [ (F.FlexDrums , ds           ) | Just ds <- [drumSplit] ]
+          [ [ (F.PartGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+          , [ (F.PartBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+          , [ (F.PartKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
+          , [ (F.PartVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
+          , [ (F.PartDrums , ds           ) | Just ds <- [drumSplit] ]
           ]
         , crowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
         , pans = map realToFrac $ D.pans $ D.song pkg
@@ -658,11 +658,11 @@ importRB rbi level = do
               in StandardPlan StandardPlanInfo
                 { song = mixChans songChans
                 , parts = Parts $ HM.fromList $ catMaybes
-                  [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.FlexGuitar, PartSingle x)
-                  , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.FlexBass  , PartSingle x)
-                  , lookup "keys"   instChans >>= mixChans >>= \x -> return (F.FlexKeys  , PartSingle x)
-                  , lookup "vocals" instChans >>= mixChans >>= \x -> return (F.FlexVocal , PartSingle x)
-                  , drumSplit >>= mapM mixChans            >>= \x -> return (F.FlexDrums , x)
+                  [ lookup "guitar" instChans >>= mixChans >>= \x -> return (F.PartGuitar, PartSingle x)
+                  , lookup "bass"   instChans >>= mixChans >>= \x -> return (F.PartBass  , PartSingle x)
+                  , lookup "keys"   instChans >>= mixChans >>= \x -> return (F.PartKeys  , PartSingle x)
+                  , lookup "vocals" instChans >>= mixChans >>= \x -> return (F.PartVocal , PartSingle x)
+                  , drumSplit >>= mapM mixChans            >>= \x -> return (F.PartDrums , x)
                   ]
                 , crowd = D.crowdChannels (D.song pkg) >>= mixChans . map fromIntegral
                 , comments = []
@@ -692,15 +692,15 @@ importRB rbi level = do
         })
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
-      [ ( F.FlexDrums, (emptyPart :: Part SoftFile)
+      [ ( F.PartDrums, (emptyPart :: Part SoftFile)
         { drums = guard (hasRankStr "drum") >> Just (emptyPartDrums DrumsPro hasKicks)
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
           , kit = drumkit
           , layout = StandardLayout -- TODO import this
           }
         })
-      , ( F.FlexGuitar, (emptyPart :: Part SoftFile)
-        { grybo = guard (hasRankStr "guitar") >> Just PartGRYBO
+      , ( F.PartGuitar, (emptyPart :: Part SoftFile)
+        { grybo = guard (hasRankStr "guitar") >> Just ModeFive
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -708,7 +708,7 @@ importRB rbi level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
+        , proGuitar = guard (hasRankStr "real_guitar") >> Just ModeProGuitar
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
           , hopoThreshold = hopoThresh
           , tuning = GtrTuning
@@ -724,8 +724,8 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( F.FlexBass, (emptyPart :: Part SoftFile)
-        { grybo = guard (hasRankStr "bass") >> Just PartGRYBO
+      , ( F.PartBass, (emptyPart :: Part SoftFile)
+        { grybo = guard (hasRankStr "bass") >> Just ModeFive
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -733,7 +733,7 @@ importRB rbi level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
+        , proGuitar = guard (hasRankStr "real_bass") >> Just ModeProGuitar
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , hopoThreshold = hopoThresh
           , tuning = GtrTuning
@@ -749,8 +749,8 @@ importRB rbi level = do
           , pickedBass    = False
           }
         })
-      , ( F.FlexKeys, (emptyPart :: Part SoftFile)
-        { grybo = guard (hasRankStr "keys") >> Just PartGRYBO
+      , ( F.PartKeys, (emptyPart :: Part SoftFile)
+        { grybo = guard (hasRankStr "keys") >> Just ModeFive
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
@@ -758,13 +758,13 @@ importRB rbi level = do
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
+        , proKeys = guard (hasRankStr "real_keys") >> Just ModeProKeys
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
           , fixFreeform = False
           }
         })
-      , ( F.FlexVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode $ \vc -> PartVocal
+      , ( F.PartVocal, (emptyPart :: Part SoftFile)
+        { vocal = flip fmap vocalMode $ \vc -> ModeVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc
           , gender = D.vocalGender pkg

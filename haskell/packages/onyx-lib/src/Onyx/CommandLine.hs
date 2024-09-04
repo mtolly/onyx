@@ -1398,12 +1398,12 @@ commands =
         raw <- F.readMIDIFile mid
         onyx <- F.interpretMIDIFile raw
         let _ = onyx :: F.Song (F.OnyxFile U.Beats)
-            elite = maybe mempty (.onyxPartEliteDrums) $ Map.lookup F.FlexDrums onyx.tracks.onyxParts
+            elite = maybe mempty (.onyxPartEliteDrums) $ Map.lookup F.PartDrums onyx.tracks.onyxParts
             (warnings, pro) = convertEliteDrums onyx.tempos elite
             addWarnings = RTB.merge $ fmap (E.MetaEvent . Meta.TextEvent . ("# " <>)) warnings
             proTracks = F.showMIDITracks onyx
               { F.tracks = mempty
-                { F.onyxParts = Map.singleton F.FlexDrums mempty
+                { F.onyxParts = Map.singleton F.PartDrums mempty
                   { F.onyxPartDrums = pro
                   }
                 }

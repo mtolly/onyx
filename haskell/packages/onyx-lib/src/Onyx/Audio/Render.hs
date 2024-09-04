@@ -38,7 +38,7 @@ import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Search
 import qualified Onyx.MIDI.Track.Drums        as Drums
-import           Onyx.MIDI.Track.File         (FlexPartName)
+import           Onyx.MIDI.Track.File         (PartName)
 import           Onyx.Project
 import           Onyx.StackTrace              (SendMessage, StackTraceT,
                                                Staction, fatal, inside, lg,
@@ -149,7 +149,7 @@ manualLeaf rel _alib _buildDependency _getSamples _songYaml (Mogg name) =
 
 -- | Computing a non-drums instrument's audio for CON/Magma.
 -- Always returns 1 or 2 channels, with all volumes 0.
-computeSimplePart :: FlexPartName -> Plan f -> SongYaml f -> [(Double, Double)]
+computeSimplePart :: PartName -> Plan f -> SongYaml f -> [(Double, Double)]
 computeSimplePart fpart plan songYaml = case plan of
   MoggPlan x -> let
     inds = maybe [] (concat . toList) $ HM.lookup fpart x.parts.getParts
@@ -279,7 +279,7 @@ buildPartAudioToSpec rel alib buildDependency songYaml specPV planName = \case
 -- Last bool is whether there's a full GH (split cymbals/toms) config.
 computeDrumsPart
   :: (SendMessage m)
-  => FlexPartName
+  => PartName
   -> Plan f
   -> SongYaml f
   -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), Drums.Audio, Bool)

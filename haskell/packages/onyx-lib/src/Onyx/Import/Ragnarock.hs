@@ -221,7 +221,7 @@ importRagnarock pathInfo level = do
       , fileTempo   = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.FlexDrums (emptyPart :: Part SoftFile)
+    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
       { drums = Just $ emptyPartDrums Drums4 Kicks1x
       }
     }
@@ -242,7 +242,7 @@ ragnarockToDrums info maps = let
     { F.tempos = tmap
     , F.timesigs = U.measureMapFromTimeSigs U.Error RTB.empty -- TODO maybe
     , F.tracks = mempty
-      { F.onyxParts = Map.singleton F.FlexDrums mempty
+      { F.onyxParts = Map.singleton F.PartDrums mempty
         { F.onyxPartDrums = mempty
           { drumDifficulties = Map.fromList $ flip map maps' $ fmap $ \(_, beatmap) -> mempty
             { drumGems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do

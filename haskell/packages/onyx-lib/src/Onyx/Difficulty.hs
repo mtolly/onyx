@@ -7,7 +7,7 @@ module Onyx.Difficulty where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.List.NonEmpty               as NE
-import           Onyx.MIDI.Track.File             (FlexPartName (..))
+import           Onyx.MIDI.Track.File             (PartName (..))
 import           Onyx.Mode
 import           Onyx.Preferences                 (MagmaSetting (..),
                                                    RBEncoding (..))
@@ -43,7 +43,7 @@ data DifficultyRB3 = DifficultyRB3
   , rb3DrumsTier, rb3BassTier, rb3GuitarTier, rb3VocalTier, rb3KeysTier, rb3ProBassTier, rb3ProGuitarTier, rb3ProKeysTier, rb3BandTier :: Integer
   } deriving (Eq, Ord, Show, Read)
 
-computeDrumRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeDrumRank :: PartName -> SongYaml f -> DiffMap -> Integer
 computeDrumRank flex songYaml dmap = case getPart flex songYaml >>= anyDrums of
   Nothing -> 0
   Just builder -> let
@@ -56,7 +56,7 @@ computeDrumRank flex songYaml dmap = case getPart flex songYaml >>= anyDrums of
       Rank r -> r
       Tier t -> tierToRank dmap t
 
-computeFiveRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeFiveRank :: PartName -> SongYaml f -> DiffMap -> Integer
 computeFiveRank flex songYaml dmap = case getPart flex songYaml >>= anyFiveFret of
   Nothing -> 0
   Just builder -> let
@@ -69,7 +69,7 @@ computeFiveRank flex songYaml dmap = case getPart flex songYaml >>= anyFiveFret 
       Rank r -> r
       Tier t -> tierToRank dmap t
 
-computeProKeysRank :: FlexPartName -> SongYaml f -> DiffMap -> Integer
+computeProKeysRank :: PartName -> SongYaml f -> DiffMap -> Integer
 computeProKeysRank flex songYaml dmap = case getPart flex songYaml >>= anyProKeys of
   Nothing -> 0
   Just builder -> let
@@ -172,7 +172,7 @@ difficultyGH5 TargetGH5{..} songYaml = let
     { common        = common
     , drums         = drums
     , guitar        = guitar
-    , keys          = FlexExtra "undefined"
+    , keys          = PartName "undefined"
     , vocal         = vocal
     , bass          = bass
     , is2xBassPedal = False

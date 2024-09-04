@@ -312,27 +312,27 @@ convertFromAnim anim = inside "Converting venue info to MIDI" $ let
       -- not including as these seem to be in midis still, but off by 1 quarter note?
       -- but also see note in Onyx.Import.RockBand about being smarter when merging into midi
       , F.onyxParts = Map.fromList
-        [ (F.FlexGuitar, mempty
+        [ (F.PartGuitar, mempty
           { F.onyxPartGuitar = mempty
             { Five.fiveMood = getCommands "guitar_intensity"
             }
           })
-        , (F.FlexBass, mempty
+        , (F.PartBass, mempty
           { F.onyxPartGuitar = mempty
             { Five.fiveMood = getCommands "bass_intensity"
             }
           })
-        , (F.FlexKeys, mempty
+        , (F.PartKeys, mempty
           { F.onyxPartKeys = mempty
             { Five.fiveMood = getCommands "keyboard_intensity"
             }
           })
-        , (F.FlexDrums, mempty
+        , (F.PartDrums, mempty
           { F.onyxPartDrums = mempty
             { Drums.drumMood = getCommands "drum_intensity"
             }
           })
-        , (F.FlexVocal, mempty
+        , (F.PartVocal, mempty
           { F.onyxPartVocals = mempty
             { Vocal.vocalMood = getCommands "mic_intensity"
             }

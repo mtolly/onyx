@@ -241,7 +241,7 @@ importGH1Song pkg path folder level = do
       in StandardPlan StandardPlanInfo
         { song = mixChans songChans
         , parts = Parts $ HM.fromList $ catMaybes
-          [ (F.FlexGuitar ,) . PartSingle <$> mixChans guitarChans
+          [ (F.PartGuitar ,) . PartSingle <$> mixChans guitarChans
           ]
         , crowd = Nothing
         , comments = []
@@ -249,7 +249,7 @@ importGH1Song pkg path folder level = do
         , fileTempo = Nothing
         }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.FlexGuitar emptyPart
+    , parts = Parts $ HM.singleton F.PartGuitar emptyPart
       { grybo = Just def
       }
     }
