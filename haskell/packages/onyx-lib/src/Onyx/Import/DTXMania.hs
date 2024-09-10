@@ -26,7 +26,7 @@ import qualified Data.Text                        as T
 import           Onyx.Audio
 import           Onyx.DTXMania.DTX
 import           Onyx.DTXMania.Set
-import           Onyx.Guitar                      (emit5')
+import           Onyx.Guitar                      (emitGuitar5)
 import           Onyx.Import.Base
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..),
@@ -95,7 +95,7 @@ dtxConvertGB getter getLong setter dtx (F.Song tmap mmap fixed) = let
       pairs
       (drop 1 pairs)
   guitarToFive notes = mempty
-    { fiveDifficulties = Map.singleton Expert $ emit5' $ let
+    { fiveDifficulties = Map.singleton Expert $ emitGuitar5 $ let
       noSustains = RTB.flatten $ flip fmap notes $ \case
         [] -> [((Nothing, Strum), Nothing)]
         xs -> [((Just x , Strum), Nothing) | x <- xs ]

@@ -141,8 +141,8 @@ import           Onyx.Preferences                          (CHAudioFormat (..),
                                                             readPreferences,
                                                             savePreferences)
 import           Onyx.Project
-import           Onyx.QuickConvert.FretsOnFire
-import           Onyx.QuickConvert.RockBand
+import           Onyx.QuickConvert.FretsOnFire             as QCH
+import           Onyx.QuickConvert.RockBand                as QRB
 import qualified Onyx.QuickConvert.RockRevolution          as RR
 import           Onyx.Reaper.Build                         (TuningInfo (..),
                                                             makeReaper)
@@ -1862,25 +1862,25 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           "Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format."
           $ \qsong -> do
             let isRB3 = qdtaRB3 $ quickSongDTA qsong
-            procFolder (applyToMIDI $ return . blackVenue isRB3) qsong
+            procFolder (QRB.applyToMIDI $ return . blackVenue isRB3) qsong
         , (,,) "No Overdrive"
           "Removes overdrive phrases from all instruments."
-          $ procFolder $ applyToMIDI $ return . noOverdrive
+          $ procFolder $ QRB.applyToMIDI $ return . noOverdrive
         , (,,) "No lanes (G/B/K)"
           "Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys."
-          $ procFolder $ applyToMIDI $ return . noLanesGBK
+          $ procFolder $ QRB.applyToMIDI $ return . noLanesGBK
         , (,,) "No lanes (drums)"
           "Removes one-pad and two-pad rolls/swells from Drums."
-          $ procFolder $ applyToMIDI $ return . noLanesDrums
+          $ procFolder $ QRB.applyToMIDI $ return . noLanesDrums
         , (,,) "No drum fills"
           "Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos."
-          $ procFolder $ applyToMIDI $ return . noDrumFills
+          $ procFolder $ QRB.applyToMIDI $ return . noDrumFills
         , (,,) "Force 22-fret protar"
           "For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos."
-          $ procFolder $ applyToMIDI $ return . mustang22
+          $ procFolder $ QRB.applyToMIDI $ return . mustang22
         , (,,) "Unmute >22-fret protar"
           "Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input."
-          $ procFolder $ applyToMIDI $ return . unmuteOver22
+          $ procFolder $ QRB.applyToMIDI $ return . unmuteOver22
         , (,,) "Decompress .milo_*"
           "Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion."
           $ procFolder decompressMilos
@@ -2337,23 +2337,34 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   -- right side: processors to transform midis and other files
   packProcessors <- FL.packNew (trimClock 5 5 5 0 processorsRect) Nothing
   let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 45))
-      processors :: [(T.Text, T.Text, QuickFoF -> Onyx QuickFoF)]
-      processors =
-        [ (,,) ".chart to MIDI"
-          "Converts all .chart files to .mid."
-          convertMIDI
-        ]
-  processorGetters <- forM processors $ \(label, tooltip, processor) -> do
-    check <- FL.checkButtonNew processorBox $ Just label
+
+  (checkMIDI, processorMIDI) <- do
+    check <- FL.checkButtonNew processorBox $ Just ".chart to MIDI"
     void $ FL.setValue check False
-    FL.setTooltip check tooltip
-    return $ do
+    FL.setTooltip check "Converts all .chart files to .mid."
+    FL.setCallback check $ \_ -> do
       checked <- FL.getValue check
-      return $ if checked then processor else return
+      unless checked $ void $ FL.setValue checkPSTapOpen False
+    return (check, do
+      checked <- FL.getValue check
+      return $ if checked then convertMIDI else return
+      )
+  (checkPSTapOpen, processorPSTapOpen) <- do
+    check <- FL.checkButtonNew processorBox $ Just "PS tap/open format"
+    void $ FL.setValue check False
+    FL.setTooltip check "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords."
+    FL.setCallback check $ \_ -> do
+      checked <- FL.getValue check
+      when checked $ void $ FL.setValue checkMIDI True
+    return (check, do
+      checked <- FL.getValue check
+      return $ if checked then psTapOpenFormats else return
+      )
+
   (checkOgg, processorOgg) <- do
     check <- FL.checkButtonNew processorBox $ Just "Audio to .ogg"
     void $ FL.setValue check False
-    FL.setTooltip check "Reencode any non-Ogg audio files as Ogg."
+    FL.setTooltip check "Reencode audio files as Ogg Vorbis if they are not already."
     FL.setCallback check $ \_ -> do
       checked <- FL.getValue check
       when checked $ void $ FL.setValue checkOpus False
@@ -2364,7 +2375,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   (checkOpus, processorOpus) <- do
     check <- FL.checkButtonNew processorBox $ Just "Audio to .opus"
     void $ FL.setValue check False
-    FL.setTooltip check "Reencode any non-Opus audio files as Opus."
+    FL.setTooltip check "Reencode audio file as Opus if they are not already."
     FL.setCallback check $ \_ -> do
       checked <- FL.getValue check
       when checked $ void $ FL.setValue checkOgg False
@@ -2372,8 +2383,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       checked <- FL.getValue check
       return $ if checked then stackIO . convertOpus else return
       )
+
   let getTransform = do
-        procs <- sequence $ processorGetters <> [processorOgg, processorOpus]
+        procs <- sequence [processorMIDI, processorPSTapOpen, processorOgg, processorOpus]
         return $ foldr (>=>) return procs
   FL.end packProcessors
 

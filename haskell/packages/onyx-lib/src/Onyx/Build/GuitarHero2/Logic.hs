@@ -237,12 +237,12 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
                   mmap
                   [(fpart, [(show diff, void notes')])]
                   ((fpart,) <$> result.other.fiveOverdrive)
-                let emitted = emit5' notes'
+                let emitted = emitGuitar5 notes'
                 return PartDifficulty
                   { partStarPower  = snd <$> od
                   , partPlayer1    = result.other.fivePlayer1
                   , partPlayer2    = result.other.fivePlayer2
-                  , partGems       = emitted.fiveGems
+                  , partGems       = RTB.mapMaybe sequence emitted.fiveGems
                   , partForceHOPO  = if target.gh2Deluxe then emitted.fiveForceHOPO  else RTB.empty
                   , partForceStrum = if target.gh2Deluxe then emitted.fiveForceStrum else RTB.empty
                   , partForceTap   = if target.gh2Deluxe then emitted.fiveTap        else RTB.empty

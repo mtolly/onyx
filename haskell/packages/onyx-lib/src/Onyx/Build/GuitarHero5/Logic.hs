@@ -31,7 +31,8 @@ import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Build.RB3CH                 (BasicTiming (..),
                                                    basicTiming)
-import           Onyx.Guitar                      (emit5', noLowerExtSustains,
+import           Onyx.Guitar                      (emitGuitar5,
+                                                   noLowerExtSustains,
                                                    standardBlipThreshold,
                                                    standardSustainGap)
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
@@ -259,7 +260,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   makeGB Nothing       _    = GuitarBass [] [] []
   makeGB (Just result) diff = let
     notes = worGuitarEdits $ fromMaybe mempty $ Map.lookup diff result.notes
-    taps = pullBackTapEnds' notes (emit5' notes).fiveTap
+    taps = pullBackTapEnds' notes (emitGuitar5 notes).fiveTap
     colorToBit = \case
       Just Five.Green  -> 0
       Just Five.Red    -> 1

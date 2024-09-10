@@ -258,7 +258,7 @@ importPowerGigSong key song folder level = do
           in mempty
             { D.drumGems = notes
             }
-      getGuitarGEV trackName = emit5' $ case Map.lookup trackName gevTracks of
+      getGuitarGEV trackName = emitGuitar5 $ case Map.lookup trackName gevTracks of
         Nothing  -> RTB.empty
         Just trk -> let
           hopos = getController 68 trk

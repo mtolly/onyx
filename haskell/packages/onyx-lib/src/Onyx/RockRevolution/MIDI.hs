@@ -75,7 +75,7 @@ importRRGuitarBass rr = let
     , Five.fiveForceHOPO = forceEdges $ rrfHOPOs rr
     , Five.fiveTap = RTB.empty
     , Five.fiveOpen = RTB.empty
-    , Five.fiveGems = RTB.merge (rrfStrums rr) (rrfHOPOs rr)
+    , Five.fiveGems = fmap (fmap Just) $ RTB.merge (rrfStrums rr) (rrfHOPOs rr)
     }
 
 -- drums

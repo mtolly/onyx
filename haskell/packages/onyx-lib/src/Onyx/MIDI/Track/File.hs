@@ -1104,7 +1104,7 @@ protarToGrybo pg = mempty
       $ fmap head
       $ RTB.collectCoincident
       $ noExtendedSustains' standardBlipThreshold standardSustainGap
-      $ fmap (\(_, _, len) -> (Five.Green, len))
+      $ fmap (\(_, _, len) -> (Just Five.Green, len))
       $ edgeBlips minSustainLengthRB pgd.pgNotes
     }
   , fiveOverdrive    = pg.pgOverdrive
@@ -1122,7 +1122,7 @@ expertProKeysToKeys pk = mempty
         $ fmap head
         $ RTB.collectCoincident
         $ noExtendedSustains' standardBlipThreshold standardSustainGap
-        $ fmap (\(_, len) -> (Five.Green, len))
+        $ fmap (\(_, len) -> (Just Five.Green, len))
         $ edgeBlips_ minSustainLengthRB pk.pkNotes
       }
     in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
@@ -1148,12 +1148,13 @@ keysToProKeys d ft = ProKeysTrack
   , pkNotes     = case Map.lookup d ft.fiveDifficulties of
     Nothing -> RTB.empty
     Just fd -> let
-      colorToKey = BlueGreen . \case
-        Five.Green  -> C
-        Five.Red    -> D
-        Five.Yellow -> E
-        Five.Blue   -> F
-        Five.Orange -> G
+      colorToKey = \case
+        Nothing          -> RedYellow B
+        Just Five.Green  -> BlueGreen C
+        Just Five.Red    -> BlueGreen D
+        Just Five.Yellow -> BlueGreen E
+        Just Five.Blue   -> BlueGreen F
+        Just Five.Orange -> BlueGreen G
       in fmap colorToKey <$> fd.fiveGems
   }
 

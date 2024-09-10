@@ -242,7 +242,7 @@ starCutoffs mid trks = tracksToStars $ do
 
 -- GH2 stuff
 
-gh2BaseGems :: RTB.T U.Beats (Edge () Five.Color) -> Int
+gh2BaseGems :: (Eq color) => RTB.T U.Beats (Edge () color) -> Int
 gh2BaseGems edges = let
   gems = fixSloppyNotes (10 / 480) $ edgeBlips_ minSustainLengthRB edges
   in gbkBase 50 25 1 $ fmap snd gems

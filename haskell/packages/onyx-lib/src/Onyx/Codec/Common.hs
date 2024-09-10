@@ -134,3 +134,9 @@ eitherCodec ca cb = Codec
   { codecOut  = makeOut $ either (makeValue' ca) (makeValue' cb)
   , codecIn = fmap Left (codecIn ca) <|> fmap Right (codecIn cb)
   }
+
+emptyCodec :: (Monad r, Monad w, Monoid a) => Codec r w a
+emptyCodec = Codec
+  { codecIn  = return mempty
+  , codecOut = return
+  }

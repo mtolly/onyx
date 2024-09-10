@@ -84,7 +84,7 @@ gryboReduceDifficulty diff hopoThres mmap od fd
     then result { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty, fiveTap = RTB.empty }
     else result
     )
-  $ emit5'
+  $ emitGuitar5
   $ gryboReduce diff (isNothing hopoThres) mmap od
   $ (case hopoThres of
     Nothing -> fmap (\(col, len) -> ((col, Strum), len))

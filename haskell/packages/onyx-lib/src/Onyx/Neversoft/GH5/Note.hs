@@ -35,7 +35,7 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Numeric                          (showHex)
 import           Onyx.Codec.Binary
-import           Onyx.Guitar                      (emit5')
+import           Onyx.Guitar                      (emitGuitar5)
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    StrumHOPOTap (..),
                                                    pattern ANil, pattern At,
@@ -531,7 +531,7 @@ ghToMidi bank nf = let
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   getGB :: GuitarBass -> Five.FiveDifficulty U.Beats
-  getGB gb = emit5' $ fromPairs $ let
+  getGB gb = emitGuitar5 $ fromPairs $ let
     isTap = tappingToFunction gb.gb_tapping
     in gb.gb_instrument >>= \note -> do
       fret <- if note.noteBits `testBit` 5

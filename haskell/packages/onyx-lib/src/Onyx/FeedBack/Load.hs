@@ -301,8 +301,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
           , fivePlayer2 = U.trackJoin $ flip fmap expert
             $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
           , fiveDifficulties
-            = G.emit5'
-            . G.noOpenExtSustains G.standardBlipThreshold G.standardSustainGap
+            = G.emitGuitar5
+            -- we used to remove open extended sustains here but now we support those in CH MIDI format
             . emitTrack hopoThreshold
             <$> diffs
           -- these aren't currently supported by CH (only drum lanes) but could be in the future
@@ -335,7 +335,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackOD t -> lengthToBools t; _ -> RTB.empty
           , sixSolo = flip RTB.mapMaybe expert
             $ \case TrackSolo b -> Just b; _ -> Nothing
-          , sixDifficulties = G.emit6' . emitTrack hopoThreshold <$> diffs
+          , sixDifficulties = G.emitGuitar6 . emitTrack hopoThreshold <$> diffs
           }
       parseDrums label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do

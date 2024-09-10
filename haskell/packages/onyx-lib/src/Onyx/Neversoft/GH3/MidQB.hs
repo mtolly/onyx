@@ -20,8 +20,9 @@ import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import           Data.Word                        (Word32)
 import           Onyx.FeedBack.Load               (TrackEvent (..), emitTrack)
-import           Onyx.Guitar                      (HOPOsAlgorithm (..), emit5',
-                                                   guitarify', strumHOPOTap)
+import           Onyx.Guitar                      (HOPOsAlgorithm (..),
+                                                   emitGuitar5, guitarify',
+                                                   strumHOPOTap)
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..),
                                                    blipEdgesRBNice)
@@ -332,7 +333,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   sustainTrim :: Word32
   sustainTrim = quot sustainThreshold 2
   getTrack :: GH3Track -> Five.FiveDifficulty U.Beats
-  getTrack trk = emit5' $ emitTrack hopoThreshold $ fromPairs $ do
+  getTrack trk = emitGuitar5 $ emitTrack hopoThreshold $ fromPairs $ do
     (time, len, bits) <- trk.gh3Notes
     let pos = toBeats time
         lenTrimmed = if len > sustainThreshold

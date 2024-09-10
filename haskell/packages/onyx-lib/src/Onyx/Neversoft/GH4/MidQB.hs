@@ -16,7 +16,7 @@ import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           Data.Word
-import           Onyx.Guitar                      (emit5')
+import           Onyx.Guitar                      (emitGuitar5)
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..))
 import qualified Onyx.MIDI.Track.Drums            as Drums
@@ -433,7 +433,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   sustainThreshold :: Word32
   sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
   getGuitarBassDiff :: GH4Difficulty -> Five.FiveDifficulty U.Beats
-  getGuitarBassDiff diff = emit5' $ fromPairs $ do
+  getGuitarBassDiff diff = emitGuitar5 $ fromPairs $ do
     (time, bits) <- diff.gh4Notes
     let pos = toBeats time
         len = bits .&. 0xFFFF -- think this is right but should confirm

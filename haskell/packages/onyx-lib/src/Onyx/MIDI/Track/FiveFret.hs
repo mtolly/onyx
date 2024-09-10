@@ -10,21 +10,24 @@
 {-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.FiveFret where
 
-import           Control.Monad                    (void)
+import           Control.Monad                    (void, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isNothing)
+import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
+import           Onyx.Codec.Common                (emptyCodec)
 import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import qualified Onyx.PhaseShift.Message          as PS
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 
@@ -147,7 +150,7 @@ data FiveDifficulty t = FiveDifficulty
   , fiveForceHOPO  :: RTB.T t Bool
   , fiveTap        :: RTB.T t Bool
   , fiveOpen       :: RTB.T t Bool
-  , fiveGems       :: RTB.T t (Edge () Color)
+  , fiveGems       :: RTB.T t (Edge () (Maybe Color))
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (FiveDifficulty t)
 
@@ -188,6 +191,7 @@ instance ParseTrack FiveTrack where
             }
       , codecOut = const $ return ()
       }
+
     -- check for CH text event to determine whether to read new open note format on all difficulties
     enhancedOpens <- Codec
       { codecIn = do
@@ -200,15 +204,24 @@ instance ParseTrack FiveTrack where
             }
           in (RTB.merge (void brackets) (void noBrackets), mt')
         return $ not $ RTB.null evts
-      , codecOut = const $ return False
+      , codecOut = \trk -> let
+        hasEnhancedOpens = not $ null $ do
+          diff <- Map.elems trk.fiveDifficulties
+          e <- RTB.getBodies diff.fiveGems
+          Nothing <- toList e
+          return ()
+        in do
+          when hasEnhancedOpens $ modify $ Wait 0 $ E.MetaEvent $ Meta.TextEvent "[ENHANCED_OPENS]"
+          return hasEnhancedOpens
       }
 
     fiveMood         <- (.fiveMood      ) =. command
     fiveHandMap      <- (.fiveHandMap   ) =. command
     fiveStrumMap     <- (.fiveStrumMap  ) =. command
     fiveFretPosition <- (=.) (.fiveFretPosition) $ condenseMap $ eachKey each
-      $ \posn -> edges $ fromEnum posn + 40
-      -- TODO does this need to check enhancedOpens to ignore high fret
+      $ \posn -> case posn of
+        Fret59 | enhancedOpens -> emptyCodec
+        _                      -> edges $ fromEnum posn + 40
     fiveTremolo      <- (.fiveTremolo   ) =. edgesLanes 126
     fiveTrill        <- (.fiveTrill     ) =. edgesLanes 127
     fiveOverdrive    <- (.fiveOverdrive ) =. edges 116
@@ -225,35 +238,19 @@ instance ParseTrack FiveTrack where
       fiveForceStrum <- (.fiveForceStrum) =. edges (base + 6)
       fiveForceHOPO  <- (.fiveForceHOPO ) =. edges (base + 5)
       fiveTap        <- (.fiveTap       ) =. sysexPS diff PS.TapNotes
-      fiveOpen'      <- (.fiveOpen      ) =. sysexPS diff PS.OpenStrum
+      fiveOpen       <- (.fiveOpen      ) =. sysexPS diff PS.OpenStrum
       chordSnap [base - 1 .. base + 4]
-      fiveGems'      <- (.fiveGems      ) =. do
-        translateEdges $ condenseMap $ eachKey each $ edges . \case
-          Green  -> base + 0
-          Red    -> base + 1
-          Yellow -> base + 2
-          Blue   -> base + 3
-          Orange -> base + 4
-      -- Always support pitch 95 opens for expert since I am already using it in my midis
-      (fiveGems, fiveOpen) <- if enhancedOpens || diff == Expert
-        then do
-          opens <- Codec
-            { codecIn  = codecIn $ matchEdges (edges $ base - 1)
-            , codecOut = const $ return RTB.empty
-            }
-          if RTB.null opens
-            then return (fiveGems', fiveOpen')
-            else let
-              -- Need to pull back the opens to not overlap with any other notes
-              pulledBack = splitEdgesBool
-                $ fmap snd
-                $ RTB.filter (\(color, _) -> isNothing color)
-                $ noOpenExtSustainsSimple $ RTB.merge
-                  ((Nothing,) <$> opens)
-                  (RTB.mapMaybe (\case EdgeOn () color -> Just (Just color, 0); _ -> Nothing) fiveGems')
-              newGems = (\b -> if b then EdgeOn () Green else EdgeOff Green) <$> pulledBack
-              in return (RTB.merge fiveGems' newGems, RTB.merge fiveOpen' pulledBack)
-        else return (fiveGems', fiveOpen')
+      fiveGems       <- (.fiveGems      ) =. do
+        translateEdges $ condenseMap $ eachKey (Nothing : map Just each) $ \case
+          -- Always support pitch 95 opens for expert since I am already using it in my midis
+          Nothing -> if enhancedOpens || diff == Expert
+            then edges $ base - 1
+            else emptyCodec
+          Just Green  -> edges $ base + 0
+          Just Red    -> edges $ base + 1
+          Just Yellow -> edges $ base + 2
+          Just Blue   -> edges $ base + 3
+          Just Orange -> edges $ base + 4
       return FiveDifficulty{..}
     return FiveTrack{..}
 
@@ -274,16 +271,3 @@ smoothFretPosition = \case
       $ map (\fret -> Wait 0 (fret, True) . Wait stepDuration (fret, False)) steps
   Wait t pb rest -> Wait t pb $ smoothFretPosition rest
   RNil -> RNil
-
--- Doesn't care about blips vs sustains, just pulls back CH-format opens to next note-on
-noOpenExtSustainsSimple :: (NNC.C t, Num t) => RTB.T t (Maybe color, t) -> RTB.T t (Maybe color, t)
-noOpenExtSustainsSimple = let
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, [(Nothing, len1)]), rtb') -> let
-      len2 = case RTB.viewL rtb' of
-        Nothing            -> len1
-        Just ((dt', _), _) -> min dt' len1
-      in RTB.cons dt [(Nothing, len2)] $ go rtb'
-    Just ((dt, xs), rtb') -> RTB.cons dt xs $ go rtb'
-  in RTB.flatten . go . RTB.collectCoincident

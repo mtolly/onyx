@@ -88,9 +88,7 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
   in FiveResult
     { settings  = grybo
     , notes     = flip fmap trk.fiveDifficulties $ \diff ->
-      applyForces (getForces5 diff)
-        $ strumHOPOTap algo (fromIntegral grybo.hopoThreshold / 480)
-        $ computeFiveFretNotes diff
+      computeFiveFretSHT algo (fromIntegral grybo.hopoThreshold / 480) diff
     , other     = trk
     , source    = "five-fret chart"
     , autochart = False
@@ -784,9 +782,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
     { settings  = def
     , notes     = flip Map.mapWithKey ft.fiveDifficulties $ \diff fd -> let
       chorded = guitarify'
-        $ applyForces (getForces5 fd)
-        $ strumHOPOTap algo hopoThreshold
-        $ computeFiveFretNotes fd
+        $ computeFiveFretSHT algo hopoThreshold fd
       thisSeed = mkStdGen $ randomSeed + fromEnum diff
       go prev = \case
         Wait dt (thisPairs, len) rest -> do
@@ -817,5 +813,5 @@ fiveResultToTrack ft = ft.other
   { Five.fiveDifficulties = Map.fromList $ do
     diff <- [Easy .. Expert]
     gems <- toList $ Map.lookup diff ft.notes
-    return (diff, emit5' gems)
+    return (diff, emitGuitar5 gems)
   }

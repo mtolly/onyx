@@ -156,7 +156,7 @@ importGH1Song pkg path folder level = do
       convmid = F.Song tmap mmap $ F.fixedToOnyx mempty
         { F.fixedPartGuitar = mempty
           { RB.fiveDifficulties = flip fmap diffs $ \diff -> mempty
-            { RB.fiveGems = partGems diff
+            { RB.fiveGems = fmap (fmap Just) $ partGems diff
             }
           , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert diffs
           , RB.fivePlayer1      = maybe RTB.empty partPlayer1   $ Map.lookup Expert diffs

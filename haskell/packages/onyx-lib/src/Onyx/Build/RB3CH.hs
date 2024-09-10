@@ -391,14 +391,14 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
     gap = fromIntegral result.settings.sustainGap / 480
     breRemover = removeBRE target trks.onyxEvents
     makeDifficultyRB3
-      = emit5'
+      = emitGuitar5
       . fromClosed'
       . no5NoteChords
       . noOpenNotes result.settings.detectMutedOpens
       . noTaps
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
       . maybe id (\x -> breRemoveBlips x) breRemover -- note: lambda needed for GHC 9+ (if DeepSubsumption not on) due to forall weirdness
-    makeDifficultyPS = emit5'
+    makeDifficultyPS = emitGuitar5
     finalSteps
       = (if result.settings.fixFreeform then F.fixFreeformFive else id)
       . addFiveMoods tempos timing
@@ -605,7 +605,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         Nothing  -> mempty
         Just ghl -> sixEachDiff
           ( \sd ->
-            emit6'
+            emitGuitar6
           . applyForces (getForces6 sd)
           . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.hopoThreshold / 480)
           . edgeBlips_ minSustainLengthRB
@@ -615,7 +615,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         Nothing  -> mempty
         Just ghl -> sixEachDiff
           ( \sd ->
-            emit6'
+            emitGuitar6
           . applyForces (getForces6 sd)
           . strumHOPOTap HOPOsRBGuitar (fromIntegral ghl.hopoThreshold / 480)
           . edgeBlips_ minSustainLengthRB

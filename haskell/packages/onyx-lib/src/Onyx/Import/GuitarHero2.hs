@@ -96,7 +96,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
     { RB.fiveDifficulties = flip fmap (partDifficulties part) $ \diff -> mempty
-      { RB.fiveGems       = partGems       diff
+      { RB.fiveGems       = fmap (fmap Just) $ partGems diff
       -- stuff that we may have written for future gh2dx support
       , RB.fiveForceHOPO  = partForceHOPO  diff
       , RB.fiveForceStrum = partForceStrum diff

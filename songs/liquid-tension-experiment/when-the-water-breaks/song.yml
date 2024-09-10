@@ -44,7 +44,7 @@ parts:
     drums:
       difficulty: 7
       kicks: both
-      mode: elite # TODO convert back to pro
+      mode: elite
   bass:
     grybo:
       difficulty: 5

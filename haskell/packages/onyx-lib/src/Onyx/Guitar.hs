@@ -7,13 +7,14 @@
 {-# LANGUAGE TupleSections       #-}
 module Onyx.Guitar where
 
+import           Control.Applicative              ((<|>))
 import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (first, second)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List                        (sort)
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isJust)
 import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common
@@ -26,9 +27,15 @@ data GuitarEvent a
   | Note a
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+computeFiveFretSHT :: HOPOsAlgorithm -> U.Beats -> FiveDifficulty U.Beats -> RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats)
+computeFiveFretSHT algo hopoThreshold fd
+  = applyForces (getForces5 fd)
+  $ strumHOPOTap algo hopoThreshold
+  $ computeFiveFretNotes fd
+
 computeFiveFretNotes :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
 computeFiveFretNotes fd
-  = fmap (\(isOpen, (col, len)) -> (guard (not isOpen) >> Just col, len))
+  = fmap (\(isOpen, (mcol, len)) -> (guard (not isOpen) >> mcol, len))
   $ applyStatus1 False fd.fiveOpen
   $ edgeBlips_ minSustainLengthRB fd.fiveGems
 
@@ -187,8 +194,8 @@ noLowerExtSustains blipThreshold sustainGap = go where
         in ((color, sht), len2)
       RNil -> note
 
--- Used for .chart import where you can "hold" open then play other notes on top.
--- (PS) MIDI doesn't support this, so we have to trim the opens back before emitting
+-- Used when we need to emit PS MIDI, where in the general case we need to trim
+-- all open notes to not overlap other notes
 noOpenExtSustains :: (NNC.C t, Num t) => t -> t -> RTB.T t ((Maybe color, sht), Maybe t) -> RTB.T t ((Maybe color, sht), Maybe t)
 noOpenExtSustains blipThreshold sustainGap = let
   go rtb = case RTB.viewL rtb of
@@ -199,7 +206,10 @@ noOpenExtSustains blipThreshold sustainGap = let
         Just ((dt', _), _) -> min (dt' NNC.-| sustainGap) <$> len1
       len3 = len2 >>= \l2 -> guard (l2 >= blipThreshold) >> len2
       in RTB.cons dt [((Nothing, sht), len3)] $ go rtb'
-    Just ((dt, xs), rtb') -> RTB.cons dt xs $ go rtb'
+    Just ((dt, xs), rtb') -> let
+      -- in case of "open chords" (open + 1 or more frets), need to remove open note
+      noOpens = filter (\((color, _sht), _len) -> isJust color) xs
+      in RTB.cons dt noOpens $ go rtb'
   in RTB.flatten . go . RTB.collectCoincident
 
 standardBlipThreshold :: U.Beats
@@ -520,17 +530,25 @@ fixTapOffCH = \case
   RNil -> RNil
 
 -- | Writes every note with an explicit HOPO/strum force.
-emit5' :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
-emit5' notes = FiveDifficulty
+emitGuitar5 :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
+emitGuitar5 = emitGuitar5General True
+
+emitGuitar5PS :: RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
+emitGuitar5PS = emitGuitar5General False
+
+emitGuitar5General :: Bool -> RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
+emitGuitar5General enhancedOpens notes = FiveDifficulty
   { fiveForceStrum = makeForce Strum
   , fiveForceHOPO = makeForce HOPO
   , fiveTap = makeForce Tap
-  , fiveOpen = U.trackJoin $ flip RTB.mapMaybe notes $ \case
-    ((Nothing, _), _) -> Just boolBlip
-    _                 -> Nothing
-  , fiveGems
-    = blipEdgesRB_
-    $ fmap (\((mc, _), len) -> (fromMaybe G5.Green mc, len)) notes
+  , fiveOpen = if enhancedOpens
+    then RTB.empty
+    else U.trackJoin $ flip RTB.mapMaybe notes $ \case
+      ((Nothing, _), _) -> Just boolBlip
+      _                 -> Nothing
+  , fiveGems = blipEdgesRB_ $ if enhancedOpens
+    then (\((mc, _), len) -> (mc, len)) <$> notes
+    else (\((mc, _), len) -> (mc <|> Just Green, len)) <$> noOpenExtSustains standardBlipThreshold standardSustainGap notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = fixTapOffCH $ cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts
@@ -538,8 +556,8 @@ emit5' notes = FiveDifficulty
     boolBlip = RTB.fromPairList [(0, True), (1/480, False)]
 
 -- | Writes every note with an explicit HOPO/strum force.
-emit6' :: RTB.T U.Beats ((Maybe Fret, StrumHOPOTap), Maybe U.Beats) -> SixDifficulty U.Beats
-emit6' notes = SixDifficulty
+emitGuitar6 :: RTB.T U.Beats ((Maybe Fret, StrumHOPOTap), Maybe U.Beats) -> SixDifficulty U.Beats
+emitGuitar6 notes = SixDifficulty
   { sixForceStrum = makeForce Strum
   , sixForceHOPO = makeForce HOPO
   , sixTap = makeForce Tap

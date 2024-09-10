@@ -121,7 +121,7 @@ fixFiveColors trk = let
       _      -> fd { fiveGems = useColorsFive usedColors fd.fiveGems }
     }
 
-useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Edge () Five.Color) -> RTB.T U.Beats (Edge () Five.Color)
+useColorsFive :: (Ord color) => Set.Set color -> RTB.T U.Beats (Edge () color) -> RTB.T U.Beats (Edge () color)
 useColorsFive cols rtb = let
   gtr = guitarify' $ edgeBlips_ minSustainLengthRB rtb
   present = Set.fromList $ flip mapMaybe (RTB.getBodies rtb) $ \case
@@ -138,9 +138,10 @@ focuses [] = []
 focuses xs = zip3 (inits xs) xs (tail $ tails xs)
 
 useColorFive
-  ::                  Five.Color
-  ->  RTB.T U.Beats ([Five.Color], Maybe U.Beats)
-  -> [RTB.T U.Beats ([Five.Color], Maybe U.Beats)]
+  :: (Ord color)
+  =>                  color
+  ->  RTB.T U.Beats ([color], Maybe U.Beats)
+  -> [RTB.T U.Beats ([color], Maybe U.Beats)]
 useColorFive newColor rtb = do
   -- TODO sort this better (move closer colors first)
   (before, (t, (oldColors, len)), after) <- focuses $ reverse $ RTB.toPairList rtb

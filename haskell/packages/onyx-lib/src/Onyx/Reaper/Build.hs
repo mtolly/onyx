@@ -617,6 +617,7 @@ gryboNoteNames isKeys = execWriter $ do
   x 118
   o 116 "OVERDRIVE"
   x 115
+  o 104 "Tap Marker"
   o 103 "Solo Marker"
   o 102 $ if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
   o 101 $ if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
@@ -625,7 +626,8 @@ gryboNoteNames isKeys = execWriter $ do
   o 98 "EXPERT Yellow"
   o 97 "EXPERT Red"
   o 96 "EXPERT Green"
-  x 95
+  unless isKeys $ o 95 "EXPERT Open"
+  x 91
   o 90 $ if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
   o 89 $ if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
   o 88 "HARD Orange"
@@ -633,12 +635,14 @@ gryboNoteNames isKeys = execWriter $ do
   o 86 "HARD Yellow"
   o 85 "HARD Red"
   o 84 "HARD Green"
+  unless isKeys $ o 83 "HARD Open"
   x 77
   o 76 "MEDIUM Orange"
   o 75 "MEDIUM Blue"
   o 74 "MEDIUM Yellow"
   o 73 "MEDIUM Red"
   o 72 "MEDIUM Green"
+  unless isKeys $ o 71 "MEDIUM Open"
   x 65
   o 64 "EASY Orange"
   o 63 "EASY Blue"
@@ -646,7 +650,7 @@ gryboNoteNames isKeys = execWriter $ do
   o 61 "EASY Red"
   o 60 "EASY Green"
   unless isKeys $ do
-    o 59 "Left Hand Highest"
+    o 59 "Left Hand Highest" -- also EASY Open but whatever
     forM_ [58, 57 .. 41] $ \i -> o i $ case i of
       -- https://imgur.com/fRg6Vo9
       41 -> "- (1)" -- venuegen says 40
