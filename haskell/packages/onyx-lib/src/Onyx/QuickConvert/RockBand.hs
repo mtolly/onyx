@@ -135,6 +135,11 @@ data QuickConvertFormat
   | QCFormatPKG
   deriving (Show)
 
+data QuickConvertFormatOutput
+  = QCOutputTwoWay QuickConvertFormat
+  | QCOutputLoosePS3
+  deriving (Show)
+
 data QuickConvertFormatInput
   = QCInputTwoWay QuickConvertFormat
   | QCInputLoose
@@ -708,41 +713,61 @@ addSize n (t, x) = (t, (n, x))
 discardSize :: (T.Text, (size, a)) -> (T.Text, a)
 discardSize (t, (_, x)) = (t, x)
 
-saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
-saveQuickSongsPKG qsongs settings fout = do
-  let oneFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-        $ "O" <> take 6 (show $ hash $ map (qdtaOriginal . quickSongDTA) qsongs) <> case qsongs of
-          []        -> "" -- shouldn't happen
-          qsong : _ -> T.unpack (qdtaTitle $ quickSongDTA qsong)
-      contentID = npdContentID
-        $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
+defaultFolderPS3 :: [QuickSong] -> B.ByteString
+defaultFolderPS3 qsongs = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
+  $ "O" <> take 6 (show $ hash $ map (qdtaOriginal . quickSongDTA) qsongs) <> case qsongs of
+    []        -> "" -- shouldn't happen
+    qsong : _ -> T.unpack (qdtaTitle $ quickSongDTA qsong)
+
+quickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> StackTraceT m (Folder T.Text Readable)
+quickSongsPS3Folder qsongs settings = do
+  let oneFolder = defaultFolderPS3 qsongs
   qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs $ \qsong -> do
     let separateFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
           $ "O" <> take 6 (show $ hash $ qdtaOriginal $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
         chosenFolder = case qcPS3Folder settings of
-          Nothing -> case quickSongPS3Folder qsong of
-            Just dir -> dir -- came from ps3, keep the same subfolder
-            Nothing  -> separateFolder -- came from xbox, assign new random folder
-          Just QCOneFolder -> oneFolder -- one folder for whole pkg
-          Just QCSeparateFolders -> separateFolder -- separate folder for each song
+          Just QCOneFolder         -> oneFolder      -- one folder for whole pkg
+          Just QCSeparateFolders   -> separateFolder -- separate folder for each song
           Just (QCCustomFolder bs) -> bs
+          Nothing                  -> case quickSongPS3Folder qsong of
+            Just dir -> dir       -- came from ps3, keep the same subfolder
+            Nothing  -> oneFolder -- came from xbox, assign new random folder
         mcrypt = guard (qcPS3EncryptMIDI settings) >> Just (chosenFolder, qcPS3RB3 settings)
     ps3Folder <- mapMFilesWithName (getPS3File mcrypt (qcPS3EncryptMOGG settings) . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
-  let rootFolder = container "USRDIR" $ mconcat $ do
-        (usrdirSub, songs) <- Map.toList qsongMapping
-        let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
-              (qsong, _) <- songs
-              return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
-        return $ container (TE.decodeLatin1 usrdirSub) $ container "songs" Folder
-          { folderFiles = [("songs.dta", songsDTA)]
-          , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs
-          }
+  let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+  return $ mconcat $ do
+    (usrdirSub, songs) <- Map.toList qsongMapping
+    let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
+          (qsong, _) <- songs
+          return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
+    return $ container (TE.decodeLatin1 usrdirSub) $ container "songs" Folder
+      { folderFiles = [("songs.dta", songsDTA)]
+      , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs
+      }
+
+saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
+saveQuickSongsPKG qsongs settings fout = do
+  contents <- quickSongsPS3Folder qsongs settings
+  let oneFolder = defaultFolderPS3 qsongs
+      contentID = npdContentID
+        $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
       container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+      rootFolder = container "USRDIR" contents
   stackIO $ do
     extraPath <- getResourcesPath $ if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
     makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) fout
+
+saveQuickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m [FilePath]
+saveQuickSongsPS3Folder qsongs settings dout = do
+  contents <- quickSongsPS3Folder qsongs settings
+  -- TODO handle if fout is actually something earlier in the chain of rpcs3/dev_hdd0/game/BLUS30463/USRDIR/
+  -- by making extra parent folders first
+  stackIO $ saveHandleFolder contents dout
+  return $ do
+    x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
+    return $ dout </> T.unpack x
 
 contentsSize :: QuickSong -> Integer
 contentsSize qsong = sum $ map fst $ toList $ quickSongFiles qsong

@@ -6,7 +6,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 module Onyx.Harmonix.MOGG.Crypt where
 
-import           Control.Exception        (bracket)
+import           Control.Exception        (bracket, onException)
 import           Control.Monad            (when)
 import qualified Data.ByteString          as B
 import           Data.ByteString.Internal (fromForeignPtr0)
@@ -160,29 +160,10 @@ handleOVCallbacks h = do
         freeHaskellFunPtr fnTell
   return (cb, cleanup)
 
-{-
-moggToOggHandles' :: Handle -> IO SimpleHandle
-moggToOggHandles' h = do
-  bs <- BL.hGet h 8
-  let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs
-      hex = "0x" <> map toUpper (showHex moggType "")
-  if moggType == 0xA
-    then subHandleInternal (fromIntegral oggStart) Nothing h hClose
-    else fail $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
--}
-
 moggToOggHandles :: Handle -> IO SimpleHandle
 moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
-
-  {-
-  -- temporary disable of encrypted mogg support
-  hSeek h AbsoluteSeek 0
-  enc <- B.hGet h 1
-  when (enc /= B.singleton 0xA) $ fail "Encrypted .mogg not supported"
-  -}
-
   when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
   size <- vorbisReaderSizeRaw vr
   return SimpleHandle
@@ -201,7 +182,9 @@ moggToOggHandles h = do
     }
 
 moggToOgg :: Readable -> Readable
-moggToOgg r = makeHandle "decrypted mogg" $ rOpen r >>= moggToOggHandles
+moggToOgg r = makeHandle "decrypted mogg" $ do
+  h <- rOpen r
+  moggToOggHandles h `onException` hClose h
 
 -- 0x0A (unencrypted) -> 0x0B (RB1)
 encryptMOGG :: (Monoid a) => Readable -> (B.ByteString -> IO a) -> IO a

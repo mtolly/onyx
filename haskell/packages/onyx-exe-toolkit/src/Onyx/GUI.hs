@@ -1959,17 +1959,23 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         btn <- FL.checkButtonNew ps3EncryptArea $ Just "Encrypt .mid.edat"
         void $ FL.setValue btn $ prefPS3Encrypt ?preferences
         return $ FL.getValue btn
-      makeFormatSelect ps3On ps3Off = do
-        ref <- newIORef QCFormatCON
+      makeFormatSelect :: IO () -> IO () -> IO () -> IO () -> IO (IO QuickConvertFormatOutput)
+      makeFormatSelect ps3On ps3Off foldersOn foldersOff = do
+        ref <- newIORef $ QCOutputTwoWay QCFormatCON
         makeModeDropdown formatArea
-          [ ("CON (360)" , QCFormatCON)
-          , ("LIVE (360)", QCFormatLIVE)
-          , ("PKG (PS3)" , QCFormatPKG)
+          [ ("CON (360)"    , QCOutputTwoWay QCFormatCON )
+          , ("LIVE (360)"   , QCOutputTwoWay QCFormatLIVE)
+          , ("PKG (PS3)"    , QCOutputTwoWay QCFormatPKG )
+          , ("Folders (PS3)", QCOutputLoosePS3           )
           ] $ \x -> sink $ EventIO $ do
             writeIORef ref x
             case x of
-              QCFormatPKG -> ps3On
-              _           -> ps3Off
+              QCOutputTwoWay QCFormatPKG -> ps3On
+              QCOutputLoosePS3           -> ps3On
+              _                          -> ps3Off
+            case x of
+              QCOutputLoosePS3 -> foldersOn
+              _                -> foldersOff
         return $ readIORef ref
       modeGroup :: IO () -> IO (FL.Ref FL.Group)
       modeGroup inner = do
@@ -2038,6 +2044,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     getFormat <- makeFormatSelect
       (FL.activate   ps3Options)
       (FL.deactivate ps3Options)
+      (FL.hide       groupStartFile >> FL.showWidget groupStartLoosePS3)
+      (FL.showWidget groupStartFile >> FL.hide       groupStartLoosePS3)
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
     getFolderSetting <- makePresetDropdown ps3FolderArea
@@ -2046,47 +2054,77 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
       ]
     FL.end ps3Options
+    groupStartFile <- FL.groupNew row4 Nothing
     void $ makeTemplateRunner'
       sink
       row4
       "Start"
       "%input_dir%/%input_base%_convert%ext%"
-      $ \template -> sink $ EventOnyx $ do
-        files <- stackIO $ readMVar loadedFiles
-        fmt <- stackIO getFormat
-        enc <- stackIO getEncrypt
-        ps3Folder <- stackIO getFolderSetting
-        songTransform <- stackIO getSongTransform
-        decryptMOGGs <- stackIO getDecryptMOGGs
+      $ \template -> sink $ EventOnyx $ stackIO getFormat >>= \case
+        QCOutputLoosePS3   -> return () -- shouldn't happen
+        QCOutputTwoWay fmt -> do
+          files <- stackIO $ readMVar loadedFiles
+          enc <- stackIO getEncrypt
+          ps3Folder <- stackIO getFolderSetting
+          songTransform <- stackIO getSongTransform
+          decryptMOGGs <- stackIO getDecryptMOGGs
+          newPreferences <- readPreferences
+          startTasks $ flip map files $ \qinput -> let
+            fin = quickInputPath qinput
+            qsongs = quickInputSongs qinput
+            task = do
+              qsongs' <- mapM songTransform qsongs
+              let ext = case fmt of
+                    QCFormatCON  -> ""
+                    QCFormatLIVE -> ""
+                    QCFormatPKG  -> ".pkg"
+                  fout = quickTemplate newPreferences fmt fin ext template Nothing
+                  isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = ps3Folder
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+                  xboxSettings live = stackIO $
+                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                    (maybe (defaultTitle qsongs') (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
+                    (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
+                    live
+              case fmt of
+                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+                QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+              return [fout]
+            in (fin, task)
+    FL.end groupStartFile
+    groupStartLoosePS3 <- FL.groupNew row4 Nothing
+    btnLoosePS3 <- FL.buttonNew row4 $ Just "Start"
+    taskColor >>= FL.setColor btnLoosePS3
+    FL.setCallback btnLoosePS3 $ \_ -> do
+      files <- readMVar loadedFiles
+      enc <- getEncrypt
+      ps3Folder <- getFolderSetting
+      songTransform <- getSongTransform
+      decryptMOGGs <- getDecryptMOGGs
+      sink $ EventOnyx $ do
         newPreferences <- readPreferences
-        startTasks $ flip map files $ \qinput -> let
-          fin = quickInputPath qinput
-          qsongs = quickInputSongs qinput
-          task = do
-            qsongs' <- mapM songTransform qsongs
-            let ext = case fmt of
-                  QCFormatCON  -> ""
-                  QCFormatLIVE -> ""
-                  QCFormatPKG  -> ".pkg"
-                fout = quickTemplate newPreferences fmt fin ext template Nothing
-                isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
-                ps3Settings = QuickPS3Settings
-                  { qcPS3Folder      = ps3Folder
-                  , qcPS3EncryptMIDI = enc
-                  , qcPS3EncryptMOGG = not decryptMOGGs
-                  , qcPS3RB3         = isRB3
-                  }
-                xboxSettings live = stackIO $
-                  (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                  (maybe (defaultTitle qsongs') (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
-                  (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
-                  live
-            case fmt of
-              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
-              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
-              QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
-            return [fout]
-          in (fin, task)
+        stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
+          sink $ EventOnyx $ startTasks $ flip map files $ \qinput -> let
+            fin = quickInputPath qinput
+            qsongs = quickInputSongs qinput
+            task = do
+              qsongs' <- mapM songTransform qsongs
+              let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = ps3Folder
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+              saveQuickSongsPS3Folder qsongs' ps3Settings dout
+            in (fin, task)
+    FL.end groupStartLoosePS3
 
   -- Make packs (songs are combined into packs, up to a maximum size)
   --   2nd row: con/pkg/live, if pkg then (enc/unenc midi select, separate/combined songs.dta select)
@@ -2097,6 +2135,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     getFormat <- makeFormatSelect
       (FL.activate   ps3Options)
       (FL.deactivate ps3Options)
+      (return ())
+      (return ())
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
     getFolderSetting <- makePS3PackPresetDropdown sink ps3FolderArea
@@ -2115,69 +2155,89 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     writeIORef packMaxSizeRef $ Just maxSizeInput
     btnGo <- FL.buttonNew goArea $ Just "Save pack as…"
     taskColor >>= FL.setColor btnGo
-    FL.setCallback btnGo $ \_ -> sink $ EventIO $ do
-      fmt <- getFormat
+    FL.setCallback btnGo $ \_ -> do
       enc <- getEncrypt
       ps3Folder <- getFolderSetting
       songTransform <- getSongTransform
       decryptMOGGs <- getDecryptMOGGs
       computePacks >>= \case
         Nothing    -> return () -- shouldn't happen, button is deactivated
-        Just packs -> do
-          picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-          FL.setTitle picker $ case packs of
-            [_] -> "Save pack file"
-            _   -> "Select template for packs (a number will be added for each pack)"
-          FL.showWidget picker >>= \case
-            FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-              Nothing -> return ()
-              Just userPath -> let
-                packNumber n = case packs of
-                  [_] -> ""
-                  _   -> "-" <> show n
-                packNumberUSRDIR n = case packs of
-                  [_] -> ""
-                  _   -> B8.pack $ show n
-                getOutputPath n = case fmt of
-                  QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
-                  _           -> userPath <> packNumber n
-                in sink $ EventOnyx $ do
-                  newPreferences <- readPreferences
-                  startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
-                    fout = getOutputPath i
-                    task = do
-                      mapM_ (lg . T.unpack . artistTitle) qsongs
-                      qsongs' <- mapM songTransform qsongs
-                      let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
-                          maybeEncoding = if isRB3
-                            then newPreferences.prefPackEncoding
-                            else Just Latin1
-                          qsongsReencode = case maybeEncoding of
-                            Nothing          -> qsongs'
-                            Just newEncoding -> flip map qsongs' $ \qsong -> qsong
-                              { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
-                              }
-                          ps3Folder' = case ps3Folder of
-                            QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
-                            _                 -> ps3Folder
-                          ps3Settings = QuickPS3Settings
-                            { qcPS3Folder      = Just ps3Folder'
-                            , qcPS3EncryptMIDI = enc
-                            , qcPS3EncryptMOGG = not decryptMOGGs
-                            , qcPS3RB3         = isRB3
-                            }
-                          xboxSettings live = stackIO $
-                            (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                            (defaultTitle qsongsReencode)
-                            ""
-                            live
-                      case fmt of
-                        QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
-                        QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
-                        QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
-                      return [fout]
-                    in ("Pack #" <> show (i :: Int), task)
-            _ -> return ()
+        Just packs -> let
+          packNumber n = case packs of
+            [_] -> ""
+            _   -> "-" <> show n
+          packNumberUSRDIR n = case packs of
+            [_] -> ""
+            _   -> B8.pack $ show n
+          in sink $ EventOnyx $ stackIO getFormat >>= \case
+            QCOutputLoosePS3 -> do
+              newPreferences <- readPreferences
+              stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
+                sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                  task = do
+                    mapM_ (lg . T.unpack . artistTitle) qsongs
+                    qsongs' <- mapM songTransform qsongs
+                    let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                        ps3Folder' = case ps3Folder of
+                          QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                          _                 -> ps3Folder
+                        ps3Settings = QuickPS3Settings
+                          { qcPS3Folder      = Just ps3Folder'
+                          , qcPS3EncryptMIDI = enc
+                          , qcPS3EncryptMOGG = not decryptMOGGs
+                          , qcPS3RB3         = isRB3
+                          }
+                    saveQuickSongsPS3Folder qsongs' ps3Settings dout
+                  in ("Pack #" <> show (i :: Int), task)
+            QCOutputTwoWay fmt -> stackIO $ do
+              picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+              FL.setTitle picker $ case packs of
+                [_] -> "Save pack file"
+                _   -> "Select template for packs (a number will be added for each pack)"
+              FL.showWidget picker >>= \case
+                FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+                  Nothing -> return ()
+                  Just userPath -> let
+                    getOutputPath n = case fmt of
+                      QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
+                      _           -> userPath <> packNumber n
+                    in sink $ EventOnyx $ do
+                      newPreferences <- readPreferences
+                      startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                        fout = getOutputPath i
+                        task = do
+                          mapM_ (lg . T.unpack . artistTitle) qsongs
+                          qsongs' <- mapM songTransform qsongs
+                          let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                              maybeEncoding = if isRB3
+                                then newPreferences.prefPackEncoding
+                                else Just Latin1
+                              qsongsReencode = case maybeEncoding of
+                                Nothing          -> qsongs'
+                                Just newEncoding -> flip map qsongs' $ \qsong -> qsong
+                                  { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+                                  }
+                              ps3Folder' = case ps3Folder of
+                                QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                                _                 -> ps3Folder
+                              ps3Settings = QuickPS3Settings
+                                { qcPS3Folder      = Just ps3Folder'
+                                , qcPS3EncryptMIDI = enc
+                                , qcPS3EncryptMOGG = not decryptMOGGs
+                                , qcPS3RB3         = isRB3
+                                }
+                              xboxSettings live = stackIO $
+                                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                                (defaultTitle qsongsReencode)
+                                ""
+                                live
+                          case fmt of
+                            QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                            QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                            QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                          return [fout]
+                        in ("Pack #" <> show (i :: Int), task)
+                _ -> return ()
     writeIORef packGoRef $ Just btnGo
 
   -- Make songs (each song gets one new output file)
@@ -2187,50 +2247,80 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     getFormat <- makeFormatSelect
       (FL.activate   ps3Options)
       (FL.deactivate ps3Options)
+      (FL.hide       groupStartFile >> FL.showWidget groupStartLoosePS3)
+      (FL.showWidget groupStartFile >> FL.hide       groupStartLoosePS3)
     ps3Options <- FL.groupNew ps3OptionsArea Nothing
     getEncrypt <- makeCheckEncrypt
     FL.end ps3Options
+    groupStartFile <- FL.groupNew row4 Nothing
     void $ makeTemplateRunner'
       sink
       row4
       "Select folder…"
       "%artist% - %title%%ext%"
-      $ \template -> sink $ EventIO $ do
-        files <- readMVar loadedFiles
-        fmt <- getFormat
-        enc <- getEncrypt
-        songTransform <- getSongTransform
-        decryptMOGGs <- getDecryptMOGGs
-        askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
+      $ \template -> sink $ EventIO $ getFormat >>= \case
+        QCOutputLoosePS3   -> return () -- shouldn't happen
+        QCOutputTwoWay fmt -> do
+          files <- readMVar loadedFiles
+          enc <- getEncrypt
+          songTransform <- getSongTransform
+          decryptMOGGs <- getDecryptMOGGs
+          askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
+            let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
+            sink $ EventOnyx $ do
+              newPreferences <- readPreferences
+              startTasks $ flip map inputSongs $ \(qinput, qsong) -> let
+                ext = case fmt of
+                  QCFormatCON  -> ""
+                  QCFormatLIVE -> ""
+                  QCFormatPKG  -> ".pkg"
+                fout = dout </> quickTemplate newPreferences fmt (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
+                isRB3 = qdtaRB3 $ quickSongDTA qsong
+                task = do
+                  qsong' <- songTransform qsong
+                  let ps3Settings = QuickPS3Settings
+                        { qcPS3Folder      = Just QCSeparateFolders
+                        , qcPS3EncryptMIDI = enc
+                        , qcPS3EncryptMOGG = not decryptMOGGs
+                        , qcPS3RB3         = isRB3
+                        }
+                      xboxSettings live = stackIO $
+                        (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                        (artistTitle qsong)
+                        ""
+                        live
+                  case fmt of
+                    QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
+                    QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
+                    QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+                  return [fout]
+                in (T.unpack $ artistTitle qsong, task)
+    FL.end groupStartFile
+    groupStartLoosePS3 <- FL.groupNew row4 Nothing
+    btnLoosePS3 <- FL.buttonNew row4 $ Just "Start"
+    taskColor >>= FL.setColor btnLoosePS3
+    FL.setCallback btnLoosePS3 $ \_ -> do
+      files <- readMVar loadedFiles
+      enc <- getEncrypt
+      songTransform <- getSongTransform
+      decryptMOGGs <- getDecryptMOGGs
+      sink $ EventOnyx $ do
+        newPreferences <- readPreferences
+        stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
           let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
-          sink $ EventOnyx $ do
-            newPreferences <- readPreferences
-            startTasks $ flip map inputSongs $ \(qinput, qsong) -> let
-              ext = case fmt of
-                QCFormatCON  -> ""
-                QCFormatLIVE -> ""
-                QCFormatPKG  -> ".pkg"
-              fout = dout </> quickTemplate newPreferences fmt (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
-              isRB3 = qdtaRB3 $ quickSongDTA qsong
-              task = do
-                qsong' <- songTransform qsong
-                let ps3Settings = QuickPS3Settings
-                      { qcPS3Folder      = Just QCSeparateFolders
-                      , qcPS3EncryptMIDI = enc
-                      , qcPS3EncryptMOGG = not decryptMOGGs
-                      , qcPS3RB3         = isRB3
-                      }
-                    xboxSettings live = stackIO $
-                      (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                      (artistTitle qsong)
-                      ""
-                      live
-                case fmt of
-                  QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
-                  QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
-                  QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
-                return [fout]
-              in (T.unpack $ artistTitle qsong, task)
+          sink $ EventOnyx $ startTasks $ flip map inputSongs $ \(_qinput, qsong) -> let
+            isRB3 = qdtaRB3 $ quickSongDTA qsong
+            task = do
+              qsong' <- songTransform qsong
+              let ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = Just QCSeparateFolders
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+              saveQuickSongsPS3Folder [qsong'] ps3Settings dout
+            in (T.unpack $ artistTitle qsong, task)
+    FL.end groupStartLoosePS3
 
   -- Wii (Dolphin) pack
   --   2nd row: checkbox for preview audio
@@ -3949,8 +4039,10 @@ launchPreferences sink makeMenuBar = do
               , "convenient) when playing on emulator."
               ]
             return $ (\b prefs -> prefs { prefPS3Encrypt = b }) <$> FL.getValue check
+          , do
+            getDir <- lineBox $ \box -> folderBox box "PS3/RPCS3 install folder" $ T.pack $ fromMaybe "" $ prefDirPS3 loadedPrefs
+            return $ (\mdir prefs -> prefs { prefDirPS3 = mdir }) <$> getDir
           -- TODO default PKG output folder
-          -- TODO folder to install direct into RPCS3 hdd
           ]
         FL.end pack
         return fn

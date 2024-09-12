@@ -33,6 +33,7 @@ data Preferences = Preferences
   , prefDirCH         :: Maybe FilePath
   , prefDirWii        :: Maybe FilePath
   , prefDirPreview    :: Maybe FilePath
+  , prefDirPS3        :: Maybe FilePath
   , prefAudioDirs     :: [FilePath]
   , prefOGGQuality    :: Double
   , prefGH2Offset     :: Double -- in seconds
@@ -67,6 +68,7 @@ instance StackJSON Preferences where
     prefDirCH         <- prefDirCH         =. opt  Nothing          "dir-ch"          stackJSON
     prefDirWii        <- prefDirWii        =. opt  Nothing          "dir-wii"         stackJSON
     prefDirPreview    <- prefDirPreview    =. opt  Nothing          "dir-preview"     stackJSON
+    prefDirPS3        <- prefDirPS3        =. opt  Nothing          "dir-ps3"         stackJSON
     prefAudioDirs     <- prefAudioDirs     =. opt  []               "audio-dirs"      stackJSON
     prefOGGQuality    <- prefOGGQuality    =. fill 0.5              "ogg-quality"     stackJSON
     prefGH2Offset     <- prefGH2Offset     =. fill 0                "gh2-offset"      stackJSON

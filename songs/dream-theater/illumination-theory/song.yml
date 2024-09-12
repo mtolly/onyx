@@ -10,22 +10,36 @@ audio:
   hdtracks-track: # 96 kHz, 24-bit
     md5: 62371c358e667db4fac3d072d3665584
     frames: 128439782
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(hdtracks-track) audio-stems.wav
+    channels: 8
 plans:
   album:
     song:
       pad:
       - 2.387
-      - channels:
-        - [1, 0] # flip channels
-        - album-track
+      - flip: album-track
   hdtracks:
     song:
       pad:
       - 2.387
-      - channels:
-        - [1, 0] # flip channels
-        - hdtracks-track
+      - flip: hdtracks-track
+  dev:
+    song:
+      flip: {pad: [2.387, hdtracks-track]}
+    parts:
+      bass:
+        flip: {pad: [2.387, channels: [[0, 1], stems]]}
+      drums:
+        flip: {pad: [2.387, channels: [[2, 3], stems]]}
+      vocal:
+        flip: {pad: [2.387, channels: [[4, 5], stems]]}
+      other:
+        flip: {pad: [2.387, channels: [[6, 7], stems]]}
 parts:
   drums:
     drums:
       kicks: both
+      mode: elite
