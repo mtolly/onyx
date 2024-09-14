@@ -126,10 +126,12 @@ data RB3Create
   = RB3CON FilePath
   | RB3PKG FilePath
   | RB3Magma FilePath
+  | RB3LoosePS3 FilePath
 
 data RB2Create
   = RB2CON FilePath
   | RB2PKG FilePath
+  | RB2LoosePS3 FilePath
 
 data PSCreate
   = PSDir FilePath
@@ -148,6 +150,7 @@ data GH2Create
 data GH3Create
   = GH3LIVE FilePath
   | GH3PKG FilePath
+  | GH3LoosePS3 FilePath
 
 data GHWORCreate
   = GHWORLIVE FilePath

@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE RecordWildCards     #-}
-module Onyx.Build.GuitarHero5 (gh5Rules) where
+module Onyx.Build.GuitarHero5 (gh5Rules, onyxGH5PackageTitle, hashGH5) where
 
 import           Control.Monad.Extra               (allM)
 import           Control.Monad.IO.Class
@@ -80,6 +80,16 @@ hashGH5 songYaml gh5 = let
     )
   in 1000000000 + (hash hashed `mod` 1000000000)
 
+onyxGH5PackageTitle :: SongYaml f -> TargetGH5 f -> T.Text -> T.Text
+onyxGH5PackageTitle songYaml gh5 cdl = let
+  metadata = getTargetMetadata songYaml $ GH5 gh5
+  -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
+  packageInfo = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
+    $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist metadata <> ")"
+  -- We put the cdl in as well, otherwise 2 titles that share the first 42 chars can conflict
+  -- (for example, a long-title song converted to 2 different speeds)
+  in cdl <> " " <> packageInfo
+
 gh5Rules :: BuildInfo -> FilePath -> TargetGH5 FilePath-> QueueLog Rules ()
 gh5Rules buildInfo dir gh5 = do
 
@@ -96,12 +106,7 @@ gh5Rules buildInfo dir gh5 = do
       songKey = "dlc" <> show songID
       songKeyQB = qbKeyCRC $ B8.pack songKey
       metadata = getTargetMetadata songYaml $ GH5 gh5
-      -- Limiting to one-byte chars because I don't know the right way to hash chars beyond U+00FF
-      packageInfo = T.map (\c -> if fromEnum c <= 0xFF then c else '_')
-        $ targetTitle songYaml (GH5 gh5) <> " (" <> getArtist metadata <> ")"
-      -- We put the cdl in as well, otherwise 2 titles that share the first 42 chars can conflict
-      -- (for example, a long-title song converted to 2 different speeds)
-      packageTitle = T.pack cdl <> " " <> packageInfo
+      packageTitle = onyxGH5PackageTitle songYaml gh5 $ T.pack cdl
       packageTitles = [packageTitle, "", packageTitle, packageTitle, packageTitle, packageTitle]
       packageDescs = let s = "Custom song created by Onyx Music Game Toolkit" in [s, "", s, s, s, s]
       -- "Emo Edge Track Pack" becomes "emo_edge_track_pack"
@@ -574,11 +579,14 @@ gh5Rules buildInfo dir gh5 = do
   ps3SongRoot </> ps3ManifestPak %> \out -> do
     packNPData' ps3EDATConfig (dir </> "cmanifest.pak.xen") out $ B8.pack ps3ManifestPak
 
-  dir </> "ps3.pkg" %> \out -> do
+  phony ps3SongRoot $ do
     shk $ need $ map (ps3SongRoot </>)
       [ ps3Audio1, ps3Audio2, ps3Audio3, ps3AudioPreview, ps3SongVRAMPak, ps3SongPak
       , ps3CDLTextVRAMPak, ps3CDLTextPak, ps3CDLVRAMPak, ps3CDLPak, ps3ManifestVRAMPak, ps3ManifestPak
       ]
+
+  dir </> "ps3.pkg" %> \out -> do
+    shk $ need [ps3SongRoot]
     let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
     main <- container "USRDIR" . container folderNameCaps <$> crawlFolderBytes ps3SongRoot
     extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes

@@ -9,6 +9,7 @@
 module Onyx.GUI.Batch where
 
 import           Onyx.GUI.Core
+import           Onyx.GUI.Util                      (askFolder)
 
 import           Control.Applicative                ((<|>))
 import           Control.Monad.Extra                ((>=>))
@@ -49,6 +50,18 @@ batchPagePreview sink rect tab build = do
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
+
+batchButtonLoosePS3
+  :: (Event -> IO ())
+  -> (FilePath -> IO ())
+  -> IO ()
+batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
+  let (rect', _) = chopLeft 250 rect
+  button <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
+  taskColor >>= FL.setColor button
+  FL.setCallback button $ \_ -> sink $ EventOnyx $ do
+    newPreferences <- readPreferences
+    stackIO $ askFolder newPreferences.prefDirPS3 usePath
 
 batchPageRB3
   :: (?preferences :: Preferences)
@@ -133,6 +146,8 @@ batchPageRB3 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
     (\template -> sink $ EventOnyx $ getTargetSong False RB3PKG template >>= \(qcPossible, x) -> stackIO $ build qcPossible x)
+  batchButtonLoosePS3 sink $ \dout -> do
+    sink $ EventOnyx $ getTargetSong False (const $ RB3LoosePS3 dout) "" >>= \(qcPossible, x) -> stackIO $ build qcPossible x
   makeTemplateRunner
     sink
     "Create Magma projects"
@@ -273,6 +288,8 @@ batchPageGH3 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
     (\template -> getTargetSong False GH3PKG template build)
+  batchButtonLoosePS3 sink $ \dout -> do
+    sink $ EventIO $ getTargetSong False (const $ GH3LoosePS3 dout) "" build
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -593,6 +610,8 @@ batchPageRB2 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
     (\template -> sink $ EventOnyx $ getTargetSong False RB2PKG template >>= stackIO . build)
+  batchButtonLoosePS3 sink $ \dout -> do
+    sink $ EventOnyx $ getTargetSong False (const $ RB2LoosePS3 dout) "" >>= stackIO . build
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

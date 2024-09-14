@@ -762,9 +762,13 @@ saveQuickSongsPKG qsongs settings fout = do
 saveQuickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m [FilePath]
 saveQuickSongsPS3Folder qsongs settings dout = do
   contents <- quickSongsPS3Folder qsongs settings
+  stackIO $ installPS3Folder (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050") contents dout
+
+installPS3Folder :: T.Text -> Folder T.Text Readable -> FilePath -> IO [FilePath]
+installPS3Folder _gameID contents dout = do
   -- TODO handle if fout is actually something earlier in the chain of rpcs3/dev_hdd0/game/BLUS30463/USRDIR/
   -- by making extra parent folders first
-  stackIO $ saveHandleFolder contents dout
+  saveHandleFolder contents dout
   return $ do
     x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
     return $ dout </> T.unpack x

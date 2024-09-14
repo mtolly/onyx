@@ -1021,7 +1021,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             rb2ps3Weights = rb2ps3Root </> "songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
             rb2ps3Pan = rb2ps3Root </> "songs" </> pkg </> pkg <.> "pan"
             rb2ps3Pkg = dir </> "rb2-ps3.pkg"
-            rb2ps3Folder = makePS3Name (hashRB3 songYaml rb3) songYaml
+            rb2ps3Folder = makePS3Name (hashRB3 songYaml rb2) songYaml
             rb2ps3EDATConfig = rb2CustomMidEdatConfig rb2ps3Folder
             rb2ps3ContentID = npdContentID rb2ps3EDATConfig
 

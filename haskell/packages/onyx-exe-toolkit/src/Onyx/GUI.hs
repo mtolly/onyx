@@ -1124,9 +1124,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     songPageRB3 sink rect tab proj $ \qcPossible tgt create -> do
       proj' <- fullProjModify [] proj
       let name = case create of
-            RB3CON   _ -> "Building RB3 CON (360)"
-            RB3PKG   _ -> "Building RB3 PKG (PS3)"
-            RB3Magma _ -> "Building Magma project"
+            RB3CON      _ -> "Building RB3 CON (360)"
+            RB3PKG      _ -> "Building RB3 PKG (PS3)"
+            RB3Magma    _ -> "Building Magma project"
+            RB3LoosePS3 _ -> "Building RB3 PS3 folders"
           task = case create of
             RB3CON fout -> do
               tmp <- buildRB3CON tgt proj'
@@ -1140,6 +1141,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               tmp <- buildMagmaV2 tgt proj'
               copyDirRecursive tmp dout
               return [dout]
+            RB3LoosePS3 dout -> do
+              folder <- buildRB3LoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30463" folder dout
           go = startTasks [(name, task)]
       sink $ EventOnyx $ if qcPossible && isRB
         then warnQuickConvert 1 sink go
@@ -1150,8 +1154,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     songPageRB2 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify [] proj
       let name = case create of
-            RB2CON _ -> "Building RB2 CON (360)"
-            RB2PKG _ -> "Building RB2 PKG (PS3)"
+            RB2CON      _ -> "Building RB2 CON (360)"
+            RB2PKG      _ -> "Building RB2 PKG (PS3)"
+            RB2LoosePS3 _ -> "Building RB2 PS3 folders"
           task = case create of
             RB2CON fout -> do
               tmp <- buildRB2CON tgt proj'
@@ -1161,6 +1166,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               tmp <- buildRB2PKG tgt proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
+            RB2LoosePS3 dout -> do
+              folder <- buildRB2LoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30050" folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
@@ -1237,19 +1245,26 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     songPageGH3 sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify [] proj
       let name = case create of
-            GH3LIVE{} -> "Building GH3 LIVE file"
-            GH3PKG{}  -> "Building GH3 PKG file"
+            GH3LIVE{}     -> "Building GH3 LIVE file"
+            GH3PKG{}      -> "Building GH3 PKG file"
+            GH3LoosePS3{} -> "Building GH3 PS3 folders"
+          warnCache = warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
           task = case create of
             GH3LIVE fout -> do
               tmp <- buildGH3LIVE tgt proj'
               stackIO $ Dir.copyFile tmp fout
-              warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+              warnCache
               return [fout]
             GH3PKG fout -> do
               tmp <- buildGH3PKG tgt proj'
               stackIO $ Dir.copyFile tmp fout
-              warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+              warnCache
               return [fout]
+            GH3LoosePS3 dout -> do
+              folder <- buildGH3LoosePS3 tgt proj'
+              results <- stackIO $ installPS3Folder "BLUS30074" folder dout
+              warnCache
+              return results
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
@@ -3478,7 +3493,7 @@ launchBatch
 launchBatch sink makeMenuBar startFiles = mdo
   loadedFiles <- newMVar []
   let windowWidth = Width 800
-      windowHeight = Height 400
+      windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
   window <- FL.windowNew windowSize Nothing $ Just "Batch Recompile"
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
@@ -3561,20 +3576,23 @@ launchBatch sink makeMenuBar startFiles = mdo
         let go = startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
               let (targets, yaml) = settings proj
               proj' <- stackIO $ filterParts yaml >>= saveProject proj
-              forM targets $ \(target, creator) -> do
+              fmap concat $ forM targets $ \(target, creator) -> do
                 case creator of
                   RB3CON fout -> do
                     tmp <- buildRB3CON target proj'
                     stackIO $ Dir.copyFile tmp fout
-                    return fout
+                    return [fout]
                   RB3PKG fout -> do
                     tmp <- buildRB3PKG target proj'
                     stackIO $ Dir.copyFile tmp fout
-                    return fout
+                    return [fout]
                   RB3Magma dout -> do
                     tmp <- buildMagmaV2 target proj'
                     copyDirRecursive tmp dout
-                    return dout
+                    return [dout]
+                  RB3LoosePS3 dout -> do
+                    folder <- buildRB3LoosePS3 target proj'
+                    stackIO $ installPS3Folder "BLUS30463" folder dout
         if qcPossible && all (.impFormatRB) files
           then warnQuickConvert (length files) sink go
           else go
@@ -3586,16 +3604,19 @@ launchBatch sink makeMenuBar startFiles = mdo
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          forM targets $ \(target, creator) -> do
+          fmap concat $ forM targets $ \(target, creator) -> do
             case creator of
               RB2CON fout -> do
                 tmp <- buildRB2CON target proj'
                 stackIO $ Dir.copyFile tmp fout
-                return fout
+                return [fout]
               RB2PKG fout -> do
                 tmp <- buildRB2PKG target proj'
                 stackIO $ Dir.copyFile tmp fout
-                return fout
+                return [fout]
+              RB2LoosePS3 dout -> do
+                folder <- buildRB2LoosePS3 target proj'
+                stackIO $ installPS3Folder "BLUS30050" folder dout
       return tab
     , makeTab windowRect "Clone Hero" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -3668,17 +3689,20 @@ launchBatch sink makeMenuBar startFiles = mdo
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
           proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
-          fout <- case creator of
+          results <- case creator of
             GH3LIVE fout -> do
               tmp <- buildGH3LIVE target proj'
               stackIO $ Dir.copyFile tmp fout
-              return fout
+              return [fout]
             GH3PKG fout -> do
               tmp <- buildGH3PKG target proj'
               stackIO $ Dir.copyFile tmp fout
-              return fout
+              return [fout]
+            GH3LoosePS3 dout -> do
+              folder <- buildGH3LoosePS3 target proj'
+              stackIO $ installPS3Folder "BLUS30074" folder dout
           warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
-          return [fout]
+          return results
       return tab
     , makeTab windowRect "GH:WoR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (isAlpha, toLower)
 import           Data.Functor                 (void)
 import           Data.Functor.Identity
-import           Data.Hashable
+import           Data.Hashable                (hash)
 import qualified Data.HashMap.Strict          as HM
 import           Data.Int                     (Int32)
 import           Data.List.Extra              (stripSuffix)
@@ -32,8 +32,11 @@ import qualified Data.Text                    as T
 import           Data.Text.Encoding           (encodeUtf8)
 import qualified Data.Text.Encoding           as TE
 import           Onyx.Build
-import           Onyx.Build.Common            (getTargetMetadata)
+import           Onyx.Build.Common            (getTargetMetadata, makePS3Name)
 import           Onyx.Build.GuitarHero2.Logic (adjustSongText)
+import           Onyx.Build.GuitarHero3       (hashGH3)
+import           Onyx.Build.GuitarHero5       (hashGH5, onyxGH5PackageTitle)
+import           Onyx.Build.GuitarHero5.Logic (packageNameHashFormat)
 import           Onyx.CloneHero.SNG           (getSNGFolder, readSNGHeader)
 import           Onyx.Codec.JSON              (loadYaml)
 import           Onyx.GuitarPro               (parseGP, parseGPX)
@@ -80,9 +83,9 @@ import           Onyx.Preferences
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Binary             (runGetM)
-import           Onyx.Util.Handle             (Folder (..), crawlFolder,
-                                               fileReadable, findFile,
-                                               findFileCI, findFolder,
+import           Onyx.Util.Handle             (Folder (..), Readable,
+                                               crawlFolder, fileReadable,
+                                               findFile, findFileCI, findFolder,
                                                handleToByteString, useHandle)
 import           Onyx.Xbox.ISO                (loadXboxISO)
 import           Onyx.Xbox.STFS               (getSTFSFolder)
@@ -548,6 +551,18 @@ buildRB3PKG rb3 proj = do
   let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg") proj
 
+buildRB3LoosePS3 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
+buildRB3LoosePS3 rb3 proj = do
+  let songYaml = proj.projectSongYaml
+  songID <- randomRBSongID
+  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
+  inner <- buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3") proj
+  dir <- stackIO $ crawlFolder inner
+  return Folder
+    { folderFiles      = []
+    , folderSubfolders = [(TE.decodeLatin1 $ makePS3Name (hashRB3 songYaml rb3') songYaml, dir)]
+    }
+
 buildRB2CON :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 proj = do
   songID <- randomRBSongID
@@ -559,6 +574,18 @@ buildRB2PKG rb2 proj = do
   songID <- randomRBSongID
   let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
+
+buildRB2LoosePS3 :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
+buildRB2LoosePS3 rb2 proj = do
+  let songYaml = proj.projectSongYaml
+  songID <- randomRBSongID
+  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
+  inner <- buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3") proj
+  dir <- stackIO $ crawlFolder inner
+  return Folder
+    { folderFiles      = []
+    , folderSubfolders = [(TE.decodeLatin1 $ makePS3Name (hashRB3 songYaml rb2') songYaml, dir)]
+    }
 
 buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
@@ -587,11 +614,35 @@ buildGH3LIVE gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targe
 buildGH3PKG :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGH3PKG gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
+buildGH3LoosePS3 :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
+buildGH3LoosePS3 gh3 proj = do
+  let songYaml = proj.projectSongYaml
+  inner <- buildCommon (GH3 gh3) (\targetHash -> "gen/target" </> targetHash </> "ps3") proj
+  dir <- stackIO $ crawlFolder inner
+  return Folder
+    { folderFiles      = []
+    , folderSubfolders = [(TE.decodeLatin1 $ makePS3Name (hashGH3 songYaml gh3) songYaml, dir)]
+    }
+
 buildGHWORLIVE :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ghworlive"
 
 buildGHWORPKG :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+
+buildGHWORLoosePS3 :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
+buildGHWORLoosePS3 gh5 proj = do
+  let songYaml = proj.projectSongYaml
+  inner <- buildCommon (GH5 gh5) (\targetHash -> "gen/target" </> targetHash </> "ps3") proj
+  dir <- stackIO $ crawlFolder inner
+  let folderNameCaps = packageNameHashFormat True packageTitle
+      packageTitle = onyxGH5PackageTitle songYaml gh5 $ T.pack cdl
+      cdl = "cdl" <> show (fromMaybe hashed gh5.cdl)
+      hashed = hashGH5 songYaml gh5
+  return Folder
+    { folderFiles      = []
+    , folderSubfolders = [(TE.decodeLatin1 folderNameCaps, dir)]
+    }
 
 buildRRLIVE :: (MonadIO m) => TargetRR FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRRLIVE rr = buildCommon (RR rr) $ \targetHash -> "gen/target" </> targetHash </> "rrlive"

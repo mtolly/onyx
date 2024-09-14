@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-module Onyx.Build.GuitarHero3 (gh3Rules) where
+module Onyx.Build.GuitarHero3 (gh3Rules, hashGH3) where
 
 import           Control.Monad                     (forM_, guard, when)
 import           Control.Monad.Trans.Resource      (runResourceT)

@@ -10,6 +10,7 @@
 module Onyx.GUI.Song where
 
 import           Onyx.GUI.Core
+import           Onyx.GUI.Util                             (askFolder)
 
 import           Control.Monad                             (forM_, void)
 import           Control.Monad.IO.Class                    (MonadIO (..),
@@ -143,7 +144,8 @@ songPageRB3 sink rect tab proj build = mdo
     FL.setColor btn1 color
     FL.setColor btn2 color
   fullWidth 35 $ \rect' -> do
-    btn1 <- FL.buttonNew rect' $ Just "Create Magma project"
+    let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
+    btn1 <- FL.buttonNew r1 $ Just "Create Magma project"
     FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO $ do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle picker "Save Magma v2 project"
@@ -154,8 +156,16 @@ songPageRB3 sink rect tab proj build = mdo
           Nothing -> return ()
           Just f  -> build False tgt $ RB3Magma f
         _ -> return ()
+    btn2 <- FL.buttonNew r2 $ Just "Create PS3/RPCS3 folders"
+    FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ do
+      tgt <- makeFinalTarget
+      newPreferences <- readPreferences
+      let qcPossible = fromMaybe 1 tgt.common.speed == 1
+      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+        build qcPossible tgt $ RB3LoosePS3 dout
     color <- taskColor
     FL.setColor btn1 color
+    FL.setColor btn2 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -256,6 +266,15 @@ songPageRB2 sink rect tab proj build = mdo
     color <- taskColor
     FL.setColor btn1 color
     FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    btn1 <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
+    FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ do
+      tgt <- makeFinalTarget
+      newPreferences <- readPreferences
+      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+        build tgt $ RB2LoosePS3 dout
+    color <- taskColor
+    FL.setColor btn1 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -661,6 +680,15 @@ songPageGH3 sink rect tab proj build = mdo
     color <- FLE.rgbColorWithRgb (179,221,187)
     FL.setColor btn1 color
     FL.setColor btn2 color
+  fullWidth 35 $ \rect' -> do
+    btn1 <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
+    FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ do
+      tgt <- stackIO makeTarget
+      newPreferences <- readPreferences
+      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+        build tgt $ GH3LoosePS3 dout
+    color <- taskColor
+    FL.setColor btn1 color
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()

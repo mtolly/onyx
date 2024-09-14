@@ -139,10 +139,10 @@ addTitleSuffix target base = let
       ]
   in T.intercalate " " segments
 
-hashRB3 :: (Hashable f) => SongYaml f -> TargetRB3 f -> Int
-hashRB3 songYaml rb3 = let
+hashRB3 :: (Hashable f, Hashable target) => SongYaml f -> target -> Int
+hashRB3 songYaml target = let
   hashed =
-    ( rb3
+    ( target
     , songYaml.metadata.title
     , songYaml.metadata.artist
     -- TODO this should use more info, or find a better way to come up with hashes.
