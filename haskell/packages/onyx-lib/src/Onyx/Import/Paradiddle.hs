@@ -168,7 +168,7 @@ importParadiddle diffs level = do
       }
     , targets = HM.empty
     , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
-      { drums = Just $ emptyPartDrums DrumsTrue Kicks1x
+      { drums = Just $ emptyPartDrums DrumsElite Kicks1x
       }
     }
 

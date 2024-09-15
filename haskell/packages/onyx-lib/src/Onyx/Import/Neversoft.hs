@@ -915,7 +915,7 @@ importGH3Song ghi = let
           guard $ not $ RTB.null $ Elite.tdGems expert
           let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
           Just (F.PartDrums, emptyPart
-            { drums = Just $ emptyPartDrums DrumsTrue kicks
+            { drums = Just $ emptyPartDrums DrumsElite kicks
             })
         ]
       }

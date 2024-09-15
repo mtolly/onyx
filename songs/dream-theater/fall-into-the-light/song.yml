@@ -14,7 +14,7 @@ parts:
     drums:
       kicks: both
       mode: elite
-      true-layout: [open-hand]
+      elite-layout: [open-hand]
 audio:
   album-track:
     md5: eab9f8eab6446b01a470ad601c28e95a

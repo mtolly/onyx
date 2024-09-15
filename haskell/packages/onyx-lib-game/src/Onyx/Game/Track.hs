@@ -41,7 +41,7 @@ import           Onyx.MIDI.Track.Mania
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Mode
-import           Onyx.Preferences                 (TrueDrumLayoutHint)
+import           Onyx.Preferences                 (EliteDrumLayoutHint)
 import           Onyx.Project
 import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
@@ -58,7 +58,7 @@ import           System.FilePath                  (takeExtension)
 
 data PreviewTrack
   = PreviewDrums DrumMode (Map.Map Double (PNF.CommonState (PNF.DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))))
-  | PreviewDrumsTrue [TrueDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.TrueDrumState Double (ED.EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))))
+  | PreviewDrumsElite [EliteDrumLayoutHint] (Map.Map Double (PNF.CommonState (PNF.EliteDrumState Double (ED.EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))))
   | PreviewFive (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   | PreviewPG PG.GtrTuning (Map.Map Double (PNF.CommonState (PNF.PGState Double)))
   | PreviewMania ModeMania (Map.Map Double (PNF.CommonState PNF.ManiaState))
@@ -191,7 +191,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     -- TODO if kicks = 2, don't emit an X track, only X+
     drumSrc   = maybe mempty (.onyxPartDrums  ) $ Map.lookup fpart song.tracks.onyxParts
     drumSrc2x = maybe mempty (.onyxPartDrums2x) $ Map.lookup fpart song.tracks.onyxParts
-    thisSrc = if pdrums.mode == DrumsTrue && D.nullDrums drumSrc && D.nullDrums drumSrc2x
+    thisSrc = if pdrums.mode == DrumsElite && D.nullDrums drumSrc && D.nullDrums drumSrc2x
       then maybe mempty (snd . ED.convertEliteDrums tempos . (.onyxPartEliteDrums))
         $ Map.lookup fpart song.tracks.onyxParts
       else case diff of
@@ -202,8 +202,8 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     drumPro = let
       ddiff = D.getDrumDifficulty diff thisSrc
       in case pdrums.mode of
-        Drums4    -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
-        Drums5    -> flip fmap ddiff $ \(gem, vel) -> let
+        Drums4     -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
+        Drums5     -> flip fmap ddiff $ \(gem, vel) -> let
           gem' = case gem of
             D.Kick            -> D.Kick
             D.Red             -> D.Red
@@ -212,9 +212,9 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
             D.Orange          -> D.Orange
             D.Pro D.Green  () -> D.Pro D.Green D.Tom
           in (gem', vel)
-        DrumsPro  -> D.computePro diff thisSrc
-        DrumsReal -> D.computePro diff $ D.psRealToPro thisSrc
-        DrumsTrue -> D.computePro diff thisSrc
+        DrumsPro   -> D.computePro diff thisSrc
+        DrumsReal  -> D.computePro diff $ D.psRealToPro thisSrc
+        DrumsElite -> D.computePro diff thisSrc
     hands = RTB.filter (/= D.Kick) $ fmap fst drumPro
     (acts, bres) = case fmap (fst . fst) $ RTB.viewL song.tracks.onyxEvents.eventsCoda of
       Nothing   -> (thisSrc.drumActivation, RTB.empty)
@@ -268,7 +268,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     stomps = Map.union notatedStomps implicitStomps -- Map.union prefers left values in conflict
     notatedStomps
       = rtbToMap
-      $ fmap (const $ Just PNF.TrueHihatStompNotated)
+      $ fmap (const $ Just PNF.EliteHihatStompNotated)
       $ RTB.filter (\tdn -> ED.tdn_gem tdn == ED.HihatFoot) thisDiff
     implicitStomps
       = rtbToMapSecs
@@ -283,7 +283,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
           && notElem HihatEventStomp  events2
           && notElem HihatEventSplash events2
         in if isImplicitStomp
-          then RTB.delay dt1 $ RTB.insert dt2 (Just PNF.TrueHihatStompImplicit) $ makeImplicitStomps rest
+          then RTB.delay dt1 $ RTB.insert dt2 (Just PNF.EliteHihatStompImplicit) $ makeImplicitStomps rest
           else RTB.delay dt1 $ makeImplicitStomps rest
       _ -> RNil
     openZones
@@ -300,13 +300,13 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         timeEnd len = timeStart + realToFrac len
         thisZone = case rest of
           Wait dt2 _ _ -> if dt2 > maxSolidOpenTime
-            then (PNF.TrueHihatZoneFade  timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
-            else (PNF.TrueHihatZoneSolid timeStart $ timeEnd dt2         , dt2         )
-          RNil -> (PNF.TrueHihatZoneFade timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
+            then (PNF.EliteHihatZoneFade  timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
+            else (PNF.EliteHihatZoneSolid timeStart $ timeEnd dt2         , dt2         )
+          RNil -> (PNF.EliteHihatZoneFade timeStart $ timeEnd fadeOpenTime, fadeOpenTime)
         in Wait dt1 ((), Just thisZone) $ makeOpenZones (passedTime <> dt1) rest
       Wait dt1 False rest -> RTB.delay dt1 $ makeOpenZones (passedTime <> dt1) rest
       RNil -> RNil
-    drumStates = (\((((a, b), c), d), e) -> PNF.TrueDrumState a b c d e) <$> do
+    drumStates = (\((((a, b), c), d), e) -> PNF.EliteDrumState a b c d e) <$> do
       (Set.fromList <$> drumMap)
         `PNF.zipStateMaps` (makeLanes each $ fmap (\((), gem, len) -> (gem, len)) $ joinEdgesSimple $ ED.tdLanes thisSrc)
         `PNF.zipStateMaps` toggle acts
@@ -565,24 +565,24 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       Just pdrums -> let
         name = case fpart of
           F.PartDrums -> case pdrums.mode of
-            Drums4    -> "Drums"
-            Drums5    -> "Drums"
-            DrumsPro  -> "Pro Drums"
-            DrumsReal -> "Pro Drums"
-            DrumsTrue -> "Pro Drums"
-          _           -> displayPartName fpart <> " [D]"
+            Drums4     -> "Drums"
+            Drums5     -> "Drums"
+            DrumsPro   -> "Pro Drums"
+            DrumsReal  -> "Pro Drums"
+            DrumsElite -> "Pro Drums"
+          _            -> displayPartName fpart <> " [D]"
         in drumDiffPairs >>= \(diff, letter) -> let
           standard = case drumTrack fpart pdrums diff of
             Nothing  -> []
             Just trk -> [(name <> " (" <> letter <> ")", PreviewDrums pdrums.mode trk)]
           true = case pdrums.mode of
-            DrumsTrue -> case drumTrackTrue fpart pdrums diff of
+            DrumsElite -> case drumTrackTrue fpart pdrums diff of
               Nothing -> []
-              Just trkTrue ->
+              Just trkElite ->
                 [ ( case fpart of
                     F.PartDrums -> "Elite Drums (" <> letter <> ")"
                     _           -> displayPartName fpart <> " [Elite Drums] (" <> letter <> ")"
-                  , PreviewDrumsTrue pdrums.trueLayout trkTrue
+                  , PreviewDrumsElite pdrums.eliteLayout trkElite
                   )
                 ]
             _         -> []

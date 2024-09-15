@@ -28,7 +28,7 @@ parts:
     drums:
       kicks: both
       mode: elite
-      true-layout: [open-hand]
+      elite-layout: [open-hand]
       difficulty: 6
 targets:
   rb3:

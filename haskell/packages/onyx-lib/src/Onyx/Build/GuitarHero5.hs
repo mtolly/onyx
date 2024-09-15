@@ -64,7 +64,8 @@ import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Resources                    (getResourcesPath,
                                                     ghWoRThumbnail)
 import           Onyx.StackTrace
-import           Onyx.Util.Handle                  (Folder (..), fileReadable)
+import           Onyx.Util.Handle                  (Folder (..), fileReadable,
+                                                    singleFolder)
 import           Onyx.Xbox.STFS                    (CreateOptions (..),
                                                     LicenseEntry (..),
                                                     makeCONReadable)
@@ -587,8 +588,7 @@ gh5Rules buildInfo dir gh5 = do
 
   dir </> "ps3.pkg" %> \out -> do
     shk $ need [ps3SongRoot]
-    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-    main <- container "USRDIR" . container folderNameCaps <$> crawlFolderBytes ps3SongRoot
+    main <- singleFolder "USRDIR" . singleFolder folderNameCaps <$> crawlFolderBytes ps3SongRoot
     extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes
     stackIO $ makePKG ps3ContentID (main <> extra) out
 

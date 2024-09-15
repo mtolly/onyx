@@ -60,8 +60,8 @@ import           Onyx.MIDI.Track.Drums.Elite  (EliteDrumNote (..))
 import qualified Onyx.MIDI.Track.Drums.Elite  as ED
 import qualified Onyx.MIDI.Track.FiveFret     as Five
 import qualified Onyx.MIDI.Track.ProGuitar    as PG
-import           Onyx.Preferences             (Preferences (..),
-                                               TrueDrumLayoutHint (..),
+import           Onyx.Preferences             (EliteDrumLayoutHint (..),
+                                               Preferences (..),
                                                readPreferences)
 import           Onyx.Project                 (DrumMode (..), ModeMania (..),
                                                VideoInfo (..))
@@ -208,22 +208,22 @@ drawDrums glStuff nowTime speed mode trk = drawDrumPlay glStuff nowTime speed mo
   , noteTimes = Set.empty -- not used
   }
 
-drawTrueDrums :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> Map.Map Double (CommonState (TrueDrumState Double (EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))) -> IO ()
-drawTrueDrums glStuff nowTime speed layout trk = drawTrueDrumPlay glStuff nowTime speed layout TrueDrumPlayState
+drawEliteDrums :: GLStuff -> Double -> Double -> [EliteDrumLayoutHint] -> Map.Map Double (CommonState (EliteDrumState Double (EliteDrumNote ED.FlamStatus) (ED.EliteGem ()))) -> IO ()
+drawEliteDrums glStuff nowTime speed layout trk = drawEliteDrumPlay glStuff nowTime speed layout EliteDrumPlayState
   { events = let
     -- dummy game state with no inputs, but all notes marked as hit on time
     hitResults = do
       (cst, cs) <- Map.toDescList $ fst $ Map.split nowTime trk
       let notes = Set.toList cs.inner.notes
       guard $ not $ null notes
-      return (cst, Map.fromList $ map (, TDHit cst) notes)
-    in [(nowTime, (Nothing, initialTDState { noteResults = hitResults }))]
+      return (cst, Map.fromList $ map (, EDHit cst) notes)
+    in [(nowTime, (Nothing, initialEDState { noteResults = hitResults }))]
   , track = trk
   , noteTimes = Set.empty -- not used
   }
 
-drawTrueDrumPlay :: GLStuff -> Double -> Double -> [TrueDrumLayoutHint] -> TrueDrumPlayState Double -> IO ()
-drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
+drawEliteDrumPlay :: GLStuff -> Double -> Double -> [EliteDrumLayoutHint] -> EliteDrumPlayState Double -> IO ()
+drawEliteDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
   glUseProgram objectShader
   -- view and projection matrices should already have been set
   let drawObject' = drawObject glStuff
@@ -263,12 +263,12 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         z2 = gfxConfig.track.targets.z_future
         in drawObject' Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
       layoutLeftOpenHand = fromMaybe False $ listToMaybe $ flip mapMaybe layout $ \case
-        TDLeftCrossHand -> Just False
-        TDLeftOpenHand  -> Just True
+        EDLeftCrossHand -> Just False
+        EDLeftOpenHand  -> Just True
         _               -> Nothing
       layoutRightNearCrash = fromMaybe False $ listToMaybe $ flip mapMaybe layout $ \case
-        TDRightFarCrash  -> Just False
-        TDRightNearCrash -> Just True
+        EDRightFarCrash  -> Just False
+        EDRightNearCrash -> Just True
         _                -> Nothing
       highwayParts = concat
         [ if layoutLeftOpenHand then [ED.CrashL, ED.Hihat, ED.Snare] else [ED.Snare, ED.Hihat, ED.CrashL]
@@ -368,7 +368,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
           _           -> True
         fadeTime = gfxConfig.objects.gems.secs_fade
         in forM_ cs.inner.notes $ \gem ->
-          case trueNoteStatus t gem tdps.events of
+          case eliteNoteStatus t gem tdps.events of
             NoteFuture -> drawGem t od gem Nothing
             NoteMissed -> drawGem t od gem Nothing
             NoteHitAt hitTime -> if nowTime - hitTime < realToFrac fadeTime
@@ -427,8 +427,8 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
         toList (getPast zone) <> toList (getFuture zone)
   forM_ hihatZones $ \zone -> let
     (tex, zoneT1, zoneT2) = case zone of
-      TrueHihatZoneSolid t1 t2 -> (TextureHihatZoneSolid, t1, t2)
-      TrueHihatZoneFade  t1 t2 -> (TextureHihatZoneFade , t1, t2)
+      EliteHihatZoneSolid t1 t2 -> (TextureHihatZoneSolid, t1, t2)
+      EliteHihatZoneFade  t1 t2 -> (TextureHihatZoneFade , t1, t2)
     in drawObject'
       Flat
       (ObjectStretch
@@ -524,7 +524,7 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
             x2 = minimum $ map (snd . gemBounds) pads
             in drawTargetSquare x1 x2 light alpha
           drawLights states colorsNo
-  drawLights [ (t, hit) | (t, (Just (TDInputHit hit), _)) <- tdps.events ] targets
+  drawLights [ (t, hit) | (t, (Just (EDInputHit hit), _)) <- tdps.events ] targets
   glDepthFunc GL_LESS
   -- draw notes
   traverseDescWithKey_ drawNotes zoomed
@@ -537,13 +537,13 @@ drawTrueDrumPlay glStuff@GLStuff{..} nowTime speed layout tdps = do
       drawStomps t cs = forM_ cs.commonState.tdHihatStomp $ \stomp -> do
         let stompColor = if t >= nowTime
               then case stomp of
-                TrueHihatStompNotated  -> V4 1 0.8 0.6 1
-                TrueHihatStompImplicit -> V4 0.7 0.7 1 1
+                EliteHihatStompNotated  -> V4 1 0.8 0.6 1
+                EliteHihatStompImplicit -> V4 0.7 0.7 1 1
               else V4 0 0 0 1
             stompZ = timeToZ $ max nowTime t
             stompTypeAlpha = case stomp of
-              TrueHihatStompNotated  -> 1
-              TrueHihatStompImplicit -> 0.5
+              EliteHihatStompNotated  -> 1
+              EliteHihatStompImplicit -> 0.5
             stompAlpha = stompTypeAlpha * if t >= nowTime
               then 1
               else max 0 $ 1 - realToFrac (nowTime - t) / gfxConfig.objects.gems.secs_fade
@@ -2547,8 +2547,8 @@ drawDrumPlayFull
   -> WindowDims
   -> Double
   -> Double
-  -> [TrueDrumLayoutHint]
-  -> TrueDrumPlayState Double
+  -> [EliteDrumLayoutHint]
+  -> EliteDrumPlayState Double
   -> IO ()
 drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed layout dps = do
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
@@ -2558,12 +2558,12 @@ drawDrumPlayFull glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed 
 
   glDepthFunc GL_LESS
   setUpTrackView glStuff dims
-  drawTrueDrumPlay glStuff time speed layout dps
+  drawEliteDrumPlay glStuff time speed layout dps
 
   glDepthFunc GL_ALWAYS
   let tdgs = case dps.events of
         (_, (_, s)) : _ -> s
-        _               -> initialTDState
+        _               -> initialEDState
   drawTimeBox glStuff dims
     [ "Score: " <> T.pack (show tdgs.score)
     , "Combo: " <> T.pack (show tdgs.combo)
@@ -2671,7 +2671,7 @@ drawTracks
   -> Double
   -> Double
   -> (Maybe PreviewBG)
-  -> [TrueDrumLayoutHint]
+  -> [EliteDrumLayoutHint]
   -> [PreviewTrack]
   -> IO ()
 drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg userLayout trks = do
@@ -2748,11 +2748,11 @@ drawTracks glStuff@GLStuff{..} dims@(WindowDims wWhole hWhole) time speed bg use
     glClear GL_COLOR_BUFFER_BIT
     setUpTrackView glStuff (WindowDims w h)
     case trk of
-      PreviewDrums       mode m -> drawDrums     glStuff time speed mode                   m
-      PreviewDrumsTrue layout m -> drawTrueDrums glStuff time speed (userLayout <> layout) m
-      PreviewFive             m -> drawFive      glStuff time speed                        m
-      PreviewPG             t m -> drawPG        glStuff time speed t                      m
-      PreviewMania          p m -> drawMania     glStuff time speed p                      m
+      PreviewDrums        mode m -> drawDrums     glStuff time speed mode                   m
+      PreviewDrumsElite layout m -> drawEliteDrums glStuff time speed (userLayout <> layout) m
+      PreviewFive              m -> drawFive      glStuff time speed                        m
+      PreviewPG              t m -> drawPG        glStuff time speed t                      m
+      PreviewMania           p m -> drawMania     glStuff time speed p                      m
 
     case framebuffers of
       SimpleFramebuffer{..} -> do

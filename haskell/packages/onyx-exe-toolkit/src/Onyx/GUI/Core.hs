@@ -155,6 +155,7 @@ data GH3Create
 data GHWORCreate
   = GHWORLIVE FilePath
   | GHWORPKG FilePath
+  | GHWORLoosePS3 FilePath
 
 data RRCreate
   = RRLIVE FilePath

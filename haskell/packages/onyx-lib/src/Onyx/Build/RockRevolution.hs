@@ -80,7 +80,7 @@ import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
-import           Onyx.Util.Handle                  (Folder (..))
+import           Onyx.Util.Handle                  (singleFolder)
 import           Onyx.Util.Text.Decode             (encodeLatin1)
 import           Onyx.Util.Text.Transform          (replaceCharsRB)
 import           Onyx.WebPlayer                    (findTremolos, findTrills,
@@ -575,11 +575,13 @@ rrRules buildInfo dir rr = do
         else shk $ copyFile' f ps3
     return ps3
 
-  dir </> "rr.pkg" %> \out -> do
+  phony (dir </> "files-ps3") $ do
     shk $ need rrPS3Files
+
+  dir </> "rr.pkg" %> \out -> do
+    shk $ need [dir </> "files-ps3"]
     lg "# Producing Rock Revolution .pkg file"
-    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-    main <- container "USRDIR" <$> crawlFolderBytes (dir </> "files-ps3")
+    main <- singleFolder "USRDIR" <$> crawlFolderBytes (dir </> "files-ps3")
     extra <- stackIO (getResourcesPath "pkg-contents/rr") >>= crawlFolderBytes
     stackIO $ makePKG contentID (main <> extra) out
 

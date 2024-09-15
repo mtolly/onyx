@@ -136,11 +136,11 @@ instance A.ToJSON (Drums U.Seconds) where
       (,) (K.fromString [drumGemChar gem]) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (drumBRE x) A.toJSON
     , (,) "mode" $ case drumMode x of
-      C.Drums4    -> "4"
-      C.Drums5    -> "5"
-      C.DrumsPro  -> "pro"
-      C.DrumsReal -> "real"
-      C.DrumsTrue -> "true"
+      C.Drums4     -> "4"
+      C.Drums5     -> "5"
+      C.DrumsPro   -> "pro"
+      C.DrumsReal  -> "real"
+      C.DrumsElite -> "true"
     , (,) "disco" $ eventList (drumDisco x) A.toJSON
     ]
 
@@ -396,11 +396,11 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
       D.Orange          -> D.Orange
       D.Pro D.Green  () -> D.Pro D.Green D.Tom
   notes = fmap sort $ RTB.collectCoincident $ case mode of
-    C.Drums4    -> fmap Right $ nonPro False
-    C.Drums5    -> fmap Right $ nonPro True
-    C.DrumsPro  -> fmap (Right . fst) $ D.computePro diff trk
-    C.DrumsReal -> fmap fst $ D.computePSReal diff trk
-    C.DrumsTrue -> fmap (Right . fst) $ D.computePro diff trk -- TODO generate pro if needed
+    C.Drums4     -> fmap Right $ nonPro False
+    C.Drums5     -> fmap Right $ nonPro True
+    C.DrumsPro   -> fmap (Right . fst) $ D.computePro diff trk
+    C.DrumsReal  -> fmap fst $ D.computePSReal diff trk
+    C.DrumsElite -> fmap (Right . fst) $ D.computePro diff trk -- TODO generate pro if needed
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes
   solo   = realTrack tmap trk.drumSolo
@@ -429,8 +429,8 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     guard $ not $ RTB.null notes
     guard $ diff /= Nothing || has2x
     let mode' = case mode of
-          C.DrumsTrue -> C.DrumsPro
-          _           -> mode
+          C.DrumsElite -> C.DrumsPro
+          _            -> mode
     Just $ Drums notesS solo energy lanes bre mode' disco
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)

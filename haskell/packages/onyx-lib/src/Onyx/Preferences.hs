@@ -45,7 +45,7 @@ data Preferences = Preferences
   , prefThreads       :: Maybe Int
   , prefDetectMuted   :: Bool
   , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modfiy tempos to be in Magma-legal range
-  , prefTrueLayout    :: [TrueDrumLayoutHint]
+  , prefEliteLayout   :: [EliteDrumLayoutHint]
   , prefPreviewFPS    :: Int
   , prefCHDownmix     :: Bool
   , prefCHAudioFormat :: CHAudioFormat
@@ -80,7 +80,7 @@ instance StackJSON Preferences where
     prefThreads       <- prefThreads       =. opt  Nothing          "threads"         stackJSON
     prefDetectMuted   <- prefDetectMuted   =. opt  True             "detect-muted"    stackJSON
     prefLegalTempos   <- prefLegalTempos   =. opt  True             "legal-tempos"    stackJSON
-    prefTrueLayout    <- prefTrueLayout    =. opt  []               "true-layout"     stackJSON
+    prefEliteLayout   <- prefEliteLayout   =. opt  []               "true-layout"     stackJSON -- kept old key
     prefPreviewFPS    <- prefPreviewFPS    =. fill 60               "preview-fps"     stackJSON
     prefCHDownmix     <- prefCHDownmix     =. opt  False            "ch-downmix"      stackJSON
     prefCHAudioFormat <- prefCHAudioFormat =. fill CHAudioOggVorbis "ch-audio-format" stackJSON
@@ -137,19 +137,19 @@ applyThreads prefs = do
     Nothing -> procs
     Just n  -> min n procs
 
-data TrueDrumLayoutHint
-  = TDLeftCrossHand  -- L to R: snare, hihat, left crash
-  | TDLeftOpenHand   -- L to R: left crash, hihat, snare
-  | TDRightFarCrash  -- L to R: ride, right crash
-  | TDRightNearCrash -- L to R: right crash, ride
+data EliteDrumLayoutHint
+  = EDLeftCrossHand  -- L to R: snare, hihat, left crash
+  | EDLeftOpenHand   -- L to R: left crash, hihat, snare
+  | EDRightFarCrash  -- L to R: ride, right crash
+  | EDRightNearCrash -- L to R: right crash, ride
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance StackJSON TrueDrumLayoutHint where
+instance StackJSON EliteDrumLayoutHint where
   stackJSON = enumCodec "an elite drums layout hint" $ \case
-    TDLeftCrossHand  -> "cross-hand"
-    TDLeftOpenHand   -> "open-hand"
-    TDRightFarCrash  -> "far-crash"
-    TDRightNearCrash -> "near-crash"
+    EDLeftCrossHand  -> "cross-hand"
+    EDLeftOpenHand   -> "open-hand"
+    EDRightFarCrash  -> "far-crash"
+    EDRightNearCrash -> "near-crash"
 
 data CHAudioFormat
   = CHAudioOggVorbis

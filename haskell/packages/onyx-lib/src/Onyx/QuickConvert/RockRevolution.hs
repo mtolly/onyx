@@ -197,8 +197,7 @@ saveSongsPS3, saveSongs360 :: FilePath -> [RRSong] -> IO ()
 saveSongsPS3 f songs = do
   let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
       contentID = npdContentID edatConfig
-      container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-      main = container "USRDIR" Folder
+      main = singleFolder "USRDIR" Folder
         { folderFiles = songs >>= map (first $ \name -> TE.encodeUtf8 $ T.toUpper name <> ".EDAT") . (.files)
         , folderSubfolders = []
         }
@@ -206,8 +205,7 @@ saveSongsPS3 f songs = do
   makePKG contentID (main <> extra) f
 saveSongs360 f songs = do
   opts <- rrSTFSOptions "Custom Songs" "Created by Onyx" -- TODO better title/desc
-  let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-      dir = container "data" Folder
+  let dir = singleFolder "data" Folder
         { folderFiles = songs >>= map (first $ \name -> T.toLower name) . (.files)
         , folderSubfolders = []
         }

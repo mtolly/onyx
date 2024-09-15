@@ -146,11 +146,11 @@ psRules buildInfo dir ps = do
           , year             = T.pack . show <$> metadata.year
           , genre            = Just $ fofGenre $ fullGenre metadata
           , proDrums         = flip fmap dmode $ \case
-            DrumsPro  -> True
-            DrumsReal -> True
-            DrumsTrue -> True
-            Drums4    -> False
-            Drums5    -> False
+            DrumsPro   -> True
+            DrumsReal  -> True
+            DrumsElite -> True
+            Drums4     -> False
+            Drums5     -> False
           , fiveLaneDrums    = case dmode of
             Just Drums5 -> Just True
             _           -> Nothing
@@ -171,10 +171,10 @@ psRules buildInfo dir ps = do
           , diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
           , diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
           , diffDrumsReal    = Just $ case dmode of
-            Just DrumsPro  -> fromIntegral $ rb3DrumsTier - 1
-            Just DrumsReal -> fromIntegral $ rb3DrumsTier - 1
-            Just DrumsTrue -> fromIntegral $ rb3DrumsTier - 1
-            _              -> -1
+            Just DrumsPro   -> fromIntegral $ rb3DrumsTier - 1
+            Just DrumsReal  -> fromIntegral $ rb3DrumsTier - 1
+            Just DrumsElite -> fromIntegral $ rb3DrumsTier - 1
+            _               -> -1
           , diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
           , diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
           , diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1

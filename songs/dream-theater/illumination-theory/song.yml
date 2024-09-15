@@ -43,3 +43,4 @@ parts:
     drums:
       kicks: both
       mode: elite
+      elite-layout: [open-hand]

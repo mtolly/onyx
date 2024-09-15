@@ -4,7 +4,7 @@ parts:
       kicks: 1
       mode: elite
       difficulty: 7
-      true-layout: [open-hand]
+      elite-layout: [open-hand]
 audio:
   album-track: # Mobile Fidelity Sound Lab (1999) UDCD 744
     frames: 9189264

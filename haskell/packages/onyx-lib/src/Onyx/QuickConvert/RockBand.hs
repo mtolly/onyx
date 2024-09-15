@@ -7,6 +7,7 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 -}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -71,6 +72,7 @@ import           Onyx.Harmonix.MOGG                   (decryptMOGG,
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
+import           Onyx.Import                          (installPS3Folder)
 import           Onyx.MIDI.Common                     (isNoteEdge, isNoteEdge',
                                                        joinEdgesSimple,
                                                        makeEdge', makeEdgeCPV,
@@ -735,13 +737,12 @@ quickSongsPS3Folder qsongs settings = do
         mcrypt = guard (qcPS3EncryptMIDI settings) >> Just (chosenFolder, qcPS3RB3 settings)
     ps3Folder <- mapMFilesWithName (getPS3File mcrypt (qcPS3EncryptMOGG settings) . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
-  let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
   return $ mconcat $ do
     (usrdirSub, songs) <- Map.toList qsongMapping
     let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
           (qsong, _) <- songs
           return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
-    return $ container (TE.decodeLatin1 usrdirSub) $ container "songs" Folder
+    return $ singleFolder (TE.decodeLatin1 usrdirSub) $ singleFolder "songs" Folder
       { folderFiles = [("songs.dta", songsDTA)]
       , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs
       }
@@ -752,8 +753,7 @@ saveQuickSongsPKG qsongs settings fout = do
   let oneFolder = defaultFolderPS3 qsongs
       contentID = npdContentID
         $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
-      container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-      rootFolder = container "USRDIR" contents
+      rootFolder = singleFolder "USRDIR" contents
   stackIO $ do
     extraPath <- getResourcesPath $ if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
@@ -763,15 +763,6 @@ saveQuickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> Qu
 saveQuickSongsPS3Folder qsongs settings dout = do
   contents <- quickSongsPS3Folder qsongs settings
   stackIO $ installPS3Folder (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050") contents dout
-
-installPS3Folder :: T.Text -> Folder T.Text Readable -> FilePath -> IO [FilePath]
-installPS3Folder _gameID contents dout = do
-  -- TODO handle if fout is actually something earlier in the chain of rpcs3/dev_hdd0/game/BLUS30463/USRDIR/
-  -- by making extra parent folders first
-  saveHandleFolder contents dout
-  return $ do
-    x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
-    return $ dout </> T.unpack x
 
 contentsSize :: QuickSong -> Integer
 contentsSize qsong = sum $ map fst $ toList $ quickSongFiles qsong
@@ -798,7 +789,6 @@ data QuickDolphinSettings = QuickDolphinSettings
 
 saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickDolphinSettings -> FilePath -> StackTraceT m [FilePath]
 saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
-  let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
   triples <- forM qsongs $ \qsong -> do
     lg $ T.unpack $ T.intercalate " - " $ concat
       [ toList $ qdtaArtist $ quickSongDTA qsong
@@ -840,24 +830,24 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
       else silentPreview
     oggToMoggFiles prevOgg prevMogg
     previewReadable <- stackIO $ makeHandle "preview mogg" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile prevMogg
-    let metaContents = container "songs" $ container (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
+    let metaContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
           (WiiMeta, r) -> Just r
           _            -> Nothing
-        previewContents = container "songs" $ container (qdtaFolder $ quickSongDTA qsong) Folder
+        previewContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) Folder
           { folderSubfolders = []
           , folderFiles = [(qdtaFolder (quickSongDTA qsong) <> "_prev.mogg", previewReadable)]
           }
-        songContents = container "songs" $ container (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
+        songContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
           (WiiSong, r) -> Just r
           _            -> Nothing
     return ((dta, qdtaComments $ quickSongDTA qsong), metaContents <> previewContents, songContents)
   let dta = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ map fst3 triples
-      dtaFolder = container "songs" Folder
+      dtaFolder = singleFolder "songs" Folder
         { folderSubfolders = []
         , folderFiles = [("songs.dta", dta)]
         }
-      meta = container "content" $ first TE.encodeUtf8 (mconcat $ map snd3 triples) <> dtaFolder
-      song = container "content" $ first TE.encodeUtf8 (mconcat $ map thd3 triples)
+      meta = singleFolder "content" $ first TE.encodeUtf8 (mconcat $ map snd3 triples) <> dtaFolder
+      song = singleFolder "content" $ first TE.encodeUtf8 (mconcat $ map thd3 triples)
       out1 = dout </> "00000001.app"
       out2 = dout </> "00000002.app"
   stackIO $ packU8Folder meta out1
@@ -1192,7 +1182,6 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
         then rb3CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
         else rb2CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
       rbps3ContentID = npdContentID rbps3EDATConfig
-      container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
       adjustFiles folder = do
         newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
           ".mogg" -> stackIO $ do
@@ -1248,7 +1237,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
           sub' <- adjustFiles sub
           return (name, sub')
         return Folder { folderSubfolders = newSubs, folderFiles = newFiles }
-  main <- container "USRDIR" . container rbps3Folder <$> adjustFiles conFolder
+  main <- singleFolder "USRDIR" . singleFolder rbps3Folder <$> adjustFiles conFolder
   stackIO $ do
     extraPath <- getResourcesPath $ if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath

@@ -570,7 +570,7 @@ importFoF src dir level = do
             $ (isnt nullDrums (.fixedPartDrums) || isnt nullDrums (.fixedPartRealDrumsPS) || isnt ED.nullEliteDrums (.fixedPartEliteDrums))
             && guardDifficulty song.diffDrums
           let mode = let
-                isTrue = isnt ED.nullEliteDrums (.fixedPartEliteDrums)
+                isElite = isnt ED.nullEliteDrums (.fixedPartEliteDrums)
                 isFiveLane = song.fiveLaneDrums == Just True || any
                   (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.drumGems)
                   (Map.toList outputFixed.fixedPartDrums.drumDifficulties)
@@ -580,7 +580,7 @@ importFoF src dir level = do
                   Nothing -> not (RTB.null outputFixed.fixedPartDrums.drumToms)
                     || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
                 in if
-                  | isTrue     -> DrumsTrue
+                  | isElite    -> DrumsElite
                   | isFiveLane -> Drums5
                   | isReal     -> DrumsReal
                   | isPro      -> DrumsPro

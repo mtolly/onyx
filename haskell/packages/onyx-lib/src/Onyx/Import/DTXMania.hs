@@ -46,7 +46,7 @@ import           System.FilePath                  (takeDirectory, takeExtension,
 dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
   :: DTX -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
-  importTrueDrums notes = mempty
+  importEliteDrums notes = mempty
     { ED.tdDifficulties = Map.singleton Expert $ let
       gems = flip RTB.mapMaybe notes $ \case
         HihatClose -> Just (ED.Hihat    , ED.GemHihatClosed, VelocityNormal)
@@ -69,7 +69,7 @@ dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
       in ED.makeEliteDifficultyDTX gems'
     }
   in F.Song tmap mmap $ F.editOnyxPart F.PartDrums
-    (\opart -> opart { F.onyxPartEliteDrums = importTrueDrums $ fmap fst $ dtx_Drums dtx })
+    (\opart -> opart { F.onyxPartEliteDrums = importEliteDrums $ fmap fst $ dtx_Drums dtx })
     onyx
 dtxConvertGuitar = dtxConvertGB dtx_Guitar dtx_GuitarLong $ \onyx five -> F.editOnyxPart
   F.PartGuitar
@@ -390,7 +390,7 @@ importSetDef setDefPath song level = do
               kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
                 then KicksBoth
                 else Kicks1x
-              in (emptyPartDrums DrumsTrue kicks)
+              in (emptyPartDrums DrumsElite kicks)
                 { difficulty = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
                 }
             })

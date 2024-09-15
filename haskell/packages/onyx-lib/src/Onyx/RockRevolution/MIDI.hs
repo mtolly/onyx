@@ -157,8 +157,8 @@ rrChannel4Lane = \case
 
 -- These are just conventions (channel is what actually determines gem).
 -- Comments are channel counts from disc+dlc midis
-rrDrumGuessTD :: RRDrum -> (ED.EliteGem D.Hand, ED.EliteGemType, D.DrumVelocity)
-rrDrumGuessTD = \case
+rrDrumGuessED :: RRDrum -> (ED.EliteGem D.Hand, ED.EliteGemType, D.DrumVelocity)
+rrDrumGuessED = \case
   RR_Kick          -> (ED.Kick D.RH, ED.GemNormal     , D.VelocityNormal) -- [48, [["Kick", 23132], ["HighTom", 4], ["Snare", 4]]]
   RR_HandClap      -> (ED.Hihat    , ED.GemNormal     , D.VelocityNormal) -- [49, [["Hihat", 734], ["Kick", 69], ["Snare", 27], ["LowTom", 1]]]
   RR_Snare         -> (ED.Snare    , ED.GemNormal     , D.VelocityNormal) -- [50, [["Snare", 16995], ["HighTom", 4], ["CrashR", 2], ["LowTom", 1]]]
@@ -252,7 +252,7 @@ importRREliteLanes rr = flip RTB.mapMaybe rr.rrdFreestyle $ mapM $ \(_, chan) ->
 importRRHiddenDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRRHiddenDrums rr
   = ED.makeEliteDifficulty
-  $ fmap (rrDrumGuessTD . fst)
+  $ fmap (rrDrumGuessED . fst)
   $ RTB.merge (rrdGems rr) (rrdHidden rr)
 
 -- control

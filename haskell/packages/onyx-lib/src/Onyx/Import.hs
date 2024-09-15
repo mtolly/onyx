@@ -18,13 +18,13 @@ import           Data.Bifunctor               (first)
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
-import           Data.Char                    (isAlpha, toLower)
+import           Data.Char                    (isAlpha, isDigit, toLower)
 import           Data.Functor                 (void)
 import           Data.Functor.Identity
 import           Data.Hashable                (hash)
 import qualified Data.HashMap.Strict          as HM
 import           Data.Int                     (Int32)
-import           Data.List.Extra              (stripSuffix)
+import           Data.List.Extra              (isPrefixOf, stripSuffix)
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty           as NE
 import           Data.Maybe                   (fromMaybe, isJust, mapMaybe)
@@ -86,7 +86,9 @@ import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle             (Folder (..), Readable,
                                                crawlFolder, fileReadable,
                                                findFile, findFileCI, findFolder,
-                                               handleToByteString, useHandle)
+                                               handleToByteString,
+                                               saveHandleFolder, singleFolder,
+                                               useHandle)
 import           Onyx.Xbox.ISO                (loadXboxISO)
 import           Onyx.Xbox.STFS               (getSTFSFolder)
 import qualified Sound.Jammit.Base            as J
@@ -815,3 +817,22 @@ proKeysHanging :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLo
 proKeysHanging mplan proj = do
   plan <- choosePlan mplan proj
   void $ shakeBuild1 proj [] $ "gen/plan" </> T.unpack plan </> "hanging"
+
+installPS3Folder :: T.Text -> Folder T.Text Readable -> FilePath -> IO [FilePath]
+installPS3Folder gameID contents dout = do
+  -- try to detect if we are somewhere in the chain of rpcs3/dev_hdd0/game/BLUS30463/USRDIR/
+  let folderName = takeFileName $ dropTrailingPathSeparator dout
+      isHDD = "dev_hdd" `isPrefixOf` folderName
+      isGame = folderName == "game"
+      isGameID = case folderName of
+        'B' : 'L' : _ : 'S' : digits -> all isDigit digits
+        _                            -> False
+      extraLayers = if
+        | isHDD     -> ["game", gameID, "USRDIR"]
+        | isGame    -> [        gameID, "USRDIR"]
+        | isGameID  -> [                "USRDIR"]
+        | otherwise -> []
+  saveHandleFolder (foldr singleFolder contents extraLayers) dout
+  return $ do
+    x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
+    return $ dout </> foldr (</>) (T.unpack x) (map T.unpack extraLayers)

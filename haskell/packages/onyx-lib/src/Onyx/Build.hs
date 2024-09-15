@@ -226,7 +226,7 @@ dtxRules buildInfo dir dtx = do
                 = maybe mempty (.onyxPartEliteDrums)
                 $ Map.lookup part mid.tracks.onyxParts
               -- TODO need to properly handle blip overrides on flams!
-              trueNotes
+              eliteNotes
                 = applyLongStatus (ED.tdChipOverride track)
                 $ ED.splitFlams mid.tempos
                 $ ED.addExplicitStomps (4 :: U.Beats)
@@ -255,7 +255,7 @@ dtxRules buildInfo dir dtx = do
                         extraConds
                   DTX.lookupDTXMapping (addedConds <> conds) tdn
                 in (lane, chip)
-              in toDTXNotes trueNotes
+              in toDTXNotes eliteNotes
           , DTX.dtx_DrumsDummy    = RTB.empty
           , DTX.dtx_Guitar        = gtrNotes
           , DTX.dtx_GuitarWailing = RTB.empty

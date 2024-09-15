@@ -133,7 +133,7 @@ convertFiveToDrums bf _dtarget input = let
       , layout        = StandardLayout
       , fallback      = FallbackGreen
       , fileDTXKit    = Nothing
-      , trueLayout    = []
+      , eliteLayout   = []
       , difficultyDTX = Nothing
       }
     , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
@@ -225,9 +225,9 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
   srcList = case pd.mode of
-    DrumsReal -> srcsRB <> [srcReal]
-    DrumsTrue -> srcsRB <> [srcTrue]
-    _         -> srcsRB
+    DrumsReal  -> srcsRB <> [srcReal]
+    DrumsElite -> srcsRB <> [srcTrue]
+    _          -> srcsRB
   src = fromMaybe mempty $ find (not . D.nullDrums) srcList
 
   stepAddKicks = case pd.kicks of
@@ -285,7 +285,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
     , source = "drum chart"
     , autochart = False
     , eliteDrums = do
-      guard $ pd.mode == DrumsTrue
+      guard $ pd.mode == DrumsElite
       Just input.part.onyxPartEliteDrums
     }
 
@@ -307,10 +307,10 @@ buildDrumAnimation pd tmap opart = let
   in case filter (not . RTB.null) $ map (.drumAnimation) rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
-      DrumsTrue -> inRealTime (ED.eliteDrumsToAnimation closeTime)
+      DrumsElite -> inRealTime (ED.eliteDrumsToAnimation closeTime)
         $ ED.getDifficulty (Just Expert) opart.onyxPartEliteDrums
       -- TODO this could be made better for modes other than pro
-      _ -> inRealTime (D.autoDrumAnimation closeTime)
+      _          -> inRealTime (D.autoDrumAnimation closeTime)
         $ fmap fst $ D.computePro (Just Expert)
         $ case filter (not . D.nullDrums) rbTracks of
           trk : _ -> trk

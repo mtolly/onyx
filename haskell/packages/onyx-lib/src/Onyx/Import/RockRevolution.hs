@@ -282,14 +282,14 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         Nothing -> []
       , case skullsToTier $ getSkulls "DrumDifficulty" of
         Just tier -> [(F.PartDrums, (emptyPart :: Part SoftFile)
-          { drums = Just (emptyPartDrums DrumsTrue Kicks1x :: ModeDrums SoftFile)
+          { drums = Just (emptyPartDrums DrumsElite Kicks1x :: ModeDrums SoftFile)
             { difficulty = tier
             }
           })]
         Nothing -> []
       {-
       , (F.PartName "hidden-drums", def
-        { partDrums = Just emptyPartDrums DrumsTrue Kicks1x
+        { partDrums = Just emptyPartDrums DrumsElite Kicks1x
         })
       -}
       ]

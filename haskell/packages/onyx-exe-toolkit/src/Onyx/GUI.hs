@@ -133,10 +133,10 @@ import           Onyx.MIDI.Common                          (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                          as RB
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.Preferences                          (CHAudioFormat (..),
+                                                            EliteDrumLayoutHint (..),
                                                             MagmaSetting (..),
                                                             Preferences (..),
                                                             RBEncoding (..),
-                                                            TrueDrumLayoutHint (..),
                                                             applyThreads,
                                                             readPreferences,
                                                             savePreferences)
@@ -706,11 +706,11 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           mbDrums <- forM part.drums $ \pd -> addType "Drums" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pd.difficulty
             getMode <- makeChoice itemCheck pd.mode $ \case
-              Drums4    -> "4-Lane Drums"
-              Drums5    -> "5-Lane Drums"
-              DrumsPro  -> "Pro Drums"
-              DrumsReal -> "Phase Shift Real Drums"
-              DrumsTrue -> "Elite Drums"
+              Drums4     -> "4-Lane Drums"
+              Drums5     -> "5-Lane Drums"
+              DrumsPro   -> "Pro Drums"
+              DrumsReal  -> "Phase Shift Real Drums"
+              DrumsElite -> "Elite Drums"
             getKicks <- makeChoice itemCheck pd.kicks $ \case
               Kicks1x   -> "1x Bass Pedal"
               Kicks2x   -> "2x Bass Pedal"
@@ -1272,8 +1272,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     songPageGHWOR sink rect tab proj $ \tgt create -> do
       proj' <- fullProjModify [] proj
       let name = case create of
-            GHWORLIVE{} -> "Building GH:WoR LIVE file"
-            GHWORPKG{}  -> "Building GH:WoR PKG file"
+            GHWORLIVE{}     -> "Building GH:WoR LIVE file"
+            GHWORPKG{}      -> "Building GH:WoR PKG file"
+            GHWORLoosePS3{} -> "Building GH:WoR PS3 folders"
           task = case create of
             GHWORLIVE fout -> do
               tmp <- buildGHWORLIVE tgt proj'
@@ -1283,6 +1284,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               tmp <- buildGHWORPKG tgt proj'
               stackIO $ Dir.copyFile tmp fout
               return [fout]
+            GHWORLoosePS3 dout -> do
+              folder <- buildGHWORLoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30487" folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   rrTab <- makeTab windowRect "RR" $ \rect tab -> do
@@ -3352,7 +3356,7 @@ previewGroup sink rect getSong getTime getSpeed = do
           w <- FL.pixelW wind
           h <- FL.pixelH wind
           let flatTrks = concat trks
-          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg (prefTrueLayout ?preferences)
+          RGGraphics.drawTracks stuff (RGGraphics.WindowDims w h) t speed bg (prefEliteLayout ?preferences)
             $ mapMaybe (`lookup` flatTrks) selected
   -- TODO add an option to use `FLTK.setUseHighResGL True`
   -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
@@ -3723,6 +3727,9 @@ launchBatch sink makeMenuBar startFiles = mdo
               stackIO $ Dir.copyFile tmp fout
               warnWoR
               return [fout]
+            GHWORLoosePS3 dout -> do
+              folder <- buildGHWORLoosePS3 target proj'
+              stackIO $ installPS3Folder "BLUS30487BLUS30487" folder dout
       return tab
     , makeTab windowRect "RR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -4107,13 +4114,13 @@ launchPreferences sink makeMenuBar = do
             return $ (\n prefs -> prefs { prefPreviewFPS = round n }) <$> FL.getValue fpsCounter
           , lineBox $ \box -> do
             let [trimClock 0 5 0 0 -> box1, trimClock 0 0 0 5 -> box2] = splitHorizN 2 box
-                layoutLeftOpenHand = listToMaybe $ flip mapMaybe (prefTrueLayout loadedPrefs) $ \case
-                  TDLeftCrossHand -> Just False
-                  TDLeftOpenHand  -> Just True
+                layoutLeftOpenHand = listToMaybe $ flip mapMaybe (prefEliteLayout loadedPrefs) $ \case
+                  EDLeftCrossHand -> Just False
+                  EDLeftOpenHand  -> Just True
                   _               -> Nothing
-                layoutRightNearCrash = listToMaybe $ flip mapMaybe (prefTrueLayout loadedPrefs) $ \case
-                  TDRightFarCrash  -> Just False
-                  TDRightNearCrash -> Just True
+                layoutRightNearCrash = listToMaybe $ flip mapMaybe (prefEliteLayout loadedPrefs) $ \case
+                  EDRightFarCrash  -> Just False
+                  EDRightNearCrash -> Just True
                   _                -> Nothing
             getLeftSide <- makeDropdown box1
               $ ("Elite drums hihat side: default"   , Nothing   , layoutLeftOpenHand == Nothing   ) NE.:|
@@ -4129,15 +4136,15 @@ launchPreferences sink makeMenuBar = do
               leftSide  <- getLeftSide
               rightSide <- getRightSide
               return $ \prefs -> prefs
-                { prefTrueLayout = concat
+                { prefEliteLayout = concat
                   [ case leftSide of
                     Nothing    -> []
-                    Just False -> [TDLeftCrossHand]
-                    Just True  -> [TDLeftOpenHand ]
+                    Just False -> [EDLeftCrossHand]
+                    Just True  -> [EDLeftOpenHand ]
                   , case rightSide of
                     Nothing    -> []
-                    Just False -> [TDRightFarCrash ]
-                    Just True  -> [TDRightNearCrash]
+                    Just False -> [EDRightFarCrash ]
+                    Just True  -> [EDRightNearCrash]
                   ]
                 }
           -- TODO lefty flip

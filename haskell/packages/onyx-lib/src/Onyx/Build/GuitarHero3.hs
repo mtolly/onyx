@@ -58,7 +58,8 @@ import           Onyx.Sections                     (makeDisplaySection,
                                                     sectionBody)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
-import           Onyx.Util.Handle                  (Folder (..), fileReadable)
+import           Onyx.Util.Handle                  (Folder (..), fileReadable,
+                                                    singleFolder)
 import           Onyx.Xbox.STFS                    (CreateOptions (..),
                                                     LicenseEntry (..),
                                                     makeCONReadable)
@@ -367,8 +368,7 @@ gh3Rules buildInfo dir gh3 = do
     shk $ need $ ps3Fsb : ps3Dat : ps3DL : ps3Text : ps3SongPak : ps3TextLangs
   dir </> "ps3.pkg" %> \out -> do
     shk $ need [ps3Root]
-    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-    main <- container "USRDIR" . container ps3Folder <$> crawlFolderBytes ps3Root
+    main <- singleFolder "USRDIR" . singleFolder ps3Folder <$> crawlFolderBytes ps3Root
     extra <- stackIO (getResourcesPath "pkg-contents/gh3") >>= crawlFolderBytes
     stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 

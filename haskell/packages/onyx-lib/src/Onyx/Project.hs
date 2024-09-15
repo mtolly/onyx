@@ -60,9 +60,9 @@ import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
-import           Onyx.Preferences                     (MagmaSetting (..),
-                                                       RBEncoding (..),
-                                                       TrueDrumLayoutHint (..))
+import           Onyx.Preferences                     (EliteDrumLayoutHint (..),
+                                                       MagmaSetting (..),
+                                                       RBEncoding (..))
 import           Onyx.Sections                        (Section (..),
                                                        emitSection,
                                                        makeDisplaySection,
@@ -718,16 +718,16 @@ data DrumMode
   | Drums5
   | DrumsPro
   | DrumsReal
-  | DrumsTrue
+  | DrumsElite
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON DrumMode where
   stackJSON = enumCodec "a drum mode (4, 5, pro, real, elite)" $ \case
-    Drums4    -> A.Number 4
-    Drums5    -> A.Number 5
-    DrumsPro  -> "pro"
-    DrumsReal -> "real"
-    DrumsTrue -> "elite"
+    Drums4     -> A.Number 4
+    Drums5     -> A.Number 5
+    DrumsPro   -> "pro"
+    DrumsReal  -> "real"
+    DrumsElite -> "elite"
 
 data OrangeFallback = FallbackBlue | FallbackGreen
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -755,7 +755,7 @@ data ModeDrums f = ModeDrums
   , layout        :: DrumLayout
   , fallback      :: OrangeFallback
   , fileDTXKit    :: Maybe f
-  , trueLayout    :: [TrueDrumLayoutHint]
+  , eliteLayout   :: [EliteDrumLayoutHint]
   , difficultyDTX :: Maybe Centi
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
@@ -769,7 +769,7 @@ instance (Eq f, StackJSON f) => StackJSON (ModeDrums f) where
     layout        <- (.layout       ) =. opt     StandardLayout "layout"         stackJSON
     fallback      <- (.fallback     ) =. opt     FallbackGreen  "fallback"       stackJSON
     fileDTXKit    <- (.fileDTXKit   ) =. opt     Nothing        "file-dtx-kit"   stackJSON
-    trueLayout    <- (.trueLayout   ) =. opt     []             "true-layout"    stackJSON
+    eliteLayout   <- (.eliteLayout  ) =. opt     []             "elite-layout"   stackJSON
     difficultyDTX <- (.difficultyDTX) =. opt     Nothing        "difficulty-dtx" stackJSON
     return ModeDrums{..}
 
@@ -783,7 +783,7 @@ emptyPartDrums mode kicks = ModeDrums
   , layout        = StandardLayout
   , fallback      = FallbackGreen
   , fileDTXKit    = Nothing
-  , trueLayout    = []
+  , eliteLayout   = []
   , difficultyDTX = Nothing
   }
 

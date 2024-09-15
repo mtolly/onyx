@@ -92,9 +92,9 @@ import           Onyx.Sections                         (Section,
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                      (runGetM)
 import           Onyx.Util.Files                       (shortWindowsPath)
-import           Onyx.Util.Handle                      (Folder (..),
-                                                        fileReadable,
-                                                        saveReadable)
+import           Onyx.Util.Handle                      (fileReadable,
+                                                        saveReadable,
+                                                        singleFolder)
 import           Onyx.Util.Text.Transform              (replaceCharsRB)
 import           Onyx.Vocal.DryVox                     (clipDryVox,
                                                         toDryVoxFormat,
@@ -690,8 +690,7 @@ rbRules buildInfo dir rb3 mrb2 = do
 
   rb3ps3Pkg %> \out -> do
     shk $ need [rb3ps3Root]
-    let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-    main <- container "USRDIR" . container rb3ps3Folder <$> crawlFolderBytes rb3ps3Root
+    main <- singleFolder "USRDIR" . singleFolder rb3ps3Folder <$> crawlFolderBytes rb3ps3Root
     extra <- stackIO (getResourcesPath "pkg-contents/rb3") >>= crawlFolderBytes
     stackIO $ makePKG rb3ps3ContentID (main <> extra) out
 
@@ -1049,8 +1048,7 @@ rbRules buildInfo dir rb3 mrb2 = do
 
         rb2ps3Pkg %> \out -> do
           shk $ need [rb2ps3Root]
-          let container name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
-          main <- container "USRDIR" . container rb2ps3Folder <$> crawlFolderBytes rb2ps3Root
+          main <- singleFolder "USRDIR" . singleFolder rb2ps3Folder <$> crawlFolderBytes rb2ps3Root
           extra <- stackIO (getResourcesPath "pkg-contents/rb2") >>= crawlFolderBytes
           stackIO $ makePKG rb2ps3ContentID (main <> extra) out
 

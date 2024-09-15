@@ -13,7 +13,6 @@ import           Control.Monad.Trans.Resource  (MonadResource, allocate,
                                                 release)
 import           Data.Bifunctor                (Bifunctor (..))
 import qualified Data.ByteString               as B
-import           Data.ByteString.Internal      (memcpy)
 import qualified Data.ByteString.Lazy          as BL
 import           Data.ByteString.Lazy.Internal (smallChunkSize)
 import           Data.ByteString.Unsafe        (unsafeUseAsCStringLen)
@@ -26,7 +25,7 @@ import qualified Data.Map                      as Map
 import           Data.Maybe                    (catMaybes, fromMaybe)
 import qualified Data.Text                     as T
 import           Data.Typeable                 (Typeable)
-import           Foreign                       (castPtr)
+import           Foreign                       (castPtr, copyBytes)
 import           GHC.IO.Buffer                 (newByteBuffer)
 import           GHC.IO.BufferedIO
 import qualified GHC.IO.Device                 as D
@@ -70,7 +69,7 @@ instance D.RawIO SimpleHandle where
     pos <- shTell sh
     let maxBytes = shSize sh - pos
     bs <- shRead sh $ min (fromIntegral n) maxBytes
-    unsafeUseAsCStringLen bs $ \(p', len) -> memcpy p (castPtr p') len
+    unsafeUseAsCStringLen bs $ \(p', len) -> copyBytes p (castPtr p') len
     return $ B.length bs
   readNonBlocking sh p w64 n = (\bytes -> guard (bytes /= 0) >> Just bytes) <$> D.read sh p w64 n
   write            _ _ _ _ = throwIO unsupportedOperation
@@ -362,3 +361,6 @@ generateCachedReadable generate = do
         return (Just r, r)
       rOpen r
     }
+
+singleFolder :: t -> Folder t a -> Folder t a
+singleFolder name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }

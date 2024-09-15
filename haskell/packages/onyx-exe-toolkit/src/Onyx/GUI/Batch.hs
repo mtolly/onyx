@@ -460,6 +460,8 @@ batchPageGHWOR sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack (prefDirRB ?preferences) <> "/%input_base%%modifiers%.pkg")
     (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= stackIO . build)
+  batchButtonLoosePS3 sink $ \dout -> do
+    warnXboxGHWoR sink $ getTargetSong False (const $ GHWORLoosePS3 dout) "" >>= stackIO . build
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
