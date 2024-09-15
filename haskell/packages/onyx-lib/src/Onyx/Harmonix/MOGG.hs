@@ -7,7 +7,6 @@ module Onyx.Harmonix.MOGG
 , decryptBink
 ) where
 
-import           Control.Applicative          (liftA2)
 import           Control.Monad                (forM, forM_, guard, void)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource

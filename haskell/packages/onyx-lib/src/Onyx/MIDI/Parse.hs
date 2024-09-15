@@ -7,7 +7,7 @@ than the one that comes with the `midi` package.
 {-# LANGUAGE PatternSynonyms   #-}
 module Onyx.MIDI.Parse (getMIDI) where
 
-import           Control.Applicative                   (liftA2, optional, (<|>))
+import           Control.Applicative                   (optional, (<|>))
 import           Control.Monad                         (forM)
 import           Data.Binary.Get
 import           Data.Bits                             (shiftR, testBit, (.&.))

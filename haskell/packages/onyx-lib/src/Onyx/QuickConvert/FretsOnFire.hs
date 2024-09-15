@@ -8,6 +8,7 @@
 {-# LANGUAGE TupleSections         #-}
 module Onyx.QuickConvert.FretsOnFire where
 
+import           Control.Applicative              (liftA2)
 import           Control.Monad.Codec              (codecOut)
 import           Control.Monad.Extra              (forM, forM_, guard,
                                                    mapMaybeM)

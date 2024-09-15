@@ -42,7 +42,7 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Mode
 import           Onyx.Preferences                 (EliteDrumLayoutHint)
-import           Onyx.Project
+import           Onyx.Project                     hiding (Difficulty)
 import qualified Onyx.Reaper.Extract              as RPP
 import qualified Onyx.Reaper.Parse                as RPP
 import qualified Onyx.Reaper.Scan                 as RPP
@@ -322,6 +322,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
           `PNF.zipStateMaps` toggle (ED.tdSolo thisSrc)
           `PNF.zipStateMaps` fmap Just beats
 
+  fiveTrack :: Difficulty -> FiveResult -> Maybe (Map.Map Double (PNF.CommonState (PNF.GuitarState Double (Maybe Five.Color))))
   fiveTrack diff result = let
     thisDiff = fromMaybe mempty $ Map.lookup diff result.notes
     ons = fmap (fst . fst) thisDiff
