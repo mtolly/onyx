@@ -572,10 +572,12 @@ isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Nothing          -> return Nothing
 
 isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
-isGH3Cachable f = getPackageSpec f >>= \case
-  Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
-  Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
-  Nothing          -> return Nothing
+isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
+  then return $ Just (f, "")
+  else getPackageSpec f >>= \case
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Nothing          -> return Nothing
 
 fileLoadWindow
   :: Rectangle

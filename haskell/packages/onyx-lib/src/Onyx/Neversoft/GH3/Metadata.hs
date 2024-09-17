@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE ViewPatterns        #-}
 module Onyx.Neversoft.GH3.Metadata where
 
@@ -31,7 +32,8 @@ import           Onyx.Neversoft.QB
 import           Onyx.PlayStation.NPData      (gh3CustomMidEdatConfig,
                                                npdContentID, packNPData)
 import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
-                                               makePKG, pkgFolder)
+                                               makePKG, pkgFolder,
+                                               tryDecryptEDAT)
 import           Onyx.Preferences             (Preferences (prefArtistSort),
                                                readPreferences)
 import           Onyx.Resources               (getResourcesPath, gh3Thumbnail)
@@ -45,8 +47,8 @@ import           Onyx.Util.Handle             (Folder (..), Readable,
 import           Onyx.Xbox.STFS               (CreateOptions (..),
                                                LicenseEntry (..), getSTFSFolder,
                                                makeCONMemory)
-import           System.FilePath              (dropExtension, takeExtension,
-                                               (</>))
+import           System.FilePath              (dropExtension, takeDirectory,
+                                               takeExtension, (</>))
 
 -- Metadata in _text.pak.qb for GH3
 
@@ -72,7 +74,7 @@ data GH3Language
   | GH3German
   | GH3Italian
   | GH3Spanish
-  deriving (Eq)
+  deriving (Eq, Show)
 
 readGH3TextSetDLC :: (MonadFail m, MonadIO m) => Folder T.Text Readable -> m [(GH3Language, GH3TextPakQB)]
 readGH3TextSetDLC folder = let
@@ -94,11 +96,25 @@ readGH3TextSetDLC folder = let
 
 loadGH3TextSetDLC :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(GH3Language, GH3TextPakQB)]
 loadGH3TextSetDLC f = case map toLower $ takeExtension f of
-  ".pkg" -> do
+  ".pkg"  -> do
     usrdir <- stackIO (pkgFolder <$> loadPKG f) >>= getDecryptedUSRDIR
     fmap concat $ forM (map snd $ folderSubfolders usrdir) $ \dir -> do
       readGH3TextSetDLC $ first TE.decodeLatin1 dir
-  _      -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
+  ".edat" -> do
+    -- search folder for any package metadata edats and try to load them
+    folderOrig <- stackIO $ crawlFolder $ takeDirectory f
+    let matchSuffixes = map (\x -> "_text" <> x <> ".pak.ps3") ["", "_f", "_g", "_i", "_s"]
+    decryptedFiles <- fmap catMaybes $ forM folderOrig.folderFiles $ \(name, file) ->
+      case T.stripSuffix ".edat" $ T.toLower name of
+        Nothing -> return Nothing
+        Just noEdat -> if any (\sfx -> sfx `T.isSuffixOf` noEdat) matchSuffixes
+          then fmap (noEdat,) <$> tryDecryptEDAT "" (TE.encodeUtf8 name) file
+          else return Nothing
+    readGH3TextSetDLC Folder
+      { folderSubfolders = []
+      , folderFiles = decryptedFiles
+      }
+  _       -> stackIO (getSTFSFolder f) >>= readGH3TextSetDLC
 
 buildGH3TextSet :: Preferences -> B.ByteString -> GH3Language -> [GH3TextPakQB] -> (BL.ByteString, [T.Text])
 buildGH3TextSet prefs dlName lang paks = let
