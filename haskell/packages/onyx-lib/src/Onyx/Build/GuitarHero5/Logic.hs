@@ -764,8 +764,8 @@ saveMetadataLIVE library fout = let
       , createLIVE = True
       } folder fout
 
-saveMetadataPKG :: [TextPakSongStruct] -> FilePath -> IO ()
-saveMetadataPKG library fout = let
+metadataPS3Folder :: [TextPakSongStruct] -> IO (Folder B.ByteString Readable)
+metadataPS3Folder library = let
 
   label = "CUSTOMS_DATABASE" :: T.Text
   (titleHashHex, titleHash) = packageNameHash label
@@ -785,7 +785,6 @@ saveMetadataPKG library fout = let
     (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
 
   ps3EDATConfig = ghworCustomMidEdatConfig $ TE.encodeUtf8 label
-  ps3ContentID  = npdContentID ps3EDATConfig
 
   files =
     [ ( "cmanifest_" <> titleHash <> ".pak.ps3"
@@ -818,16 +817,18 @@ saveMetadataPKG library fout = let
         packNPData ps3EDATConfig edatIn edatOut edatName
         edat <- BL.fromStrict <$> B.readFile edatOut
         return (edatName, makeHandle (B8.unpack edatName) $ byteStringSimpleHandle edat)
-    let main = Folder
-          { folderSubfolders = return $ (,) "USRDIR" Folder
-            { folderSubfolders = return $ (,) (TE.encodeUtf8 label) Folder
-              { folderSubfolders = []
-              , folderFiles = edats
-              }
-            , folderFiles = []
-            }
-          , folderFiles = []
-          }
+    return $ singleFolder (TE.encodeUtf8 label) Folder
+      { folderSubfolders = []
+      , folderFiles      = edats
+      }
+
+saveMetadataPKG :: [TextPakSongStruct] -> FilePath -> IO ()
+saveMetadataPKG library fout = let
+  label = "CUSTOMS_DATABASE" :: T.Text
+  ps3EDATConfig = ghworCustomMidEdatConfig $ TE.encodeUtf8 label
+  ps3ContentID  = npdContentID ps3EDATConfig
+  in do
+    main <- singleFolder "USRDIR" <$> metadataPS3Folder library
     extra <- getResourcesPath "pkg-contents/ghwor" >>= fmap (first TE.encodeUtf8) . crawlFolder
     makePKG ps3ContentID (main <> extra) fout
 

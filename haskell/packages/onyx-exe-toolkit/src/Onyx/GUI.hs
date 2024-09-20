@@ -1143,7 +1143,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [dout]
             RB3LoosePS3 dout -> do
               folder <- buildRB3LoosePS3 tgt proj'
-              stackIO $ installPS3Folder "BLUS30463" folder dout
+              stackIO $ installPS3Folder "BLUS30463" (Just "pkg-contents/rb3") folder dout
           go = startTasks [(name, task)]
       sink $ EventOnyx $ if qcPossible && isRB
         then warnQuickConvert 1 sink go
@@ -1168,7 +1168,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
             RB2LoosePS3 dout -> do
               folder <- buildRB2LoosePS3 tgt proj'
-              stackIO $ installPS3Folder "BLUS30050" folder dout
+              stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
@@ -1262,7 +1262,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
             GH3LoosePS3 dout -> do
               folder <- buildGH3LoosePS3 tgt proj'
-              results <- stackIO $ installPS3Folder "BLUS30074" folder dout
+              results <- stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") folder dout
               warnCache
               return results
       sink $ EventOnyx $ startTasks [(name, task)]
@@ -1286,7 +1286,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
             GHWORLoosePS3 dout -> do
               folder <- buildGHWORLoosePS3 tgt proj'
-              stackIO $ installPS3Folder "BLUS30487" folder dout
+              stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
   rrTab <- makeTab windowRect "RR" $ \rect tab -> do
@@ -3596,7 +3596,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                     return [dout]
                   RB3LoosePS3 dout -> do
                     folder <- buildRB3LoosePS3 target proj'
-                    stackIO $ installPS3Folder "BLUS30463" folder dout
+                    stackIO $ installPS3Folder "BLUS30463" (Just "pkg-contents/rb3") folder dout
         if qcPossible && all (.impFormatRB) files
           then warnQuickConvert (length files) sink go
           else go
@@ -3620,7 +3620,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                 return [fout]
               RB2LoosePS3 dout -> do
                 folder <- buildRB2LoosePS3 target proj'
-                stackIO $ installPS3Folder "BLUS30050" folder dout
+                stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
       return tab
     , makeTab windowRect "Clone Hero" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -3704,7 +3704,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               return [fout]
             GH3LoosePS3 dout -> do
               folder <- buildGH3LoosePS3 target proj'
-              stackIO $ installPS3Folder "BLUS30074" folder dout
+              stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") folder dout
           warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
           return results
       return tab
@@ -3729,7 +3729,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               return [fout]
             GHWORLoosePS3 dout -> do
               folder <- buildGHWORLoosePS3 target proj'
-              stackIO $ installPS3Folder "BLUS30487BLUS30487" folder dout
+              stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
       return tab
     , makeTab windowRect "RR" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

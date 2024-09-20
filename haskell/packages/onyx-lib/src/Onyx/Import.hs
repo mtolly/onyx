@@ -11,7 +11,7 @@ module Onyx.Import where
 import           Control.Applicative          ((<|>))
 import qualified Control.Monad.Catch          as MC
 import           Control.Monad.Extra          (anyM, concatMapM, forM, forM_,
-                                               guard)
+                                               guard, unless)
 import           Control.Monad.IO.Class       (MonadIO (..))
 import           Control.Monad.Trans.Resource
 import           Data.Bifunctor               (first)
@@ -54,6 +54,7 @@ import           Onyx.Import.BMS              (importBMS)
 import           Onyx.MIDI.Common             (Difficulty (..))
 import           Onyx.Neversoft.PS2           (HedFormat (..),
                                                identifyHedFormat, parseHed)
+import           Onyx.Util.Files              (fixFileCase)
 import           Onyx.Zip.Load                (loadZipReadables)
 -- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
@@ -81,14 +82,15 @@ import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
                                                pkgFolder, tryDecryptEDAT)
 import           Onyx.Preferences
 import           Onyx.Project
+import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle             (Folder (..), Readable,
                                                crawlFolder, fileReadable,
                                                findFile, findFileCI, findFolder,
                                                handleToByteString,
-                                               saveHandleFolder, singleFolder,
-                                               useHandle)
+                                               saveHandleFolder, saveReadable,
+                                               singleFolder, useHandle)
 import           Onyx.Xbox.ISO                (loadXboxISO)
 import           Onyx.Xbox.STFS               (getSTFSFolder)
 import qualified Sound.Jammit.Base            as J
@@ -818,8 +820,8 @@ proKeysHanging mplan proj = do
   plan <- choosePlan mplan proj
   void $ shakeBuild1 proj [] $ "gen/plan" </> T.unpack plan </> "hanging"
 
-installPS3Folder :: T.Text -> Folder T.Text Readable -> FilePath -> IO [FilePath]
-installPS3Folder gameID contents dout = do
+installPS3Folder :: T.Text -> Maybe FilePath -> Folder T.Text Readable -> FilePath -> IO [FilePath]
+installPS3Folder gameID extraResPath contents dout = do
   -- try to detect if we are somewhere in the chain of rpcs3/dev_hdd0/game/BLUS30463/USRDIR/
   let folderName = takeFileName $ dropTrailingPathSeparator dout
       isHDD = "dev_hdd" `isPrefixOf` folderName
@@ -827,12 +829,37 @@ installPS3Folder gameID contents dout = do
       isGameID = case folderName of
         'B' : 'L' : _ : 'S' : digits -> all isDigit digits
         _                            -> False
-      extraLayers = if
+      upperLayers = if
         | isHDD     -> ["game", gameID, "USRDIR"]
         | isGame    -> [        gameID, "USRDIR"]
         | isGameID  -> [                "USRDIR"]
         | otherwise -> []
-  saveHandleFolder (foldr singleFolder contents extraLayers) dout
+      placeExtra = if
+        | isHDD     -> Just $ singleFolder "game" . singleFolder gameID
+        | isGame    -> Just $ singleFolder gameID
+        | isGameID  -> Just id
+        | otherwise -> Nothing
+  extra <- case liftA2 (,) extraResPath placeExtra of
+    Nothing            -> return mempty
+    Just (path, place) -> fmap place $ getResourcesPath path >>= crawlFolder
+  saveHandleFolder (foldr singleFolder contents upperLayers) dout
+  savePkgGameMetadata extra dout
   return $ do
     x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
-    return $ dout </> foldr (</>) (T.unpack x) (map T.unpack extraLayers)
+    return $ dout </> foldr (</>) (T.unpack x) (map T.unpack upperLayers)
+
+-- Overwrites files or not in the same way installing one of our .pkgs would
+savePkgGameMetadata :: Folder T.Text Readable -> FilePath -> IO ()
+savePkgGameMetadata folder dest = do
+  Dir.createDirectoryIfMissing False dest
+  forM_ (folderSubfolders folder) $ \(name, sub) -> do
+    let subdest = dest </> T.unpack name
+    Dir.createDirectoryIfMissing False subdest
+    savePkgGameMetadata sub subdest
+  forM_ (folderFiles folder) $ \(name, file) -> do
+    newPath <- fixFileCase $ dest </> T.unpack name
+    let overwrite = notElem (T.toUpper name) ["PARAM.SFO", "ICON0.PNG", "PIC1.PNG"]
+        save = saveReadable file newPath
+    if overwrite
+      then save
+      else Dir.doesFileExist newPath >>= \b -> unless b save

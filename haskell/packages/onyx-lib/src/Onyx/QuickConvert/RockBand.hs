@@ -762,7 +762,11 @@ saveQuickSongsPKG qsongs settings fout = do
 saveQuickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m [FilePath]
 saveQuickSongsPS3Folder qsongs settings dout = do
   contents <- quickSongsPS3Folder qsongs settings
-  stackIO $ installPS3Folder (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050") contents dout
+  stackIO $ installPS3Folder
+    (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050")
+    (Just $ if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2")
+    contents
+    dout
 
 contentsSize :: QuickSong -> Integer
 contentsSize qsong = sum $ map fst $ toList $ quickSongFiles qsong

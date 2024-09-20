@@ -14,12 +14,14 @@ import           Control.Concurrent                        (modifyMVar_,
                                                             newMVar, readMVar)
 import           Control.Monad                             (forM, guard, join,
                                                             void)
+import           Data.Bifunctor                            (first)
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString.Lazy                      as BL
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
 import qualified Data.Text                                 as T
+import qualified Data.Text.Encoding                        as TE
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Rectangle (..),
@@ -29,16 +31,21 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Onyx.Audio                                (Audio (..),
                                                             buildSource',
                                                             runAudio)
-import           Onyx.Build.GuitarHero5.Logic              (makeMetadataLIVE,
-                                                            makeMetadataPKG)
+import           Onyx.Build.GuitarHero5.Logic              (getAllMetadata,
+                                                            makeMetadataLIVE,
+                                                            makeMetadataPKG,
+                                                            metadataPS3Folder)
 import           Onyx.GUI.Util                             (askFolder)
 import           Onyx.Harmonix.RockBand.Milo               as Milo
+import           Onyx.Import                               (installPS3Folder)
 import           Onyx.MIDI.Read                            (mapTrack)
 import qualified Onyx.MIDI.Track.File                      as F
 import           Onyx.MIDI.Track.Lipsync
 import           Onyx.MIDI.Track.Vocal                     (nullVox)
 import           Onyx.Neversoft.GH3.Metadata               (combineGH3SongCache360,
-                                                            combineGH3SongCachePS3)
+                                                            combineGH3SongCachePS3,
+                                                            combineGH3SongCachePS3Folder)
+import           Onyx.Preferences
 import           Onyx.Project
 import           Onyx.QuickConvert.RockBand
 import           Onyx.StackTrace
@@ -530,13 +537,13 @@ miscPageGH3SongCache
 miscPageGH3SongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+      [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
   group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchGH3Cachable $ \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
-  btn1 <- FL.buttonNew xboxRect $ Just "Create GH3 song cache (360)"
+  btn1 <- FL.buttonNew xboxRect $ Just "Create GH3 cache (360)"
   taskColor >>= FL.setColor btn1
   FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
     inputs <- map fst <$> readMVar loadedFiles
@@ -555,7 +562,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
             return [f]
           in [("Make GH3 cache file", task)]
       _ -> return ()
-  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH3 song cache (PS3)"
+  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH3 cache (PS3)"
   taskColor >>= FL.setColor btn2
   FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
     inputs <- map fst <$> readMVar loadedFiles
@@ -574,6 +581,16 @@ miscPageGH3SongCache sink rect tab startTasks = do
             return [f]
           in [("Make GH3 cache file", task)]
       _ -> return ()
+  btn3 <- FL.buttonNew looseRect $ Just "Install GH3 cache (RPCS3)"
+  taskColor >>= FL.setColor btn3
+  FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
+    inputs <- stackIO $ map fst <$> readMVar loadedFiles
+    newPreferences <- readPreferences
+    stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> sink $ EventOnyx $ startTasks $ let
+      task = do
+        folder <- combineGH3SongCachePS3Folder inputs
+        stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
+      in [("Install GH3 cache file", task)]
 
 miscPageWoRSongCache
   :: (Event -> IO ())
@@ -584,13 +601,13 @@ miscPageWoRSongCache
 miscPageWoRSongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (xboxRect, _), chopLeft 5 -> (_, ps3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
+      [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
   group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable $ \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
-  btn1 <- FL.buttonNew xboxRect $ Just "Create GH:WoR song cache (360)"
+  btn1 <- FL.buttonNew xboxRect $ Just "Create GH:WoR cache (360)"
   taskColor >>= FL.setColor btn1
   FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
     inputs <- map fst <$> readMVar loadedFiles
@@ -609,7 +626,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
             return [f]
           in [("Make WoR cache file", task)]
       _ -> return ()
-  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH:WoR song cache (PS3)"
+  btn2 <- FL.buttonNew ps3Rect $ Just "Create GH:WoR cache (PS3)"
   taskColor >>= FL.setColor btn2
   FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
     inputs <- map fst <$> readMVar loadedFiles
@@ -628,6 +645,16 @@ miscPageWoRSongCache sink rect tab startTasks = do
             return [f]
           in [("Make WoR cache file", task)]
       _ -> return ()
+  btn3 <- FL.buttonNew looseRect $ Just "Install GH:WoR cache (RPCS3)"
+  taskColor >>= FL.setColor btn3
+  FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
+    inputs <- stackIO $ map fst <$> readMVar loadedFiles
+    newPreferences <- readPreferences
+    stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> sink $ EventOnyx $ startTasks $ let
+      task = do
+        folder <- getAllMetadata inputs >>= stackIO . metadataPS3Folder
+        stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
+      in [("Install GH3 cache file", task)]
 
 miscPageCONtoPKG
   :: (Event -> IO ())

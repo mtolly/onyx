@@ -43,7 +43,8 @@ import           Onyx.Util.Files              (shortWindowsPath)
 import           Onyx.Util.Handle             (Folder (..), Readable,
                                                byteStringSimpleHandle,
                                                crawlFolder, handleToByteString,
-                                               makeHandle, useHandle)
+                                               makeHandle, singleFolder,
+                                               useHandle)
 import           Onyx.Xbox.STFS               (CreateOptions (..),
                                                LicenseEntry (..), getSTFSFolder,
                                                makeCONMemory)
@@ -226,8 +227,8 @@ combineGH3SongCache360 ins out = do
     , createLIVE = True
     } folder out
 
-combineGH3SongCachePS3 :: (SendMessage m, MonadIO m, MonadResource m) => [FilePath] -> FilePath -> StackTraceT m ()
-combineGH3SongCachePS3 ins out = do
+combineGH3SongCachePS3Folder :: (SendMessage m, MonadIO m, MonadResource m) => [FilePath] -> StackTraceT m (Folder B.ByteString Readable)
+combineGH3SongCachePS3Folder ins = do
   sets <- fmap concat $ mapM loadGH3TextSetDLC ins
   let dlText = "dl2000000000"
       dlBytes = B8.pack $ T.unpack dlText
@@ -260,16 +261,16 @@ combineGH3SongCachePS3 ins out = do
       stackIO $ packNPData edatConfig fin' fout' nameBytes
       bs' <- stackIO $ BL.fromStrict <$> B.readFile fout'
       return (nameBytes, makeHandle (T.unpack nameText) $ byteStringSimpleHandle bs')
-  let main = Folder
-        { folderSubfolders = return $ (,) "USRDIR" Folder
-          { folderSubfolders = return $ (,) folderLabel Folder
-            { folderSubfolders = []
-            , folderFiles = edats
-            }
-          , folderFiles = []
-          }
-        , folderFiles = []
-        }
+  return $ singleFolder folderLabel Folder
+    { folderSubfolders = []
+    , folderFiles      = edats
+    }
+
+combineGH3SongCachePS3 :: (SendMessage m, MonadIO m, MonadResource m) => [FilePath] -> FilePath -> StackTraceT m ()
+combineGH3SongCachePS3 ins out = do
+  let folderLabel = "CUSTOMS_DATABASE"
+      edatConfig = gh3CustomMidEdatConfig folderLabel
+  main <- singleFolder "USRDIR" <$> combineGH3SongCachePS3Folder ins
   extra <- stackIO $ getResourcesPath "pkg-contents/gh3" >>= fmap (first TE.encodeUtf8) . crawlFolder
   stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
 
