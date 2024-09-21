@@ -185,7 +185,9 @@ getDefaultPS3Dir = do
     Just p | not $ null p -> return $ Just p
     _ -> case os of
       "mingw32" -> return Nothing -- TODO
-      "darwin"  -> return Nothing -- TODO
+      "darwin"  -> do
+        home <- stackIO Dir.getHomeDirectory
+        checkPath $ home </> "Library/Application Support/rpcs3/dev_hdd0"
       "linux"   -> do
         home <- stackIO Dir.getHomeDirectory
         checkPath $ home </> ".config/rpcs3/dev_hdd0"
