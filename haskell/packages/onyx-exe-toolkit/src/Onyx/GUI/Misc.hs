@@ -585,8 +585,8 @@ miscPageGH3SongCache sink rect tab startTasks = do
   taskColor >>= FL.setColor btn3
   FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
-    newPreferences <- readPreferences
-    stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> sink $ EventOnyx $ startTasks $ let
+    defDir <- getDefaultPS3Dir
+    stackIO $ askFolder defDir $ \dout -> sink $ EventOnyx $ startTasks $ let
       task = do
         folder <- combineGH3SongCachePS3Folder inputs
         stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
@@ -649,8 +649,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
   taskColor >>= FL.setColor btn3
   FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
-    newPreferences <- readPreferences
-    stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> sink $ EventOnyx $ startTasks $ let
+    defDir <- getDefaultPS3Dir
+    stackIO $ askFolder defDir $ \dout -> sink $ EventOnyx $ startTasks $ let
       task = do
         folder <- getAllMetadata inputs >>= stackIO . metadataPS3Folder
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout

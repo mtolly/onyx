@@ -28,6 +28,7 @@ import           Onyx.Import
 import qualified Onyx.MIDI.Track.File               as F
 import           Onyx.Mode                          (anyDrums, anyFiveFret)
 import           Onyx.Preferences                   (Preferences (..),
+                                                     getDefaultPS3Dir,
                                                      readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -60,8 +61,8 @@ batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 3
   button <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
   taskColor >>= FL.setColor button
   FL.setCallback button $ \_ -> sink $ EventOnyx $ do
-    newPreferences <- readPreferences
-    stackIO $ askFolder newPreferences.prefDirPS3 usePath
+    defDir <- getDefaultPS3Dir
+    stackIO $ askFolder defDir usePath
 
 batchPageRB3
   :: (?preferences :: Preferences)

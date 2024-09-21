@@ -138,6 +138,7 @@ import           Onyx.Preferences                          (CHAudioFormat (..),
                                                             Preferences (..),
                                                             RBEncoding (..),
                                                             applyThreads,
+                                                            getDefaultPS3Dir,
                                                             readPreferences,
                                                             savePreferences)
 import           Onyx.Project
@@ -2127,8 +2128,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       songTransform <- getSongTransform
       decryptMOGGs <- getDecryptMOGGs
       sink $ EventOnyx $ do
-        newPreferences <- readPreferences
-        stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
+        defDir <- getDefaultPS3Dir
+        stackIO $ askFolder defDir $ \dout -> do
           sink $ EventOnyx $ startTasks $ flip map files $ \qinput -> let
             fin = quickInputPath qinput
             qsongs = quickInputSongs qinput
@@ -2190,8 +2191,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
             _   -> B8.pack $ show n
           in sink $ EventOnyx $ stackIO getFormat >>= \case
             QCOutputLoosePS3 -> do
-              newPreferences <- readPreferences
-              stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
+              defDir <- getDefaultPS3Dir
+              stackIO $ askFolder defDir $ \dout -> do
                 sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
                   task = do
                     mapM_ (lg . T.unpack . artistTitle) qsongs
@@ -2324,8 +2325,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       songTransform <- getSongTransform
       decryptMOGGs <- getDecryptMOGGs
       sink $ EventOnyx $ do
-        newPreferences <- readPreferences
-        stackIO $ askFolder (prefDirPS3 newPreferences) $ \dout -> do
+        defDir <- getDefaultPS3Dir
+        stackIO $ askFolder defDir $ \dout -> do
           let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
           sink $ EventOnyx $ startTasks $ flip map inputSongs $ \(_qinput, qsong) -> let
             isRB3 = qdtaRB3 $ quickSongDTA qsong

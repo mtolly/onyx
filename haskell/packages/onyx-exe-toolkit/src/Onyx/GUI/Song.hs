@@ -35,6 +35,7 @@ import           Onyx.Import
 import           Onyx.Mode                                 (anyDrums,
                                                             anyFiveFret)
 import           Onyx.Preferences                          (Preferences (..),
+                                                            getDefaultPS3Dir,
                                                             readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
@@ -159,9 +160,9 @@ songPageRB3 sink rect tab proj build = mdo
     btn2 <- FL.buttonNew r2 $ Just "Create PS3/RPCS3 folder"
     FL.setCallback btn2 $ \_ -> sink $ EventOnyx $ do
       tgt <- makeFinalTarget
-      newPreferences <- readPreferences
+      defDir <- getDefaultPS3Dir
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
-      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+      stackIO $ askFolder defDir $ \dout -> do
         build qcPossible tgt $ RB3LoosePS3 dout
     color <- taskColor
     FL.setColor btn1 color
@@ -270,8 +271,8 @@ songPageRB2 sink rect tab proj build = mdo
     btn1 <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folder"
     FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ do
       tgt <- makeFinalTarget
-      newPreferences <- readPreferences
-      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+      defDir <- getDefaultPS3Dir
+      stackIO $ askFolder defDir $ \dout -> do
         build tgt $ RB2LoosePS3 dout
     color <- taskColor
     FL.setColor btn1 color
@@ -374,8 +375,8 @@ songPageGHWOR sink rect tab proj build = mdo
     btn1 <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folder"
     FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ do
       tgt <- stackIO makeTarget
-      newPreferences <- readPreferences
-      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+      defDir <- getDefaultPS3Dir
+      stackIO $ askFolder defDir $ \dout -> do
         build tgt $ GHWORLoosePS3 dout
     color <- taskColor
     FL.setColor btn1 color
@@ -693,8 +694,8 @@ songPageGH3 sink rect tab proj build = mdo
     btn1 <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folder"
     FL.setCallback btn1 $ \_ -> sink $ EventOnyx $ do
       tgt <- stackIO makeTarget
-      newPreferences <- readPreferences
-      stackIO $ askFolder newPreferences.prefDirPS3 $ \dout -> do
+      defDir <- getDefaultPS3Dir
+      stackIO $ askFolder defDir $ \dout -> do
         build tgt $ GH3LoosePS3 dout
     color <- taskColor
     FL.setColor btn1 color

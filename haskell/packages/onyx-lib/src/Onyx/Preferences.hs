@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Preferences where
 
-import           Control.Monad          (unless)
+import           Control.Monad          (guard, unless)
 import           Control.Monad.Codec    ((=.))
 import           Control.Monad.IO.Class
 import qualified Data.Aeson             as A
@@ -16,8 +17,10 @@ import           GHC.Generics           (Generic (..))
 import           Onyx.Codec.Common
 import           Onyx.Codec.JSON
 import           Onyx.StackTrace
+import           Onyx.Util.Files        (fixFileCase)
 import qualified System.Directory       as Dir
-import           System.FilePath        (takeDirectory)
+import           System.FilePath        (takeDirectory, (</>))
+import           System.Info            (os)
 
 data Preferences = Preferences
   { prefMagma         :: MagmaSetting
@@ -170,3 +173,20 @@ instance StackJSON RBEncoding where
   stackJSON = enumCodec "an RB dta encoding" $ \case
     Latin1 -> "latin1"
     UTF8   -> "utf8"
+
+getDefaultPS3Dir :: (SendMessage m, MonadIO m) => StackTraceT m (Maybe FilePath)
+getDefaultPS3Dir = do
+  prefs <- readPreferences
+  let checkPath p = stackIO $ do
+        p' <- fixFileCase p
+        b <- Dir.doesDirectoryExist p'
+        return $ guard b >> Just p'
+  case prefs.prefDirPS3 of
+    Just p | not $ null p -> return $ Just p
+    _ -> case os of
+      "mingw32" -> return Nothing -- TODO
+      "darwin"  -> return Nothing -- TODO
+      "linux"   -> do
+        home <- stackIO Dir.getHomeDirectory
+        checkPath $ home </> ".config/rpcs3/dev_hdd0"
+      _ -> return Nothing
