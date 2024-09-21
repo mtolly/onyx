@@ -184,7 +184,7 @@ getDefaultPS3Dir = do
   case prefs.prefDirPS3 of
     Just p | not $ null p -> return $ Just p
     _ -> case os of
-      "mingw32" -> return Nothing -- TODO
+      "mingw32" -> return Nothing -- no standard location (in RPCS3 program folder, wherever user put it)
       "darwin"  -> do
         home <- stackIO Dir.getHomeDirectory
         checkPath $ home </> "Library/Application Support/rpcs3/dev_hdd0"

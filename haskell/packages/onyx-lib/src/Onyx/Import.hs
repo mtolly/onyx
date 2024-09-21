@@ -4,9 +4,16 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE CPP         #-}
 {-# LANGUAGE TupleSections             #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import where
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import Control.Applicative (liftA2)
+#endif
 
 import           Control.Applicative          ((<|>))
 import qualified Control.Monad.Catch          as MC
