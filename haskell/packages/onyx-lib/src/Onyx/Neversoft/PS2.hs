@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -8,7 +9,7 @@
 {-# LANGUAGE StrictData            #-}
 module Onyx.Neversoft.PS2 where
 
-import           Control.Applicative   (liftA2, liftA3)
+import           Control.Applicative   (liftA3)
 import           Control.Monad.Extra   (forM_, replicateM, whileJustM)
 import           Data.Bifunctor        (bimap)
 import           Data.Binary.Get
@@ -29,6 +30,12 @@ import           Onyx.Neversoft.CRC
 import           Onyx.Nintendo.WAD     (skipToMultiple)
 import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative   (liftA2)
+#endif
 
 -- DATAP.HED + DATAP.WAD, contains most smaller files
 

@@ -3,6 +3,7 @@ VENUE track format that supports both pre-RB3 format and RBN2 format.
 Pre-RB3 venue format information from:
 <https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
 -}
+{-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -11,7 +12,6 @@ Pre-RB3 venue format information from:
 {-# LANGUAGE RecordWildCards    #-}
 module Onyx.MIDI.Track.Venue where
 
-import           Control.Applicative              (liftA2)
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -24,6 +24,12 @@ import           Onyx.Guitar                      (applyStatus1)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import qualified Sound.MIDI.Util                  as U
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 data Camera3
   -- generic 4 camera shots

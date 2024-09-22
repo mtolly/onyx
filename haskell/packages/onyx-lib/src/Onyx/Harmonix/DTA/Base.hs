@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
@@ -9,7 +10,6 @@ module Onyx.Harmonix.DTA.Base
 , renumberFrom
 ) where
 
-import           Control.Applicative       (liftA2)
 import           Control.Monad             (replicateM)
 import qualified Data.ByteString           as B
 import           Data.Int                  (Int32)
@@ -23,6 +23,12 @@ import           Data.Binary.Put           (putByteString, putFloatle,
                                             putWord16le, putWord32le)
 import           Data.Hashable             (Hashable (..))
 import           GHC.Generics              (Generic (..))
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative       (liftA2)
+#endif
 
 --
 -- Type definitions

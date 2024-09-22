@@ -1,15 +1,21 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Harmonix.RockBand.Milo.Dir where
 
-import           Control.Applicative                     (liftA2)
 import           Control.Monad                           (replicateM, void)
 import qualified Data.ByteString                         as B
 import qualified Data.ByteString.Lazy                    as BL
 import           Onyx.Codec.Binary
 import           Onyx.Harmonix.RockBand.Milo.Compression (magicBarrier)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative                     (liftA2)
+#endif
 
 getStringBE :: Get B.ByteString
 getStringBE = do

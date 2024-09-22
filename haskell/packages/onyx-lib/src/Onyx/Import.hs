@@ -1,19 +1,13 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DuplicateRecordFields     #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE CPP         #-}
 {-# LANGUAGE TupleSections             #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import where
-
-#if MIN_VERSION_base(4,18,0)
--- liftA2 from Prelude
-#else
-import Control.Applicative (liftA2)
-#endif
 
 import           Control.Applicative          ((<|>))
 import qualified Control.Monad.Catch          as MC
@@ -110,6 +104,12 @@ import           System.FilePath              (dropExtension,
 import qualified System.IO                    as IO
 import qualified System.IO.Temp               as Temp
 import           System.Random                (randomRIO)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative          (liftA2)
+#endif
 
 data Project = Project
   { projectLocation :: FilePath -- path to song.yml

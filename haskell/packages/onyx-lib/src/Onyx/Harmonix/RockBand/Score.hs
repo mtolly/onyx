@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -7,7 +8,6 @@
 {-# LANGUAGE TupleSections       #-}
 module Onyx.Harmonix.RockBand.Score where
 
-import           Control.Applicative              (liftA2)
 import           Control.Monad                    (guard, void)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -29,6 +29,12 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import qualified Onyx.MIDI.Track.ProKeys          as PK
 import qualified Onyx.MIDI.Track.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 data ScoreTrack
   = ScoreGuitar

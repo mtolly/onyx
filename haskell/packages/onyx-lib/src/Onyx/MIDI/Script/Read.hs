@@ -1,10 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP          #-}
 {-# LANGUAGE ViewPatterns #-}
 module Onyx.MIDI.Script.Read
 ( readStandardFile
 ) where
 
-import           Control.Applicative                   (liftA2, (<|>))
+import           Control.Applicative                   ((<|>))
 import           Control.Arrow                         (first, second)
 import           Data.List                             (groupBy, sortOn)
 import           Data.Maybe                            (mapMaybe)
@@ -25,6 +26,12 @@ import qualified Sound.MIDI.Message.Channel.Voice      as V
 
 import           Onyx.MIDI.Script.Base
 import           Onyx.MIDI.Script.Parse
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative                   (liftA2)
+#endif
 
 readStandardFile :: File -> StandardMIDI (E.T T.Text)
 readStandardFile f = let

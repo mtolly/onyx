@@ -5,12 +5,12 @@ https://github.com/0x0L/rocksmith/blob/master/rocksmith/psarc.py
 
 -}
 
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 module Onyx.Rocksmith.PSARC where
 
 import qualified Codec.Compression.Zlib.Internal as Z
-import           Control.Applicative             (liftA2)
 import           Control.Monad                   (replicateM)
 import           Control.Monad.ST.Lazy           (runST)
 import qualified Data.ByteString                 as B
@@ -23,6 +23,12 @@ import           Onyx.Rocksmith.Crypt
 import           Onyx.Util.Binary                (runGetM)
 import qualified Onyx.Util.Handle                as SH
 import           System.IO                       (SeekMode (..), hSeek)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative             (liftA2)
+#endif
 
 data Header = Header
   { hdr_magic        :: B.ByteString

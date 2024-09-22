@@ -1,10 +1,10 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE ViewPatterns      #-}
 module Onyx.Codec.JSON where
 
-import           Control.Applicative        (liftA2)
 import qualified Control.Exception          as Exc
 import           Control.Monad              (forM, unless)
 import           Control.Monad.Codec
@@ -30,6 +30,12 @@ import qualified Data.Yaml                  as Y
 import           Onyx.Codec.Common
 import           Onyx.StackTrace
 import           Onyx.YAMLTree              (readYAMLTree)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative        (liftA2)
+#endif
 
 type JSONCodec m a = ValueCodec m A.Value a
 

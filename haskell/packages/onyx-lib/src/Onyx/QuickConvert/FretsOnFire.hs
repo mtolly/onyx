@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -8,7 +9,6 @@
 {-# LANGUAGE TupleSections         #-}
 module Onyx.QuickConvert.FretsOnFire where
 
-import           Control.Applicative              (liftA2)
 import           Control.Monad.Codec              (codecOut)
 import           Control.Monad.Extra              (forM, forM_, guard,
                                                    mapMaybeM)
@@ -80,6 +80,12 @@ import           System.IO                        (hClose)
 import           System.IO.Temp                   (withSystemTempFile)
 import           Text.Read                        (readMaybe)
 import           UnliftIO.Exception               (catchAny)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 data QuickFoF = QuickFoF
   { metadata :: [(T.Text, T.Text)]

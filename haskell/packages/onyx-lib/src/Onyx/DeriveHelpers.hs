@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                  #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
@@ -5,13 +6,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Onyx.DeriveHelpers where
 
-import           Control.Applicative
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Set                         as Set
 import           GHC.Generics
 import           GHC.TypeLits
 import qualified Numeric.NonNegative.Class        as NNC
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 -------------------
 

@@ -1,10 +1,10 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 module Onyx.Harmonix.DTA.Serialize where
 
-import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class  (lift)
@@ -17,6 +17,12 @@ import qualified Data.Text                  as T
 import           Onyx.Codec.Common
 import           Onyx.Harmonix.DTA.Base
 import           Onyx.StackTrace
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative        (liftA2)
+#endif
 
 type ChunksCodec m a = ValueCodec m [Chunk T.Text] a
 type ChunkCodec  m a = ValueCodec m (Chunk T.Text) a

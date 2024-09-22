@@ -2,6 +2,7 @@
 Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 (Does not support storing lower dynamic difficulty levels.)
 -}
+{-# LANGUAGE CPP                #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -28,7 +29,7 @@ module Onyx.MIDI.Track.Rocksmith
 , TremoloFrequency(..)
 ) where
 
-import           Control.Applicative              (liftA2, (<|>))
+import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
@@ -67,6 +68,12 @@ import           Onyx.Util.Text.Transform         (showTimestamp)
 import           Onyx.Vocal.DryVox                (vocalTubes)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 data RocksmithTrack t = RocksmithTrack
   { rsNotes      :: RTB.T t (Edge GtrFret GtrString)

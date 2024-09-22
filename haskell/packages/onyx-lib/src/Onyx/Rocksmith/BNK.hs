@@ -4,13 +4,13 @@ Done with the help of
 https://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 -}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Rocksmith.BNK where
 
-import           Control.Applicative  (liftA2)
 import           Control.Monad        (replicateM)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
@@ -24,6 +24,12 @@ import           Onyx.Util.Handle     (Folder, Readable, byteStringSimpleHandle,
                                        findFile, handleToByteString, makeHandle,
                                        useHandle)
 import           System.FilePath      ((<.>))
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative  (liftA2)
+#endif
 
 extractRSOgg :: (?endian :: ByteOrder) => Readable -> Folder T.Text Readable -> Readable
 extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do

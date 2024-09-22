@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
@@ -11,7 +12,7 @@ module Onyx.Build.Common where
 import           Codec.Picture
 import           Codec.Picture.Types              (dropTransparency,
                                                    promotePixel)
-import           Control.Applicative              (liftA2, (<|>))
+import           Control.Applicative              ((<|>))
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class        (lift)
@@ -54,6 +55,12 @@ import           Onyx.Util.Handle                 (Folder (..), Readable,
 import           Onyx.Util.Text.Transform         (replaceCharsRB)
 import qualified Sound.MIDI.Util                  as U
 import           System.IO.Unsafe                 (unsafePerformIO)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative              (liftA2)
+#endif
 
 data BuildInfo = BuildInfo
   { biSongYaml        :: SongYaml FilePath

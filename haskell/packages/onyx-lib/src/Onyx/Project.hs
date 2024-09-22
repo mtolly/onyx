@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
@@ -20,7 +21,6 @@
 {-# LANGUAGE ViewPatterns          #-}
 module Onyx.Project where
 
-import           Control.Applicative                  (liftA2)
 import           Control.Arrow                        (first)
 import           Control.Monad.Codec                  (CodecFor (..), (=.))
 import           Control.Monad.Trans.Class            (lift)
@@ -74,6 +74,12 @@ import qualified Sound.MIDI.Util                      as U
 import qualified Text.ParserCombinators.ReadP         as ReadP
 import           Text.Read                            (readMaybe)
 import qualified Text.Read.Lex                        as Lex
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative                  (liftA2)
+#endif
 
 parsePitch :: (SendMessage m) => ValueCodec m A.Value Key
 parsePitch = Codec

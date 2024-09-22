@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -9,7 +10,6 @@
 {-# LANGUAGE StrictData            #-}
 module Onyx.CloneHero.SNG where
 
-import           Control.Applicative  (liftA2)
 import           Control.Monad
 import           Data.Bifunctor       (bimap)
 import           Data.Binary.Get
@@ -28,6 +28,12 @@ import qualified GHC.IO.Handle        as H
 import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
 import           System.IO            (SeekMode (..), hClose, hFileSize, hSeek)
+
+#if MIN_VERSION_base(4,18,0)
+-- liftA2 from Prelude
+#else
+import           Control.Applicative  (liftA2)
+#endif
 
 data SNGHeader = SNGHeader
   { version  :: Word32
