@@ -9,6 +9,7 @@
 {-# LANGUAGE TupleSections         #-}
 module Onyx.QuickConvert.FretsOnFire where
 
+import           Control.Applicative              ((<|>))
 import           Control.Monad.Codec              (codecOut)
 import           Control.Monad.Extra              (forM, forM_, guard,
                                                    mapMaybeM)
@@ -454,11 +455,17 @@ convertEncoreFoF f info = do
       , [("charter", T.intercalate ", " info.charters) | not $ null info.charters]
       , ("year",) <$> toList info.release_year
       , [("genre", T.intercalate ", " info.genres) | not $ null info.genres]
-      , ("diff_guitar",) . T.pack . show <$> toList (HM.lookup "plastic_guitar" info.diff)
-      , ("diff_bass"  ,) . T.pack . show <$> toList (HM.lookup "plastic_bass"   info.diff)
-      , ("diff_drums" ,) . T.pack . show <$> toList (HM.lookup "plastic_drums"  info.diff)
-      , ("diff_vocals",) . T.pack . show <$> toList (HM.lookup "pitched_vocals" info.diff)
-      , case HM.lookup "plastic_drums" info.diff of
+      , ("diff_guitar"    ,) . T.pack . show <$> toList (HM.lookup "plastic_guitar" info.diff <|> HM.lookup "pg" info.diff)
+      , ("diff_bass"      ,) . T.pack . show <$> toList (HM.lookup "plastic_bass"   info.diff <|> HM.lookup "pb" info.diff)
+      , ("diff_drums"     ,) . T.pack . show <$> toList (HM.lookup "plastic_drums"  info.diff <|> HM.lookup "pd" info.diff)
+      , ("diff_vocals"    ,) . T.pack . show <$> toList (HM.lookup "pitched_vocals" info.diff <|> HM.lookup "pv" info.diff) -- just adding pv to be safe
+      , ("diff_keys"      ,) . T.pack . show <$> toList (HM.lookup "plastic_keys"   info.diff                             )
+      , ("diff_guitar_pad",) . T.pack . show <$> toList (HM.lookup "guitar"         info.diff <|> HM.lookup "gr" info.diff)
+      , ("diff_bass_pad"  ,) . T.pack . show <$> toList (HM.lookup "bass"           info.diff <|> HM.lookup "ba" info.diff)
+      , ("diff_drums_pad" ,) . T.pack . show <$> toList (HM.lookup "drums"          info.diff <|> HM.lookup "ds" info.diff)
+      , ("diff_vocals_pad",) . T.pack . show <$> toList (HM.lookup "vocals"         info.diff <|> HM.lookup "vl" info.diff)
+      , ("diff_keys_pad"  ,) . T.pack . show <$> toList (HM.lookup "keys"           info.diff                             )
+      , case HM.lookup "plastic_drums"  info.diff <|> HM.lookup "pd" info.diff of
         Just n | n /= (-1) -> [("pro_drums", "True")] -- assuming drums are always pro
         _                  -> []
       ]

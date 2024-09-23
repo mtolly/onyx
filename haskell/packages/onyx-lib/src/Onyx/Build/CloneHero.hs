@@ -34,7 +34,7 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret
 import           Onyx.MIDI.Track.ProGuitar        (GtrBase (..), GtrTuning (..),
                                                    GuitarType (..),
-                                                   encodeTuningOffsets)
+                                                   encodeTuningOffsets, nullPG)
 import           Onyx.Mode
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
@@ -138,6 +138,8 @@ psRules buildInfo dir ps = do
             tuningBass = do
               pb <- getPart ps.bass songYaml >>= (.proGuitar)
               return $ makeYARGTuning pb.tuning
+            hasGuitar22 = not $ nullPG song.tracks.fixedPartRealGuitar22
+            hasBass22   = not $ nullPG song.tracks.fixedPartRealBass22
         return FoF.Song
           { artist           = metadata.artist
           , name             = Just $ targetTitle songYaml $ PS ps
@@ -186,9 +188,8 @@ psRules buildInfo dir ps = do
           , diffDance        = Just $ fromIntegral $ psDanceTier      - 1
           , diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
           , diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
-          -- TODO probably only include 22 difficulties if 22 is present
-          , diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier   - 1
-          , diffGuitarReal22 = Just $ fromIntegral $ rb3ProGuitarTier - 1
+          , diffBassReal22   = guard hasBass22   >> Just (fromIntegral $ rb3ProBassTier   - 1)
+          , diffGuitarReal22 = guard hasGuitar22 >> Just (fromIntegral $ rb3ProGuitarTier - 1)
           , diffGuitarCoop   = Just $ fromIntegral $ psGuitarCoopTier - 1
           , diffRhythm       = Just $ fromIntegral $ psRhythmTier     - 1
           , diffDrumsRealPS  = Just (-1)
@@ -217,11 +218,10 @@ psRules buildInfo dir ps = do
           , videoStartTime   = Nothing
           , videoEndTime     = Nothing
           , videoLoop        = Nothing
-          -- TODO probably only include 22 tunings if 22 is present
           , realGuitarTuning   = tuningGtr
-          , realGuitar22Tuning = tuningGtr
+          , realGuitar22Tuning = guard hasGuitar22 >> tuningGtr
           , realBassTuning     = tuningBass
-          , realBass22Tuning   = tuningBass
+          , realBass22Tuning   = guard hasBass22 >> tuningBass
           }
 
   dir </> "ps/song.ini" %> \out -> do
@@ -380,5 +380,5 @@ makeYARGTuning t = PSTuning
     in if elem t.gtrBase [Bass4, Bass5, Bass6]
       then map (+ 12) gtrOffsets
       else gtrOffsets
-  , name = Nothing -- TODO
+  , name = t.gtrName
   }

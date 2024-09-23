@@ -100,14 +100,18 @@ instance StackJSON (EncoreInfo T.Text) where
 encoreMidiToFoF :: F.T B.ByteString -> F.T B.ByteString
 encoreMidiToFoF (F.Cons typ dvn trks) = let
   renameTrack trk = case U.trackName trk of
-    Just "PART DRUMS"     -> U.setTrackName "FNF DRUMS"   trk
-    Just "PART BASS"      -> U.setTrackName "FNF BASS"    trk
-    Just "PART GUITAR"    -> U.setTrackName "FNF GUITAR"  trk
-    Just "PART VOCALS"    -> U.setTrackName "FNF VOCALS"  trk
+    -- PAD names are supported by encore loading from song.ini format
+    Just "PART GUITAR"    -> U.setTrackName "PAD GUITAR"  trk
+    Just "PART BASS"      -> U.setTrackName "PAD BASS"    trk
+    Just "PART DRUMS"     -> U.setTrackName "PAD DRUMS"   trk
+    Just "PART VOCALS"    -> U.setTrackName "PAD VOCALS"  trk
+    Just "PART KEYS"      -> U.setTrackName "PAD KEYS"    trk
     Just "PLASTIC GUITAR" -> U.setTrackName "PART GUITAR" trk
     Just "PLASTIC BASS"   -> U.setTrackName "PART BASS"   trk
     Just "PLASTIC DRUMS"  -> U.setTrackName "PART DRUMS"  trk
-    Just "PITCHED VOCALS" -> U.setTrackName "PART VOCALS" trk
+    -- PLASTIC VOCALS is intended for 5-fret vocals track, leave name as-is
+    Just "PITCHED VOCALS" -> U.setTrackName "PART VOCALS" trk -- this is RB style vocals
+    Just "PLASTIC KEYS"   -> U.setTrackName "PART KEYS"   trk
     _                     -> trk
   in F.Cons typ dvn $ map renameTrack trks
 
