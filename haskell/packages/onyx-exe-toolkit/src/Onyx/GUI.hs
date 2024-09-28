@@ -2420,6 +2420,7 @@ data QuickFoFTask
   = QFoFInPlace
   | QFoFKeepOriginal
   | QFoFDeleteOriginal
+  deriving (Eq)
 
 pageQuickConvertCH
   :: (?preferences :: Preferences)
@@ -2536,7 +2537,15 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     FL.setCallback btnGo $ \_ -> do
       qfofs <- readMVar loadedFiles
       transform <- getTransform
-      let warningText = "This will modify the selected songs, and the old versions will be deleted."
+      let warningText = T.unlines $ concat
+            [ ["This will modify the selected songs, and the old versions will be deleted."]
+            , do
+              guard $ any (\qfof -> qfof.format == FoFEncore) qfofs
+              [   ""
+                , "WARNING: This will convert Encore-format songs into CH-compatible ones, removing the original files."
+                , "Select a different mode if you want to keep them."
+                ]
+            ]
       FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
         1 -> sink $ EventOnyx $ do
           -- TODO this is a hack to avoid stale .sng references after editing them.
@@ -2549,7 +2558,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
               stackIO $ case qfof.format of
                 FoFFormat FoFFolder -> saveQuickFoFFolder loc qfof
                 FoFFormat FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
-                FoFEncore           -> saveQuickFoFFolder loc qfof -- TODO forbid this!
+                FoFEncore           -> saveQuickFoFFolder loc qfof
               return [loc]
             in (loc, task)
         _ -> return ()
@@ -2561,10 +2570,16 @@ pageQuickConvertCH sink rect tab startTasks = mdo
               then QFoFInPlace
               else if deleteOriginals then QFoFDeleteOriginal else QFoFKeepOriginal
         return (qfof, fin, task, fout)
+      promptTasks :: [(QuickFoF, FilePath, QuickFoFTask, FilePath)] -> IO () -> IO ()
       promptTasks tasks f = let
         numInPlace        = length [ () | (_, _, QFoFInPlace       , _) <- tasks ]
         numKeepOriginal   = length [ () | (_, _, QFoFKeepOriginal  , _) <- tasks ]
         numDeleteOriginal = length [ () | (_, _, QFoFDeleteOriginal, _) <- tasks ]
+        numDeleteEncore   = length $ do
+          (qfof, _, task, _) <- tasks
+          guard $ qfof.format == FoFEncore
+          guard $ elem task [QFoFInPlace, QFoFDeleteOriginal]
+          return ()
         numSongs 1 = "1 song"
         numSongs n = T.pack (show n) <> " songs"
         warningText = T.unlines $ concat
@@ -2572,6 +2587,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
           , guard (numInPlace /= 0) >> ["- " <> numSongs numInPlace <> " will be overwritten with new versions"]
           , guard (numKeepOriginal /= 0) >> ["- " <> numSongs numKeepOriginal <> " will be converted to new versions"]
           , guard (numDeleteOriginal /= 0) >> ["- " <> numSongs numDeleteOriginal <> " will be converted to new versions, and the old versions will be deleted"]
+          , do
+            guard $ numDeleteEncore /= 0
+            ["", "WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones"]
           ]
         in FL.flChoice warningText "Cancel" (Just "Start") Nothing >>= \case
           1 -> f
