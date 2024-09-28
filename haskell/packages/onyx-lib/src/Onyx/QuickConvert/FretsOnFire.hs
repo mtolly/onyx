@@ -385,7 +385,7 @@ fillRequiredMetadata = let
     secs = fromIntegral frames / fromIntegral rate :: Double
     in round $ secs * 1000
   withSongLength q = case lookup "song_length" q.metadata of
-    Just s | T.any (not . isSpace) s -> return q
+    Just s | T.any (not . isSpace) s && T.strip s /= "0" -> return q
     _ -> do
       lens <- fmap catMaybes $ forM q.files $ \(name, file) -> case file of
         FoFReadable r -> let
@@ -397,7 +397,7 @@ fillRequiredMetadata = let
               return $ liftA2 toLengthMS mframes mrate
             else return Nothing
         _ -> return Nothing
-      let ms = case lens of
+      let ms = case filter (/= 0) lens of
             []     -> 1 -- note, 0 does not work
             n : ns -> foldr max n ns
       return $ let QuickFoF{..} = q in QuickFoF
@@ -450,8 +450,8 @@ convertEncoreFoF f info = do
       , ("album",) <$> toList info.album
       , ("loading_phrase",) <$> toList info.loading_phrase
       , [("multiplier_note", "116")]
-      , flip map (toList info.length_) $ \secs -> ("song_length", T.pack $ show $ secs * 1000)
-      , ("preview_start_time",) . T.pack . show <$> toList info.preview_start_time
+      , flip map (toList info.length_) $ \secs -> ("song_length", T.pack $ show $ secs * 1000) -- seconds in encore, milliseconds in fof
+      , ("preview_start_time",) . T.pack . show <$> toList info.preview_start_time -- milliseconds in both
       , [("charter", T.intercalate ", " info.charters) | not $ null info.charters]
       , ("year",) <$> toList info.release_year
       , [("genre", T.intercalate ", " info.genres) | not $ null info.genres]

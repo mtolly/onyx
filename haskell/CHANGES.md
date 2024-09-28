@@ -1,5 +1,21 @@
 # Version history
 
+# 20240928
+
+* Change Clone Hero output to use newer open note encoding
+  * Allows open sustains under other notes + fixes handling of "open chords"
+  * CH Quick Convert now has a toggle to convert tap and open notes
+    to Phase Shift format
+* Fix some `.sng` files not loading in Clone Hero due to missing `song_length`
+* Fix songs without charted vocals crashing Lego Rock Band (broke in `20240719`)
+* Add loose PS3/RPCS3 folder option to recompile and RB quick convert (#271)
+* Import and export Pro Guitar/Bass tuning in Phase Shift format (#272)
+* Add support for 5-key and higher `.sm` files (#256)
+* Fix ghost notes on GH:WoR drums not being imported/exported correctly
+* Minor improvements to GH:WoR background visuals: camera cuts, drum animations
+* Add preferences for selecting encoding of `songs.dta` in RB3 recompile
+  and Quick Convert packs
+
 # 20240719
 
 * Support for encrypted Rock Band MOGG files

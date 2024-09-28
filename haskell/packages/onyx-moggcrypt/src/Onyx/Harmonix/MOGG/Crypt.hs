@@ -164,7 +164,9 @@ moggToOggHandles :: Handle -> IO SimpleHandle
 moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
   vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
-  when (p == nullPtr) $ fail "Failed to decrypt .mogg file"
+  when (p == nullPtr) $ do
+    cleanup
+    fail "Failed to decrypt .mogg file"
   size <- vorbisReaderSizeRaw vr
   return SimpleHandle
     { shSize  = fromIntegral size

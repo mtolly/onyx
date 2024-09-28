@@ -102,6 +102,7 @@ data Song = Song
   icon
   playlist_track
   vocal_gender
+  diff_{guitar,bass,drums,vocals,keys}_pad
   -}
   } deriving (Eq, Ord, Show)
 

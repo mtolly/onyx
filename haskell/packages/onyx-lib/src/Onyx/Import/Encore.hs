@@ -37,12 +37,12 @@ data EncoreInfo f = EncoreInfo
   , icon_guitar        :: T.Text -- aka sig, usual value Guitar or Keyboard
   , icon_vocals        :: T.Text -- aka siv, usual value Vocals
   -- rest optional
-  , length_            :: Maybe Int
+  , length_            :: Maybe Int -- seconds, maybe we should allow non-integer?
   , charters           :: [T.Text]
   , release_year       :: Maybe T.Text
   , album              :: Maybe T.Text
   , art                :: Maybe f
-  , preview_start_time :: Maybe Int
+  , preview_start_time :: Maybe Int -- milliseconds
   , source             :: Maybe T.Text
   , loading_phrase     :: Maybe T.Text
   , genres             :: [T.Text]
