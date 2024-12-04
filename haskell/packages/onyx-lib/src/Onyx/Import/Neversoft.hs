@@ -96,7 +96,7 @@ importWoRDisc src folder = do
   qs  <- maybe (fatal "Couldn't find qs.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI qsPath  folder)
   pak <- maybe (fatal "Couldn't find qb.pak") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI pakPath folder)
   pab <- maybe (fatal "Couldn't find qb.pab") (\r -> stackIO $ useHandle r handleToByteString) (findFileCI pabPath folder)
-  qbSections <- fmap (.textPakSongStructs) $ readTextPakQB pak (Just pab) (Just qs)
+  qbSections <- fmap (>>= (.textPakSongStructs)) $ readTextPakQB pak (Just pab) (Just qs)
   music <- maybe (fatal "Couldn't find music folder") return $ findFolderCI ["data", "music"] folder
   songs <- maybe (fatal "Couldn't find song pak folder") return $ findFolderCI ["data", "compressed", "SONGS"] folder
   importGH5WoRSongStructs True src (music <> songs) qbSections
@@ -110,7 +110,7 @@ importGH5WoR src folder = do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readTextPakQB bs Nothing Nothing) >>= \case
       Nothing       -> return []
-      Just contents -> return contents.textPakSongStructs
+      Just contents -> return $ contents >>= (.textPakSongStructs)
   importGH5WoRSongStructs False src folder qbSections
 
 importGH5WoRSongStructs

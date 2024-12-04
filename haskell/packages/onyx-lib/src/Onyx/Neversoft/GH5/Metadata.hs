@@ -40,51 +40,56 @@ data TextPakSongStruct = TextPakSongStruct
   , songData     :: [QBStructItem QSResult QBKey]
   } deriving (Show)
 
-readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m TextPakQB
+readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m [TextPakQB]
 readTextPakQB bs pab mqs = do
   nodes <- splitPakNodes pakFormatWoR bs pab
-  let _qbFilenameCRC isWoR = if isWoR then 1379803300 else 3130519416 -- actually GH5 apparently has different ones per package
-      qbFiles _isWoR = filter (\(n, _) -> n.nodeFileType == ".qb") nodes
-      qbWoRDisc = filter (\(n, _) -> n.nodeFilenameCRC == 3114035354) nodes
-  (qbFile, _isWoR) <- case (qbWoRDisc, qbFiles True, qbFiles False) of
-    ([qb], _, _) -> return (snd qb, True)
-    (_, [qb], _) -> return (snd qb, True)
-    (_, _, [qb]) -> return (snd qb, False)
-    _            -> fail "Couldn't locate metadata .qb"
+  let qbFiles = flip mapMaybe nodes $ \(n, node) -> do
+        guard $ n.nodeFileType == ".qb"
+        return node
   mappingQS <- case mqs of
     Nothing -> return $ qsBank nodes -- could also filter by matching nodeFilenameCRC
     Just qs -> qsBank <$> splitPakNodes pakFormatWoR qs Nothing
-  qb <- let
-    ?endian = BigEndian
-    in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
-  let arrayStructIDPairs =
-        [ ("gh6_songlist"       , "gh6_songlist_props"       ) -- WoR Disc
-        , ("gh6_dlc_songlist"   , "gh6_dlc_songlist_props"   ) -- WoR DLC
-        , ("gh4_dlc_songlist"   , "gh4_dlc_songlist_props"   ) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
-        , ("gh4_1_songlist"     , "gh4_1_songlist_props"     ) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
-        , ("gh5_songlist"       , "gh5_songlist_props"       ) -- gh5 disc (on the actual disc)
-        , ("gh5_0_songlist"     , "gh5_0_songlist_props"     ) -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
-        , ("gh5_1_disc_songlist", "gh5_1_disc_songlist_props") -- band hero (on the actual disc)
-        , ("gh5_1_songlist"     , "gh5_1_songlist_props"     ) -- band hero (export), starts with dlc601, ABC (Jackson 5)
-        , ("gh4_2_songlist"     , "gh4_2_songlist_props"     ) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
-        , ("gh4_songlist"       , "gh4_songlist_props"       ) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
-        , ("gh5_dlc_songlist"   , "gh5_dlc_songlist_props"   ) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
-        , ("gh4_3_songlist"     , "gh4_3_songlist_props"     ) -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
-        ]
-      structs = do
-        QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
-        (listID, propsID) <- filter (\(_, propsID) -> propsID == structID) arrayStructIDPairs
-        song <- songs
-        return (fileID, (listID, propsID, song))
-  case structs of
-    [] -> fail "Couldn't find any song structs"
-    (fileID, _) : _ -> do
-      structs' <- flip mapMaybeM structs $ \(_, (listID, propsID, song)) -> case song of
-        QBStructItemStruct k struct -> return $ Just $ TextPakSongStruct listID propsID k struct
-        item -> do
-          warn $ "Unexpected item in _text.pak instead of song struct: " <> show item
-          return Nothing
-      return $ TextPakQB fileID structs'
+  flip mapMaybeM qbFiles $ \qbFile -> do
+    qb <- let
+      ?endian = BigEndian
+      in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
+    let arrayStructIDPairs =
+          [ ("gh6_songlist"        , "gh6_songlist_props"        ) -- WoR Disc
+          , ("gh6_dlc_songlist"    , "gh6_dlc_songlist_props"    ) -- WoR DLC
+          , ("gh4_dlc_songlist"    , "gh4_dlc_songlist_props"    ) -- ghwt dlc, starts with dlc1, Guitar Duel With Ted Nugent (Co-Op)
+          , ("gh4_1_songlist"      , "gh4_1_songlist_props"      ) -- gh metallica, starts with dlc351, Ace Of Spades (Motorhead)
+          , ("gh5_songlist"        , "gh5_songlist_props"        ) -- gh5 disc (on the actual disc)
+          , ("gh5_0_songlist"      , "gh5_0_songlist_props"      ) -- gh5 disc (export), starts with dlc502, All The Pretty Faces (The Killers)
+          , ("gh5_1_disc_songlist" , "gh5_1_disc_songlist_props" ) -- band hero (on the actual disc)
+          , ("gh5_1_songlist"      , "gh5_1_songlist_props"      ) -- band hero (export), starts with dlc601, ABC (Jackson 5)
+          , ("gh4_2_songlist"      , "gh4_2_songlist_props"      ) -- smash hits, starts with dlc406, Caught In A Mosh (Anthrax)
+          , ("gh4_songlist"        , "gh4_songlist_props"        ) -- ghwt disc, starts with dlc251, About A Girl (Unplugged) (Nirvana)
+          , ("gh5_dlc_songlist"    , "gh5_dlc_songlist_props"    ) -- gh5 dlc, starts with DLC1001, (I Can't Get No) Satisfaction (Live) (Rolling Stones)
+          , ("gh4_3_songlist"      , "gh4_3_songlist_props"      ) -- van halen (not actually exported, but WoR expects this and Addy uses it in his export)
+          -- WoR "Guitar Hero 6" prototype
+          , ("old_ondisc_songlist" , "old_ondisc_songlist_props" ) -- some GH5 songs
+          , ("gh6_1_songlist"      , "gh6_1_songlist_props"      ) -- band hero 2
+          , ("MT_songlist"         , "MT_songlist_props"         ) -- Music Test
+          , ("jammode_songlist"    , "jammode_songlist_props"    ) -- empty
+          , ("example_jam_songlist", "example_jam_songlist_props") -- empty
+          , ("jamsession_songlist" , "jamsession_songlist_props" )
+          , ("debug_songlist"      , "debug_songlist_props"      )
+          , ("tutorial_songlist"   , "tutorial_songlist_props"   )
+          ]
+        structs = do
+          QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
+          (listID, propsID) <- filter (\(_, propsID) -> propsID == structID) arrayStructIDPairs
+          song <- songs
+          return (fileID, (listID, propsID, song))
+    case structs of
+      [] -> return Nothing
+      (fileID, _) : _ -> do
+        structs' <- flip mapMaybeM structs $ \(_, (listID, propsID, song)) -> case song of
+          QBStructItemStruct k struct -> return $ Just $ TextPakSongStruct listID propsID k struct
+          item -> do
+            warn $ "Unexpected item in _text.pak instead of song struct: " <> show item
+            return Nothing
+        return $ guard (not $ null structs') >> Just (TextPakQB fileID structs')
 
 combineTextPakQBs :: [TextPakQB] -> [TextPakSongStruct]
 combineTextPakQBs = nubOrdOn (.songDLCID) . concatMap (.textPakSongStructs)

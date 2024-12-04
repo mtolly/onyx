@@ -543,7 +543,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
     _ -> do
       folder <- stackIO $ getSTFSFolder input
       return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
-  fmap catMaybes $ forM texts $ \r -> do
+  fmap (concat . catMaybes) $ forM texts $ \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning $ readTextPakQB bs Nothing Nothing
 

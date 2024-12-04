@@ -309,6 +309,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           = importWoRDisc loc dir >>= foundImports "Guitar Hero 5 (360)" loc
         | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_GH6Intro.pak.xen"]) dir
           = importWoRDisc loc dir >>= foundImports "Guitar Hero: Warriors of Rock (360)" loc
+        | isJust $ findFileCI ("data" :| ["compressed", "ZONES", "Z_FinalBattle.pak.xen"]) dir
+          = importWoRDisc loc dir >>= foundImports "Guitar Hero 6 Prototype (360)" loc
 
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
           = foundPowerGig loc dir "Data.hdr.e.2"
