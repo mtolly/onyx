@@ -227,17 +227,17 @@ dtxRules buildInfo dir dtx = do
                 $ Map.lookup part mid.tracks.onyxParts
               -- TODO need to properly handle blip overrides on flams!
               eliteNotes
-                = applyLongStatus (ED.tdChipOverride track)
+                = applyLongStatus track.tdChipOverride
                 $ ED.splitFlams mid.tempos
                 $ ED.addExplicitStomps (4 :: U.Beats)
                 $ ED.getDifficulty Nothing track
               toDTXNotes = fmap $ \(currentOverrides, tdn) -> let
-                lane = case ED.tdn_gem tdn of
-                  ED.Kick ()   -> case ED.tdn_limb tdn of
+                lane = case tdn.tdn_gem of
+                  ED.Kick ()   -> case tdn.tdn_limb of
                     Just D.LH -> DTX.LeftBass
                     _         -> DTX.BassDrum
                   ED.Snare     -> DTX.Snare
-                  ED.Hihat     -> case ED.tdn_type tdn of
+                  ED.Hihat     -> case tdn.tdn_type of
                     ED.GemHihatOpen -> DTX.HihatOpen
                     _               -> DTX.HihatClose
                   ED.HihatFoot -> DTX.LeftPedal

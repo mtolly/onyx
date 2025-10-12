@@ -128,11 +128,11 @@ getForces5 fd = RTB.merge
     ((Tap ,) <$> fd.fiveTap)
 
 getForces6 :: (NNC.C t) => SixDifficulty t -> RTB.T t (StrumHOPOTap, Bool)
-getForces6 fd = RTB.merge
-  ((Strum ,) <$> sixForceStrum fd)
+getForces6 sd = RTB.merge
+  ((Strum ,) <$> sd.sixForceStrum)
   $ RTB.merge
-    ((HOPO ,) <$> sixForceHOPO fd)
-    ((Tap ,) <$> sixTap fd)
+    ((HOPO ,) <$> sd.sixForceHOPO)
+    ((Tap ,) <$> sd.sixTap)
 
 -- | Modifies the default strum or HOPO value depending on force events.
 applyForces :: (NNC.C t, Ord color, Ord len) => RTB.T t (StrumHOPOTap, Bool) -> RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)

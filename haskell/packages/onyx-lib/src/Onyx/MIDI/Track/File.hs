@@ -1042,7 +1042,7 @@ fixedToOnyx f = OnyxFile
   }
 
 songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
-songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack s.tracks of
+songLengthBeats s = case RTB.getTimes (getEventsTrack s.tracks).eventsEnd of
   [bts] -> bts
   _     -> 0 -- eh
 
@@ -1134,7 +1134,7 @@ getPercType song = listToMaybe $ do
     , song.tracks.fixedHarm2
     , song.tracks.fixedHarm3
     ]
-  (perc, _) <- RTB.getBodies $ vocalPercAnimation trk
+  (perc, _) <- RTB.getBodies trk.vocalPercAnimation
   return perc
 
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.

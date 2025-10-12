@@ -93,7 +93,7 @@ rsRules buildInfo dir rs = do
           (fpart, RSPlayable _ _) <- presentParts
           let opart = F.getFlexPart fpart mid.tracks
           trk <- [opart.onyxPartRSBass, opart.onyxPartRSGuitar]
-          Wait dt _ _ <- [rsNotes trk]
+          Wait dt _ _ <- [trk.rsNotes]
           return dt
         targetTime = 10 :: U.Seconds
         firstNoteTime = case NE.nonEmpty firstNoteBeats of
@@ -105,7 +105,7 @@ rsRules buildInfo dir rs = do
 
   rsAnchors %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    let eachTrack trk = if RTB.null $ rsNotes trk
+    let eachTrack trk = if RTB.null trk.rsNotes
           then return trk
           else do
             rso <- buildRS mid.tempos 0 trk
@@ -169,7 +169,7 @@ rsRules buildInfo dir rs = do
               else opart.onyxPartRSGuitar
               -- TODO maybe support using bass track for a guitar slot
             in buildRS mid.tempos tuning0.gtrCapo trk
-          let allNotes = Arr.lvl_notes $ rso_level rso
+          let allNotes = Arr.lvl_notes rso.rso_level
           time <- stackIO getZonedTime
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
             { Arr.arr_version                = 7 -- this is what EOF has currently
@@ -247,9 +247,9 @@ rsRules buildInfo dir rs = do
                 _                  -> False
               , Arr.ap_routeMask         = Nothing
               }
-            , Arr.arr_phrases                = rso_phrases rso
-            , Arr.arr_phraseIterations       = rso_phraseIterations rso
-            , Arr.arr_chordTemplates         = rso_chordTemplates rso
+            , Arr.arr_phrases                = rso.rso_phrases
+            , Arr.arr_phraseIterations       = rso.rso_phraseIterations
+            , Arr.arr_chordTemplates         = rso.rso_chordTemplates
             , Arr.arr_tonebase               = (.fileToneBase) <$> toneKeys
             , Arr.arr_tonea                  = toneKeys >>= (.fileToneA)
             , Arr.arr_toneb                  = toneKeys >>= (.fileToneB)
@@ -268,11 +268,9 @@ rsRules buildInfo dir rs = do
                     ToneD -> (.fileToneD)
                   }
                 )
-              $ ATB.toPairList
-              $ RTB.toAbsoluteEventList 0
-              $ rso_tones rso
+              $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rso.rso_tones
             , Arr.arr_ebeats                 = ebeats
-            , Arr.arr_sections               = rso_sections rso
+            , Arr.arr_sections               = rso.rso_sections
             , Arr.arr_events                 = mempty -- TODO :: V.Vector Event
             , Arr.arr_transcriptionTrack     = Arr.Level
               { Arr.lvl_difficulty    = -1
@@ -282,7 +280,7 @@ rsRules buildInfo dir rs = do
               , Arr.lvl_anchors       = mempty
               , Arr.lvl_handShapes    = mempty
               }
-            , Arr.arr_levels                 = V.singleton $ rso_level rso
+            , Arr.arr_levels                 = V.singleton rso.rso_level
             }
 
   rsAudio %> \out -> do

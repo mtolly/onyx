@@ -180,7 +180,7 @@ convertDrumsToFive bd _ftype input = let
       , Five.fiveOverdrive    = drumResult.other.drumOverdrive
       , Five.fiveBRE          = let
         -- only copy over a fill that is actually a BRE
-        coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda input.events
+        coda = fmap (fst . fst) $ RTB.viewL input.events.eventsCoda
         in case coda of
           Nothing -> RTB.empty
           Just c  -> RTB.delay c $ U.trackDrop c $ drumResult.other.drumActivation
@@ -481,7 +481,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
       guard $ not $ nullPG pg
       return (loadProtarOutput pg, Just pg)
     ]
-  chorded = RTB.toAbsoluteEventList 0 $ notesWithHandshapes rsOutput
+  chorded = RTB.toAbsoluteEventList 0 rsOutput.notesWithHandshapes
   strings = tuningPitches ppg.tuning
   toPitch str fret = (strings !! getStringIndex 6 str) + fret
   isSlide = \case
@@ -546,7 +546,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         = RTB.toAbsoluteEventList 0
         $ guitarify'
         $ fmap (\((), key, len) -> (fromEnum key, guard (len >= standardBlipThreshold) >> Just len))
-        $ RB.joinEdgesSimple $ pkNotes expertPK
+        $ RB.joinEdgesSimple expertPK.pkNotes
       autoResult = autoChart 5 $ do
         (bts, (notes, _len)) <- ATB.toPairList chorded
         pitch <- simplifyChord notes
@@ -567,10 +567,10 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         $ ATB.toPairList
         $ chorded
     , other = mempty
-      { Five.fiveOverdrive = pkOverdrive expertPK
-      , Five.fiveSolo      = pkSolo      expertPK
-      , Five.fiveBRE       = pkBRE       expertPK
-      , Five.fiveMood      = pkMood      expertPK
+      { Five.fiveOverdrive = expertPK.pkOverdrive
+      , Five.fiveSolo      = expertPK.pkSolo
+      , Five.fiveBRE       = expertPK.pkBRE
+      , Five.fiveMood      = expertPK.pkMood
       -- could do trill, but may not be valid if autochart was weird
       }
     , source = "converted Pro Keys chart to five-fret"

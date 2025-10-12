@@ -1,11 +1,13 @@
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Events where
 
 import           Control.Monad.Codec
@@ -55,16 +57,16 @@ data EventsTrack t = EventsTrack
 instance ChopTrack EventsTrack where
   chopTake t = mapTrack $ U.trackTake t
   chopDrop t trk = EventsTrack
-    { eventsMusicStart = U.trackDrop    t $ eventsMusicStart trk
-    , eventsMusicEnd   = U.trackDrop    t $ eventsMusicEnd   trk
-    , eventsEnd        = U.trackDrop    t $ eventsEnd        trk
-    , eventsCoda       = U.trackDrop    t $ eventsCoda       trk
-    , eventsCodaResume = U.trackDrop    t $ eventsCodaResume trk
-    , eventsCrowd      = chopDropStatus t $ eventsCrowd      trk
-    , eventsCrowdClap  = chopDropStatus t $ eventsCrowdClap  trk
-    , eventsSections   = chopDropStatus t $ eventsSections   trk
-    , eventsBacking    = U.trackDrop    t $ eventsBacking    trk
-    , eventsPreview    = U.trackDrop    t $ eventsPreview    trk
+    { eventsMusicStart = U.trackDrop    t trk.eventsMusicStart
+    , eventsMusicEnd   = U.trackDrop    t trk.eventsMusicEnd
+    , eventsEnd        = U.trackDrop    t trk.eventsEnd
+    , eventsCoda       = U.trackDrop    t trk.eventsCoda
+    , eventsCodaResume = U.trackDrop    t trk.eventsCodaResume
+    , eventsCrowd      = chopDropStatus t trk.eventsCrowd
+    , eventsCrowdClap  = chopDropStatus t trk.eventsCrowdClap
+    , eventsSections   = chopDropStatus t trk.eventsSections
+    , eventsBacking    = U.trackDrop    t trk.eventsBacking
+    , eventsPreview    = U.trackDrop    t trk.eventsPreview
     }
 
 instance TraverseTrack EventsTrack where
@@ -73,19 +75,19 @@ instance TraverseTrack EventsTrack where
 
 instance ParseTrack EventsTrack where
   parseTrack = do
-    eventsMusicStart <- eventsMusicStart =. commandMatch ["music_start"]
-    eventsMusicEnd   <- eventsMusicEnd   =. commandMatch ["music_end"]
-    eventsEnd        <- eventsEnd        =. commandMatch ["end"]
-    eventsCoda       <- eventsCoda       =. commandMatch ["coda"]
-    eventsCodaResume <- eventsCodaResume =. commandMatch ["coda_resume"]
-    eventsCrowd      <- eventsCrowd      =. command
-    eventsCrowdClap <- (eventsCrowdClap =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    eventsMusicStart <- (.eventsMusicStart) =. commandMatch ["music_start"]
+    eventsMusicEnd   <- (.eventsMusicEnd  ) =. commandMatch ["music_end"]
+    eventsEnd        <- (.eventsEnd       ) =. commandMatch ["end"]
+    eventsCoda       <- (.eventsCoda      ) =. commandMatch ["coda"]
+    eventsCodaResume <- (.eventsCodaResume) =. commandMatch ["coda_resume"]
+    eventsCrowd      <- (.eventsCrowd     ) =. command
+    eventsCrowdClap  <- ((.eventsCrowdClap) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       False -> ["crowd_noclap"]
       True  -> ["crowd_clap"]
-    eventsSections <- eventsSections =. commandMatch' parseSection (pure . emitSection)
-    eventsBacking <- (eventsBacking =.) $ condenseMap_ $ eachKey each $ blip . \case
+    eventsSections   <- (.eventsSections  ) =. commandMatch' parseSection (pure . emitSection)
+    eventsBacking    <- ((.eventsBacking  ) =.) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24
       BackingSnare -> 25
       BackingHihat -> 26
-    eventsPreview <- eventsPreview =. commandMatch ["preview"]
+    eventsPreview    <- (.eventsPreview   ) =. commandMatch ["preview"]
     return EventsTrack{..}

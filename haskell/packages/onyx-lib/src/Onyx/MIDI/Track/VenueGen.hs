@@ -2,12 +2,14 @@
 Alternate implementation of kueller's venuegen system:
 <https://github.com/kueller/ReaperRBTools>
 -}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.VenueGen where
 
 import           Control.Arrow                    (first)
@@ -63,7 +65,7 @@ instance TraverseTrack LightingTrack where
 
 instance ParseTrack LightingTrack where
   parseTrack = do
-    lightingPostProcess <- (lightingPostProcess =.) $ condenseMap $ eachKey each $ edges . \case
+    lightingPostProcess <- ((.lightingPostProcess) =.) $ condenseMap $ eachKey each $ edges . \case
       -- basic
       V3_ProFilm_a                    -> 71
       V3_ProFilm_b                    -> 70
@@ -96,7 +98,7 @@ instance ParseTrack LightingTrack where
       V3_ProFilm_mirror_a             -> 43
       V3_ProFilm_psychedelic_blue_red -> 42
       V3_space_woosh                  -> 41
-    lightingTypes <- (lightingTypes =.) $ condenseMap $ eachKey each $ edges . \case
+    lightingTypes <- ((.lightingTypes) =.) $ condenseMap $ eachKey each $ edges . \case
       -- manual
       Lighting_                 -> 1 -- not supported by venuegen
       Lighting_intro            -> 2 -- not supported by venuegen
@@ -123,34 +125,34 @@ instance ParseTrack LightingTrack where
       Lighting_flare_slow       -> 15
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
-    lightingStrobe <- (lightingStrobe =.) $ let
+    lightingStrobe <- ((.lightingStrobe) =.) $ let
       fs = fmap $ \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
       fp = fmap $ \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
       in dimap fs fp $ edgesCV 8
-    lightingCommands <- (lightingCommands =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
+    lightingCommands <- ((.lightingCommands) =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
       LightingFirst -> 32
       LightingPrev  -> 31
       LightingNext  -> 30
-    lightingBonusFX         <- lightingBonusFX         =. fatBlips (1/8) (blip 11)
-    lightingBonusFXOptional <- lightingBonusFXOptional =. fatBlips (1/8) (blip 10)
+    lightingBonusFX         <- (.lightingBonusFX        ) =. fatBlips (1/8) (blip 11)
+    lightingBonusFXOptional <- (.lightingBonusFXOptional) =. fatBlips (1/8) (blip 10)
     return LightingTrack{..}
 
 instance ChopTrack LightingTrack where
   chopTake t o = LightingTrack
-    { lightingPostProcess     = chopEachPair (chopTakeBool t) $ lightingPostProcess     o
-    , lightingTypes           = chopEachPair (chopTakeBool t) $ lightingTypes           o
-    , lightingStrobe          = chopTakeMaybe t               $ lightingStrobe          o
-    , lightingCommands        = U.trackTake   t               $ lightingCommands        o
-    , lightingBonusFX         = U.trackTake   t               $ lightingBonusFX         o
-    , lightingBonusFXOptional = U.trackTake   t               $ lightingBonusFXOptional o
+    { lightingPostProcess     = chopEachPair (chopTakeBool t) o.lightingPostProcess
+    , lightingTypes           = chopEachPair (chopTakeBool t) o.lightingTypes
+    , lightingStrobe          = chopTakeMaybe t               o.lightingStrobe
+    , lightingCommands        = U.trackTake   t               o.lightingCommands
+    , lightingBonusFX         = U.trackTake   t               o.lightingBonusFX
+    , lightingBonusFXOptional = U.trackTake   t               o.lightingBonusFXOptional
     }
   chopDrop t o = LightingTrack
-    { lightingPostProcess     = chopEachPair (chopDropBool t) $ lightingPostProcess     o
-    , lightingTypes           = chopEachPair (chopDropBool t) $ lightingTypes           o
-    , lightingStrobe          = chopDropMaybe t               $ lightingStrobe          o
-    , lightingCommands        = U.trackDrop   t               $ lightingCommands        o
-    , lightingBonusFX         = U.trackDrop   t               $ lightingBonusFX         o
-    , lightingBonusFXOptional = U.trackDrop   t               $ lightingBonusFXOptional o
+    { lightingPostProcess     = chopEachPair (chopDropBool t) o.lightingPostProcess
+    , lightingTypes           = chopEachPair (chopDropBool t) o.lightingTypes
+    , lightingStrobe          = chopDropMaybe t               o.lightingStrobe
+    , lightingCommands        = U.trackDrop   t               o.lightingCommands
+    , lightingBonusFX         = U.trackDrop   t               o.lightingBonusFX
+    , lightingBonusFXOptional = U.trackDrop   t               o.lightingBonusFXOptional
     }
 
 venue_generate :: (NNC.C t) => RTB.T t (a, Bool) -> RTB.T t a
@@ -183,8 +185,8 @@ data StrobeInput
 applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats Lighting
 applyStrobeNotes lt = let
   input = RTB.normalize $ RTB.merge
-    (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) $ lightingTypes lt)
-    (fmap (\(speed, (), len) -> Strobe speed len) $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lightingStrobe lt)
+    (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) lt.lightingTypes)
+    (fmap (\(speed, (), len) -> Strobe speed len) $ joinEdgesSimple $ maybe (EdgeOff ()) (`EdgeOn` ()) <$> lt.lightingStrobe)
   go = \case
     RNil                            -> RNil
     Wait dt OtherLighting      rest -> RTB.delay dt $ go rest
@@ -210,27 +212,27 @@ applyStrobeNotes lt = let
 
 buildLighting :: LightingTrack U.Beats -> VenueTrack U.Beats
 buildLighting lt = mempty
-  { venuePostProcessRB3   = venue_generate $ lightingPostProcess lt
+  { venuePostProcessRB3   = venue_generate lt.lightingPostProcess
   , venueLighting         = let
     lightingInput = RTB.merge
-      (first Just <$> lightingTypes lt)
-      ((\speed -> (Nothing, isJust speed)) <$> lightingStrobe lt)
+      (first Just <$> lt.lightingTypes)
+      ((\speed -> (Nothing, isJust speed)) <$> lt.lightingStrobe)
     in  RTB.merge (applyStrobeNotes lt)
       $ RTB.mapMaybe id
       $ venue_generate lightingInput
-  , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lightingCommands lt
-  , venueBonusFX          = lightingBonusFX lt
-  , venueBonusFXOptional  = lightingBonusFXOptional lt
+  , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lt.lightingCommands
+  , venueBonusFX          = lt.lightingBonusFX
+  , venueBonusFXOptional  = lt.lightingBonusFXOptional
   }
 
 unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
 unbuildLighting lastLen vt = LightingTrack
-  { lightingPostProcess     = venue_ungenerate lastLen $ venuePostProcessRB3 vt
-  , lightingTypes           = venue_ungenerate lastLen $ venueLighting vt
+  { lightingPostProcess     = venue_ungenerate lastLen vt.venuePostProcessRB3
+  , lightingTypes           = venue_ungenerate lastLen vt.venueLighting
   , lightingStrobe          = RTB.empty
-  , lightingCommands        = fst <$> venueLightingCommands vt
-  , lightingBonusFX         = venueBonusFX vt
-  , lightingBonusFXOptional = venueBonusFXOptional vt
+  , lightingCommands        = fst <$> vt.venueLightingCommands
+  , lightingBonusFX         = vt.venueBonusFX
+  , lightingBonusFXOptional = vt.venueBonusFXOptional
   }
 
 data CameraTrack t = CameraTrack
@@ -244,8 +246,8 @@ instance TraverseTrack CameraTrack where
 
 instance ParseTrack CameraTrack where
   parseTrack = do
-    cameraRandom <- cameraRandom =. blip 102
-    cameraCuts <- (cameraCuts =.) $ condenseMap $ eachKey each $ edges . \case
+    cameraRandom <- (.cameraRandom) =. blip 102
+    cameraCuts <- ((.cameraCuts) =.) $ condenseMap $ eachKey each $ edges . \case
       -- generic 4 camera shots
       V3_coop_all_behind        -> 100
       V3_coop_all_far           -> 99
@@ -335,12 +337,12 @@ instance ParseTrack CameraTrack where
 
 instance ChopTrack CameraTrack where
   chopTake t o = CameraTrack
-    { cameraCuts   = chopEachPair (U.trackTake t) $ cameraCuts   o
-    , cameraRandom = U.trackTake t                $ cameraRandom o
+    { cameraCuts   = chopEachPair (U.trackTake t) o.cameraCuts
+    , cameraRandom = U.trackTake t                o.cameraRandom
     }
   chopDrop t o = CameraTrack
-    { cameraCuts   = chopEachPair (U.trackDrop t) $ cameraCuts   o
-    , cameraRandom = U.trackDrop t                $ cameraRandom o
+    { cameraCuts   = chopEachPair (U.trackDrop t) o.cameraCuts
+    , cameraRandom = U.trackDrop t                o.cameraRandom
     }
 
 cameraLevels :: [(Camera3, (Int, [RB3Instrument]))]
@@ -388,7 +390,7 @@ cameraLevels =
 
 buildCamera :: (NNC.C t, MonadRandom m) => [RB3Instrument] -> CameraTrack t -> m (VenueTrack t)
 buildCamera hasInsts ct = do
-  let joined = joinEdgesSimple $ (\(cut, b) -> if b then EdgeOn () cut else EdgeOff cut) <$> cameraCuts ct
+  let joined = joinEdgesSimple $ (\(cut, b) -> if b then EdgeOn () cut else EdgeOff cut) <$> ct.cameraCuts
       go prev rtb = case RTB.viewL rtb of
         Nothing -> return RTB.empty
         Just ((dt, evts), rtb') -> do
@@ -433,15 +435,15 @@ buildCamera hasInsts ct = do
                   else RTB.singleton NNC.zero cut
           RTB.cons dt theseCuts <$> go this rtb'
   cuts <- go [] $ RTB.collectCoincident $ RTB.merge
-    (fmap Just joined)
-    (fmap (const Nothing) $ cameraRandom ct)
+    (Just <$> joined)
+    (const Nothing <$> ct.cameraRandom)
   return mempty { venueCameraRB3 = U.trackJoin cuts }
 
 unbuildCamera :: (NNC.C t) => t -> VenueTrack t -> CameraTrack t
 unbuildCamera lastLen vt = CameraTrack
   { cameraCuts = let
     -- each set of cuts, just make it a note that extends to the next set of cuts
-    pairs = RTB.toPairList $ RTB.collectCoincident $ venueCameraRB3 vt
+    pairs = RTB.toPairList $ RTB.collectCoincident vt.venueCameraRB3
     lens = drop 1 (map fst pairs) ++ [lastLen]
     in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) $ \((dt, cuts), len) ->
       (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])

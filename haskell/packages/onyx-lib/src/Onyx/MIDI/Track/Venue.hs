@@ -3,13 +3,15 @@ VENUE track format that supports both pre-RB3 format and RBN2 format.
 Pre-RB3 venue format information from:
 <https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
 -}
-{-# LANGUAGE CPP                #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.MIDI.Track.Venue where
 
 import           Control.Monad                    (guard, (>=>))
@@ -336,53 +338,55 @@ data VenueTrack t = VenueTrack
 
   , venueFog              :: RTB.T t Bool
 
-  -- TODO [crowd_lighters_on]/[crowd_lighters_off] seen in Lane Breakers
+  -- TODO [crowd_lighters_on] / [crowd_lighters_off]
+  -- and [crowd_horns_on] / [crowd_horns_off]
+  -- seen in Lane Breakers
 
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VenueTrack t)
 
 instance ChopTrack VenueTrack where
   chopTake t o = VenueTrack
-    { venueCameraRB3        = U.trackTake  t $ venueCameraRB3        o
-    , venueCameraRB2        = U.trackTake  t $ venueCameraRB2        o
-    , venueDirectedRB2      = U.trackTake  t $ venueDirectedRB2      o
-    , venueSingGuitar       = chopTakeBool t $ venueSingGuitar       o
-    , venueSingDrums        = chopTakeBool t $ venueSingDrums        o
-    , venueSingBass         = chopTakeBool t $ venueSingBass         o
-    , venueSpotKeys         = chopTakeBool t $ venueSpotKeys         o
-    , venueSpotVocal        = chopTakeBool t $ venueSpotVocal        o
-    , venueSpotGuitar       = chopTakeBool t $ venueSpotGuitar       o
-    , venueSpotDrums        = chopTakeBool t $ venueSpotDrums        o
-    , venueSpotBass         = chopTakeBool t $ venueSpotBass         o
-    , venuePostProcessRB3   = U.trackTake  t $ venuePostProcessRB3   o
-    , venuePostProcessRB2   = U.trackTake  t $ venuePostProcessRB2   o
-    , venueLighting         = U.trackTake  t $ venueLighting         o
-    , venueLightingCommands = U.trackTake  t $ venueLightingCommands o
-    , venueLightingMode     = U.trackTake  t $ venueLightingMode     o
-    , venueBonusFX          = U.trackTake  t $ venueBonusFX          o
-    , venueBonusFXOptional  = U.trackTake  t $ venueBonusFXOptional  o
-    , venueFog              = U.trackTake  t $ venueFog              o
+    { venueCameraRB3        = U.trackTake  t o.venueCameraRB3
+    , venueCameraRB2        = U.trackTake  t o.venueCameraRB2
+    , venueDirectedRB2      = U.trackTake  t o.venueDirectedRB2
+    , venueSingGuitar       = chopTakeBool t o.venueSingGuitar
+    , venueSingDrums        = chopTakeBool t o.venueSingDrums
+    , venueSingBass         = chopTakeBool t o.venueSingBass
+    , venueSpotKeys         = chopTakeBool t o.venueSpotKeys
+    , venueSpotVocal        = chopTakeBool t o.venueSpotVocal
+    , venueSpotGuitar       = chopTakeBool t o.venueSpotGuitar
+    , venueSpotDrums        = chopTakeBool t o.venueSpotDrums
+    , venueSpotBass         = chopTakeBool t o.venueSpotBass
+    , venuePostProcessRB3   = U.trackTake  t o.venuePostProcessRB3
+    , venuePostProcessRB2   = U.trackTake  t o.venuePostProcessRB2
+    , venueLighting         = U.trackTake  t o.venueLighting
+    , venueLightingCommands = U.trackTake  t o.venueLightingCommands
+    , venueLightingMode     = U.trackTake  t o.venueLightingMode
+    , venueBonusFX          = U.trackTake  t o.venueBonusFX
+    , venueBonusFXOptional  = U.trackTake  t o.venueBonusFXOptional
+    , venueFog              = U.trackTake  t o.venueFog
     }
   chopDrop t o = VenueTrack
-    { venueCameraRB3        = U.trackDrop  t $ venueCameraRB3        o
-    , venueCameraRB2        = U.trackDrop  t $ venueCameraRB2        o
-    , venueDirectedRB2      = U.trackDrop  t $ venueDirectedRB2      o
-    , venueSingGuitar       = chopDropBool t $ venueSingGuitar       o
-    , venueSingDrums        = chopDropBool t $ venueSingDrums        o
-    , venueSingBass         = chopDropBool t $ venueSingBass         o
-    , venueSpotKeys         = chopDropBool t $ venueSpotKeys         o
-    , venueSpotVocal        = chopDropBool t $ venueSpotVocal        o
-    , venueSpotGuitar       = chopDropBool t $ venueSpotGuitar       o
-    , venueSpotDrums        = chopDropBool t $ venueSpotDrums        o
-    , venueSpotBass         = chopDropBool t $ venueSpotBass         o
-    , venuePostProcessRB3   = U.trackDrop  t $ venuePostProcessRB3   o
-    , venuePostProcessRB2   = U.trackDrop  t $ venuePostProcessRB2   o
-    , venueLighting         = U.trackDrop  t $ venueLighting         o
-    , venueLightingCommands = U.trackDrop  t $ venueLightingCommands o
-    , venueLightingMode     = U.trackDrop  t $ venueLightingMode     o
-    , venueBonusFX          = U.trackDrop  t $ venueBonusFX          o
-    , venueBonusFXOptional  = U.trackDrop  t $ venueBonusFXOptional  o
-    , venueFog              = U.trackDrop  t $ venueFog              o
+    { venueCameraRB3        = U.trackDrop  t o.venueCameraRB3
+    , venueCameraRB2        = U.trackDrop  t o.venueCameraRB2
+    , venueDirectedRB2      = U.trackDrop  t o.venueDirectedRB2
+    , venueSingGuitar       = chopDropBool t o.venueSingGuitar
+    , venueSingDrums        = chopDropBool t o.venueSingDrums
+    , venueSingBass         = chopDropBool t o.venueSingBass
+    , venueSpotKeys         = chopDropBool t o.venueSpotKeys
+    , venueSpotVocal        = chopDropBool t o.venueSpotVocal
+    , venueSpotGuitar       = chopDropBool t o.venueSpotGuitar
+    , venueSpotDrums        = chopDropBool t o.venueSpotDrums
+    , venueSpotBass         = chopDropBool t o.venueSpotBass
+    , venuePostProcessRB3   = U.trackDrop  t o.venuePostProcessRB3
+    , venuePostProcessRB2   = U.trackDrop  t o.venuePostProcessRB2
+    , venueLighting         = U.trackDrop  t o.venueLighting
+    , venueLightingCommands = U.trackDrop  t o.venueLightingCommands
+    , venueLightingMode     = U.trackDrop  t o.venueLightingMode
+    , venueBonusFX          = U.trackDrop  t o.venueBonusFX
+    , venueBonusFXOptional  = U.trackDrop  t o.venueBonusFXOptional
+    , venueFog              = U.trackDrop  t o.venueFog
     }
 
 instance TraverseTrack VenueTrack where
@@ -394,8 +398,8 @@ instance TraverseTrack VenueTrack where
 
 instance ParseTrack VenueTrack where
   parseTrack = do
-    venueCameraRB3 <- venueCameraRB3 =. command
-    venueCameraRB2 <- (venueCameraRB2 =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
+    venueCameraRB3 <- (.venueCameraRB3) =. command
+    venueCameraRB2 <- ((.venueCameraRB2) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
       CameraCut   -> 60
       FocusVocal  -> 64
       FocusGuitar -> 63
@@ -405,17 +409,17 @@ instance ParseTrack VenueTrack where
       OnlyClose   -> 72
       OnlyFar     -> 71
       NoBehind    -> 70
-    venueDirectedRB2     <- venueDirectedRB2     =. command
-    venueSingGuitar      <- venueSingGuitar      =. edges 87
-    venueSingDrums       <- venueSingDrums       =. edges 86
-    venueSingBass        <- venueSingBass        =. edges 85
-    venueSpotKeys        <- venueSpotKeys        =. edges 41
-    venueSpotVocal       <- venueSpotVocal       =. edges 40
-    venueSpotGuitar      <- venueSpotGuitar      =. edges 39
-    venueSpotDrums       <- venueSpotDrums       =. edges 38 -- RBN2 docs incorrectly say this is bass
-    venueSpotBass        <- venueSpotBass        =. edges 37 -- RBN2 docs incorrectly say this is drums
-    venuePostProcessRB3  <- venuePostProcessRB3  =. command
-    venuePostProcessRB2  <- (venuePostProcessRB2 =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
+    venueDirectedRB2     <- (.venueDirectedRB2    ) =. command
+    venueSingGuitar      <- (.venueSingGuitar     ) =. edges 87
+    venueSingDrums       <- (.venueSingDrums      ) =. edges 86
+    venueSingBass        <- (.venueSingBass       ) =. edges 85
+    venueSpotKeys        <- (.venueSpotKeys       ) =. edges 41
+    venueSpotVocal       <- (.venueSpotVocal      ) =. edges 40
+    venueSpotGuitar      <- (.venueSpotGuitar     ) =. edges 39
+    venueSpotDrums       <- (.venueSpotDrums      ) =. edges 38 -- RBN2 docs incorrectly say this is bass
+    venueSpotBass        <- (.venueSpotBass       ) =. edges 37 -- RBN2 docs incorrectly say this is drums
+    venuePostProcessRB3  <- (.venuePostProcessRB3 ) =. command
+    venuePostProcessRB2  <- ((.venuePostProcessRB2) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
       V2_video_trails     -> 110
       V2_video_security   -> 109
       V2_video_bw         -> 108
@@ -431,23 +435,23 @@ instance ParseTrack VenueTrack where
       V2_film_16mm        -> 98
       V2_contrast_a       -> 97
       V2_Default          -> 96
-    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey each $ \light ->
+    venueLighting <- ((.venueLighting) =.) $ condenseMap_ $ eachKey each $ \light ->
       specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
         Just s  -> s
         Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
-    venueLightingCommands <- (venueLightingCommands =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) $ \case
+    venueLightingCommands <- ((.venueLightingCommands) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) $ \case
       (LightingFirst, RBN2) -> commandMatch ["first"]
       (LightingPrev , RBN2) -> commandMatch ["prev"]
       (LightingNext , RBN2) -> commandMatch ["next"]
       (LightingFirst, RBN1) -> blip 50
       (LightingPrev , RBN1) -> blip 49
       (LightingNext , RBN1) -> blip 48
-    venueLightingMode <- (venueLightingMode =.) $ condenseMap_ $ eachKey each $ \case
+    venueLightingMode <- ((.venueLightingMode) =.) $ condenseMap_ $ eachKey each $ \case
       ModeVerse  -> commandMatch ["verse"]
       ModeChorus -> commandMatch ["chorus"]
-    venueBonusFX         <- venueBonusFX         =. commandMatch ["bonusfx"]
-    venueBonusFXOptional <- venueBonusFXOptional =. commandMatch ["bonusfx_optional"]
-    venueFog <- (venueFog =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    venueBonusFX         <- (.venueBonusFX        ) =. commandMatch ["bonusfx"]
+    venueBonusFXOptional <- (.venueBonusFXOptional) =. commandMatch ["bonusfx_optional"]
+    venueFog <- ((.venueFog) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["FogOn"]
       False -> ["FogOff"]
     return VenueTrack{..}
@@ -455,7 +459,7 @@ instance ParseTrack VenueTrack where
 compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
 compileVenueRB3 vt = vt
   { venueCameraRB3 = let
-    directed = flip fmap (venueDirectedRB2 vt) $ \docut -> let
+    directed = flip fmap vt.venueDirectedRB2 $ \docut -> let
       cut = case docut of
         DoDirectedCut c -> c
         DoOptionalCut c -> c
@@ -491,7 +495,7 @@ compileVenueRB3 vt = vt
         V2_directed_all_lt     -> V3_directed_all_lt
         V2_directed_drums_lt   -> V3_directed_drums_lt
         V2_directed_crowdsurf  -> V3_directed_crowdsurf
-    generic = RTB.flatten $ fmap genericInstant $ RTB.collectCoincident $ venueCameraRB2 vt
+    generic = RTB.flatten $ fmap genericInstant $ RTB.collectCoincident vt.venueCameraRB2
     genericInstant xs = case elem CameraCut xs of
       False -> []
       True -> let
@@ -554,12 +558,12 @@ compileVenueRB3 vt = vt
         in case cuts of
           [] -> [V3_coop_all_near] -- some default if we cut but excluded all options
           _  -> cuts
-    in RTB.merge (venueCameraRB3 vt) $ RTB.merge generic directed
+    in RTB.merge vt.venueCameraRB3 $ RTB.merge generic directed
   , venueCameraRB2 = RTB.empty
   , venueDirectedRB2 = RTB.empty
   , venuePostProcessRB3
-    = RTB.merge (venuePostProcessRB3 vt)
-    $ flip fmap (venuePostProcessRB2 vt)
+    = RTB.merge vt.venuePostProcessRB3
+    $ flip fmap vt.venuePostProcessRB2
     -- TODO do we need to remove redundant events to prevent blending from an RB2 source
     $ \case
       V2_video_trails     -> V3_video_trails
@@ -583,13 +587,13 @@ compileVenueRB3 vt = vt
     -- in RB2, [verse]/[chorus] are a separate mode which affect any lighting setting.
     -- the docs say they most noticeably affect [lighting ()].
     -- RB3 just replaces it with [lighting (verse)]/[lighting (chorus)].
-    withMode = applyStatus1 ModeVerse (venueLightingMode vt) (venueLighting vt)
-    noBlend = if RTB.null $ venueLightingMode vt then id else noRedundantStatus
+    withMode = applyStatus1 ModeVerse vt.venueLightingMode vt.venueLighting
+    noBlend = if RTB.null vt.venueLightingMode then id else noRedundantStatus
     in noBlend $ flip fmap withMode $ \case
       (ModeVerse , Lighting_) -> Lighting_verse
       (ModeChorus, Lighting_) -> Lighting_chorus
       (_         , light    ) -> light
-  , venueLightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> venueLightingCommands vt
+  , venueLightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> vt.venueLightingCommands
   , venueLightingMode = RTB.empty
   , venueFog = RTB.empty
   }
@@ -603,7 +607,7 @@ compileVenueRB2 vt = let
   far = cut [NoBehind, OnlyFar, NoClose]
   near = cut [NoBehind, NoClose]
   directed x = [Right $ DoDirectedCut x]
-  camera = RTB.flatten $ flip fmap (RTB.collectCoincident $ venueCameraRB3 vt) $ \cams -> case sortBy (flip compare) cams of
+  camera = RTB.flatten $ flip fmap (RTB.collectCoincident vt.venueCameraRB3) $ \cams -> case sortBy (flip compare) cams of
     [] -> [] -- shouldn't happen
     x : _ -> case x of
       -- generic 4 camera shots
@@ -693,17 +697,17 @@ compileVenueRB2 vt = let
       V3_directed_duo_kg        -> directed V2_directed_duo_gb
   in vt
     { venueCameraRB3 = RTB.empty
-    , venueCameraRB2 = RTB.merge (venueCameraRB2 vt) $ RTB.mapMaybe
+    , venueCameraRB2 = RTB.merge vt.venueCameraRB2 $ RTB.mapMaybe
       (\case Left x -> Just x; Right _ -> Nothing)
       camera
-    , venueDirectedRB2 = RTB.merge (venueDirectedRB2 vt) $ RTB.mapMaybe
+    , venueDirectedRB2 = RTB.merge vt.venueDirectedRB2 $ RTB.mapMaybe
       (\case Left _ -> Nothing; Right x -> Just x)
       camera
     , venueSpotKeys = RTB.empty
     , venuePostProcessRB3 = RTB.empty
     , venuePostProcessRB2
-      = RTB.merge (venuePostProcessRB2 vt)
-      $ flip fmap (venuePostProcessRB3 vt)
+      = RTB.merge vt.venuePostProcessRB2
+      $ flip fmap vt.venuePostProcessRB3
       $ \case
         V3_ProFilm_a                    -> V2_Default
         V3_ProFilm_b                    -> V2_Default
@@ -739,14 +743,13 @@ compileVenueRB2 vt = let
     , venueLightingCommands
       = fmap (\cmd -> (cmd, RBN1))
       -- avoid problems with two simultaneous [next] causing overlapping midi notes
-      . RTB.flatten . fmap nubOrd . RTB.collectCoincident
-      . fmap fst
-      $ venueLightingCommands vt
+      $ RTB.flatten . fmap nubOrd . RTB.collectCoincident
+      $ fst <$> vt.venueLightingCommands
     , venueLightingMode = noRedundantStatus $
       RTB.cons NNC.zero ModeVerse $ fmap fst lightingWithMode'
       -- have to have [verse] at the start
     } where
-      lightingWithMode = applyStatus1 ModeVerse (venueLightingMode vt) (venueLighting vt)
+      lightingWithMode = applyStatus1 ModeVerse vt.venueLightingMode vt.venueLighting
       lightingWithMode' = flip fmap lightingWithMode $ \case
         (_   , Lighting_verse        ) -> (ModeVerse , Lighting_                )
         (_   , Lighting_chorus       ) -> (ModeChorus, Lighting_                )

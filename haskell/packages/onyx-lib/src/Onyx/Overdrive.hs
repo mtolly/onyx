@@ -289,10 +289,10 @@ notesFromRB3 FixedFile{..} = let
       , (PartGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
       , (PartBass,) $ five "Bass" fixedPartBass ++ protar "Bass" fixedPartRealBass ++ protar "Bass (22)" fixedPartRealBass22
       , (PartKeys,) $ five "Keys" fixedPartKeys ++
-        [ ("Easy Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysE)
-        , ("Medium Pro Keys", voidEdgeOn $ pkNotes fixedPartRealKeysM)
-        , ("Hard Pro Keys"  , voidEdgeOn $ pkNotes fixedPartRealKeysH)
-        , ("Expert Pro Keys", voidEdgeOn $ pkNotes fixedPartRealKeysX)
+        [ ("Easy Pro Keys"  , voidEdgeOn fixedPartRealKeysE.pkNotes)
+        , ("Medium Pro Keys", voidEdgeOn fixedPartRealKeysM.pkNotes)
+        , ("Hard Pro Keys"  , voidEdgeOn fixedPartRealKeysH.pkNotes)
+        , ("Expert Pro Keys", voidEdgeOn fixedPartRealKeysX.pkNotes)
         ]
       ]
     case filter (not . RTB.null . snd) notes of

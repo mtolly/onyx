@@ -1,11 +1,13 @@
-{-# LANGUAGE BangPatterns       #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.MIDI.Track.Vocal where
 
 import           Control.Monad                     ((>=>))
@@ -73,7 +75,7 @@ data VocalTrack t = VocalTrack
 
 nullVox :: VocalTrack t -> Bool
 -- we look at lyrics also, so lyrics can be imported from PS/CH into vox tracks
-nullVox t = RTB.null (vocalNotes t) && RTB.null (vocalLyrics t)
+nullVox t = RTB.null t.vocalNotes && RTB.null t.vocalLyrics
 
 instance TraverseTrack VocalTrack where
   traverseTrack fn (VocalTrack a b c d e f g h i j k l) = VocalTrack
@@ -82,20 +84,20 @@ instance TraverseTrack VocalTrack where
 
 instance ParseTrack VocalTrack where
   parseTrack = do
-    vocalMood   <- vocalMood   =. command
+    vocalMood          <- (.vocalMood         ) =. command
     -- this also gets lyrics in non-lyric text events
-    vocalLyrics <- vocalLyrics =. lyrics
-    vocalPerc          <- vocalPerc          =. fatBlips (1/8) (blip 96)
-    vocalPercSound     <- vocalPercSound     =. fatBlips (1/8) (blip 97)
-    vocalPercAnimation <- vocalPercAnimation =. parsePercAnimation
-    vocalPhrase1       <- vocalPhrase1       =. edges 105
-    vocalPhrase2       <- vocalPhrase2       =. edges 106
-    vocalOverdrive     <- vocalOverdrive     =. edges 116
-    vocalLyricShift    <- vocalLyricShift    =. fatBlips (1/8) (blip 1)
-    vocalRangeShift    <- vocalRangeShift    =. edges 0
-    vocalNotes         <- (vocalNotes        =.)
+    vocalLyrics        <- (.vocalLyrics       ) =. lyrics
+    vocalPerc          <- (.vocalPerc         ) =. fatBlips (1/8) (blip 96)
+    vocalPercSound     <- (.vocalPercSound    ) =. fatBlips (1/8) (blip 97)
+    vocalPercAnimation <- (.vocalPercAnimation) =. parsePercAnimation
+    vocalPhrase1       <- (.vocalPhrase1      ) =. edges 105
+    vocalPhrase2       <- (.vocalPhrase2      ) =. edges 106
+    vocalOverdrive     <- (.vocalOverdrive    ) =. edges 116
+    vocalLyricShift    <- (.vocalLyricShift   ) =. fatBlips (1/8) (blip 1)
+    vocalRangeShift    <- (.vocalRangeShift   ) =. edges 0
+    vocalNotes         <- ((.vocalNotes       ) =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
-    vocalEyesClosed <- (vocalEyesClosed =.) $ condenseMap_ $ eachKey each $ \case
+    vocalEyesClosed <- ((.vocalEyesClosed) =.) $ condenseMap_ $ eachKey each $ \case
       True  -> commandMatch ["eyes", "close"]
       False -> commandMatch ["eyes", "open" ]
     return VocalTrack{..}
@@ -116,12 +118,12 @@ asciify = let
 -- | Phase Shift doesn't support non-ASCII chars in lyrics.
 -- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
 asciiLyrics :: VocalTrack t -> VocalTrack t
-asciiLyrics vt = vt { vocalLyrics = fmap asciify $ vocalLyrics vt }
+asciiLyrics vt = vt { vocalLyrics = asciify <$> vt.vocalLyrics }
 
 -- | Strips some CH-format tags used in lyric events.
 stripTags :: VocalTrack t -> VocalTrack t
 stripTags vt = vt
-  { vocalLyrics = FoF.stripTags <$> vocalLyrics vt
+  { vocalLyrics = FoF.stripTags <$> vt.vocalLyrics
   }
 
 data TalkyDifficulty
@@ -152,8 +154,8 @@ joinMatchingTracks = go NNC.zero [] where
 
 getLyricNotes :: (Monad m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
 getLyricNotes mmap vox = let
-  joinedNotes = joinEdgesSimple $ flip fmap (vocalNotes vox) $ \(p, b) -> if b then EdgeOn () p else EdgeOff p
-  in case joinMatchingTracks joinedNotes $ vocalLyrics vox of
+  joinedNotes = joinEdgesSimple $ flip fmap vox.vocalNotes $ \(p, b) -> if b then EdgeOn () p else EdgeOff p
+  in case joinMatchingTracks joinedNotes vox.vocalLyrics of
     Left (errorTime, isLyricNoNote) -> fatal $ if isLyricNoNote
       then "Lyric without a corresponding note at " <> showPosition mmap errorTime
       else "Note without a corresponding lyric at " <> showPosition mmap errorTime
@@ -202,9 +204,9 @@ getPhraseLabels phrases lnotes = let
       Talky   _ lyric -> Just lyric
       SlideTo _       -> Nothing
     in T.strip $ T.concat $ flip map lyricList $ \lyric ->
-      if lyricContinues lyric
-        then lyricText lyric
-        else lyricText lyric <> " "
+      if lyric.lyricContinues
+        then lyric.lyricText
+        else lyric.lyricText <> " "
   joinedPhrases = joinEdgesSimple $ flip fmap phrases $ \b -> if b then EdgeOn () () else EdgeOff ()
   getPhrase start len = map fst $ RTB.getBodies $ U.trackTake len $ U.trackDrop start lnotes
   in RTB.fromAbsoluteEventList
@@ -214,6 +216,5 @@ getPhraseLabels phrases lnotes = let
     $ RTB.toAbsoluteEventList 0 joinedPhrases
 
 vocalPhraseAll :: (NNC.C t) => VocalTrack t -> RTB.T t Bool
-vocalPhraseAll vt = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ RTB.merge
-  (vocalPhrase1 vt)
-  (vocalPhrase2 vt)
+vocalPhraseAll vt = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident
+  $ RTB.merge vt.vocalPhrase1 vt.vocalPhrase2

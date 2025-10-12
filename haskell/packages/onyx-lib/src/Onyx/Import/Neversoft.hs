@@ -911,8 +911,8 @@ importGH3Song ghi = let
         [ Just (F.PartGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
-          let expert = fromMaybe mempty $ Map.lookup Expert $ Elite.tdDifficulties drums
-          guard $ not $ RTB.null $ Elite.tdGems expert
+          let expert = fromMaybe mempty $ Map.lookup Expert drums.tdDifficulties
+          guard $ not $ RTB.null expert.tdGems
           let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
           Just (F.PartDrums, emptyPart
             { drums = Just $ emptyPartDrums DrumsElite kicks

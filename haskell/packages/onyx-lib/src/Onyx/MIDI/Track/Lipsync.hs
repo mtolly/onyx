@@ -1,11 +1,13 @@
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.MIDI.Track.Lipsync where
 
 import           Control.Monad.Codec
@@ -33,15 +35,15 @@ instance TraverseTrack LipsyncTrack where
 
 instance ParseTrack LipsyncTrack where
   parseTrack = do
-    lipLyrics <- lipLyrics =. lyrics
-    lipNotes <- (lipNotes =.)
+    lipLyrics <- (.lipLyrics) =. lyrics
+    lipNotes <- ((.lipNotes) =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
-    lipLanguage <- (lipLanguage =.)
+    lipLanguage <- ((.lipLanguage) =.)
       $ condenseMap_ $ eachKey each $ commandMatch . \case
         LyricEnglish -> ["lang", "en"]
         LyricGerman  -> ["lang", "de"]
         LyricSpanish -> ["lang", "es"]
-    lipEvents <- lipEvents =. command
+    lipEvents <- (.lipEvents) =. command
     return LipsyncTrack{..}
 
 data LyricLanguage

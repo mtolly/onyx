@@ -170,7 +170,7 @@ basicTiming shouldLog input@(F.Song tempos mmap trks) getAudioLength = do
   let showPosn = showPosition mmap
       logMaybe = if shouldLog then lg else const $ return ()
   -- If there's no @[end]@, put it after all MIDI events and audio files.
-  timingEnd <- case RTB.viewL $ eventsEnd $ F.getEventsTrack trks of
+  timingEnd <- case RTB.viewL (F.getEventsTrack trks).eventsEnd of
     Just ((t, _), _) -> return t
     Nothing -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
@@ -199,7 +199,7 @@ basicTiming shouldLog input@(F.Song tempos mmap trks) getAudioLength = do
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
   let musicStartMin = 2 :: U.Beats
-  timingMusicStart <- case RTB.viewL $ eventsMusicStart $ F.getEventsTrack trks of
+  timingMusicStart <- case RTB.viewL (F.getEventsTrack trks).eventsMusicStart of
     Just ((t, _), _) -> if t < musicStartMin
       then do
         warn $ "[music_start] is too early. Moving to " ++ showPosn musicStartMin
@@ -208,7 +208,7 @@ basicTiming shouldLog input@(F.Song tempos mmap trks) getAudioLength = do
     Nothing -> do
       logMaybe $ "[music_start] is missing. Placing at " ++ showPosn musicStartMin
       return musicStartMin
-  timingMusicEnd <- case RTB.viewL $ eventsMusicEnd $ F.getEventsTrack trks of
+  timingMusicEnd <- case RTB.viewL (F.getEventsTrack trks).eventsMusicEnd of
     Just ((t, _), _) -> return t
     Nothing -> do
       logMaybe $ unwords
@@ -337,7 +337,7 @@ data BRERemover t = BRERemover
 -- TODO make this more resilient, probably based on the "chop" functions
 -- so it can correctly handle stuff beyond just removing notes
 removeBRE :: (NNC.C t) => SharedTarget f -> EventsTrack t -> Maybe (BRERemover t)
-removeBRE SharedTargetRB{} evts = case (eventsCoda evts, eventsCodaResume evts) of
+removeBRE SharedTargetRB{} evts = case (evts.eventsCoda, evts.eventsCodaResume) of
   (Wait t1 () _, Wait t2 () _) -> Just $ let
     blips xs = trackGlue t2 (U.trackTake t1 xs) (U.trackDrop t2 xs)
     in BRERemover
@@ -489,21 +489,21 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       originalRanks = difficultyPS targetPS songYaml
 
       eventsInput = trks.onyxEvents
-      (crowd, crowdClap) = if RTB.null (eventsCrowd eventsInput) && RTB.null (eventsCrowdClap eventsInput)
+      (crowd, crowdClap) = if RTB.null eventsInput.eventsCrowd && RTB.null eventsInput.eventsCrowdClap
         then
           ( RTB.singleton timingMusicStart CrowdRealtime
           , RTB.singleton timingMusicStart False
           )
-        else (eventsCrowd eventsInput, eventsCrowdClap eventsInput)
+        else (eventsInput.eventsCrowd, eventsInput.eventsCrowdClap)
       eventsTrack = mempty
         { eventsMusicStart = RTB.singleton timingMusicStart ()
         , eventsMusicEnd   = RTB.singleton timingMusicEnd ()
         , eventsEnd        = RTB.singleton timingEnd ()
-        , eventsCoda       = eventsCoda eventsInput
+        , eventsCoda       = eventsInput.eventsCoda
         , eventsCrowd      = crowd
         , eventsCrowdClap  = crowdClap
-        , eventsSections   = eventsSections eventsInput
-        , eventsBacking    = if RTB.null (eventsBacking eventsInput) && not (nullDrums drumsTrack)
+        , eventsSections   = eventsInput.eventsSections
+        , eventsBacking    = if RTB.null eventsInput.eventsBacking && not (nullDrums drumsTrack)
           then let
             makeBacking evts = nubOrd $ flip map evts $ \(gem, _vel) -> case gem of
               Drums.Kick               -> BackingKick
@@ -512,10 +512,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
               Drums.Pro _ Drums.Tom    -> BackingKick
               Drums.Orange             -> BackingHihat
             in RTB.flatten $ fmap makeBacking $ RTB.collectCoincident $ computePro (Just Expert) drumsTrack
-          else eventsBacking eventsInput
+          else eventsInput.eventsBacking
         }
       eventsTrackPS = eventsTrack
-        { eventsSections = makeDisplaySection <$> eventsSections eventsTrack
+        { eventsSections = makeDisplaySection <$> eventsTrack.eventsSections
         }
       drumsPart = case target of
         SharedTargetRB rb3 _ -> rb3.drums
@@ -599,7 +599,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       guitarCoopPS = makeGRYBOTrack False guitarCoopPart
 
       sixEachDiff f st = st
-        { sixDifficulties = fmap f $ sixDifficulties st
+        { sixDifficulties = f <$> st.sixDifficulties
         }
       guitarGHL = case getPart guitarPart songYaml >>= (.ghl) of
         Nothing  -> mempty
@@ -633,25 +633,26 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                   }
                 in fromMaybe mempty $ Map.lookup diff result.difficulties
               Nothing -> F.keysToProKeys diff basicKeys
-            pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
+            orIfNull :: ProKeysTrack t -> ProKeysTrack t -> ProKeysTrack t
+            pkd1 `orIfNull` pkd2 = if length pkd1.pkNotes < 5 then pkd2 else pkd1
             eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges
               . (case removeBRE target trks.onyxEvents of
                 Just BRERemover{..} -> \pk -> pk
-                  { pkNotes     = breRemoveEdges $ pkNotes     pk
-                  , pkGlissando = breRemoveBools $ pkGlissando pk
-                  , pkTrill     = breRemoveBools $ pkTrill     pk
+                  { pkNotes     = breRemoveEdges pk.pkNotes
+                  , pkGlissando = breRemoveBools pk.pkGlissando
+                  , pkTrill     = breRemoveBools pk.pkTrill
                   }
                 Nothing -> id)
             keysExpert = eachPKDiff $ keysDiff Expert
             keysHard   = eachPKDiff $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
             keysMedium = eachPKDiff $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
             keysEasy   = eachPKDiff $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
-            fixPKMood x = x { pkMood = noEarlyMood $ pkMood x }
-            keysOD = pkOverdrive keysExpert
+            fixPKMood x = x { pkMood = noEarlyMood x.pkMood }
+            keysOD = keysExpert.pkOverdrive
             originalRH = fpart.onyxPartKeysAnimRH
             originalLH = fpart.onyxPartKeysAnimLH
             (animRH, animLH) = if nullPK originalRH && nullPK originalLH
-              then (mempty { pkNotes = pkNotes keysExpert }, mempty)
+              then (mempty { pkNotes = keysExpert.pkNotes }, mempty)
               else (originalRH, originalLH)
             ffBasic = if fmap (.fixFreeform) part.grybo == Just True
               then F.fixFreeformFive
@@ -687,9 +688,10 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       harm1   = (F.getFlexPart vocalPart trks).onyxHarm1
       harm2   = (F.getFlexPart vocalPart trks).onyxHarm2
       harm3   = (F.getFlexPart vocalPart trks).onyxHarm3
+      withNotesOf :: VocalTrack t -> VocalTrack t -> VocalTrack t
       someV `withNotesOf` otherV = someV
-        { vocalLyrics = vocalLyrics otherV
-        , vocalNotes = vocalNotes otherV
+        { vocalLyrics = otherV.vocalLyrics
+        , vocalNotes  = otherV.vocalNotes
         }
       makeSoloVocals harm =
         (Just Vocal1, if nullVox partVox then harm else partVox, mempty, mempty, mempty)
@@ -738,16 +740,17 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
   let trkVox = if editCount >= Just Vocal2 && nullVox trkPV
         then RBVox.harm1ToPartVocals trkHarm1
         else trkPV
-      autoVoxMood vox = makeMoods tempos timing $ flip fmap (vocalNotes vox) $ \case
+      autoVoxMood :: VocalTrack U.Beats -> RTB.T U.Beats Mood
+      autoVoxMood vox = makeMoods tempos timing $ flip fmap vox.vocalNotes $ \case
         (_, True)  -> NoteOn () ()
         (_, False) -> NoteOff ()
       trkVox'   = trkVox
-        { vocalMood = noEarlyMood $ if RTB.null $ vocalMood trkVox
+        { vocalMood = noEarlyMood $ if RTB.null trkVox.vocalMood
           then case voxCount of
             Nothing     -> RTB.empty
             Just Vocal1 -> autoVoxMood trkVox
             Just _      -> autoVoxMood trkHarm1
-          else vocalMood trkVox
+          else trkVox.vocalMood
         }
       trkHarm1' = trkHarm1 { vocalMood = RTB.empty }
       trkHarm2' = trkHarm2 { vocalMood = RTB.empty }
@@ -756,7 +759,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       voxPSCH = hashTalkies
       -- CH lyrics don't handle ^ correctly, so we replace with the standard #.
       -- specifically "word-^" results in the hyphen being shown.
-      hashTalkies vt = vt { vocalLyrics = T.replace "^" "#" <$> vocalLyrics vt }
+      hashTalkies vt = vt { vocalLyrics = T.replace "^" "#" <$> vt.vocalLyrics }
 
   drumsTrack' <- let
     fills = RTB.normalize drumsTrack.drumActivation

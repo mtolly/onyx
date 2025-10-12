@@ -1,8 +1,9 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.DTXMania.DTX where
 
 import           Control.Applicative              ((<|>))
@@ -650,7 +651,7 @@ data DTXOverride = DTXOverride T.Text [DTXCondition]
 lookupDTXMapping :: [DTXCondition] -> ED.EliteDrumNote a -> Maybe Chip
 lookupDTXMapping conds tdn = go $ Branch conds where
   go (Chip chip)           = Just chip
-  go (MatchNote     n sub) = if n == ED.tdn_gem      tdn then go sub else Nothing
-  go (MatchType     t sub) = if t == ED.tdn_type     tdn then go sub else Nothing
-  go (MatchVelocity v sub) = if v == ED.tdn_velocity tdn then go sub else Nothing
+  go (MatchNote     n sub) = if n == tdn.tdn_gem      then go sub else Nothing
+  go (MatchType     t sub) = if t == tdn.tdn_type     then go sub else Nothing
+  go (MatchVelocity v sub) = if v == tdn.tdn_velocity then go sub else Nothing
   go (Branch subs)         = listToMaybe $ mapMaybe go subs

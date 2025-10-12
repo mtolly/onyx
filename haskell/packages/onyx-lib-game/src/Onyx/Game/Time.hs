@@ -750,16 +750,16 @@ applyEliteDrumEvent tNew mpadNew halfWindow dps = let
       Nothing -> Nothing
       Just note -> case Map.lookup note currentSlice of
         Nothing -> let
-          newStatus = case tdn_type note of
+          newStatus = case note.tdn_type of
             GemHihatOpen -> if previousState.hihatOpen then EDHit t else EDHitPendingHihat True
             GemHihatClosed -> if previousState.hihatOpen then EDHitPendingHihat False else EDHit t
             _ -> EDHit t
           in Just (note, newStatus)
         Just EDMissed -> Nothing -- probably shouldn't happen?
-        Just (EDHit _) -> case tdn_extra note of
+        Just (EDHit _) -> case note.tdn_extra of
           Flam    -> Just (note, EDTwoHits t)
           NotFlam -> Nothing
-        Just (EDHitPendingHihat b) -> case tdn_extra note of
+        Just (EDHitPendingHihat b) -> case note.tdn_extra of
           Flam    -> Just (note, EDTwoHitsPendingHihat b)
           NotFlam -> Nothing
         Just (EDTwoHits _) -> Nothing

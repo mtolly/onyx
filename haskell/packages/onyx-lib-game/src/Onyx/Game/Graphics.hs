@@ -305,7 +305,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
       hihatZoneX2 = maximum $ map snd hihatZoneBounds
       -- drawGem _ _ note _ | tdn_gem note == ED.HihatFoot = return ()
       drawGem t _od note alpha = let
-        (texid, obj) = case (tdn_gem note, tdn_type note) of
+        (texid, obj) = case (note.tdn_gem, note.tdn_type) of
           (ED.Kick ()  , _                ) -> (TextureLongKick    , Model ModelDrumKick      )
           (ED.Snare    , ED.GemRim        ) -> (TextureRedGem      , Model ModelDrumRim       )
           (ED.Snare    , _                ) -> (TextureRedGem      , Model ModelDrumTom       )
@@ -323,23 +323,23 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
           (ED.Ride     , _                ) -> (TextureBlueCymbal  , Model ModelDrumCymbal    )
           (ED.CrashR   , _                ) -> (TextureGreenCymbal , Model ModelDrumCymbal    )
         shade = case alpha of
-          Nothing -> case tdn_velocity note of
+          Nothing -> case note.tdn_velocity of
             D.VelocityNormal -> CSImage texid
             D.VelocityGhost  -> CSImage2 texid TextureOverlayGhost
             D.VelocityAccent -> CSImage2 texid TextureOverlayAccent
           Just _  -> CSColor gl.gfxConfig.objects.gems.color_hit
-        (x1, x2) = gemBounds $ tdn_gem note
+        (x1, x2) = gemBounds note.tdn_gem
         xCenter = x1 + (x2 - x1) / 2
-        (x1', x2') = case tdn_velocity note of
+        (x1', x2') = case note.tdn_velocity of
           D.VelocityGhost -> let
             adjustX v = xCenter + (v - xCenter) * 0.8
             in (adjustX x1, adjustX x2)
           _ -> (x1, x2)
-        reference = case tdn_gem note of
+        reference = case note.tdn_gem of
           ED.Kick () -> (x2' - x1') / 2
           _          -> 0.5 / 2
-        xPairs = case tdn_extra note of
-          ED.Flam -> map (, obj) $ case tdn_gem note of
+        xPairs = case note.tdn_extra of
+          ED.Flam -> map (, obj) $ case note.tdn_gem of
             ED.Kick () -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _          -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
@@ -351,7 +351,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
                 | snd noteRight > adjustedRight = adjustedRight - snd noteRight
                 | otherwise = 0
               in map (bimap (+ xAdjustment) (+ xAdjustment)) [noteLeft, noteRight]
-          ED.NotFlam -> case tdn_gem note of
+          ED.NotFlam -> case note.tdn_gem of
             ED.HihatFoot ->
               [ (gemBounds ED.Snare , Model ModelDrumHihatFootWings)
               , ((x1', x2'), obj)

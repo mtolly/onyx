@@ -760,9 +760,9 @@ fixShortVoxPhrasesTrack vox = let
   minLength = 1 :: U.Beats
   joinBools = joinEdgesSimple . fmap
     (\b -> if b then EdgeOn () () else EdgeOff ())
-  phrases = RTB.toAbsoluteEventList 0 $ joinBools $ vocalPhrase1 vox
+  phrases = RTB.toAbsoluteEventList 0 $ joinBools vox.vocalPhrase1
   od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
-    $ RTB.filter id $ vocalOverdrive vox
+    $ RTB.filter id vox.vocalOverdrive
   wiggle = 10/480
   isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
     Nothing -> False

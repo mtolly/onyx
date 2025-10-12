@@ -383,7 +383,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             trk = if nullVox opart.onyxPartVocals
               then harm1ToPartVocals opart.onyxHarm1
               else opart.onyxPartVocals
-            sp = makeStarPower $ vocalOverdrive trk
+            sp = makeStarPower trk.vocalOverdrive
             phrases = map secondsToMS $ makePhrasePoints
               (mapTrack (U.applyTempoTrack tmap) $ timingBeat timing)
               (U.applyTempoTrack tmap $ vocalPhraseAll trk)
@@ -393,15 +393,17 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
               $ ATB.toPairList
               $ RTB.toAbsoluteEventList 0
               $ makeLyrics False $ fmap fst lyricNotes
+            makeLyrics :: (NNC.C t) => Bool -> RTB.T t LyricNote -> RTB.T t T.Text
             makeLyrics continuing = let
+              emitLyric :: Lyric -> T.Text
               emitLyric lyric = if continuing
-                then "=" <> lyricText lyric
-                else lyricText lyric
+                then "=" <> lyric.lyricText
+                else lyric.lyricText
               in \case
                 Wait t (Pitched _ lyric) rest -> Wait t (emitLyric lyric)
-                  $ makeLyrics (lyricContinues lyric) rest
+                  $ makeLyrics lyric.lyricContinues rest
                 Wait t (Talky _ lyric) rest -> Wait t (emitLyric lyric)
-                  $ makeLyrics (lyricContinues lyric) rest
+                  $ makeLyrics lyric.lyricContinues rest
                 Wait t (SlideTo _) rest -> RTB.delay t $ makeLyrics continuing rest
                 RNil -> RNil
             notes
@@ -428,7 +430,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             markers
               = map (\(t, label) -> Single (beatsToMS t) label)
               $ ATB.toPairList $ RTB.toAbsoluteEventList 0
-              $ getPhraseLabels (vocalPhrase1 trk) lyricNotes
+              $ getPhraseLabels trk.vocalPhrase1 lyricNotes
         return (notes, lyrics, sp, phrases, markers)
       Nothing -> return ([], [], [], [], [])
     let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ beatLines $ timingBeat timing

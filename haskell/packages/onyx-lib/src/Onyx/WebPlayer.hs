@@ -336,11 +336,11 @@ processFive tmap result = makeDifficulties $ \diff -> let
 
 processSix :: U.Beats -> U.TempoMap -> GHL.SixTrack U.Beats -> Difficulties Six U.Seconds
 processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
-  thisDiff = fromMaybe mempty $ Map.lookup diff $ GHL.sixDifficulties trk
+  thisDiff = fromMaybe mempty $ Map.lookup diff trk.sixDifficulties
   assigned :: RTB.T U.Beats ((Maybe GHL.Fret, StrumHOPOTap), Maybe U.Beats)
   assigned
     = applyForces (getForces6 thisDiff)
-    $ strumHOPOTap HOPOsRBGuitar hopoThreshold $ edgeBlips_ minSustainLengthRB $ GHL.sixGems thisDiff
+    $ strumHOPOTap HOPOsRBGuitar hopoThreshold $ edgeBlips_ minSustainLengthRB thisDiff.sixGems
   onlyKey :: (Eq a) => a -> RTB.T U.Beats ((a, b), c) -> RTB.T U.Beats (((), b), c)
   onlyKey fret trips = flip RTB.mapMaybe trips $ \case
     ((fret', sht), mlen) -> guard (fret' == fret) >> Just (((), sht), mlen)
@@ -372,10 +372,10 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   notes = Map.fromList $ do
     lane <- map GHLSingle [minBound .. maxBound] ++ [GHLBoth1, GHLBoth2, GHLBoth3, GHLOpen]
     return (lane, getLane lane)
-  solo   = realTrack tmap $ GHL.sixSolo      trk
-  energy = realTrack tmap $ GHL.sixOverdrive trk
+  solo   = realTrack tmap trk.sixSolo
+  energy = realTrack tmap trk.sixOverdrive
   bre    = RTB.empty
-  in guard (not $ RTB.null $ GHL.sixGems thisDiff) >> Just (Six notes solo energy bre)
+  in guard (not $ RTB.null thisDiff.sixGems) >> Just (Six notes solo energy bre)
 
 processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> D.DrumTrack U.Beats -> D.DrumTrack U.Beats -> Difficulties Drums U.Seconds
 processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
@@ -435,26 +435,26 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)
 processProKeys tmap trk = let
-  joined = edgeBlips_ minSustainLengthRB $ pkNotes trk
+  joined = edgeBlips_ minSustainLengthRB trk.pkNotes
   assigned' = U.trackJoin $ flip fmap joined $ \(p, mlen) -> case mlen of
     Nothing  -> RTB.singleton 0 $ Blip () p
     Just len -> RTB.fromPairList [(0, NoteOn () p), (len, NoteOff p)]
   notesForPitch p = realTrack tmap $ filterKey p assigned'
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
   ons = RTB.normalize $ fmap fst joined
-  ranges = realTrack tmap $ pkLanes trk
-  solo   = realTrack tmap $ pkSolo trk
-  energy = realTrack tmap $ pkOverdrive trk
+  ranges = realTrack tmap trk.pkLanes
+  solo   = realTrack tmap trk.pkSolo
+  energy = realTrack tmap trk.pkOverdrive
   trills = findTrills ons $ RTB.normalize $ laneDifficulty Expert
-    $ (\b -> guard b >> Just LaneExpert) <$> pkTrill trk
+    $ (\b -> guard b >> Just LaneExpert) <$> trk.pkTrill
   lanes = Map.fromList $ do
     key <- [minBound .. maxBound]
     return $ (,) key $ U.applyTempoTrack tmap $ splitEdgesBool $ flip RTB.mapMaybe trills $ \(key', len) -> do
       guard $ key == key'
       return len
-  gliss  = realTrack tmap $ pkGlissando trk
-  bre    = realTrack tmap $ pkBRE trk
-  in guard (not $ RTB.null $ pkNotes trk) >> Just (ProKeys notes ranges solo energy lanes gliss bre)
+  gliss  = realTrack tmap trk.pkGlissando
+  bre    = realTrack tmap trk.pkBRE
+  in guard (not $ RTB.null trk.pkNotes) >> Just (ProKeys notes ranges solo energy lanes gliss bre)
 
 processProtar :: U.Beats -> PG.GtrTuning -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
 processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \diff -> let

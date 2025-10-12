@@ -2,15 +2,17 @@
 Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 (Does not support storing lower dynamic difficulty levels.)
 -}
-{-# LANGUAGE CPP                #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE MultiWayIf         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Rocksmith
 ( RocksmithTrack(..)
 , ToneLetter(..)
@@ -90,7 +92,7 @@ data RocksmithTrack t = RocksmithTrack
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (RocksmithTrack t)
 
 nullRS :: RocksmithTrack t -> Bool
-nullRS = RTB.null . rsNotes
+nullRS = RTB.null . (.rsNotes)
 
 data ChordInfo = ChordInfo
   { ciLocation :: ChordLocation
@@ -312,18 +314,18 @@ instance ParseTrack RocksmithTrack where
             (str, (_, Just v))  -> EdgeOn (v - 100) str
             (str, (_, Nothing)) -> EdgeOff str
           in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> edgesCV $ root + getStringIndex 6 str
-    rsNotes      <- rsNotes =. parseNotes 96
-    rsModifiers  <- rsModifiers =. commandMatch' parseModifiers unparseModifiers
+    rsNotes      <- (.rsNotes) =. parseNotes 96
+    rsModifiers  <- (.rsModifiers) =. commandMatch' parseModifiers unparseModifiers
     let fretNumber n = let
           fs fret = (0, fret + 100)
           fp (_c, v) = v - 100
           in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV n
-    rsTones      <- (rsTones =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    rsTones      <- ((.rsTones) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       ToneA -> ["tone", "a"]
       ToneB -> ["tone", "b"]
       ToneC -> ["tone", "c"]
       ToneD -> ["tone", "d"]
-    rsBends      <- rsBends      =. commandMatch' parseBend unparseBend
+    rsBends      <- (.rsBends     ) =. commandMatch' parseBend unparseBend
     -- short notation for phrase/section combinations
     Codec
       { codecIn = lift $ modify $ \mt -> mt
@@ -334,27 +336,27 @@ instance ParseTrack RocksmithTrack where
             ["start"  ] -> [["phrase", "default"]]
             ["end"    ] -> [["section", "noguitar"], ["phrase", "END"]]
             x           -> [x]
-          in RTB.flatten $ f <$> midiCommands mt
+          in RTB.flatten $ f <$> mt.midiCommands
         }
       , codecOut = const $ return ()
       }
-    rsPhrases    <- rsPhrases    =. commandMatch'
+    rsPhrases    <- (.rsPhrases   ) =. commandMatch'
       (\case
         "phrase" : xs -> Just $ T.unwords xs
         _             -> Nothing
       )
       (\xs -> "phrase" : T.words xs)
-    rsSections   <- rsSections   =. commandMatch'
+    rsSections   <- (.rsSections  ) =. commandMatch'
       (\case
         "section" : xs -> Just $ T.unwords xs
         _              -> Nothing
       )
       (\xs -> "section" : T.words xs)
-    rsHandShapes <- rsHandShapes =. parseNotes 84
-    rsChords     <- rsChords     =. commandMatch' parseChord unparseChord
+    rsHandShapes <- (.rsHandShapes) =. parseNotes 84
+    rsChords     <- (.rsChords    ) =. commandMatch' parseChord unparseChord
     (rsAnchorLow, rsAnchorHigh) <- statusBlips $ liftA2 (,)
-      (rsAnchorLow  =. fretNumber 108)
-      (rsAnchorHigh =. fretNumber 109)
+      ((.rsAnchorLow ) =. fretNumber 108)
+      ((.rsAnchorHigh) =. fretNumber 109)
     return RocksmithTrack{..}
 
 data RSOutput = RSOutput
@@ -382,9 +384,9 @@ data ChordsEvent
 buildChordBank :: (NNC.C t) => RocksmithTrack t -> RTB.T t ChordBank
 buildChordBank trk = let
   events = foldr RTB.merge RTB.empty
-    [ RTB.mapMaybe (\case EdgeOn f s -> Just $ CENote (s, f); _ -> Nothing) $ rsNotes trk
-    , RTB.mapMaybe (\case EdgeOn f s -> Just $ CEShape (s, f); _ -> Nothing) $ rsHandShapes trk
-    , fmap CEChord $ rsChords trk
+    [ RTB.mapMaybe (\case EdgeOn f s -> Just $ CENote (s, f); _ -> Nothing) trk.rsNotes
+    , RTB.mapMaybe (\case EdgeOn f s -> Just $ CEShape (s, f); _ -> Nothing) trk.rsHandShapes
+    , CEChord <$> trk.rsChords
     ]
   go _    RNil               = RNil
   go bank (Wait t evts rest) = let
@@ -392,23 +394,23 @@ buildChordBank trk = let
       CEChord ci <- evts
       concat
         [ do
-          guard $ ciLocation ci /= ChordLocShape
+          guard $ ci.ciLocation /= ChordLocShape
           let notes = [n | CENote n <- evts]
-          case ciOnce ci of
+          case ci.ciOnce of
             Nothing -> do
               guard $ length notes >= 2
-              return $ \b -> b { cb_notes = Map.insert (Map.fromList notes) ci $ cb_notes b }
+              return $ \b -> b { cb_notes = Map.insert (Map.fromList notes) ci b.cb_notes }
             Just strs -> do
-              return $ \b -> b { cb_notes_once = Map.insert strs ci $ cb_notes_once b }
+              return $ \b -> b { cb_notes_once = Map.insert strs ci b.cb_notes_once }
         , do
-          guard $ ciLocation ci /= ChordLocNotes
+          guard $ ci.ciLocation /= ChordLocNotes
           let shapes = [n | CEShape n <- evts]
-          case ciOnce ci of
+          case ci.ciOnce of
             Nothing -> do
               guard $ length shapes >= 2
-              return $ \b -> b { cb_shapes = Map.insert (Map.fromList shapes) ci $ cb_shapes b }
+              return $ \b -> b { cb_shapes = Map.insert (Map.fromList shapes) ci b.cb_shapes }
             Just strs -> do
-              return $ \b -> b { cb_shapes_once = Map.insert strs ci $ cb_shapes_once b }
+              return $ \b -> b { cb_shapes_once = Map.insert strs ci b.cb_shapes_once }
         ]
     bankNew = foldr ($) bank funs
     bankDropUnsaved = bankNew
@@ -522,7 +524,7 @@ backportAnchors tmap trk rso = let
     $ ATB.fromPairList
     $ sort
     $ map (\a -> (an_time a, (an_fret a, an_fret a + an_width a - 1)))
-    $ toList $ lvl_anchors $ rso_level rso
+    $ toList rso.rso_level.lvl_anchors
   in trk
     { rsAnchorLow  = fmap fst anchors
     , rsAnchorHigh = fmap snd anchors
@@ -585,7 +587,7 @@ applyLinks = \case
 -- TODO actually use this in buildRS
 getNotesWithModifiers :: (NNC.C t) => RocksmithTrack t -> RTB.T t (Edge (GtrFret, [RSModifier]) GtrString)
 getNotesWithModifiers trk = let
-  merged = RTB.collectCoincident $ RTB.merge (Left <$> rsModifiers trk) (Right <$> rsNotes trk)
+  merged = RTB.collectCoincident $ RTB.merge (Left <$> trk.rsModifiers) (Right <$> trk.rsNotes)
   in RTB.flatten $ flip fmap merged $ \instant -> let
     modsNow = [ x | Left x <- instant ]
     modsForString str = concat [ mods | (strs, mods) <- modsNow, null strs || elem str strs ]
@@ -598,7 +600,7 @@ buildRS :: (SendMessage m) => U.TempoMap -> Int -> RocksmithTrack U.Beats -> Sta
 buildRS tmap capo trk = do
   let applyCapo 0 = 0
       applyCapo f = f + capo
-      phrases = fillUnnamedPhrases $ rsPhrases trk
+      phrases = fillUnnamedPhrases trk.rsPhrases
       insideTime t = inside $ T.unpack $ showTimestamp t
       numberSections _ [] = []
       numberSections counts ((t, sect) : rest) = let
@@ -612,12 +614,12 @@ buildRS tmap capo trk = do
         in thisSection : numberSections counts' rest
       uniquePhrases = nubOrd $ toList phrases
       modifierMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
-        $ RTB.collectCoincident $ U.applyTempoTrack tmap $ rsModifiers trk
+        $ RTB.collectCoincident $ U.applyTempoTrack tmap trk.rsModifiers
       lookupModifier t str = let
         atTime = fromMaybe [] $ Map.lookup t modifierMap
         in concat [ mods | (strs, mods) <- atTime, null strs || elem str strs ]
       bendMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
-        $ RTB.collectCoincident $ U.applyTempoTrack tmap $ rsBends trk
+        $ RTB.collectCoincident $ U.applyTempoTrack tmap trk.rsBends
       lookupBends t len str = let
         (_, startBend, m1) = Map.splitLookup t bendMap
         (m2, endBend, _) = Map.splitLookup (t <> len) m1
@@ -687,6 +689,7 @@ buildRS tmap capo trk = do
           -- EOF does the same thing
           }
       chordBank = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ buildChordBank trk
+      makeTemplate :: (SendMessage m) => ChordInfo -> [(GtrFret, GtrString, U.Seconds)] -> StackTraceT m ChordTemplate
       makeTemplate cinfo notes = let
         sortedNotes = sort [(str, fret) | (fret, str, _) <- notes]
         assignFingers []       []                = return []
@@ -704,10 +707,10 @@ buildRS tmap capo trk = do
             ]
           return []
         finish assigned = ChordTemplate
-          { ct_chordName   = fromMaybe "" $ ciName cinfo
-          , ct_displayName = fromMaybe "" (ciName cinfo)
-            <> (if ciArpeggio cinfo then "-arp" else "")
-            <> (if ciNop      cinfo then "-nop" else "")
+          { ct_chordName   = fromMaybe "" cinfo.ciName
+          , ct_displayName = fromMaybe "" cinfo.ciName
+            <> (if cinfo.ciArpeggio then "-arp" else "")
+            <> (if cinfo.ciNop      then "-nop" else "")
           , ct_finger0     = listToMaybe [fromEnum finger | (S6, _, Just finger) <- assigned]
           , ct_finger1     = listToMaybe [fromEnum finger | (S5, _, Just finger) <- assigned]
           , ct_finger2     = listToMaybe [fromEnum finger | (S4, _, Just finger) <- assigned]
@@ -721,7 +724,7 @@ buildRS tmap capo trk = do
           , ct_fret4       = listToMaybe [applyCapo fret | (S2, fret) <- sortedNotes]
           , ct_fret5       = listToMaybe [applyCapo fret | (S1, fret) <- sortedNotes]
           }
-        in finish <$> assignFingers (ciFingers cinfo) sortedNotes
+        in finish <$> assignFingers cinfo.ciFingers sortedNotes
       makeNoteChord t cinfo noteGroup = do
         template <- makeTemplate cinfo noteGroup
         let madeNotes = do
@@ -756,12 +759,12 @@ buildRS tmap capo trk = do
             else return $ Left cinfo
         in go []
   notesAndChords <- let
-    notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsNotes trk
+    notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap trk.rsNotes
     in fmap concat $ forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ notes) $ \(t, noteGroup) -> insideTime t $ do
       let (bankTime, bankState) = fromMaybe
             (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
             (Map.lookupLE t chordBank)
-          oneTimeChords = if bankTime == t then Map.toList $ cb_notes_once bankState else []
+          oneTimeChords = if bankTime == t then Map.toList bankState.cb_notes_once else []
       findOnceChords (makeNoteChord t) noteGroup oneTimeChords >>= \case
         Left _cinfo -> do
           -- warn $ "Couldn't apply one-time chord (notes) event: " <> show cinfo
@@ -776,19 +779,19 @@ buildRS tmap capo trk = do
               return $ map (Left . makeNote t) noteGroup'
             _ -> let
               key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup' ]
-              in case Map.lookupLE t chordBank >>= Map.lookup key . cb_notes . snd of
+              in case Map.lookupLE t chordBank >>= Map.lookup key . (.cb_notes) . snd of
                 Just cinfo -> (: []) <$> makeNoteChord t cinfo noteGroup'
                 Nothing -> do
                   -- warn $ "Not making simultaneous notes into a chord due to no chord mapping:  " <> show key
                   return $ map (Left . makeNote t) noteGroup'
       -- note: if you have any chords in the notes, you need at least one handshape, otherwise CST crashes
   shapes <- concat <$> let
-    shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap $ rsHandShapes trk
+    shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap trk.rsHandShapes
     in forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> insideTime t $ do
       let (bankTime, bankState) = fromMaybe
             (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
             (Map.lookupLE t chordBank)
-          oneTimeChords = if bankTime == t then Map.toList $ cb_shapes_once bankState else []
+          oneTimeChords = if bankTime == t then Map.toList bankState.cb_shapes_once else []
       findOnceChords (makeShapeChord t) noteGroup oneTimeChords >>= \case
         Left _cinfo -> do
           -- warn $ "Couldn't apply one-time chord (shape) event: " <> show cinfo
@@ -796,7 +799,7 @@ buildRS tmap capo trk = do
         Right ([], onceChords) -> return onceChords
         Right (noteGroup', onceChords) -> (onceChords <>) <$> let
           key = Map.fromList [ (str, fret) | (fret, str, _) <- noteGroup' ]
-          in case Map.lookupLE t chordBank >>= Map.lookup key . cb_shapes . snd of
+          in case Map.lookupLE t chordBank >>= Map.lookup key . (.cb_shapes) . snd of
             Just cinfo -> (: []) <$> makeShapeChord t cinfo noteGroup'
             Nothing -> do
               -- warn $ "Couldn't find handshape chord mapping for " <> show key
@@ -839,10 +842,10 @@ buildRS tmap capo trk = do
       , lvl_fretHandMutes = mempty
       , lvl_anchors       = let
         -- note: according to EOF, highest min-fret for an anchor is 21
-        anchorMap = if RTB.null $ rsAnchorLow trk
+        anchorMap = if RTB.null trk.rsAnchorLow
           then autoAnchors allNotes capo shapes
           else let
-            merged = RTB.collectCoincident $ RTB.merge (Left <$> rsAnchorLow trk) (Right <$> rsAnchorHigh trk)
+            merged = RTB.collectCoincident $ RTB.merge (Left <$> trk.rsAnchorLow) (Right <$> trk.rsAnchorHigh)
             bounds = U.applyTempoTrack tmap $ flip RTB.mapMaybe merged $ \evts ->
               case ([ low | Left low <- evts ], [ high | Right high <- evts ]) of
                 (low : _, high : _) -> Just (applyCapo low, applyCapo high)
@@ -862,9 +865,9 @@ buildRS tmap capo trk = do
           , an_width = max 1 $ high - low + 1
           }
       }
-    , rso_tones = U.applyTempoTrack tmap $ rsTones trk
+    , rso_tones = U.applyTempoTrack tmap trk.rsTones
     , rso_sections = V.fromList $ numberSections Map.empty
-      $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ rsSections trk
+      $ ATB.toPairList $ RTB.toAbsoluteEventList 0 trk.rsSections
     , rso_phrases = V.fromList $ flip map uniquePhrases $ \phrase -> Phrase
       { ph_maxDifficulty = 0
       , ph_name          = phrase
@@ -894,11 +897,11 @@ data VocalEvent
 buildRSVocals :: U.TempoMap -> VocalTrack U.Beats -> Vocals
 buildRSVocals tmap vox = Vocals $ V.fromList $ let
   tubes = vocalTubes vox
-  pitches = fmap fst $ RTB.filter snd $ vocalNotes vox
+  pitches = fmap fst $ RTB.filter snd vox.vocalNotes
   tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) $ \case
     (p, Just lyric) -> VocalNote lyric $ 36 + fromEnum p
     (_, Nothing   ) -> VocalNoteEnd
-  phraseEnds = RTB.filter not $ RTB.merge (vocalPhrase1 vox) (vocalPhrase2 vox)
+  phraseEnds = RTB.filter not $ RTB.merge vox.vocalPhrase1 vox.vocalPhrase2
   evts = U.applyTempoTrack tmap $ RTB.normalize $
     RTB.merge tubeEvents $ fmap (const VocalPhraseEnd) phraseEnds
   go = \case
@@ -999,7 +1002,7 @@ rsToRockBand freq tmap rs = let
     = fmap (\(shape, (), len) -> (shape, len))
     $ joinEdgesSimple
     $ noOverlapShapes []
-    $ RTB.collectCoincident $ rsHandShapes rs
+    $ RTB.collectCoincident rs.rsHandShapes
   noOverlapShapes cur = \case
     RNil             -> RNil -- cur should be empty, hopefully
     Wait dt new rest -> let
@@ -1071,8 +1074,8 @@ convertRStoPG :: U.TempoMap -> RocksmithTrack U.Beats -> ProGuitarTrack U.Beats
 convertRStoPG tmap rs = let
 
   output = rsToRockBand (TremoloSeconds 0.080) tmap rs
-  extendedNotesShapes = notesWithHandshapes output
-  tremolo = tremoloMarkers output
+  extendedNotesShapes = output.notesWithHandshapes
+  tremolo = output.tremoloMarkers
 
   convertedNotes :: RTB.T U.Beats (Edge GtrFret (GtrString, NoteType))
   convertedNotes
@@ -1152,9 +1155,9 @@ convertRStoPG tmap rs = let
           targetChord = Map.fromList $ [ (str, fret) | (str, fret, _) <- chord ] <> shapeExtra
           lookupOnce = do
             guard $ bankTime == t
-            Map.lookup (Map.keys targetChord) $ cb_shapes_once bank
-          lookupNotOnce = Map.lookup targetChord $ cb_shapes bank
-          name = (lookupOnce <|> lookupNotOnce) >>= ciName >>= \x -> do
+            Map.lookup (Map.keys targetChord) bank.cb_shapes_once
+          lookupNotOnce = Map.lookup targetChord bank.cb_shapes
+          name = (lookupOnce <|> lookupNotOnce) >>= (.ciName) >>= \x -> do
             guard $ T.any (not . isSpace) x
             -- Looks nice to translate parens to superscript,
             -- but also we need to because for some reason (#...) breaks Magma.

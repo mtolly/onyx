@@ -516,7 +516,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     Just pd -> let
       rbAnims = buildDrumAnimation pd song.tempos $ F.getFlexPart partDrummer song.tracks
       mapping = map swap gh3DrumMapping
-      notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn_gem tdn, hand) mapping) $ animationToEliteDrums rbAnims
+      notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn.tdn_gem, hand) mapping) $ animationToEliteDrums rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
         $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack song.tempos notes
   in (emptyMidQB

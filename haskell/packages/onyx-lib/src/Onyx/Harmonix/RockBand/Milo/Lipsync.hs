@@ -326,8 +326,8 @@ putLipsync lip = do
   let keyframeBS = runPut $ forM_ (lipsyncKeyframes lip) $ \key -> do
         putWord8 $ fromIntegral $ length $ keyframeEvents key
         forM_ (keyframeEvents key) $ \evt -> do
-          putWord8 $ fromIntegral $ visemeKey evt
-          putWord8 $ visemeWeight evt
+          putWord8 $ fromIntegral evt.visemeKey
+          putWord8 evt.visemeWeight
   putWord32be $ fromIntegral $ BL.length keyframeBS
   putLazyByteString keyframeBS
   putWord32be 0
@@ -769,7 +769,7 @@ autoLipsync transition vmap trans vt = let
     = animationsToStates
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("Blink", 255)])
-    $ vocalEyesClosed vt
+    $ vt.vocalEyesClosed
   mouth
     = animationsToStates
     $ syllablesToAnimations transition vmap
@@ -786,7 +786,7 @@ autoLipsync' transition vmap trans vt = let
     = animationsToEvents
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("Blink", 255)])
-    $ vocalEyesClosed vt
+    $ vt.vocalEyesClosed
   mouth
     = animationsToEvents
     $ syllablesToAnimations transition vmap
@@ -823,7 +823,7 @@ beatlesLipsync transition vmap trans vt = let
     = animationsToStates
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
-    $ vocalEyesClosed vt
+    $ vt.vocalEyesClosed
   mouth
     = animationsToStates
     $ syllablesToAnimations transition vmap
@@ -840,7 +840,7 @@ beatlesLipsync' transition vmap trans vt = let
     = animationsToEvents
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
-    $ vocalEyesClosed vt
+    $ vt.vocalEyesClosed
   mouth
     = animationsToEvents
     $ syllablesToAnimations transition vmap
@@ -876,8 +876,8 @@ lipEventsStates = let
 lipEventsStates' :: RTB.T U.Seconds (VisemeEvent VisemeGraph T.Text) -> LipsyncStates
 lipEventsStates' events = let
   allVisemes :: [T.Text]
-  allVisemes = nubOrd $ map visemeKey $ toList events
-  getSingleStates k = singleAnimsToStates k $ toAnimations $ RTB.filter (\e -> visemeKey e == k) events
+  allVisemes = nubOrd $ map (.visemeKey) $ toList events
+  getSingleStates k = singleAnimsToStates k $ toAnimations $ RTB.filter (\e -> e.visemeKey == k) events
   toAnimations = \case
     RNil -> RNil
     Wait t (VisemeEvent _ w _) RNil -> Wait t (VisemeHold w) RNil
@@ -894,10 +894,10 @@ data LipsyncTarget
 lipLyricsStates :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> LipsyncStates
 lipLyricsStates vmap lip = let
   tubes = vocalTubes mempty
-    { vocalLyrics = lipLyrics lip
-    , vocalNotes  = lipNotes  lip
+    { vocalLyrics = lip.lipLyrics
+    , vocalNotes  = lip.lipNotes
     }
-  withLang = applyStatus1 LyricEnglish (lipLanguage lip) tubes
+  withLang = applyStatus1 LyricEnglish lip.lipLanguage tubes
   transcribed = runTranscribe $ flip fmap withLang $ \(lang, mtext) -> let
     trans = case lang of
       LyricEnglish -> englishSyllables
@@ -913,7 +913,7 @@ lipsyncFromMIDITrack' :: LipsyncTarget -> VisemeMap [(T.Text, Word8)] -> Lipsync
 lipsyncFromMIDITrack' tgt vmap lip
   = (case tgt of LipsyncTBRB -> setBeatles; LipsyncRB3 -> setRB3)
   $ lipsyncFromStates
-  $ addLipsyncStates (lipEventsStates' $ lipEvents lip) (lipLyricsStates vmap lip)
+  $ addLipsyncStates (lipEventsStates' lip.lipEvents) (lipLyricsStates vmap lip)
 
 lipsyncFromMIDITrack :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> Lipsync
 lipsyncFromMIDITrack = lipsyncFromMIDITrack' LipsyncRB3

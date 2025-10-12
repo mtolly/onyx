@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
 module Onyx.MIDI.Track.Vocal.Legacy
 ( Percussion(..), Pitch(..)
 , Event(..)
@@ -51,17 +52,17 @@ vocalFromLegacy leg = VocalTrack
 
 vocalToLegacy :: (NNC.C t) => VocalTrack t -> RTB.T t Event
 vocalToLegacy o = foldr RTB.merge RTB.empty
-  [ Mood                        <$> vocalMood          o
-  , Lyric                       <$> vocalLyrics        o
-  , const Percussion            <$> vocalPerc          o
-  , const PercussionSound       <$> vocalPercSound     o
-  , uncurry PercussionAnimation <$> vocalPercAnimation o
-  , Phrase                      <$> vocalPhrase1       o
-  , Phrase2                     <$> vocalPhrase2       o
-  , Overdrive                   <$> vocalOverdrive     o
-  , const LyricShift            <$> vocalLyricShift    o
-  , RangeShift                  <$> vocalRangeShift    o
-  , uncurry (flip Note)         <$> vocalNotes         o
+  [ Mood                        <$> o.vocalMood
+  , Lyric                       <$> o.vocalLyrics
+  , const Percussion            <$> o.vocalPerc
+  , const PercussionSound       <$> o.vocalPercSound
+  , uncurry PercussionAnimation <$> o.vocalPercAnimation
+  , Phrase                      <$> o.vocalPhrase1
+  , Phrase2                     <$> o.vocalPhrase2
+  , Overdrive                   <$> o.vocalOverdrive
+  , const LyricShift            <$> o.vocalLyricShift
+  , RangeShift                  <$> o.vocalRangeShift
+  , uncurry (flip Note)         <$> o.vocalNotes
   ]
 
 {- |

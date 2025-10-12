@@ -206,9 +206,9 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           Just part -> let
             trk = (F.getFlexPart part onyx).onyxPartVocals
             in fmap (\b -> if b then Event_sing_on else Event_sing_off)
-              $ makePlayBools (RB.vocalMood trk)
+              $ makePlayBools trk.vocalMood
               $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
-              $ RB.vocalNotes trk
+              $ trk.vocalNotes
         , fmap (\b -> if b then Event_bass_on else Event_bass_off)
           $ maybe RTB.empty fiveResultMoods
           $ gh1AnimBass audio >>= getFive

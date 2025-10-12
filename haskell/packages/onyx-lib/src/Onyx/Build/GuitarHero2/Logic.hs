@@ -326,10 +326,11 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
           $ Map.lookup Expert result.notes
         in mempty { keysIdle = idle, keysPlay = play }
+      makeBandSinger :: RB.VocalTrack U.Beats -> BandSingerTrack U.Beats
       makeBandSinger trk = let
         (idle, play) = makeMoods trk.vocalMood
           $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
-          $ RB.vocalNotes trk
+          $ trk.vocalNotes
         in mempty { singerIdle = idle, singerPlay = play }
       events = mempty
         { eventsSections      = fmap (makeGH2Section . sectionBody) onyx.onyxEvents.eventsSections

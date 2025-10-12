@@ -3,6 +3,7 @@
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -37,8 +38,8 @@ instance TraverseTrack ManiaTrack where
 
 instance ParseTrack ManiaTrack where
   parseTrack = do
-    maniaOverdrive <- maniaOverdrive =. edges 116
-    maniaNotes     <- maniaNotes     =. fatBlips (1/8) Codec
+    maniaOverdrive <- (.maniaOverdrive) =. edges 116
+    maniaNotes     <- (.maniaNotes    ) =. fatBlips (1/8) Codec
       { codecIn = slurpTrack $ \mt -> let
         applyPitchEdges (pitch, thisEdges) = flip fmap thisEdges $ bimap
           (const ())
@@ -65,7 +66,7 @@ getManiaNormalNotes' keepLift mt = RTB.mapMaybe
     EdgeOn () (k, noteType) -> guard (keep noteType) >> Just (EdgeOn () k)
     EdgeOff   (k, noteType) -> guard (keep noteType) >> Just (EdgeOff   k)
   )
-  (maniaNotes mt)
+  mt.maniaNotes
   where keep = \case
           NoteNormal -> True
           NoteMine   -> False

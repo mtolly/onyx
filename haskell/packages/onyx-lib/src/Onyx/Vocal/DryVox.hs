@@ -1,6 +1,7 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
 module Onyx.Vocal.DryVox where
 
 import           Control.Monad                    (guard)
@@ -25,8 +26,8 @@ import qualified Sound.MIDI.Util                  as U
 
 vocalTubes :: (NNC.C t) => VocalTrack t -> RTB.T t (Maybe T.Text)
 vocalTubes vox = let
-  edges = fmap (Left . snd) $ vocalNotes vox
-  lyrics = fmap Right $ vocalLyrics vox
+  edges = Left . snd <$> vox.vocalNotes
+  lyrics = Right <$> vox.vocalLyrics
   vox' = RTB.mapMaybe instant $ RTB.collectCoincident $ RTB.merge edges lyrics
   instant evts = let
     on    = elem (Left True) evts
@@ -88,7 +89,7 @@ toDryVoxFormat = resampleTo 16000 SincMediumQuality . applyVolsMono []
 
 sineDryVox :: (Monad m) => VocalTrack U.Seconds -> AudioSource m Float
 sineDryVox vox = let
-  notes = RTB.normalize $ fmap (\(p, b) -> guard b >> Just p) $ vocalNotes vox
+  notes = RTB.normalize $ (\(p, b) -> guard b >> Just p) <$> vox.vocalNotes
   go p rtb = case RTB.viewL rtb of
     Nothing -> silent (Seconds 1) 16000 1
     Just ((dt, p'), rtb') -> let

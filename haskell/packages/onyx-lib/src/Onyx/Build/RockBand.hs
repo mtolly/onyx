@@ -30,6 +30,7 @@ import qualified Data.Text.Encoding                    as TE
 import           Data.Version                          (showVersion)
 import           Development.Shake                     hiding (phony, (%>))
 import           Development.Shake.FilePath
+import qualified Numeric.NonNegative.Class             as NNC
 import           Onyx.Audio
 import           Onyx.Audio.Render
 import           Onyx.Build.Common
@@ -442,29 +443,30 @@ rbRules buildInfo dir rb3 mrb2 = do
         { F.fixedVenue = case songYaml.global.autogenTheme of
           Nothing -> blackVenueTrack
           Just _  -> let
+            onlyLightingPP, onlyCamera, onlyOther :: (NNC.C t) => VenueTrack t -> VenueTrack t
             onlyLightingPP venue = mempty
-              { venueSpotKeys = venueSpotKeys venue
-              , venueSpotVocal = venueSpotVocal venue
-              , venueSpotGuitar = venueSpotGuitar venue
-              , venueSpotDrums = venueSpotDrums venue
-              , venueSpotBass = venueSpotBass venue
-              , venuePostProcessRB3 = venuePostProcessRB3 venue
-              , venuePostProcessRB2 = venuePostProcessRB2 venue
-              , venueLighting = venueLighting venue
-              , venueLightingCommands = venueLightingCommands venue
+              { venueSpotKeys = venue.venueSpotKeys
+              , venueSpotVocal = venue.venueSpotVocal
+              , venueSpotGuitar = venue.venueSpotGuitar
+              , venueSpotDrums = venue.venueSpotDrums
+              , venueSpotBass = venue.venueSpotBass
+              , venuePostProcessRB3 = venue.venuePostProcessRB3
+              , venuePostProcessRB2 = venue.venuePostProcessRB2
+              , venueLighting = venue.venueLighting
+              , venueLightingCommands = venue.venueLightingCommands
               }
             onlyCamera venue = mempty
-              { venueCameraRB3 = venueCameraRB3 venue
-              , venueCameraRB2 = venueCameraRB2 venue
-              , venueDirectedRB2 = venueDirectedRB2 venue
+              { venueCameraRB3 = venue.venueCameraRB3
+              , venueCameraRB2 = venue.venueCameraRB2
+              , venueDirectedRB2 = venue.venueDirectedRB2
               }
             onlyOther venue = mempty
-              { venueSingGuitar = venueSingGuitar venue
-              , venueSingDrums = venueSingDrums venue
-              , venueSingBass = venueSingBass venue
-              , venueBonusFX = venueBonusFX venue
-              , venueBonusFXOptional = venueBonusFXOptional venue
-              , venueFog = venueFog venue
+              { venueSingGuitar = venue.venueSingGuitar
+              , venueSingDrums = venue.venueSingDrums
+              , venueSingBass = venue.venueSingBass
+              , venueBonusFX = venue.venueBonusFX
+              , venueBonusFXOptional = venue.venueBonusFXOptional
+              , venueFog = venue.venueFog
               }
             in mconcat
               [ reauthor $ onlyLightingPP . (.fixedVenue)

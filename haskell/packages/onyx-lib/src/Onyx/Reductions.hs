@@ -251,7 +251,7 @@ data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show)
 
 readPKNotes :: ProKeysTrack U.Beats -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = fmap (uncurry PKNote) . guitarify' . edgeBlips_ minSustainLengthRB . pkNotes
+readPKNotes = fmap (uncurry PKNote) . guitarify' . edgeBlips_ minSustainLengthRB . (.pkNotes)
 
 showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> ProKeysTrack U.Beats
 showPKNotes pk = mempty { pkNotes = blipEdgesRB_ $ RTB.flatten $ fmap f pk } where
@@ -546,7 +546,7 @@ simpleReduce fin fout = do
       pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
       pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH
       pkE = trks.onyxPartRealKeysE `pkOr` pkReduce Easy   mmap od pkM
-      od = pkOverdrive pkX
+      od = pkX.pkOverdrive
       trkX `pkOr` trkY
         | nullPK pkX  = mempty
         | nullPK trkX = trkY

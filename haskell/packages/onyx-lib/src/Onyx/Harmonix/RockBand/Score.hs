@@ -119,9 +119,9 @@ data VoxScoreEvent = PhraseEnd | PercNote
 voxBaseAndSolo :: (NNC.C t) => Difficulty -> Vox.VocalTrack t -> (Int, Int)
 voxBaseAndSolo diff vt = let
   phraseEnds = fmap (const PhraseEnd) $ RTB.collectCoincident $ RTB.merge
-    (RTB.filter not $ Vox.vocalPhrase1 vt)
-    (RTB.filter not $ Vox.vocalPhrase2 vt)
-  perc = fmap (const PercNote) $ Vox.vocalPerc vt
+    (RTB.filter not vt.vocalPhrase1)
+    (RTB.filter not vt.vocalPhrase2)
+  perc = PercNote <$ vt.vocalPerc
   phrasePoints = case diff of
     Easy   -> 200
     Medium -> 400
