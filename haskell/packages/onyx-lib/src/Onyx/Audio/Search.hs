@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -225,7 +226,7 @@ searchInfo :: (SendMessage m, MonadIO m) =>
 searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
   finishFile p = do
     verifyFile info p
-    return $ case info.rate of
+    return case info.rate of
       Nothing -> Resample $ Input $ toFilePath p
       Just _  -> Input $ toFilePath p
   in case info.filePath of
@@ -239,10 +240,10 @@ searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
         False -> case info.commands of
           [] -> fatal $ "File does not exist: " ++ toFilePath p
           _ -> do
-            let allVariables = nubOrd $ do
+            let allVariables = nubOrd do
                   c <- info.commands
                   map (T.takeWhile (/= ')')) $ drop 1 $ T.splitOn "AUDIO(" c
-            variableMapping <- forM allVariables $ \var -> do
+            variableMapping <- forM allVariables \var -> do
               built <- buildDependency var
               -- TODO figure out better approach to quoting?
               return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")

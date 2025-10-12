@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DeriveTraversable     #-}
@@ -78,7 +79,7 @@ getSongList gen = do
   D.decodeDecryptDTB dtb >>= readSongListGH2
 
 getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
-getImports = concatMap $ \(t, pkg) -> case songCoop pkg of
+getImports = concatMap \(t, pkg) -> case songCoop pkg of
   Nothing -> [(t, (ImportSolo, pkg))]
   Just _  -> [(t, (ImportSolo, pkg)), (t, (ImportCoop, pkg))]
 
@@ -92,7 +93,7 @@ importGH2 displayPath gen = do
   map (\(_, (mode, pkg)) -> importGH2Song mode pkg displayPath folder) . getImports <$> getSongList gen
 
 importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.OnyxFile U.Beats)
-importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
+importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
     { RB.fiveDifficulties = flip fmap (partDifficulties part) $ \diff -> mempty
@@ -138,7 +139,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap $ let
       , RB.eventsSections   = (\s -> simpleSection $ fromGH2Section s) <$> eventsSections (gh2Events gh2)
       , RB.eventsBacking    = triggersBacking $ gh2Triggers gh2
       }
-    , F.fixedPartGuitar = convertPart $ case mode of
+    , F.fixedPartGuitar = convertPart case mode of
       ImportSolo -> gh2PartGuitar gh2
       ImportCoop -> if nullPart $ gh2PartGuitarCoop gh2
         then gh2PartGuitar gh2
@@ -269,7 +270,7 @@ importGH2Song mode pkg displayPath folder level = do
             ImportFull  -> splitOutVGSChannels [i] vgs
             ImportQuick -> return BL.empty
           return ("vgs-" <> show i, bs)
-        let audio = HM.fromList $ do
+        let audio = HM.fromList do
               (name, bs) <- namedChans
               return $ (T.pack name ,) $ AudioFile AudioInfo
                 { md5 = Nothing
@@ -286,13 +287,13 @@ importGH2Song mode pkg displayPath folder level = do
               songChans = zipWith const [0..] (pans songChunk)
                 \\ (guitarChans ++ bassChans ++ rhythmChans)
               mixChans v cs = do
-                presentChannels <- NE.nonEmpty $ do
+                presentChannels <- NE.nonEmpty do
                   c <- cs
                   -- in some custom isos, vgs can have fewer channels than claimed by dta
                   case drop c namedChans of
                     (name, _) : _ -> [(c, T.pack name)]
                     []            -> []
-                Just $ case presentChannels of
+                Just case presentChannels of
                   (c, name) :| [] -> PansVols
                     (map realToFrac [pans songChunk !! c])
                     (map realToFrac [(vols songChunk !! c) + v])
@@ -345,7 +346,7 @@ getGH2MoggPlan mogg songChunk = let
       let i `channelFor` part = maybe False (elem i) $ lookup part instChans
       (i, vol) <- zip [0..] $ vols songChunk
       -- again, made up these volume adjustments so things sound ok in RB context
-      return $ realToFrac $ if
+      return $ realToFrac if
         | i `channelFor` "guitar" -> vol - 0.5
         | i `channelFor` "bass"   -> vol - 3
         | i `channelFor` "rhythm" -> vol - 1.5
@@ -365,7 +366,7 @@ importGH2DLC src folder = do
     Just bs -> do
       dta <- D.readDTA_latin1 $ BL.toStrict bs
       readSongListGH2Extra dta
-  flip concatMapM packSongs $ \(_top, pkg, extra) -> do
+  flip concatMapM packSongs \(_top, pkg, extra) -> do
     let base = T.unpack $ songName $ song pkg
         split s = case splitPath $ T.pack s of
           Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -385,8 +386,8 @@ importGH2DLC src folder = do
     let modes = case songCoop pkg of
           Nothing -> [ImportSolo]
           Just _  -> [ImportSolo, ImportCoop]
-    forM modes $ \mode -> do
-      return $ \level -> do
+    forM modes \mode -> do
+      return \level -> do
         songChunk <- case mode of
           ImportSolo -> return $ song pkg
           ImportCoop -> case songCoop pkg of
@@ -443,7 +444,7 @@ loadSetlistFull gen = do
   setlist <- loadSetlist gen
   dir <- stackIO $ crawlFolder gen
   songs <- HM.fromList <$> getSongList dir
-  forM setlist $ \k -> case HM.lookup (decodeLatin1 k) songs of
+  forM setlist \k -> case HM.lookup (decodeLatin1 k) songs of
     Just pkg -> return (k, pkg)
     Nothing  -> fatal $ "Couldn't locate setlist song " <> show k
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Reaper.Base where
@@ -32,7 +33,7 @@ showElement (Element k ks (Just sub)) = let
     else PP.vcat [start, PP.indent 2 $ PP.vcat $ map showElement sub, end]
 
 showAtom :: T.Text -> PP.Doc ()
-showAtom s = PP.pretty $ case (T.any (== '"') s, T.any (== '\'') s, T.any (== ' ') s) of
+showAtom s = PP.pretty case (T.any (== '"') s, T.any (== '\'') s, T.any (== ' ') s) of
   (True, True, _)       -> "`" <> T.map removeTick s <> "`"
   (False, False, False) -> s
   (False, _, True)      -> wrap '"'

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections   #-}
 module Onyx.GuitarHero.IOS where
@@ -73,7 +74,7 @@ loadIGA f = do
         $ B.drop (fromIntegral $ igaFilenameDirectoryOffset header) bs
       nameOffsets = runGet (replicateM (fromIntegral $ igaFileCount header) getWord32le)
         $ BL.fromStrict namesSection
-      names = flip map nameOffsets $ \offset ->
+      names = flip map nameOffsets \offset ->
         B.takeWhile (/= 0) $ B.drop (fromIntegral offset) namesSection
       sliceFile name (offset, len, compression) = if compression == -1
         then return (name, BL.fromStrict $ B.take (fromIntegral len) $ B.drop (fromIntegral offset) bs)
@@ -117,7 +118,7 @@ extractIGA f = do
     [ show header
     , show $ zip3 (map fst files) (igaHashes header) (igaFiles header)
     ]
-  extracted <- forM files $ \(name, contents) -> do
+  extracted <- forM files \(name, contents) -> do
     let out = dropExtension f </> B8.unpack name
     createDirectoryIfMissing True $ takeDirectory out
     BL.writeFile out contents

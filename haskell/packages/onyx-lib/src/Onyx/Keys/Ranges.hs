@@ -1,6 +1,7 @@
 {- |
 Algorithm for generating automatic Pro Keys range shifts.
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -31,7 +32,7 @@ completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 completeFile fin fout = do
   F.Song tempos mmap trks <- F.loadMIDI fin
   liftIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap trks
-    { F.onyxParts = flip fmap trks.onyxParts $ \part -> part
+    { F.onyxParts = flip fmap trks.onyxParts \part -> part
       { F.onyxPartRealKeysE = completeRanges part.onyxPartRealKeysE
       , F.onyxPartRealKeysM = completeRanges part.onyxPartRealKeysM
       , F.onyxPartRealKeysH = completeRanges part.onyxPartRealKeysH
@@ -137,7 +138,7 @@ showPitch = \case
   OrangeC -> "Orange C"
 
 closeShiftsFile :: F.Song (F.OnyxFile U.Beats) -> T.Text
-closeShiftsFile song = T.unlines $ do
+closeShiftsFile song = T.unlines do
   (partName, part) <- Map.toAscList song.tracks.onyxParts
   let xpk = part.onyxPartRealKeysX
   guard $ not $ nullPK xpk
@@ -155,7 +156,7 @@ closeShiftsFile song = T.unlines $ do
         , T.pack $ show rng1
         ]
       surround x = ["[" <> F.getPartName partName <> "]"] <> x
-  surround $ case ATB.toPairList $ RTB.toAbsoluteEventList 0 close of
+  surround case ATB.toPairList $ RTB.toAbsoluteEventList 0 close of
     []    -> ["No close shifts found."]
     pairs -> map showClose pairs
 
@@ -163,7 +164,7 @@ closeShifts :: U.Seconds -> ProKeysTrack U.Seconds -> RTB.T U.Seconds (LaneRange
 closeShifts threshold trk = let
   lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 trk.pkLanes
   shifts = zip lanes $ drop 1 lanes
-  notes = flip RTB.mapMaybe trk.pkNotes $ \case
+  notes = flip RTB.mapMaybe trk.pkNotes \case
     EdgeOn () pitch -> Just pitch
     EdgeOff _       -> Nothing
   closeNotes ((_, rng1), (t, rng2)) = do

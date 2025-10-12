@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -97,7 +98,7 @@ instance ParseTrack VocalTrack where
     vocalRangeShift    <- (.vocalRangeShift   ) =. edges 0
     vocalNotes         <- ((.vocalNotes       ) =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
-    vocalEyesClosed <- ((.vocalEyesClosed) =.) $ condenseMap_ $ eachKey each $ \case
+    vocalEyesClosed <- ((.vocalEyesClosed) =.) $ condenseMap_ $ eachKey each \case
       True  -> commandMatch ["eyes", "close"]
       False -> commandMatch ["eyes", "open" ]
     return VocalTrack{..}
@@ -154,12 +155,12 @@ joinMatchingTracks = go NNC.zero [] where
 
 getLyricNotes :: (Monad m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
 getLyricNotes mmap vox = let
-  joinedNotes = joinEdgesSimple $ flip fmap vox.vocalNotes $ \(p, b) -> if b then EdgeOn () p else EdgeOff p
+  joinedNotes = joinEdgesSimple $ flip fmap vox.vocalNotes \(p, b) -> if b then EdgeOn () p else EdgeOff p
   in case joinMatchingTracks joinedNotes vox.vocalLyrics of
-    Left (errorTime, isLyricNoNote) -> fatal $ if isLyricNoNote
+    Left (errorTime, isLyricNoNote) -> fatal if isLyricNoNote
       then "Lyric without a corresponding note at " <> showPosition mmap errorTime
       else "Note without a corresponding lyric at " <> showPosition mmap errorTime
-    Right joined -> return $ flip fmap joined $ \(((), pitch, len), lyric) -> let
+    Right joined -> return $ flip fmap joined \(((), pitch, len), lyric) -> let
       lyricNote = case lyric of
         "+" -> SlideTo pitch
         _   -> case T.stripSuffix "#" lyric of
@@ -178,7 +179,7 @@ getLyricNotes mmap vox = let
 
 putLyricNotes :: (NNC.C t) => RTB.T t (LyricNote, t) -> VocalTrack t
 putLyricNotes lnotes = mempty
-  { vocalLyrics = flip fmap lnotes $ \(lnote, _) -> case lnote of
+  { vocalLyrics = flip fmap lnotes \(lnote, _) -> case lnote of
     Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
     Talky diff (Lyric t cont) -> T.concat
       [ case (T.stripSuffix "-" t, cont) of
@@ -188,7 +189,7 @@ putLyricNotes lnotes = mempty
       , case diff of TalkyNormal -> "#"; TalkyEasy -> "^"
       ]
     SlideTo _                 -> "+"
-  , vocalNotes = U.trackJoin $ flip fmap lnotes $ \(lnote, dur) -> let
+  , vocalNotes = U.trackJoin $ flip fmap lnotes \(lnote, dur) -> let
     pitch = case lnote of
       Pitched p _ -> p
       Talky   _ _ -> minBound
@@ -199,15 +200,15 @@ putLyricNotes lnotes = mempty
 getPhraseLabels :: (Num t, NNC.C t) => RTB.T t Bool -> RTB.T t (LyricNote, t) -> RTB.T t T.Text
 getPhraseLabels phrases lnotes = let
   eachPhrase lnoteList = let
-    lyricList = flip mapMaybe lnoteList $ \case
+    lyricList = flip mapMaybe lnoteList \case
       Pitched _ lyric -> Just lyric
       Talky   _ lyric -> Just lyric
       SlideTo _       -> Nothing
-    in T.strip $ T.concat $ flip map lyricList $ \lyric ->
+    in T.strip $ T.concat $ flip map lyricList \lyric ->
       if lyric.lyricContinues
         then lyric.lyricText
         else lyric.lyricText <> " "
-  joinedPhrases = joinEdgesSimple $ flip fmap phrases $ \b -> if b then EdgeOn () () else EdgeOff ()
+  joinedPhrases = joinEdgesSimple $ flip fmap phrases \b -> if b then EdgeOn () () else EdgeOff ()
   getPhrase start len = map fst $ RTB.getBodies $ U.trackTake len $ U.trackDrop start lnotes
   in RTB.fromAbsoluteEventList
     $ ATB.fromPairList

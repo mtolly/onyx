@@ -2,6 +2,7 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -71,9 +72,9 @@ splitFrameGroup = let
 fromLipsyncPS4 :: (MonadFail m) => LipsyncPS4 -> m [(B.ByteString, Lipsync)]
 fromLipsyncPS4 lip = do
   let groups = splitFrameGroups lip
-  results <- forM groups $ \frame -> do
+  results <- forM groups \frame -> do
     runGetM splitFrameGroup $ BL.fromStrict frame
-  return $ do
+  return do
     (i, player) <- zip [0..] lip.players
     return (player, emptyLipsync
       { lipsyncVisemes = lip.visemes

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -121,7 +122,7 @@ lowBassTuning tuning = case tuning.gtrBase of
 -- | RB3 style (does not include 'gtrGlobal' or 'gtrCapo').
 encodeTuningOffsets :: GtrTuning -> GuitarType -> [Int]
 encodeTuningOffsets tun typ = let
-  std  = tuningPitches $ case typ of
+  std  = tuningPitches case typ of
     TypeGuitar -> GtrTuning Guitar6 [] 0 0 Nothing
     TypeBass   -> GtrTuning Bass4   [] 0 0 Nothing
   n = case typ of
@@ -308,7 +309,7 @@ instance ParseTrack ProGuitarTrack where
     pgMystery45    <- (.pgMystery45) =. edges 45
     pgMystery69    <- (.pgMystery69) =. edges 69
     pgMystery93    <- (.pgMystery93) =. edges 93
-    pgDifficulties <- (=.) (.pgDifficulties) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    pgDifficulties <- (=.) (.pgDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 24
             Medium -> 48
@@ -322,7 +323,7 @@ instance ParseTrack ProGuitarTrack where
         fp = \case
           (str, (nt, Just v))  -> EdgeOn (v - 100) (str, nt)
           (str, (nt, Nothing)) -> EdgeOff (str, nt)
-        in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each $ \str -> channelEdges $ base + getStringIndex 6 str
+        in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each \str -> channelEdges $ base + getStringIndex 6 str
       pgForce       <- (.pgForce) =. let
         fs = \case
           EdgeOn () sh -> (sh, True )
@@ -337,7 +338,7 @@ instance ParseTrack ProGuitarTrack where
       pgChordName    <- (.pgChordName   ) =. let
         cmd = T.pack $ "chrd" ++ show (fromEnum diff)
         parse = \case
-          k : cname | k == cmd -> Just $ case cname of
+          k : cname | k == cmd -> Just case cname of
             []    -> Nothing
             _ : _ -> Just $ T.unwords cname
           _                    -> Nothing
@@ -477,7 +478,7 @@ computeChordNames diff tuning flatDefault pg = let
     $ edgeBlips minSustainLengthRB pgd.pgNotes
 
   chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
-  chords = flip fmap notes $ \(root, (mods, chord)) -> case sort chord of
+  chords = flip fmap notes \(root, (mods, chord)) -> case sort chord of
     low : rest@(_ : _) -> Just ChordData
       { chordFrets = Map.fromList [ (str, fret) | (str, (_, fret, _)) <- chord ]
       , chordName = if elem ModNoName mods then "" else let
@@ -561,10 +562,10 @@ computeChordNames diff tuning flatDefault pg = let
 -- | Renders all the chord names as explicit override events.
 freezeChordNames :: [Int] -> Bool -> ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 freezeChordNames tuning flatDefault pg = pg
-  { pgDifficulties = flip Map.mapWithKey pg.pgDifficulties $ \diff pgd -> let
+  { pgDifficulties = flip Map.mapWithKey pg.pgDifficulties \diff pgd -> let
     chords = computeChordNames diff tuning flatDefault pg
     in pgd
-      { pgChordName = flip RTB.mapMaybe chords $ \case
+      { pgChordName = flip RTB.mapMaybe chords \case
         NoteOff  () -> Nothing
         Blip   c () -> Just $ Just c
         NoteOn c () -> Just $ Just c
@@ -576,11 +577,11 @@ freezeChordNames tuning flatDefault pg = pg
 autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
 autoHandPosition pg = if RTB.null pg.pgHandPosition
   then let
-    frets = foldr RTB.merge RTB.empty $ do
+    frets = foldr RTB.merge RTB.empty do
       pgd <- Map.elems pg.pgDifficulties
       -- note, we do take ArpeggioForm notes into account because Magma does too
       -- TODO do we need to take muted notes into account?
-      return $ flip RTB.mapMaybe pgd.pgNotes $ \case
+      return $ flip RTB.mapMaybe pgd.pgNotes \case
         EdgeOn fret _ -> Just fret
         EdgeOff _     -> Nothing
     posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
@@ -600,9 +601,9 @@ autoChordRoot :: (NNC.C t) => [Int] -> ProGuitarTrack t -> ProGuitarTrack t
 autoChordRoot tuning pg = if RTB.null pg.pgChordRoot
   then let
     getPitch str fret = indexTuning tuning str + fret
-    notes = foldr RTB.merge RTB.empty $ do
+    notes = foldr RTB.merge RTB.empty do
       (diff, pgd) <- Map.toList pg.pgDifficulties
-      return $ flip RTB.mapMaybe pgd.pgNotes $ \case
+      return $ flip RTB.mapMaybe pgd.pgNotes \case
         EdgeOn fret (str, _) -> Just (diff, getPitch str fret)
         EdgeOff _            -> Nothing
     roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
@@ -660,7 +661,7 @@ computeSlides
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
 computeSlides slideMarkers hopo = let
   marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> slideMarkers)
-  marked' = RTB.flatten $ flip fmap marked $ \xs -> let
+  marked' = RTB.flatten $ flip fmap marked \xs -> let
     notes = lefts xs
     slides = rights xs
     in map (, listToMaybe slides) notes
@@ -695,7 +696,7 @@ computeSlides slideMarkers hopo = let
           in case (mlen, smallSustain) of
             (Nothing, Nothing) -> Nothing -- stub slide
             (Nothing, Just dt') -> Just (dt', Just computedDir) -- non-sustainable note becomes slide
-            (Just len, _) -> Just $ case connect of
+            (Just len, _) -> Just case connect of
               Nothing -> (len, Just computedDir) -- no close next note, normal sustain length
               Just (dt', sht', _) -> case sht' of
                 Strum -> (len, Just computedDir) -- next note is strum, no extension
@@ -739,7 +740,7 @@ fretLimit maxFret pg = let
 -- | Shifts notes between strings to shrink a 7/8-string part to 6 strings.
 moveStrings :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
 moveStrings pg = let
-  mappers = flip fmap pg.pgOnyxString $ \setting -> let
+  mappers = flip fmap pg.pgOnyxString \setting -> let
     strs = case unsnoc setting of
       Nothing      -> [S6 .. S1]
       Just (xs, x) -> xs ++ [x ..]

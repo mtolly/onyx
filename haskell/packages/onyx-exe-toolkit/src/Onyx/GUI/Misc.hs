@@ -5,6 +5,7 @@
 {-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
+{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Misc where
 
 import           Onyx.GUI.Core
@@ -69,7 +70,7 @@ miscPageMilo sink rect tab startTasks = do
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Extract .milo to folder"
     taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> do
+    FL.setCallback btn \_ -> do
       picker1 <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker1 "Load .milo"
       FL.setFilter picker1 "*.{milo_xbox,milo_ps3,milo_wii}"
@@ -83,7 +84,7 @@ miscPageMilo sink rect tab startTasks = do
             FL.showWidget picker2 >>= \case
               FL.NativeFileChooserPicked -> FL.getFilename picker2 >>= \case
                 Nothing -> return ()
-                Just (T.unpack -> dout) -> sink $ EventOnyx $ let
+                Just (T.unpack -> dout) -> sink $ EventOnyx let
                   task = do
                     unpackMilo fin dout
                     return [dout]
@@ -94,18 +95,18 @@ miscPageMilo sink rect tab startTasks = do
   padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
     taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> askFolder Nothing $ \din -> do
+    FL.setCallback btn \_ -> askFolder Nothing \din -> do
       let dinText = T.pack din
       miloPicker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
       FL.setTitle miloPicker "Save .milo"
-      FL.setPresetFile miloPicker $ case T.stripSuffix "-extract" dinText of
+      FL.setPresetFile miloPicker case T.stripSuffix "-extract" dinText of
         Just stripped -> stripped
         Nothing       -> dinText <> ".milo"
       FL.setFilter miloPicker "*.{milo_xbox,milo_ps3,milo_wii}"
       FL.showWidget miloPicker >>= \case
         FL.NativeFileChooserPicked -> FL.getFilename miloPicker >>= \case
           Nothing -> return ()
-          Just (T.unpack -> fout) -> sink $ EventOnyx $ let
+          Just (T.unpack -> fout) -> sink $ EventOnyx let
             task = do
               packMilo din fout
               return [fout]
@@ -158,7 +159,7 @@ miscPageLipsync sink rect tab startTasks = do
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
     pick <- FL.buttonNew pickRect $ Just "@fileopen"
-    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+    FL.setCallback pick \_ -> sink $ EventIO do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Load MIDI file"
       FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
@@ -197,10 +198,10 @@ miscPageLipsync sink rect tab startTasks = do
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Make GH2 .voc from PART VOCALS"
     taskColor >>= FL.setColor btn
-    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+    FL.setCallback btn \_ -> sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
-      saveVoc input $ \voc -> sink $ EventOnyx $ let
+      saveVoc input \voc -> sink $ EventOnyx let
         task = do
           mid <- F.loadMIDI input
           let _ = mid :: F.Song (F.FixedFile U.Beats)
@@ -247,16 +248,16 @@ miscPageLipsync sink rect tab startTasks = do
     makeButton <- FL.buttonNew makeArea $ Just "Make RB3 .milo_*"
     taskColor >>= FL.setColor makeButton
     FL.setTooltip makeButton "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS."
-    FL.setCallback makeButton $ \_ -> sink $ EventIO $ do
+    FL.setCallback makeButton \_ -> sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
       trans <- getTransition
-      saveMilo input $ \milo -> sink $ EventOnyx $ let
+      saveMilo input \milo -> sink $ EventOnyx let
         task = do
           mid <- F.loadMIDI input
           vmapRB3 <- loadVisemesRB3
           useLipsyncTracks <- hasLipsyncTracks mid
-          stackIO $ BL.writeFile milo $ magmaMilo $ let
+          stackIO $ BL.writeFile milo $ magmaMilo let
             lip1 = if useLipsyncTracks
               then getLipsync (.fixedLipsync1)
               else getVocal [(.fixedHarm1), (.fixedPartVocals)]
@@ -290,11 +291,11 @@ miscPageLipsync sink rect tab startTasks = do
     updateButton <- FL.buttonNew updateArea $ Just "Update RB3/TBRB .milo_*"
     taskColor >>= FL.setColor updateButton
     FL.setTooltip updateButton "Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks."
-    FL.setCallback updateButton $ \_ -> sink $ EventIO $ do
+    FL.setCallback updateButton \_ -> sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
       trans <- getTransition
-      pickMilo $ \milo -> sink $ EventOnyx $ let
+      pickMilo \milo -> sink $ EventOnyx let
         task = do
           stackIO $ Dir.copyFile milo $ milo <> ".bak"
           mid <- F.loadMIDI input
@@ -305,7 +306,7 @@ miscPageLipsync sink rect tab startTasks = do
           let editDir dir = dir
                 { miloFiles = do
                   ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
-                  return $ case name of
+                  return case name of
                     "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
                     "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
                     "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
@@ -339,9 +340,9 @@ miscPageLipsync sink rect tab startTasks = do
     rawButton <- FL.buttonNew rawArea $ Just "Create *.lipsync"
     taskColor >>= FL.setColor rawButton
     FL.setTooltip rawButton "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files."
-    FL.setCallback rawButton $ \_ -> sink $ EventIO $ do
+    FL.setCallback rawButton \_ -> sink $ EventIO do
       input <- pickedFile
-      askFolder (Just $ takeDirectory input) $ \dout -> sink $ EventOnyx $ let
+      askFolder (Just $ takeDirectory input) $ \dout -> sink $ EventOnyx let
         task = do
           mid <- F.loadMIDI input
           let _ = mid :: F.Song (F.FixedFile U.Beats)
@@ -364,7 +365,7 @@ miscPageLipsync sink rect tab startTasks = do
                   Just (dout </> name, runPut $ putLipsync
                     $ lipsyncFromMIDITrack' tgt vmap
                     $ mapTrack (U.applyTempoTrack mid.tempos) trk)
-          forM tracks $ \(path, bs) -> do
+          forM tracks \(path, bs) -> do
             stackIO $ BL.writeFile path bs
             return path
         in startTasks [("Export .lipsync to folder", task)]
@@ -373,7 +374,7 @@ miscPageLipsync sink rect tab startTasks = do
         input <- pickedFile
         vowels <- getVowels
         trans <- getTransition
-        sink $ EventOnyx $ let
+        sink $ EventOnyx let
           task = do
             stackIO $ Dir.copyFile input $ input <> ".bak"
             mid <- F.loadMIDI input
@@ -414,13 +415,13 @@ miscPageLipsync sink rect tab startTasks = do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for RB3"
     taskColor >>= FL.setColor btn
     FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set."
-    FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
+    FL.setCallback btn \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
 
   padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for TBRB"
     taskColor >>= FL.setColor btn
     FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set."
-    FL.setCallback btn $ \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
+    FL.setCallback btn \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -445,7 +446,7 @@ miscPageDryVox sink rect tab startTasks = do
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
     pick <- FL.buttonNew pickRect $ Just "@fileopen"
-    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+    FL.setCallback pick \_ -> sink $ EventIO do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Load MIDI file"
       FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
@@ -479,7 +480,7 @@ miscPageDryVox sink rect tab startTasks = do
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
         taskColor >>= FL.setColor btn
-        FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        FL.setCallback btn \_ -> sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
           picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
@@ -489,7 +490,7 @@ miscPageDryVox sink rect tab startTasks = do
           FL.showWidget picker >>= \case
             FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
               Nothing -> return ()
-              Just f  -> sink $ EventOnyx $ let
+              Just f  -> sink $ EventOnyx let
                 task = do
                   mid <- F.loadMIDI input
                   let _ = mid :: F.Song (F.FixedFile U.Beats)
@@ -512,7 +513,7 @@ miscPageDryVox sink rect tab startTasks = do
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
     FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
     pick <- FL.buttonNew pickRect $ Just "@fileopen"
-    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+    FL.setCallback pick \_ -> sink $ EventIO do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Load song or vocals audio"
       FL.setFilter picker "*.{wav,ogg,mp3,flac}"
@@ -539,14 +540,14 @@ miscPageGH3SongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchGH3Cachable $ \info -> let
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
   btn1 <- FL.buttonNew xboxRect $ Just "Create GH3 cache (360)"
   taskColor >>= FL.setColor btn1
-  FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
+  FL.setCallback btn1 \_ -> sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save GH3 cache file (360)"
@@ -557,7 +558,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
         Nothing -> return ()
-        Just f  -> sink $ EventOnyx $ startTasks $ let
+        Just f  -> sink $ EventOnyx $ startTasks let
           task = do
             combineGH3SongCache360 inputs f
             return [f]
@@ -565,7 +566,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
       _ -> return ()
   btn2 <- FL.buttonNew ps3Rect $ Just "Create GH3 cache (PS3)"
   taskColor >>= FL.setColor btn2
-  FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
+  FL.setCallback btn2 \_ -> sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save GH3 cache file (PS3)"
@@ -576,7 +577,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
         Nothing -> return ()
-        Just f  -> sink $ EventOnyx $ startTasks $ let
+        Just f  -> sink $ EventOnyx $ startTasks let
           task = do
             combineGH3SongCachePS3 inputs f
             return [f]
@@ -584,10 +585,10 @@ miscPageGH3SongCache sink rect tab startTasks = do
       _ -> return ()
   btn3 <- FL.buttonNew looseRect $ Just "Install GH3 cache (RPCS3)"
   taskColor >>= FL.setColor btn3
-  FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
+  FL.setCallback btn3 \_ -> sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
-    stackIO $ askFolder defDir $ \dout -> sink $ EventOnyx $ startTasks $ let
+    stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
       task = do
         (folder, game) <- combineGH3SongCachePS3Folder inputs
         let gameID = case game of
@@ -606,14 +607,14 @@ miscPageWoRSongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable $ \info -> let
+  group <- fileLoadWindow filesRect sink "Package" "Packages" (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
   FL.setResizable tab $ Just group
   btn1 <- FL.buttonNew xboxRect $ Just "Create GH:WoR cache (360)"
   taskColor >>= FL.setColor btn1
-  FL.setCallback btn1 $ \_ -> sink $ EventIO $ do
+  FL.setCallback btn1 \_ -> sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save WoR cache file (360)"
@@ -624,7 +625,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
         Nothing -> return ()
-        Just f  -> sink $ EventOnyx $ startTasks $ let
+        Just f  -> sink $ EventOnyx $ startTasks let
           task = do
             makeMetadataLIVE inputs f
             return [f]
@@ -632,7 +633,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
       _ -> return ()
   btn2 <- FL.buttonNew ps3Rect $ Just "Create GH:WoR cache (PS3)"
   taskColor >>= FL.setColor btn2
-  FL.setCallback btn2 $ \_ -> sink $ EventIO $ do
+  FL.setCallback btn2 \_ -> sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save WoR cache file (PS3)"
@@ -643,7 +644,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
         Nothing -> return ()
-        Just f  -> sink $ EventOnyx $ startTasks $ let
+        Just f  -> sink $ EventOnyx $ startTasks let
           task = do
             makeMetadataPKG inputs f
             return [f]
@@ -651,10 +652,10 @@ miscPageWoRSongCache sink rect tab startTasks = do
       _ -> return ()
   btn3 <- FL.buttonNew looseRect $ Just "Install GH:WoR cache (RPCS3)"
   taskColor >>= FL.setColor btn3
-  FL.setCallback btn3 $ \_ -> sink $ EventOnyx $ do
+  FL.setCallback btn3 \_ -> sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
-    stackIO $ askFolder defDir $ \dout -> sink $ EventOnyx $ startTasks $ let
+    stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
       task = do
         folder <- getAllMetadata inputs >>= stackIO . metadataPS3Folder
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
@@ -670,14 +671,14 @@ miscPageCONtoPKG sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink "Rock Band CON/LIVE" "Rock Band CON/LIVE" (modifyMVar_ loadedFiles) [] searchSTFS $ \info -> let
+  group <- fileLoadWindow filesRect sink "Rock Band CON/LIVE" "Rock Band CON/LIVE" (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
     entry = T.pack $ stfsPath info
     sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
     in (entry, sublines)
   FL.setResizable tab $ Just group
-  let callback isRB3 = sink $ EventIO $ do
+  let callback isRB3 = sink $ EventIO do
         inputs <- map stfsPath <$> readMVar loadedFiles
-        sink $ EventOnyx $ startTasks $ flip map inputs $ \input -> let
+        sink $ EventOnyx $ startTasks $ flip map inputs \input -> let
           pkg = input <> ".pkg"
           task = do
             conToPkg isRB3 input pkg
@@ -685,7 +686,7 @@ miscPageCONtoPKG sink rect tab startTasks = do
           in (input, task)
   btn1 <- FL.buttonNew rb2Rect $ Just "Convert to PKG (RB2)"
   taskColor >>= FL.setColor btn1
-  FL.setCallback btn1 $ \_ -> callback False
+  FL.setCallback btn1 \_ -> callback False
   btn2 <- FL.buttonNew rb3Rect $ Just "Convert to PKG (RB3)"
   taskColor >>= FL.setColor btn2
-  FL.setCallback btn2 $ \_ -> callback True
+  FL.setCallback btn2 \_ -> callback True

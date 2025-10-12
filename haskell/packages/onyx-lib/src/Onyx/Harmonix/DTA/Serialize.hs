@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -29,7 +30,7 @@ type ChunkCodec  m a = ValueCodec m (Chunk T.Text) a
 
 single :: (Monad m) => ChunkCodec m a -> ChunksCodec m a
 single cdc = Codec
-  { codecOut = makeOut $ \x -> [makeValue' cdc x]
+  { codecOut = makeOut \x -> [makeValue' cdc x]
   , codecIn = lift ask >>= \case
     [x] -> inside "single chunk" $ parseFrom x $ codecIn cdc
     _   -> expected "a single chunk"
@@ -92,7 +93,7 @@ instance StackChunks Float
 
 instance StackChunk Bool where
   stackChunk = Codec
-    { codecOut = makeOut $ \b -> Int $ if b then 1 else 0
+    { codecOut = makeOut \b -> Int if b then 1 else 0
     , codecIn = lift ask >>= \case
       Int 1                                                 -> return True
       Int 0                                                 -> return False
@@ -132,7 +133,7 @@ instance StackChunks T.Text
 
 chunksMaybe :: (Monad m) => ChunksCodec m a -> ChunksCodec m (Maybe a)
 chunksMaybe cf = Codec
-  { codecOut = makeOut $ \case
+  { codecOut = makeOut \case
     Nothing -> []
     Just x  -> makeValue' cf x
   , codecIn = lift ask >>= \case
@@ -148,9 +149,9 @@ newtype DictList k a = DictList { fromDictList :: [(k, a)] }
 
 chunksDictList :: (Monad m, Eq k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (DictList k a)
 chunksDictList ck cv = Codec
-  { codecOut = makeOut $ \mp ->
+  { codecOut = makeOut \mp ->
     [ Parens $ Tree 0 $ makeValue' ck k : makeValue' cv v | (k, v) <- fromDictList mp ]
-  , codecIn = lift ask >>= \chunks -> fmap DictList $ forM chunks $ \case
+  , codecIn = lift ask >>= \chunks -> fmap DictList $ forM chunks \case
     Parens (Tree _ (k : chunks')) -> do
       k' <- inside "parsing dict key" $ parseFrom k $ codecIn ck
       v' <- inside ("dict key " ++ show k) $ parseFrom chunks' $ codecIn cv
@@ -175,7 +176,7 @@ chunksParens = single . chunkParens
 
 chunkParens :: (Monad m) => ChunksCodec m a -> ChunkCodec m a
 chunkParens cf = Codec
-  { codecOut = makeOut $ \x -> Parens $ Tree 0 $ makeValue' cf x
+  { codecOut = makeOut \x -> Parens $ Tree 0 $ makeValue' cf x
   , codecIn = lift ask >>= \case
     Parens (Tree _ chunks) -> parseFrom chunks $ codecIn cf
     _                      -> expected "a set of parentheses"
@@ -183,7 +184,7 @@ chunkParens cf = Codec
 
 chunksPair :: (Monad m) => ChunkCodec m a -> ChunkCodec m b -> ChunksCodec m (a, b)
 chunksPair xf yf = Codec
-  { codecOut = makeOut $ \(x, y) -> [makeValue' xf x, makeValue' yf y]
+  { codecOut = makeOut \(x, y) -> [makeValue' xf x, makeValue' yf y]
   , codecIn = lift ask >>= \case
     [x, y] -> liftA2 (,)
       (inside "first item of a pair"  $ parseFrom x $ codecIn xf)
@@ -193,7 +194,7 @@ chunksPair xf yf = Codec
 
 chunksKeyRest :: (Monad m) => ChunkCodec m a -> ChunksCodec m b -> ChunksCodec m (a, b)
 chunksKeyRest xf yf = Codec
-  { codecOut = makeOut $ \(x, y) -> makeValue' xf x : makeValue' yf y
+  { codecOut = makeOut \(x, y) -> makeValue' xf x : makeValue' yf y
   , codecIn = lift ask >>= \case
     x : y -> liftA2 (,)
       (inside "first item of a pair"  $ parseFrom x $ codecIn xf)

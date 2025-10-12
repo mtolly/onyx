@@ -7,6 +7,7 @@ This code was written with the help of
   * Free60 - <https://free60project.github.io/wiki/STFS.html>
 
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -155,7 +156,7 @@ instance Bin Header where
       "LIVE" -> LIVE <$> codecIn bin
       "PIRS" -> PIRS <$> codecIn bin
       s      -> fail $ "Unrecognized STFS magic: " <> show s
-    , codecOut = fmapArg $ \case
+    , codecOut = fmapArg \case
       CON  x -> void $ putByteString "CON " >> codecOut bin x
       LIVE x -> void $ putByteString "LIVE" >> codecOut bin x
       PIRS x -> void $ putByteString "PIRS" >> codecOut bin x
@@ -318,7 +319,7 @@ int24le = Codec
     b <- getWord8
     c <- getWord8
     return $ fromIntegral a + fromIntegral b * 0x100 + fromIntegral c * 0x10000
-  , codecOut = fmapArg $ \w -> do
+  , codecOut = fmapArg \w -> do
     putWord16le $ fromIntegral w
     putWord8 $ fromIntegral $ w `shiftR` 16
   }
@@ -330,7 +331,7 @@ int24be = Codec
     b <- getWord8
     c <- getWord8
     return $ fromIntegral a * 0x10000 + fromIntegral b * 0x100 + fromIntegral c
-  , codecOut = fmapArg $ \w -> do
+  , codecOut = fmapArg \w -> do
     putWord8 $ fromIntegral $ w `shiftR` 16
     putWord16be $ fromIntegral w
   }
@@ -544,7 +545,7 @@ data STFSPackage = STFSPackage
   }
 
 withSTFSReadable :: Readable -> (STFSPackage -> IO a) -> IO a
-withSTFSReadable r fn = useHandle r $ \fd -> do
+withSTFSReadable r fn = useHandle r \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
   (header, meta) <- flip runGetM headerMetaBytes $ (,)
     <$> (codecIn bin :: Get Header)
@@ -786,30 +787,30 @@ verifyHashes fixHashes stfs = let
               , show $ B.unpack expected
               ]
   in do
-    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+    forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L0Hashes i -> do
         forM_ [0 .. 0xA9] $ \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (DataBlock hashedIndex) rblk j
       _ -> return ()
-    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+    forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L1Hashes i -> do
         forM_ [0 .. 0xA9] $ \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (L0Hashes hashedIndex) rblk j
         -- add a count of data blocks covered by this hash, seen in (some?) DLC files
-        when fixHashes $ do
+        when fixHashes do
           seekToRealBlock rblk stfs
           hSeek (stfsHandle stfs) RelativeSeek 0xFF0
           BL.hPut (stfsHandle stfs) $ runPut $ putInt32be $ min (0xAA * 0xAA) $ sd_TotalAllocatedBlockCount sd - 0xAA * 0xAA * i
       _ -> return ()
-    forM_ patternWithIndexes $ \(contents, rblk) -> case contents of
+    forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L2Hashes i -> do
         forM_ [0 .. 0xA9] $ \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (L1Hashes hashedIndex) rblk j
         -- add a count of data blocks covered by this hash (which is all of them), seen in (some?) DLC files
-        when fixHashes $ do
+        when fixHashes do
           seekToRealBlock rblk stfs
           hSeek (stfsHandle stfs) RelativeSeek 0xFF0
           BL.hPut (stfsHandle stfs) $ runPut $ putInt32be $ sd_TotalAllocatedBlockCount sd
@@ -817,7 +818,7 @@ verifyHashes fixHashes stfs = let
 
 stockScramble :: B.ByteString -> B.ByteString
 stockScramble bs = case quotRem (B.length bs) 8 of
-  (q, 0) -> B.concat $ do
+  (q, 0) -> B.concat do
     i <- [0 .. q - 1]
     return $ B.take 8 $ B.drop ((q - 1 - i) * 8) bs
   _ -> error "stockScramble: input length not divisible by 8"
@@ -829,7 +830,7 @@ data KV = KV
   } deriving (Eq, Show)
 
 bytesToInteger :: B.ByteString -> Integer
-bytesToInteger bs = sum $ do
+bytesToInteger bs = sum do
   (i, b) <- zip [0..] $ B.unpack $ B.reverse bs
   return $ (0x100 ^ (i :: Int)) * fromIntegral b
 
@@ -917,7 +918,7 @@ loadKVbinLIVE = let
 -- readAsBlocks :: FilePath -> IO (Integer, [B.ByteString])
 -- readAsBlocks f = do
 --   size <- Dir.getFileSize f
---   blocks <- withBinaryFile f ReadMode $ \h -> fix $ \go -> do
+--   blocks <- withBinaryFile f ReadMode \h -> fix \go -> do
 --     blk <- B.hGet h 0x1000
 --     if B.null blk
 --       then return []
@@ -982,7 +983,7 @@ data CreateOptions = CreateOptions
   }
 
 gh2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
+gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO do
   thumb <- gh2Thumbnail >>= B.readFile
   makeCON CreateOptions
     { createNames = [title]
@@ -1000,7 +1001,7 @@ gh2pkg title desc dir fout = inside "making GH2 LIVE package" $ stackIO $ do
     } dir fout
 
 ghworpkg :: (MonadIO m) => [T.Text] -> [T.Text] -> FilePath -> FilePath -> StackTraceT m ()
-ghworpkg titles descs dir fout = inside "making GH:WoR LIVE package" $ stackIO $ do
+ghworpkg titles descs dir fout = inside "making GH:WoR LIVE package" $ stackIO do
   thumb <- ghWoRThumbnail >>= B.readFile
   makeCON CreateOptions
     { createNames = titles
@@ -1036,7 +1037,7 @@ rb3STFSOptions title desc live = do
     }
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO $ do
+rb3pkg title desc dir fout = inside "making RB3 CON package" $ stackIO do
   opts <- rb3STFSOptions title desc False
   makeCON opts dir fout
 
@@ -1059,7 +1060,7 @@ rb2STFSOptions title desc live = do
     }
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO $ do
+rb2pkg title desc dir fout = inside "making RB2 CON package" $ stackIO do
   opts <- rb2STFSOptions title desc False
   makeCON opts dir fout
 
@@ -1082,7 +1083,7 @@ rrSTFSOptions title desc = do
     }
 
 rrpkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stackIO $ do
+rrpkg title desc dir fout = inside "making Rock Revolution LIVE package" $ stackIO do
   opts <- rrSTFSOptions title desc
   makeCON opts dir fout
 
@@ -1106,7 +1107,7 @@ makeCONReadable :: CreateOptions -> Folder T.Text Readable -> FilePath -> IO ()
 makeCONReadable opts mem con = traverseReadable mem >>= \plan -> makeCONGeneral opts plan con
 
 makeCONGeneral :: CreateOptions -> BlocksPlan -> FilePath -> IO ()
-makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
+makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode \fd -> do
   hSetFileSize fd 0
 
   -- each 0x1000 block can store 64 file entries (each of which is 64 bytes)
@@ -1305,7 +1306,7 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode $ \fd -> do
   BL.hPut fd $ runPut $ void $ codecOut bin finalHeader
 
 stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
-stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
+stfsFolder f = liftIO $ withBinaryFile f ReadMode \h -> do
   ftype <- B.hGet h 4 >>= \case
     "CON " -> return 1
     "LIVE" -> return 2
@@ -1319,7 +1320,7 @@ packCombineFolders :: (MonadIO m) => [Folder T.Text Readable] -> StackTraceT m (
 packCombineFolders roots = let
   combineFolders parents folders = do
     let allNames = nubOrd $ folders >>= \f -> map fst (folderSubfolders f) <> map fst (folderFiles f)
-    newContents <- fmap catMaybes $ forM allNames $ \name -> let
+    newContents <- fmap catMaybes $ forM allNames \name -> let
       matchFolders = mapMaybe (lookup name . folderSubfolders) folders
       matchFiles   = mapMaybe (lookup name . folderFiles     ) folders
       in case (matchFolders, matchFiles) of
@@ -1333,7 +1334,7 @@ packCombineFolders roots = let
   combineFiles parents name contents
     | ".dta" `T.isSuffixOf` name = do
       let stripBOM bs = fromMaybe bs $ BL.stripPrefix "\xEF\xBB\xBF" bs
-      bytes <- stackIO $ forM contents $ \r -> stripBOM <$> useHandle r handleToByteString
+      bytes <- stackIO $ forM contents \r -> stripBOM <$> useHandle r handleToByteString
       return $ Just $ makeHandle ("Pack-merged contents for " <> showPath parents name)
         $ byteStringSimpleHandle $ BL.intercalate "\n" bytes
     | ".pak.xen" `T.isSuffixOf` name = fatal "Pack creator does not yet support Neversoft GH files."
@@ -1358,7 +1359,7 @@ packCombineFolders roots = let
 makePack :: (MonadIO m) => [FilePath] -> (CreateOptions -> CreateOptions) -> FilePath -> StackTraceT m (Maybe FilePath)
 makePack []                 _         _    = fatal "Need at least 1 file for STFS pack"
 makePack inputs@(input : _) applyOpts fout = do
-  opts <- stackIO $ withSTFSPackage input $ \stfs -> return $ applyOpts CreateOptions
+  opts <- stackIO $ withSTFSPackage input \stfs -> return $ applyOpts CreateOptions
     { createNames         = ["Package"]
     , createDescriptions  = []
     , createTitleID       = md_TitleID             $ stfsMetadata stfs

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Genre
@@ -127,20 +128,20 @@ interpretGenre mg ms = let
         "oldies" -> findDoubleMaybe "other" "oldies"
         _ -> Nothing
     -- then, check if a subgenre and genre are both inside it
-    , listToMaybe $ do
+    , listToMaybe do
       Genre key disp subs <- allGenres
       Subgenre skey sdisp <- subs
       guard $ all (`T.isInfixOf` std g) [std disp, std sdisp]
       return $ fill g key skey
     -- finally, check if just a genre is inside it
-    , listToMaybe $ do
+    , listToMaybe do
       Genre key disp _ <- allGenres
       guard $ std disp `T.isInfixOf` std g
       return $ fill g key $ defaultSubgenre key
     ]
   findDoubleMaybe g s = case findRBN2Genre g of
     [] -> Nothing
-    Genre key disp subs : _ -> Just $ case findRBN2Subgenre subs s of
+    Genre key disp subs : _ -> Just case findRBN2Subgenre subs s of
       []                  -> fill disp key $ defaultSubgenre key
       Subgenre skey _ : _ -> fill disp key skey
   findStrict g s = case findRBN2Genre g of

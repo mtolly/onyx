@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -90,10 +91,10 @@ importAmplitudeSong songFolder moggSongName level = do
         return (PartName name, getChannels n, inst, trk)
       midi = case ampMidi of
         Just (F.Song temps sigs _) -> F.Song temps sigs mempty
-          { F.onyxParts = Map.fromList $ do
+          { F.onyxParts = Map.fromList do
             (name, _, _, trk) <- parts
             return (name, mempty
-              { F.onyxPartMania = Map.fromList $ do
+              { F.onyxPartMania = Map.fromList do
                 (diff, catchDiff) <- Map.toList trk.catchDifficulties
                 return (amplitudeDiffNames diff, ManiaTrack
                   { maniaNotes     = blipEdgesRB_ $ (\gem -> ((fromEnum gem, NoteNormal), Nothing)) <$> catchDiff.catchGems
@@ -105,7 +106,7 @@ importAmplitudeSong songFolder moggSongName level = do
   return SongYaml
     { metadata = def'
       { title        = Just song.title
-      , artist       = Just $ case song.artist_short of
+      , artist       = Just case song.artist_short of
         "Harmonix" -> song.artist -- human love
         artist     -> artist
       , previewStart = Just $ PreviewSeconds previewStart
@@ -123,7 +124,7 @@ importAmplitudeSong songFolder moggSongName level = do
     , plans = HM.singleton "mogg" $ MoggPlan MoggPlanInfo
       { fileMOGG = Just $ SoftFile "audio.mogg" $ SoftReadable mogg
       , moggMD5 = Nothing
-      , parts = Parts $ HM.fromList $ do
+      , parts = Parts $ HM.fromList do
         (name, chans, _, _) <- parts
         return (name, PartSingle chans)
       , crowd = []
@@ -141,9 +142,9 @@ importAmplitudeSong songFolder moggSongName level = do
       , decryptSilent = False
       }
     , targets = HM.empty
-    , parts = Parts $ HM.fromList $ do
+    , parts = Parts $ HM.fromList do
       (name, _, inst, _) <- parts
-      return (name, emptyPart { mania = Just $ ModeMania $ do
+      return (name, emptyPart { mania = Just $ ModeMania do
         diff <- fmap amplitudeDiffNames $ Easy NE.:| [Medium, Hard, Expert]
         return ManiaChart
           { name = diff

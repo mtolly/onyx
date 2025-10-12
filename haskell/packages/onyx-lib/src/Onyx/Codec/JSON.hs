@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -50,7 +51,7 @@ class StackJSON a where
 
 fuzzy :: (Monad m) => T.Text -> JSONCodec m ()
 fuzzy s = Codec
-  { codecOut = makeOut $ \() -> A.String s
+  { codecOut = makeOut \() -> A.String s
   , codecIn = let
     f = T.toLower . T.filter (/= ' ')
     s' = f s
@@ -187,7 +188,7 @@ pattern OneKey k v <- A.Object (HM.toList . KM.toHashMapText -> [(k, v)]) where
 
 pair :: (Monad m) => JSONCodec m a -> JSONCodec m b -> JSONCodec m (a, b)
 pair xf yf = Codec
-  { codecOut = makeOut $ \(x, y) -> toJSON [makeValue' xf x, makeValue' yf y]
+  { codecOut = makeOut \(x, y) -> toJSON [makeValue' xf x, makeValue' yf y]
   , codecIn = lift ask >>= \case
     A.Array (V.toList -> [x, y]) -> liftA2 (,)
       (inside "first item of a pair"  $ parseFrom x $ codecIn xf)

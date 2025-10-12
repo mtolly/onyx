@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NamedFieldPuns            #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -134,10 +135,10 @@ manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.l
             Just p  -> Just (p, realToFrac info.groupCrossfade)
           uniqueSamples = nubOrd [ sample | (_, _, sample) <- triggers ]
       -- only locate each sample once
-      sampleToAudio <- fmap HM.fromList $ forM uniqueSamples $ \sample -> do
+      sampleToAudio <- fmap HM.fromList $ forM uniqueSamples \sample -> do
         audio <- manualLeaf rel alib buildDependency getSamples songYaml $ Named sample
         return (sample, audio)
-      return $ Samples polyphony $ flip mapMaybe triggers $ \(secs, group, sample) -> do
+      return $ Samples polyphony $ flip mapMaybe triggers \(secs, group, sample) -> do
         audio <- HM.lookup sample sampleToAudio
         return (Seconds secs, (group, audio))
   Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
@@ -185,7 +186,7 @@ fitToSpec pvIn pvOut src = let
   vols = map snd pvIn
   in case pvOut of
     [(pan, 0)] -> if [pan] == pans
-      then return $ case fromMaybe 0 $ listToMaybe vols of
+      then return case fromMaybe 0 $ listToMaybe vols of
         0   -> src
         vol -> gain (10 ** (realToFrac vol / 20)) src -- just apply vol to single channel and we're done
       else fatal $ "Mono output (" ++ show pvOut ++ ") does not match input pans: " ++ show pans
@@ -230,7 +231,7 @@ loadSamplesFromBuildDirShake
   :: FilePath
   -> T.Text -- plan
   -> Staction [(T.Text, [(Double, T.Text, T.Text)])]
-loadSamplesFromBuildDirShake rel = loadSamplesFromBuildDir $ \f -> do
+loadSamplesFromBuildDirShake rel = loadSamplesFromBuildDir \f -> do
   opts <- lift $ lift getShakeOptions
   let isSlash c = c == '/' || c == '\\'
       realPath = rel </> case break isSlash f of
@@ -306,7 +307,7 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
       maybeMix <- lookupSplit
         ( maybe 0 (computeChannelsPlan songYaml) kick
         , maybe 0 (computeChannelsPlan songYaml) snare
-        , computeChannelsPlan songYaml $ case toms of
+        , computeChannelsPlan songYaml case toms of
           Nothing -> kit
           Just t  -> Mix $ kit NE.:| [t]
         )

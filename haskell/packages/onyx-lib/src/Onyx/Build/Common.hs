@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -180,11 +181,11 @@ applyTargetMIDI tgt mid = let
       , F.tempos = case U.trackSplit audioStart $ U.tempoMapToBPS m.tempos of
         -- cut time off the front of the tempo map, and copy the last tempo
         -- from before the cut point to the cut point if needed
-        (cut, keep) -> U.tempoMapFromBPS $ case U.trackTakeZero keep of
+        (cut, keep) -> U.tempoMapFromBPS case U.trackTakeZero keep of
           [] -> U.trackGlueZero (toList $ snd . snd <$> RTB.viewR cut) keep
           _  -> keep
       , F.timesigs = case U.trackSplit audioStart $ U.measureMapToTimeSigs m.timesigs of
-        (cut, keep) -> U.measureMapFromTimeSigs U.Error $ case U.trackTakeZero keep of
+        (cut, keep) -> U.measureMapFromTimeSigs U.Error case U.trackTakeZero keep of
           _ : _ -> keep -- already a time signature at the cut point
           []    -> case lastEvent cut of
             Nothing -> keep
@@ -215,7 +216,7 @@ applyTargetMIDI tgt mid = let
     SectionsMinimal    -> modifySections m
       $ makeMinimalSections . RTB.mapMaybe (\s -> simpleSection <$> s.segment)
     SectionsIndividual -> modifySections m
-      $ fmap $ \s -> s { segment = Nothing }
+      $ fmap \s -> s { segment = Nothing }
   makeMinimalSections = \case
     Wait t1 s1 rest1@(Wait t2 s2 rest2) -> if s1.name == s2.name
       then makeMinimalSections $ Wait t1 s1 $ RTB.delay t2 rest2
@@ -302,7 +303,7 @@ sourceKick buildInfo gameParts tgt mid pad specSetting planName plan fpart rank 
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{kick} -> fromMaybe [] kick
         _                      -> []
-    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{kick} -> kick
@@ -318,7 +319,7 @@ sourceSnare buildInfo gameParts tgt mid pad specSetting planName plan fpart rank
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{snare} -> fromMaybe [] snare
         _                       -> []
-    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{snare} -> snare
@@ -334,7 +335,7 @@ sourceToms buildInfo gameParts tgt mid pad specSetting planName plan fpart rank 
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms} -> fromMaybe [] toms
         _                      -> []
-    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms} -> toms
@@ -350,7 +351,7 @@ sourceCymbals buildInfo gameParts tgt mid pad specSetting planName plan fpart ra
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms, kit} -> guard (isJust toms) >> kit
         _                           -> []
-    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+    StandardPlan x -> buildAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms, kit} -> guard (isJust toms) >> Just kit
@@ -397,7 +398,7 @@ getPartSource buildInfo spec planName plan fpart rank = case plan of
   MoggPlan x -> channelsToSpec spec (biOggWavForPlan buildInfo planName) (zip x.pans x.vols) $ do
     guard $ rank /= 0
     toList (HM.lookup fpart x.parts.getParts) >>= toList >>= toList
-  StandardPlan x -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName $ do
+  StandardPlan x -> buildPartAudioToSpec (biYamlDir buildInfo) (biAudioLib buildInfo) (audioDepend buildInfo) (biSongYaml buildInfo) spec planName do
     guard $ rank /= 0
     HM.lookup fpart x.parts.getParts
 
@@ -407,7 +408,7 @@ sourceStereoParts
   -> Staction (AudioSource m Float)
 sourceStereoParts buildInfo gameParts tgt mid pad planName plan fpartranks = do
   let spec = [(-1, 0), (1, 0)]
-  srcs <- forM fpartranks $ \(fpart, rank)
+  srcs <- forM fpartranks \(fpart, rank)
     -> zeroIfMultiple gameParts fpart
     <$> getPartSource buildInfo spec planName plan fpart rank
   src <- case srcs of
@@ -490,7 +491,7 @@ setAudioLength len src = let
 setAudioLengthOrEmpty :: (Monad m) => U.Seconds -> AudioSource m Float -> m (AudioSource m Float)
 setAudioLengthOrEmpty secs src = do
   chans <- runConduit $ emptyChannels src
-  return $ if length chans == channels src
+  return if length chans == channels src
     then src { frames = 0, source = return () }
     else setAudioLength secs src
 
@@ -514,7 +515,7 @@ loadSquareArtOrJPEG songYaml = case songYaml.metadata.fileAlbumArt of
   Just img -> do
     shk $ need [img]
     let ext = map toLower $ takeExtension img
-    stackIO $ if elem ext [".png_xbox", ".png_wii"]
+    stackIO if elem ext [".png_xbox", ".png_wii"]
       then noJPEG . pixelMap dropTransparency . readRBImage False <$> BL.readFile img
       else if ext == ".png_ps3"
         then noJPEG . pixelMap dropTransparency . readRBImage True <$> BL.readFile img
@@ -525,7 +526,7 @@ loadSquareArtOrJPEG songYaml = case songYaml.metadata.fileAlbumArt of
             rgba8 = convertRGBA8 dyn
             aspect = fromIntegral (imageWidth rgb8) / fromIntegral (imageHeight rgb8) :: Double
             nonSquare = aspect > (5/4) || aspect < (4/5)
-            in return $ if nonSquare
+            in return if nonSquare
               then noJPEG $ pixelMap dropTransparency $ backgroundColor (PixelRGBA8 0 0 0 255) $ squareImage 0 rgba8
               else (rgb8, guard (elem ext [".jpg", ".jpeg"]) >> Just img)
   Nothing -> noJPEG <$> stackIO onyxAlbum
@@ -600,7 +601,7 @@ makeLength n t = if n >= T.length t
   then t
   else case reverse $ T.splitOn "_" t of
     lastPiece : rest@(_ : _) -> let
-      (modifiers, notModifiers) = flip span rest $ \x ->
+      (modifiers, notModifiers) = flip span rest \x ->
         x == "1x" || x == "2x" || T.all isDigit x || case T.uncons x of
           Just ('v', v) -> T.all isDigit v
           _             -> False
@@ -632,7 +633,7 @@ validFileNamePiece rule s = let
     , "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM0"
     , "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT0"
     ]
-  s' = fixEnds $ trimLength $ T.map eachChar $ case rule of
+  s' = fixEnds $ trimLength $ T.map eachChar case rule of
     NameRulePCUnicode -> s
     _                 -> unsafePerformIO $ replaceCharsRB False s
   in if elem (T.toUpper s') reserved

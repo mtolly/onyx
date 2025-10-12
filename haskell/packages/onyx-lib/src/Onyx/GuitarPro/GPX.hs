@@ -2,6 +2,7 @@
 Thanks to TuxGuitar:
 https://github.com/phiresky/tuxguitar/blob/9f08ae077430f2543adbe3e60c81970ced346fa5/TuxGuitar-gpx/src/org/herac/tuxguitar/io/gpx/v6/GPXFileSystem.java
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.GuitarPro.GPX (gpxFiles) where
@@ -20,7 +21,7 @@ import           Onyx.Util.Binary        (runGetM)
 gpxFiles :: (MonadFail m) => BL.ByteString -> m [(B.ByteString, BL.ByteString)]
 gpxFiles gpx = do
   sectors <- gpxSectors gpx
-  return $ flip mapMaybe sectors $ \sector -> do
+  return $ flip mapMaybe sectors \sector -> do
     (name, size, sectorIDs) <- isFileSector sector
     let contents = BL.take (fromIntegral size) $ BL.concat $ map (sectors !!) sectorIDs
     return (name, contents)
@@ -50,7 +51,7 @@ gpxSectors gpx = do
     (magic , _   ) -> fail $ "Unrecognized .gpx magic number after decompression: " <> show magic
 
 decompressGPX :: (MonadFail m) => BL.ByteString -> m BL.ByteString
-decompressGPX gpx = flip runGetM gpx $ do
+decompressGPX gpx = flip runGetM gpx do
   magic <- getByteString 4
   case magic of
     "BCFS" -> return gpx
@@ -67,7 +68,7 @@ data DecompressStep
 getDecompressSteps :: Bits.BitGet [DecompressStep]
 getDecompressSteps = do
   -- this might miss some partial commands at the end?
-  mstep <- optional $ do
+  mstep <- optional do
     flag <- Bits.block Bits.bool
     if flag
       then do

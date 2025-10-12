@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Game.Graphics.Video
@@ -44,10 +45,10 @@ forkFrameLoader logger vi = do
         Left  (Messages msgs) -> mapM_ (\m -> logger (MessageWarning, m)) msgs
   void $ forkIO $ logResult $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
     let res a f = snd <$> allocate a f
-        check_ s p a = inside s $ do
+        check_ s p a = inside s do
           code <- stackIO a
           unless (p code) $ fatal $ "Return code: " <> show code
-        checkRes s p a f = inside s $ do
+        checkRes s p a f = inside s do
           let f' code = when (p code) f
           code <- snd <$> allocate a f'
           unless (p code) $ fatal $ "Return code: " <> show code
@@ -58,12 +59,12 @@ forkFrameLoader logger vi = do
     -- but maybe we should fix so if avformat_open_input fails,
     -- the context is still freed?
     checkRes "avformat_open_input" (== 0)
-      (with ctx $ \pctx ->
-        withCString videoPath $ \pvid ->
+      (with ctx \pctx ->
+        withCString videoPath \pvid ->
           avformat_open_input pctx pvid nullPtr nullPtr)
       (with ctx avformat_close_input)
     check_ "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info ctx nullPtr
-    stackIO $ withCString videoPath $ \pvid -> av_dump_format ctx 0 pvid 0
+    stackIO $ withCString videoPath \pvid -> av_dump_format ctx 0 pvid 0
     videoStreams <- stackIO $ getStreams ctx >>= filterM (\stream -> do
       params <- stream.codecpar
       (AVMEDIA_TYPE_VIDEO ==) <$> params.codec_type)
@@ -89,9 +90,9 @@ forkFrameLoader logger vi = do
     cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
     check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
     check_ "avcodec_open2 (input)" (>= 0) $ avcodec_open2 cctx codec nullPtr
-    frame <- res av_frame_alloc $ \f -> with f av_frame_free
-    frameRGBA <- res av_frame_alloc $ \f -> with f av_frame_free
-    packet <- res av_packet_alloc $ \p -> with p av_packet_free
+    frame <- res av_frame_alloc \f -> with f av_frame_free
+    frameRGBA <- res av_frame_alloc \f -> with f av_frame_free
+    packet <- res av_packet_alloc \p -> with p av_packet_free
     pfmt <- stackIO cctx.pix_fmt
     outData <- stackIO frameRGBA.extended_data
     outLinesize <- stackIO frameRGBA.linesize

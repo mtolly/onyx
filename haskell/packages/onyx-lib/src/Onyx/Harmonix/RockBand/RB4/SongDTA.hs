@@ -2,6 +2,7 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE NoFieldSelectors      #-}

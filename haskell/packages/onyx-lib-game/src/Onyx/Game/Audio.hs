@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveTraversable   #-}
@@ -58,7 +59,7 @@ lockAL :: MVar ()
 lockAL = unsafePerformIO $ newMVar ()
 
 checkAL :: String -> IO a -> IO a
-checkAL desc f = withMVar lockAL $ \() -> do
+checkAL desc f = withMVar lockAL \() -> do
   _ <- AL.get AL.alErrors
   x <- f
   errs <- AL.get AL.alErrors
@@ -129,7 +130,7 @@ mixMultipleChannels channels = let
   -- Find the length of the shortest channel (all should be same length but be safe)
   minLen = minimum $ map V.length channels
   -- Mix samples at each position
-  in V.generate minLen $ \i -> let
+  in V.generate minLen \i -> let
     -- Sum all channels at position i, clamping to avoid overflow
     summed = sum $ map (\ch -> fromIntegral (ch V.! i) :: Int32) channels
     -- Clamp to Int16 range to prevent overflow
@@ -144,7 +145,7 @@ stereoInt16ToMonoFloat samples
   | otherwise = let
       samplesLen = V.length samples
       outputLen = samplesLen `div` 2
-      in V.generate outputLen $ \i -> let
+      in V.generate outputLen \i -> let
         leftIdx = i * 2
         rightIdx = leftIdx + 1
         in if rightIdx < samplesLen
@@ -182,7 +183,7 @@ data AudioState = Filling | Playing
 {-
 emptySources :: [AL.Source] -> IO ()
 emptySources srcs = do
-  srcs' <- flip filterM srcs $ \src -> do
+  srcs' <- flip filterM srcs \src -> do
     cur <- doAL "emptySources buffersQueued" $ AL.buffersQueued src
     proc <- doAL "emptySources buffersProcessed" $ AL.buffersProcessed src
     if cur == 0
@@ -231,7 +232,7 @@ playSources
   -> IO AudioHandle
 playSources initGain inputs = do
   globalWaveform <- newWaveformBuffer
-  readies <- forConcurrently inputs $ \(pans, vols, ca) -> do
+  readies <- forConcurrently inputs \(pans, vols, ca) -> do
     readySourceWithWaveform pans vols initGain ca globalWaveform
   mapConcurrently_ sourceWait readies
   doAL "playSources play" $ AL.play $ concatMap sourceAL readies
@@ -283,8 +284,8 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
   -- Use a simple counter-based delay instead of timestamps
   waveformDelayQueue <- newIORef ([] :: [V.Vector Float])
   let bufferDelayCount = 7 -- slightly lower than queueSize later
-  forM_ srcs $ \src -> do
-    with src $ \p -> do
+  forM_ srcs \src -> do
+    with src \p -> do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
       doAL "playSource setting direct mode" $ do
         alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
@@ -302,7 +303,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
       waitTime = 5000
       t1 = runResourceT $ runConduit $ CA.source (CA.reorganize CA.chunkSize ca) .| let
         loop currentBuffers audioState = liftIO (readIORef stopper) >>= \case
-          True -> liftIO $ do
+          True -> liftIO do
             doAL "playSource stopping sources" $ AL.stop srcs
             doAL "playSource deleting sources" $ AL.deleteObjectNames srcs
             doAL "playSource deleting remaining buffers" $ AL.deleteObjectNames $ Set.toList currentBuffers
@@ -333,14 +334,14 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                           in interleaved : groupChannels xs ys
                         groupChannels _ _ = []
                     -- Queue waveform data for delayed processing (to sync with playback)
-                    liftIO $ case grouped of
+                    liftIO case grouped of
                       [] -> return ()
                       channels -> do
                         -- Mix all channels together instead of just taking the first
                         let mixedSamples = mixMultipleChannels channels
                             waveformSamples = stereoInt16ToMonoFloat mixedSamples
                         -- Add to delay queue instead of immediately updating waveform
-                        _ <- try @SomeException $ do
+                        _ <- try @SomeException do
                           currentQueue <- readIORef waveformDelayQueue
                           let newQueue = waveformSamples : currentQueue
                               -- Keep queue size reasonable, matching buffer delay
@@ -374,7 +375,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                   Filling -> liftIO $ putMVar firstFull ()
                   _       -> return ()
                 -- Add fake waveform progression for smooth 60fps visualization
-                liftIO $ do
+                liftIO do
                   (currentBuf, pos) <- readIORef waveformBuf
                   unless (V.null currentBuf) $ do
                     -- Create a small "shift" by taking a slice from current buffer
@@ -382,7 +383,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                         startIdx = pos `mod` max 1 (V.length currentBuf - sliceSize)
                         slice = V.slice startIdx sliceSize currentBuf
                     addWaveformSamples waveformBuf slice
-                removedBuffers <- fmap Set.unions $ liftIO $ forM srcs $ \src -> doAL "playSource buffersProcessed" (AL.buffersProcessed src) >>= \case
+                removedBuffers <- fmap Set.unions $ liftIO $ forM srcs \src -> doAL "playSource buffersProcessed" (AL.buffersProcessed src) >>= \case
                   0 -> return Set.empty
                   n -> do
                     -- liftIO $ putStrLn $ "Removing " <> show n <> " finished buffers"
@@ -461,14 +462,14 @@ splitPlanSources planName proj lib audios = let
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
     Mogg{} -> fatal "MOGG channel audio not supported in preview yet" -- TODO
-  in fmap concat $ forM audios $ \audio -> do
+  in fmap concat $ forM audios \audio -> do
     let chans = computeChannelsPlan (projectSongYaml proj) audio
         pans = case chans of
           1 -> [0]
           2 -> [-1, 1]
           _ -> replicate chans 0
         vols = replicate chans 0
-    evaled <- forM audio $ \aud -> do
+    evaled <- forM audio \aud -> do
       aud' <- evalAudioInput aud
       return (aud, aud')
     -- for mix and merge, split into multiple AL sources
@@ -488,34 +489,34 @@ splitPlanSources planName proj lib audios = let
 
 projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
 projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
-  Just (MoggPlan x) -> errorToWarning $ case x.fileMOGG of
+  Just (MoggPlan x) -> errorToWarning case x.fileMOGG of
     Just path | takeExtension path == ".bik" -> let
       bik = takeDirectory proj.projectLocation </> path
-      in return $ \t speed gain -> do
+      in return \t speed gain -> do
         src <- bikSecsSpeed t speed $ fileReadable bik
         playSource (map realToFrac x.pans) (map realToFrac x.vols) gain src
     Just path | takeExtension path /= ".mogg" -> let
       audio = takeDirectory proj.projectLocation </> path
-      in return $ \t speed gain -> do
+      in return \t speed gain -> do
         src <- ffSecsSpeed t speed $ fileReadable audio
         playSource (map realToFrac x.pans) (map realToFrac x.vols) gain src
     _ -> do
       -- TODO maybe silence crowd channels
       mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
       let ogg = moggToOgg $ fileReadable mogg
-      return $ \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
-  Just (StandardPlan x) -> errorToWarning $ do
+      return \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
+  Just (StandardPlan x) -> errorToWarning do
     let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
     lib <- newAudioLibrary
     audioDirs <- getAudioDirs proj
-    forM_ audioDirs $ \dir -> do
+    forM_ audioDirs \dir -> do
       p <- parseAbsDir dir
       addAudioDir lib p
     planAudios <- splitPlanSources k proj lib audios
     case NE.nonEmpty planAudios of
       Nothing -> fatal "No audio in plan"
-      Just ne -> return $ \t mspeed gain -> do
-        inputs <- forM ne $ \paudio -> do
+      Just ne -> return \t mspeed gain -> do
+        inputs <- forM ne \paudio -> do
           src <- buildSource' $ Drop Start (CA.Seconds t) paudio.expr
           let src' = CA.mapSamples CA.integralSample
                 $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
@@ -526,8 +527,8 @@ projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
             )
         playSources gain $ NE.toList inputs
   {-
-  Just _ -> errorToWarning $ do
+  Just _ -> errorToWarning do
     wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"
-    return $ \t speed -> _sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
+    return \t speed -> _sndSecsSpeed t speed wav >>= playSource [-1, 1] [0, 0]
   -}
   Nothing -> return Nothing

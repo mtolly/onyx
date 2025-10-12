@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -208,7 +209,7 @@ importMagma fin level = do
     , global = Global
       { fileMidi = midi
       , fileSongAnim = Nothing
-      , autogenTheme = Just $ case RBProj.autogenTheme $ RBProj.midi rbproj of
+      , autogenTheme = Just case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
       , animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj

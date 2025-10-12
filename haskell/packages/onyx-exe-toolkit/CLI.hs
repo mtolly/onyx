@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Main where
 
 import           Control.Exception            (displayException)
@@ -12,7 +13,7 @@ import           System.IO                    (hPutStr, hPutStrLn, stderr)
 main :: IO ()
 main = do
   argv <- getArgs
-  res <- logStdout $ do
+  res <- logStdout do
     files <- mapStackTraceT (mapQueueLog runResourceT) $ commandLine argv
     unless (null files) $ lg $ unlines $ "Done! Created files:" : files
   case res of

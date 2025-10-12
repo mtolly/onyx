@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Util.Text.Decode (decodeWithDefault, decodeGeneral, encodeLatin1, removeBOM) where
 
@@ -17,7 +18,7 @@ decodeWithDefault defenc bs
   | otherwise = removeBOM $ defenc bs
 
 decodeGeneral :: B.ByteString -> T.Text
-decodeGeneral = decodeWithDefault $ \bs -> case TE.decodeUtf8' bs of
+decodeGeneral = decodeWithDefault \bs -> case TE.decodeUtf8' bs of
   Right t -> t
   Left  _ -> TE.decodeLatin1 bs
 

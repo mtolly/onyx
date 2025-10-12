@@ -5,6 +5,7 @@ https://github.com/0x0L/rocksmith/blob/master/rocksmith/psarc.py
 
 -}
 
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -86,7 +87,7 @@ extractPSARC fin dout = do
 
 readPSARCFolder :: SH.Readable -> IO (SH.Folder T.Text SH.Readable)
 readPSARCFolder readable = do
-  (hdr, tocBytes, origLabel) <- SH.useHandle readable $ \h -> do
+  (hdr, tocBytes, origLabel) <- SH.useHandle readable \h -> do
     hdr <- BL.hGet h 32 >>= runGetM (codecIn (bin :: BinaryCodec Header))
     tocEnc <- B.hGet h $ fromIntegral (hdr_tocLength hdr) - 32
     toc <- decryptPSARCTable' tocEnc
@@ -99,14 +100,14 @@ readPSARCFolder readable = do
           False -> liftA2 (:) getWord16be getZLengths
     zlengths <- getZLengths
     return (toc, zlengths)
-  let entryReaders = flip map toc $ \entry -> SH.useHandle readable $ \h -> do
+  let entryReaders = flip map toc \entry -> SH.useHandle readable \h -> do
         hSeek h AbsoluteSeek $ fromIntegral $ toc_offset entry
         let readEntry' []       _   = return BL.empty
             readEntry' (z : zs) len = if len == toc_length entry
               then return BL.empty
               else do
                 let defaultBlockSize = 0x10000
-                chunk <- BL.hGet h $ if z == 0 then defaultBlockSize else z
+                chunk <- BL.hGet h if z == 0 then defaultBlockSize else z
                 let chunk' = fromMaybe chunk $ zlibMaybe chunk
                 (chunk' <>) <$> readEntry' zs (len + fromIntegral (BL.length chunk'))
             lens = map fromIntegral $ drop (fromIntegral $ toc_zIndex entry) zlengths
@@ -116,7 +117,7 @@ readPSARCFolder readable = do
     x : xs -> return (x, xs)
   listing <- listingReader
   let filenames = T.lines $ TE.decodeLatin1 $ BL.toStrict listing
-      folder = SH.fromFiles $ do
+      folder = SH.fromFiles do
         (path, fileReader) <- zip filenames fileReaders
         Just spath <- [SH.splitPath path] -- error if Nothing?
         let newLabel = origLabel <> " | " <> T.unpack path
@@ -124,7 +125,7 @@ readPSARCFolder readable = do
   return folder
 
 zlibMaybe :: BL.ByteString -> Maybe BL.ByteString
-zlibMaybe bs = runST $ let
+zlibMaybe bs = runST let
   go input = \case
     Z.DecompressInputRequired f              -> case input of
       []     -> f B.empty >>= go []

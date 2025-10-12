@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Harmonix.RockBand.Milo.Compression where
@@ -24,7 +25,7 @@ data MiloCompression
 
 -- decompresses zlib stream, but ignores "input ended prematurely" error
 zlibTruncate :: BL.ByteString -> BL.ByteString
-zlibTruncate bs = runST $ let
+zlibTruncate bs = runST let
   go input = \case
     Z.DecompressInputRequired f              -> case input of
       []     -> f B.empty >>= go []
@@ -71,9 +72,9 @@ decompressMilo = do
     return (size', compressed)
   posn <- bytesRead
   skip $ fromIntegral offset - fromIntegral (posn - startingOffset)
-  fmap BL.concat $ forM blockInfo $ \(size, compressed) -> do
+  fmap BL.concat $ forM blockInfo \(size, compressed) -> do
     bs <- getLazyByteString $ fromIntegral size
-    return $ if compressed then decompressBlock comp bs else bs
+    return if compressed then decompressBlock comp bs else bs
 
 magicBarrier :: [Word8]
 magicBarrier = [0xAD, 0xDE, 0xAD, 0xDE]
@@ -86,7 +87,7 @@ addMiloHeader bs = let
       []           -> []
       [c]          -> [c]
       c1 : c2 : cs -> (c1 ++ c2) : cs
-  header = runPut $ do
+  header = runPut do
     putWord32le 0xCABEDEAF
     putWord32le headerSize
     putWord32le $ fromIntegral $ length chunks

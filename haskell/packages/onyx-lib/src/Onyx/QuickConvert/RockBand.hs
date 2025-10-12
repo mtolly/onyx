@@ -5,6 +5,7 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 - Change platform: 360 <-> PS3, eventually also Wii
 - Certain changes to MIDI: black venue, remove OD, remove lanes, etc.
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
@@ -178,9 +179,9 @@ splitSongsDTA r = do
   bs <- fmap BL.toStrict $ stackIO $ useHandle r handleToByteString
   let noBOM = fromMaybe bs $ B.stripPrefix "\xEF\xBB\xBF" bs
   sections <- readDTASections noBOM
-  fmap catMaybes $ forM sections $ \(bytes, chunk) -> do
+  fmap catMaybes $ forM sections \(bytes, chunk) -> do
     case chunk of
-      Parens (Tree _ data1) -> errorToWarning $ do
+      Parens (Tree _ data1) -> errorToWarning do
         data2 <- case [x | Key "song" x <- data1] of
           []    -> fatal "No song chunk found"
           x : _ -> return x
@@ -211,7 +212,7 @@ splitSongsDTA r = do
         preview <- case concat [x | Key "preview" x <- data1] of
           [Int start, Int end] -> return (start, end)
           _                    -> fatal "Couldn't get preview time of song"
-        let getFloats = mapM $ \case
+        let getFloats = mapM \case
               Int   i -> return $ realToFrac i
               Float f -> return f
               x       -> fatal $ "Expected a number but found: " <> show x
@@ -243,13 +244,13 @@ splitSongsDTA r = do
 
 detectMOGG :: (MonadIO m) => Readable -> StackTraceT m (QuickFile Readable)
 detectMOGG r = do
-  moggType <- stackIO $ useHandle r $ \h -> B.hGet h 1
+  moggType <- stackIO $ useHandle r \h -> B.hGet h 1
   let qfile = if B.unpack moggType == [0xA] then QFUnencryptedMOGG else QFEncryptedMOGG
   return $ qfile r
 
 detectMIDI :: (MonadIO m) => B.ByteString -> Readable -> StackTraceT m (QuickFile Readable)
 detectMIDI packageFolder r = do
-  magic <- stackIO $ useHandle r $ \h -> B.hGet h 1
+  magic <- stackIO $ useHandle r \h -> B.hGet h 1
   let qfile = if magic == "MThd" then QFUnencryptedMIDI else QFEncryptedMIDI packageFolder
   return $ qfile r
 
@@ -274,7 +275,7 @@ loadQuickSongsLoose pathDTA = do
   songsFolder <- stackIO $ crawlFolder $ takeDirectory pathDTA
   let maybePackageName = B8.pack $ takeFileName $ takeDirectory $ takeDirectory pathDTA
   songRefs <- splitSongsDTA $ fileReadable pathDTA
-  forM songRefs $ \qdta -> do
+  forM songRefs \qdta -> do
     songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
       Just dir -> return dir
       Nothing -> fatal $ "Song folder not found in directory structure: " <> show (qdtaFolder qdta)
@@ -305,7 +306,7 @@ loadQuickSongsPS3 packageName packageFolder = do
     Just r -> return r
     Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
   songRefs <- splitSongsDTA dta
-  forM songRefs $ \qdta -> do
+  forM songRefs \qdta -> do
     songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
       Just dir -> return dir
       Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
@@ -333,7 +334,7 @@ loadQuickSongsXbox folder = do
     Just r  -> return r
     Nothing -> fatal "No songs.dta found inside CON/LIVE"
   songRefs <- splitSongsDTA dta
-  forM songRefs $ \qdta -> do
+  forM songRefs \qdta -> do
     songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
       Just dir -> return dir
       Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
@@ -418,7 +419,7 @@ loadQuickSongsRBA fin = do
 
 loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickInput)
 loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtension fin of
-  ".pkg" -> errorToWarning $ do
+  ".pkg" -> errorToWarning do
     pkg <- stackIO $ loadPKG fin
     usr <- case findFolder ["USRDIR"] $ pkgFolder pkg of
       Just dir -> return dir
@@ -431,7 +432,7 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
       , quickInputSongs  = songs
       , quickInputXbox   = Nothing
       }
-  ".rba" -> errorToWarning $ do
+  ".rba" -> errorToWarning do
     songs <- loadQuickSongsRBA fin
     return QuickInput
       { quickInputPath   = fin
@@ -440,17 +441,17 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
       , quickInputXbox   = Nothing
       }
   _ -> errorToEither (stackIO $ getSTFSFolder fin) >>= \case
-    Right folder -> errorToWarning $ do
+    Right folder -> errorToWarning do
       songs <- loadQuickSongsXbox folder
-      (header, meta) <- stackIO $ withSTFSPackage fin $ \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
+      (header, meta) <- stackIO $ withSTFSPackage fin \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
       return QuickInput
         { quickInputPath   = fin
-        , quickInputFormat = QCInputTwoWay $ case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
+        , quickInputFormat = QCInputTwoWay case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
         , quickInputSongs  = songs
         , quickInputXbox   = Just meta
         }
     Left _ -> case takeFileName fin of
-      "songs.dta" -> errorToWarning $ do
+      "songs.dta" -> errorToWarning do
         songs <- loadQuickSongsLoose fin
         return QuickInput
           { quickInputPath   = takeDirectory fin -- not sure best way to handle this
@@ -472,7 +473,7 @@ decryptEDAT crypt name r = tryDecryptEDAT crypt name r >>= \case
     Nothing -> fatal $ "Couldn't decrypt " <> show name
 
 encryptEDAT :: (MonadResource m) => B.ByteString -> B.ByteString -> Bool -> Readable -> StackTraceT m Readable
-encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO $ do
+encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO do
   let cfg = if rb3
         then rb3CustomMidEdatConfig crypt
         else rb2CustomMidEdatConfig crypt
@@ -527,7 +528,7 @@ getPS3File cryptMid cryptMogg (name, qfile) = case qfile of
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
     in return (name', r)
-  QFPNGXbox r -> stackIO $ do
+  QFPNGXbox r -> stackIO do
     let name' = T.pack $ dropExtension (T.unpack name) <> ".png_ps3"
     bs <- useHandle r handleToByteString
     let r' = makeHandle (T.unpack name') $ byteStringSimpleHandle $ I.swapPNGXboxPS3 bs
@@ -570,7 +571,7 @@ quickSongID orig = let
   -- want these to be higher than real DLC, but lower than C3 IDs
   n = orig `mod` 1000000000
   minID = 10000000
-  in fromIntegral $ if n < minID then n + minID else n
+  in fromIntegral if n < minID then n + minID else n
 
 newSongID :: Int -> QuickSong -> QuickSong
 newSongID seed qsong = let
@@ -657,13 +658,13 @@ getWiiFile (name, qfile) = case qfile of
   QFMilo r -> let
     name' = T.pack $ dropExtension (T.unpack name) <> ".milo_wii"
     in return (name', (WiiSong, r))
-  QFPNGXbox r -> stackIO $ do
+  QFPNGXbox r -> stackIO do
     let name' = T.pack $ dropExtension (T.unpack name) <> ".png_wii"
     bs <- useHandle r handleToByteString
     let bs' = I.toDXT1File I.PNGWii $ pixelMap dropTransparency $ I.readRBImage False bs
         r' = makeHandle (T.unpack name') $ byteStringSimpleHandle bs'
     return (name', (WiiMeta, r'))
-  QFPNGPS3 r -> stackIO $ do
+  QFPNGPS3 r -> stackIO do
     let name' = T.pack $ dropExtension (T.unpack name) <> ".png_wii"
     bs <- useHandle r handleToByteString
     let bs' = I.toDXT1File I.PNGWii $ pixelMap dropTransparency $ I.readRBImage True bs
@@ -681,7 +682,7 @@ getWiiFile (name, qfile) = case qfile of
 
 saveQuickSongsSTFS :: (MonadIO m, SendMessage m) => Bool -> [QuickSong] -> CreateOptions -> FilePath -> StackTraceT m ()
 saveQuickSongsSTFS decrypt qsongs opts fout = do
-  xboxFolders <- forM qsongs $ \qsong -> do
+  xboxFolders <- forM qsongs \qsong -> do
     xboxFolder <- mapMFilesWithName (getXboxFile decrypt . discardSize) $ quickSongFiles qsong
     return (qdtaFolder $ quickSongDTA qsong, xboxFolder)
   let songsFolder = Folder
@@ -692,7 +693,7 @@ saveQuickSongsSTFS decrypt qsongs opts fout = do
         { folderSubfolders = [("songs", songsFolder)]
         , folderFiles = []
         }
-      songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
+      songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
         qsong <- qsongs
         return (qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
   stackIO $ makeCONReadable opts topFolder fout
@@ -724,7 +725,7 @@ defaultFolderPS3 qsongs = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && is
 quickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> StackTraceT m (Folder T.Text Readable)
 quickSongsPS3Folder qsongs settings = do
   let oneFolder = defaultFolderPS3 qsongs
-  qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs $ \qsong -> do
+  qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs \qsong -> do
     let separateFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
           $ "O" <> take 6 (show $ hash $ qdtaOriginal $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
         chosenFolder = case qcPS3Folder settings of
@@ -737,9 +738,9 @@ quickSongsPS3Folder qsongs settings = do
         mcrypt = guard (qcPS3EncryptMIDI settings) >> Just (chosenFolder, qcPS3RB3 settings)
     ps3Folder <- mapMFilesWithName (getPS3File mcrypt (qcPS3EncryptMOGG settings) . discardSize) $ quickSongFiles qsong
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
-  return $ mconcat $ do
+  return $ mconcat do
     (usrdirSub, songs) <- Map.toList qsongMapping
-    let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ do
+    let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
           (qsong, _) <- songs
           return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
     return $ singleFolder (TE.decodeLatin1 usrdirSub) $ singleFolder "songs" Folder
@@ -754,8 +755,8 @@ saveQuickSongsPKG qsongs settings fout = do
       contentID = npdContentID
         $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
       rootFolder = singleFolder "USRDIR" contents
-  stackIO $ do
-    extraPath <- getResourcesPath $ if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2"
+  stackIO do
+    extraPath <- getResourcesPath if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
     makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) fout
 
@@ -764,7 +765,7 @@ saveQuickSongsPS3Folder qsongs settings dout = do
   contents <- quickSongsPS3Folder qsongs settings
   stackIO $ installPS3Folder
     (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050")
-    (Just $ if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2")
+    (Just if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2")
     contents
     dout
 
@@ -793,7 +794,7 @@ data QuickDolphinSettings = QuickDolphinSettings
 
 saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickDolphinSettings -> FilePath -> StackTraceT m [FilePath]
 saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
-  triples <- forM qsongs $ \qsong -> do
+  triples <- forM qsongs \qsong -> do
     lg $ T.unpack $ T.intercalate " - " $ concat
       [ toList $ qdtaArtist $ quickSongDTA qsong
       , [qdtaTitle $ quickSongDTA qsong]
@@ -834,14 +835,14 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
       else silentPreview
     oggToMoggFiles prevOgg prevMogg
     previewReadable <- stackIO $ makeHandle "preview mogg" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile prevMogg
-    let metaContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
+    let metaContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles \case
           (WiiMeta, r) -> Just r
           _            -> Nothing
         previewContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) Folder
           { folderSubfolders = []
           , folderFiles = [(qdtaFolder (quickSongDTA qsong) <> "_prev.mogg", previewReadable)]
           }
-        songContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles $ \case
+        songContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles \case
           (WiiSong, r) -> Just r
           _            -> Nothing
     return ((dta, qdtaComments $ quickSongDTA qsong), metaContents <> previewContents, songContents)
@@ -893,7 +894,7 @@ removePitch :: (NNC.C t) => Int -> RTB.T t (E.T B.ByteString) -> RTB.T t (E.T B.
 removePitch n = RTB.filter $ maybe True (\(p, _) -> p /= n) . isNoteEdge
 
 noOverdrive :: F.T B.ByteString -> F.T B.ByteString
-noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn let
   instrumentTracks =
     [ "PART GUITAR"
     , "PART BASS"
@@ -912,12 +913,12 @@ noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     , "PART REAL_BASS"
     , "PART REAL_BASS_22"
     ]
-  in flip map trks $ \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
+  in flip map trks \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
     then removePitch 116 trk
     else trk
 
 noLanesGBK :: F.T B.ByteString -> F.T B.ByteString
-noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn let
   noLaneTracks =
     [ "PART GUITAR"
     , "PART BASS"
@@ -933,7 +934,7 @@ noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     , "PART REAL_KEYS_H"
     , "PART REAL_KEYS_X"
     ]
-  in flip map trks $ \trk -> let
+  in flip map trks \trk -> let
     name = U.trackName trk
     in case (maybe False (`elem` noLaneTracks) name, maybe False (`elem` noTrillTracks) name) of
       (True, _   ) -> removePitch 116 $ removePitch 117 trk
@@ -941,18 +942,18 @@ noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn $ let
       _            -> trk
 
 noLanesDrums :: F.T B.ByteString -> F.T B.ByteString
-noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk ->
+noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks \trk ->
   case U.trackName trk of
     Just "PART DRUMS" -> removePitch 116 $ removePitch 117 trk
     _                 -> trk
 
 noDrumFills :: F.T B.ByteString -> F.T B.ByteString
-noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn let
    -- remove drum fills, except starting at [coda]
   isCoda = \case
     E.MetaEvent (Meta.TextEvent "[coda]") -> True
     _                                     -> False
-  maybeCoda = listToMaybe $ do
+  maybeCoda = listToMaybe do
     trk <- trks
     guard $ U.trackName trk == Just "EVENTS"
     case RTB.filter isCoda trk of
@@ -963,13 +964,13 @@ noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn $ let
       then maybe False (t >=) maybeCoda -- keep note-on if equal since it's the BRE start
       else maybe False (t > ) maybeCoda
     _ -> True
-  in flip map trks $ \trk -> case U.trackName trk of
+  in flip map trks \trk -> case U.trackName trk of
     Just "PART DRUMS" -> RTB.fromAbsoluteEventList $ ATB.fromPairList
       $ filter keepDrumEvent $ ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
     _ -> trk
 
 mustang22 :: F.T B.ByteString -> F.T B.ByteString
-mustang22 (F.Cons typ dvn trksOrig) = F.Cons typ dvn $ let
+mustang22 (F.Cons typ dvn trksOrig) = F.Cons typ dvn let
   -- for pg/gb, if both 17 and 22 tracks, remove 17, rename 22
   process name17 name22 trks = let
     (trk17, notTrk17 ) = partition (\trk -> U.trackName trk == Just name17) trks
@@ -981,7 +982,7 @@ mustang22 (F.Cons typ dvn trksOrig) = F.Cons typ dvn $ let
     $ process "PART REAL_BASS" "PART REAL_BASS_22" trksOrig
 
 unmuteOver22 :: F.T B.ByteString -> F.T B.ByteString
-unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn $ let
+unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn let
    -- for pg/pb, match note on/off, then unmute (ch 3 -> 0) if velocity 123 or above and pitch in pg note range
   processProtar trk = let
     (notes, notNotes) = RTB.partitionMaybe isNoteEdge' trk
@@ -997,7 +998,7 @@ unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn $ let
     , "PART REAL_BASS"
     , "PART REAL_BASS_22"
     ]
-  in flip map trks $ \trk -> if maybe False (`elem` protarTracks) $ U.trackName trk
+  in flip map trks \trk -> if maybe False (`elem` protarTracks) $ U.trackName trk
     then processProtar trk
     else trk
 
@@ -1006,7 +1007,7 @@ applyToMIDI
   => (F.T B.ByteString -> StackTraceT m (F.T B.ByteString))
   -> Folder T.Text QuickFileSized
   -> StackTraceT m (Folder T.Text QuickFileSized)
-applyToMIDI midFunction = mapMFilesWithName $ let
+applyToMIDI midFunction = mapMFilesWithName let
   withParsed name mid = do
     mid' <- midFunction mid
     return (name, QFParsedMIDI mid')
@@ -1030,7 +1031,7 @@ applyToMIDI midFunction = mapMFilesWithName $ let
     return (name', (size, qfile'))
 
 decompressMilos :: (SendMessage m, MonadIO m) => Folder T.Text QuickFileSized -> StackTraceT m (Folder T.Text QuickFileSized)
-decompressMilos = mapMFilesWithName $ \(name, (size, qfile)) -> do
+decompressMilos = mapMFilesWithName \(name, (size, qfile)) -> do
   newFileSized <- case qfile of
     QFMilo r -> do
       bs <- stackIO $ useHandle r handleToByteString
@@ -1082,7 +1083,7 @@ modifyTitle f qsong = let
 
 -- Strips 2x Bass Pedal labels and BirdmanExe author tags like (B) (X) (Z) (O) (Rh) (I) etc.
 stripTitleTags :: QuickSong -> QuickSong
-stripTitleTags = modifyTitle $ let
+stripTitleTags = modifyTitle let
   strippableTag s = or
     [ elem (B8.map toLower s) ["2x bass pedal", "2x", "x+"]
     , case B8.unpack s of
@@ -1101,12 +1102,12 @@ stripTitleTags = modifyTitle $ let
   in stripper
 
 addTitleTag :: B.ByteString -> QuickSong -> QuickSong
-addTitleTag tag = modifyTitle $ \title -> if tag `B.isInfixOf` title
+addTitleTag tag = modifyTitle \title -> if tag `B.isInfixOf` title
   then title
   else title <> " " <> tag
 
 noteShuffleMIDI :: (SendMessage m) => U.Beats -> F.T B.ByteString -> StackTraceT m (F.T B.ByteString)
-noteShuffleMIDI hopoThreshold (F.Cons typ dvn@(F.Ticks res) trks) = fmap (F.Cons typ dvn) $ forM trks $ \trk -> let
+noteShuffleMIDI hopoThreshold (F.Cons typ dvn@(F.Ticks res) trks) = fmap (F.Cons typ dvn) $ forM trks \trk -> let
   trk'
     = RTB.mapTime (\tks -> realToFrac tks / realToFrac res)
     $ RTB.mapBody (fmap TE.decodeLatin1) trk
@@ -1161,7 +1162,7 @@ enforceEncoding enc dta = let
   withEncodingSetting = case dta.qdtaParsed of
     Parens (Tree n data1) -> Parens $ Tree n
       $ filter (\case Key "encoding" _ -> False; _ -> True) data1
-      <> [Key "encoding" [Sym $ case enc of Latin1 -> "latin1"; UTF8 -> "utf8"]]
+      <> [Key "encoding" [Sym case enc of Latin1 -> "latin1"; UTF8 -> "utf8"]]
     _                     -> dta.qdtaParsed -- shouldn't happen
   switchEncoding = case enc of
     UTF8   -> TE.encodeUtf8 . TE.decodeLatin1
@@ -1188,14 +1189,14 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
       rbps3ContentID = npdContentID rbps3EDATConfig
       adjustFiles folder = do
         newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
-          ".mogg" -> stackIO $ do
-            moggType <- useHandle r $ \h -> B.hGet h 1
+          ".mogg" -> stackIO do
+            moggType <- useHandle r \h -> B.hGet h 1
             case B.unpack moggType of
               [0xA] -> let
                 enc = makeHandle "encrypted mogg for ps3" $ encryptMOGGToByteString r >>= byteStringSimpleHandle
                 in return (name, enc)
               _     -> return (name, r)
-          ".mid" -> stackIO $ do
+          ".mid" -> stackIO do
             let tmpIn  = tmp </> "in.mid"
                 tmpOut = tmp </> "out.mid.edat"
                 name' = name <> ".edat"
@@ -1228,7 +1229,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
           ".milo_xbox" -> do
             let name' = T.pack $ dropExtension (T.unpack name) <> ".milo_ps3"
             return (name', r)
-          ".png_xbox" -> stackIO $ do
+          ".png_xbox" -> stackIO do
             b <- useHandle r handleToByteString
             let name' = T.pack $ dropExtension (T.unpack name) <> ".png_ps3"
                 b' = BL.take 0x20 b <> BL.pack (swapBytes $ BL.unpack $ BL.drop 0x20 b)
@@ -1242,7 +1243,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
           return (name, sub')
         return Folder { folderSubfolders = newSubs, folderFiles = newFiles }
   main <- singleFolder "USRDIR" . singleFolder rbps3Folder <$> adjustFiles conFolder
-  stackIO $ do
-    extraPath <- getResourcesPath $ if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
+  stackIO do
+    extraPath <- getResourcesPath if isRB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
     makePKG rbps3ContentID (first TE.encodeUtf8 $ main <> extra) fout

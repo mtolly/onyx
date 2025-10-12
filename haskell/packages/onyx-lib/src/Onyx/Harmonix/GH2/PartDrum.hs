@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -39,7 +40,7 @@ instance TraverseTrack GH2DrumDifficulty where
 
 instance ParseTrack GH2DrumTrack where
   parseTrack = do
-    gh2drumDifficulties <- (gh2drumDifficulties =.) $ eachKey each $ \diff -> do
+    gh2drumDifficulties <- (gh2drumDifficulties =.) $ eachKey each \diff -> do
       let base = case diff of
             Easy   -> 60
             Medium -> 72

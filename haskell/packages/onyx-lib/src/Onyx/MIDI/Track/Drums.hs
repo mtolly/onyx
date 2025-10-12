@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
@@ -193,12 +194,12 @@ instance ChopTrack DrumDifficulty where
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType
   = dimap
-    (fmap $ \case Tom -> True; Cymbal -> False)
-    (fmap $ \b -> if b then Tom else Cymbal)
+    (fmap \case Tom -> True; Cymbal -> False)
+    (fmap \b -> if b then Tom else Cymbal)
   . edges
 
 parseDrumAnimation :: (Monad m) => TrackEvent m U.Beats Animation
-parseDrumAnimation = fatBlips (1/8) $ condenseMap_ $ eachKey each $ \case
+parseDrumAnimation = fatBlips (1/8) $ condenseMap_ $ eachKey each \case
   KickRF            -> blip 24
   HihatOpen b       -> edge 25 b
   Snare HardHit LH  -> blip 26
@@ -244,7 +245,7 @@ instance ParseTrack DrumTrack where
     drumSolo <- (.drumSolo) =. edges 103
     drumPlayer1 <- (.drumPlayer1) =. edges 105
     drumPlayer2 <- (.drumPlayer2) =. edges 106
-    drumDifficulties <- (=.) (.drumDifficulties) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    drumDifficulties <- (=.) (.drumDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -265,7 +266,7 @@ instance ParseTrack DrumTrack where
           allDrums = [Kick, Red, Pro Yellow (), Pro Blue (), Pro Green (), Orange]
       chordSnap [base - 1 .. base + 5]
       drumGems <- (.drumGems) =. do
-        dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey allDrums $ \drum -> do
+        dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey allDrums \drum -> do
           blipCV $ base + case drum of
             Kick          -> 0
             Red           -> 1
@@ -289,7 +290,7 @@ instance ParseTrack DrumTrack where
     drumEnableDynamics <- (.drumEnableDynamics) =. Codec
       -- support text event both with and without brackets
       -- (the no-brackets version gets turned into a lyric by preprocessing)
-      { codecIn = slurpTrack $ \mt -> let
+      { codecIn = slurpTrack \mt -> let
         (brackets  , cmds'  ) = RTB.partition (== ["ENABLE_CHART_DYNAMICS"]) $ midiCommands mt
         (noBrackets, lyrics') = RTB.partition (== "ENABLE_CHART_DYNAMICS") $ midiLyrics mt
         mt' = mt
@@ -298,13 +299,13 @@ instance ParseTrack DrumTrack where
           }
         in (RTB.merge (void brackets) (void noBrackets), mt')
       -- always emit the no-brackets version, so Magma is ok with it
-      , codecOut = makeTrackBuilder $ fmap $ \() -> E.MetaEvent $ Meta.TextEvent "ENABLE_CHART_DYNAMICS"
+      , codecOut = makeTrackBuilder $ fmap \() -> E.MetaEvent $ Meta.TextEvent "ENABLE_CHART_DYNAMICS"
       }
     return DrumTrack{..}
 
 fiveToPro :: (NNC.C t) => ProColor -> RTB.T t (Gem (), DrumVelocity) -> RTB.T t (Gem ProType, DrumVelocity)
 fiveToPro fallback = let
-  eachInstant instant = flip map instant $ \case
+  eachInstant instant = flip map instant \case
     (Kick         , vel) -> (Kick             , vel)
     (Red          , vel) -> (Red              , vel)
     (Pro Yellow (), vel) -> (Pro Yellow Cymbal, vel)
@@ -327,11 +328,11 @@ getDrumDifficulty diff trk = let
 
 computePro :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ProType, DrumVelocity)
 computePro diff trk = let
-  toms = fmap (fmap $ \case Tom -> True; Cymbal -> False) trk.drumToms
+  toms = fmap (fmap \case Tom -> True; Cymbal -> False) trk.drumToms
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
   disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) this.drumMix
   applied = applyStatus disco $ applyStatus toms $ getDrumDifficulty diff trk
-  in flip fmap applied $ \case
+  in flip fmap applied \case
     (instantDisco, (instantToms, (gem, vel))) -> let
       isDisco = not $ null instantDisco
       gem' = case gem of
@@ -340,7 +341,7 @@ computePro diff trk = let
           then Pro Yellow Cymbal
           else Red
         Pro Yellow () | isDisco -> Red
-        Pro color () -> Pro color $ if elem color instantToms then Tom else Cymbal
+        Pro color () -> Pro color if elem color instantToms then Tom else Cymbal
         Orange -> Orange -- probably shouldn't happen
       in (gem', vel)
 
@@ -351,7 +352,7 @@ computePSReal diff trk = let
   pro = computePro diff trk
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
   applied = applyStatus this.drumPSModifiers pro
-  in flip fmap applied $ \(mods, (gem, vel)) -> let
+  in flip fmap applied \(mods, (gem, vel)) -> let
     gem' = case gem of
       Red
         | elem Rimshot mods -> Left Rimshot
@@ -369,7 +370,7 @@ encodePSReal blipTime diff real = let
     thisBlipTime = case rest of
       Wait dt2 _ _ -> min blipTime dt2
       RNil         -> blipTime
-    events = flip map xs $ \case
+    events = flip map xs \case
       (Left ps, _)               -> Wait NNC.zero (Left (ps, True)) $ Wait thisBlipTime (Left (ps, False)) RNil
       (Right (Pro color Tom), _) -> Wait NNC.zero (Right (color, Tom)) $ Wait thisBlipTime (Right (color, Cymbal)) RNil
       _                          -> RNil
@@ -377,7 +378,7 @@ encodePSReal blipTime diff real = let
   go RNil = RNil
   psmods = RTB.mapMaybe (\case Left x -> Just x; _ -> Nothing) modifiers
   toms = RTB.mapMaybe (\case Right x -> Just x; _ -> Nothing) modifiers
-  gems = flip fmap real $ \(gem, vel) -> let
+  gems = flip fmap real \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of
         Rimshot  -> Red
@@ -397,7 +398,7 @@ encodePSReal blipTime diff real = let
 
 psRealToPro :: (NNC.C t) => DrumTrack t -> DrumTrack t
 psRealToPro trk = trk
-  { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties $ \diff this -> this
+  { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties \diff this -> this
     -- this will fail if you use discobeat on the real track, so don't do that
     { drumPSModifiers = RTB.empty
     , drumGems = flip RTB.mapMaybe (computePSReal (Just diff) trk) $ \case
@@ -476,7 +477,7 @@ autoDrumAnimation closeTime pro = let
     | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Red, Pro Yellow Tom] -> [AnimSnare, AnimSnare]
-    | otherwise -> flip mapMaybe inst $ \case
+    | otherwise -> flip mapMaybe inst \case
       Red               -> Just AnimSnare
       Pro Yellow Cymbal -> Just AnimHihat
       Pro Blue Cymbal   -> Just AnimRide
@@ -517,7 +518,7 @@ autoDrumHands closeTime pads = let
       (phrase, afterPhrase) = getPhrase rest
       in ((dt, x) : phrase, afterPhrase)
     afterPhrase -> ([], afterPhrase)
-  makeAnimations rtb = RTB.flatten $ flip fmap rtb $ \case
+  makeAnimations rtb = RTB.flatten $ flip fmap rtb \case
     Right (x, y)   -> [makeSingle x LH, makeSingle y RH]
     Left (x, hand) -> [makeSingle x hand]
   makeSingle :: AnimInput -> Hand -> Animation
@@ -537,7 +538,7 @@ autoDrumHands closeTime pads = let
 
 expertWith2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 expertWith2x dt = let
-  add2x = flip Map.adjust Expert $ \dd -> dd
+  add2x = flip Map.adjust Expert \dd -> dd
     { drumGems = RTB.merge dd.drumGems $ (Kick, VelocityNormal) <$ dt.drumKick2x
     }
   in dt
@@ -564,7 +565,7 @@ setDrumMix audio trk = let
 -- color, or the next note (any note on any difficulty).
 extendShortTomMarkers :: (NNC.C t, Num t) => t -> DrumTrack t -> DrumTrack t
 extendShortTomMarkers minLength trk = let
-  notes = Set.fromList $ do
+  notes = Set.fromList do
     diff <- Map.elems trk.drumDifficulties
     ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero diff.drumGems
   markers

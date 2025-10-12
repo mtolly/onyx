@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -109,7 +110,7 @@ putAnim Anim{..} = do
   putFloatbe animEnd
   putWord32be animMystery4
   putWord32be $ fromIntegral $ length animTracks
-  forM_ animTracks $ \AnimTrack{..} -> do
+  forM_ animTracks \AnimTrack{..} -> do
     putWord32be trackVersion
     putWord32be trackSubversion
     putStringBE trackDomain
@@ -119,13 +120,13 @@ putAnim Anim{..} = do
     putStringBE trackName2
     putByteString trackMystery3
     putWord32be $ fromIntegral $ length trackEvents
-    forM_ trackEvents $ \AnimEvent{..} -> do
+    forM_ trackEvents \AnimEvent{..} -> do
       mapM_ putWord32be eventExtra
       putStringBE eventName
       putFloatbe eventTime
 
 animToDebugMIDI :: U.TempoMap -> U.MeasureMap -> Anim Float -> F.Song (F.RawFile U.Beats)
-animToDebugMIDI tmap mmap venue = F.Song tmap mmap $ F.RawFile $ do
+animToDebugMIDI tmap mmap venue = F.Song tmap mmap $ F.RawFile do
   trk <- venue.animTracks
   return
     $ U.setTrackName (TE.decodeLatin1 trk.trackName)
@@ -170,7 +171,7 @@ convertFromAnim anim = inside "Converting venue info to MIDI" $ let
   toRTB :: (SendMessage m, Ord a) => [(U.Seconds, Either String a)] -> StackTraceT m (RTB.T U.Seconds a)
   toRTB xs = do
     let sorted = sort xs
-    forM_ sorted $ \case
+    forM_ sorted \case
       (t, Left warning) -> inside (showFFloat (Just 3) (realToFrac t :: Double) "s") $ warn warning
       _                 -> return ()
     return $ RTB.fromAbsoluteEventList $ ATB.fromPairList [ (t, x) | (t, Right x) <- sorted ]
@@ -185,19 +186,19 @@ convertFromAnim anim = inside "Converting venue info to MIDI" $ let
       else pair : go b2 rest
     go b1 (pair@(_, Left _) : rest) = pair : go b1 rest
   lastTime = foldr max 0 $ toList animSeconds
-  singalong name = inside ("track: " <> B8.unpack name) $ toRTB $ validEdges $ do
+  singalong name = inside ("track: " <> B8.unpack name) $ toRTB $ validEdges do
     e <- getEvents name
     case e.eventName of
       "singalong_off" -> [(e.eventTime, Right False)]
       "singalong_on"  -> [(e.eventTime, Right True )]
       _               -> []
-  onOff name = inside ("track: " <> B8.unpack name) $ toRTB $ validEdges $ do
+  onOff name = inside ("track: " <> B8.unpack name) $ toRTB $ validEdges do
     e <- getEvents name
     case e.eventName of
       "off" -> [(e.eventTime, Right False)]
       "on"  -> [(e.eventTime, Right True )]
       _     -> []
-  getCommands name = inside ("track: " <> B8.unpack name) $ toRTB $ do
+  getCommands name = inside ("track: " <> B8.unpack name) $ toRTB do
     e <- getEvents name
     guard $ e.eventName /= "TEST_CAM"
     case toCommand [TE.decodeLatin1 e.eventName] of
@@ -245,7 +246,7 @@ convertFromAnim anim = inside "Converting venue info to MIDI" $ let
     spotGuitar   <- onOff "spot_guitar"
     spotDrums    <- onOff "spot_drums"
     spotBass     <- onOff "spot_bass"
-    lightingMode <- inside "track: world_event" $ toRTB $ do
+    lightingMode <- inside "track: world_event" $ toRTB do
       -- only a few songs have these, not sure if they do anything post-rb2?
       e <- getEvents "world_event"
       case e.eventName of
@@ -253,26 +254,26 @@ convertFromAnim anim = inside "Converting venue info to MIDI" $ let
         "chorus" -> [(e.eventTime, Right ModeChorus)]
         _        -> []
     fog <- onOff "stagekit_fog"
-    postProc <- inside "track: postproc" $ toRTB $ do
+    postProc <- inside "track: postproc" $ toRTB do
       e <- cleanPostproc $ getEvents "postproc"
       case e.eventName of
         "" -> [(e.eventTime, Right V3_ProFilm_a)] -- is this right? seen empty string in ziggystardust
         _  -> case toCommand [TE.decodeLatin1 e.eventName] of
           Nothing -> [(e.eventTime, Left $ "Unrecognized postproc event: " <> show e.eventName)]
           Just pp -> [(e.eventTime, Right pp)]
-    lighting <- inside "track: lightpreset" $ toRTB $ do
+    lighting <- inside "track: lightpreset" $ toRTB do
       e <- cleanPostproc $ getEvents "lightpreset"
       case readMaybe $ "Lighting_" <> B8.unpack e.eventName of
         Nothing    -> [(e.eventTime, Left $ "Unrecognized lighting event: " <> show e.eventName)]
         Just light -> [(e.eventTime, Right light)]
-    lightingCommands <- inside "track: lightpreset_keyframe" $ toRTB $ do
+    lightingCommands <- inside "track: lightpreset_keyframe" $ toRTB do
       e <- getEvents "lightpreset_keyframe"
       case e.eventName of
         "first" -> [(e.eventTime, Right (LightingFirst, RBN2))]
         "prev"  -> [(e.eventTime, Right (LightingPrev , RBN2))]
         "next"  -> [(e.eventTime, Right (LightingNext , RBN2))]
         _       -> []
-    bonusFX <- inside "track: world_event" $ toRTB $ do
+    bonusFX <- inside "track: world_event" $ toRTB do
       e <- getEvents "world_event"
       guard $ e.eventName == "bonusfx"
       return (e.eventTime, Right ())

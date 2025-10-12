@@ -1,5 +1,6 @@
 -- | All functions that take a 'Handle' or 'FilePath' do their reading/writing
 -- strictly.
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Harmonix.DTA
@@ -89,7 +90,7 @@ readDTABytes bs = fmap (B8.pack . T.unpack) <$> readDTA_latin1 bs
 readDTASections :: (Monad m) => B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
 readDTASections bs = do
   sects <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStackPositions
-  return $ do
+  return do
     (sect, next) <- zip sects $ map Just (drop 1 sects) ++ [Nothing]
     let AlexPn startBytes _ _ = fst sect
         taker = case next of

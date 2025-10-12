@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -174,12 +175,12 @@ textExt x = let
 
 convertAudio :: [T.Text] -> T.Text -> QuickFoF -> IO QuickFoF
 convertAudio convFrom convTo q = do
-  newFiles <- forM q.files $ \pair@(f, file) -> case file of
+  newFiles <- forM q.files \pair@(f, file) -> case file of
     FoFReadable r -> case textExt f of
       (name, ext) | elem ext convFrom -> do
         let newName = name <> convTo
             newStr = T.unpack newName
-        bs <- withSystemTempFile newStr $ \fout hout -> do
+        bs <- withSystemTempFile newStr \fout hout -> do
           withSystemTempFile (T.unpack name) $ \fin hin -> do
             hClose hin
             hClose hout
@@ -190,7 +191,7 @@ convertAudio convFrom convTo q = do
         return (newName, FoFReadable $ makeHandle newStr $ byteStringSimpleHandle bs)
       _ -> return pair
     _ -> return pair
-  return $ let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
 
 convertOgg, convertOpus :: QuickFoF -> IO QuickFoF
 convertOgg  = convertAudio [".mp3", ".wav", ".opus", ".flac"] ".ogg"
@@ -198,7 +199,7 @@ convertOpus = convertAudio [".mp3", ".wav", ".ogg" , ".flac"] ".opus"
 
 convertMIDI :: (SendMessage m, MonadIO m) => QuickFoF -> StackTraceT m QuickFoF
 convertMIDI q = do
-  newFiles <- forM q.files $ \pair@(f, file) -> case file of
+  newFiles <- forM q.files \pair@(f, file) -> case file of
     FoFReadable r -> case textExt f of
       (name, ".chart") -> do
         chart <- chartToBeats <$> loadChartReadable r
@@ -208,19 +209,19 @@ convertMIDI q = do
         -- TODO should also save .chart.bak
       _ -> return pair
     _ -> return pair
-  return $ let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
 
 applyToMIDI
   :: (SendMessage m, MonadIO m)
   => (File.T B.ByteString -> StackTraceT m (File.T B.ByteString))
   -> QuickFoF -> StackTraceT m QuickFoF
 applyToMIDI f q = do
-  newFiles <- forM q.files $ \pair@(name, file) -> case T.toLower name of
+  newFiles <- forM q.files \pair@(name, file) -> case T.toLower name of
     "notes.mid" -> do
       newMIDI <- getFoFMIDI file >>= f
       return (name, FoFMIDI newMIDI)
     _ -> return pair
-  return $ let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
 
 quickHOPOThreshold :: QuickFoF -> U.Beats
 quickHOPOThreshold q = case lookup "hopo_frequency" q.metadata >>= readMaybe . T.unpack of
@@ -233,17 +234,17 @@ psTapOpenFormats :: (SendMessage m, MonadIO m) => QuickFoF -> StackTraceT m Quic
 psTapOpenFormats q = applyToMIDI (psOpenFormat (quickHOPOThreshold q) . psTapFormat) q
 
 psTapFormat :: File.T B.ByteString -> File.T B.ByteString
-psTapFormat = (runIdentity .) $ modifyFiveFretTracks $ \_dvn trk -> return $ let
-  (notes, trk1) = flip RTB.partitionMaybe trk $ \e -> do
+psTapFormat = (runIdentity .) $ modifyFiveFretTracks \_dvn trk -> return let
+  (notes, trk1) = flip RTB.partitionMaybe trk \e -> do
     (104, b) <- isNoteEdge e
     return b
-  (sysexes, trk2) = flip RTB.partitionMaybe trk1 $ \e -> do
+  (sysexes, trk2) = flip RTB.partitionMaybe trk1 \e -> do
     msg <- parsePSSysEx e
     guard $ msg.psPhraseID == TapNotes
     return msg
   -- overlay the note and sysex (expert / all difficulties) forms
   -- so we enable tap when either of them say to
-  events = RTB.merge (('a',) <$> notes) $ flip RTB.mapMaybe sysexes $ \msg ->
+  events = RTB.merge (('a',) <$> notes) $ flip RTB.mapMaybe sysexes \msg ->
     case msg.psDifficulty of
       Nothing     -> Just ('b', msg.psEdge)
       Just Expert -> Just ('b', msg.psEdge)
@@ -259,13 +260,13 @@ psTapFormat = (runIdentity .) $ modifyFiveFretTracks $ \_dvn trk -> return $ let
         }
 
 psOpenFormat :: (SendMessage m) => U.Beats -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
-psOpenFormat hopoThreshold = modifyFiveFretTracks $ \dvn trk -> let
+psOpenFormat hopoThreshold = modifyFiveFretTracks \dvn trk -> let
   isEnhancedOpensEvent = \case
     Event.MetaEvent (Meta.TextEvent s) -> elem s ["[ENHANCED_OPENS]", "ENHANCED_OPENS"]
     _                                  -> False
   in if not $ any isEnhancedOpensEvent $ U.trackTakeZero trk
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ \ft -> let
+    else flip (overParsedFiveFret dvn) trk \ft -> let
       G5.FiveTrack{..} = ft
       eachDiff = G.emitGuitar5PS . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
       in G5.FiveTrack
@@ -275,11 +276,11 @@ psOpenFormat hopoThreshold = modifyFiveFretTracks $ \dvn trk -> let
 
 -- WIP
 tapToHOPO :: (SendMessage m) => U.Beats -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
-tapToHOPO hopoThreshold = modifyFiveFretTracks $ \dvn trk -> let
+tapToHOPO hopoThreshold = modifyFiveFretTracks \dvn trk -> let
   hasTap = True -- TODO look for events
   in if not hasTap
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ \ft -> let
+    else flip (overParsedFiveFret dvn) trk \ft -> let
       G5.FiveTrack{..} = ft
       eachDiff
         = G.emitGuitar5PS -- should this be an option? probably always PS format opens here
@@ -292,11 +293,11 @@ tapToHOPO hopoThreshold = modifyFiveFretTracks $ \dvn trk -> let
 
 -- WIP
 removeOpenNotes :: (SendMessage m) => U.Beats -> Bool -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
-removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks $ \dvn trk -> let
+removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks \dvn trk -> let
   hasOpen = True -- TODO look for events
   in if not hasOpen
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ \ft -> let
+    else flip (overParsedFiveFret dvn) trk \ft -> let
       G5.FiveTrack{..} = ft
       eachDiff
         = G.emitGuitar5 -- open format doesn't matter since there are none
@@ -340,7 +341,7 @@ modifyFiveFretTracks
   -> File.T B.ByteString
   -> m (File.T B.ByteString)
 modifyFiveFretTracks f (File.Cons typ dvn trks)
-  = fmap (File.Cons typ dvn) $ forM trks $ \trk ->
+  = fmap (File.Cons typ dvn) $ forM trks \trk ->
     if isFiveFretTrack trk then f dvn trk else return trk
 
 isFiveFretTrack :: (NNC.C t) => RTB.T t (Event.T B.ByteString) -> Bool
@@ -392,7 +393,7 @@ fillEliteFromPSReal q = case lookup "notes.mid" q.files of
           }
 
 getFoFReadables :: QuickFoF -> [(T.Text, Readable)]
-getFoFReadables q = flip map q.files $ \(name, file) -> let
+getFoFReadables q = flip map q.files \(name, file) -> let
   r = case file of
     FoFReadable x -> x
     FoFMIDI     m -> makeHandle (T.unpack name) $ byteStringSimpleHandle $ Save.toByteString m
@@ -432,7 +433,7 @@ fillRequiredMetadata = let
   withSongLength q = case lookup "song_length" q.metadata of
     Just s | T.any (not . isSpace) s && T.strip s /= "0" -> return q
     _ -> do
-      lens <- fmap catMaybes $ forM q.files $ \(name, file) -> case file of
+      lens <- fmap catMaybes $ forM q.files \(name, file) -> case file of
         FoFReadable r -> let
           path = T.unpack $ T.toLower name
           in if elem (takeExtension path) audioExts
@@ -445,7 +446,7 @@ fillRequiredMetadata = let
       let ms = case filter (/= 0) lens of
             []     -> 1 -- note, 0 does not work
             n : ns -> foldr max n ns
-      return $ let QuickFoF{..} = q in QuickFoF
+      return let QuickFoF{..} = q in QuickFoF
         { metadata
           =  [ p | p@(k, _) <- q.metadata, k /= "song_length" ]
           <> [ ("song_length", T.pack $ show ms) ]
@@ -455,7 +456,7 @@ fillRequiredMetadata = let
 
 convertEncoreFoF :: FilePath -> EncoreInfo FilePath -> IO QuickFoF
 convertEncoreFoF f info = do
-  newMidi <- generateCachedReadable $ do
+  newMidi <- generateCachedReadable do
     midPath <- fixFileCase info.midi
     bs <- useHandle (fileReadable midPath) handleToByteString
     (mid, _warnings) <- runGetM getMIDI bs
@@ -468,9 +469,9 @@ convertEncoreFoF f info = do
         , ("drums", "drums")
         , ("vocals", "vocals")
         ]
-  newStems <- fmap catMaybes $ forM audioMap $ \(nameCH, keyEncore) -> do
+  newStems <- fmap catMaybes $ forM audioMap \(nameCH, keyEncore) -> do
     let paths = fromMaybe [] $ HM.lookup keyEncore info.stems
-    existingPaths <- flip mapMaybeM paths $ \p -> do
+    existingPaths <- flip mapMaybeM paths \p -> do
       p' <- fixFileCase p
       e <- doesFileExist p'
       return $ guard e >> Just p'
@@ -478,7 +479,7 @@ convertEncoreFoF f info = do
       [path] -> return $ Just (T.pack $ nameCH <.> takeExtension path, fileReadable path)
       p : ps@(_ : _) -> do
         let ext = "ogg" -- TODO use preference
-        r <- generateCachedReadable $ do
+        r <- generateCachedReadable do
           bs <- withSystemTempFile ("onyx-mix" <.> ext) $ \tmp h -> do
             hClose h
             src <- buildSource' $ Mix $ fmap Input $ p NE.:| ps
@@ -640,12 +641,12 @@ detectTrackMapping = HM.fromList
 songDetectTracks :: [(T.Text, T.Text)] -> File.T B.ByteString -> [T.Text]
 songDetectTracks metadata (File.Cons _ _ trks) = let
   metadataMap = HM.fromList metadata
-  tracksWithNotes = nubOrd $ do
+  tracksWithNotes = nubOrd do
     trk <- trks
     name <- decodeGeneral <$> toList (U.trackName trk)
     guard $ any (\e -> isJust $ isNoteEdge e) trk
     return name
-  nameToDiff = HM.fromList $ do
+  nameToDiff = HM.fromList do
     FoFTrackInfo names diff <- concat $ toList detectTrackMapping
     name <- names
     return (name, diff)
@@ -682,7 +683,7 @@ combineMetadata baseMetadata newMetadata = let
 
   -- Handle special properties (only from base song)
   specialProps = ["song_length", "preview_start_time", "preview_end_time", "delay"]
-  baseOnlyProps = flip mapMaybe specialProps $ \key ->
+  baseOnlyProps = flip mapMaybe specialProps \key ->
     fmap (key,) (HM.lookup key baseMap)
 
   -- Handle other properties (excluding charter, diff_, and special properties)
@@ -762,7 +763,7 @@ condenseEvents = go [] . toList . RTB.normalize where
     Just (c', p', Just _) -> c == c' && p == p'
     _                     -> False
   removePSMessage diff phraseID events = let
-    (currentDifficulties, rest) = flip partitionMaybe events $ \e -> do
+    (currentDifficulties, rest) = flip partitionMaybe events \e -> do
       msg <- parsePSSysEx e
       guard $ msg.psPhraseID == phraseID && msg.psEdge
       return msg.psDifficulty
@@ -809,7 +810,7 @@ combineMidi offset hopoThreshold baseTracks baseMidi newTracks newMidi = do
   -- Apply offset to each track, preserving track name events at position 0
   let applyOffsetToTrack trk = let
         name = U.trackName trk
-        removeTrackName = RTB.filter $ \case Event.MetaEvent (Meta.TrackName _) -> False; _ -> True
+        removeTrackName = RTB.filter \case Event.MetaEvent (Meta.TrackName _) -> False; _ -> True
         offsetTrack = if offset >= 0
           then syncDelay (U.Seconds $ realToFrac offset) $ removeTrackName trk
           else syncDrop (U.Seconds $ realToFrac $ negate offset) $ removeTrackName trk

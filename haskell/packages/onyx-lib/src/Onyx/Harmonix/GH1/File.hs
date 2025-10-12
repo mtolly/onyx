@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -147,7 +148,7 @@ instance ParseTrack EventsTrack where
 
 simpleText :: (Show a, Read a, Monad m, NNC.C t) => T.Text -> TrackEvent m t a
 simpleText prefix = Codec
-  { codecIn = slurpTrack $ \mt -> let
+  { codecIn = slurpTrack \mt -> let
     matcher s = readMaybe $ T.unpack $ prefix <> s
     in case RTB.partitionMaybe matcher $ midiLyrics mt of
       (matches, rest) -> (matches, mt { midiLyrics = rest })

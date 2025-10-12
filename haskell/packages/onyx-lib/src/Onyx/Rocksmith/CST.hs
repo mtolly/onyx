@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Rocksmith.CST where
@@ -480,13 +481,13 @@ parseTone f = inside ("Loading: " <> f) $ do
       $ codecIn $ isTag (inSpace cstSpaceTone2014 "Tone2014") $ parseInside' insideCodec
 
 writeProject :: (MonadIO m) => FilePath -> DLCPackageData -> m ()
-writeProject f proj = liftIO $ do
+writeProject f proj = liftIO do
   let xml = makeDoc (inSpace cstSpaceMain "DLCPackageData")
         $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) DLCPackageData) proj
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml
 
 writeTone :: (MonadIO m) => FilePath -> Tone2014 -> m ()
-writeTone f tone = liftIO $ do
+writeTone f tone = liftIO do
   let xml = makeDoc (inSpace cstSpaceTone2014 "Tone2014")
         $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Tone2014) tone
   B.writeFile f $ TE.encodeUtf8 $ T.pack $ ppTopElement xml

@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
+{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Batch where
 
 import           Onyx.GUI.Core
@@ -47,7 +48,7 @@ batchPagePreview sink rect tab build = do
     sink
     "Build web previews"
     (maybe "%input_dir%" T.pack ?preferences.prefDirPreview <> "/%input_base%_player")
-    (\template -> build $ \proj -> T.unpack $ templateApplyInput proj Nothing template)
+    (\template -> build \proj -> T.unpack $ templateApplyInput proj Nothing template)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -60,7 +61,7 @@ batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 3
   let (rect', _) = chopLeft 250 rect
   button <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
   taskColor >>= FL.setColor button
-  FL.setCallback button $ \_ -> sink $ EventOnyx $ do
+  FL.setCallback button \_ -> sink $ EventOnyx do
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir usePath
 
@@ -120,7 +121,7 @@ batchPageRB3 sink rect tab build = do
             [ templateApplyInput proj $ Just $ RB3 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.common.speed of
+                [ T.pack case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 , kicksLabel
@@ -147,7 +148,7 @@ batchPageRB3 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%.pkg")
     (\template -> sink $ EventOnyx $ getTargetSong False RB3PKG template >>= \(qcPossible, x) -> stackIO $ build qcPossible x)
-  batchButtonLoosePS3 sink $ \dout -> do
+  batchButtonLoosePS3 sink \dout -> do
     sink $ EventOnyx $ getTargetSong False (const $ RB3LoosePS3 dout) "" >>= \(qcPossible, x) -> stackIO $ build qcPossible x
   makeTemplateRunner
     sink
@@ -170,9 +171,9 @@ batchPageGH1 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+  let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
-        go $ \proj -> let
+        go \proj -> let
           leadPart = find (hasPartWith anyFiveFret $ projectSongYaml proj)
             [ F.PartGuitar
             , F.PartName "rhythm"
@@ -191,7 +192,7 @@ batchPageGH1 sink rect tab build = do
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH1 tgt
             , let
-              modifiers = T.pack $ case tgt.common.speed of
+              modifiers = T.pack case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -201,7 +202,7 @@ batchPageGH1 sink rect tab build = do
     btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
-    FL.setCallback btn $ \_ -> do
+    FL.setCallback btn \_ -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Select .HDR file"
       FL.showWidget picker >>= \case
@@ -210,7 +211,7 @@ batchPageGH1 sink rect tab build = do
           Just f  -> let
             gen = takeDirectory f
             in getTargetSong id "" $ \song -> do
-              build $ \proj -> let
+              build \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH1ARK gen)
         _ -> return ()
@@ -235,9 +236,9 @@ batchPageGH3 sink rect tab build = do
   getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
-        go $ \proj -> let
+        go \proj -> let
           hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
           leadPart = find hasPart
             [ F.PartGuitar
@@ -273,7 +274,7 @@ batchPageGH3 sink rect tab build = do
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
             , let
-              modifiers = T.pack $ case tgt.common.speed of
+              modifiers = T.pack case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -289,7 +290,7 @@ batchPageGH3 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%.pkg")
     (\template -> getTargetSong False GH3PKG template build)
-  batchButtonLoosePS3 sink $ \dout -> do
+  batchButtonLoosePS3 sink \dout -> do
     sink $ EventIO $ getTargetSong False (const $ GH3LoosePS3 dout) "" build
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -312,11 +313,11 @@ batchPageGH2 sink rect tab build = do
     boxA <- FL.checkButtonNew rectA $ Just "Make practice mode audio for PS2"
     getDeluxe <- gh2DeluxeSelector sink rectB
     return (FL.getValue boxA, getDeluxe)
-  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO $ do
+  let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
         deluxe2x <- getDeluxe
-        go $ \proj -> let
+        go \proj -> let
           defGH2 = def :: TargetGH2 FilePath
           hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
           leadPart = find hasPart
@@ -357,7 +358,7 @@ batchPageGH2 sink rect tab build = do
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH2 tgt
             , let
-              modifiers = T.pack $ case tgt.common.speed of
+              modifiers = T.pack case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"
@@ -367,7 +368,7 @@ batchPageGH2 sink rect tab build = do
     btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
-    FL.setCallback btn $ \_ -> do
+    FL.setCallback btn \_ -> do
       picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
       FL.setTitle picker "Select .HDR file"
       FL.showWidget picker >>= \case
@@ -376,7 +377,7 @@ batchPageGH2 sink rect tab build = do
           Just f  -> let
             gen = takeDirectory f
             in getTargetSong False id "" $ \song -> do
-              build $ \proj -> let
+              build \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH2ARK gen GH2AddBonus)
         _ -> return ()
@@ -416,7 +417,7 @@ batchPageGHWOR sink rect tab build = do
         speed <- stackIO getSpeed
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
-        return $ \proj -> let
+        return \proj -> let
           hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
             [ F.PartGuitar
@@ -444,7 +445,7 @@ batchPageGHWOR sink rect tab build = do
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.common.speed of
+                [ T.pack case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 ]
@@ -461,7 +462,7 @@ batchPageGHWOR sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%.pkg")
     (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= stackIO . build)
-  batchButtonLoosePS3 sink $ \dout -> do
+  batchButtonLoosePS3 sink \dout -> do
     warnXboxGHWoR sink $ getTargetSong False (const $ GHWORLoosePS3 dout) "" >>= stackIO . build
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -489,7 +490,7 @@ batchPageRR sink rect tab build = do
         speed <- stackIO getSpeed
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
-        return $ \proj -> let
+        return \proj -> let
           hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
             [ F.PartGuitar
@@ -517,7 +518,7 @@ batchPageRR sink rect tab build = do
             [ templateApplyInput proj $ Just $ RR tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.common.speed of
+                [ T.pack case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 ]
@@ -564,7 +565,7 @@ batchPageRB2 sink rect tab build = do
         preset <- stackIO getPreset
         kicks <- stackIO getKicks
         newPreferences <- readPreferences
-        return $ \proj -> let
+        return \proj -> let
           tgt = preset yaml def
             { common      = (def :: TargetRB2 FilePath).common
               { speed   = Just speed
@@ -587,7 +588,7 @@ batchPageRB2 sink rect tab build = do
             [ templateApplyInput proj $ Just $ RB2 tgt
             , let
               modifiers = T.concat
-                [ T.pack $ case tgt.common.speed of
+                [ T.pack case tgt.common.speed of
                   Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                   _               -> ""
                 , kicksLabel
@@ -613,7 +614,7 @@ batchPageRB2 sink rect tab build = do
     "Create PS3 PKG files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%.pkg")
     (\template -> sink $ EventOnyx $ getTargetSong False RB2PKG template >>= stackIO . build)
-  batchButtonLoosePS3 sink $ \dout -> do
+  batchButtonLoosePS3 sink \dout -> do
     sink $ EventOnyx $ getTargetSong False (const $ RB2LoosePS3 dout) "" >>= stackIO . build
   FL.end pack
   FL.setResizable tab $ Just pack
@@ -636,7 +637,7 @@ batchPagePS sink rect tab build = do
   let getTargetSong usePath template = do
         speed <- getSpeed
         preset <- getPreset
-        return $ \proj -> let
+        return \proj -> let
           defPS = def :: TargetPS FilePath
           tgt = preset (projectSongYaml proj) defPS
             { common = defPS.common
@@ -646,7 +647,7 @@ batchPagePS sink rect tab build = do
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ PS tgt
             , let
-              modifiers = T.pack $ case tgt.common.speed of
+              modifiers = T.pack case tgt.common.speed of
                 Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
                 _               -> ""
               in T.intercalate modifiers . T.splitOn "%modifiers%"

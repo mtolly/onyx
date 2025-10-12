@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase     #-}
 module Onyx.Resources where
 
 import qualified Codec.Picture         as P
@@ -83,7 +84,7 @@ onyxAlbum = getResourcesPath "album.png" >>= P.readImage >>= \case
 
 {-# NOINLINE missingSongData #-}
 missingSongData :: D.DTA T.Text
-missingSongData = unsafePerformIO $ do
+missingSongData = unsafePerformIO do
   getResourcesPath "missing_song_data.dta" >>= fmap (D.readDTA . decodeUtf8) . B.readFile
 
 colorMapDrums, colorMapGRYBO, colorMapGHL, colorMapRS, colorMapRSLow :: IO FilePath
@@ -95,13 +96,13 @@ colorMapRSLow = getResourcesPath "rocksmith_lowbass.png"
 
 {-# NOINLINE shiftJISTable #-}
 shiftJISTable :: HM.HashMap B.ByteString Char
-shiftJISTable = unsafePerformIO $ do
+shiftJISTable = unsafePerformIO do
   getResourcesPath "shift-jis.txt" >>=
     fmap (HM.fromList . map (first B.pack) . read) . readFile
 
 {-# NOINLINE cmuDict #-}
 cmuDict :: HM.HashMap B.ByteString [[CMUPhoneme]]
-cmuDict = unsafePerformIO $ do
+cmuDict = unsafePerformIO do
   let parseLine b = do
         guard $ not $ B.null b
         guard $ isAlpha $ B8.head b
@@ -112,7 +113,7 @@ cmuDict = unsafePerformIO $ do
             phones' <- mapM (`HM.lookup` phonemeTable) phones
             Just (word', [phones'])
       phonemeTable :: HM.HashMap B.ByteString CMUPhoneme
-      phonemeTable = HM.fromList $ let
+      phonemeTable = HM.fromList let
         consonants = do
           phone <- [minBound .. maxBound]
           return (B8.pack $ drop 4 $ show phone, CMUConsonant phone)

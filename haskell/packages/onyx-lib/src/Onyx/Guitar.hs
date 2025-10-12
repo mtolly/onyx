@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveTraversable   #-}
@@ -302,7 +303,7 @@ mutedOpensToRBStyle = go True where
   isOpenStrum = \case
     [((Nothing, Strum), _)] -> True
     _                       -> False
-  moveToFret fret = map $ \((_, sht), len) -> ((fret, sht), len)
+  moveToFret fret = map \((_, sht), len) -> ((fret, sht), len)
 
 data FretGroup
   = FretGroupLow -- notes that will be moved up
@@ -336,8 +337,8 @@ noOpenNotesNewAlgorithm input = let
                 then concat
                   [ opens
                   , greens
-                  , map (map $ \((_, sht), len) -> ((Just G5.Yellow, sht), len)) reds
-                  , map (map $ \((_, sht), len) -> ((Just G5.Red, sht), len)) yellows
+                  , map (map \((_, sht), len) -> ((Just G5.Yellow, sht), len)) reds
+                  , map (map \((_, sht), len) -> ((Just G5.Red, sht), len)) yellows
                   , blues
                   , fixWrapping fix6
                   ]
@@ -349,7 +350,7 @@ noOpenNotesNewAlgorithm input = let
       _ -> noWrap
 
   -- initial markings: mark open as Low, single orange as High, chords as High
-  initState = map $ \xs -> case xs of
+  initState = map \xs -> case xs of
     [((Nothing       , _), _)] -> (xs, Just FretGroupLow )
     [((Just G5.Orange, _), _)] -> (xs, Just FretGroupHigh)
     (_ : _ : _               ) -> (xs, Just FretGroupHigh)
@@ -375,7 +376,7 @@ noOpenNotesNewAlgorithm input = let
     [] -> []
 
   -- pass 3: remove Low marking from open notes
-  pass3 = map $ \case
+  pass3 = map \case
     (open@[((Nothing, _), _)], Just FretGroupLow) -> (open, Nothing)
     x                                             -> x
 
@@ -406,9 +407,9 @@ noOpenNotesNewAlgorithm input = let
     _ -> head1 : pass4' tail1
 
   -- pass 5: remaining notes all High
-  pass5 = map $ \(gems, mark) -> (gems, fromMaybe FretGroupHigh mark)
+  pass5 = map \(gems, mark) -> (gems, fromMaybe FretGroupHigh mark)
 
-  applyGroups = map $ \(gems, mark) -> let
+  applyGroups = map \(gems, mark) -> let
     delta = case mark of
       FretGroupLow  -> 1
       FretGroupHigh -> 0
@@ -472,7 +473,7 @@ noOpenNotesOldAlgorithm = let
     = Wait dt [((Just Yellow, sht), len)] $ fallbackFlip rest
   fallbackFlip rest = rest
 
-  openGreen = fmap $ map $ \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
+  openGreen = fmap $ map \((mc, sht), len) -> ((fromMaybe Green mc, sht), len)
   in openGreen . rev . fixForward . rev . fixForward
 
 -- | For GH3, turns taps into HOPOs, and then turns repeated HOPOs into strums
@@ -499,7 +500,7 @@ gh3LegalHOPOs = RTB.flatten . go . RTB.collectCoincident . noTaps where
 
 -- | Turns all tap notes into HOPO notes.
 noTaps :: RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
-noTaps = fmap $ first $ second $ \case Tap -> HOPO; sh -> sh
+noTaps = fmap $ first $ second \case Tap -> HOPO; sh -> sh
 
 cleanEdges :: (NNC.C t, Ord a) => RTB.T t (Bool, a) -> RTB.T t (Bool, a)
 cleanEdges = go . RTB.normalize where
@@ -549,10 +550,10 @@ emitGuitar5General enhancedOpens notes = FiveDifficulty
   , fiveTap = makeForce Tap
   , fiveOpen = if enhancedOpens
     then RTB.empty
-    else U.trackJoin $ flip RTB.mapMaybe notes $ \case
+    else U.trackJoin $ flip RTB.mapMaybe notes \case
       ((Nothing, _), _) -> Just boolBlip
       _                 -> Nothing
-  , fiveGems = blipEdgesRB_ $ if enhancedOpens
+  , fiveGems = blipEdgesRB_ if enhancedOpens
     then (\((mc, _), len) -> (mc, len)) <$> notes
     else (\((mc, _), len) -> (mc <|> Just Green, len)) <$> noOpenExtSustains standardBlipThreshold standardSustainGap notes
   } where

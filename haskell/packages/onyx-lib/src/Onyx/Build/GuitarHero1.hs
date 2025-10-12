@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -123,7 +124,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         moods = if RTB.null origMoods
           then makeMoods tmap timing gems
           else origMoods
-        in flip fmap moods $ \case
+        in flip fmap moods \case
           Mood_idle_realtime -> False
           Mood_idle          -> False
           Mood_idle_intense  -> False
@@ -184,7 +185,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
       }
     , gh1Anim     = AnimTrack
       { animFretPosition = first FretPosition <$> guitarResult.other.fiveFretPosition
-      , animHandMap = flip fmap guitarResult.other.fiveHandMap $ \case
+      , animHandMap = flip fmap guitarResult.other.fiveHandMap \case
         RB.HandMap_Default   -> HandMap_Default
         RB.HandMap_NoChords  -> HandMap_NoChords
         RB.HandMap_AllChords -> HandMap_AllChords
@@ -303,10 +304,10 @@ gh1Rules buildInfo dir gh1 = do
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
-        StandardPlan x -> return $ \part -> HM.member part x.parts.getParts
+        StandardPlan x -> return \part -> HM.member part x.parts.getParts
         MoggPlan     x -> do
           silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
-          return $ \part -> case HM.lookup part x.parts.getParts of
+          return \part -> case HM.lookup part x.parts.getParts of
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 

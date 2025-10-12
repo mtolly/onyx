@@ -3,6 +3,7 @@ VENUE track format that supports both pre-RB3 format and RBN2 format.
 Pre-RB3 venue format information from:
 <https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights>
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
@@ -435,8 +436,8 @@ instance ParseTrack VenueTrack where
       V2_film_16mm        -> 98
       V2_contrast_a       -> 97
       V2_Default          -> 96
-    venueLighting <- ((.venueLighting) =.) $ condenseMap_ $ eachKey each $ \light ->
-      specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
+    venueLighting <- ((.venueLighting) =.) $ condenseMap_ $ eachKey each \light ->
+      specificLighting case T.stripPrefix "Lighting_" $ T.pack $ show light of
         Just s  -> s
         Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
     venueLightingCommands <- ((.venueLightingCommands) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) $ \case
@@ -446,7 +447,7 @@ instance ParseTrack VenueTrack where
       (LightingFirst, RBN1) -> blip 50
       (LightingPrev , RBN1) -> blip 49
       (LightingNext , RBN1) -> blip 48
-    venueLightingMode <- ((.venueLightingMode) =.) $ condenseMap_ $ eachKey each $ \case
+    venueLightingMode <- ((.venueLightingMode) =.) $ condenseMap_ $ eachKey each \case
       ModeVerse  -> commandMatch ["verse"]
       ModeChorus -> commandMatch ["chorus"]
     venueBonusFX         <- (.venueBonusFX        ) =. commandMatch ["bonusfx"]
@@ -459,7 +460,7 @@ instance ParseTrack VenueTrack where
 compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
 compileVenueRB3 vt = vt
   { venueCameraRB3 = let
-    directed = flip fmap vt.venueDirectedRB2 $ \docut -> let
+    directed = flip fmap vt.venueDirectedRB2 \docut -> let
       cut = case docut of
         DoDirectedCut c -> c
         DoOptionalCut c -> c
@@ -589,7 +590,7 @@ compileVenueRB3 vt = vt
     -- RB3 just replaces it with [lighting (verse)]/[lighting (chorus)].
     withMode = applyStatus1 ModeVerse vt.venueLightingMode vt.venueLighting
     noBlend = if RTB.null vt.venueLightingMode then id else noRedundantStatus
-    in noBlend $ flip fmap withMode $ \case
+    in noBlend $ flip fmap withMode \case
       (ModeVerse , Lighting_) -> Lighting_verse
       (ModeChorus, Lighting_) -> Lighting_chorus
       (_         , light    ) -> light
@@ -750,7 +751,7 @@ compileVenueRB2 vt = let
       -- have to have [verse] at the start
     } where
       lightingWithMode = applyStatus1 ModeVerse vt.venueLightingMode vt.venueLighting
-      lightingWithMode' = flip fmap lightingWithMode $ \case
+      lightingWithMode' = flip fmap lightingWithMode \case
         (_   , Lighting_verse        ) -> (ModeVerse , Lighting_                )
         (_   , Lighting_chorus       ) -> (ModeChorus, Lighting_                )
         (mode, Lighting_intro        ) -> (mode      , Lighting_                )

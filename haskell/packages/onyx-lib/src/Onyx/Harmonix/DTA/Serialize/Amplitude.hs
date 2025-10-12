@@ -1,4 +1,5 @@
 -- | .moggsong files found in Amplitude (PS3 + PS4)
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -66,7 +67,7 @@ chunkTracks = dimap DictList fromDictList $ chunkParens $ chunksDictList chunkSy
 cleanAssoc :: (Monad m) => ChunksCodec m a -> ChunksCodec m a
 cleanAssoc cdc = cdc
   { codecIn = let
-    f = filter $ \case Parens{} -> True; _ -> False
+    f = filter \case Parens{} -> True; _ -> False
     in mapStackTraceT (local f) $ codecIn cdc
   }
 
@@ -109,7 +110,7 @@ chunkBarBeatTick = Codec
         ticks' <- read' ticks
         return $ bars' * 4 + beats' + ticks' / 480
       _ -> expected "a length in the form bars:beats:ticks"
-  , codecOut = fmapArg $ \t -> let
+  , codecOut = fmapArg \t -> let
     bars, beats', ticks :: Integer
     (bars, beats) = divMod' t 4
     (beats', part) = properFraction beats

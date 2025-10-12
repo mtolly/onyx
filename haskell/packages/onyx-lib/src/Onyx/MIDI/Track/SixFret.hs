@@ -1,6 +1,7 @@
 {-
 Clone Hero designed MIDI track format for 6-fret (Guitar Hero Live) charts.
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -59,7 +60,7 @@ instance ParseTrack SixTrack where
   parseTrack = do
     sixOverdrive    <- (.sixOverdrive    ) =. edges 116
     sixSolo         <- (.sixSolo         ) =. edges 103
-    sixDifficulties <- ((.sixDifficulties) =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    sixDifficulties <- ((.sixDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72

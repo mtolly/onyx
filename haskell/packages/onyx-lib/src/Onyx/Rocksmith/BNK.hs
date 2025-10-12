@@ -4,6 +4,7 @@ Done with the help of
 https://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -71,7 +72,7 @@ getWord32Platform = case ?endian of
   LittleEndian -> getWord32le
 
 splitChunks :: (?endian :: ByteOrder) => BL.ByteString -> [(B.ByteString, BL.ByteString)]
-splitChunks = runGet $ let
+splitChunks = runGet let
   go = isEmpty >>= \case
     True -> return []
     False -> do

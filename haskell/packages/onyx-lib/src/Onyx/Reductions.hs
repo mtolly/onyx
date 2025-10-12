@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -120,7 +121,7 @@ gryboReduce diff   isKeys mmap od diffNotes = let
       -> (t1, GuitarNote cols Strum $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
   -- Step: simplify 3-note (or more) chords and GO chords (or GB and RO chords on medium)
-  gnotes3 = flip fmap gnotes2 $ \(GuitarNote cols ntype len) -> let
+  gnotes3 = flip fmap gnotes2 \(GuitarNote cols ntype len) -> let
     cols' = case diff of
       Hard   -> case cols of
         _ : _ : _ : _ -> case (minimum cols, maximum cols) of
@@ -145,7 +146,7 @@ gryboReduce diff   isKeys mmap od diffNotes = let
   -- 5. Finally, look at notes in chronological order
   -- TODO: maybe also prioritize strums over hopos, and chords over single notes?
   -- TODO: this order causes some oddness when OD phrases make adjacent notes disappear
-  sortedPositions = map snd $ sort $ do
+  sortedPositions = map snd $ sort do
     (bts, gnote) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 gnotes3
     let isSustain = case gnote of
           GuitarNote _ _ (Just _) -> True
@@ -180,7 +181,7 @@ gryboReduce diff   isKeys mmap od diffNotes = let
   -- Step: for hard, only hopo chords and sustained notes
   -- for easy/medium, all strum
   gnotes5 = case diff of
-    Hard -> flip fmap gnotes4 $ \case
+    Hard -> flip fmap gnotes4 \case
       GuitarNote [col] HOPO Nothing -> GuitarNote [col] Strum Nothing
       gnote                         -> gnote
     _ -> (\(GuitarNote cols _ len) -> GuitarNote cols Strum len) <$> gnotes4
@@ -244,7 +245,7 @@ readGuitarNotes
   . noOpenNotes True -- doesn't really matter if we do mute-strums detection
 
 showGuitarNotes :: RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
-showGuitarNotes trk = RTB.flatten $ flip fmap trk $ \case
+showGuitarNotes trk = RTB.flatten $ flip fmap trk \case
   GuitarNote colors sht mlen -> map (\color -> ((Just color, sht), mlen)) colors
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
@@ -284,7 +285,7 @@ pkReduce diff   mmap od diffEvents = let
       -> (t1, PKNote ps $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
   -- Step: simplify chords
-  pknotes3 = flip fmap pknotes2 $ \(PKNote ps len) -> let
+  pknotes3 = flip fmap pknotes2 \(PKNote ps len) -> let
     ps' = case diff of
       Hard   -> case ps of
         [x] -> [x]
@@ -306,7 +307,7 @@ pkReduce diff   mmap od diffEvents = let
   -- 5. Finally, look at notes in chronological order
   -- TODO: maybe also prioritize chords over single notes?
   -- TODO: this order causes some oddness when OD phrases make adjacent notes disappear
-  sortedPositions = map snd $ sort $ do
+  sortedPositions = map snd $ sort do
     (bts, pknote) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 pknotes3
     let isSustain = case pknote of
           PKNote _ (Just _) -> True
@@ -341,9 +342,9 @@ pkReduce diff   mmap od diffEvents = let
   -- Step: fix quick jumps (TODO) and out-of-range notes on easy/medium
   pknotes5 = if elem diff [Expert, Hard]
     then pknotes4
-    else flip fmap pknotes4 $ \(PKNote ps len) -> let
+    else flip fmap pknotes4 \(PKNote ps len) -> let
       -- we'll use range F-A for easy/medium
-      ps' = nubOrd $ flip map ps $ \case
+      ps' = nubOrd $ flip map ps \case
         PK.RedYellow k -> if k < F
           then PK.BlueGreen k
           else PK.RedYellow k
@@ -375,7 +376,7 @@ completeDrumResult mmap sections result = let
   hard      = getDiff Hard   `orIfNull` defVelocity (drumsReduce Hard   mmap od sections (noVelocity expert))
   medium    = getDiff Medium `orIfNull` defVelocity (drumsReduce Medium mmap od sections (noVelocity hard  ))
   easy      = getDiff Easy   `orIfNull` defVelocity (drumsReduce Easy   mmap od sections (noVelocity medium))
-  defVelocity = fmap $ \gem -> (gem, D.VelocityNormal)
+  defVelocity = fmap \gem -> (gem, D.VelocityNormal)
   noVelocity = fmap fst
   in result
     { notes = Map.fromList
@@ -430,7 +431,7 @@ ensureODNotes = go . RTB.normalize where
         Nothing            -> id
       original' = U.trackDrop dt original
       reduced' = U.trackDrop dt reduced
-      in trackGlue dt reduced $ if RTB.null $ odLength reduced'
+      in trackGlue dt reduced if RTB.null $ odLength reduced'
         then go od' original' $ case RTB.viewL original' of
           Just ((originalTime, originalEvent), _) -> RTB.insert originalTime originalEvent reduced'
           Nothing -> reduced'
@@ -506,7 +507,7 @@ drumsReduce diff   mmap od sections trk = let
     -> Map.Map U.Beats [D.Gem D.ProType]
   makeEasy start maybeEnd progress = let
     (_, startNote, sliceStart) = Map.splitLookup start progress
-    slice = concat $ maybe id (:) startNote $ Map.elems $ case maybeEnd of
+    slice = concat $ maybe id (:) startNote $ Map.elems case maybeEnd of
       Nothing  -> sliceStart
       Just end -> fst $ Map.split end sliceStart
     sliceKicks = length $ filter (== D.Kick) slice
@@ -517,13 +518,13 @@ drumsReduce diff   mmap od sections trk = let
         | sliceHihats > sliceOtherKit              = makeSnareKick
         | otherwise                                = makeNoKick
     in fn start maybeEnd progress
-  makeSnareKick start maybeEnd = Map.mapMaybeWithKey $ \bts gems ->
+  makeSnareKick start maybeEnd = Map.mapMaybeWithKey \bts gems ->
     if start <= bts && case maybeEnd of Just end -> bts < end; Nothing -> True
-      then nullNothing $ if start == bts && elem (D.Pro D.Green D.Cymbal) gems
+      then nullNothing if start == bts && elem (D.Pro D.Green D.Cymbal) gems
         then filter (/= D.Kick) gems
         else filter (`elem` [D.Kick, D.Red]) gems
       else Just gems
-  makeNoKick start maybeEnd = Map.mapMaybeWithKey $ \bts gems ->
+  makeNoKick start maybeEnd = Map.mapMaybeWithKey \bts gems ->
     if start <= bts && case maybeEnd of Just end -> bts < end; Nothing -> True
       then nullNothing $ filter (/= D.Kick) gems
       else Just gems
@@ -541,7 +542,7 @@ simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
   let sections = onyx.onyxEvents.eventsSections
   stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
-    { F.onyxParts = flip fmap onyx.onyxParts $ \trks -> let
+    { F.onyxParts = flip fmap onyx.onyxParts \trks -> let
       pkX = trks.onyxPartRealKeysX
       pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
       pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH

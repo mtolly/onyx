@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -176,7 +177,7 @@ importRagnarock pathInfo level = do
         set <- info.difficultyBeatmapSets
         guard $ set.beatmapCharacteristicName == "Standard"
         set.difficultyBeatmaps
-      in forM infos $ \mapInfo -> do
+      in forM infos \mapInfo -> do
         beatmap <- loadJSON $ dir </> T.unpack mapInfo.beatmapFilename
         return (mapInfo, beatmap)
     ImportQuick -> return []
@@ -191,7 +192,7 @@ importRagnarock pathInfo level = do
     , global = def'
       { backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
-      , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+      , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
         ImportFull  -> ragnarockToDrums info maps
         ImportQuick -> emptyChart
       , fileSongAnim = Nothing
@@ -238,8 +239,8 @@ ragnarockToDrums info maps = let
     , F.tracks = mempty
       { F.onyxParts = Map.singleton F.PartDrums mempty
         { F.onyxPartDrums = mempty
-          { drumDifficulties = Map.fromList $ flip map maps' $ fmap $ \(_, beatmap) -> mempty
-            { drumGems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+          { drumDifficulties = Map.fromList $ flip map maps' $ fmap \(_, beatmap) -> mempty
+            { drumGems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
               note <- beatmap.notes
               let t = realToFrac note.time :: U.Beats
               gem <- case note.lineIndex of

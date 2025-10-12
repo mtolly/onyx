@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -94,7 +95,7 @@ hookUpWAD wad = bimap TE.decodeLatin1
   $ \(pos, len) -> subHandle id (fromIntegral pos) (Just $ fromIntegral len) wad
 
 hedFolder :: [HedEntry] -> Folder B.ByteString (Word32, Word32)
-hedFolder entries = fromFiles $ let
+hedFolder entries = fromFiles let
   isSlash c = c == 0x5C || c == 0x2F
   splitName = NE.fromList . B.splitWith isSlash . B.dropWhile isSlash
   in do
@@ -125,7 +126,7 @@ parseHDP bs = do
     bs
   folders <- case folderOffset of
     0 -> return []
-    _ -> flip runGetM (BL.drop (fromIntegral folderOffset) bs) $ whileJustM $ do
+    _ -> flip runGetM (BL.drop (fromIntegral folderOffset) bs) $ whileJustM do
       fileCount <- getWord32le
       case fileCount of
         0xffffffff -> return Nothing
@@ -155,7 +156,7 @@ applyHDP hdp entries = let
   -- paths also start with a slash/backslash so we remove it before split
   isSlash c = c == 0x5C || c == 0x2F
   splitName = NE.fromList . B.splitWith isSlash . B.dropWhile isSlash
-  in fromFiles $ do
+  in fromFiles do
     entry <- entries
     let name       = splitName entry.hedName
         folderName = qbKeyCRC $ B8.intercalate "\\" $ NE.init name
@@ -190,7 +191,7 @@ splitChannels bs = do
 convertChannelToVGS :: (MonadFail m) => BL.ByteString -> m BL.ByteString
 convertChannelToVGS chan = do
   (len, rate) <- flip runGetM (BL.drop 12 chan) $ liftA2 (,) getWord32be getWord32be
-  return $ runPut $ do
+  return $ runPut do
     putByteString $ B8.pack "VgS!"
     putWord32le 2
     let audio = BL.take (fromIntegral len) $ BL.drop 0x40 chan
@@ -245,7 +246,7 @@ getNeoHeader = do
 splitNeoStreams :: NeoHeader -> BL.ByteString -> [(NeoStream, [BL.ByteString])]
 splitNeoStreams hdr bs = let
   blocks = splitEvery (fromIntegral hdr.totalBlockSize) $ BL.drop 0x10000 bs
-  in flip map hdr.streams $ \stream -> let
+  in flip map hdr.streams \stream -> let
     blockTake = fromIntegral stream.channelBlockSize
     chans = flip map [0 .. stream.channels - 1] $ \i -> let
       blockDrop = fromIntegral (stream.firstBlockOffset - 0x10000)
@@ -256,7 +257,7 @@ splitNeoStreams hdr bs = let
     in (stream, chans)
 
 neoStreamToVGS :: (NeoStream, [BL.ByteString]) -> BL.ByteString
-neoStreamToVGS (stream, chans) = runPut $ do
+neoStreamToVGS (stream, chans) = runPut do
   putByteString "VgS!"
   putWord32le 2
   forM_ chans $ \chan -> do

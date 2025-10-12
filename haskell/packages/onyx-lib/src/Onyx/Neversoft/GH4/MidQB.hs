@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -193,7 +194,7 @@ groupBy2 = go [] where
 parseMarkersGH4 :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 parseMarkersGH4 = \case
   QBArrayOfFloatRaw [] -> return []
-  QBArrayOfStruct marks -> forM marks $ \case
+  QBArrayOfStruct marks -> forM marks \case
     QBStructHeader : items -> let
       time      = [ v | QBStructItemInteger       "time"   v <- items ]
       marker    = [ v | QBStructItemQbKeyString   "marker" v <- items ] -- guitar/rhythm/drum
@@ -208,7 +209,7 @@ parseMarkersGH4 = \case
 parseLyrics :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 parseLyrics = \case
   QBArrayOfFloatRaw [] -> return []
-  QBArrayOfStruct lyrics -> forM lyrics $ \case
+  QBArrayOfStruct lyrics -> forM lyrics \case
     QBStructHeader : items -> let
       time   = [ v | QBStructItemInteger       "time" v <- items ]
       textQs = [ v | QBStructItemQbKeyStringQs "text" v <- items ]
@@ -403,7 +404,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   toBeats :: Word32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  markers = fromPairs $ do
+  markers = fromPairs do
     (t, markerKey) <- gh4.gh4GuitarMarkers
     let marker = case HM.lookup (QBKey markerKey) bankMarkers of
           -- just like WoR, not all songs have this but it overrides the default "end shortly after last note"
@@ -433,7 +434,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
   sustainThreshold :: Word32
   sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
   getGuitarBassDiff :: GH4Difficulty -> Five.FiveDifficulty U.Beats
-  getGuitarBassDiff diff = emitGuitar5 $ fromPairs $ do
+  getGuitarBassDiff diff = emitGuitar5 $ fromPairs do
     (time, bits) <- diff.gh4Notes
     let pos = toBeats time
         len = bits .&. 0xFFFF -- think this is right but should confirm
@@ -471,7 +472,7 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
     }
   getDrumsDiff :: GH4Difficulty -> Drums.DrumDifficulty U.Beats
   getDrumsDiff diff = mempty
-    { Drums.drumGems = fromPairs $ do
+    { Drums.drumGems = fromPairs do
       (time, bits) <- diff.gh4Notes
       let pos = toBeats time
           dynamicBit n = if bits `testBit` n then Drums.VelocityAccent else Drums.VelocityNormal
@@ -501,17 +502,17 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
     , Drums.drumOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
     , Drums.drumPlayer1 = makeSpan part.gh4FaceOffP1
     , Drums.drumPlayer2 = makeSpan part.gh4FaceOffP2
-    , Drums.drumKick2x = fromPairs $ do
+    , Drums.drumKick2x = fromPairs do
       (time, bits) <- part.gh4Expert.gh4Notes
       guard $ bits `testBit` 29 && not (bits `testBit` 21)
       return (toBeats time, ())
     }
-  makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+  makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
     (time, len) <- spans
     [(toBeats time, True), (toBeats $ time + len, False)]
   in F.Song
     { F.tempos = tempos
-    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList do
       (time, num, den) <- gh4.gh4TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit

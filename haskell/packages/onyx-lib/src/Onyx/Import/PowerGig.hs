@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -75,7 +76,7 @@ importPowerGig sourceDir base = do
     Just r  -> stackIO (useHandle r handleToByteString) >>= decryptE2 . BL.toStrict >>= readHeader
   let folder = decryptPKContents $ connectPKFiles sourceDir (T.unpack base) $ getFolder $ fh_Contents hdr
   discKeys <- stackIO $ loadDiscSongKeys folder
-  dlcKeys <- stackIO $ case findFile (return "AddContent.lua") sourceDir of
+  dlcKeys <- stackIO case findFile (return "AddContent.lua") sourceDir of
     Nothing -> return []
     Just r  -> findSongKeys . BL.toStrict <$> useHandle r handleToByteString
   forM (discKeys <> dlcKeys) $ \key -> do
@@ -109,7 +110,7 @@ importPowerGigSong key song folder level = do
       mid = fromMaybe emptyChart maybeMid
 
   let tempo = maybe mid.tempos getMIDITempos maybeGEV
-      gevTracks = Map.fromList $ do
+      gevTracks = Map.fromList do
         gev <- toList maybeGEV
         gels <- V.toList $ gelhGELS $ gevGELH gev
         name <- toList $ getString (gelsTrackName gels) gev
@@ -122,7 +123,7 @@ importPowerGigSong key song folder level = do
   let secsToBeats :: Float -> U.Beats
       secsToBeats = U.unapplyTempoMap tempo . realToFrac
 
-      getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+      getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList do
         evt <- V.toList $ gelsGEVT trk
         guard $ gevtType evt == 4 && gevtData1 evt == n
         return (secsToBeats $ gevtTime evt, gevtData2 evt /= 0)
@@ -146,11 +147,11 @@ importPowerGigSong key song folder level = do
           $ RTB.toAbsoluteEventList 0 lyricNotes
         phraseEndList = ATB.getTimes $ RTB.toAbsoluteEventList 0 phraseEnds
         mojoEdges = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 mojo
-        in RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+        in RTB.fromAbsoluteEventList $ ATB.fromPairList do
           (lastPGEnd, thisPGEnd) <- zip (0 : phraseEndList) phraseEndList
           phraseStart <- toList $ Set.lookupGT lastPGEnd tubeStarts
           let nextPhraseStart = Set.lookupGT thisPGEnd tubeStarts
-          phraseEnd <- toList $ case nextPhraseStart of
+          phraseEnd <- toList case nextPhraseStart of
             Nothing -> Set.lookupMax tubeEnds
             Just t  -> Set.lookupLT t tubeEnds
           guard $ phraseEnd > phraseStart -- A.V.H. (Ozzy Osbourne) has a spurious \n in a freestyle section that we want to ignore
@@ -174,7 +175,7 @@ importPowerGigSong key song folder level = do
       getVocalsGEV trackName = case Map.lookup trackName gevTracks of
         Nothing -> return mempty
         Just trk -> let
-          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList do
             evt <- V.toList $ gelsGEVT trk
             guard $ gevtType evt == 2
             guard $ gevtGameBits evt .&. 0x2000 == 0 -- ignore freestyle notes
@@ -184,7 +185,7 @@ importPowerGigSong key song folder level = do
                   0 -> Nothing
                   n -> Just (toEnum $ fromIntegral n - 36 :: Pitch)
             return (start, (sustain, pitch))
-          lyrics = glueLyrics (getController 68 trk) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          lyrics = glueLyrics (getController 68 trk) $ RTB.fromAbsoluteEventList $ ATB.fromPairList do
             gev <- toList maybeGEV
             evt <- V.toList $ gelsGEVT trk
             guard $ gevtType evt == 13
@@ -194,7 +195,7 @@ importPowerGigSong key song folder level = do
                   s   -> Just s
             return (secsToBeats $ gevtTime evt, maybeLyric)
           lyricNotes = joinVocalsNotesLyrics notes lyrics
-          phraseEnds = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          phraseEnds = RTB.fromAbsoluteEventList $ ATB.fromPairList do
             gev <- toList maybeGEV
             evt <- V.toList $ gelsGEVT trk
             guard $ gevtType evt == 9
@@ -206,7 +207,7 @@ importPowerGigSong key song folder level = do
           finalTrack = phraselessTrack
             { vocalPhrase1 = U.trackJoin $ flip fmap phrases
               $ \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-            , vocalOverdrive = U.trackJoin $ flip fmap phrases $ \case
+            , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
               (_  , False) -> RNil
               (len, True ) -> Wait 0 True $ Wait len False RNil
             }
@@ -228,7 +229,7 @@ importPowerGigSong key song folder level = do
           $ RTB.filter (not . fst)
           $ applyStatus1 False pg.vocalFreestyle
           $ RTB.merge notesPitched notesTalky
-        lyrics = glueLyrics pg.vocalGlue $ flip fmap pg.vocalLyrics $ \str ->
+        lyrics = glueLyrics pg.vocalGlue $ flip fmap pg.vocalLyrics \str ->
           case T.strip str of -- lyrics have a space after them for some reason
             "*" -> Nothing
             s   -> Just s
@@ -240,7 +241,7 @@ importPowerGigSong key song folder level = do
         finalTrack = phraselessTrack
           { vocalPhrase1 = U.trackJoin $ flip fmap phrases
             $ \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-          , vocalOverdrive = U.trackJoin $ flip fmap phrases $ \case
+          , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
             (_  , False) -> RNil
             (len, True ) -> Wait 0 True $ Wait len False RNil
           }
@@ -289,7 +290,7 @@ importPowerGigSong key song folder level = do
       getDrumsGEV trackName = case Map.lookup trackName gevTracks of
         Nothing  -> mempty
         Just trk -> let
-          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList do
             evt <- V.toList $ gelsGEVT trk
             guard $ gevtType evt == 2
             bits <- toList $ findBits guitarDrumBit $ gevtGameBits evt
@@ -307,11 +308,11 @@ importPowerGigSong key song folder level = do
           in mempty
             { D.drumGems = notes
             }
-      getGuitarGEV trackName = emitGuitar5 $ case Map.lookup trackName gevTracks of
+      getGuitarGEV trackName = emitGuitar5 case Map.lookup trackName gevTracks of
         Nothing  -> RTB.empty
         Just trk -> let
           hopos = getController 68 trk
-          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+          notes = RTB.fromAbsoluteEventList $ ATB.fromPairList do
             evt <- V.toList $ gelsGEVT trk
             guard $ gevtType evt == 2
             bits <- toList $ findBits guitarDrumBit $ gevtGameBits evt

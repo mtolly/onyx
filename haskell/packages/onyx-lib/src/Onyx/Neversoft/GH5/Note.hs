@@ -4,6 +4,7 @@ https://github.com/AerialX/rawksd
 https://github.com/Nanook/Queen-Bee
 expertarraytochart.bms by GHFear
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE ImplicitParams      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -94,7 +95,7 @@ putNote dlcKey entries = do
   putWord32be $ fromIntegral $ length entries
   putQBKeyBE  "note"
   putByteString $ B.replicate 12 0
-  forM_ entries $ \entry -> do
+  forM_ entries \entry -> do
     putQBKeyBE  entry.entryIdentifier
     putWord32be entry.entryCount
     putQBKeyBE  entry.entryType
@@ -211,14 +212,14 @@ instance Bin VocalNote where
 binLyric :: Int -> BinaryCodec T.Text
 binLyric size = Codec
   { codecIn  = T.takeWhile (/= '\0') . TE.decodeUtf16BE . BL.toStrict <$> getRemainingLazyByteString
-  , codecOut = fmapArg $ \t -> putByteString $ B.take size $ TE.encodeUtf16BE t <> B.replicate size 0
+  , codecOut = fmapArg \t -> putByteString $ B.take size $ TE.encodeUtf16BE t <> B.replicate size 0
   }
 
 -- Latin-1 is a guess, might actually be UTF-8
 binLyricWii :: Int -> BinaryCodec T.Text
 binLyricWii size = Codec
   { codecIn  = T.takeWhile (/= '\0') . TE.decodeLatin1 . BL.toStrict <$> getRemainingLazyByteString
-  , codecOut = fmapArg $ \t -> putByteString $ B.take size $ B8.pack (T.unpack t) <> B.replicate size 0
+  , codecOut = fmapArg \t -> putByteString $ B.take size $ B8.pack (T.unpack t) <> B.replicate size 0
   }
 
 data GHNoteFile = GHNoteFile
@@ -295,7 +296,7 @@ loadSongPakContents songKey bs = inside "loading _song.pak.*" $ do
             QBSectionArray k _ (QBArrayOfInteger ns) <- qbSections
             suffix <- toList $ lookup k noteTrackNames
             return (suffix, RTB.fromAbsoluteEventList $ arrayToTrack ns)
-          perf = listToMaybe $ do
+          perf = listToMaybe do
             (_, bsPerf) <- nodesOfType ".perf"
             runGetM getPerf bsPerf
       return SongPakContents
@@ -375,7 +376,7 @@ loadNoteFile noteData = do
   return GHNoteFile{..}
 
 makeWoRNoteFile :: GHNoteFile -> [NoteEntry]
-makeWoRNoteFile GHNoteFile{..} = execWriter $ do
+makeWoRNoteFile GHNoteFile{..} = execWriter do
   let makeEntry n aType size cdc xs = tell $ return $ NoteEntry
         { entryIdentifier = n
         , entryCount = fromIntegral $ length xs
@@ -475,13 +476,13 @@ convertVocals toBeats vox lyrics phrases sp = let
   -- several "fire" in choruses have a slide between "fi" and "re",
   -- so the "re" gets a "+" and messes things up.
   -- probably we should just ignore the slide (remove "+")
-  pluses = flip map slideNotes $ \vn ->
+  pluses = flip map slideNotes \vn ->
     ( toBeats $ vn.vnTimeOffset + fromIntegral vn.vnDuration
     , "+"
     )
   -- Talkies have a special pitch of 26, so we add the # to those
   talkyPositions = Set.fromList $ map (toBeats . (.vnTimeOffset)) $ filter (\vn -> vn.vnPitch == 26) vox
-  addTalkies = map $ \pair@(t, lyric) -> if Set.member t talkyPositions
+  addTalkies = map \pair@(t, lyric) -> if Set.member t talkyPositions
     then (t, lyric <> "#")
     else pair
   -- Each phrase will be drawn between two adjacent points in the phrase points list,
@@ -495,7 +496,7 @@ convertVocals toBeats vox lyrics phrases sp = let
       guard $ not $ null notesInPhrase
       return (start, end, isStarPower)
   in mempty
-    { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics $ \single ->
+    { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics \single ->
       (toBeats single.singleTimeOffset, single.singleValue)
     , V.vocalPhrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
       [(toBeats start, True), (toBeats end, False)]
@@ -503,7 +504,7 @@ convertVocals toBeats vox lyrics phrases sp = let
       guard isSP
       [(toBeats start, True), (toBeats end, False)]
     , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
-      $ splitEdgesSimple $ fromPairs $ flip map notSlides $ \vn -> let
+      $ splitEdgesSimple $ fromPairs $ flip map notSlides \vn -> let
         pos = toBeats vn.vnTimeOffset
         len = toBeats (vn.vnTimeOffset + fromIntegral vn.vnDuration) - pos
         pitch
@@ -520,7 +521,7 @@ ghToMidi bank nf = let
   toSeconds = (/ 1000) . fromIntegral
   sigMap = Map.fromList [ (ts.tsTimestamp, (ts.tsNumerator, ts.tsDenominator)) | ts <- nf.gh_timesig ]
   barSigs = [ (t, maybe 4 (snd . snd) $ Map.lookupLE t sigMap) | t <- nf.gh_fretbar ]
-  tempos = U.tempoMapFromBPS $ let
+  tempos = U.tempoMapFromBPS let
     makeTempo (t1, denom) (t2, _) = let
       secs = toSeconds t2 - toSeconds t1
       beats = 4 / fromIntegral denom
@@ -531,7 +532,7 @@ ghToMidi bank nf = let
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   getGB :: GuitarBass -> Five.FiveDifficulty U.Beats
-  getGB gb = emitGuitar5 $ fromPairs $ let
+  getGB gb = emitGuitar5 $ fromPairs let
     isTap = tappingToFunction gb.gb_tapping
     in gb.gb_instrument >>= \note -> do
       fret <- if note.noteBits `testBit` 5
@@ -552,7 +553,7 @@ ghToMidi bank nf = let
   getDrums :: Drums -> D.DrumDifficulty U.Beats
   getDrums drum = mempty
     { D.drumGems = let
-      expert = either (map $ \note -> NoteExpertDrums note 0) id drum.drums_instrument
+      expert = either (map \note -> NoteExpertDrums note 0) id drum.drums_instrument
       in fromPairs $ expert >>= \note -> let
         noteBit gem b = do
           let ghost = note.xdGhost `testBit` b
@@ -637,7 +638,7 @@ ghToMidi bank nf = let
     }
   in F.Song
     { F.tempos = tempos
-    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList do
       ts <- nf.gh_timesig
       let unit = 4 / fromIntegral ts.tsDenominator
           len = fromIntegral ts.tsNumerator * unit

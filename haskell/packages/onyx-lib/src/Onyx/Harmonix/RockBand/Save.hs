@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE RecordWildCards #-}
 module Onyx.Harmonix.RockBand.Save where
 
@@ -48,7 +49,7 @@ readRB3SaveDat = do
     return Award{..}
   sUnknown2 <- getByteString 290871 -- TODO
   sCharacterCount <- getWord32le
-  sCharacters <- replicateM 10 $ do
+  sCharacters <- replicateM 10 do
     getByteString 134902
   sUnknown3 <- getByteString $ 0x2C7123 - 0x194743
   sUnknown4 <- getByteString $ 0x42245F - 0x2C7123

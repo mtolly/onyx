@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE LambdaCase     #-}
 module Onyx.GUI.Util (askFolder) where
 
 #ifdef WINDOWS
@@ -19,7 +20,7 @@ askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
 foreign import ccall safe "OnyxPickFolder"
   c_PickFolder :: CWString -> IO CWString
 
-askFolderResult initial = maybe ($ nullPtr) withCWString initial $ \ws -> do
+askFolderResult initial = maybe ($ nullPtr) withCWString initial \ws -> do
   res <- c_PickFolder ws
   if res == nullPtr
     then return Nothing

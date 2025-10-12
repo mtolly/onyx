@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE ImplicitParams #-}
 module Onyx.Codec.Binary
 ( module Control.Monad.Codec
@@ -76,7 +77,7 @@ instance BinEndian Double where
 fixedArray :: Int -> BinaryCodec a -> BinaryCodec [a]
 fixedArray n c = Codec
   { codecIn = replicateM n $ codecIn c
-  , codecOut = fmapArg $ \xs -> if length xs == n
+  , codecOut = fmapArg \xs -> if length xs == n
     then forM_ xs $ codecOut c
     else error $ "Expected an array of size " <> show n
   }

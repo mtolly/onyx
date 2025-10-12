@@ -1,4 +1,5 @@
 -- | The encryption scheme used for DTB files found on game discs.
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Harmonix.DTA.Crypt
 ( oldCrypt, newCrypt
 , decrypt, encrypt
@@ -115,8 +116,8 @@ oldNext CryptTable{ idx1 = i1ref, idx2 = i2ref, table = tbl } = do
   i2 <- readSTRef i2ref
   next <- liftM2 xor (readArray tbl i1) (readArray tbl i2)
   writeArray tbl i1 next
-  writeSTRef i1ref $ if i1 == 0xF8 then 0 else i1 + 1
-  writeSTRef i2ref $ if i2 == 0xF8 then 0 else i2 + 1
+  writeSTRef i1ref if i1 == 0xF8 then 0 else i1 + 1
+  writeSTRef i2ref if i2 == 0xF8 then 0 else i2 + 1
   return $ fromIntegral next
   -- The fromIntegral chops each Word32 down to the least significant byte.
 

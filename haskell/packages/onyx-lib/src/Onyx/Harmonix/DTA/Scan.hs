@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -150,7 +151,7 @@ parseToken = do
               let maybeNumString = case dropWhile (== '+') $ T.unpack x of
                     leadingDot@('.' : _) -> '0' : leadingDot
                     str                  -> str
-              return $ ParseSuccess p $ case x of
+              return $ ParseSuccess p case x of
                 "kDataUnhandled" -> Unhandled
                 _                -> case readMaybe maybeNumString of
                   Just int -> Int int

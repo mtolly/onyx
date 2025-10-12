@@ -2,8 +2,9 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE MultiWayIf     #-}
 module Onyx.Image.DXT.RB4 where
 
 import           Codec.Picture
@@ -24,7 +25,7 @@ readPNGPS4 = do
     3 -> return PNGPS4Magic_3 -- accordingtoyou
     n -> fail $ "Unknown texture magic: " <> show n
   versionC <- (== 0xC) <$> getWord32le
-  _hdrData <- getByteString $ case magic of
+  _hdrData <- getByteString case magic of
     PNGPS4Magic_6 -> if versionC then 0x7C else 0xAC
     PNGPS4Magic_4 -> 0xA4 -- LibForge says 0xA8 but this appears to be correct
     PNGPS4Magic_3 -> 0x8C -- just guessing

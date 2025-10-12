@@ -1,6 +1,7 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns   #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE ViewPatterns   #-}
 module Onyx.MIDI.Script.Read
 ( readStandardFile
 ) where
@@ -55,7 +56,7 @@ readTrack msrs tmps trk = let
   bool = (/= 0) . num
   readEvent :: Event' -> E.T T.Text
   readEvent evt = T.pack <$> case evt of
-    Meta meta -> E.MetaEvent $ case meta of
+    Meta meta -> E.MetaEvent case meta of
       SequenceNum i -> M.SequenceNum $ int i
       TextEvent s -> M.TextEvent s
       Copyright s -> M.Copyright s
@@ -91,10 +92,10 @@ readTrack msrs tmps trk = let
       OmniMode v -> C.Mode $ Mode.OmniMode $ bool v
       MonoMode v -> C.Mode $ Mode.MonoMode $ int v
       PolyMode -> C.Mode Mode.PolyMode
-      where ch' = C.toChannel $ case ch of
+      where ch' = C.toChannel case ch of
               Just n  -> floor $ num n
               Nothing -> 0
-    SysEx sys -> E.SystemExclusive $ case sys of
+    SysEx sys -> E.SystemExclusive case sys of
       Regular ns -> SysEx.Regular $ map int ns
       Escape ns  -> SysEx.Escape $ map int ns
   in RTB.fromAbsoluteEventList $ ATB.fromPairList $ sortOn fst
@@ -300,8 +301,8 @@ evalNumber msrs tmps = go where
 flattenTrack :: Track -> [(Number, Event')]
 flattenTrack trk = go (trackChannel trk) (trackEvents trk) where
   go :: Maybe Number -> [(Number, [Event])] -> [(Number, Event')]
-  go c = concatMap $ \(n, xs) ->
-    flip concatMap xs $ \x -> case x of
+  go c = concatMap \(n, xs) ->
+    flip concatMap xs \x -> case x of
       Subtrack t -> go (trackChannel t <|> c)
         $ map (first (+ n)) $ trackEvents t
       Event e -> case e of

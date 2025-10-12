@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -53,7 +54,7 @@ importOsu separateSongs f = do
   loadedOsus <- fmap catMaybes $ forM (folderFiles tree) $ \(name, getBS) -> do
     inside ("Loading: " <> T.unpack name) $ do
       case map toLower $ takeExtension $ T.unpack name of
-        ".osu" -> fmap Just $ do
+        ".osu" -> fmap Just do
           txt <- fmap decodeGeneral $ stackIO $ getBS
           splitOsuFile txt >>= readOsu . snd
         _ -> return Nothing
@@ -68,11 +69,11 @@ importOsu separateSongs f = do
       -- arbitrarily pick one .osu to use for metadata and timing
       o : _ -> return [(o, filteredOsus)]
 
-  return $ flip map osuSets $ \(primary, osus) level -> do
+  return $ flip map osuSets \(primary, osus) level -> do
 
     let timingMid = getOsuTiming primary
 
-    convertedTracks <- fmap catMaybes $ forM osus $ \osu -> case osu.metadata.version of
+    convertedTracks <- fmap catMaybes $ forM osus \osu -> case osu.metadata.version of
       Nothing -> return Nothing
       Just version -> case osu.general.mode of
         1 -> let
@@ -182,10 +183,10 @@ importOsu separateSongs f = do
       , global = def'
         { backgroundVideo = Nothing -- TODO
         , fileBackgroundImage = background
-        , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+        , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
           ImportFull  -> timingMid
             { F.tracks = mempty
-              { F.onyxParts = Map.fromList $ do
+              { F.onyxParts = Map.fromList do
                 (partName, _, track) <- convertedTracks
                 case track of
                   Left  drums -> return (partName, mempty { F.onyxPartDrums = drums })
@@ -197,7 +198,7 @@ importOsu separateSongs f = do
         , fileSongAnim = Nothing
         }
       , jammit = HM.empty
-      , audio = HM.fromList $ let
+      , audio = HM.fromList let
         audioFiles = flip map (toList audio <> taikoSamples) $ \(key, fileName, r) ->
           (key, AudioFile AudioInfo
             { md5 = Nothing
@@ -216,7 +217,7 @@ importOsu separateSongs f = do
             })
         in audioFiles <> audioSamples
       , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
-        { song = flip fmap audio $ \(key, fileName, _) -> let
+        { song = flip fmap audio \(key, fileName, _) -> let
           -- We now skip initial decoder delay when decoding mp3s via ffmpeg.
           -- But for some reason osu charts seem to expect that .ogg also
           -- is going to get this amount skipped? Very weird
@@ -224,7 +225,7 @@ importOsu separateSongs f = do
             ".mp3" -> id
             _      -> Drop Start $ CA.Frames 1105
           in extraDelay $ Input $ Named key
-        , parts = Parts $ HM.fromList $ do
+        , parts = Parts $ HM.fromList do
           (partName, _, track) <- convertedTracks
           case track of
             Left  _drums -> [(partName, PartSingle $ Input $ Named $ keySamplesForPart partName)]
@@ -235,7 +236,7 @@ importOsu separateSongs f = do
         , fileTempo = Nothing
         }
       , targets = HM.empty
-      , parts = Parts $ HM.fromList $ do
+      , parts = Parts $ HM.fromList do
         (partName, osu, track) <- convertedTracks
         case track of
           Left _drums -> return $ (partName, emptyPart
@@ -307,7 +308,7 @@ taikoToTrack tmap osu = let
 
   laneSpeed = 0.080 :: U.Seconds -- 80 ms for consistent combo
   -- make lanes into single notes if they're too short to have 2 notes
-  events' = flip fmap events $ \case
+  events' = flip fmap events \case
     TaikoRoll      t | t <= laneSpeed -> TaikoSingle TaikoCenter
     TaikoRollLarge t | t <= laneSpeed -> TaikoSingle TaikoCenterLarge
     TaikoDenden    t | t <= laneSpeed -> TaikoSingle TaikoCenter
@@ -354,7 +355,7 @@ getTaikoChart osu = let
   msToSecs :: Integer -> U.Seconds
   msToSecs ms = fromIntegral ms / 1000
   timingLookup, uninheritedLookup :: Map.Map Scientific OsuTimingPoint
-  timingLookup = Map.fromList $ do
+  timingLookup = Map.fromList do
     tp <- V.toList osu.timingPoints
     return (tp.time, tp)
   uninheritedLookup = Map.filter (.uninherited) timingLookup
@@ -363,13 +364,13 @@ getTaikoChart osu = let
     let whistleClap = testBit hit.hitSound 1 || testBit hit.hitSound 3
         finish      = testBit hit.hitSound 2
     event <- if testBit hit.type_ 0 -- hit circle
-      then return $ case (whistleClap, finish) of
+      then return case (whistleClap, finish) of
         (False, False) -> TaikoSingle TaikoCenter
         (True , False) -> TaikoSingle TaikoRim
         (False, True ) -> TaikoSingle TaikoCenterLarge
         (True , True ) -> TaikoSingle TaikoRimLarge
       else if testBit hit.type_ 1 -- slider (drum roll)
-        then toList $ do
+        then toList do
           -- https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29#sliders says:
           -- length / (SliderMultiplier * 100 * SV) * beatLength = ms of one "side" of a slider
           lengthPixels <- (hit.objectParams V.!? 2) >>= readMaybe . T.unpack :: Maybe Scientific

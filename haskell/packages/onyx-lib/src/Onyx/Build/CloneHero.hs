@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -91,7 +92,7 @@ psRules buildInfo dir ps = do
     _ -> return False
   -- TODO support target-specific album art
   dir </> "ps/album.png"   %> shk . copyFile' (gen "cover-full.png")
-  bgimg <- forM songYaml.global.fileBackgroundImage $ \f -> do
+  bgimg <- forM songYaml.global.fileBackgroundImage \f -> do
     let psImage = "background" <> takeExtension f
     dir </> "ps" </> psImage %> shk . copyFile' (rel f)
     return psImage
@@ -147,7 +148,7 @@ psRules buildInfo dir ps = do
           , charter          = metadata.author
           , year             = T.pack . show <$> metadata.year
           , genre            = Just $ fofGenre $ fullGenre metadata
-          , proDrums         = flip fmap dmode $ \case
+          , proDrums         = flip fmap dmode \case
             DrumsPro   -> True
             DrumsReal  -> True
             DrumsElite -> True
@@ -172,7 +173,7 @@ psRules buildInfo dir ps = do
           , diffBass         = Just $ fromIntegral $ rb3BassTier      - 1
           , diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
           , diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
-          , diffDrumsReal    = Just $ case dmode of
+          , diffDrumsReal    = Just case dmode of
             Just DrumsPro   -> fromIntegral $ rb3DrumsTier - 1
             Just DrumsReal  -> fromIntegral $ rb3DrumsTier - 1
             Just DrumsElite -> fromIntegral $ rb3DrumsTier - 1
@@ -180,7 +181,7 @@ psRules buildInfo dir ps = do
           , diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
           , diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
           , diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
-          , diffVocalsHarm   = Just $ case vocalCount of
+          , diffVocalsHarm   = Just case vocalCount of
             Nothing     -> -1
             Just Vocal1 -> -1
             Just Vocal2 -> fromIntegral $ rb3VocalTier - 1
@@ -204,11 +205,11 @@ psRules buildInfo dir ps = do
           , eighthNoteHOPO   = Nothing
           , hopoFrequency    = Nothing
           , track            = metadata.trackNumber
-          , sysexSlider      = Just $ or $ do
+          , sysexSlider      = Just $ or do
             five <- allFives
             fd <- toList five.fiveDifficulties
             return $ not $ RTB.null fd.fiveTap
-          , sysexOpenBass    = Just $ or $ do
+          , sysexOpenBass    = Just $ or do
             five <- allFives
             fd <- toList five.fiveDifficulties
             return $ not $ RTB.null fd.fiveOpen

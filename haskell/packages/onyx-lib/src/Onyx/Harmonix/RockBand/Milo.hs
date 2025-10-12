@@ -1,6 +1,7 @@
 {-
 Thanks to PyMilo, LibForge, and MiloMod for information on these structures.
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Harmonix.RockBand.Milo
@@ -86,7 +87,7 @@ unpackMilo fin dout = do
 packMilo :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
 packMilo din fout = do
   bs <- stackIO (Dir.doesFileExist $ din </> "piece000.bin") >>= \case
-    True -> stackIO $ do
+    True -> stackIO do
       -- glue raw pieces together
       let findPieces n = Dir.doesFileExist (din </> pieceName n) >>= \case
             True  -> findPieces $ n + 1

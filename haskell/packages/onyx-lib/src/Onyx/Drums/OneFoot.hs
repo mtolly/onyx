@@ -1,4 +1,5 @@
 -- | Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Drums.OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
@@ -60,7 +61,7 @@ phaseShiftKicks tx ty dt = let
       rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just (Kick, VelocityNormal)) auto
       in dt
         { drumKick2x = lf
-        , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties $ \diff dd ->
+        , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties \diff dd ->
           case diff of
             Expert -> dd
               { drumGems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) dd.drumGems
@@ -74,7 +75,7 @@ rockBand1x dt = dt { drumKick2x = RTB.empty }
 rockBand2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 rockBand2x dt = dt
   { drumKick2x = RTB.empty
-  , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties $ \diff dd ->
+  , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties \diff dd ->
     case diff of
       Expert -> dd
         { drumGems

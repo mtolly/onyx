@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -63,7 +64,7 @@ decompressPakGH3 bs = tryDecompress Z.zlibFormat True $ BL.pack [0x58, 0x85] <> 
 
 -- decompresses stream, optionally ignores "input ended prematurely" error
 tryDecompress :: (MonadFail m) => Z.Format -> Bool -> BL.ByteString -> m BL.ByteString
-tryDecompress format ignoreTruncate bs = either fail return $ runST $ let
+tryDecompress format ignoreTruncate bs = either fail return $ runST let
   go input output = \case
     Z.DecompressInputRequired f                               -> case input of
       []     -> f B.empty >>= go [] output
@@ -98,7 +99,7 @@ pakFormatWoR :: PakFormat
 pakFormatWoR = PakFormat { pakByteOrder = BigEndian, pakNewPabOffsets = True }
 
 getPakNodes :: (MonadFail m) => PakFormat -> Bool -> BL.ByteString -> m [Node]
-getPakNodes fmt hasPab = runGetM $ let
+getPakNodes fmt hasPab = runGetM let
   go = do
     posnOffset <- if hasPab && fmt.pakNewPabOffsets
       then return 0
@@ -159,7 +160,7 @@ splitPakNodes fmt pak maybePab = do
 -- Tries possible pak+pab formats until one parses (seemingly) correctly.
 splitPakNodesAuto :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> StackTraceT m ([(Node, BL.ByteString)], PakFormat)
 splitPakNodesAuto pak maybePab = let
-  tryFormat ctx fmt = errorToEither $ inside ctx $ do
+  tryFormat ctx fmt = errorToEither $ inside ctx do
     nodes <- splitPakNodes fmt pak maybePab
     case reverse nodes of
       (node, bs) : _
@@ -209,7 +210,7 @@ buildPak nodes = let
     putQBKeyBE nodeFilenameCRC
     putWord32be nodeUnknown
     putWord32be nodeFlags
-    forM_ nodeName $ \bs -> do
+    forM_ nodeName \bs -> do
       putByteString bs
       putByteString $ B.replicate (0xA0 - B.length bs) 0
   header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes
@@ -217,7 +218,7 @@ buildPak nodes = let
   in BL.concat $ [header'] <> map (padData . snd) nodes <> [BL.replicate 0xCF0 0xAB]
 
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text
-qsBank nodes = HM.fromList $ do
+qsBank nodes = HM.fromList do
   (node, nodeData) <- nodes
   guard $ elem node.nodeFileType [".qs.en", ".qs"]
   fromMaybe [] $ parseQS nodeData
@@ -236,8 +237,8 @@ parseQS bs = do
         return [(hex, str)]
 
 makeQS :: [(Word32, T.Text)] -> BL.ByteString
-makeQS entries = BL.fromStrict $ TE.encodeUtf16LE $ let
-  lns = T.unlines $ do
+makeQS entries = BL.fromStrict $ TE.encodeUtf16LE let
+  lns = T.unlines do
     (w, t) <- sortOn snd entries -- Sort not necessary, but official ones are
     let hex = T.pack $ showHex w ""
         hex' = T.replicate (8 - T.length hex) "0" <> hex

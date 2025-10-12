@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DerivingVia           #-}
@@ -76,7 +77,7 @@ stemJSON = Codec
     A.Error _ -> case A.fromJSON v of
       A.Success xs -> return xs
       A.Error err  -> fatal err
-  , codecOut = makeOut $ \case
+  , codecOut = makeOut \case
     [x] -> A.toJSON x
     xs  -> A.toJSON xs
   }

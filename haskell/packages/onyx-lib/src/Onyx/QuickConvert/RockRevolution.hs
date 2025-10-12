@@ -1,6 +1,7 @@
 {-
 Renumber RR custom songs due to the limited song ID range
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -67,12 +68,12 @@ scanRRFolder ps3 files = do
         num <- toList $ T.stripPrefix "s" name >>= T.stripSuffix ".lua"
         guard $ T.all isDigit num
         return num
-  forM songIDs $ \songID -> do
+  forM songIDs \songID -> do
     let songFiles = do
           (name, r) <- files
           guard $ songID `T.isInfixOf` name
           return (T.toLower name, r)
-    size <- fmap sum $ forM songFiles $ \(_, r) -> useHandle r hFileSize
+    size <- fmap sum $ forM songFiles \(_, r) -> useHandle r hFileSize
     return RRSong
       { songID = songID
       , files = songFiles
@@ -81,7 +82,7 @@ scanRRFolder ps3 files = do
       }
 
 loadRRSongs :: (MonadIO m, SendMessage m) => [FilePath] -> StackTraceT m [(FilePath, [RRSong])]
-loadRRSongs fs = fmap catMaybes $ forM fs $ \f -> do
+loadRRSongs fs = fmap catMaybes $ forM fs \f -> do
   songs <- case map toLower $ takeExtension f of
     ".pkg" -> loadRRPS3 $ fileReadable f
     _      -> errorToEither (stackIO $ loadRRXbox $ fileReadable f) >>= return . \case
@@ -90,7 +91,7 @@ loadRRSongs fs = fmap catMaybes $ forM fs $ \f -> do
   return $ guard (not $ null songs) >> Just (f, songs)
 
 getTitleArtist :: RRSong -> IO (Maybe (T.Text, T.Text))
-getTitleArtist song = flip firstJustM song.files $ \(name, r) -> let
+getTitleArtist song = flip firstJustM song.files \(name, r) -> let
   lower = T.toLower name
   in if "english_s" `T.isPrefixOf` lower && "_strings.bin" `T.isSuffixOf` lower
     then do
@@ -105,18 +106,18 @@ newSongID n song = do
   let newID = intToRRSongID n
       oldIDBytes = encodeLatin1 song.songID
       newIDBytes = encodeLatin1 newID
-  files <- forM song.files $ \(name, r) -> do
+  files <- forM song.files \(name, r) -> do
     let name' = T.replace song.songID newID name
     r' <- case map toLower $ takeExtension $ T.unpack name of
       -- simple text replace for .lua, hopefully doesn't break anything
-      ".lua" -> generateCachedReadable $ do
+      ".lua" -> generateCachedReadable do
         lua <- useHandle r handleToByteString
         return $ makeHandle (T.unpack name) $ byteStringSimpleHandle
           $ BL.fromStrict
           $ replaceBytes oldIDBytes newIDBytes
           $ BL.toStrict lua
       -- replace in strings inside parsed .fev
-      ".fev" -> generateCachedReadable $ do
+      ".fev" -> generateCachedReadable do
         fev <- useHandle r handleToByteString >>= runGetM (codecIn binFEV)
         return $ makeHandle (T.unpack name) $ byteStringSimpleHandle
           $ runPut $ void $ codecOut binFEV $ newFEVID oldIDBytes newIDBytes fev
@@ -198,7 +199,7 @@ saveSongsPS3 f songs = do
   let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
       contentID = npdContentID edatConfig
       main = singleFolder "USRDIR" Folder
-        { folderFiles = songs >>= map (first $ \name -> TE.encodeUtf8 $ T.toUpper name <> ".EDAT") . (.files)
+        { folderFiles = songs >>= map (first \name -> TE.encodeUtf8 $ T.toUpper name <> ".EDAT") . (.files)
         , folderSubfolders = []
         }
   extra <- getResourcesPath "pkg-contents/rr" >>= crawlFolderBytes
@@ -206,7 +207,7 @@ saveSongsPS3 f songs = do
 saveSongs360 f songs = do
   opts <- rrSTFSOptions "Custom Songs" "Created by Onyx" -- TODO better title/desc
   let dir = singleFolder "data" Folder
-        { folderFiles = songs >>= map (first $ \name -> T.toLower name) . (.files)
+        { folderFiles = songs >>= map (first \name -> T.toLower name) . (.files)
         , folderSubfolders = []
         }
   makeCONReadable opts dir f

@@ -2,6 +2,7 @@
 Ported from RawkSD
 https://github.com/AerialX/rawksd/blob/f97aef64cbcc66/consolehaxx/ConsoleHaxx.Wii/WAD.cs
 -}
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 module Onyx.Nintendo.WAD where
@@ -98,7 +99,7 @@ getTicket = do
   ticketUnknown3     <- getByteString 0x3C
   ticketContentMask  <- getByteString 0x40
   ticketPadding      <- getWord16be
-  ticketLimits       <- replicateM 8 $ do
+  ticketLimits       <- replicateM 8 do
     tag   <- getWord32be
     value <- getWord32be
     return (tag, value)

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE FlexibleInstances   #-}
@@ -265,7 +266,7 @@ lipsyncFromStates ms = let
     , lipsyncVisemes = Set.toList visemes
     , lipsyncKeyframes = do
       frame <- redundantZero $ changes Map.empty ms
-      return $ Keyframe $ sort $ flip map frame $ \(bs, w) -> VisemeEvent
+      return $ Keyframe $ sort $ flip map frame \(bs, w) -> VisemeEvent
         { visemeKey = Set.findIndex bs visemes
         , visemeWeight = w
         , visemeGraph = ()
@@ -396,7 +397,7 @@ instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
           Nothing   -> fail $ "Unrecognized vowel: " <> show k
         vm <- readVowel v
         return (cmuv, vm)
-      return $ \vowel -> fromMaybe ([], Nothing) $ Map.lookup vowel m
+      return \vowel -> fromMaybe ([], Nothing) $ Map.lookup vowel m
     objConsonants <- o .: "consonants"
     vmConsonants <- do
       m <- fmap Map.fromList $ forM (HM.toList objConsonants) $ \(k, v) -> do
@@ -452,7 +453,7 @@ mapVisemeSyllable f syl = Syllable
 type Transcribe = [T.Text] -> [CMUSyllable]
 
 spanishVowels :: Transcribe
-spanishVowels = fmap $ \t -> let
+spanishVowels = fmap \t -> let
   vowels = flip mapMaybe (T.unpack $ T.toLower t) $ \case
     'á' -> Just 'a'
     'é' -> Just 'e'
@@ -468,7 +469,7 @@ spanishVowels = fmap $ \t -> let
     'o' -> CMU_OW
     'u' -> CMU_UW
     _   -> CMU_AH -- shouldn't happen
-  in justVowel $ case vowels of
+  in justVowel case vowels of
     [v] -> sound v
     _   -> case filter (\c -> c /= 'i' && c /= 'u') vowels of
       v : _ -> sound v
@@ -480,9 +481,9 @@ spanishVowels = fmap $ \t -> let
           else CMU_AH -- default
 
 germanVowels :: Transcribe
-germanVowels = fmap $ \t -> let
+germanVowels = fmap \t -> let
   vowels = T.filter (`elem` ("aeiouäöü" :: String)) $ T.toLower t
-  in justVowel $ case vowels of
+  in justVowel case vowels of
     "ei" -> CMU_AY
     "ie" -> CMU_IY
     "eu" -> CMU_OY
@@ -659,7 +660,7 @@ singleAnimsToStates vis anims = let
   animate animFunction len thisViseme1 thisViseme2 rest = let
     transitionSteps = ceiling $ len * 30 :: Int
     normalStep = len / fromIntegral transitionSteps
-    inBetween i = makeVisemeEvent $ let
+    inBetween i = makeVisemeEvent let
       animProgress = animFunction $ realToFrac i / realToFrac transitionSteps
       in thisViseme1 + round ((realToFrac thisViseme2 - realToFrac thisViseme1) * animProgress)
     steps = do
@@ -722,7 +723,7 @@ animationsToStates anims = let
   animate animFunction len v1 v2 rest = let
     transitionSteps = ceiling $ len * 30 :: Int
     normalStep = len / fromIntegral transitionSteps
-    inBetween i = makeVisemeEvent $ do
+    inBetween i = makeVisemeEvent do
       let animProgress = animFunction $ realToFrac i / realToFrac transitionSteps
       k <- nubOrd $ map fst v1 <> map fst v2
       let thisViseme1 = fromMaybe 0 $ lookup k v1
@@ -898,7 +899,7 @@ lipLyricsStates vmap lip = let
     , vocalNotes  = lip.lipNotes
     }
   withLang = applyStatus1 LyricEnglish lip.lipLanguage tubes
-  transcribed = runTranscribe $ flip fmap withLang $ \(lang, mtext) -> let
+  transcribed = runTranscribe $ flip fmap withLang \(lang, mtext) -> let
     trans = case lang of
       LyricEnglish -> englishSyllables
       LyricGerman  -> germanVowels
@@ -957,7 +958,7 @@ testConvertLipsync fmid fvocs fout = do
   mid <- case res of
     Left err  -> error $ show err
     Right mid -> return mid
-  trks <- forM fvocs $ \fvoc -> do
+  trks <- forM fvocs \fvoc -> do
     trk <- BL.readFile fvoc >>= return . case takeExtension fvoc of
       ".voc" -> vocToMIDITrack     . runGet parseVocFile
       _      -> lipsyncToMIDITrack . runGet parseLipsync
@@ -979,7 +980,7 @@ testConvertLipsync fmid fvocs fout = do
 -- RB3 requires them to be specific casing.
 standardVisemeCase :: Lipsync -> Lipsync
 standardVisemeCase lip = lip
-  { lipsyncVisemes = flip map lip.lipsyncVisemes $ \vis ->
+  { lipsyncVisemes = flip map lip.lipsyncVisemes \vis ->
     if "singalong" `B.isSuffixOf` vis
       -- bass_singalong etc. are all lower
       then B8.map toLower vis
@@ -1107,7 +1108,7 @@ putVocFileRaw VocFile{..} = do
   putWord32le vocFileSize
   putWord16le vocMystery9
   putWord32le $ fromIntegral $ length vocVisemes
-  forM_ vocVisemes $ \VocViseme{..} -> do
+  forM_ vocVisemes \VocViseme{..} -> do
     putWord32le vvMystery1
     putWord16le vvMystery2
     putWord16le vvMystery3
@@ -1115,7 +1116,7 @@ putVocFileRaw VocFile{..} = do
     putWord32le vvMystery4
     putWord32le vvMystery5
     putWord16le $ fromIntegral $ length vvEvents
-    forM_ vvEvents $ \VocEvent{..} -> do
+    forM_ vvEvents \VocEvent{..} -> do
       putWord32le veMystery1
       putFloatle veTime
       putFloatle veWeight
@@ -1160,7 +1161,7 @@ vocToMIDITrack voc
       $ ATB.fromPairList
       $ flip map (vvEvents vis) $ \evt -> let
         -- arterialblack.voc has a veTime of -2.3666643e-2 so we clamp to 0
-        time = realToFrac $ if veTime evt < 0 then 0 else veTime evt
+        time = realToFrac if veTime evt < 0 then 0 else veTime evt
         -- TODO extend lipsync track to support the full range
         weight
           | veWeight evt < 0 = 0

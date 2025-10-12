@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -49,7 +50,7 @@ data SNGFileInfo = SNGFileInfo
   } deriving (Show)
 
 readSNGHeader :: Readable -> IO SNGHeader
-readSNGHeader r = useHandle r $ \h -> do
+readSNGHeader r = useHandle r \h -> do
   let load len getter = BL.hGet h len >>= runGetM getter
   magic   <- B.hGet h 6
   unless (magic == "SNGPKG") $ fail $ "Unrecognized .sng identifier: " <> show magic
@@ -62,13 +63,13 @@ readSNGHeader r = useHandle r $ \h -> do
         len <- fromIntegral <$> getWord8
         TE.decodeUtf8 <$> getByteString len
   metaLength <- fromIntegral <$> load 8 getWord64le
-  metadata <- load metaLength $ do
+  metadata <- load metaLength do
     count <- fromIntegral <$> getWord64le
     replicateM count $ liftA2 (,) getString32 getString32
   fileMetaLength <- fromIntegral <$> load 8 getWord64le
-  files <- load fileMetaLength $ do
+  files <- load fileMetaLength do
     count <- fromIntegral <$> getWord64le
-    replicateM count $ do
+    replicateM count do
       name   <- getString8
       size   <- getWord64le
       offset <- getWord64le
@@ -76,7 +77,7 @@ readSNGHeader r = useHandle r $ \h -> do
   return SNGHeader{..}
 
 showSNGHeader :: SNGHeader -> BL.ByteString
-showSNGHeader hdr = runPut $ do
+showSNGHeader hdr = runPut do
   putByteString "SNGPKG"
   putWord32le hdr.version
   putByteString hdr.seed
@@ -84,7 +85,7 @@ showSNGHeader hdr = runPut $ do
       metaLength = 8 + sum (map (\(x, y) -> 4 + B.length x + 4 + B.length y) metaBytes)
   putWord64le $ fromIntegral metaLength
   putWord64le $ fromIntegral $ length metaBytes
-  forM_ metaBytes $ \(x, y) -> do
+  forM_ metaBytes \(x, y) -> do
     putInt32le $ fromIntegral $ B.length x
     putByteString x
     putInt32le $ fromIntegral $ B.length y
@@ -95,7 +96,7 @@ showSNGHeader hdr = runPut $ do
       fileLength = 8 + sum (map (\(name, _, _) -> 1 + B.length name + 8 + 8) fileBytes)
   putWord64le $ fromIntegral fileLength
   putWord64le $ fromIntegral $ length fileBytes
-  forM_ fileBytes $ \(name, size, offset) -> do
+  forM_ fileBytes \(name, size, offset) -> do
     putWord8 $ fromIntegral $ B.length name
     putByteString name
     putWord64le size
@@ -131,7 +132,7 @@ seedToPattern :: B.ByteString -> BL.ByteString
 seedToPattern seed = BL.pack $ zipWith xor (cycle $ B.unpack seed) [0 .. 255]
 
 getSNGFolder :: Bool -> SNGHeader -> Readable -> Folder T.Text Readable
-getSNGFolder addINI hdr r = fromFiles $ let
+getSNGFolder addINI hdr r = fromFiles let
   seedPattern = seedToPattern hdr.seed
   normalFiles = do
     file <- hdr.files
@@ -154,22 +155,22 @@ makeSongINI hdr = T.unlines $
 
 makeSNG :: [(T.Text, T.Text)] -> [(T.Text, Readable)] -> IO [Readable]
 makeSNG metaOrig files = do
-  filesWithSize <- forM files $ \(name, r) -> do
+  filesWithSize <- forM files \(name, r) -> do
     size <- fromIntegral <$> useHandle r hFileSize
     return (name, r, size)
   let totalFileSize = sum [ size | (_, _, size) <- filesWithSize ]
-      meta = flip mapMaybe metaOrig $ \pair@(k, v) -> if
+      meta = flip mapMaybe metaOrig \pair@(k, v) -> if
         -- CH as of v1.1.0.4261-PTB errors on reading a metadata pair from .sng
         -- with an empty value. Should just remove these
         | T.all isSpace v -> Nothing
         -- don't try to normalize these
         | elem k ["name", "artist", "album", "genre", "sub_genre", "year", "charter", "frets"] -> Just pair
         -- normalize bool case as .sng spec says
-        | otherwise -> Just $ case T.toLower v of
+        | otherwise -> Just case T.toLower v of
           "true"  -> (k, "True" )
           "false" -> (k, "False")
           _       -> pair
-      seed = BL.toStrict $ runPut $ do
+      seed = BL.toStrict $ runPut do
         -- look random but actually deterministic for simplicity
         putWord64be $ fromIntegral $ hash meta
         putWord64be $ fromIntegral $ hash $ map snd meta
@@ -183,7 +184,7 @@ makeSNG metaOrig files = do
           }
         fileSectionSize = runPut $ putWord64le $ fromIntegral totalFileSize
         in headerBytes <> fileSectionSize
-      headerSize = fromIntegral $ BL.length $ headerForFiles $ do
+      headerSize = fromIntegral $ BL.length $ headerForFiles do
         (name, _) <- files
         return $ SNGFileInfo name 0 0
       encodeFiles _       []                     = []

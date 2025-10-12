@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DuplicateRecordFields     #-}
 {-# LANGUAGE LambdaCase                #-}
@@ -148,7 +149,7 @@ findAllSongs fp' = do
 
 findSongs :: (SendMessage m, MonadResource m)
   => FilePath -> StackTraceT m ([FilePath], [Importable m])
-findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ errorToWarning $ do
+findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ errorToWarning do
   fp <- stackIO $ Dir.makeAbsolute fp'
   let found imp = foundMany [imp]
       foundMany imps = return ([], imps)
@@ -335,7 +336,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             warn "Couldn't determine game format of DATAP.HED"
             return ([], [])
       foundISO iso = do
-        magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode $ \h -> B.hGet h 6
+        magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode \h -> B.hGet h 6
         case lookup magic [] {- supportedDKGames -} of
           Just importDK -> do
             imps <- importDK $ fileReadable iso
@@ -364,7 +365,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundImportsRB = foundImports' True
       foundImports' isRB fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
-        scanned <- flip concatMapM imports $ \imp -> do
+        scanned <- flip concatMapM imports \imp -> do
           errorToWarning (imp ImportQuick) >>= return . \case
             Nothing    -> []
             Just quick -> [(imp, quick)]
@@ -380,8 +381,8 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             , impPath = path
             , impIndex = index
             -- first, run "imp" before making the temp folder
-            , impProject = imp ImportFull >>= \proj -> importFrom index path isDir $ \key dout ->
-              void $ stackIO $ let
+            , impProject = imp ImportFull >>= \proj -> importFrom index path isDir \key dout ->
+              void $ stackIO let
                 -- then, delete temp folder if there's any exception (like killed thread)
                 -- while saving out the files
                 saver = saveImport dout proj
@@ -404,7 +405,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               [fp </> "config/songs.dta", fp </> "config/gen/songs.dtb"]
             -- filter older supported stepmania formats when a newer one is present
             let sm = map (map toLower) $ filter ((== ".sm") . map toLower . takeExtension) ents
-                filtered = flip filter ents $ \x -> case splitExtension $ map toLower x of
+                filtered = flip filter ents \x -> case splitExtension $ map toLower x of
                   (name, ".dwi") -> notElem (name <.> "sm") sm
                   _              -> True
             case findParadiddle $ map (fp </>) ents of
@@ -418,7 +419,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
                     >>= GH2.importGH2DLC fp
                     >>= foundImports "Guitar Hero II Extracted" fp
                   else return (map (fp </>) filtered, [])
-              paras -> fmap mconcat $ forM paras $ \paraDiffs -> do
+              paras -> fmap mconcat $ forM paras \paraDiffs -> do
                 let loc = snd $ NE.head paraDiffs
                 foundImport "Paradiddle" loc $ importParadiddle paraDiffs
           lookFor ((file, use) : rest) = case filter ((== file) . map toLower) ents of
@@ -472,7 +473,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           folder <- stackIO $ crawlFolder dir
           foundPowerGig fp folder $ takeFileName fp
         ".sng" -> do
-          magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 6
+          magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode \h -> BL.hGet h 6
           case magic of
             "SNGPKG" -> do
               let r = fileReadable fp
@@ -500,7 +501,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             contents <- stackIO $ crawlFolder dir
             foundHED dir contents $ fileReadable fp
           _ -> do
-            magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
+            magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode \h -> BL.hGet h 4
             case magic of
               "RBSF" -> foundImportsRB "Magma RBA" fp [importRBA fp]
               "CON " -> foundSTFS fp
@@ -683,7 +684,7 @@ installGH1 gh1 proj gen = do
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
-      filePairs = flip mapMaybe files $ \f -> do
+      filePairs = flip mapMaybe files \f -> do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   let toBytes = B8.pack . T.unpack
@@ -724,16 +725,16 @@ installGH2 gh2 proj gen = do
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
   let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
-      filePairs = flip mapMaybe files $ \f -> do
+      filePairs = flip mapMaybe files \f -> do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
       filePairsDX = if gh2.gh2Deluxe
-        then flip mapMaybe files $ \f -> case f of
+        then flip mapMaybe files \f -> case f of
           "cover.png_ps2" -> Just ("gen/" <> sym <> ".bmp_ps2", dir </> f)
           _               -> Nothing
         else []
   coopNums <- case coop of
-    DTA 0 (Tree _ [Parens (Tree _ [Sym _, Parens (Tree _ nums)])]) -> forM nums $ \case
+    DTA 0 (Tree _ [Parens (Tree _ [Sym _, Parens (Tree _ nums)])]) -> forM nums \case
       Int n -> return $ fromIntegral n
       _     -> fatal "unexcepted non-int in coop scores list"
     _ -> fatal "Couldn't read coop scores list"
@@ -767,11 +768,11 @@ makeGH1DIY gh1 proj dout = do
   stackIO $ Dir.createDirectoryIfMissing False dout
   files <- stackIO $ Dir.listDirectory dir
   sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
-  let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
+  let filePairs = flip mapMaybe files \f -> let ext = takeExtension f in if
         | elem ext [".vgs", ".mid"]               -> Just (sym <> dropWhile isAlpha f, dir </> f)
         | ext == ".dta" && f /= "songs-inner.dta" -> Just (f, dir </> f)
         | otherwise                               -> Nothing
-  stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
+  stackIO $ forM_ filePairs \(dest, src) -> Dir.copyFile src $ dout </> dest
   let s = T.pack sym
   stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n"
     [ "Instructions for GH1 song installation"
@@ -792,12 +793,12 @@ makeGH2DIY gh2 proj dout = do
   stackIO $ Dir.createDirectoryIfMissing False dout
   files <- stackIO $ Dir.listDirectory dir
   sym <- stackIO $ fmap B8.unpack $ B.readFile $ dir </> "symbol"
-  let filePairs = flip mapMaybe files $ \f -> let ext = takeExtension f in if
+  let filePairs = flip mapMaybe files \f -> let ext = takeExtension f in if
         | elem ext [".voc", ".vgs", ".mid"]       -> Just (sym <> dropWhile isAlpha f          , dir </> f)
         | ext == ".dta" && f /= "songs-inner.dta" -> Just (f                                   , dir </> f)
         | ext == ".png_ps2"                       -> Just ("us_logo_" <> sym <> "_keep.png_ps2", dir </> f)
         | otherwise                               -> Nothing
-  stackIO $ forM_ filePairs $ \(dest, src) -> Dir.copyFile src $ dout </> dest
+  stackIO $ forM_ filePairs \(dest, src) -> Dir.copyFile src $ dout </> dest
   let s = T.pack sym
   stackIO $ B.writeFile (dout </> "README.txt") $ encodeUtf8 $ T.intercalate "\r\n" $
     [ "Instructions for GH2 song installation"
@@ -860,7 +861,7 @@ installPS3Folder gameID extraResPath contents dout = do
     Just (path, place) -> fmap place $ getResourcesPath path >>= crawlFolder
   saveHandleFolder (foldr singleFolder contents upperLayers) dout
   savePkgGameMetadata extra dout
-  return $ do
+  return do
     x <- map fst (folderSubfolders contents) <> map fst (folderFiles contents)
     return $ dout </> foldr (</>) (T.unpack x) (map T.unpack upperLayers)
 

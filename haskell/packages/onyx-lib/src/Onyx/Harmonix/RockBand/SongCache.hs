@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -39,7 +40,7 @@ lenArray c = Codec
   { codecIn = do
     len <- getWord32le
     replicateM (fromIntegral len) $ codecIn c
-  , codecOut = fmapArg $ \xs -> do
+  , codecOut = fmapArg \xs -> do
     putWord32le $ fromIntegral $ length xs
     forM_ xs $ codecOut c
   }
@@ -50,7 +51,7 @@ string = Codec
   { codecIn = do
     len <- getWord32le
     TE.decodeUtf8 <$> getByteString (fromIntegral len)
-  , codecOut = fmapArg $ \t -> do
+  , codecOut = fmapArg \t -> do
     let bs = TE.encodeUtf8 t
     putWord32le $ fromIntegral $ B.length bs
     putByteString bs
@@ -333,7 +334,7 @@ fixSongCache path = do
   origCache <- case mcache of
     Nothing -> fatal "Couldn't find song cache file inside STFS"
     Just bs -> inside "Parsing song cache file" $ runGetM (codecIn bin) bs
-  cons <- fmap (filter $ \s -> take 1 s /= ".")
+  cons <- fmap (filter \s -> take 1 s /= ".")
     $ stackIO $ listDirectory $ takeDirectory path
   let checkCON cache con = do
         let conFull = takeDirectory path </> con
@@ -341,7 +342,7 @@ fixSongCache path = do
         stackIO (doesFileExist conFull) >>= \case
           False -> return cache
           True  -> do
-            magic <- stackIO $ IO.withBinaryFile conFull IO.ReadMode $ \h -> B.hGet h 4
+            magic <- stackIO $ IO.withBinaryFile conFull IO.ReadMode \h -> B.hGet h 4
             if elem magic ["CON ", "LIVE"]
               then do
                 dta <- fmap join $ errorToWarning $ stackIO $ getSTFSFolder conFull
@@ -416,9 +417,9 @@ hardcodeSongCacheIDs pathCache pathCONs = do
     Nothing -> fatal "Couldn't find song cache file inside STFS"
     Just bs -> inside "Parsing song cache file" $ runGetM (codecIn bin) bs
   cons <- stackIO $ filter (/= "songcache") <$> listDirectory pathCONs
-  forM_ cons $ \pathCON -> inside pathCON $ errorToWarning $ do
+  forM_ cons \pathCON -> inside pathCON $ errorToWarning do
     let fullPathCON = pathCONs </> pathCON
-    hdrMeta <- errorToEither $ stackIO $ withSTFSPackage fullPathCON $ \pkg ->
+    hdrMeta <- errorToEither $ stackIO $ withSTFSPackage fullPathCON \pkg ->
       return (stfsHeader pkg, stfsMetadata pkg)
     case hdrMeta of
       Right (CON _, meta) -> do
@@ -441,12 +442,12 @@ hardcodeSongCacheIDs pathCache pathCONs = do
                 lg $ logLabel <> ": found filename cache ID " <> show cid
                 return $ insertID cid
               [] -> let
-                entryIDs = nubOrd $ do
+                entryIDs = nubOrd do
                   se <- sc_Songs cache
                   guard $ se_Title se == D.name (dtaSongPackage single)
                   guard $ Just (se_Artist se) == D.artist (dtaSongPackage single)
                   return $ se_SongID se
-                fileForID cid = maybe "(no filename found)" show $ listToMaybe $ do
+                fileForID cid = maybe "(no filename found)" show $ listToMaybe do
                   fe <- sc_Files cache
                   guard $ elem cid $ fe_SongIDs fe
                   return $ fe_Name fe
@@ -495,7 +496,7 @@ hardcodeSongCacheIDs pathCache pathCONs = do
             , createTransferFlags = 0xC0
             , createLIVE          = False
             }
-          in stackIO $ do
+          in stackIO do
             topFolder' <- updateFolder topFolder
             makeCONReadable opts topFolder' fullPathCON
       _ -> warn "Does not appear to be a CON file"

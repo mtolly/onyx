@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -55,9 +56,9 @@ instance TraverseTrack AmplitudeFile where
 instance ParseFile AmplitudeFile where
   parseFile = do
     ampTracks <- ampTracks =. Codec
-      { codecIn = fmap Map.fromList $ do
+      { codecIn = fmap Map.fromList do
         trks <- lift get
-        fmap catMaybes $ forM trks $ \trk -> let
+        fmap catMaybes $ forM trks \trk -> let
           trackName = fromMaybe "" $ U.trackName trk
           parseName = do
             _ <- P.char 'T'
@@ -86,6 +87,6 @@ instance ParseFile AmplitudeFile where
               Left  n               -> (n,) . Freestyle       <$> codecIn (fileTrack $ pure trackName)
               Right (n, inst, name) -> (n,) . Catch inst name <$> codecIn (fileTrack $ pure trackName)
             _ -> return Nothing
-      , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(ix, trk) -> undefined ix trk
+      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) $ \(ix, trk) -> undefined ix trk
       }
     return AmplitudeFile{..}

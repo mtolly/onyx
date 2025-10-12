@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE ImplicitParams      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
@@ -43,13 +44,13 @@ data TextPakSongStruct = TextPakSongStruct
 readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m [TextPakQB]
 readTextPakQB bs pab mqs = do
   nodes <- splitPakNodes pakFormatWoR bs pab
-  let qbFiles = flip mapMaybe nodes $ \(n, node) -> do
+  let qbFiles = flip mapMaybe nodes \(n, node) -> do
         guard $ n.nodeFileType == ".qb"
         return node
   mappingQS <- case mqs of
     Nothing -> return $ qsBank nodes -- could also filter by matching nodeFilenameCRC
     Just qs -> qsBank <$> splitPakNodes pakFormatWoR qs Nothing
-  flip mapMaybeM qbFiles $ \qbFile -> do
+  flip mapMaybeM qbFiles \qbFile -> do
     qb <- let
       ?endian = BigEndian
       in map (lookupQS mappingQS) <$> runGetM parseQB qbFile
@@ -87,7 +88,7 @@ readTextPakQB bs pab mqs = do
     case structs of
       [] -> return Nothing
       (fileID, _) : _ -> do
-        structs' <- flip mapMaybeM structs $ \(_, (listID, propsID, song)) -> case song of
+        structs' <- flip mapMaybeM structs \(_, (listID, propsID, song)) -> case song of
           QBStructItemStruct k struct -> return $ Just $ TextPakSongStruct listID propsID k struct
           item -> do
             warn $ "Unexpected item in _text.pak instead of song struct: " <> show item
@@ -102,7 +103,7 @@ showTextPakQBQS contents = let
   qbLists = do
     songlistID <- nubOrd $ map (.songArrayID) contents.textPakSongStructs
     guard $ songlistID /= "gh4_2_songlist" && songlistID /= "gh4_3_songlist" -- We only want the metadata updates, not overwrite the setlists
-    return $ QBSectionArray songlistID contents.textPakFileKey $ QBArrayOfQbKey $ do
+    return $ QBSectionArray songlistID contents.textPakFileKey $ QBArrayOfQbKey do
       struct <- contents.textPakSongStructs
       guard $ struct.songArrayID == songlistID
       return struct.songDLCID
@@ -113,7 +114,7 @@ showTextPakQBQS contents = let
       guard $ struct.songStructID == propsID
       return $ QBStructItemStruct struct.songDLCID struct.songData
   qb = qbLists <> qbProps
-  qs = nubOrdOn fst $ do
+  qs = nubOrdOn fst do
     item <- contents.textPakSongStructs >>= (.songData)
     KnownQS k txt <- allQS item
     return (k, txt)

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.DTXMania.Set where
 
@@ -38,16 +39,16 @@ instance Default SetDef where
 loadSet :: FilePath -> IO [SetDef]
 loadSet f = let
   modify (k, v) = case k of
-    "L1LABEL" -> Just $ \sdef -> sdef { setL1Label = Just v }
-    "L1FILE"  -> Just $ \sdef -> sdef { setL1File  = Just v }
-    "L2LABEL" -> Just $ \sdef -> sdef { setL2Label = Just v }
-    "L2FILE"  -> Just $ \sdef -> sdef { setL2File  = Just v }
-    "L3LABEL" -> Just $ \sdef -> sdef { setL3Label = Just v }
-    "L3FILE"  -> Just $ \sdef -> sdef { setL3File  = Just v }
-    "L4LABEL" -> Just $ \sdef -> sdef { setL4Label = Just v }
-    "L4FILE"  -> Just $ \sdef -> sdef { setL4File  = Just v }
-    "L5LABEL" -> Just $ \sdef -> sdef { setL5Label = Just v }
-    "L5FILE"  -> Just $ \sdef -> sdef { setL5File  = Just v }
+    "L1LABEL" -> Just \sdef -> sdef { setL1Label = Just v }
+    "L1FILE"  -> Just \sdef -> sdef { setL1File  = Just v }
+    "L2LABEL" -> Just \sdef -> sdef { setL2Label = Just v }
+    "L2FILE"  -> Just \sdef -> sdef { setL2File  = Just v }
+    "L3LABEL" -> Just \sdef -> sdef { setL3Label = Just v }
+    "L3FILE"  -> Just \sdef -> sdef { setL3File  = Just v }
+    "L4LABEL" -> Just \sdef -> sdef { setL4Label = Just v }
+    "L4FILE"  -> Just \sdef -> sdef { setL4File  = Just v }
+    "L5LABEL" -> Just \sdef -> sdef { setL5Label = Just v }
+    "L5FILE"  -> Just \sdef -> sdef { setL5File  = Just v }
     _         -> Nothing
   go cur [] = toList cur
   go cur (("TITLE", t) : rest) = let

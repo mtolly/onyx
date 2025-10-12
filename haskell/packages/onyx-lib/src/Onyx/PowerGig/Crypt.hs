@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -76,7 +77,7 @@ encryptE2 input = do
   let ivBytes       = B.pack [0xf1,0xad,0x72,0x5b,0xc7,0xee,0x83,0x20,0xbf,0xab,0xbb,0xf7,0xf2,0x91,0x5a,0xc0]
       cipherBytes   = B.pack [0x17,0x96,0x1,0xfa,0x33,0xb1,0xee,0x2a,0xd,0x20,0xea,0xed,0xc8,0x37,0xc8,0x12,0xf1,0x1,0x4d,0xb5,0x20,0x57,0x54,0x1e,0xac,0xc,0x22,0xe8,0xd6,0x94,0xd8,0x7c]
       headerIVBytes = B.pack [0x67,0xe9,0x85,0xe1,0x24,0x5e,0xb7,0x98,0x6e,0xec,0xee,0x0c,0x55,0xf9,0xb2,0x2c]
-      line4         = BL.toStrict $ runPut $ do
+      line4         = BL.toStrict $ runPut do
         putWord32le $ fromIntegral $ B.length input
         putWord32le 0
         putWord32le 2
@@ -237,7 +238,7 @@ pkLength :: PKReference -> Integer
 pkLength = fromIntegral . fe_Size . pkFileEntry
 
 getFolder :: HeaderContents -> Folder B.ByteString PKReference
-getFolder hc = fromFiles $ do
+getFolder hc = fromFiles do
   f <- V.toList $ hc_Files hc
   let offset = hc_Offsets hc V.! fromIntegral (fe_OffsetNum f)
       getString i = hc_Strings hc V.! fromIntegral i
@@ -287,12 +288,12 @@ rebuildFullHeader dir = let
     let newDirEntry = PGDirEntry
           { de_PathHash  = hashPath curName
           , de_Parent    = fromIntegral curParentIndex
-          , de_StringNum = stringToIndex $ case curName of
+          , de_StringNum = stringToIndex case curName of
             []    -> ""
             x : _ -> x
           }
     dirIndex <- gets $ Seq.length . rbsDirs
-    modify $ \rbs -> rbs { rbsDirs = rbsDirs rbs |> newDirEntry }
+    modify \rbs -> rbs { rbsDirs = rbsDirs rbs |> newDirEntry }
     -- then add new file entries
     forM_ (folderFiles curDir) $ \(fileName, pkref) -> do
       offsetIndex <- gets $ Seq.length . rbsOffsets
@@ -302,7 +303,7 @@ rebuildFullHeader dir = let
             , fe_StringNum = stringToIndex fileName
             , fe_OffsetNum = fromIntegral offsetIndex
             }
-      modify $ \rbs -> rbs
+      modify \rbs -> rbs
         { rbsOffsets = rbsOffsets rbs >< Seq.fromList (NE.toList $ pkOffsetEntries pkref)
         , rbsFiles   = rbsFiles rbs |> fileEntry
         }
@@ -361,7 +362,7 @@ withPKFiles
 withPKFiles base dir inner = do
   let pkNums = nubOrd $ map pkArchive $ toList dir
       pkPaths = [ base <> ".pk" <> show i | i <- pkNums ]
-  withMany (`withBinaryFile` ReadMode) pkPaths $ \pks -> do
+  withMany (`withBinaryFile` ReadMode) pkPaths \pks -> do
     let pkMapping = Map.fromList $ zip pkNums pks
         getPK i = fromMaybe (error "panic! .pk not loaded") $ Map.lookup i pkMapping
         getReadable ref = subHandle' id (pkOffset ref) (Just $ pkLength ref)
@@ -396,7 +397,7 @@ connectPKFiles extTree base pkTree = let
 decryptPKContents
   :: Folder T.Text Readable
   -> Folder T.Text Readable
-decryptPKContents = modifyFiles $ \(name, r) -> case T.stripSuffix ".e.2" name of
+decryptPKContents = modifyFiles \(name, r) -> case T.stripSuffix ".e.2" name of
   Just name' -> (name', transformBytes (fromMaybe (error "Couldn't decrypt .e.2 file") . decryptE2 . BL.toStrict) r)
   Nothing    -> if ".lua" `T.isSuffixOf` name
     then (name, transformBytes (fromMaybe (error "Couldn't decrypt .lua file") . decryptE2 . BL.toStrict) r)
@@ -405,7 +406,7 @@ decryptPKContents = modifyFiles $ \(name, r) -> case T.stripSuffix ".e.2" name o
 encryptPKContents
   :: Folder T.Text Readable
   -> Folder T.Text Readable
-encryptPKContents = modifyFiles $ \(name, r) -> if ".lua" `T.isSuffixOf` name
+encryptPKContents = modifyFiles \(name, r) -> if ".lua" `T.isSuffixOf` name
   then (name, transformBytes (fromMaybe (error "Couldn't encrypt .lua file") . encryptE2 . BL.toStrict) r)
   else if "_all.xma" `T.isSuffixOf` name
     then (name <> ".e.2", transformBytes (fromMaybe (error "Couldn't encrypt .xma file") . encryptE2 . BL.toStrict) r)

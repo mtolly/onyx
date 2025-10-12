@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -99,7 +100,7 @@ rsRules buildInfo dir rs = do
         firstNoteTime = case NE.nonEmpty firstNoteBeats of
           Nothing -> targetTime
           Just ts -> U.applyTempoMap mid.tempos $ minimum ts
-    stackIO $ writeFile out $ show $ if firstNoteTime >= targetTime
+    stackIO $ writeFile out $ show if firstNoteTime >= targetTime
       then 0
       else realToFrac $ targetTime - firstNoteTime :: Milli
 
@@ -110,7 +111,7 @@ rsRules buildInfo dir rs = do
           else do
             rso <- buildRS mid.tempos 0 trk
             return $ backportAnchors mid.tempos trk rso
-    newParts <- forM mid.tracks.onyxParts $ \opart -> do
+    newParts <- forM mid.tracks.onyxParts \opart -> do
       gtr  <- eachTrack opart.onyxPartRSGuitar
       bass <- eachTrack opart.onyxPartRSBass
       return opart
@@ -123,7 +124,7 @@ rsRules buildInfo dir rs = do
         }
       }
 
-  forM_ presentParts $ \(fpart, arrSlot) -> do
+  forM_ presentParts \(fpart, arrSlot) -> do
     rsArr fpart arrSlot %> \out -> do
       mid <- F.shakeMIDI $ planDir </> "processed.mid"
       pad <- shk $ (realToFrac :: Milli -> U.Seconds) . read <$> readFile' rsPadding
@@ -319,15 +320,15 @@ rsRules buildInfo dir rs = do
         All numeric is allowed
       -}
   rsBuilder %> \out -> do
-    let allTonePaths = nubOrd $ do
+    let allTonePaths = nubOrd do
           (_, RSPlayable _ pg) <- presentParts
           tones <- toList pg.tones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
-    allTones <- forM allTonePaths $ \f -> do
+    allTones <- forM allTonePaths \f -> do
       tone <- CST.parseTone f
       return (f, tone)
-    parsedArrFiles <- forM presentParts $ \(fpart, arrSlot) -> do
+    parsedArrFiles <- forM presentParts \(fpart, arrSlot) -> do
       contents <- Arr.parseFile $ rsArr fpart arrSlot
       return (fpart, arrSlot, contents)
     key <- getRSKey
@@ -343,7 +344,7 @@ rsRules buildInfo dir rs = do
       -- So, we could just use the first character or so to encode `i`.
       persistentID <- stackIO UUID.nextRandom
       arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
-      return $ case contents of
+      return case contents of
         Arr.PartVocals _ -> DLC.ArrVocals DLC.Vocals
           { xml          = takeFileName $ rsArr fpart arrSlot
           , japanese     = False -- TODO
@@ -423,18 +424,18 @@ rsRules buildInfo dir rs = do
           }
     stackIO $ A.encodeFile out $ toJSON dlc
   rsProject %> \out -> do
-    let allTonePaths = nubOrd $ do
+    let allTonePaths = nubOrd do
           (_, RSPlayable _ pg) <- presentParts
           tones <- toList pg.tones
           toList tones
     shk $ need $ [ rsArr fpart arrSlot | (fpart, arrSlot) <- presentParts ] ++ allTonePaths
-    allTones <- forM allTonePaths $ \f -> do
+    allTones <- forM allTonePaths \f -> do
       tone <- CST.parseTone f
       return (f, tone)
-    parsedArrFiles <- forM presentParts $ \(fpart, arrSlot) -> do
+    parsedArrFiles <- forM presentParts \(fpart, arrSlot) -> do
       contents <- Arr.parseFile $ rsArr fpart arrSlot
       return (fpart, arrSlot, contents)
-    let averageTempo = listToMaybe $ do
+    let averageTempo = listToMaybe do
           (_, _, Arr.PartArrangement arr) <- parsedArrFiles
           return $ Arr.arr_averageTempo arr
     arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
@@ -445,7 +446,7 @@ rsRules buildInfo dir rs = do
       songFileID <- stackIO UUID.nextRandom
       songXmlID <- stackIO UUID.nextRandom
       arrMasterID <- stackIO $ randomRIO (0, maxBound :: Int32) -- this matches the range CST uses (C# Random.Next method)
-      return $ case contents of
+      return case contents of
         Arr.PartVocals _ -> CST.Arrangement
           { CST.arr_ArrangementName      = "Vocals"
           , CST.arr_ArrangementPropeties = Nothing

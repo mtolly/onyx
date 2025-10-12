@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -40,7 +41,7 @@ instance ParseTrack ManiaTrack where
   parseTrack = do
     maniaOverdrive <- (.maniaOverdrive) =. edges 116
     maniaNotes     <- (.maniaNotes    ) =. fatBlips (1/8) Codec
-      { codecIn = slurpTrack $ \mt -> let
+      { codecIn = slurpTrack \mt -> let
         applyPitchEdges (pitch, thisEdges) = flip fmap thisEdges $ bimap
           (const ())
           (\chan -> (V.fromPitch pitch, fromMaybe NoteNormal $ lookup (C.fromChannel chan) channelMap))
@@ -82,7 +83,7 @@ danceDifficultyName = \case
   SMChallenge -> "challenge"
 
 danceToMania :: DanceTrack t -> Map.Map T.Text (ManiaTrack t)
-danceToMania dt = Map.fromList $ do
+danceToMania dt = Map.fromList do
   diff <- [minBound .. maxBound] :: [SMDifficulty]
   dd <- toList $ Map.lookup diff dt.danceDifficulties
   let mt = ManiaTrack
@@ -93,14 +94,14 @@ danceToMania dt = Map.fromList $ do
 
 maniaToDance :: (NNC.C t) => [(SMDifficulty, T.Text)] -> Map.Map T.Text (ManiaTrack t) -> DanceTrack t
 maniaToDance diffMapping trks = DanceTrack
-  { danceDifficulties = Map.fromList $ do
+  { danceDifficulties = Map.fromList do
     (smdiff, maniaDiff) <- diffMapping
     maniaTrack <- toList $ Map.lookup maniaDiff trks
-    let toArrows = mapM $ \(k, noteType) -> do
+    let toArrows = mapM \(k, noteType) -> do
           guard $ k <= 3
           Just (toEnum k, noteType)
     return (smdiff, DanceDifficulty $ RTB.mapMaybe toArrows maniaTrack.maniaNotes)
-  , danceOverdrive = fromMaybe RTB.empty $ listToMaybe $ do
+  , danceOverdrive = fromMaybe RTB.empty $ listToMaybe do
     (_, maniaDiff) <- diffMapping
     maniaTrack <- toList $ Map.lookup maniaDiff trks
     filter (not . RTB.null) [maniaTrack.maniaOverdrive]

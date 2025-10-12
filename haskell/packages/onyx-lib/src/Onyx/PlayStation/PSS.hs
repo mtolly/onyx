@@ -5,6 +5,7 @@ http://dvd.sourceforge.net/dvdinfo/mpeghdrs.html
 http://dvd.sourceforge.net/dvdinfo/pes-hdr.html
 -}
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.PlayStation.PSS where
@@ -46,7 +47,7 @@ scanPackets h = go [] 0 where
 extractVideoStream :: Word8 -> [(Int, Packet (Int, Int))] -> Handle -> IO BL.ByteString
 extractVideoStream videoID pkts h = do
   let matchPackets = [(pos, len) | (_, Packet pktID (pos, len)) <- pkts, videoID == pktID]
-  fmap BL.concat $ forM matchPackets $ \(pos, len) -> do
+  fmap BL.concat $ forM matchPackets \(pos, len) -> do
     -- Packet starts with extension described at http://dvd.sourceforge.net/dvdinfo/pes-hdr.html
     hSeek h AbsoluteSeek $ fromIntegral pos + 2
     remainingExtLength <- B.head <$> B.hGet h 1
@@ -56,7 +57,7 @@ extractVideoStream videoID pkts h = do
 extractVGSStream :: Word8 -> [(Int, Packet (Int, Int))] -> Handle -> IO BL.ByteString
 extractVGSStream vgsID pkts h = do
   let matchPackets = [(pos, len) | (_, Packet pktID (pos, len)) <- pkts, vgsID == pktID]
-  fmap BL.concat $ forM matchPackets $ \(pos, len) -> do
+  fmap BL.concat $ forM matchPackets \(pos, len) -> do
     -- Header is unclear, does not appear to be correct PES extension length but always 17 bytes total
     hSeek h AbsoluteSeek $ fromIntegral pos + 17
     BL.hGet h $ len - 17

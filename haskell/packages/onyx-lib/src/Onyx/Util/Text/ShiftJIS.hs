@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE CPP            #-}
 module Onyx.Util.Text.ShiftJIS (decodeShiftJIS, kakasi) where
 
 import qualified Data.ByteString         as B

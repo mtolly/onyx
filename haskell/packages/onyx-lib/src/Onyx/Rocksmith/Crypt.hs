@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Rocksmith.Crypt where
 
 import           Codec.Compression.Zlib (decompress)

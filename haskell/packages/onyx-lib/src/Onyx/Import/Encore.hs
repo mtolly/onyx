@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -48,7 +49,7 @@ importEncore dir level = do
     ImportFull  -> fixFileCase info.midi >>= F.loadMIDIReadable @EncoreFile . fileReadable
 
   let existingPaths :: [FilePath] -> IO [FilePath]
-      existingPaths paths = flip mapMaybeM paths $ \p -> do
+      existingPaths paths = flip mapMaybeM paths \p -> do
         p' <- fixFileCase p
         e <- Dir.doesFileExist p'
         return $ guard e >> Just p'
@@ -77,7 +78,7 @@ importEncore dir level = do
 
   audios <- do
     let pairs = [audioDrums, audioBass, audioLead, audioGuitar, audioKeys, audioVocals, audioBacking] >>= toList >>= toList
-    fmap HM.fromList $ forM pairs $ \(f, r) -> do
+    fmap HM.fromList $ forM pairs \(f, r) -> do
       chans <- audioChannelsReadable r
       return (T.pack f, AudioFile AudioInfo
         { md5      = Nothing
@@ -100,7 +101,7 @@ importEncore dir level = do
         xs -> Just $ T.intercalate ", " xs
       , subgenre      = Nothing
       , year          = info.release_year >>= readMaybe . T.unpack
-      , fileAlbumArt  = flip fmap art $ \f ->
+      , fileAlbumArt  = flip fmap art \f ->
         SoftFile ("album" <.> takeExtension f) $ SoftReadable $ fileReadable f
       , trackNumber   = Nothing
       , comments      = []
@@ -132,7 +133,7 @@ importEncore dir level = do
     , jammit = HM.empty
     , plans = HM.singleton "encore" $ StandardPlan StandardPlanInfo
       { song        = fmap (fmap $ (\(f, _) -> Named $ T.pack f)) audioBacking
-      , parts       = Parts $ HM.fromList $ do
+      , parts       = Parts $ HM.fromList do
         let (newLead, newGuitar) = case (audioLead, audioGuitar) of
               -- move lead to guitar if possible
               (Just _, Nothing) -> (Nothing  , audioLead  )
@@ -159,7 +160,7 @@ importEncore dir level = do
     }
 
 encoreToOnyxMIDI :: F.Song (EncoreFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
-encoreToOnyxMIDI = fmap $ \encore -> mempty
+encoreToOnyxMIDI = fmap \encore -> mempty
   { F.onyxParts    = Map.fromList
     [ (F.PartGuitar, mempty
       { F.onyxPartGuitar = encore.plasticGuitar
@@ -191,7 +192,7 @@ encoreToOnyxMIDI = fmap $ \encore -> mempty
 importPadMania :: P.Difficulty -> EncorePart U.Beats -> Maybe ModeMania
 importPadMania tier part = do
   convertedDiffs <- NE.nonEmpty $ encorePart part
-  return $ ModeMania $ flip fmap convertedDiffs $ \(name, _) -> ManiaChart
+  return $ ModeMania $ flip fmap convertedDiffs \(name, _) -> ManiaChart
     { name = name
     , keys = if name == "expert" then 5 else 4
     , style = ManiaEncore
@@ -202,7 +203,7 @@ encorePartData :: HM.HashMap T.Text Int -> F.Song (EncoreFile U.Beats) -> Parts 
 encorePartData diffs mid = let
 
   getTier :: [T.Text] -> Maybe P.Difficulty
-  getTier options = listToMaybe $ do
+  getTier options = listToMaybe do
     o <- options
     case HM.lookup o diffs of
       Just d | d >= 0 -> [Tier $ fromIntegral d + 1] -- 0..6 -> 1..7
@@ -261,7 +262,7 @@ encorePartData diffs mid = let
     , (F.PartDrums, let Part{..} = emptyPart in Part
       { drums = do
         tier <- getTier ["pd", "plastic_drums"]
-        Just $ let ModeDrums{..} = emptyPartDrums DrumsPro Kicks1x in ModeDrums
+        Just let ModeDrums{..} = emptyPartDrums DrumsPro Kicks1x in ModeDrums
           { difficulty = tier
           , ..
           }

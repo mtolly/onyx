@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -102,7 +103,7 @@ instance StackJSON Arrangement where
           "Showlights"   -> ArrShowlights   <$> parseFrom arrFields1 (codecIn stackJSON)
           _              -> fatal $ "Unrecognized arrangement Case: " <> show arrCase
       _ -> fatal "Not an object"
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       ArrInstrumental x -> A.object
         [ "Case"   .= ("Instrumental" :: T.Text)
         , "Fields" .= toJSON [x]

@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -36,7 +37,7 @@ traverseFolder :: FilePath -> IO [FoundFile]
 traverseFolder = go Nothing where
   go parent dir = do
     files <- listDirectory dir
-    concatForM files $ \f -> do
+    concatForM files \f -> do
       let fullPath = dir </> f
       doesDirectoryExist fullPath >>= \case
         True -> let
@@ -78,9 +79,9 @@ createArk dout ark = do
         , 4, fromIntegral $ BL.length stringBank -- string bank
         , 4, fromIntegral $ 4 * stringCount -- string offset list
         ]
-  withBinaryFile ark WriteMode $ \h -> do
+  withBinaryFile ark WriteMode \h -> do
     hSeek h AbsoluteSeek sizeBeforeFiles
-    entries <- forM files $ \ff -> do
+    entries <- forM files \ff -> do
       posn <- hTell h
       contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
@@ -98,7 +99,7 @@ createArk dout ark = do
         i32 = BL.hPut h . runPut . putInt32le
     w32 2
     w32 $ fromIntegral fileCount
-    forM_ entries $ \entry -> do
+    forM_ entries \entry -> do
       w32 $ fromIntegral entry.offset
       getStringIndex entry.name >>= i32
       maybe (return (-1)) getStringIndex entry.folder >>= i32

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -85,7 +86,7 @@ worGuitarEdits
     -- Also making chords immediately after tap notes strums, because they are
     -- weirdly hard to hit when hopos (have to play late, even if you strum)
     go = \case
-      Wait t1 c1 rest1@(Wait t2 c2 rest2) -> Wait t1 c1 $ go $ let
+      Wait t1 c1 rest1@(Wait t2 c2 rest2) -> Wait t1 c1 $ go let
         isRepeatedChord = not (null $ drop 1 c1)
           && sort (map (fst . fst) c1) == sort (map (fst . fst) c2)
           && any (\((_color, sht), _len) -> sht == HOPO) c2
@@ -151,7 +152,7 @@ makeDrumFill :: RTB.T U.Seconds gem -> U.Seconds -> [(U.Seconds, U.Seconds)]
 makeDrumFill notes end = let
   notePosns = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
   gaps = zip (0 : notePosns) (notePosns <> [end])
-  potentialFills = flip map gaps $ \(gapStart, gapEnd) ->
+  potentialFills = flip map gaps \(gapStart, gapEnd) ->
     ( if gapStart == 0 then 0 else gapStart + 0.15 -- NS actually appear to use a gap of "32nd note and then 100ms" but this should work
     , if gapEnd == end then end else gapEnd -| 0.1
     )
@@ -179,7 +180,7 @@ annotateOverlaps = go . fmap (, Set.empty) where
   go = \case
     RNil -> RNil
     Wait t ((colors, sht, mlen), preheld) rest -> let
-      postheld = Set.fromList $ case mlen of
+      postheld = Set.fromList case mlen of
         Nothing  -> []
         Just len -> do
           ((colors', _, _), _) <- RTB.getBodies $ U.trackTake len rest
@@ -219,12 +220,12 @@ pullBackTapEnds = go . RTB.normalize where
 pullBackTapEnds' :: (NNC.C t, Fractional t) => RTB.T t (note, Maybe t) -> RTB.T t Bool -> RTB.T t Bool
 pullBackTapEnds' notes taps = let
   result = pullBackTapEnds $ RTB.merge
-    (U.trackJoin $ flip fmap notes $ \case
+    (U.trackJoin $ flip fmap notes \case
       (_, Just len) -> Wait 0 NoteOn $ Wait len NoteOff RNil
       (_, Nothing ) -> Wait 0 NoteBlip RNil
     )
     (fmap (\b -> if b then TapStart else TapEnd) taps)
-  in flip RTB.mapMaybe result $ \case
+  in flip RTB.mapMaybe result \case
     TapStart -> Just True
     TapEnd   -> Just False
     _        -> Nothing
@@ -242,7 +243,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   beatsToMS :: U.Beats -> Word32
   beatsToMS = secondsToMS . U.applyTempoMap tmap
   makeStarPower od = do
-    (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap od $ \case
+    (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap od \case
       True  -> EdgeOn () ()
       False -> EdgeOff ()
     let start = beatsToMS t
@@ -277,7 +278,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         return Note
           { noteTimeOffset = beatsToMS t
           , noteDuration = fromIntegral $ end - start
-          , noteBits = foldr (.|.) 0 $ do
+          , noteBits = foldr (.|.) 0 do
             -- Open pulloff notes only work on bass for some reason.
             -- For now we just leave them in on guitar to become strums;
             -- could also consider modifying the no-opens algorithm to only
@@ -371,7 +372,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           Expert -> Right withGhost
           _      -> Left $ map (.xdNote) withGhost
         , drums_starpower = makeStarPower trk.drumOverdrive
-        , drums_drumfill = flip map fills $ \(gapStart, gapEnd) ->
+        , drums_drumfill = flip map fills \(gapStart, gapEnd) ->
           Single (secondsToMS gapStart) (secondsToMS gapEnd)
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
@@ -447,11 +448,11 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap ofile.onyxEvents.eventsSections $ \section -> let
+        sections = flip fmap ofile.onyxEvents.eventsSections \section -> let
           sectionPrint = sectionBody $ makeDisplaySection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)
-        sections' = RTB.merge sections $ let
+        sections' = RTB.merge sections let
           -- Not all songs have this event, but it lets you place the song end precisely.
           -- Otherwise it just ends right after the last playable note
           sectionGH = "\\L_ENDOFSONG"
@@ -531,7 +532,7 @@ makeDrumAnimations tmap anims = do
   [round $ secs * 1000, 0x77000000 + pitch * 0x10000 + 0x60]
 
 getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [TextPakSongStruct]
-getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input -> do
+getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs \input -> do
   texts <- case map toLower $ takeExtension input of
     ".pkg" -> do
       folder <- pkgFolder <$> stackIO (loadPKG input)
@@ -545,7 +546,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs $ \input
     _ -> do
       folder <- stackIO $ getSTFSFolder input
       return [ r | (name, r) <- folderFiles folder, "_text.pak.xen" `T.isSuffixOf` name ]
-  fmap (concat . catMaybes) $ forM texts $ \r -> do
+  fmap (concat . catMaybes) $ forM texts \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning $ readTextPakQB bs Nothing Nothing
 
@@ -813,7 +814,7 @@ metadataPS3Folder library = let
     edats <- withSystemTempDirectory "onyx-ps3-wor-cache" $ \tmp -> do
       let edatIn  = tmp </> "in.bin"
           edatOut = tmp </> "out.bin"
-      forM files $ \(name, bs) -> do
+      forM files \(name, bs) -> do
         let edatName = TE.encodeUtf8 $ T.toUpper (T.pack name) <> ".EDAT"
         BL.writeFile edatIn bs
         packNPData ps3EDATConfig edatIn edatOut edatName
@@ -835,7 +836,7 @@ saveMetadataPKG library fout = let
     makePKG ps3ContentID (main <> extra) fout
 
 packageNameHashFormat :: Bool -> T.Text -> B.ByteString
-packageNameHashFormat caps t = B8.pack $ do
+packageNameHashFormat caps t = B8.pack do
   c <- take 42 $ T.unpack t -- not sure if cutoff is 42 chars, 96 bytes, 42 non-zero bytes, or something else
   let inRange x y = x <= c && c <= y
   if inRange 'a' 'z' || inRange 'A' 'Z' || inRange '0' '9'

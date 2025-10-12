@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -53,7 +54,7 @@ parseSection = \case
     x' <- T.stripPrefix "prc_" x
     withType SectionRB3 $ T.unwords $ x' : xs
   []            -> Nothing
-  where withType t s = Just $ case T.stripPrefix "<" s of
+  where withType t s = Just case T.stripPrefix "<" s of
           Nothing -> Section t Nothing s
           Just s' -> case T.breakOn ">" s' of
             (x, y) -> Section t (Just x) $ T.strip $ T.drop 1 y
@@ -76,7 +77,7 @@ makeDisplaySection :: Section -> Section
 makeDisplaySection s = s
   { type_ = SectionRB2
   -- segment left unchanged
-  , name = T.replace "_" " " $ stripTags $ case findRBN2Section s.name of
+  , name = T.replace "_" " " $ stripTags case findRBN2Section s.name of
     Nothing           -> s.name
     Just (_, display) -> display
   }

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -197,8 +198,8 @@ data RRDrumDifficulty t = RRDrumDifficulty
 
 instance ParseTrack RRDrumDifficulty where
   parseTrack = do
-    rrdGems      <- (rrdGems      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 48
-    rrdHidden    <- (rrdHidden    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each $ \drum -> channelBlip_ $ fromEnum drum + 72
+    rrdGems      <- (rrdGems      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 48
+    rrdHidden    <- (rrdHidden    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 72
     rrdFreestyle <- rrdFreestyle =. let
       decodeEdge :: (RRDrum, (Int, Maybe Int)) -> Edge () (RRDrum, RRChannel)
       decodeEdge (drum, (chan, mv)) = let
@@ -211,14 +212,14 @@ instance ParseTrack RRDrumDifficulty where
         EdgeOff   (drum, chan) -> (drum, (encodeChannel chan, Nothing))
         EdgeOn () (drum, chan) -> (drum, (encodeChannel chan, Just 96))
       in dimap (fmap encodeEdge) (fmap decodeEdge) $
-        condenseMap $ eachKey each $ \drum ->
+        condenseMap $ eachKey each \drum ->
           edgesCV $ fromEnum drum
     rrdSolo      <- rrdSolo =. edges 127
     return RRDrumDifficulty{..}
 
 importRRDrums :: Map.Map Difficulty (RRDrumDifficulty U.Beats) -> D.DrumTrack U.Beats
 importRRDrums diffs = mempty
-  { D.drumDifficulties = flip fmap diffs $ \rr -> D.DrumDifficulty
+  { D.drumDifficulties = flip fmap diffs \rr -> D.DrumDifficulty
     { D.drumMix         = RTB.empty
     , D.drumPSModifiers = RTB.empty
     , D.drumGems
@@ -232,7 +233,7 @@ importRRDrums diffs = mempty
     }
   , D.drumToms = let
     expert = maybe mempty (RTB.mapMaybe (rrChannel4Lane . snd) . rrdGems) $ Map.lookup Expert diffs
-    in U.trackJoin $ flip fmap expert $ \case
+    in U.trackJoin $ flip fmap expert \case
       D.Pro color D.Tom -> RTB.cons 0 (color, D.Tom) $ RTB.cons (1/32) (color, D.Cymbal) RTB.empty
       _                 -> RTB.empty
   , D.drumSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert diffs
@@ -246,7 +247,7 @@ importRREliteDrums
   . rrdGems
 
 importRREliteLanes :: (NNC.C t) => RRDrumDifficulty t -> RTB.T t (Edge () (ED.EliteGem ()))
-importRREliteLanes rr = flip RTB.mapMaybe rr.rrdFreestyle $ mapM $ \(_, chan) -> rrChannel7Lane chan
+importRREliteLanes rr = flip RTB.mapMaybe rr.rrdFreestyle $ mapM \(_, chan) -> rrChannel7Lane chan
 
 importRRHiddenDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
 importRRHiddenDrums rr
@@ -269,7 +270,7 @@ data SectionMarker
   deriving (Eq, Show)
 
 importRRSections :: [T.Text] -> RTB.T t (SectionMarker, Maybe Int) -> RTB.T t T.Text
-importRRSections strings = fmap $ \(sect, num) -> let
+importRRSections strings = fmap \(sect, num) -> let
   name = case sect of
     SectionIntro       -> "Intro"
     SectionVerse       -> "Verse"
@@ -295,7 +296,7 @@ makeRRSections sects = let
   isNumberLetter t = case T.unsnoc t of
     Just (digits, lastChar) -> T.all isDigit digits && isAlphaNum lastChar
     Nothing                 -> False -- shouldn't happen
-  decideCustom = flip fmap sects $ \s -> let
+  decideCustom = flip fmap sects \s -> let
     normal = stripNumberLetter (makeDisplaySection s).name
     in case T.toLower $ T.filter isAlphaNum normal of
       "intro"       -> Left SectionIntro
@@ -311,7 +312,7 @@ makeRRSections sects = let
   customList = case splitAt maxCustomSections $ nubOrd $ rights $ RTB.getBodies decideCustom of
     (list, []   ) -> list
     (list, _ : _) -> init list <> ["Section"]
-  markers = flip fmap decideCustom $ \case
+  markers = flip fmap decideCustom \case
     Left  s      -> s
     Right custom -> SectionCustom $ fromMaybe (maxCustomSections - 1) $ elemIndex custom customList
   in (addSectionNumbers markers, customList)
@@ -333,19 +334,19 @@ data RRControl t = RRControl
 readRRControl :: (NNC.C t) => RTB.T t (E.T s) -> (RRControl t, RTB.T t (E.T s))
 readRRControl trk = let
   notes = RTB.mapMaybe isNoteEdgeCPV trk
-  getChannelBlips chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
+  getChannelBlips chan = flip RTB.mapMaybe notes \(c, p, mv) -> do
     guard $ c == chan && isJust mv
     return p
-  getChannelBlipsVelocity chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
+  getChannelBlipsVelocity chan = flip RTB.mapMaybe notes \(c, p, mv) -> do
     guard $ c == chan
     v <- mv
     return (p, v)
   chan14 = getChannelBlips 14
   chan15 = getChannelBlipsVelocity 15
-  getGBAnim chan = flip RTB.mapMaybe notes $ \(c, p, mv) -> do
+  getGBAnim chan = flip RTB.mapMaybe notes \(c, p, mv) -> do
     guard $ c == chan
     color <- lookup p [(72, Five.Green), (73, Five.Red), (74, Five.Yellow), (75, Five.Blue), (76, Five.Orange)]
-    return $ if isJust mv then EdgeOn () color else EdgeOff color
+    return if isJust mv then EdgeOn () color else EdgeOff color
   force rtb = seq (forceTrackSpine rtb) rtb
   rrc = RRControl
     { rrcAnimDrummer   = force $ getChannelBlips 0
@@ -359,7 +360,7 @@ readRRControl trk = let
     , rrcGemsBass      = force $ getGBAnim 13
     , rrcVenue         = force $ RTB.filter (/= 126) chan14
     , rrcEnd           = force $ void $ RTB.filter (== 126) chan14
-    , rrcSections      = force $ flip RTB.mapMaybe chan15 $ \(p, v) -> do
+    , rrcSections      = force $ flip RTB.mapMaybe chan15 \(p, v) -> do
       sect <- case p of
         48                     -> Just SectionIntro
         49                     -> Just SectionVerse
@@ -371,13 +372,13 @@ readRRControl trk = let
         71                     -> Just SectionOutro
         _                      -> Nothing
       return (sect, guard (v /= 100) >> Just v)
-    , rrcBeat          = force $ flip RTB.mapMaybe chan15 $ \(p, _) -> case p of
+    , rrcBeat          = force $ flip RTB.mapMaybe chan15 \(p, _) -> case p of
       96  -> Just $ Just Bar
       98  -> Just $ Just Beat
       100 -> Just Nothing
       _   -> Nothing
     }
-  unrecognized = force $ flip RTB.filter trk $ \e -> case isNoteEdgeCPV e of
+  unrecognized = force $ flip RTB.filter trk \e -> case isNoteEdgeCPV e of
     Nothing -> case e of
       E.MetaEvent (Meta.TrackName _) -> False
       _                              -> True
@@ -408,10 +409,10 @@ showRRControl rrc = foldr RTB.merge RTB.empty
   , showBlips 2 rrc.rrcAnimBassist
   , showBlips 3 rrc.rrcAnimVocalist
   , showBlips 11 $ fmap (\rrd -> fromEnum rrd + 72) rrc.rrcGemsDrums
-  , flip fmap rrc.rrcGemsGuitar $ \case
+  , flip fmap rrc.rrcGemsGuitar \case
     EdgeOn () color -> makeEdgeCPV 12 (fromEnum color + 72) (Just 96)
     EdgeOff   color -> makeEdgeCPV 12 (fromEnum color + 72) Nothing
-  , flip fmap rrc.rrcGemsBass $ \case
+  , flip fmap rrc.rrcGemsBass \case
     EdgeOn () color -> makeEdgeCPV 13 (fromEnum color + 72) (Just 96)
     EdgeOff   color -> makeEdgeCPV 13 (fromEnum color + 72) Nothing
   , showBlips 14 $ RTB.merge rrc.rrcVenue (126 <$ rrc.rrcEnd)

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -68,7 +69,7 @@ readHdr bs = do
       parseOffsets = do
         offsetCount <- getWord32le
         V.replicateM (fromIntegral offsetCount) getWord32le
-  flip runGetM dec $ do
+  flip runGetM dec do
     arkVersion <- getWord32le
     case arkVersion of
       -- ARK v2: Amplitude (PS2)
@@ -76,7 +77,7 @@ readHdr bs = do
         entries <- parseEntries getWord32le
         stringBytes <- parseStrings
         offsets <- parseOffsets
-        entries' <- forM entries $ \entry -> do
+        entries' <- forM entries \entry -> do
           name <- findString offsets stringBytes entry.name
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
@@ -93,7 +94,7 @@ readHdr bs = do
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord32le
-        entries' <- forM entries $ \entry -> do
+        entries' <- forM entries \entry -> do
           name <- findString offsets stringBytes entry.name
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
@@ -109,7 +110,7 @@ readHdr bs = do
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le -- new in v4: each entry's offset index is 8 bytes
-        entries' <- forM entries $ \entry -> do
+        entries' <- forM entries \entry -> do
           name <- findString offsets stringBytes entry.name
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
@@ -128,7 +129,7 @@ readHdr bs = do
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le
-        entries' <- forM entries $ \entry -> do
+        entries' <- forM entries \entry -> do
           name <- findString offsets stringBytes entry.name
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
@@ -151,7 +152,7 @@ readHdr bs = do
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le
-        entries' <- forM entries $ \entry -> do
+        entries' <- forM entries \entry -> do
           name <- findString offsets stringBytes entry.name
           folder <- mapM (findString offsets stringBytes) entry.folder
           return entry { name = name, folder = folder }
@@ -221,7 +222,7 @@ decryptHdr enc = let
     return $ BL.packZipWith xor (BL.drop 4 enc) cryptStream
 
 entryFolder :: Hdr -> Folder B.ByteString (FileEntry B.ByteString)
-entryFolder entries = fromFiles $ flip map entries.files $ \entry -> let
+entryFolder entries = fromFiles $ flip map entries.files \entry -> let
   path = case entry.folder >>= NE.nonEmpty . B8.split '/' of
     Just dir -> dir <> return (entry.name)
     Nothing  -> return (entry.name)
@@ -256,7 +257,7 @@ getFileArks :: Hdr -> T.Text -> [T.Text]
 getFileArks hdr hdrName = case hdr.arks of
   Nothing -> [T.pack $ T.unpack hdrName -<.> "ARK"]
   Just arks -> zipWith
-    (\i ark -> T.pack $ case ark.path of
+    (\i ark -> T.pack case ark.path of
       -- paths are e.g. "gen/main_ps3_0.ark"
       Just p  -> takeFileName $ B8.unpack p
       Nothing -> dropExtension (T.unpack hdrName) <> "_" <> show (i :: Int) <> ".ARK"

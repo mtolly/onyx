@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Util.Text.Transform where
@@ -17,7 +18,7 @@ import qualified Sound.MIDI.Util         as U
 replaceCharsRB :: (MonadIO m) => Bool -> T.Text -> m T.Text
 replaceCharsRB _      txt | T.all isAscii txt = return txt -- usual case
 -- TODO after upgrading text on windows, use T.isAscii
-replaceCharsRB rbproj txt                     = liftIO $ let
+replaceCharsRB rbproj txt                     = liftIO let
   jpnRanges =
     [ (0x3000, 0x30ff) -- Japanese-style punctuation, Hiragana, Katakana
     , (0xff00, 0xffef) -- Full-width roman characters and half-width katakana
@@ -33,7 +34,7 @@ replaceCharsRB rbproj txt                     = liftIO $ let
       Right nfd -> return nfd
     return $ T.concat $ map latinCluster $ breakGraphemes nfd
   latinCluster cluster = case T.unpack $ T.filter isLatin1 cluster of
-    core : _ -> T.singleton $ case mapMaybe (tryMark core cluster) marks of
+    core : _ -> T.singleton case mapMaybe (tryMark core cluster) marks of
       []           -> core
       combined : _ -> combined
     []       -> case mapMaybe (tryExtraMapping cluster) extraMapping of

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -161,7 +162,7 @@ warnMessage :: (SendMessage m) => Message -> StackTraceT m ()
 warnMessage = sendMessage' MessageWarning
 
 sendMessage' :: (SendMessage m) => MessageLevel -> Message -> StackTraceT m ()
-sendMessage' lvl (Message s ctx) = StackTraceT $ lift $ do
+sendMessage' lvl (Message s ctx) = StackTraceT $ lift do
   upper <- ask
   lift $ sendMessage lvl $ Message s $ ctx ++ upper
 
@@ -185,7 +186,7 @@ instance (Monad m) => MonadFail (StackTraceT m) where
   fail = fatal
 
 instance (Monad m) => MonadError Messages (StackTraceT m) where
-  throwError (Messages msgs) = StackTraceT $ do
+  throwError (Messages msgs) = StackTraceT do
     upper <- lift ask
     throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
   StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
@@ -260,7 +261,7 @@ stackProcess cp = do
   -- otherwise non-utf-8 chars crash with "invalid byte sequence".
   stackIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
     (ExitSuccess  , out, _  ) -> return $ stringNoCR out
-    (ExitFailure n, out, err) -> fatal $ unlines $ let
+    (ExitFailure n, out, err) -> fatal $ unlines let
       outNoCR = stringNoCR out
       errNoCR = stringNoCR err
       in concat
@@ -316,28 +317,28 @@ class ShakeBuildable pattern file | pattern -> file where
 infix 1 %>
 
 instance ShakeBuildable Shake.FilePattern FilePath where
-  pat %> f = QueueLog $ ReaderT $ \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+  pat %> f = QueueLog $ ReaderT \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath) where
-  (patx, paty) %> f = QueueLog $ ReaderT $ \q -> [patx, paty] Shake.&%> \case
+  (patx, paty) %> f = QueueLog $ ReaderT \q -> [patx, paty] Shake.&%> \case
     [x, y] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y)) q
     fs     -> fail $ "Panic! (%>) rule expected to get 2 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath) where
-  (patx, paty, patz) %> f = QueueLog $ ReaderT $ \q -> [patx, paty, patz] Shake.&%> \case
+  (patx, paty, patz) %> f = QueueLog $ ReaderT \q -> [patx, paty, patz] Shake.&%> \case
     [x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y, z)) q
     fs        -> fail $ "Panic! (%>) rule expected to get 3 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath, FilePath) where
-  (patw, patx, paty, patz) %> f = QueueLog $ ReaderT $ \q -> [patw, patx, paty, patz] Shake.&%> \case
+  (patw, patx, paty, patz) %> f = QueueLog $ ReaderT \q -> [patw, patx, paty, patz] Shake.&%> \case
     [w, x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (w, x, y, z)) q
     fs           -> fail $ "Panic! (%>) rule expected to get 4 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable [Shake.FilePattern] [FilePath] where
-  pats %> f = QueueLog $ ReaderT $ \q -> pats Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+  pats %> f = QueueLog $ ReaderT \q -> pats Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
 
 phony :: FilePath -> StackTraceT (QueueLog Shake.Action) () -> QueueLog Shake.Rules ()
-phony s act = QueueLog $ ReaderT $ \q -> do
+phony s act = QueueLog $ ReaderT \q -> do
   let act' = runReaderT (fromQueueLog $ shakeTrace act) q
   Shake.phony s act'
   Shake.phony (s ++ "/") act'

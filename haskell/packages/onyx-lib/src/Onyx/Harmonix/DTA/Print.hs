@@ -1,4 +1,5 @@
 -- | Pretty-print text (DTA) files.
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Harmonix.DTA.Print (showDTA) where
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -207,7 +208,7 @@ splitCommaList s = case T.stripPrefix "\"" s of
 
 readOsu :: (SendMessage m) => [(T.Text, [T.Text])] -> StackTraceT m OsuFile
 readOsu sections = do
-  let splitKeyValue strip = mapMaybe $ \ln -> case T.span isAlphaNum ln of
+  let splitKeyValue strip = mapMaybe \ln -> case T.span isAlphaNum ln of
         (key, rest) -> case T.stripPrefix ":" rest of
           Just value -> Just (key, maybeStrip value)
           Nothing    -> Nothing
@@ -312,7 +313,7 @@ readOsu sections = do
 
   timingPoints <- fmap (V.fromList . catMaybes) $ forM (getSection "TimingPoints") $ \ln -> do
     case splitCommaList ln of
-      [a, b, c, d, e, f, g, h] -> errorToWarning $ do
+      [a, b, c, d, e, f, g, h] -> errorToWarning do
         time        <- parseOrFail a
         beatLength  <- parseOrFail b
         meter       <- parseOrFail c
@@ -329,7 +330,7 @@ readOsu sections = do
   colours <- fmap (V.fromList . catMaybes) $ forM (getSection "Colours") $ \ln -> do
     case map T.strip $ T.splitOn ":" ln of
       [option, rgb] -> case splitCommaList rgb of
-        [r, g, b] -> errorToWarning $ do
+        [r, g, b] -> errorToWarning do
           red   <- parseOrFail r
           green <- parseOrFail g
           blue  <- parseOrFail b
@@ -343,7 +344,7 @@ readOsu sections = do
 
   hitObjects <- fmap (V.fromList . catMaybes) $ forM (getSection "HitObjects") $ \ln -> do
     case splitCommaList ln of
-      a : b : c : d : e : rest -> errorToWarning $ do
+      a : b : c : d : e : rest -> errorToWarning do
         x        <- parseOrFail a
         y        <- parseOrFail b
         time     <- parseOrFail c

@@ -2,6 +2,7 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -275,11 +276,11 @@ getPropertyType = do
     8 -> return $ LongValue <$> getInt64le
     9 -> return $ BoolValue . (/= 0) <$> getWord8
     0xB -> return $ SymbolValue <$> getString
-    0xC -> return $ do
+    0xC -> return do
       prefix <- getWord8
       str <- getString
       return $ ResourcePathValue str prefix
-    0x10 -> return $ do
+    0x10 -> return do
       unk_driven_prop_1 <- getInt32le
       unk_driven_prop_2 <- getInt32le
       if unk_driven_prop_2 == 0
@@ -293,7 +294,7 @@ getPropertyType = do
           unknown3 <- getInt32le
           unknown4 <- getInt64le
           return $ DrivenProp unk_driven_prop_1 unk_driven_prop_2 Nothing unknown3 unknown4 Nothing
-    0xA -> return $ do
+    0xA -> return do
       a <- getInt32le
       b <- getInt32le
       c <- getInt32le
@@ -301,7 +302,7 @@ getPropertyType = do
       e <- getInt32le
       f <- getInt32le
       return $ GameObjectIdValue a b c d e f
-    0xD -> return $ do
+    0xD -> return do
       a <- getFloatle
       b <- getFloatle
       c <- getFloatle
@@ -314,7 +315,7 @@ getPropertyType = do
     0xF -> do
       _refCount <- getInt64le
       propertyReaders <- getPropertyReaders
-      return $ fmap StructValue $ forM propertyReaders $ \(name, reader) -> do
+      return $ fmap StructValue $ forM propertyReaders \(name, reader) -> do
         value <- reader
         return $ Property name value
     _ -> if typeID .&. 0x100 == 0x100
@@ -334,7 +335,7 @@ getPropertyReaders = do
 getProperties :: Get [Property]
 getProperties = do
   propertyReaders <- getPropertyReaders
-  forM propertyReaders $ \(name, reader) -> do
+  forM propertyReaders \(name, reader) -> do
     value <- reader
     return $ Property name value
 
@@ -354,7 +355,7 @@ getRBSongLipsync res = let
           ArrayValue arr <- return $ prop.value
           SymbolValue sym <- arr
           return sym
-        keyframeData = BL.pack $ do
+        keyframeData = BL.pack do
           prop <- comp.props
           guard $ prop.name == "data"
           ArrayValue arr <- return $ prop.value
@@ -371,7 +372,7 @@ getRBSongLipsync res = let
         let visemeGraph = ()
         return VisemeEvent{..}
       parseKeyframes $ Keyframe{..} : prev
-  in forM lipsyncList $ \(lipsyncName, visemes, keyframeData) -> do
+  in forM lipsyncList \(lipsyncName, visemes, keyframeData) -> do
     keyframes <- runGetM (parseKeyframes []) keyframeData
     return (lipsyncName, emptyLipsync { lipsyncVisemes = visemes, lipsyncKeyframes = keyframes })
 
@@ -384,7 +385,7 @@ beatTrackTempoMap = U.tempoMapFromSecondsBPS . go . RTB.getTimes . beatLines whe
 getRBSongVenue :: BeatTrack U.Seconds -> EntityResource -> Anim Float
 getRBSongVenue beatTrack top = let
   tmap = beatTrackTempoMap beatTrack
-  propAnim = listToMaybe $ do
+  propAnim = listToMaybe do
     (_, Just resources) <- top.entity.layers
     resource <- resources
     RC_PropAnimResource res <- return resource.contents
@@ -455,7 +456,7 @@ getRBSongVenue beatTrack top = let
     , animMystery3   = 0
     , animEnd        = 0
     , animMystery4   = 0
-    , animTracks     = flip map tracks $ \(name, events) -> AnimTrack
+    , animTracks     = flip map tracks \(name, events) -> AnimTrack
       { trackVersion    = 6 -- just setting these as such so eventExtra is always expected to be Nothing
       , trackSubversion = 6
       , trackDomain     = "BandDirector"
@@ -464,7 +465,7 @@ getRBSongVenue beatTrack top = let
       , trackMystery2   = 0
       , trackName2      = ""
       , trackMystery3   = B.replicate 5 0
-      , trackEvents     = flip map events $ \(time, event) -> AnimEvent
+      , trackEvents     = flip map events \(time, event) -> AnimEvent
         { eventExtra = Nothing
         , eventName  = event
         , eventTime  = if time < 0

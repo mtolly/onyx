@@ -8,6 +8,7 @@ https://www.scorehero.com/forum/viewtopic.php?t=39923
 GHWT/GH5 encryption from GHWT Importer by Buldy, originally from GHWT All in One mod by .ocz
 https://www.scorehero.com/forum/viewtopic.php?t=110650
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Neversoft.Crypt where
 
@@ -344,7 +345,7 @@ readFSB dec = do
       let numStreams = case quotRem (fromIntegral $ fsbSongChannels song) 2 of
             (x, y) -> x + y
       mp3s <- splitInterleavedMP3 numStreams $ head $ fsbSongData fsb
-      srcs <- forM mp3s $ \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
+      srcs <- forM mp3s \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
       return $ foldl1 CA.merge srcs
 
 decryptFSB' :: FilePath -> B.ByteString -> Maybe BL.ByteString
@@ -411,7 +412,7 @@ gh3Encrypt bs = let
 -- GHWT == GH5
 
 ghwtKey :: B.ByteString -> B.ByteString
-ghwtKey str = runST $ do
+ghwtKey str = runST do
   let ncycle = 32
   vxor <- newSTRef (0xFFFFFFFF :: Word32)
   encstr <- fmap B.pack $ forM [0 .. ncycle - 1] $ \i -> do
@@ -434,7 +435,7 @@ ghwtKey str = runST $ do
   return $ B.pack $ takeWhile (/= 0) key
 
 ghwtKeyFromFile :: FilePath -> B.ByteString
-ghwtKeyFromFile f = ghwtKey $ let
+ghwtKeyFromFile f = ghwtKey let
   s1 = T.toLower $ T.pack $ takeFileName f
   s2 = fromMaybe s1 $ T.stripSuffix ".xen" s1
   s3 = fromMaybe s2 $ T.stripSuffix ".fsb" s2

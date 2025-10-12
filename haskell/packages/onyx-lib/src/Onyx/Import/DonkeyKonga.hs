@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -64,7 +65,7 @@ importDK1 gcm = do
   -- after "CVS" come after the CVS folder entry so they are inside?
   let chartFiles = folderFiles chartFolder <> maybe [] folderFiles (findFolder ["CVS"] chartFolder)
       audioFiles = folderFiles audioFolder <> maybe [] folderFiles (findFolder ["CVS"] audioFolder)
-  fmap concat $ forM chartFiles $ \(name, bin) -> case B.stripSuffix "_h.bin" name of
+  fmap concat $ forM chartFiles \(name, bin) -> case B.stripSuffix "_h.bin" name of
     Nothing -> return []
     Just chartName -> let
       -- have to manually match up .bin and .dsp names since they aren't the same
@@ -106,7 +107,7 @@ importDK23 gcm = do
       allSongIDs = case songInfo of
         Nothing   -> mapMaybe (\(name, _) -> B.stripSuffix "_1x.mid" name) chartFiles
         Just info -> map (.info_FILENAME) $ filter (\s -> s.info_PRICE /= Just 0) info
-  forM allSongIDs $ \songID -> do
+  forM allSongIDs \songID -> do
     let chartFilename = songID <> "_1x.mid"
         audioFilename = B.take 2 songID <> ".dsp"
     mid <- case lookup chartFilename chartFiles of
@@ -218,7 +219,7 @@ importDKSong chartName isMidi chartFile dsp level = do
   (soundsHigh, soundsLow, soundsClap) <- case level of
     ImportQuick -> return ([], [], [])
     ImportFull  -> stackIO loadBongoSounds
-  let panSounds pan vol = mapM $ \(name, path) -> do
+  let panSounds pan vol = mapM \(name, path) -> do
         src <- buildSource' $ Input path
         return (name, applyPansVols [pan] [vol] src)
   soundsHigh' <- panSounds (-0.3) 4  soundsHigh
@@ -245,7 +246,7 @@ importDKSong chartName isMidi chartFile dsp level = do
       then do
         mid <- F.loadMIDIReadable chartFile
         let _ = mid :: F.Song (F.RawFile U.Beats)
-            dk = readTrackDK2 $ U.applyTempoTrack mid.tempos $ case mid.tracks.rawTracks of
+            dk = readTrackDK2 $ U.applyTempoTrack mid.tempos case mid.tracks.rawTracks of
               t : _ -> t
               []    -> RTB.empty
         return (mid.tempos, dk)
@@ -342,7 +343,7 @@ convertDKDrums dk = let
 
   laneSpeed = 0.080 :: U.Seconds -- 80 ms for consistent combo
   -- make lanes into single notes if they're too short to have 2 notes
-  dk' = flip fmap dk $ \case
+  dk' = flip fmap dk \case
     DKRoll drum t | t <= laneSpeed -> DKNote drum
     event                          -> event
 

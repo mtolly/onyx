@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveFunctor      #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -90,7 +91,7 @@ data TrackData = TrackData
 
 instance StackJSON TrackData where
   stackJSON = asObject "TrackData" $ do
-    let unitList = listCodec $ Codec (return ()) (makeOut $ \() -> "unknown")
+    let unitList = listCodec $ Codec (return ()) (makeOut \() -> "unknown")
     td_customName                <- td_customName                =. req "customName"                stackJSON
     td_previewLoopBars           <- td_previewLoopBars           =. req "previewLoopBars"           stackJSON
     td_goBeatOffsetFromFirstNote <- td_goBeatOffsetFromFirstNote =. req "goBeatOffsetFromFirstNote" stackJSON
@@ -335,8 +336,8 @@ instance ParseTrack SRTrack where
   parseTrack = fatBlips (1/8) $ do
     let dimapColor = dimap (fmap (, 100)) (fmap fst) . dimapColorMSize
         dimapColorMSize = dimap
-          (fmap $ \(color, size) -> (case color of Blue -> 0; Red -> 1, 100 + size))
-          (fmap $ \(c, v) -> (case c of 0 -> Blue; _ -> Red, v - 100))
+          (fmap \(color, size) -> (case color of Blue -> 0; Red -> 1, 100 + size))
+          (fmap \(c, v) -> (case c of 0 -> Blue; _ -> Red, v - 100))
     srTap <- (srTap =.) $ condenseMap $ eachKey each $ \col ->
       dimapColor $ blipCV $ 100 - 5 * fromEnum col
     srMatch <- (srMatch =.) $ condenseMap $ eachKey each $ \col ->

@@ -2,6 +2,7 @@
 Alternate implementation of kueller's venuegen system:
 <https://github.com/kueller/ReaperRBTools>
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -126,8 +127,8 @@ instance ParseTrack LightingTrack where
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
     lightingStrobe <- ((.lightingStrobe) =.) $ let
-      fs = fmap $ \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
-      fp = fmap $ \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
+      fs = fmap \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
+      fp = fmap \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
       in dimap fs fp $ edgesCV 8
     lightingCommands <- ((.lightingCommands) =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
       LightingFirst -> 32
@@ -428,9 +429,9 @@ buildCamera hasInsts ct = do
                   Nothing            -> False      -- last cut, don't include end event
                   Just ((dt', _), _) -> dt' /= len -- include end event if it doesn't go to the next cut
                 else False                         -- not a "free" cut
-              theseCuts = foldr RTB.merge RTB.empty $ do
+              theseCuts = foldr RTB.merge RTB.empty do
                 ((), cut, len) <- this
-                return $ if translateNoteOff cut len
+                return if translateNoteOff cut len
                   then RTB.fromPairList [(NNC.zero, cut), (len, cut)]
                   else RTB.singleton NNC.zero cut
           RTB.cons dt theseCuts <$> go this rtb'

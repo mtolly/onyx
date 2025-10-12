@@ -6,6 +6,7 @@
 {-# LANGUAGE RecursiveDo           #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
+{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Core where
 
 import           Control.Concurrent                        (ThreadId)
@@ -96,7 +97,7 @@ forkOnyx :: Onyx () -> Onyx ThreadId
 forkOnyx act = do
   sink <- getEventSink
   chan <- lift $ lift ask
-  lift $ lift $ lift $ resourceForkIO $ do
+  lift $ lift $ lift $ resourceForkIO do
     runReaderT (logToSink sink act) chan >>= logErrors_ sink
 
 embedOnyx :: (Event -> IO ()) -> Onyx a -> IO (Maybe a)
@@ -219,13 +220,13 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
   FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
   void $ FL.setValue input defTemplate
-  FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
+  FL.setCallback button \_ -> FL.getValue input >>= useTemplate
   browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
-  FL.setCallback browseButton $ \_ -> sink $ EventIO $ askFolder Nothing $ \dir -> do
+  FL.setCallback browseButton \_ -> sink $ EventIO $ askFolder Nothing \dir -> do
     val <- FL.getValue input
     void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
   resetButton <- FL.buttonNew resetRect $ Just "@undo"
-  FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
+  FL.setCallback resetButton \_ -> sink $ EventIO do
     void $ FL.setValue input defTemplate
   return input
 
@@ -364,10 +365,10 @@ horizRadio' rect cb opts = do
     btn <- FL.roundButtonNew rectButton $ Just label
     void $ FL.setValue btn b
     return btn
-  forM_ btns $ \opt -> FL.setCallback opt $ \_ -> do
-    forM_ btns $ \opt' -> FL.setValue opt' $ opt == opt'
+  forM_ btns \opt -> FL.setCallback opt \_ -> do
+    forM_ btns \opt' -> FL.setValue opt' $ opt == opt'
     sequence_ cb
-  return $ do
+  return do
     bools <- mapM FL.getValue btns
     return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
 
@@ -376,7 +377,7 @@ horizRadio rect = horizRadio' rect Nothing
 
 speedPercent' :: Bool -> Rectangle -> IO (IO Double, FL.Ref FL.Counter)
 speedPercent' isConverter rect = do
-  speed <- FL.counterNew rect $ if isConverter
+  speed <- FL.counterNew rect if isConverter
     then Just "Speed (%)"
     else Nothing
   FL.setLabelsize speed $ FL.FontSize 13
@@ -386,7 +387,7 @@ speedPercent' isConverter rect = do
   FL.setLstep speed 5
   FL.setMinimum speed 1
   void $ FL.setValue speed 100
-  FL.setTooltip speed $ if isConverter
+  FL.setTooltip speed if isConverter
     then "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
     else "Speed (%)"
   return ((/ 100) <$> FL.getValue speed, speed)
@@ -399,11 +400,11 @@ makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
   menu <- FL.menuButtonNew rect $ Just initialLabel
   ref <- newIORef initialOpt
-  forM_ opts $ \(label, opt) -> do
+  forM_ opts \(label, opt) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
     FL.add menu label' Nothing
-      ((Just $ \_ -> do
+      ((Just \_ -> do
         writeIORef ref opt
         FL.setLabel menu label
       ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
@@ -417,11 +418,11 @@ makeDropdown rect opts = do
         []      -> NE.head opts
   menu <- FL.menuButtonNew rect $ Just initialLabel
   ref <- newIORef initialOpt
-  forM_ opts $ \(label, opt, _) -> do
+  forM_ opts \(label, opt, _) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
     FL.add menu label' Nothing
-      ((Just $ \_ -> do
+      ((Just \_ -> do
         writeIORef ref opt
         FL.setLabel menu label
       ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
@@ -449,10 +450,10 @@ gh2DeluxeSelector sink rect = do
   let updateKicks = do
         enabled <- FL.getValue check
         (if enabled then FL.activate else FL.deactivate) kicks
-  FL.setCallback check $ \_ -> sink $ EventIO updateKicks
+  FL.setCallback check \_ -> sink $ EventIO updateKicks
   updateKicks
   void $ FL.setValue check False
-  return $ do
+  return do
     enableDeluxe <- FL.getValue check
     if enableDeluxe
       then do
@@ -461,9 +462,9 @@ gh2DeluxeSelector sink rect = do
       else return Nothing
 
 warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
-warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
+warnCombineXboxGH2 sink go = sink $ EventOnyx do
   prefs <- readPreferences
-  stackIO $ unless prefs.prefWarnedXboxGH2 $ do
+  stackIO $ unless prefs.prefWarnedXboxGH2 do
     void $ FL.flChoice (T.unlines
       [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\")."
       , "Loading more than 16 packages will fail to load some songs, and will corrupt your save!"
@@ -472,9 +473,9 @@ warnCombineXboxGH2 sink go = sink $ EventOnyx $ do
   stackIO go
 
 warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
-warnXboxGHWoR sink go = sink $ EventOnyx $ do
+warnXboxGHWoR sink go = sink $ EventOnyx do
   prefs <- readPreferences
-  stackIO $ unless prefs.prefWarnedXboxWoR $ do
+  stackIO $ unless prefs.prefWarnedXboxWoR do
     void $ FL.flChoice (T.unlines
       [ "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,"
       , "to produce the extra file needed to load your songs."
@@ -615,7 +616,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
       (_, btnRectB') = chopLeft 5 btnRectB
   label <- FL.boxNew labelRect' Nothing
   tree <- FL.treeCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-    { FL.handleCustom = Just $ \_ evt -> case evt of
+    { FL.handleCustom = Just \_ evt -> case evt of
       FLE.Keydown -> do
         cmd <- FLTK.eventCommand
         let upToSong :: FL.Ref FL.TreeItem -> MaybeT IO (FL.Ref FL.TreeItem)
@@ -633,18 +634,18 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
               return (root, ix, songItem)
         FLTK.eventKey >>= \case
           FL.SpecialKeyType FLE.Kb_Up | cmd -> do
-            void $ runMaybeT $ do
+            void $ runMaybeT do
               (root, ix, _songItem) <- getSongFocus
               unless (ix == 0) $ lift $ swapFiles root (ix - 1) ix
             return $ Right ()
           FL.SpecialKeyType FLE.Kb_Down | cmd -> do
-            void $ runMaybeT $ do
+            void $ runMaybeT do
               (root, ix, _songItem) <- getSongFocus
               len <- liftIO $ FL.children root
               unless (ix == len - 1) $ lift $ swapFiles root ix (ix + 1)
             return $ Right ()
           FL.SpecialKeyType FLE.Kb_Delete -> do
-            void $ runMaybeT $ do
+            void $ runMaybeT do
               (_root, ix, songItem) <- getSongFocus
               lift $ removeFile songItem ix
             return $ Right ()
@@ -653,10 +654,10 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
     }
   FL.end tree
   FL.setResizable group $ Just tree
-  let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
+  let updateLabel fs = FL.setLabel label $ T.pack case length fs of
         1 -> "1 file loaded."
         n -> show n ++ " files loaded."
-      clearFiles = modifyFiles $ \_ -> do
+      clearFiles = modifyFiles \_ -> do
         FL.clear tree
         _ <- FL.add tree ""
         FL.rootLabel tree plural
@@ -664,25 +665,25 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         FLTK.redraw
         return []
       swapFiles :: FL.Ref FL.TreeItem -> Int -> Int -> IO ()
-      swapFiles root index1 index2 = modifyFiles $ \fs -> do
+      swapFiles root index1 index2 = modifyFiles \fs -> do
         let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
         void $ FL.swapChildren root (FL.AtIndex index1) (FL.AtIndex index2)
         updateLabel fs'
         FLTK.redraw
         return fs'
-      removeFile songItem index = modifyFiles $ \fs -> do
+      removeFile songItem index = modifyFiles \fs -> do
         let fs' = take index fs ++ drop (index + 1) fs
         void $ FL.remove tree songItem
         updateLabel fs'
         FLTK.redraw
         return fs'
       addFiles [] = return ()
-      addFiles gs = modifyFiles $ \fs -> do
+      addFiles gs = modifyFiles \fs -> do
         Just root <- FL.root tree
-        forM_ gs $ \imp -> do
+        forM_ gs \imp -> do
           let (entry, sublines) = display imp
           Just item <- FL.addAt tree entry root
-          forM_ sublines $ \subline -> void $ FL.addAt tree subline item
+          forM_ sublines \subline -> void $ FL.addAt tree subline item
           FL.close item
         let fs' = fs ++ gs
         updateLabel fs'
@@ -702,7 +703,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
       . (\_ _ -> return $ Left FL.UnknownEvent)
     }
   btnA <- FL.buttonNew btnRectA' $ Just $ "Add " <> single
-  FL.setCallback btnA $ \_ -> sink $ EventIO $ do
+  FL.setCallback btnA \_ -> sink $ EventIO do
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
     FL.setTitle picker $ "Load " <> single
     FL.showWidget picker >>= \case
@@ -712,7 +713,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         sink $ EventOnyx $ forkSearch $ map T.unpack $ catMaybes fs
       _ -> return ()
   btnB <- FL.buttonNew btnRectB' $ Just $ "Clear " <> plural
-  FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
+  FL.setCallback btnB \_ -> sink $ EventIO clearFiles
   FL.end group
   return (group, clearFiles)
 
@@ -769,8 +770,8 @@ customTitleSuffix sink rect getSuffix setSuffix = do
             void $ FL.setValue input $ T.strip sfx
             FL.deactivate input
   liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
-  liftIO $ FL.setCallback check $ \_ -> controlInput
-  tell $ do
+  liftIO $ FL.setCallback check \_ -> controlInput
+  tell do
     b <- FL.getValue check
     s <- FL.getValue input
     return $ Endo $ setSuffix $ guard b >> Just (T.strip s)
@@ -792,11 +793,11 @@ songIDBox rect f = do
         b <- FL.getValue check
         (if b then FL.activate else FL.deactivate) input
   liftIO controlInput
-  liftIO $ FL.setCallback check $ \_ -> controlInput
-  tell $ do
+  liftIO $ FL.setCallback check \_ -> controlInput
+  tell do
     b <- FL.getValue check
     s <- FL.getValue input
-    return $ Endo $ f $ if b && s /= ""
+    return $ Endo $ f if b && s /= ""
       then case readMaybe $ T.unpack s of
         Nothing -> SongIDSymbol s
         Just i  -> SongIDInt i
@@ -821,11 +822,11 @@ numberBox rect lbl f = do
         b <- FL.getValue check
         (if b then FL.activate else FL.deactivate) input
   liftIO controlInput
-  liftIO $ FL.setCallback check $ \_ -> controlInput
-  tell $ do
+  liftIO $ FL.setCallback check \_ -> controlInput
+  tell do
     b <- FL.getValue check
     s <- FL.getValue input
-    return $ Endo $ f $ if b && s /= ""
+    return $ Endo $ f if b && s /= ""
       then readMaybe $ T.unpack s
       else Nothing
 
@@ -844,7 +845,7 @@ partSelectors rect proj slots = let
   instSelector ((lbl, getter, setter, partFilter), r) = do
     let r' = trimClock 20 5 5 5 r
         fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
-    choice <- liftIO $ do
+    choice <- liftIO do
       choice <- FL.choiceNew r' $ Just lbl
       FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
       FL.addName choice "(none)"
@@ -854,19 +855,19 @@ partSelectors rect proj slots = let
           Nothing -> 0 -- (none)
           Just i  -> i + 1
       return choice
-    tell $ do
+    tell do
       FL.AtIndex i <- FL.getValue choice
-      return $ Endo $ setter $ case drop (i - 1) fparts' of
+      return $ Endo $ setter case drop (i - 1) fparts' of
         (fpart, _, _) : _ | i /= 0 -> fpart
         _                          -> PartName "undefined"
-    return $ \b -> if b then FL.activate choice else FL.deactivate choice
+    return \b -> if b then FL.activate choice else FL.deactivate choice
   in do
     controls <- mapM instSelector $ zip slots rects
-    return $ \b -> mapM_ ($ b) controls
+    return \b -> mapM_ ($ b) controls
 
 mixDownStems :: SongYaml f -> SongYaml f
 mixDownStems song = song
-  { plans = flip fmap song.plans $ \case
+  { plans = flip fmap song.plans \case
     StandardPlan info -> StandardPlan info
       { parts = Parts HM.empty
       , song = let

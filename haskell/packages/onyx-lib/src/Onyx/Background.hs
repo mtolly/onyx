@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -78,7 +79,7 @@ getMoods tmap endTime opart = let
 
 makeMoodsFromNotes :: (NNC.C t) => t -> t -> RTB.T t (LongNote s a) -> RTB.T t Mood
 makeMoodsFromNotes buffer gap rtb = let
-  edges = RTB.collectCoincident $ U.trackJoin $ flip fmap rtb $ \case
+  edges = RTB.collectCoincident $ U.trackJoin $ flip fmap rtb \case
     Blip{}    -> Wait NNC.zero True  $ Wait buffer False RNil
     NoteOn{}  -> Wait NNC.zero True  RNil
     NoteOff{} -> Wait buffer   False RNil
@@ -140,12 +141,12 @@ autoCamera
   -> F.Song (F.OnyxFile U.Beats)
   -> m (RTB.T U.Beats Camera3)
 autoCamera partMap tmap endTime ofile = do
-  let moodMap = flip fmap partMap $ \fpart -> let
+  let moodMap = flip fmap partMap \fpart -> let
         moods = getMoods tmap endTime $ fromMaybe mempty $ Map.lookup fpart $ ofile.tracks.onyxParts
         in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 moods
       endSeconds = U.applyTempoMap tmap endTime
       cutTimes = map (U.unapplyTempoMap tmap) $ takeWhile (<= endSeconds) $ map fromRational [0, 2.5 ..]
-  fmap (RTB.fromAbsoluteEventList . ATB.fromPairList) $ forM cutTimes $ \t -> do
+  fmap (RTB.fromAbsoluteEventList . ATB.fromPairList) $ forM cutTimes \t -> do
     let insts = flip mapMaybe (Map.toList moodMap) $ \(rb3, moods) -> case Map.lookupLE t moods of
           Nothing                      -> Nothing
           Just (_, Mood_idle_realtime) -> Nothing

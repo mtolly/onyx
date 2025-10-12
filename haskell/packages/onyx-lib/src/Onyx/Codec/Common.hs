@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Codec.Common where
 
 import           Control.Applicative        ((<|>))
@@ -48,7 +49,7 @@ enumCodec s f = enumCodecFull s $ is . f
 enumCodecFull :: (Enum a, Bounded a, Show v, Monad m) =>
   String -> (a -> ValueCodec m v ()) -> ValueCodec m v a
 enumCodecFull s f = Codec
-  { codecOut = fmapArg $ \x -> codecOut (f x) ()
+  { codecOut = fmapArg \x -> codecOut (f x) ()
   , codecIn = foldr (<|>) (expected s)
     [ x <$ codecIn (f x) | x <- [minBound .. maxBound] ]
   }
@@ -61,7 +62,7 @@ x |?> y = Codec
 
 is :: (Eq v, Show v, Monad m) => v -> ValueCodec m v ()
 is x = Codec
-  { codecOut = makeOut $ \() -> x
+  { codecOut = makeOut \() -> x
   , codecIn  = lift ask >>= \v -> if v == x
     then return ()
     else expected $ show x
@@ -107,11 +108,11 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
           return x
       Just v  -> let
         keyLayer = (if isJust dflt then "optional" else "required") <> " key " <> show key
-        in inside keyLayer $ do
+        in inside keyLayer do
           lift $ lift $ modify $ HS.insert key
           let f = withReaderT (const v) . mapReaderT lift
           mapStackTraceT f $ codecIn valCodec
-  , codecOut = fmapArg $ \val -> tell
+  , codecOut = fmapArg \val -> tell
     [ (key, makeValue' valCodec val)
     | shouldFill || case dflt of
       Just (_, fn) -> not $ fn val

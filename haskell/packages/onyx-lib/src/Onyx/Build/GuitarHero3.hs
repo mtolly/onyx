@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -92,7 +93,7 @@ gh3Rules buildInfo dir gh3 = do
   -- makeShortName applies max of 27 chars which works with GH3 max of 26.
   -- ("<shortname>_song.pak.xen" must fit in STFS's max of 40 chars)
   let hashed = hashGH3 songYaml gh3
-      dlcID = B8.pack $ T.unpack $ case gh3.songID of
+      dlcID = B8.pack $ T.unpack case gh3.songID of
         Nothing          -> makeShortName hashed songYaml
         Just (Left  n  ) -> makeShortName n      songYaml
         Just (Right str) -> str
@@ -111,7 +112,7 @@ gh3Rules buildInfo dir gh3 = do
       pathRhythm  = dir </> "rhythm.mp3"
       pathSong    = dir </> "song.mp3"
       pathPreview = dir </> "preview.mp3"
-      setup lame = liftIO $ do
+      setup lame = liftIO do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 44100 -- SanicStudios uses this, seems to work.
@@ -188,7 +189,7 @@ gh3Rules buildInfo dir gh3 = do
     hasGuitarAudio <- testSize pathGuitar
     hasRhythmAudio <- testSize pathRhythm
     fsbLength <- stackIO $ withBinaryFile pathFsbXen ReadMode hFileSize
-    stackIO $ BL.writeFile out $ runPut $ do
+    stackIO $ BL.writeFile out $ runPut do
       let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
       putWord32be count
       putWord32be $ fromIntegral fsbLength
@@ -278,7 +279,7 @@ gh3Rules buildInfo dir gh3 = do
         unk1 = qbKeyCRC $ "1o99lm\\" <> B8.pack dl <> ".qb" -- in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
         unk2 = qbKeyCRC $ "7buqvk" <> B8.pack dl -- in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
     stackIO $ BL.writeFile out $ buildPak nodes
-  forM_ pathTextLangs $ \lang -> lang %> \out -> do
+  forM_ pathTextLangs \lang -> lang %> \out -> do
     -- being lazy and copying english file. really we ought to swap out some translated strings
     shk $ copyFile' pathText out
   [pathSongPak, pathPad] %> \_ -> do
@@ -364,7 +365,7 @@ gh3Rules buildInfo dir gh3 = do
   ps3SongPak %> makeEDAT pathSongPak
   forM_ (zip ps3TextLangs pathTextLangs) $ \(ps3, xen) -> ps3 %> makeEDAT xen
   -- apparently we don't need to add the empty VRAM paks, song works fine without them
-  phony ps3Root $ do
+  phony ps3Root do
     shk $ need $ ps3Fsb : ps3Dat : ps3DL : ps3Text : ps3SongPak : ps3TextLangs
   dir </> "ps3.pkg" %> \out -> do
     shk $ need [ps3Root]
@@ -377,7 +378,7 @@ fromSeconds secs = floor $ secs * 1000
 
 makeGH3Spans :: U.TempoMap -> RTB.T U.Beats Bool -> RTB.T U.Beats gem -> [(Word32, Word32, Word32)]
 makeGH3Spans tmap spans gems = let
-  spans' = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap spans $ \case
+  spans' = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap spans \case
     False -> EdgeOff ()
     True  -> EdgeOn  () ()
   collectedGems = RTB.collectCoincident gems
@@ -437,7 +438,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
   firstEvent rtb = case RTB.viewL rtb of
     Just ((dt, _), _) -> dt
     Nothing           -> 999
-  firstNoteBeats = foldr min 999 $ do
+  firstNoteBeats = foldr min 999 do
     part <- [partLead, partRhythm]
     let opart = F.getFlexPart part origSong.tracks
     builder <- toList $ getPart part songYaml >>= anyFiveFret

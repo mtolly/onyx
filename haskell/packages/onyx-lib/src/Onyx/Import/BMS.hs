@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -76,7 +77,7 @@ importBMS bmsPath level = do
           }
       stripQuick1 lns = case level of
         ImportFull  -> lns
-        ImportQuick -> flip filter lns $ \(k, _) -> not
+        ImportQuick -> flip filter lns \(k, _) -> not
           $  T.any isDigit (T.take 1 k)
           || ("WAV"  `T.isPrefixOf` k)
           || ("BMP"  `T.isPrefixOf` k)
@@ -92,7 +93,7 @@ importBMS bmsPath level = do
         $ takeDirectory bmsPath
         </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
         -- ¥ is the backslash when Shift-JIS decoded
-      return $ flip fmap msrc $ \src -> let
+      return $ flip fmap msrc \src -> let
         -- could be smarter about this (apply volume later) but this works
         adjustVolume = case fromMaybe 100 $ HM.lookup chip $ bms_VOLWAV bms of
           100 -> id
@@ -177,7 +178,7 @@ importBMS bmsPath level = do
       midi = case level of
         ImportQuick -> emptyChart
         ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
-          { F.onyxParts = Map.fromList $ do
+          { F.onyxParts = Map.fromList do
             (fpart, indexed) <-
               [ (F.PartKeys          , player1Indexed)
               , (F.PartName "rhythm", player2Indexed)
@@ -260,7 +261,7 @@ importBMS bmsPath level = do
       , fileTempo   = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.fromList $ do
+    , parts = Parts $ HM.fromList do
       (fpart, indexed, p1) <-
         [ (F.PartKeys         , player1Indexed, True )
         , (F.PartName "rhythm", player2Indexed, False)

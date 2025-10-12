@@ -140,7 +140,7 @@ lenString = Codec
   { codecIn = do
     len <- getWord32le
     getByteString $ fromIntegral len
-  , codecOut = fmapArg $ \b -> do
+  , codecOut = fmapArg \b -> do
     putWord32le $ fromIntegral $ B.length b
     putByteString b
   }
@@ -630,7 +630,7 @@ convertMidiEvent strings w = let
         13 -> Just $ V.MonoAftertouch note
         14 -> Just $ V.PitchBend $ note .|. (velocity `shiftL` 8)
         _  -> Nothing
-    2 -> Just $ E.MetaEvent $ Meta.SetTempo $ fromIntegral $ let
+    2 -> Just $ E.MetaEvent $ Meta.SetTempo $ fromIntegral let
       high = w .&. 0xFF0000
       mid = (w .&. 0xFF00) `shiftR` 8
       low = (w .&. 0xFF) `shiftL` 8
@@ -706,7 +706,7 @@ extractMidi rbmid = do
   let mfr = rbmid_MidiFileResource rbmid
   fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM (mfr_MidiTracks mfr) $ \mt -> do
     let raw = RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (\(Ticked delta x) -> (fromIntegral delta, x)) $ mt_Events mt
-    fmap RTB.catMaybes $ forM raw $ \w -> do
+    fmap RTB.catMaybes $ forM raw \w -> do
       let res = convertMidiEvent (mt_Strings mt) w
       when (isNothing res) $ warn $ "Unrecognized MIDI event: " <> showHex w ""
       return res

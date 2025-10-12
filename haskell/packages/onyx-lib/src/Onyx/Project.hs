@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveFoldable        #-}
@@ -93,7 +94,7 @@ parsePitch = Codec
 
 parseSongKey :: (SendMessage m) => ValueCodec m A.Value SongKey
 parseSongKey = Codec
-  { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ T.concat
+  { codecOut = makeOut \sk@(SongKey k t) -> A.toJSON $ T.concat
     [ showKey (songKeyUsesFlats sk) k
     , case t of Major -> " major"; Minor -> " minor"
     ]
@@ -153,18 +154,18 @@ instance (Eq f, StackJSON f) => StackJSON (AudioInfo f) where
 instance (Eq f, StackJSON f) => StackJSON (AudioFile f) where
   stackJSON = Codec
     { codecIn = decideKey
-      [ ("expr", object $ do
+      [ ("expr", object do
         expr <- requiredKey "expr" fromJSON
         expectedKeys ["expr"]
         return $ AudioSnippet expr
         )
-      , ("samples", object $ do
+      , ("samples", object do
         info <- requiredKey "samples" fromJSON
         expectedKeys ["samples"]
         return $ AudioSamples info
         )
       ] $ AudioFile <$> codecIn stackJSON
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       AudioFile    info -> makeValue stackJSON info
       AudioSnippet expr -> A.object
         [ "expr" .= toJSON expr
@@ -207,7 +208,7 @@ data PartAudio a
 instance (StackJSON a) => StackJSON (PartAudio a) where
   stackJSON = Codec
     { codecIn = decideKey
-      [ ("kit", object $ do
+      [ ("kit", object do
         kick  <- optionalKey "kick"  fromJSON
         snare <- optionalKey "snare" fromJSON
         toms  <- optionalKey "toms"  fromJSON
@@ -216,7 +217,7 @@ instance (StackJSON a) => StackJSON (PartAudio a) where
         return PartDrumKit{..}
         )
       ] $ PartSingle <$> fromJSON
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       PartSingle x -> toJSON x
       PartDrumKit{..} -> A.object $ concat
         [ map ("kick"  .=) $ toList kick
@@ -233,7 +234,7 @@ instance (StackJSON a) => StackJSON (Parts a) where
   stackJSON = Codec
     { codecIn = Parts . HM.fromList . map (first F.PartName) . HM.toList
       <$> mapping fromJSON
-    , codecOut = makeOut $ \(Parts hm) -> mappingToJSON $ HM.fromList
+    , codecOut = makeOut \(Parts hm) -> mappingToJSON $ HM.fromList
       $ map (first F.getPartName) $ HM.toList hm
     }
 
@@ -353,7 +354,7 @@ instance (Eq f, StackJSON f) => StackJSON (Plan f) where
       parseMogg     = MoggPlan     <$> fromJSON
       parseStandard = StandardPlan <$> fromJSON
       in decideKey [("mogg-md5", parseMogg), ("file-mogg", parseMogg)] parseStandard
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       StandardPlan x -> toJSON x
       MoggPlan     x -> toJSON x
     }
@@ -388,7 +389,7 @@ instance StackJSON AudioInput where
           fromJSON
         )
       ] (Named <$> fromJSON)
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       Named t -> toJSON t
       JammitSelect (J.Only p) t -> A.object
         [ "only" .= [toJSON $ jammitPartToTitle p, toJSON t]
@@ -421,7 +422,7 @@ instance StackJSON Edge where
     End   -> is "end"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> StackParser m A.Value a -> StackParser m A.Value b
-algebraic1 k f p1 = object $ onlyKey k $ do
+algebraic1 k f p1 = object $ onlyKey k do
   x <- lift ask
   fmap f $ inside "ADT field 1 of 1" $ parseFrom x p1
 
@@ -484,7 +485,7 @@ instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
         , ("vol", algebraic2 "vol" (\volDB -> Gain $ 10 ** (volDB / 20)) fromJSON fromJSON)
         -- TODO samples? probably don't need
         ] (fmap Input fromJSON `catchError` \_ -> expected "an audio expression")
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       Silence chans t -> A.object ["silence" .= [toJSON chans, toJSON t]]
       Input x -> toJSON x
       Mix auds -> A.object ["mix" .= auds]
@@ -509,14 +510,14 @@ k .= x = (k, toJSON x)
 
 instance (StackJSON t) => StackJSON (Seam t) where
   stackJSON = Codec
-    { codecIn = object $ do
+    { codecIn = object do
       seamCenter <- requiredKey "center" (codecIn stackJSON)
       valueFade <- fromMaybe (A.Number 0) <$> optionalKey "fade" (codecIn stackJSON)
       seamFade <- parseFrom valueFade (codecIn stackJSON)
       seamTag <- requiredKey "tag" (codecIn stackJSON)
       expectedKeys ["center", "fade", "tag"]
       return Seam{..}
-    , codecOut = makeOut $ \Seam{..} -> A.object
+    , codecOut = makeOut \Seam{..} -> A.object
       [ "center" .= seamCenter
       , "fade" .= seamFade
       , "tag" .= seamTag
@@ -549,7 +550,7 @@ instance StackJSON Duration where
       OneKey "seconds" v -> inside "seconds duration" $ Seconds . toRealFloat <$> parseFrom v parseMinutes
       _ -> inside "unitless (seconds) duration" (Seconds . toRealFloat <$> parseMinutes)
         `catchError` \_ -> expected "a duration in frames or seconds"
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       Frames f  -> A.object ["frames" .= f]
       Seconds s -> showTimestamp $ realToFrac s
     }
@@ -567,7 +568,7 @@ data Difficulty
 
 instance StackJSON Difficulty where
   stackJSON = Codec
-    { codecOut = makeOut $ \case
+    { codecOut = makeOut \case
       Tier i -> A.object ["tier" .= i]
       Rank i -> A.object ["rank" .= i]
     , codecIn = lift ask >>= \case
@@ -632,7 +633,7 @@ tuningBaseFormat = Codec
     A.String "bass-6"   -> return Bass6
     A.Array _           -> GtrCustom <$> codecIn (listCodec stackJSON)
     _                   -> expected "a guitar/bass tuning base"
-  , codecOut = makeOut $ \case
+  , codecOut = makeOut \case
     Guitar6      -> "guitar-6"
     Guitar7      -> "guitar-7"
     Guitar8      -> "guitar-8"
@@ -933,7 +934,7 @@ instance StackJSON PreviewTime where
             p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseTimestamp
             in p `catchError` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
       in traceNum `catchError` \_ -> traceStr
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       PreviewSection sect -> A.toJSON $ emitSection sect
       PreviewMIDI mb      -> A.toJSON $ showMeasureBeats mb
       PreviewSeconds secs -> showTimestamp $ realToFrac secs
@@ -1143,7 +1144,7 @@ instance StackJSON RBSongID where
       A.String s             -> return $ SongIDSymbol s
       A.Number n             -> return $ SongIDInt $ round n
       _                      -> expected "a RB song ID, or {auto: symbol/int}"
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       SongIDAutoSymbol -> OneKey "auto" "symbol"
       SongIDAutoInt    -> OneKey "auto" "int"
       SongIDSymbol s   -> A.String s
@@ -1235,7 +1236,7 @@ instance (Eq f, StackJSON f) => StackJSON (LipsyncSource f) where
       "harm3"                 -> return $ LipsyncVocal $ Just Vocal3
       OneKey "file-lipsync" x -> LipsyncFile <$> parseFrom x (codecIn stackJSON)
       _                       -> expected "a lipsync source"
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       LipsyncTrack1 -> "track1"
       LipsyncTrack2 -> "track2"
       LipsyncTrack3 -> "track3"
@@ -1534,7 +1535,7 @@ parseRSArr = let
         (inside "RS arrangement slot" $ parseFrom x $ codecIn slotCodec)
         (inside "RS arrangement part" $ parseFrom y $ codecIn partCodec)
       _ -> expected "2-element array for RS arrangement"
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       (slot, fpart) -> A.toJSON [makeValue' slotCodec slot, makeValue' partCodec fpart]
     }
 
@@ -1659,7 +1660,7 @@ addKey codec k v x = A.Object $ KM.fromHashMapText $ HM.insert k v $ HM.fromList
 
 instance (Eq f, StackJSON f) => StackJSON (Target f) where
   stackJSON = Codec
-    { codecIn = object $ do
+    { codecIn = object do
       target <- requiredKey "game" fromJSON
       hm <- lift ask
       parseFrom (A.Object $ KM.fromHashMapText $ HM.delete "game" hm) $ case target :: T.Text of
@@ -1674,7 +1675,7 @@ instance (Eq f, StackJSON f) => StackJSON (Target f) where
         "pg"  -> fmap PG     fromJSON
         "rr"  -> fmap RR     fromJSON
         _     -> fatal $ "Unrecognized target game: " ++ show target
-    , codecOut = makeOut $ \case
+    , codecOut = makeOut \case
       RB3    rb3 -> addKey parseTargetRB3  "game" "rb3"    rb3
       RB2    rb2 -> addKey parseTargetRB2  "game" "rb2"    rb2
       PS     ps  -> addKey parseTargetPS   "game" "ps"     ps

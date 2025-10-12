@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -62,7 +63,7 @@ loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) $ do
       mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "song" $ parseInside' insideCodec
 
 gunzipPowerGig :: BL.ByteString -> Either String BL.ByteString
-gunzipPowerGig bs = runST $ let
+gunzipPowerGig bs = runST let
   go input = \case
     Z.DecompressInputRequired f             -> case input of
       []     -> f B.empty >>= go []

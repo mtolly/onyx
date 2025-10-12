@@ -1,6 +1,7 @@
 {- |
 Written with much assistance from https://github.com/Nanook/Queen-Bee
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE ImplicitParams    #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -394,36 +395,36 @@ parseQBSubArray = do
       shouldBeAt p3
   let arrayOfArray = do
         arrayStarts <- replicateM len getW32
-        fmap QBArrayOfArray $ forM arrayStarts $ \p4 -> do
+        fmap QBArrayOfArray $ forM arrayStarts \p4 -> do
           shouldBeAt p4
           parseQBSubArray
       arrayOfString = do
         stringStarts <- replicateM len getW32
-        res <- fmap QBArrayOfString $ forM stringStarts $ \p4 -> do
+        res <- fmap QBArrayOfString $ forM stringStarts \p4 -> do
           shouldBeAt p4
           qbNullTerm
         jumpTo4
         return res
       arrayOfStringW = do
         stringStarts <- replicateM len getW32
-        res <- fmap QBArrayOfStringW $ forM stringStarts $ \p4 -> do
+        res <- fmap QBArrayOfStringW $ forM stringStarts \p4 -> do
           shouldBeAt p4
           getUtf16BE
         jumpTo4
         return res
       arrayOfStruct = do
         structStarts <- replicateM len getW32
-        fmap QBArrayOfStruct $ forM structStarts $ \p4 -> do
+        fmap QBArrayOfStruct $ forM structStarts \p4 -> do
           shouldBeAt p4
           parseQBStruct
       arrayOfFloatsX2 = do
         vectorStarts <- replicateM len getW32
-        fmap QBArrayOfFloatsX2 $ forM vectorStarts $ \p4 -> do
+        fmap QBArrayOfFloatsX2 $ forM vectorStarts \p4 -> do
           shouldBeAt p4
           parseQBFloatsX2
       arrayOfFloatsX3 = do
         vectorStarts <- replicateM len getW32
-        fmap QBArrayOfFloatsX3 $ forM vectorStarts $ \p4 -> do
+        fmap QBArrayOfFloatsX3 $ forM vectorStarts \p4 -> do
           shouldBeAt p4
           parseQBFloatsX3
   case ?format of
@@ -883,12 +884,12 @@ instance FromJSON QBResult where
     _        -> fail "QB key json error"
 
 lookupQS :: (Bifunctor obj) => HM.HashMap Word32 T.Text -> obj Word32 k -> obj QSResult k
-lookupQS mapping = first $ \qs -> case HM.lookup qs mapping of
+lookupQS mapping = first \qs -> case HM.lookup qs mapping of
   Nothing -> UnknownQS qs
   Just t  -> KnownQS qs t
 
 lookupQB :: (Bifunctor obj) => HM.HashMap QBKey B.ByteString -> obj qs QBKey -> obj qs QBResult
-lookupQB mapping = second $ \qb -> case HM.lookup qb mapping of
+lookupQB mapping = second \qb -> case HM.lookup qb mapping of
   Nothing -> UnknownQB qb
   Just b  -> KnownQB b
 
@@ -981,7 +982,7 @@ putQBSubArray ary = let
       w32 0x00010A00
       writeLen structs
       ptrStructPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) structs
-      forM_ ptrStructPairs $ \(p, s) -> do
+      forM_ ptrStructPairs \(p, s) -> do
         fillPointer p
         putQBStruct s
     QBArrayOfFloat floats -> do
@@ -1000,7 +1001,7 @@ putQBSubArray ary = let
       w32 0x00010C00
       writeLen arrs
       ptrArrayPairs <- mapM (\a -> (\p -> (p, a)) <$> reservePointer) arrs
-      forM_ ptrArrayPairs $ \(p, a) -> do
+      forM_ ptrArrayPairs \(p, a) -> do
         fillPointer p
         putQBSubArray a
     QBArrayOfQbKeyString ks -> do
@@ -1011,20 +1012,20 @@ putQBSubArray ary = let
       w32 0x00010500
       writeLen vs
       ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
-      forM_ ptrVectorPairs $ \(p, (f1, f2)) -> do
+      forM_ ptrVectorPairs \(p, (f1, f2)) -> do
         fillPointer p
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
     QBArrayOfFloatsX3 vs -> do
       w32 0x00010600
       writeLen vs
       ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
-      forM_ ptrVectorPairs $ \(p, (f1, f2, f3)) -> do
+      forM_ ptrVectorPairs \(p, (f1, f2, f3)) -> do
         fillPointer p
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
           putFloatbe f3
@@ -1032,7 +1033,7 @@ putQBSubArray ary = let
       w32 0x00010300
       writeLen strs
       ptrStringPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) strs
-      forM_ ptrStringPairs $ \(p, str) -> do
+      forM_ ptrStringPairs \(p, str) -> do
         fillPointer p
         append $ str <> B.singleton 0
       padOutputTo4
@@ -1040,7 +1041,7 @@ putQBSubArray ary = let
       w32 0x00010400
       writeLen strs
       ptrStringPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) strs
-      forM_ ptrStringPairs $ \(p, str) -> do
+      forM_ ptrStringPairs \(p, str) -> do
         fillPointer p
         append $ TE.encodeUtf16BE $ str <> "\0"
       padOutputTo4
@@ -1052,7 +1053,7 @@ padTo4 bs = case rem (B.length bs) 4 of
 
 putQBStruct :: [QBStructItem Word32 QBKey] -> PutSeek s ()
 putQBStruct = let
-  go prevPointer [] = forM_ prevPointer $ \p -> setPointer p 0
+  go prevPointer [] = forM_ prevPointer \p -> setPointer p 0
   go prevPointer (item : items) = do
     mapM_ fillPointer prevPointer
     p <- case item of
@@ -1099,7 +1100,7 @@ putQBStruct = let
         p <- reservePointer
         fillPointer start
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
         return p
@@ -1110,7 +1111,7 @@ putQBStruct = let
         p <- reservePointer
         fillPointer start
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
           putFloatbe f3
@@ -1182,7 +1183,7 @@ putQBStruct = let
         p <- reservePointer
         fillPointer start
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
         return p
@@ -1193,7 +1194,7 @@ putQBStruct = let
         p <- reservePointer
         fillPointer start
         w32 0x00010000
-        append $ BL.toStrict $ runPut $ do
+        append $ BL.toStrict $ runPut do
           putFloatbe f1
           putFloatbe f2
           putFloatbe f3
@@ -1282,7 +1283,7 @@ putQBSection = \case
     w32 0
     fillPointer p
     w32 0x00010000
-    append $ BL.toStrict $ runPut $ do
+    append $ BL.toStrict $ runPut do
       putFloatbe f1
       putFloatbe f2
   QBSectionFloatsX3 itemQbKeyCrc fileId f1 f2 f3 -> do
@@ -1293,7 +1294,7 @@ putQBSection = \case
     w32 0
     fillPointer p
     w32 0x00010000
-    append $ BL.toStrict $ runPut $ do
+    append $ BL.toStrict $ runPut do
       putFloatbe f1
       putFloatbe f2
       putFloatbe f3
@@ -1320,16 +1321,16 @@ putQB sects = let
     setPointer pFileSize $ fromIntegral fileSize
     setPointerLE pHeaderSize $ fromIntegral headerSize
     setPointer pContentSize $ fromIntegral $ fileSize - headerSize
-  in BL.pack $ V.toList $ V.create $ do
+  in BL.pack $ V.toList $ V.create do
     v <- MV.new 0
     (v', used) <- execStateT go (v, 0)
     return $ MV.take used v'
 
 discardQS :: [QBSection QSResult k] -> [QBSection Word32 k]
-discardQS = map $ first $ \case UnknownQS qs -> qs; KnownQS qs _ -> qs
+discardQS = map $ first \case UnknownQS qs -> qs; KnownQS qs _ -> qs
 
 discardQB :: [QBSection qs QBResult] -> [QBSection qs QBKey]
-discardQB = map $ second $ \case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b
+discardQB = map $ second \case UnknownQB qb -> qb; KnownQB b -> qbKeyCRC b
 
 discardStrings :: [QBSection QSResult QBResult] -> [QBSection Word32 QBKey]
 discardStrings = discardQS . discardQB

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -155,12 +156,12 @@ importFreetar sng level = do
     , global = def'
       { backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
-      , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+      , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
         ImportFull  -> songToMidi song
         ImportQuick -> emptyChart
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ toList $ flip fmap props.musicFileName $ \f -> let
+    , audio = HM.fromList $ toList $ flip fmap props.musicFileName \f -> let
       f' = takeDirectory sng </> T.unpack f
       audio = AudioFile AudioInfo
         { md5 = Nothing
@@ -171,7 +172,7 @@ importFreetar sng level = do
         , channels = 2 -- just assuming
         }
       in ("song", audio)
-    , plans = HM.fromList $ toList $ flip fmap props.musicFileName $ \_ -> let
+    , plans = HM.fromList $ toList $ flip fmap props.musicFileName \_ -> let
       plan = StandardPlan StandardPlanInfo
         { song = Just $ Input $ Named "song"
         , parts = Parts HM.empty

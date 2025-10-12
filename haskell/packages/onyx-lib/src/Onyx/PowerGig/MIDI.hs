@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -145,7 +146,7 @@ instance ParseTrack BeatTrack where
   parseTrack = do
     -- these can be any pitch apparently
     Codec
-      { codecIn = lift $ modify $ \mt -> mt
+      { codecIn = lift $ modify \mt -> mt
         { midiNotes = Map.singleton (toPitch 60) $ mconcat $ Map.elems $ midiNotes mt
         }
       , codecOut = const $ return ()
@@ -211,7 +212,7 @@ instance F.ParseFile PGFile where
 
 -- This is needed for Cherub Rock and maybe others
 fixLateTrackNames :: F.T s -> F.T s
-fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks $ \trk -> case U.trackName trk of
+fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks \trk -> case U.trackName trk of
   Just _  -> trk
   Nothing -> case RTB.partitionMaybe U.readTrackName trk of
     (names, rest) -> foldr (Wait 0 . U.showTrackName) rest names

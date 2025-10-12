@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Util.Binary where
 
 import           Data.Binary.Get

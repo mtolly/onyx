@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -76,9 +77,9 @@ instance HasOverdrive OnyxFile where
         , ("pro keys"       , opart.onyxPartRealKeysX.pkOverdrive    )
         ]
   putOverdrive onyx od = onyx
-    { onyxParts = flip Map.mapWithKey onyx.onyxParts $ \inst opart -> let
+    { onyxParts = flip Map.mapWithKey onyx.onyxParts \inst opart -> let
       fn isEmpty trk addOD = if isEmpty trk then trk else addOD trk
-      bools = flip RTB.mapMaybe od $ \case
+      bools = flip RTB.mapMaybe od \case
         (inst', b) | inst == inst' -> Just b
         _                          -> Nothing
       in opart
@@ -90,7 +91,7 @@ instance HasOverdrive OnyxFile where
         , onyxPartGuitarExt    = fn nullFive  opart.onyxPartGuitarExt    $ \x -> x { fiveOverdrive = bools }
         , onyxPartSix          = fn nullSix   opart.onyxPartSix          $ \x -> x { sixOverdrive  = bools }
         , onyxPartRealGuitar   = fn nullPG    opart.onyxPartRealGuitar   $ \x -> x { pgOverdrive   = bools }
-        , onyxPartRealGuitar22 = fn nullPG    opart.onyxPartRealGuitar22 $ \x -> x { pgOverdrive   = bools }
+        , onyxPartRealGuitar22 = fn nullPG    opart.onyxPartRealGuitar22 \x -> x { pgOverdrive   = bools }
         , onyxPartRealKeysX    = fn nullPK    opart.onyxPartRealKeysX    $ \x -> x { pkOverdrive   = bools }
         }
     }
@@ -129,7 +130,7 @@ instance HasOverdrive FixedFile where
     , fixedPartGuitar       = fn nullFive  rb3.fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
     , fixedPartGuitarGHL    = fn nullSix   rb3.fixedPartGuitarGHL    $ \x -> x { sixOverdrive = gtr }
     , fixedPartRealGuitar   = fn nullPG    rb3.fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
-    , fixedPartRealGuitar22 = fn nullPG    rb3.fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
+    , fixedPartRealGuitar22 = fn nullPG    rb3.fixedPartRealGuitar22 \x -> x { pgOverdrive = gtr }
     , fixedPartBass         = fn nullFive  rb3.fixedPartBass         $ \x -> x { fiveOverdrive = bass }
     , fixedPartBassGHL      = fn nullSix   rb3.fixedPartBassGHL      $ \x -> x { sixOverdrive = bass }
     , fixedPartRealBass     = fn nullPG    rb3.fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
@@ -146,7 +147,7 @@ instance HasOverdrive FixedFile where
       keys = bools PartKeys
       rhythm = bools (PartName "rhythm")
       coop = bools (PartName "guitar-coop")
-      bools fpart = flip RTB.mapMaybe od $ \case
+      bools fpart = flip RTB.mapMaybe od \case
         (fpart', b) | fpart == fpart' -> Just b
         _                             -> Nothing
 
@@ -266,7 +267,7 @@ fixPartialUnisons parts (Song tmap mmap rb3) = do
   return $ Song tmap mmap $ putOverdrive rb3 od'
 
 voidEdgeOn :: (NNC.C t) => RTB.T t (Edge s a) -> RTB.T t ()
-voidEdgeOn = RTB.mapMaybe $ \case EdgeOn{} -> Just (); EdgeOff{} -> Nothing
+voidEdgeOn = RTB.mapMaybe \case EdgeOn{} -> Just (); EdgeOff{} -> Nothing
 
 notesFromRB3
   :: (NNC.C t)
@@ -318,7 +319,7 @@ removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
             (diff, units) <- fromMaybe [] $ lookup fpart notes
             return (diff, Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList NNC.zero units)
           -- returns a difficulty that is missing notes in the given time span, if one exists
-          findNoNotes includeT1 t1 t2 = listToMaybe $ do
+          findNoNotes includeT1 t1 t2 = listToMaybe do
             (diff, units) <- needNotes
             guard $ maybe True (\(noteTime, ()) -> t2 <= noteTime)
               $ (if includeT1 then Map.lookupGE else Map.lookupGT) t1 units

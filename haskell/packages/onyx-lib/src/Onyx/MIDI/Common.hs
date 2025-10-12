@@ -1,4 +1,5 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
+{-# LANGUAGE BlockArguments         #-}
 {-# LANGUAGE DeriveAnyClass         #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
@@ -307,7 +308,7 @@ fillJoinedBlips :: (NNC.C t) => t -> RTB.T t (s, a, Maybe t) -> RTB.T t (s, a, t
 fillJoinedBlips defLength rtb = case RTB.viewL rtb of
   Nothing -> RTB.empty
   Just ((dt, (s, a, len)), rtb') -> let
-    len' = flip fromMaybe len $ case dropWhile (== NNC.zero) $ RTB.getTimes rtb' of
+    len' = flip fromMaybe len case dropWhile (== NNC.zero) $ RTB.getTimes rtb' of
       []       -> defLength
       next : _ -> min defLength next
     in RTB.cons dt (s, a, len') $ fillJoinedBlips defLength rtb'
@@ -421,7 +422,7 @@ chopDropBool t xs = let
 
 chopEachPair :: (NNC.C t, Ord a) => (RTB.T t Bool -> RTB.T t Bool) -> RTB.T t (a, Bool) -> RTB.T t (a, Bool)
 chopEachPair eachLane orig = let
-  trkMap = Map.fromList $ do
+  trkMap = Map.fromList do
     k <- nubOrd $ map fst $ toList orig
     return (k, eachLane $ RTB.mapMaybe (\(k', v) -> guard (k == k') >> Just v) orig)
   in foldr RTB.merge RTB.empty [fmap (k,) trk | (k, trk) <- Map.toList trkMap]

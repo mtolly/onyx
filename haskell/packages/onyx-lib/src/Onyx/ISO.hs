@@ -6,6 +6,7 @@ But, also supports dual layer ISOs (RB1/RB2, probably later GHs).
 Mostly implemented using the ECMA-119 version of the spec:
 https://www.ecma-international.org/wp-content/uploads/ECMA-119_4th_edition_june_2019.pdf
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -102,7 +103,7 @@ folderISO r = isISO r >>= \case
     return $ layer <> rest
 
 isISO :: Readable -> IO Bool
-isISO r = useHandle r $ \h -> do
+isISO r = useHandle r \h -> do
   len <- hFileSize h
   if len < 0x8006
     then return False
@@ -113,7 +114,7 @@ isISO r = useHandle r $ \h -> do
 
 folderISOLayer :: Readable -> IO (Folder B.ByteString Readable, Integer)
 folderISOLayer r = do
-  (pvd, recs) <- useHandle r $ \h -> do
+  (pvd, recs) <- useHandle r \h -> do
     hSeek h AbsoluteSeek 0x8000
     pvd <- B.hGet h 0x800 >>= runGetM getPrimaryVolumeDescriptor . BL.fromStrict
     hSeek h AbsoluteSeek $ fromIntegral pvd.locationTypeMPathTable * 0x800
@@ -138,10 +139,10 @@ getFileTree h ptrs = do
       ptrToParents ptr = case ptr.directoryIdentifier of
         "\0"  -> []
         dirID -> dirID : ptrToParents (ptrs !! fromIntegral (ptr.parentDirectoryNumber - 1))
-  fmap concat $ forM realPTRs $ \ptr -> do
+  fmap concat $ forM realPTRs \ptr -> do
     let parents = ptrToParents ptr
     recs <- getFolderFiles h ptr
-    return $ flip map recs $ \rec -> let
+    return $ flip map recs \rec -> let
       path = NE.reverse $ rec.fileIdentifier :| parents
       in (path, rec)
 

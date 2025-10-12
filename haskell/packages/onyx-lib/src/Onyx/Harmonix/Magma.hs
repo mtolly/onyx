@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Harmonix.Magma
 ( runMagmaMIDI, runMagma
 , runMagmaMIDIV1, runMagmaV1
@@ -31,7 +32,7 @@ copyDirContents :: FilePath -> FilePath -> IO ()
 copyDirContents src dst = do
   Dir.createDirectoryIfMissing False dst
   xs <- Dir.listDirectory src
-  forM_ xs $ \name -> do
+  forM_ xs \name -> do
     let srcPath = src </> name
     let dstPath = dst </> name
     isDirectory <- Dir.doesDirectoryExist srcPath
@@ -83,7 +84,7 @@ runMagmaMIDIV1 proj mid = tempDir "magma-v1" $ \tmp -> do
   inside "running Magma v1 to export MIDI" $ stackProcess createProc
 
 getRBAFileBS :: (MonadIO m) => Int -> FilePath -> m BL.ByteString
-getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
+getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode \h -> do
   IO.hSeek h IO.AbsoluteSeek 0x08
   let read7words = BL.hGet h (7 * 4) >>= runGetM (replicateM 7 getWord32le)
   offsets <- read7words

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
@@ -121,7 +122,7 @@ fileTrack (name :| otherNames) = Codec
         name' = fromMaybe name $ U.trackName match'
     lift $ put rest
     inside ("Parsing track: " <> T.unpack name') $ parseTrackReport match'
-  , codecOut = fmapArg $ \trk -> let
+  , codecOut = fmapArg \trk -> let
     evs = showTrack trk
     in unless (RTB.null evs) $ tell [U.setTrackName name evs]
   } where
@@ -465,11 +466,11 @@ parseOnyxPart partName = do
       { codecIn = do
         trks <- lift get
         let maniaNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix prefix) trks
-        results <- forM maniaNames $ \maniaName -> do
+        results <- forM maniaNames \maniaName -> do
           trk <- codecIn $ fileTrack $ pure $ prefix <> maniaName
           return (maniaName, trk)
         return $ Map.fromList results
-      , codecOut = fmapArg $ \m -> forM_ (Map.toAscList m) $ \(maniaName, trk) -> let
+      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) $ \(maniaName, trk) -> let
         name = prefix <> maniaName
         in codecOut (fileId $ fileTrack $ pure name) trk
       }
@@ -481,11 +482,11 @@ instance ParseFile OnyxFile where
       { codecIn = do
         trks <- lift get
         let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack) trks
-        results <- forM partNames $ \partName -> do
+        results <- forM partNames \partName -> do
           part <- codecIn $ parseOnyxPart partName
           return (partName, part)
         return $ Map.fromList results
-      , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
+      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
         codecOut (fileId $ parseOnyxPart partName) trk
       }
     onyxEvents   <- (.onyxEvents  ) =. fileTrack (pure "EVENTS"   )
@@ -500,23 +501,23 @@ instance ParseFile OnyxFile where
       { codecIn = do
         trks <- lift get
         let audioNames = nubOrd $ mapMaybe (U.trackName >=> T.stripPrefix "AUDIO ") trks
-        results <- forM audioNames $ \audioName -> do
+        results <- forM audioNames \audioName -> do
           trk <- codecIn $ fileTrack $ pure $ "AUDIO " <> audioName
           return (audioName, trk)
         return $ Map.fromList results
-      , codecOut = fmapArg $ \m -> forM_ (Map.toAscList m) $ \(audioName, trk) -> let
+      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) $ \(audioName, trk) -> let
         name = "AUDIO " <> audioName
         in codecOut (fileId $ fileTrack $ pure name) trk
       }
     onyxRaw  <- (.onyxRaw) =. Codec
       { codecIn = do
         trks <- lift get
-        let (yes, no) = flip partitionMaybe trks $ \trk -> case U.trackName trk of
+        let (yes, no) = flip partitionMaybe trks \trk -> case U.trackName trk of
               Just (T.stripPrefix "RAW " -> Just name) -> Just (name, stripTrack trk)
               _                                        -> Nothing
         lift $ put no
         return $ Map.fromList yes
-      , codecOut = fmapArg $ \m -> tell
+      , codecOut = fmapArg \m -> tell
         $ map (\(name, trk) -> U.setTrackName ("RAW " <> name) trk)
         $ Map.toList m
       }
@@ -527,7 +528,7 @@ newtype RawFile t = RawFile { rawTracks :: [RTB.T t (E.T T.Text)] }
 
 instance ParseFile RawFile where
   parseFile = Codec
-    { codecIn = lift $ do
+    { codecIn = lift do
       trks <- get
       put []
       return $ RawFile trks
@@ -555,7 +556,7 @@ a non-255 byte and not the phrase ID of 1, but we happen to emit those in
 the working format already.)
 -}
 fixMoonTaps :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (E.T s)
-fixMoonTaps = RTB.mapMaybe $ \e -> case parsePSSysEx e of
+fixMoonTaps = RTB.mapMaybe \e -> case parsePSSysEx e of
   Just (PSMessage diff TapNotes b) -> case diff of
     Nothing     -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
     Just Expert -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
@@ -604,7 +605,7 @@ readMIDIFile mid = do
           warn "Loading 'mixed' (type-0) MIDI file as single guitar track."
           let t = case trks of trk : _ -> trk; [] -> RTB.empty
           return (t, [U.setTrackName "PART GUITAR" t])
-        _ -> return $ case trks of
+        _ -> return case trks of
           t : ts -> (t, ts)
           []     -> (RTB.empty, [])
       return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
@@ -619,7 +620,7 @@ readMixedMIDI mid = case mid of
     Left [trk] -> let
       tempos = U.makeTempoMap trk
       timesigs = U.makeMeasureMap U.Truncate trk
-      tracks = flip RTB.filter trk $ \case
+      tracks = flip RTB.filter trk \case
         -- various events we don't need to look at
         E.MetaEvent Meta.TrackName{}      -> False
         E.MetaEvent Meta.SetTempo{}       -> False
@@ -643,7 +644,7 @@ showMixedMIDI s = let
 
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
-stripTrack = RTB.filter $ \e -> case e of
+stripTrack = RTB.filter \e -> case e of
   E.MetaEvent (Meta.TextEvent (T.uncons -> Just ('#', _))) -> False
   E.MetaEvent (Meta.TrackName _                          ) -> False
   _                                                        -> True
@@ -654,12 +655,12 @@ data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
 -- | Copies tracks from the second file into the first, repositioning events by timestamp.
 mergeCharts :: TrackOffset -> Song (RawFile U.Beats) -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
 mergeCharts offset base new = let
-  newTracks = flip map new.tracks.rawTracks $ \trk -> let
+  newTracks = flip map new.tracks.rawTracks \trk -> let
     name = U.trackName trk
     applyOffset = case offset of
       TrackPad  t -> RTB.delay t
       TrackDrop t -> U.trackDrop t -- TODO should this instead shove events forward?
-    removeTrackName = RTB.filter $ \case E.MetaEvent (Meta.TrackName _) -> False; _ -> True
+    removeTrackName = RTB.filter \case E.MetaEvent (Meta.TrackName _) -> False; _ -> True
     -- TODO: need to ensure notes don't have 0 length
     in maybe id U.setTrackName name
       $ removeTrackName
@@ -745,7 +746,7 @@ padAnyFile seconds (Song temps sigs ff) = let
     $ U.tempoMapToBPS temps
   -- we only modify the first bar to have the extra time,
   -- so printed positions after that bar are unchanged from the source midi
-  sigs' = U.measureMapFromTimeSigs U.Error $ case U.measureMapToTimeSigs sigs of
+  sigs' = U.measureMapFromTimeSigs U.Error case U.measureMapToTimeSigs sigs of
     Wait 0 sig@(U.TimeSig len unit) rest -> Wait 0 (U.TimeSig (len + beats) unit) $ case rest of
       Wait dt next rest'
         | dt == len -> Wait (dt + beats) next rest'
@@ -770,7 +771,7 @@ padFixedFile seconds song@(Song _ _ ff) = let
     . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat)
     . RTB.delay 1
   in Song temps' sigs' ff'
-    { fixedBeat = BeatTrack $ if RTB.null ff.fixedBeat.beatLines
+    { fixedBeat = BeatTrack if RTB.null ff.fixedBeat.beatLines
       then RTB.empty
       else padBeat ff.fixedBeat.beatLines
     }
@@ -1127,7 +1128,7 @@ fixFreeform' initGems = go initGems . RTB.normalize where
     Nothing -> RTB.empty -- done
 
 getPercType :: (NNC.C t) => Song (FixedFile t) -> Maybe Percussion
-getPercType song = listToMaybe $ do
+getPercType song = listToMaybe do
   trk <-
     [ song.tracks.fixedPartVocals
     , song.tracks.fixedHarm1
@@ -1140,7 +1141,7 @@ getPercType song = listToMaybe $ do
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
-  { fiveDifficulties = flip fmap pg.pgDifficulties $ \pgd -> mempty
+  { fiveDifficulties = flip fmap pg.pgDifficulties \pgd -> mempty
     { fiveGems
       = blipEdgesRB_
       $ fmap head

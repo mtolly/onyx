@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -295,7 +296,7 @@ instance IsInside PropertyValue where
             lift $ put ins -- restore the children so they can be parsed
             fmap PropertyTuning $ codecIn insideCodec
         _ -> return $ PropertyUnknown children
-    , codecOut = fmapArg $ \case
+    , codecOut = fmapArg \case
       PropertyFret   n -> void $ codecOut (childTag' "Fret"   $ parseInside' $ intText childText) n
       PropertyString n -> void $ codecOut (childTag' "String" $ parseInside' $ intText childText) n
       PropertyFlags  n -> void $ codecOut (childTag' "Flags"  $ parseInside' $ intText childText) n

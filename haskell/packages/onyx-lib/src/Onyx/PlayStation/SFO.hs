@@ -1,6 +1,7 @@
 {-
 PARAM.SFO format
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -35,7 +36,7 @@ data SFO = SFO
 
 readSFO :: (MonadFail m) => BL.ByteString -> m SFO
 readSFO bs = do
-  (version, keysStart, dataStart, numEntries) <- flip runGetM bs $ do
+  (version, keysStart, dataStart, numEntries) <- flip runGetM bs do
     magic <- getByteString 4
     unless (magic == "\0PSF") $ fail $ "Unrecognized magic identifier in .SFO: " <> show magic
     (,,,) <$> getWord32le <*> getWord32le <*> getWord32le <*> getWord32le

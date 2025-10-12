@@ -1,6 +1,7 @@
 {- |
 PART GUITAR, PART GUITAR COOP, PART BASS, PART RHYTHM
 -}
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}

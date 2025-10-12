@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -77,7 +78,7 @@ binToMidi bin = let
     time-correct) note positions. if we wanted, we could instead insert new
     bars or beats in the gaps.
   -}
-  barResults = cutoffBars $ flip map bin.bars $ \bar -> let
+  barResults = cutoffBars $ flip map bin.bars \bar -> let
     -- magic numbers found by guesswork, may need further adjustment
     barLength = fromIntegral bar.unk3 / 60 -- U.Seconds
     barStart = fromIntegral bar.unk1 / 98.44 + barLength
@@ -119,7 +120,7 @@ binToMidi bin = let
 interpretDK1 :: (NNC.C t) => RTB.T t Word8 -> RTB.T t (DKEvent t)
 interpretDK1 dk = let
 
-  normalNotes = fmap DKNote $ flip RTB.mapMaybe dk $ \case
+  normalNotes = fmap DKNote $ flip RTB.mapMaybe dk \case
     -- not sure if the duplicates have anything different about them
     0x01 -> Just DKYellow
     0x02 -> Just DKYellow
@@ -155,10 +156,10 @@ interpretDK1 dk = let
 
 readTrackDK2 :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (DKEvent t)
 readTrackDK2 mid = let
-  notes = joinEdgesSimple $ flip RTB.mapMaybe mid $ \e ->
+  notes = joinEdgesSimple $ flip RTB.mapMaybe mid \e ->
     flip fmap (isNoteEdge e) $ \(p, b) ->
       (if b then EdgeOn () else EdgeOff) p
-  noPurple = flip RTB.mapMaybe notes $ \case
+  noPurple = flip RTB.mapMaybe notes \case
     ((), 39, len) -> Just $ noteOrRoll DKClap   len
     ((), 63, len) -> Just $ noteOrRoll DKYellow len
     ((), 64, len) -> Just $ noteOrRoll DKRed    len
@@ -212,7 +213,7 @@ readSongInfo bs = let
       Nothing -> case T.breakOn "=" ln of
         (x, y) | "=" `T.isPrefixOf` y -> return $ SongInfoKV x $ T.drop 1 y
         _                             -> []
-  breakStart = break $ \case SongInfoStart{} -> True; _ -> False
+  breakStart = break \case SongInfoStart{} -> True; _ -> False
   splitSongs xs = case breakStart xs of
     (_, SongInfoStart n : rest) -> case breakStart rest of
       (ys, zs) -> makeSongInfo n ys : splitSongs zs

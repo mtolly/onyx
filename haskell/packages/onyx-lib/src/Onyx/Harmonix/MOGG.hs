@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase     #-}
 module Onyx.Harmonix.MOGG
 ( moggToOggFiles, moggToOgg, oggToMogg, oggToMoggFiles, sourceVorbis
 , encryptMOGG, encryptMOGGFiles, encryptMOGGToByteString
@@ -36,12 +37,12 @@ moggToOggFiles mogg ogg = stackIO $ saveReadable (moggToOgg $ fileReadable mogg)
 -- Output is a 0x0A type (unencrypted) mogg, with header
 decryptMOGG :: Readable -> Readable
 decryptMOGG enc = makeHandle "decrypted mogg" $ do
-  header <- useHandle enc $ \h -> do
+  header <- useHandle enc \h -> do
     hSeek h AbsoluteSeek 16
     numPairs <- BL.hGet h 4 >>= runGetM getWord32le
     hSeek h AbsoluteSeek 12
     bufSizeAndTable <- BL.hGet h $ 4 + 4 + 8 * fromIntegral numPairs
-    return $ runPut $ do
+    return $ runPut do
       putWord32le 0xA -- unencrypted
       putWord32le $ 20 + 8 * numPairs -- size of header before the ogg
       putWord32le 0x10 -- "ogg map version"
@@ -51,7 +52,7 @@ decryptMOGG enc = makeHandle "decrypted mogg" $ do
   appendSimpleHandle shHeader shOgg
 
 runVorbisReadable :: Readable -> (Maybe OggVorbis_File -> IO a) -> IO a
-runVorbisReadable r fn = useHandle r $ \h -> do
+runVorbisReadable r fn = useHandle r \h -> do
   runResourceT $ loadVorbisHandle h >>= liftIO . fn . fmap snd
 
 makeMoggTable :: Word32 -> Word32 -> [(Word32, Word32)] -> [(Word32, Word32)]
@@ -66,7 +67,7 @@ makeMoggTable bufSize audioLen = go 0 (0, 0) where
 
 oggToMogg :: Readable -> Readable
 oggToMogg ogg = makeHandle "ogg -> mogg" $ do
-  (audioLen, table) <- runVorbisReadable ogg $ \case
+  (audioLen, table) <- runVorbisReadable ogg \case
     Nothing -> fail "Couldn't open Ogg file to generate MOGG"
     Just ov -> let
       go bytes = ov_raw_seek ov bytes >>= \case
@@ -80,7 +81,7 @@ oggToMogg ogg = makeHandle "ogg -> mogg" $ do
         return (audioLen, table)
   let bufSize = 20000
       table' = makeMoggTable bufSize (fromIntegral audioLen) table
-  shHeader <- byteStringSimpleHandle $ runPut $ do
+  shHeader <- byteStringSimpleHandle $ runPut do
     let len = fromIntegral $ length table' :: Word32
     putWord32le 0xA -- unencrypted
     putWord32le $ 20 + 8 * len -- size of header before the ogg
@@ -97,12 +98,12 @@ oggToMoggFiles :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 oggToMoggFiles ogg mogg = stackIO $ saveReadable (oggToMogg $ fileReadable ogg) mogg
 
 sourceVorbis :: (MonadResource m, MonadIO f) => CA.Duration -> Readable -> f (CA.AudioSource m Float)
-sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case
+sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg \case
   Nothing -> fail "Couldn't load OGG file"
   Just ovInit -> do
     (chans, rate) <- getChannelsRate ovInit
     total <- ov_pcm_total ovInit (-1)
-    let seekTo = fromIntegral $ case pos of
+    let seekTo = fromIntegral case pos of
           CA.Seconds secs -> CA.secondsToFrames secs (fromIntegral rate)
           CA.Frames fms   -> fms
     return $ CA.reorganize CA.chunkSize $ CA.AudioSource
@@ -112,7 +113,7 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case
           Nothing -> return () -- failed to load, maybe log somewhere?
           Just (releaseOV, ov) -> let
             loop = do
-              (numRead, ppfloat) <- liftIO $ alloca $ \pppfloat -> do
+              (numRead, ppfloat) <- liftIO $ alloca \pppfloat -> do
                 with (-1) $ \psection -> do
                   numRead <- ov_read_float ov pppfloat (fromIntegral CA.chunkSize) psection
                   ppfloat <- peek pppfloat
@@ -121,7 +122,7 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg $ \case
                 then return ()
                 else do
                   pfloats <- liftIO $ peekArray (fromIntegral chans) ppfloat
-                  vchans <- liftIO $ forM pfloats $ \pfloat -> do
+                  vchans <- liftIO $ forM pfloats \pfloat -> do
                     fptr <- newForeignPtr_ ((castPtr :: Ptr CFloat -> Ptr Float) pfloat)
                     let mv = MV.unsafeFromForeignPtr0 fptr $ fromIntegral numRead
                     V.freeze mv
@@ -165,14 +166,14 @@ patchPosition pos patch origData = if pos >= B.length origData || pos + B.length
     ]
 
 checkOldC3Mogg :: Readable -> IO (Maybe (Integer, B.ByteString))
-checkOldC3Mogg r = useHandle r $ \h -> do
+checkOldC3Mogg r = useHandle r \h -> do
   encType <- BL.hGet h 4 >>= runGetM getWord32le
   hSeek h AbsoluteSeek 16
   numEntries <- BL.hGet h 4 >>= runGetM getWord32le
   let patchLocation = 20 + fromIntegral numEntries * 8 + 16 + 16
   hSeek h AbsoluteSeek patchLocation
   mask <- B.hGet h 16
-  return $ listToMaybe $ do
+  return $ listToMaybe do
     (maybeEncType, badMask, goodMask) <- c3PS3MaskSubstitutions
     guard $ maybe True (== encType) maybeEncType && mask == badMask
     return (patchLocation, goodMask)
@@ -206,8 +207,8 @@ decryptMOGGIfNewerThan :: Word32 -> Readable -> Readable
 decryptMOGGIfNewerThan maxVersion r = Readable
   { rFilePath = Nothing
   , rOpen = do
-    encType <- useHandle r $ \h -> BL.hGet h 4 >>= runGetM getWord32le
-    rOpen $ if encType > maxVersion
+    encType <- useHandle r \h -> BL.hGet h 4 >>= runGetM getWord32le
+    rOpen if encType > maxVersion
       then decryptMOGG r
       else r
   }

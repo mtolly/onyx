@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -35,18 +36,18 @@ dryVoxAudio f = sineDryVox $ mapTrack (U.applyTempoTrack f.tempos) f.tracks.fixe
 convertMidiRB2 :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
 convertMidiRB2 mid = fixUnisons mid
   { F.tracks = mempty
-    { F.fixedPartDrums = fixDrumColors $ let
+    { F.fixedPartDrums = fixDrumColors let
       pd = mid.tracks.fixedPartDrums
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
         { drumKick2x = RTB.empty
-        , drumDifficulties = flip fmap pd.drumDifficulties $ \dd -> dd
-          { drumMix = flip fmap dd.drumMix $ \case
+        , drumDifficulties = flip fmap pd.drumDifficulties \dd -> dd
+          { drumMix = flip fmap dd.drumMix \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
             x                  -> x
           }
         , drumAnimation = let
-          anims = flip fmap pd.drumAnimation $ \case
+          anims = flip fmap pd.drumAnimation \case
             -- these were added in RB3
             Snare SoftHit hand -> Snare HardHit hand
             Ride LH            -> Hihat LH
@@ -116,7 +117,7 @@ fixFiveColors trk = let
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing
   in trk
-    { fiveDifficulties = flip Map.mapWithKey trk.fiveDifficulties $ \diff fd -> case diff of
+    { fiveDifficulties = flip Map.mapWithKey trk.fiveDifficulties \diff fd -> case diff of
       Expert -> fd
       _      -> fd { fiveGems = useColorsFive usedColors fd.fiveGems }
     }
@@ -155,7 +156,7 @@ fixDrumColors trk = let
   expert = fmap fst $ maybe RTB.empty (.drumGems) $ Map.lookup Expert trk.drumDifficulties
   usedColors = Set.fromList $ RTB.getBodies expert
   in trk
-    { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties $ \diff dd -> case diff of
+    { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties \diff dd -> case diff of
       Expert -> dd
       _      -> dd { drumGems = fmap (, VelocityNormal) $ useColorsDrums usedColors expert $ fmap fst dd.drumGems }
     }

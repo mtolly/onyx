@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -155,7 +156,7 @@ importGH1Song pkg path folder level = do
   let convmid :: F.Song (F.OnyxFile U.Beats)
       convmid = F.Song tmap mmap $ F.fixedToOnyx mempty
         { F.fixedPartGuitar = mempty
-          { RB.fiveDifficulties = flip fmap diffs $ \diff -> mempty
+          { RB.fiveDifficulties = flip fmap diffs \diff -> mempty
             { RB.fiveGems = fmap (fmap Just) $ partGems diff
             }
           , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert diffs
@@ -202,7 +203,7 @@ importGH1Song pkg path folder level = do
       , backgroundVideo     = Nothing
       , fileBackgroundImage = Nothing
       }
-    , audio = HM.fromList $ do
+    , audio = HM.fromList do
       (chanName, bs) <- namedChans
       return $ (T.pack chanName ,) $ AudioFile AudioInfo
         { md5 = Nothing
@@ -221,7 +222,7 @@ importGH1Song pkg path folder level = do
         volRatio <- vols $ song pkg
         return $ decibelDifferenceInPanRatios (1, 1) (volRatio, volRatio)
       mixChans cs = do
-        presentChannels <- NE.nonEmpty $ do
+        presentChannels <- NE.nonEmpty do
           c <- cs
           -- in some custom isos, vgs can have fewer channels than claimed by dta
           case drop c namedChans of
@@ -229,7 +230,7 @@ importGH1Song pkg path folder level = do
             []             -> []
         -- return Nothing if all channels are silenced by vols
         guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
-        Just $ case presentChannels of
+        Just case presentChannels of
           (c, cname) :| [] -> PansVols
             (map realToFrac [pans (song pkg) !! c])
             (map realToFrac [volumesDecibels !! c])

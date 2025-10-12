@@ -1,4 +1,5 @@
 -- | Defines a type for the @.c3@ file used by C3's Magma.
+{-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
@@ -158,7 +159,7 @@ readC3 txt = inside "Reading .c3 file" $ do
   return C3{..}
 
 showC3 :: C3 -> T.Text
-showC3 c3 = T.unlines $ execWriter $ do
+showC3 c3 = T.unlines $ execWriter do
   -- TODO maybe emit CRLF line endings
   line "//Created by Onyx Music Game Toolkit"
   line "//Feel free to edit manually if you know what you're doing!"

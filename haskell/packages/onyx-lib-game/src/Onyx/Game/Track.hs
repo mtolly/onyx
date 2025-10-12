@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -121,7 +122,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
   drumDiffPairs = (Nothing, "X+") : [ (Just diff, letter) | (diff, letter) <- diffPairs ]
 
   makeLanes colors lanes = let
-    gemToggle gem = U.trackJoin $ flip fmap lanes $ \(gem', t) -> if gem == gem'
+    gemToggle gem = U.trackJoin $ flip fmap lanes \(gem', t) -> if gem == gem'
       then Wait 0 True $ Wait t False RNil
       else RNil
     gemSingletons = do
@@ -198,7 +199,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       ddiff = D.getDrumDifficulty diff thisSrc
       in case pdrums.mode of
         Drums4     -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
-        Drums5     -> flip fmap ddiff $ \(gem, vel) -> let
+        Drums5     -> flip fmap ddiff \(gem, vel) -> let
           gem' = case gem of
             D.Kick            -> D.Kick
             D.Red             -> D.Red
@@ -460,7 +461,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     notes = let
       eachString str = let
         stringNotes :: RTB.T U.Seconds (IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Seconds, Maybe PG.Slide)))
-        stringNotes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+        stringNotes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
           note <- V.toList rso.rso_level.lvl_notes <> do
             V.toList rso.rso_level.lvl_chords >>= V.toList . (.chd_chordNotes)
           guard $ PG.getStringIndex 6 str == n_string note
@@ -512,7 +513,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         `PNF.zipStateMaps` Map.empty
         `PNF.zipStateMaps` fmap Just beats
 
-  rsTracks fpart ppg = sequence $ let
+  rsTracks fpart ppg = sequence let
     (srcG, srcB) = case Map.lookup fpart song.tracks.onyxParts of
       Nothing   -> (mempty, mempty)
       Just part -> (part.onyxPartRSGuitar, part.onyxPartRSBass)
@@ -553,7 +554,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       eachString str = let
         stringNotes :: RTB.T U.Beats (IsOverdrive, (StrumHOPOTap, (PG.GtrFret, PG.NoteType), Maybe (U.Beats, Maybe PG.Slide)))
         stringNotes = applyStatus1 False (RTB.normalize src.pgOverdrive) $
-          flip RTB.mapMaybe computed $ \(sht, trips, sust) ->
+          flip RTB.mapMaybe computed \(sht, trips, sust) ->
             case [ (fret, ntype) | (str', fret, ntype) <- trips, str == str' ] of
               []       -> Nothing
               pair : _ -> Just (sht, pair, sust)

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
@@ -233,7 +234,7 @@ tracksToStars trks = let
     3 -> 1.52
     _ -> 1.8
   sumOfBases :: Stars Float
-  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks $ \(scoreTrack, _, (base, solo)) -> liftA2 (+)
+  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks \(scoreTrack, _, (base, solo)) -> liftA2 (+)
     (((fromIntegral base * new_num_instruments_multiplier) *) <$> new_instrument_thresholds scoreTrack)
     ((fromIntegral solo *) <$> new_bonus_thresholds)
   allCutoffs = Just . (floor :: Float -> Int) <$> sumOfBases
@@ -241,7 +242,7 @@ tracksToStars trks = let
   in allCutoffs { starsGold = guard allExpert >> starsGold allCutoffs }
 
 starCutoffs :: F.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
-starCutoffs mid trks = tracksToStars $ do
+starCutoffs mid trks = tracksToStars do
   pair@(strack, diff) <- trks
   let (base, solo) = baseAndSolo mid pair
   return (strack, diff, (base, solo))
@@ -284,7 +285,7 @@ getScoreTracksGH2 :: F.FixedFile U.Beats -> [(ScoreTrackGH2, Difficulty, Int)]
 getScoreTracksGH2 mid = do
   strack <- [minBound .. maxBound]
   diff   <- [minBound .. maxBound]
-  let base = gh2BaseFixed diff $ case strack of
+  let base = gh2BaseFixed diff case strack of
         ScoreGH2Guitar -> mid.fixedPartGuitar
         ScoreGH2Bass   -> mid.fixedPartBass
         ScoreGH2Rhythm -> mid.fixedPartRhythm

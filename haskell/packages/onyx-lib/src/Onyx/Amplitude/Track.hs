@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -33,13 +34,13 @@ data Gem = L | M | R
 
 instance ParseTrack CatchTrack where
   parseTrack = do
-    catchDifficulties <- (catchDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    catchDifficulties <- (catchDifficulties =.) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 96  -- beginner
             Medium -> 102 -- intermediate
             Hard   -> 108 -- advanced
             Expert -> 114 -- expert/super
-      catchGems <- (catchGems =.) $ condenseMap_ $ eachKey each $ \gem -> do
+      catchGems <- (catchGems =.) $ condenseMap_ $ eachKey each \gem -> do
         blip $ base + case gem of
           L -> 0
           M -> 2

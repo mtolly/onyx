@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE ImplicitParams  #-}
 {-# LANGUAGE RecordWildCards #-}
 module Onyx.Rocksmith.Sng2014 where
@@ -14,7 +15,7 @@ lenArray c = Codec
   { codecIn = do
     len <- codecIn codecLen
     replicateM (fromIntegral len) $ codecIn c
-  , codecOut = fmapArg $ \xs -> do
+  , codecOut = fmapArg \xs -> do
     void $ codecOut codecLen $ fromIntegral $ length xs
     forM_ xs $ codecOut c
   } where codecLen = binEndian :: BinaryCodec Word32
@@ -22,7 +23,7 @@ lenArray c = Codec
 nullTerm :: Int -> BinaryCodec B.ByteString
 nullTerm n = Codec
   { codecIn = B.takeWhile (/= 0) <$> getByteString n
-  , codecOut = fmapArg $ \b -> putByteString $ case compare n $ B.length b of
+  , codecOut = fmapArg \b -> putByteString case compare n $ B.length b of
     EQ -> b
     LT -> B.take n b
     GT -> b <> B.replicate (B.length b - n) 0

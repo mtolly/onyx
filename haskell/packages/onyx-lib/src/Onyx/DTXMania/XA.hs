@@ -7,6 +7,7 @@ Ported from <https://github.com/Dridi/bjxa>
 Licensed under the GNU General Public License v3
 
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -92,7 +93,7 @@ decodeInflated :: (MonadIO m) => [Int16] -> Int -> Word8 -> StateT [XAState] m (
 decodeInflated shorts channel prof = let
   (k0, k1) = gainFactor !! fromIntegral (prof `shiftR` 4)
   range = fromIntegral $ prof .&. 0xF
-  in fmap V.fromList $ forM shorts $ \short -> do
+  in fmap V.fromList $ forM shorts \short -> do
     XAState prev0 prev1 <- gets (!! channel)
     let ranged = fromIntegral $ short `shiftR` range :: Int32
         sampleGain = fromIntegral prev0 * fromIntegral k0 + fromIntegral prev1 * fromIntegral k1 :: Int32
@@ -102,7 +103,7 @@ decodeInflated shorts channel prof = let
           else if sample < fromIntegral (minBound :: Int16)
             then minBound
             else fromIntegral sample
-    modify $ let
+    modify let
       f i s = if i == channel
         then XAState sample' prev0
         else s
@@ -111,7 +112,7 @@ decodeInflated shorts channel prof = let
 
 sourceXA :: (MonadIO f, MonadResource m) => FilePath -> f (AudioSource m Int16)
 sourceXA f = do
-  headerBytes <- liftIO $ withBinaryFile f ReadMode $ \h -> BL.hGet h headerSizeXA
+  headerBytes <- liftIO $ withBinaryFile f ReadMode \h -> BL.hGet h headerSizeXA
   let readHeader = do
         "KWD1"        <- getByteString 4
         dataLength <- fromIntegral <$> getWord32le
@@ -119,7 +120,7 @@ sourceXA f = do
         rate       <- fromIntegral <$> getWord16le
         bits       <- fromIntegral <$> getWord8
         channels   <- fromIntegral <$> getWord8
-        initState  <- replicateM channels $ do
+        initState  <- replicateM channels do
           prev0 <- getInt16le
           prev1 <- getInt16le
           return XAState{..}
@@ -147,7 +148,7 @@ sourceXA f = do
                 block <- liftIO $ B.hGet h xa.blockSize
                 let (shorts, prof) = blockInflater xa.bits block
                 decodeInflated shorts i prof
-            lift $ yield $ case blocks of
+            lift $ yield case blocks of
               [x] -> x
               _   -> interleave blocks
             go (blocksLeft - 1) (samplesLeft - blockSamplesXA)

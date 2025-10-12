@@ -1,6 +1,7 @@
 {-
 Preprocessed version of MIDI file
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -132,7 +133,7 @@ guitarDrumBit = \case
 
 findBits :: (Enum a, Bounded a) => (a -> Int32) -> Int32 -> Maybe [a]
 findBits _ (-1) = Nothing
-findBits f n    = Just $ do
+findBits f n    = Just do
   x <- [minBound .. maxBound]
   guard $ n .&. f x /= 0
   return x
@@ -274,7 +275,7 @@ showGEV GEV{..} = do
     putByteString "GELH"
     putWord32le 4
     putWord32le $ fromIntegral $ V.length gelhGELS
-    forM_ gelhGELS $ \GELS{..} -> do
+    forM_ gelhGELS \GELS{..} -> do
       putByteString "GELS"
       putWord32le 0x20
       putWord32le $ fromIntegral $ V.length gelsGEVT
@@ -285,7 +286,7 @@ showGEV GEV{..} = do
       putFloatle gelsUnk5
       putFloatle gelsUnk6
       putWord32le gelsUnk7
-      forM_ gelsGEVT $ \GEVT{..} -> do
+      forM_ gelsGEVT \GEVT{..} -> do
         putByteString "GEVT"
         putWord32le 0x20
         putFloatle gevtTime
@@ -309,7 +310,7 @@ showGEV GEV{..} = do
     putWord32le $ fromIntegral $ V.length tmpoEvents * 16 + 8
     putWord32le tmpoResolution
     putFloatle tmpoFraction
-    forM_ tmpoEvents $ \TMPOEvent{..} -> do
+    forM_ tmpoEvents \TMPOEvent{..} -> do
       putWord32le tmpoEventTicks
       putWord32le tmpoEventUnk2
       putWord32le tmpoEventUSPQN
@@ -368,7 +369,7 @@ makeTempos :: U.TempoMap -> TMPO
 makeTempos tmap = TMPO
   { tmpoResolution = 480
   , tmpoFraction = 1 / 480
-  , tmpoEvents = V.fromList $ do
+  , tmpoEvents = V.fromList do
     (absBeats, bps) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.tempoMapToBPS tmap
     return TMPOEvent
       { tmpoEventTicks = round $ absBeats * 480

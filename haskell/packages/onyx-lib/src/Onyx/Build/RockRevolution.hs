@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -183,11 +184,11 @@ rrRules buildInfo dir rr = do
           , events = mid.tracks.onyxEvents
           , part   = F.getFlexPart partName mid.tracks
           }
-        guitar = flip fmap rrPartGuitar $ \builder ->
+        guitar = flip fmap rrPartGuitar \builder ->
           completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.guitar
-        bass   = flip fmap rrPartBass $ \builder ->
+        bass   = flip fmap rrPartBass \builder ->
           completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
-        drums  = flip fmap rrPartDrums $ \builder ->
+        drums  = flip fmap rrPartDrums \builder ->
           completeDrumResult mid.timesigs mid.tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
@@ -334,10 +335,10 @@ rrRules buildInfo dir rr = do
           (fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes)
           (maybe mempty (.other) drums)
           mid.tracks.onyxEvents
-        , rrcGemsGuitar    = fromMaybe RTB.empty $ do
+        , rrcGemsGuitar    = fromMaybe RTB.empty do
           res <- guitar
           makeRRFiveControl res <$> Map.lookup Expert res.notes
-        , rrcGemsBass      = fromMaybe RTB.empty $ do
+        , rrcGemsBass      = fromMaybe RTB.empty do
           res <- bass
           makeRRFiveControl res <$> Map.lookup Expert res.notes
         , rrcVenue         = camera
@@ -458,7 +459,7 @@ rrRules buildInfo dir rr = do
       pathSong    = dir </> "song.mp3"
       pathFE      = dir </> "fe.mp3"
       rrParts = [rr.guitar, rr.bass, rr.drums]
-      setup lame = liftIO $ do
+      setup lame = liftIO do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 44100 -- TODO should we use 48k? maybe avoid the weird sync problems
@@ -562,7 +563,7 @@ rrRules buildInfo dir rr = do
   let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
       contentID = npdContentID edatConfig
 
-  rrPS3Files <- forM rrBuildFiles $ \f -> do
+  rrPS3Files <- forM rrBuildFiles \f -> do
     let ps3 = dir </> "files-ps3" </> map toUpper (takeFileName f) <.> "EDAT"
     ps3 %> \_ -> do
       -- can't actually get it to work on console yet, so just make unencrypted files for RPCS3
@@ -587,10 +588,10 @@ rrRules buildInfo dir rr = do
 
 makeRRFiveDifficulty :: FiveResult -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats) -> RRFiveDifficulty U.Beats
 makeRRFiveDifficulty result gems = RRFiveDifficulty
-  { rrfStrums = blipEdgesRB_ $ flip RTB.mapMaybe processed $ \case
+  { rrfStrums = blipEdgesRB_ $ flip RTB.mapMaybe processed \case
     ((color, Strum), len) -> Just (color, len)
     _                     -> Nothing
-  , rrfHOPOs = blipEdgesRB_ $ flip RTB.mapMaybe processed $ \case
+  , rrfHOPOs = blipEdgesRB_ $ flip RTB.mapMaybe processed \case
     ((_    , Strum), _  ) -> Nothing
     ((color, _    ), len) -> Just (color, len)
   , rrfSolo = RTB.empty -- added later
@@ -612,7 +613,7 @@ makeRRFiveControl result gems = let
 
 removeGemsUnderFreestyle :: (NNC.C t) => RRDrumDifficulty t -> RRDrumDifficulty t
 removeGemsUnderFreestyle rrd = let
-  laneBools = flip fmap rrd.rrdFreestyle $ \case
+  laneBools = flip fmap rrd.rrdFreestyle \case
     EdgeOn _ (_, rrc) -> (rrc, True )
     EdgeOff  (_, rrc) -> (rrc, False)
   in rrd
@@ -658,7 +659,7 @@ makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
     ]
   , rrdHidden    = RTB.empty
   , rrdFreestyle = let
-    lanesNormal = flip RTB.mapMaybe input.lanes $ mapM $ \case
+    lanesNormal = flip RTB.mapMaybe input.lanes $ mapM \case
       E.Kick ()   -> Just RRC_Kick
       E.Snare     -> Just RRC_Snare
       E.Hihat     -> Just RRC_Hihat
@@ -941,7 +942,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
       , waveforms = []
       }
     in catMaybes
-      [ flip fmap timeGuitar $ \playtime -> blankDef
+      [ flip fmap timeGuitar \playtime -> blankDef
         { name = "s" <> songID <> "_guitar"
         , waveforms =
           [ Waveform
@@ -954,7 +955,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeBass $ \playtime -> blankDef
+      , flip fmap timeBass \playtime -> blankDef
         { name = "s" <> songID <> "_bass"
         , waveforms =
           [ Waveform
@@ -967,7 +968,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeDrums $ \playtime -> blankDef
+      , flip fmap timeDrums \playtime -> blankDef
         { name = "s" <> songID <> "_drums"
         , waveforms =
           [ Waveform
@@ -980,7 +981,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeBacking $ \playtime -> blankDef
+      , flip fmap timeBacking \playtime -> blankDef
         { name = "s" <> songID <> "_MixMinus"
         , waveforms =
           [ Waveform

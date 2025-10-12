@@ -1,4 +1,5 @@
 -- Extracting and converting parts between different gameplay modes
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -75,7 +76,7 @@ data FiveType
 type BuildFive = FiveType -> ModeInput -> FiveResult
 
 nativeFiveFret :: Part f -> Maybe BuildFive
-nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
+nativeFiveFret part = flip fmap part.grybo \grybo ftype input -> let
   gtr  = (input.part.onyxPartGuitar   , HOPOsRBGuitar)
   keys = (input.part.onyxPartKeys     , HOPOsRBKeys  )
   ext  = (input.part.onyxPartGuitarExt, HOPOsRBGuitar)
@@ -87,7 +88,7 @@ nativeFiveFret part = flip fmap part.grybo $ \grybo ftype input -> let
   (trk, algo) = fromMaybe (mempty, HOPOsRBGuitar) $ find (not . Five.nullFive . fst) trks
   in FiveResult
     { settings  = grybo
-    , notes     = flip fmap trk.fiveDifficulties $ \diff ->
+    , notes     = flip fmap trk.fiveDifficulties \diff ->
       computeFiveFretSHT algo (fromIntegral grybo.hopoThreshold / 480) diff
     , other     = trk
     , source    = "five-fret chart"
@@ -159,8 +160,8 @@ convertDrumsToFive bd _ftype input = let
     { settings = (def :: ModeFive)
       { difficulty = drumResult.settings.difficulty
       }
-    , notes = flip fmap drumResult.notes $ \drumGems ->
-      strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap drumGems $ \(gem, _velocity) -> let
+    , notes = flip fmap drumResult.notes \drumGems ->
+      strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap drumGems \(gem, _velocity) -> let
         color = case gem of
           D.Kick           -> Five.Green
           D.Red            -> Five.Red
@@ -215,7 +216,7 @@ data DrumTarget
 type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 
 nativeDrums :: Part f -> Maybe BuildDrums
-nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
+nativeDrums part = flip fmap part.drums \pd dtarget input -> let
 
   src1x   =                                          input.part.onyxPartDrums
   src2x   =                                          input.part.onyxPartDrums2x
@@ -268,7 +269,7 @@ nativeDrums part = flip fmap part.drums $ \pd dtarget input -> let
 
   in DrumResult
     { settings = void pd
-    , notes = Map.fromList $ do
+    , notes = Map.fromList do
       diff <- [minBound .. maxBound]
       let gems = if elem dtarget [DrumTargetCH, DrumTargetGH] && pd.mode == Drums5
             then fmap (first $ fmap $ const D.Cymbal)
@@ -333,7 +334,7 @@ anyProKeys p
   <|> maniaToProKeys p
 
 nativeProKeys :: Part f -> Maybe BuildProKeys
-nativeProKeys part = flip fmap part.proKeys $ \ppk input -> let
+nativeProKeys part = flip fmap part.proKeys \ppk input -> let
   in ProKeysResult
     { settings = ppk
     , difficulties = Map.fromList
@@ -361,7 +362,7 @@ maniaToProKeys part = do
   let keyCount = maximum $ fmap (.keys) pm.charts
   guard $ keyCount > 5 -- don't make pro keys if this chart fits in basic keys
   guard $ keyCount <= 10 -- for now, only use white keys and don't try to autochart down
-  Just $ \input -> let
+  Just \input -> let
     (range, keys) = case keyCount of
       1 -> (RangeF, [                                                    BlueGreen D                                                    ])
       3 -> (RangeF, [                                       BlueGreen C, BlueGreen D, BlueGreen E                                       ])
@@ -441,7 +442,7 @@ loadProtarOutput pgt = let
   -- could pass hopo threshold in via ModeInput if we really wanted
   result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert pgt.pgDifficulties
   in RSRockBandOutput
-    { notesWithHandshapes = flip fmap result $ \(sht, notes, sustain) ->
+    { notesWithHandshapes = flip fmap result \(sht, notes, sustain) ->
       ( do
         (str, fret, typ) <- notes
         guard $ typ /= ArpeggioForm
@@ -462,7 +463,7 @@ loadProtarOutput pgt = let
     }
 
 proGuitarToFiveFret :: Part f -> Maybe BuildFive
-proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
+proGuitarToFiveFret part = flip fmap part.proGuitar \ppg _ftype input -> let
   -- TODO
   -- * maybe split bent notes into multiple
   (rsOutput, maybePG) = fromMaybe (RSRockBandOutput RTB.empty RTB.empty, Nothing) $ listToMaybe $ catMaybes
@@ -488,9 +489,9 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
     ModSlide{}        -> True
     ModSlideUnpitch{} -> True
     _                 -> False
-  autoResult = autoChart 5 $ do
+  autoResult = autoChart 5 do
     (bts, (notes, _len, _shape)) <- ATB.toPairList chorded
-    pitch <- simplifyChord $ nubOrd $ do
+    pitch <- simplifyChord $ nubOrd do
       (str, fret, mods) <- notes
       -- Don't give fret-hand-mute notes to the autochart,
       -- then below they will automatically become open notes
@@ -535,7 +536,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar $ \ppg _ftype input -> let
     }
 
 proKeysToFiveFret :: Part f -> Maybe BuildFive
-proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
+proKeysToFiveFret part = flip fmap part.proKeys \ppk _ftype input -> let
   expertPK = input.part.onyxPartRealKeysX
   in FiveResult
     { settings = (def :: ModeFive)
@@ -547,7 +548,7 @@ proKeysToFiveFret part = flip fmap part.proKeys $ \ppk _ftype input -> let
         $ guitarify'
         $ fmap (\((), key, len) -> (fromEnum key, guard (len >= standardBlipThreshold) >> Just len))
         $ RB.joinEdgesSimple expertPK.pkNotes
-      autoResult = autoChart 5 $ do
+      autoResult = autoChart 5 do
         (bts, (notes, _len)) <- ATB.toPairList chorded
         pitch <- simplifyChord notes
         return (realToFrac bts, pitch)
@@ -598,7 +599,7 @@ maniaChordSnap = U.trackJoin . RTB.flatten . go . RTB.collectCoincident where
               []                -> []
               firstBool : bools -> case unsnoc bools of
                 Nothing            -> [RTB.singleton 0 $ boolEdge firstBool]
-                Just (_, lastBool) -> return $ case (firstBool, lastBool) of
+                Just (_, lastBool) -> return case (firstBool, lastBool) of
                   (True , True ) -> RTB.singleton 0 $ boolEdge True
                   (False, False) -> RTB.singleton 0 $ boolEdge False
                   (False, True ) -> Wait 0 (boolEdge False) $ Wait 0 (boolEdge True) RNil
@@ -608,11 +609,11 @@ maniaChordSnap = U.trackJoin . RTB.flatten . go . RTB.collectCoincident where
     RNil -> RNil
 
 maniaToFiveFret :: Part f -> Maybe BuildFive
-maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
+maniaToFiveFret part = flip fmap part.mania \pm _ftype input -> let
   keyCount = maximum $ fmap (.keys) pm.charts
   in FiveResult
     { settings = def :: ModeFive
-    , notes = Map.singleton Expert $ if keyCount <= 5
+    , notes = Map.singleton Expert if keyCount <= 5
       then fmap (\(k, len) -> ((Just $ toEnum k, Tap), len))
         $ RB.edgeBlips_ RB.minSustainLengthRB
         $ maniaChordSnap
@@ -624,7 +625,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
           $ guitarify'
           $ fmap (\((), key, len) -> (key, guard (len >= standardBlipThreshold) >> Just len))
           $ RB.joinEdgesSimple $ maniaChordSnap $ getManiaNormalTopDifficulty pm input.part
-        autoResult = autoChart 5 $ do
+        autoResult = autoChart 5 do
           (bts, (notes, _len)) <- ATB.toPairList chorded
           pitch <- simplifyChord notes
           return (realToFrac bts, pitch)
@@ -648,7 +649,7 @@ maniaToFiveFret part = flip fmap part.mania $ \pm _ftype input -> let
     }
 
 maniaToDrums :: Part f -> Maybe BuildDrums
-maniaToDrums part = flip fmap part.mania $ \pm dtarget input -> let
+maniaToDrums part = flip fmap part.mania \pm dtarget input -> let
   keyCount = maximum $ fmap (.keys) pm.charts
   inputNotes :: RTB.T U.Beats Int
   inputNotes
@@ -705,7 +706,7 @@ drumResultToTrack dr = if dr.hasRBMarks
     { D.drumAnimation = dr.animations
     }
   else dr.other
-    { D.drumDifficulties = flip fmap dr.notes $ \notes -> D.DrumDifficulty
+    { D.drumDifficulties = flip fmap dr.notes \notes -> D.DrumDifficulty
       -- TODO we still need to apply discobeat! flip gems + include mix events
       { D.drumGems = first void <$> notes
       , D.drumMix = RTB.empty
@@ -722,7 +723,7 @@ drumResultToTrack dr = if dr.hasRBMarks
         . cleanEdges
         . U.trackJoin
         . fmap (\typ -> RTB.fromPairList [(0, (True, typ)), (1/480, (False, typ))])
-      getColorDiff ybg = RTB.mapMaybe $ \case
+      getColorDiff ybg = RTB.mapMaybe \case
         (D.Pro ybg' typ, _) | ybg == ybg' -> Just typ
         _                                 -> Nothing
       getColor ybg = let
@@ -733,7 +734,7 @@ drumResultToTrack dr = if dr.hasRBMarks
         in case mapM getUniform $ RTB.collectCoincident allDiffs of
           Just noConflicts -> noConflicts
           Nothing          -> getColorDiff ybg $ fromMaybe RTB.empty $ Map.lookup Expert dr.notes
-      in foldr RTB.merge RTB.empty $ do
+      in foldr RTB.merge RTB.empty do
         ybg <- [D.Yellow, D.Blue, D.Green]
         return $ fmap (ybg,) $ makeColorTomMarkers $ getColor ybg
     , D.drumAnimation = dr.animations
@@ -744,7 +745,7 @@ drumNoteShuffle dt = let
   randomSeed = hash $ show dt
   newTrack = drumResultToTrack DrumResult
     { settings   = emptyPartDrums DrumsPro Kicks1x
-    , notes      = Map.fromList $ do
+    , notes      = Map.fromList do
       let lanes = RTB.merge
             (maybe (0 :: Int, False) (const (0, True)) <$> dt.drumSingleRoll)
             (maybe (1       , False) (const (1, True)) <$> dt.drumDoubleRoll)
@@ -760,7 +761,7 @@ drumNoteShuffle dt = let
                   let kick = any (\case (D.Kick, _) -> True; _ -> False) instant
                       numHands = length instant - if kick then 1 else 0
                   hand1 <- uniformMay $ guard (numHands >= 1) >> colors
-                  hand2 <- uniformMay $ do
+                  hand2 <- uniformMay do
                     guard $ numHands >= 2
                     filter ((/= hand1) . Just) colors
                   type1 <- uniform [D.Tom, D.Cymbal]
@@ -780,7 +781,7 @@ drumNoteShuffle dt = let
     , autochart  = False
     , eliteDrums = Nothing
     }
-  audio = listToMaybe $ do
+  audio = listToMaybe do
     dd <- Map.elems dt.drumDifficulties
     (a, _) <- RTB.getBodies dd.drumMix
     return a
@@ -791,7 +792,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
   randomSeed = hash $ show ft
   in fiveResultToTrack FiveResult
     { settings  = def
-    , notes     = flip Map.mapWithKey ft.fiveDifficulties $ \diff fd -> let
+    , notes     = flip Map.mapWithKey ft.fiveDifficulties \diff fd -> let
       chorded = guitarify'
         $ computeFiveFretSHT algo hopoThreshold fd
       thisSeed = mkStdGen $ randomSeed + fromEnum diff
@@ -803,7 +804,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
               this = map fst thisPairs
               thisLength = length this
           (new, newSet) <- if any isJust this
-            then uniform $ do
+            then uniform do
               -- pick from all N-note chords which are different from the previously picked chord
               opt <- concat <$> sequence [ [[], [Just color]] | color <- [Five.Green .. Five.Orange] ]
               guard $ length opt == thisLength
@@ -821,7 +822,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
 
 fiveResultToTrack :: FiveResult -> Five.FiveTrack U.Beats
 fiveResultToTrack ft = ft.other
-  { Five.fiveDifficulties = Map.fromList $ do
+  { Five.fiveDifficulties = Map.fromList do
     diff <- [Easy .. Expert]
     gems <- toList $ Map.lookup diff ft.notes
     return (diff, emitGuitar5 gems)

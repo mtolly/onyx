@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -66,8 +67,8 @@ createHdrArk dout hdr ark = do
         Just i  -> return i
       fileCount = length files
       stringCount = HM.size stringToIndex
-  (entries, arkSize) <- IO.withBinaryFile ark IO.WriteMode $ \h -> do
-    entries <- forM files $ \ff -> do
+  (entries, arkSize) <- IO.withBinaryFile ark IO.WriteMode \h -> do
+    entries <- forM files \ff -> do
       posn <- IO.hTell h
       contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
@@ -82,7 +83,7 @@ createHdrArk dout hdr ark = do
         }
     arkSize <- IO.hTell h
     return (entries, arkSize)
-  IO.withBinaryFile hdr IO.WriteMode $ \h -> do
+  IO.withBinaryFile hdr IO.WriteMode \h -> do
     let w32 = BL.hPut h . runPut . putWord32le
         i32 = BL.hPut h . runPut . putInt32le
     w32 3
@@ -94,7 +95,7 @@ createHdrArk dout hdr ark = do
     w32 $ fromIntegral stringCount
     mapM_ w32 offsets
     w32 $ fromIntegral fileCount
-    forM_ entries $ \entry -> do
+    forM_ entries \entry -> do
       w32 $ fromIntegral entry.offset
       getStringIndex entry.name >>= i32
       maybe (return (-1)) getStringIndex entry.folder >>= i32
@@ -137,10 +138,10 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
       eggCombinations eggs = do
         combo <- sequence $ map (\egg -> [(egg, False), (egg, True)]) eggs
         let comboName = T.concat [ "_" <> egg | (egg, True) <- combo ]
-            comboSets = flip map combo $ \(egg, b) -> D.Braces $ D.Tree 0
+            comboSets = flip map combo \(egg, b) -> D.Braces $ D.Tree 0
               [ D.Sym "set"
               , D.Var egg
-              , D.Int $ if b then 1 else 0
+              , D.Int if b then 1 else 0
               ]
         return (comboName, comboSets)
   fmap concat $ forM preproc $ \chunk -> case chunk of
@@ -150,11 +151,11 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
         let combos = case eggCombinations $ nubOrd $ findEggs rest of
               [] -> [("", [])]
               xs -> xs
-        concatForM combos $ \(suffix, setters) -> do
+        concatForM combos \(suffix, setters) -> do
           let runner = do
                 mapM_ Run.evaluateDTA setters
                 Run.evaluateDTA $ D.Parens $ D.Tree 0 $ D.Sym (shortName <> suffix) : rest
-          (newChunks, finalState) <- flip mapStackTraceT runner $ \x -> do
+          (newChunks, finalState) <- flip mapStackTraceT runner \x -> do
             (result, finalState) <- runStateT x Run.initDTAState
             return $ (, finalState) <$> result
           pairs <- fmap D.fromDictList
@@ -184,7 +185,7 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
 
 readSongListGH2 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH2.SongPackage)]
 readSongListGH2
-  = fmap (map $ \(t, pkg, _extra) -> (t, pkg))
+  = fmap (map \(t, pkg, _extra) -> (t, pkg))
   . readSongListGH2Extra
   . fmap decodeLatin1
 
@@ -223,11 +224,11 @@ detectGameGH gen = do
         -- could parse whole midi but this is fine
         r <- readFileEntry hdr arks entry
         bs <- BL.toStrict <$> useHandle r handleToByteString
-        return $ if
+        return if
           | "T1 GEMS"     `B.isInfixOf` bs -> Just GameGH1
-          | "PART GUITAR" `B.isInfixOf` bs -> Just $ if isStockGH2 then GameGH2 else GameGH2DX2
+          | "PART GUITAR" `B.isInfixOf` bs -> Just if isStockGH2 then GameGH2 else GameGH2DX2
           | otherwise                      -> Nothing
-      isStockGH2 = isJust $ do
+      isStockGH2 = isJust do
         configGen <- findFolder ["config", "gen"] folder
         lookup "gh2_version.dtb" $ folderFiles configGen
   case findFile ("songs" :| ["gen", "songs.dtb"]) folder of
@@ -246,7 +247,7 @@ replaceSong
   -> [D.Chunk B.ByteString] -- ^ the DTB snippet to insert into @config\/gen\/songs.dtb@
   -> [(B.ByteString, FilePath)] -- ^ the files to copy into the song folder, e.g. @("yyz.mid", "some/dir/notes.mid")@
   -> IO ()
-replaceSong gen sym snippet files = withArk gen $ \ark -> do
+replaceSong gen sym snippet files = withArk gen \ark -> do
   withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
     IO.hClose hdl
     ark_GetFile ark fdtb "config/gen/songs.dtb" True
@@ -268,10 +269,10 @@ replaceSong gen sym snippet files = withArk gen $ \ark -> do
     D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
     ark_ReplaceAFile ark fdtb "config/gen/songs.dtb" True
     entries <- searchFiles ark $ "songs/" <> sym <> "/*"
-    forM_ entries $ \entry -> do
+    forM_ entries \entry -> do
       name <- ark_Arkname entry
       ark_RemoveFile ark name
-    forM_ files $ \(arkName, localPath) -> do
+    forM_ files \(arkName, localPath) -> do
       let arkPath = "songs/" <> sym <> "/" <> arkName
       ark_AddFile ark localPath arkPath True -- encryption doesn't matter
     ark_Save ark
@@ -295,7 +296,7 @@ data GH2Installation = GH2Installation
 -- | Adds a song to a GH2 ARK, and registers it as a bonus song with price 0.
 -- Returns a list of warnings for missing optional .dtb files.
 addBonusSongGH2 :: GH2Installation -> IO [String]
-addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
+addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
   withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
     withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
       withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
@@ -326,14 +327,14 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
             [ tryEditDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
                 return $ D.Parens (D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i.coop_max_scores)]) : chunks
             , tryEditDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
-                forM chunks $ \case
+                forM chunks \case
                   D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
                     let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
                     bonusSorted <- case gh2i.sort_ of
                       -- TODO handle warnings/errors better
                       Just ss -> logStdout (readSongListGH2 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
-                        Right newSongList -> return $ let
-                          sorter = sortSongs ss $ \case
+                        Right newSongList -> return let
+                          sorter = sortSongs ss \case
                             D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
                               Just pkg -> (GH2.name pkg, GH2.artist pkg)
                               Nothing  -> (T.pack $ show sym, "")
@@ -351,17 +352,17 @@ addBonusSongGH2 gh2i = withArk gh2i.gen $ \ark -> do
                   , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
                   ] <> chunks
             ]
-          forM_ gh2i.files $ \(arkName, localPath) -> do
+          forM_ gh2i.files \(arkName, localPath) -> do
             let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
             ark_AddFile ark localPath arkPath True -- encryption doesn't matter
-          forM_ gh2i.album_art $ \img -> do
+          forM_ gh2i.album_art \img -> do
             ark_AddFile ark img ("ui/image/og/gen/us_logo_" <> gh2i.symbol <> "_keep.png_ps2") True
           ark_Save ark
           return warnings
 
 -- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
 addBonusSongGH1 :: GH2Installation -> IO ()
-addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
+addBonusSongGH1 gh2i = withArk gh2i.gen \ark -> do
   withSystemTempFile "songs.dtb"      $ \fdtb1 hdl1 -> do
     withSystemTempFile "store.dtb"    $ \fdtb2 hdl2 -> do
       withSystemTempFile "locale.dtb" $ \fdtb3 hdl3 -> do
@@ -382,14 +383,14 @@ addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
                 _                        -> ([]   , chunks)
           return $ before <> (D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : after)
         void $ editDTB fdtb2 "config/gen/store.dtb" $ \chunks -> do
-          forM chunks $ \case
+          forM chunks \case
             D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
               let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
               bonusSorted <- case gh2i.sort_ of
                 -- TODO handle warnings/errors better
                 Just ss -> logStdout (readSongListGH1 $ D.DTA 0 $ D.Tree 0 newSongs) >>= \case
-                  Right newSongList -> return $ let
-                    sorter = sortSongs ss $ \case
+                  Right newSongList -> return let
+                    sorter = sortSongs ss \case
                       D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
                         Just pkg -> (GH1.name pkg, GH1.artist pkg)
                         Nothing  -> (T.pack $ show sym, "")
@@ -404,7 +405,7 @@ addBonusSongGH1 gh2i = withArk gh2i.gen $ \ark -> do
             [ (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
             , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase
             ] <> chunks
-        forM_ gh2i.files $ \(arkName, localPath) -> do
+        forM_ gh2i.files \(arkName, localPath) -> do
           let arkPath = "songs/" <> gh2i.symbol <> "/" <> arkName
           ark_AddFile ark localPath arkPath True -- encryption doesn't matter
         ark_Save ark
@@ -414,7 +415,7 @@ data SongSort
   | SongSortArtistTitle
 
 sortSongs :: SongSort -> (a -> (T.Text, T.Text)) -> [a] -> [a]
-sortSongs ss getTitleArtist = sortOn $ \song -> let
+sortSongs ss getTitleArtist = sortOn \song -> let
   (title, artist) = getTitleArtist song
   sortForm x = let
     folded = T.toCaseFold x

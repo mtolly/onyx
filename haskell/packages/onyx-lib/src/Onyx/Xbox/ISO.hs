@@ -2,6 +2,7 @@
 Ported from maxton's GameArchives
 https://github.com/maxton/GameArchives/blob/97875280485af067da6adebed5299beaac302fda/Library/XISO/XISOPackage.cs
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -37,7 +38,7 @@ findXboxHeader :: Handle -> IO (Maybe XboxHeader)
 findXboxHeader h = do
   len <- hFileSize h
   let possibleOffsets = [0x00000000, 0x0000FB20, 0x00020600, 0x02080000, 0x0FD90000]
-  flip firstJustM possibleOffsets $ \off -> do
+  flip firstJustM possibleOffsets \off -> do
     let seekTo = off + 32 * sectorLength
     if seekTo + 20 >= len
       then return Nothing
@@ -46,7 +47,7 @@ findXboxHeader h = do
         magic <- B.hGet h 20
         nums <- BL.hGet h 8
         if magic == "MICROSOFT*XBOX*MEDIA"
-          then fmap Just $ flip runGetM nums $ do
+          then fmap Just $ flip runGetM nums do
             rootSector <- getWord32le
             rootSize <- getWord32le
             return XboxHeader{ partitionOffset = off, .. }
@@ -84,7 +85,7 @@ readEntry :: Handle -> Integer -> Integer -> IO (XDVDFSEntry B.ByteString)
 readEntry h baseOffset entryOffset = do
   hSeek h AbsoluteSeek $ baseOffset + entryOffset
   bs <- BL.hGet h 14
-  entry <- flip runGetM bs $ do
+  entry <- flip runGetM bs do
     left    <- getWord16le
     right   <- getWord16le
     sector  <- getWord32le
@@ -102,7 +103,7 @@ getXboxFile hdr entry = subHandle
   (Just $ fromIntegral entry.length_)
 
 loadXboxISO :: Readable -> IO (Maybe (Folder B.ByteString Readable))
-loadXboxISO r = useHandle r $ \h -> findXboxHeader h >>= \case
+loadXboxISO r = useHandle r \h -> findXboxHeader h >>= \case
   Nothing -> return Nothing
   Just hdr -> Just <$> do
     folder <- parseRoot h hdr

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE ImplicitParams      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -126,7 +127,7 @@ readGH3TextSetDLC folder = let
         let ?endian = BigEndian
         nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
         let filenameKey = qbKeyCRC $ "1ni76fm\\" <> B8.pack (T.unpack dlName) <> ".qb"
-        fmap mconcat $ forM nodes $ \(node, bs) -> if node.nodeFilenameKey == filenameKey && node.nodeFileType == ".qb"
+        fmap mconcat $ forM nodes \(node, bs) -> if node.nodeFilenameKey == filenameKey && node.nodeFileType == ".qb"
           then errorToWarning (runGetM parseQB bs) >>= return . \case
             Nothing -> mempty
             Just qb -> case [ v | QBSectionInteger "dlc_script_version" _ v <- qb ] of
@@ -148,7 +149,7 @@ loadGH3TextSetDLC f = case map toLower $ takeExtension f of
     -- search folder for any package metadata edats and try to load them
     folderOrig <- stackIO $ crawlFolder $ takeDirectory f
     let matchSuffixes = map (\x -> "_text" <> x <> ".pak.ps3") ["", "_f", "_g", "_i", "_s"]
-    decryptedFiles <- fmap catMaybes $ forM folderOrig.folderFiles $ \(name, file) ->
+    decryptedFiles <- fmap catMaybes $ forM folderOrig.folderFiles \(name, file) ->
       case T.stripSuffix ".edat" $ T.toLower name of
         Nothing -> return Nothing
         Just noEdat -> if any (\sfx -> sfx `T.isSuffixOf` noEdat) matchSuffixes
@@ -231,7 +232,7 @@ buildGH3TextSet prefs dlName lang paks = let
       }
     , BL.replicate 4 0xAB
     )
-  songsLog = flip map allSongData $ \(k, items) -> case parseSongInfoGH3 items of
+  songsLog = flip map allSongData \(k, items) -> case parseSongInfoGH3 items of
     Left  _    -> "[" <> T.pack (show k) <> "] (couldn't recognize metadata keys)"
     Right song -> T.pack (show song.gh3Title) <> " (" <> song.gh3Artist <> ")"
   in (buildPak $ otherNodes <> [metadataQB, end], songsLog)
@@ -253,7 +254,7 @@ combineGH3SongCache360 ins out = do
   game <- detectGH3Game sets
   let dlText = "dl2000000000"
       dlBytes = B8.pack $ T.unpack dlText
-  mystery <- gh3MysteryScript dlBytes $ case game of
+  mystery <- gh3MysteryScript dlBytes case game of
     GuitarHero3         -> snd <$> sets.dlcScript
     GuitarHeroAerosmith -> Just emptyMysteryScript
   prefs <- readPreferences
@@ -272,10 +273,10 @@ combineGH3SongCache360 ins out = do
       getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets.languages, lang == lang' ]
   lg $ "Found " <> show (length engLog) <> " songs"
-  forM_ engLog $ \line -> lg $ "- " <> T.unpack line
+  forM_ engLog \line -> lg $ "- " <> T.unpack line
   thumb <- liftIO $ gh3Thumbnail >>= B.readFile
   liftIO $ makeCONMemory CreateOptions
-    { createNames = replicate 6 $ case game of
+    { createNames = replicate 6 case game of
       GuitarHero3         -> "GH3 Customs Database"
       GuitarHeroAerosmith -> "GHA Customs Database"
     , createDescriptions = []
@@ -305,7 +306,7 @@ combineGH3SongCachePS3Folder ins = do
       edatConfig = case game of
         GuitarHero3         -> gh3CustomMidEdatConfig folderLabel
         GuitarHeroAerosmith -> ghaCustomMidEdatConfig folderLabel
-  mystery <- gh3MysteryScript dlBytes $ case game of
+  mystery <- gh3MysteryScript dlBytes case game of
     GuitarHero3         -> snd <$> sets.dlcScript
     GuitarHeroAerosmith -> Just emptyMysteryScript
   prefs <- readPreferences
@@ -321,12 +322,12 @@ combineGH3SongCachePS3Folder ins = do
       getLanguage lang = buildGH3TextSet prefs dlBytes lang
         [ pak | (lang', pak) <- sets.languages, lang == lang' ]
   lg $ "Found " <> show (length engLog) <> " songs"
-  forM_ engLog $ \line -> lg $ "- " <> T.unpack line
+  forM_ engLog \line -> lg $ "- " <> T.unpack line
   edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
     let fin  = tmp </> "tmp.pak"
         fout = tmp </> "tmp.edat"
     fout' <- shortWindowsPath True fout
-    forM files $ \(name, bs) -> do
+    forM files \(name, bs) -> do
       let nameText  = T.toUpper name <> ".EDAT"
           nameBytes = TE.encodeUtf8 nameText
       stackIO $ BL.writeFile fin bs
@@ -361,12 +362,12 @@ readGH3TextPakQB nodes = let
       , "gh3_songlist_props" -- GH3 DEMO BUILD
       ]
     songs
-  sortedNodes = flip map nodes $ \pair@(node, bs) -> if node.nodeFileType == ".qb"
+  sortedNodes = flip map nodes \pair@(node, bs) -> if node.nodeFileType == ".qb"
     -- this will just be an empty list if we can't parse the qb,
     -- such as some parts of gh3 disc .pak we don't care about
     then Right (pair, fromMaybe [] $ map (lookupQS mappingQS) <$> runGetM parseQB bs)
     else Left pair
-  sortedNodes' = flip map sortedNodes $ \case
+  sortedNodes' = flip map sortedNodes \case
     Left pair        -> Left pair
     Right (pair, qb) -> case getSonglistProps qb of
       []    -> Left pair
@@ -378,7 +379,7 @@ readGH3TextPakQB nodes = let
     -- known other things found here:
     -- QBStructItemQbKeyString9A0000 0 "download_songlist_props"  -- GH3 DEMO BUILD
     -- QBStructItemQbKeyString9A0000 0 "permanent_songlist_props" -- under gh3_songlist_props in final gh3 disc
-  game = listToMaybe $ do
+  game = listToMaybe do
     Right (_, qb) <- sortedNodes
     QBSectionStruct "GH3_Download_Songs" _ (QBStructHeader : meta) <- qb
     QBStructItemStruct8A0000 "tier1" (QBStructHeader : tier) <- meta
@@ -444,7 +445,7 @@ parseSongInfoGH3 songEntries = do
       "false" -> Right False
       _       -> Left $ "parseSongInfoGH3: unrecognized key for keyboard (song " <> show gh3Name <> ", key " <> show s <> ")" -- should probably just be warning
     []    -> Right False
-  let findFloat key = listToMaybe $ flip mapMaybe songEntries $ \case
+  let findFloat key = listToMaybe $ flip mapMaybe songEntries \case
         QBStructItemInteger810000 k x | k == key -> Just $ fromIntegral x
         QBStructItemFloat820000   k x | k == key -> Just x
         _                                        -> Nothing

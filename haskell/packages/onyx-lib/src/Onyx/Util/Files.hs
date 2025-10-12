@@ -1,6 +1,7 @@
-{-# LANGUAGE CPP          #-}
-{-# LANGUAGE LambdaCase   #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE ViewPatterns   #-}
 -- | OS-specific functions to open and show files.
 module Onyx.Util.Files (osOpenFile, osShowFolder, commonDir, fixFileCase, copyDirRecursive, copyDirRecursiveMergeDTA, shortWindowsPath) where
 
@@ -48,10 +49,10 @@ import           System.IO.Silently       (hSilence)
 #endif
 
 copyDirRecursive :: (MonadIO m) => FilePath -> FilePath -> m ()
-copyDirRecursive src dst = liftIO $ do
+copyDirRecursive src dst = liftIO do
   Dir.createDirectoryIfMissing False dst
   ents <- Dir.listDirectory src
-  forM_ ents $ \ent -> do
+  forM_ ents \ent -> do
     let pathFrom = src </> ent
         pathTo = dst </> ent
     isDir <- Dir.doesDirectoryExist pathFrom
@@ -60,10 +61,10 @@ copyDirRecursive src dst = liftIO $ do
       else Dir.copyFile pathFrom pathTo
 
 copyDirRecursiveMergeDTA :: (MonadIO m) => FilePath -> FilePath -> m ()
-copyDirRecursiveMergeDTA src dst = liftIO $ do
+copyDirRecursiveMergeDTA src dst = liftIO do
   Dir.createDirectoryIfMissing False dst
   ents <- Dir.listDirectory src
-  forM_ ents $ \ent -> do
+  forM_ ents \ent -> do
     let pathFrom = src </> ent
         pathTo = dst </> ent
     isDir <- Dir.doesDirectoryExist pathFrom
@@ -83,7 +84,7 @@ osShowFolder :: (MonadIO m) => FilePath -> [FilePath] -> m ()
 commonDir :: [FilePath] -> IO (Maybe (FilePath, [FilePath]))
 commonDir fs = do
   fs' <- liftIO $ mapM Dir.makeAbsolute fs
-  return $ case map takeDirectory fs' of
+  return case map takeDirectory fs' of
     dir : dirs | all (== dir) dirs -> Just (dir, fs')
     _                              -> Nothing
 
@@ -106,7 +107,7 @@ foreign import ccall safe "ShellExecuteW"
 foreign import ccall safe "onyx_ShowFiles"
   c_ShowFiles :: CWString -> Ptr CWString -> CInt -> IO ()
 
-osOpenFile f = liftIO $ withCWString f $ \wstr -> do
+osOpenFile f = liftIO $ withCWString f \wstr -> do
   -- COM must be init'd before this. we now do this in onyxInitCOM in win_open_folder.cpp
   n <- c_ShellExecute nullPtr nullPtr wstr nullPtr nullPtr 5
   if ptrToIntPtr n > 32
@@ -117,14 +118,14 @@ osShowFolder dir [] = osOpenFile dir
 osShowFolder dir fs = liftIO $
   withCWString dir $ \cdir ->
   withMany withCWString fs $ \cfiles ->
-  withArrayLen cfiles $ \len pcfiles ->
+  withArrayLen cfiles \len pcfiles ->
   c_ShowFiles cdir pcfiles $ fromIntegral len
 
 fixFileCase = return
 
-shortWindowsPath create f = liftIO $ do
+shortWindowsPath create f = liftIO do
   -- First ensure the file exists (if we're intending to write to it)
-  when create $ withBinaryFile f ReadWriteMode $ \_ -> return ()
+  when create $ withBinaryFile f ReadWriteMode \_ -> return ()
   -- Can't use forward slashes, you get invalid path error
   let allBackslash = intercalate "\\" $ splitOn "/" f
   -- The weird prefix lets you go beyond MAX_PATH
@@ -142,7 +143,7 @@ foreign import ccall safe "onyx_ShowFiles"
 osShowFolder dir [] = osOpenFile dir
 osShowFolder _   fs = do
   liftIO $ withMany withCString fs $ \cstrs -> do
-    withArrayLen cstrs $ \len pcstrs -> do
+    withArrayLen cstrs \len pcstrs -> do
       c_ShowFiles pcstrs $ fromIntegral len
 
 fixFileCase = return
@@ -153,7 +154,7 @@ shortWindowsPath _ = return
 
 -- TODO this should be done on a forked thread
 
-osOpenFile f = liftIO $ case os of
+osOpenFile f = liftIO case os of
   "linux" -> hSilence [stdout, stderr] $ callProcess "xdg-open" [f]
   _       -> return ()
 
@@ -162,7 +163,7 @@ osShowFolder dir _ = osOpenFile dir
 fixFileCase f = fromMaybe f <$> fixFileCaseMaybe f
 
 fixFileCaseMaybe :: (MonadIO m) => FilePath -> m (Maybe FilePath)
-fixFileCaseMaybe (dropTrailingPathSeparator -> f) = liftIO $ do
+fixFileCaseMaybe (dropTrailingPathSeparator -> f) = liftIO do
   let (dropTrailingPathSeparator -> dir, entry) = splitFileName f
   doesPathExist f >>= \case
     True  -> return $ Just f -- entry exists, no problem

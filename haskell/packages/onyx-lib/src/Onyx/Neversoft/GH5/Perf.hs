@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -47,14 +48,14 @@ getPerfEntry = do
   len <- fromIntegral <$> getWord32be
   qb <- getQBKeyBE
   case qb of
-    "gh5_camera_note" -> fmap PerfGH5CameraNote $ replicateM len $ do
+    "gh5_camera_note" -> fmap PerfGH5CameraNote $ replicateM len do
       camTime   <- getWord32be
       camLength <- getWord16be
       camAngle  <- getWord8
       return CameraNote{..}
-    "gh6_actor_loops" -> fmap PerfGH6ActorLoops $ replicateM len $ do
+    "gh6_actor_loops" -> fmap PerfGH6ActorLoops $ replicateM len do
       getByteString 1000
-    "gh5_actor_loops" -> fmap PerfGH5ActorLoops $ replicateM len $ do
+    "gh5_actor_loops" -> fmap PerfGH5ActorLoops $ replicateM len do
       getByteString 0x6C
     _ -> fail $ "Unknown .perf entry type: " <> show qb
 
@@ -79,7 +80,7 @@ loadPerf :: FilePath -> IO Perf
 loadPerf f = B.readFile f >>= runGetM getPerf . BL.fromStrict
 
 makePerf :: Perf -> BL.ByteString
-makePerf p = runPut $ do
+makePerf p = runPut do
   putWord32be 0x40A001A3
   putQBKeyBE p.perfDLCKey
   putWord32be $ fromIntegral $ length p.perfEntries
@@ -87,7 +88,7 @@ makePerf p = runPut $ do
   putWord32be p.perfUnknown1
   putWord32be p.perfUnknown2
   putWord32be p.perfUnknown3
-  forM_ p.perfEntries $ \(entryKey, entry) -> do
+  forM_ p.perfEntries \(entryKey, entry) -> do
     putQBKeyBE entryKey
     case entry of
       PerfGH5CameraNote notes -> do
@@ -111,7 +112,7 @@ rbCameraToPerf key tmap rb endTime = let
   angles = RTB.mapMaybe eachInstant $ RTB.collectCoincident rb
   eachInstant cuts = case mapMaybe mapCut $ reverse $ sort cuts of
     [] -> Nothing -- only directed cuts here
-    ns -> Just $ case filter (/= 255) ns of
+    ns -> Just case filter (/= 255) ns of
       n : _ -> n
       []    -> 30 -- only keys cuts here
   mapCut = \case

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -454,11 +455,11 @@ gh5Rules buildInfo dir gh5 = do
   -- I'm not sure if the game requires 48 kHz,
   -- but apparently 44.1 kHz results in inconsistent frame sizes,
   -- which causes problems with the MP3 interleaving.
-  let setup lame = liftIO $ do
+  let setup lame = liftIO do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
         L.check $ L.setOutSamplerate lame 48000
-      setupSmall lame = liftIO $ do
+      setupSmall lame = liftIO do
         -- Tried 8-bit 16kHz (MPEG-2 layer 3) but got stuck loading in game
         L.check $ L.setBrate lame 32
         L.check $ L.setQuality lame 5
@@ -580,7 +581,7 @@ gh5Rules buildInfo dir gh5 = do
   ps3SongRoot </> ps3ManifestPak %> \out -> do
     packNPData' ps3EDATConfig (dir </> "cmanifest.pak.xen") out $ B8.pack ps3ManifestPak
 
-  phony ps3SongRoot $ do
+  phony ps3SongRoot do
     shk $ need $ map (ps3SongRoot </>)
       [ ps3Audio1, ps3Audio2, ps3Audio3, ps3AudioPreview, ps3SongVRAMPak, ps3SongPak
       , ps3CDLTextVRAMPak, ps3CDLTextPak, ps3CDLVRAMPak, ps3CDLPak, ps3ManifestVRAMPak, ps3ManifestPak

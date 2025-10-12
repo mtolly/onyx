@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -177,7 +178,7 @@ data LaneNotes = LaneSingle | LaneDouble
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> Import m
 importFoF src dir level = do
   when (level == ImportFull) $ lg $ "Importing FoF/PS/CH song from: " <> src
-  let hasCymbalMarkers chart = flip any (FB.chartTracks chart) $ any $ \case
+  let hasCymbalMarkers chart = flip any (FB.chartTracks chart) $ any \case
         FB.Note 66 _ -> True
         FB.Note 67 _ -> True
         FB.Note 68 _ -> True
@@ -262,7 +263,7 @@ importFoF src dir level = do
           Just rBG -> return $ Just
             $ SoftFile ("background" <.> map toLower (takeExtension v))
             $ SoftReadable rBG
-    _ -> return $ let -- look for CH background
+    _ -> return let -- look for CH background
       isBackground f = case splitExtension $ T.unpack $ T.toLower f of
         ("background", ext) -> elem ext [".png", ".jpg", ".jpeg"]
         _                   -> False
@@ -273,7 +274,7 @@ importFoF src dir level = do
   -- TODO seen cases of wrong extensions on files (e.g. mp3 file named song.ogg).
   -- this confuses onyx down the line so we should fix extensions here
   let loadAudioFile _ | level == ImportQuick = return Nothing
-      loadAudioFile x = stackIO $ let
+      loadAudioFile x = stackIO let
         tryExt ext = do
           let template = x <.> ext
           case findFileCI (pure $ T.pack template) dir of
@@ -310,7 +311,7 @@ importFoF src dir level = do
   let onlyGuitar = case audioFiles of
         [(x, _)] | dropExtension x == "guitar" -> True
         _                                      -> False
-  audioFilesWithChannels <- forM audioFiles $ \(template, rAudio) -> do
+  audioFilesWithChannels <- forM audioFiles \(template, rAudio) -> do
     chans <- audioChannelsReadable rAudio
     return ((template, rAudio), chans)
 
@@ -339,7 +340,7 @@ importFoF src dir level = do
             _ -> case md0 of
               Just d0 -> ([d0], [], [], []) -- RB drum mix 0
               _       -> (catMaybes [md1, md2, md3, md4], [], [], []) -- either no drums, or weird configuration
-      songAudio = toList $ if onlyGuitar then audio_guitar else audio_song
+      songAudio = toList if onlyGuitar then audio_guitar else audio_song
 
   let (delayAudio, delayPreview, delayMIDI) = case song.delay of
         Nothing -> (id, id, id)
@@ -355,14 +356,14 @@ importFoF src dir level = do
             in (Pad Start $ CA.Seconds audioDelay, (+ realToFrac audioDelay), id)
       audioExpr auds = do
         auds' <- NE.nonEmpty $ map fst auds
-        Just $ case auds' of
+        Just case auds' of
           aud :| [] -> delayAudio $ Input $ Named $ T.pack aud
           _         -> delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
 
   -- Used to clamp this at 7, but higher ones should be handled OK now
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ fromIntegral n + 1
 
-  let maybe2x = listToMaybe $ do
+  let maybe2x = listToMaybe do
         guard $ level == ImportFull
         (name, r) <- folderFiles dir
         let lower = T.toLower name
@@ -372,7 +373,7 @@ importFoF src dir level = do
       -- expert+.mid is most common but Drum Projects 2 and 3 also have:
       -- expertplus.mid, notesexpert+.mid, (name of song)Expert+.mid
       -- some also have expert+.chart but we shouldn't have to support that
-  forM_ maybe2x $ \(name, _) -> do
+  forM_ maybe2x \(name, _) -> do
     lg $ "Loading separate X+ file: " <> T.unpack name
   -- TODO should we prefer the PS (95) format if there's also a separate midi?
   add2x <- case maybe2x of
@@ -380,7 +381,7 @@ importFoF src dir level = do
       parsed2x <- F.loadMIDIReadable rMidi2x
       let _ = parsed2x :: F.Song (F.FixedFile U.Beats)
           trk2x = parsed2x.tracks.fixedPartDrums
-      return $ if nullDrums trk2x
+      return if nullDrums trk2x
         then id
         else \mid -> mid { F.fixedPartDrums2x = trk2x }
     Nothing -> return id
@@ -407,7 +408,7 @@ importFoF src dir level = do
         else trks
       swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff trk.drumDifficulties }
       swapFiveLaneDiff dd = dd
-        { drumGems = flip fmap dd.drumGems $ \case
+        { drumGems = flip fmap dd.drumGems \case
           (Drums.Orange            , vel) -> (Drums.Pro Drums.Green (), vel)
           (Drums.Pro Drums.Green (), vel) -> (Drums.Orange            , vel)
           x                               -> x
@@ -438,7 +439,7 @@ importFoF src dir level = do
       $ listToMaybe
       $ filter ((== "video") . map toLower . dropExtension . T.unpack . fst)
       $ folderFiles dir
-  let videoInfo = flip fmap maybeVideo $ \(name, rVideo) -> VideoInfo
+  let videoInfo = flip fmap maybeVideo \(name, rVideo) -> VideoInfo
         { fileVideo = SoftFile ("video" <.> takeExtension (T.unpack name)) $ SoftReadable rVideo
         , videoStartTime = song.videoStartTime
         , videoEndTime = song.videoEndTime
@@ -531,7 +532,7 @@ importFoF src dir level = do
       , fileMidi = midi
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ flip map audioFilesWithChannels $ \(pair@(template, _srcPath), chans) ->
+    , audio = HM.fromList $ flip map audioFilesWithChannels \(pair@(template, _srcPath), chans) ->
       (T.pack template, AudioFile AudioInfo
         { md5 = Nothing
         , frames = Nothing
@@ -698,7 +699,7 @@ importFoF src dir level = do
           }
         })
       , ( F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode $ \vc -> ModeVocal
+        { vocal = flip fmap vocalMode \vc -> ModeVocal
           { difficulty = toTier song.diffVocals
           , count = vc
           , gender = Nothing
@@ -719,7 +720,7 @@ importFoF src dir level = do
                 guard $ not $ RTB.null maniaTrack.maniaNotes
                 return name
           maniaDiffs <- NE.nonEmpty maniaDiffList
-          Just $ ModeMania $ do
+          Just $ ModeMania do
             diff <- maniaDiffs
             return ManiaChart
               { name = diff
@@ -735,7 +736,7 @@ removeDummyTracks :: (NNC.C t) => F.FixedFile t -> F.FixedFile t
 removeDummyTracks trks = let
   five  fd = fd { Five.fiveDifficulties  = scan (onlyOn . (.fiveGems)) fd.fiveDifficulties }
   drums dd = dd { Drums.drumDifficulties = scan (.drumGems)            dd.drumDifficulties }
-  onlyOn = RTB.filter $ \case EdgeOn{} -> True; _ -> False
+  onlyOn = RTB.filter \case EdgeOn{} -> True; _ -> False
   scan getGems = Map.filter
     $ not
     . null
@@ -797,7 +798,7 @@ fixShortVoxPhrasesTrack vox = let
     Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
   vox' = vox
     { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
-    , vocalOverdrive = flip RTB.mapMaybe fixed $ \case
+    , vocalOverdrive = flip RTB.mapMaybe fixed \case
       EdgeOn () True -> Just True
       EdgeOff   True -> Just False
       _              -> Nothing
@@ -832,8 +833,8 @@ loadFoFMIDI ini r = do
   mid <- F.loadRawMIDIReadable r
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "T1 GEMS"]
       midGH = case mid of
-        MIDI.Cons typ dvn trks -> MIDI.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
-          then flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+        MIDI.Cons typ dvn trks -> MIDI.Cons typ dvn $ flip map trks \trk -> if isGtrTrack trk
+          then flip RTB.mapMaybe trk \e -> case isNoteEdgeCPV e of
             Just (c, 103, v) -> Just $ makeEdgeCPV c 116 v
             Just (_, 116, _) -> Nothing
             _                -> Just e
@@ -841,12 +842,12 @@ loadFoFMIDI ini r = do
       -- look for and remove fake OD notes used in lieu of star_power_note;
       -- this was seen in Bocaj Hero V
       midRB = case mid of
-        MIDI.Cons typ dvn trks -> fmap (MIDI.Cons typ dvn) $ forM trks $ \trk -> if isGtrTrack trk
+        MIDI.Cons typ dvn trks -> fmap (MIDI.Cons typ dvn) $ forM trks \trk -> if isGtrTrack trk
           then let
-            od = flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+            od = flip RTB.mapMaybe trk \e -> case isNoteEdgeCPV e of
               Just (_, 116, Just _) -> Just ()
               _                     -> Nothing
-            odless = flip RTB.filter trk $ \e -> case isNoteEdgeCPV e of
+            odless = flip RTB.filter trk \e -> case isNoteEdgeCPV e of
               Just (_, 116, _) -> False
               _                -> True
             in case RTB.toPairList od of
@@ -856,7 +857,7 @@ loadFoFMIDI ini r = do
                 return odless
               _                          -> return trk
           else return trk
-      hasPitch n = not $ null $ do
+      hasPitch n = not $ null do
         trk <- case mid of MIDI.Cons _ _ trks -> trks
         guard $ isGtrTrack trk
         e <- toList trk

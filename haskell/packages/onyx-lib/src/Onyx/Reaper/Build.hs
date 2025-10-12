@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -105,7 +106,7 @@ event :: (Monad m) => Int -> E.T T.Text -> WriterT [Element] m ()
 event tks = \case
   E.MIDIEvent e -> let
     noteOff chan p = C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
-    bs = Message.toByteString $ Message.Channel $ case e of
+    bs = Message.toByteString $ Message.Channel case e of
       {-
       Normalize all note-offs.
       - venuegen can't handle note-on-velocity-0 format
@@ -115,7 +116,7 @@ event tks = \case
       C.Cons chan (C.Voice (V.NoteOn p v)) | V.fromVelocity v == 0 -> noteOff chan p
       C.Cons chan (C.Voice (V.NoteOff p _)) -> noteOff chan p
       _ -> e
-    showByte n = T.pack $ case showHex n "" of
+    showByte n = T.pack case showHex n "" of
       [c] -> ['0', c]
       s   -> s
     in line "E" $ T.pack (show tks) : map showByte (BL.unpack bs)
@@ -143,7 +144,7 @@ event tks = \case
       Just bs -> block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bs) $ \chunk -> do
         line (TE.decodeUtf8 $ B64.encode chunk) []
   E.SystemExclusive sysex -> let
-    bytes = B.pack $ case sysex of
+    bytes = B.pack case sysex of
       SysEx.Regular bs -> 0xF0 : bs
       SysEx.Escape  _  -> error $ "unhandled case (escaped sysex) in reaper event parser: " ++ show sysex
     splitChunks bs = if B.length bs <= 40
@@ -186,7 +187,7 @@ reaSynthBytes rs = do
   putFloatle rs.sustain
   putFloatle rs.pulse_width
   putFloatle rs.tuning
-  putFloatle $ if rs.old_sine then 1 else 0
+  putFloatle if rs.old_sine then 1 else 0
   putByteString $ B.pack [0,0,16,0,0,0]
 
 track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t (E.T T.Text) -> WriterT [Element] m ()
@@ -323,7 +324,7 @@ track tunings lenTicks lenSecs resn trk = let
           line "BYPASS" ["0", "0", "0"]
           block "JS" ["C3/progtr", ""] $ do
             let bool b = if b then "1" else "0"
-                tuning' = reverse $ take 6 $ let
+                tuning' = reverse $ take 6 let
                   std   = (if isBass then map $ subtract 12 else id)
                     $ tuningPitches $ GtrTuning Guitar6 [] 0 0 Nothing
                   this  = tuningPitches tuning
@@ -405,10 +406,10 @@ track tunings lenTicks lenSecs resn trk = let
         block "MIDINOTENAMES" [] $ do
           -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
           -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
-          forM_ names $ \(pitch, noteName) -> line "0" [T.pack $ show pitch, noteName]
+          forM_ names \(pitch, noteName) -> line "0" [T.pack $ show pitch, noteName]
         return True
     -- note: even if no FX, you still need empty FXCHAIN so note names work
-    block "FXCHAIN" [] $ when fxPresent $ do
+    block "FXCHAIN" [] $ when fxPresent do
       line "SHOW" ["0"]
       line "LASTSEL" ["0"]
       line "DOCKED" ["0"]
@@ -529,7 +530,7 @@ audio len path = let
         line "FILE" [T.pack path]
 
 drumNoteNames :: [(Int, T.Text)]
-drumNoteNames = execWriter $ do
+drumNoteNames = execWriter do
   o 127 "Roll Marker 2-Lane"
   o 126 "Roll Marker 1-Lane"
   x 125
@@ -605,7 +606,7 @@ drumNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 gryboNoteNames :: Bool -> [(Int, T.Text)]
-gryboNoteNames isKeys = execWriter $ do
+gryboNoteNames isKeys = execWriter do
   o 127 "Trill Marker"
   unless isKeys $ o 126 "Tremolo Marker"
   x 125
@@ -619,8 +620,8 @@ gryboNoteNames isKeys = execWriter $ do
   x 115
   o 104 "Tap Marker"
   o 103 "Solo Marker"
-  o 102 $ if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
-  o 101 $ if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
+  o 102 if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
+  o 101 if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
   o 100 "EXPERT Orange"
   o 99 "EXPERT Blue"
   o 98 "EXPERT Yellow"
@@ -628,8 +629,8 @@ gryboNoteNames isKeys = execWriter $ do
   o 96 "EXPERT Green"
   unless isKeys $ o 95 "EXPERT Open"
   x 91
-  o 90 $ if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
-  o 89 $ if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
+  o 90 if isKeys then "(Keytar) HOPO Off" else "Force HOPO Off"
+  o 89 if isKeys then "(Keytar) HOPO On"  else "Force HOPO On"
   o 88 "HARD Orange"
   o 87 "HARD Blue"
   o 86 "HARD Yellow"
@@ -649,9 +650,9 @@ gryboNoteNames isKeys = execWriter $ do
   o 62 "EASY Yellow"
   o 61 "EASY Red"
   o 60 "EASY Green"
-  unless isKeys $ do
+  unless isKeys do
     o 59 "Left Hand Highest" -- also EASY Open but whatever
-    forM_ [58, 57 .. 41] $ \i -> o i $ case i of
+    forM_ [58, 57 .. 41] $ \i -> o i case i of
       -- https://imgur.com/fRg6Vo9
       41 -> "- (1)" -- venuegen says 40
       43 -> "- (2)"
@@ -671,7 +672,7 @@ gryboNoteNames isKeys = execWriter $ do
         x k = tell [(k, "----")]
 
 proKeysNoteNames :: [(Int, T.Text)]
-proKeysNoteNames = execWriter $ do
+proKeysNoteNames = execWriter do
   o 127 "Trill Marker"
   o 126 "Glissando Marker"
   x 125
@@ -716,7 +717,7 @@ proKeysNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 vocalNoteNames :: [(Int, T.Text)]
-vocalNoteNames = execWriter $ do
+vocalNoteNames = execWriter do
   o 116 "OVERDRIVE"
   o 106 "Phrase (Face-Off P2)"
   o 105 "Phrase"
@@ -741,7 +742,7 @@ vocalNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 ghlNoteNames :: [(Int, T.Text)]
-ghlNoteNames = execWriter $ do
+ghlNoteNames = execWriter do
   o 116 "OVERDRIVE"
   x 115
   o 103 "Solo Marker"
@@ -788,7 +789,7 @@ ghlNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 proGuitarNoteNames :: [(Int, T.Text)]
-proGuitarNoteNames = execWriter $ do
+proGuitarNoteNames = execWriter do
   o 127 "Trill"
   o 126 "Tremolo" -- not visible in game? see Roundabout
   o 125 "BRE"
@@ -872,7 +873,7 @@ proGuitarNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 rsGuitarNoteNames :: [(Int, T.Text)]
-rsGuitarNoteNames = execWriter $ do
+rsGuitarNoteNames = execWriter do
   o 109 "Anchor High Fret"
   o 108 "Anchor Low Fret"
   x 107
@@ -893,7 +894,7 @@ rsGuitarNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 rsBassNoteNames :: [(Int, T.Text)]
-rsBassNoteNames = execWriter $ do
+rsBassNoteNames = execWriter do
   o 109 "Anchor High Fret"
   o 108 "Anchor Low Fret"
   x 107
@@ -910,7 +911,7 @@ rsBassNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 venuegenLightingNames :: [(Int, T.Text)]
-venuegenLightingNames = execWriter $ do
+venuegenLightingNames = execWriter do
   o 71 "Default"
   o 70 "Color_Muted"
   o 69 "Video_Grainy"
@@ -979,7 +980,7 @@ venuegenLightingNames = execWriter $ do
         x k = tell [(k, "----")]
 
 venuegenCameraNames :: [(Int, T.Text)]
-venuegenCameraNames = execWriter $ do
+venuegenCameraNames = execWriter do
   o 102 "RANDOM"
   x 101
   o 100 "All_Behind"
@@ -1077,7 +1078,7 @@ venuegenCameraNames = execWriter $ do
         x k = tell [(k, "----")]
 
 venueNoteNames :: [(Int, T.Text)]
-venueNoteNames = execWriter $ do
+venueNoteNames = execWriter do
   o 110 "RB2 video_trails"
   o 109 "RB2 video_security"
   o 108 "RB2 video_bw"
@@ -1122,7 +1123,7 @@ venueNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 danceNoteNames :: [(Int, T.Text)]
-danceNoteNames = execWriter $ do
+danceNoteNames = execWriter do
   o 99 "Challenge RIGHT"
   o 98 "Challenge UP"
   o 97 "Challenge DOWN"
@@ -1151,7 +1152,7 @@ danceNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 melodyNoteNames :: [(Int, T.Text)]
-melodyNoteNames = execWriter $ do
+melodyNoteNames = execWriter do
   o 87 "Intensity FLYING"
   o 86 "Intensity RUNNING"
   o 85 "Intensity JOGGING"
@@ -1171,7 +1172,7 @@ melodyNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 dkongaNoteNames :: [(Int, T.Text)]
-dkongaNoteNames = execWriter $ do
+dkongaNoteNames = execWriter do
   -- These are actually General MIDI percussion!
   o 64 "RED" -- "Low Conga"
   o 63 "YELLOW" -- "Open Hi Conga"
@@ -1237,9 +1238,9 @@ getTempos mid = case U.decodeFile mid of
 
 makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T T.Text -> F.T T.Text -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaperFromData tunings mid tempoMid audios out = do
-  lenAudios <- stackIO $ flip mapMaybeM audios $ \aud -> do
+  lenAudios <- stackIO $ flip mapMaybeM audios \aud -> do
     info <- Snd.getFileInfo aud
-    return $ case Snd.frames info of
+    return case Snd.frames info of
       0 -> Nothing
       f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
   tmap <- getTempos tempoMid
@@ -1266,7 +1267,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
           t_secs = U.applyTempoTrack tmap t_beats
           in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
         _ -> error "Unsupported MIDI format for Reaper project generation"
-  project <- stackIO $ do
+  project <- stackIO do
     time <- liftIO getCurrentTime
     let timestamp = T.pack $ formatTime defaultTimeLocale "%s" time
     rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] $ do
@@ -1281,7 +1282,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
           merged = foldr RTB.merge RTB.empty tracks
           in track tunings (midiLenTicks resn) midiLenSecs resn merged
         _ -> error "Unsupported MIDI format for Reaper project generation"
-      forM_ lenAudios $ \(len, aud) -> do
+      forM_ lenAudios \(len, aud) -> do
         audio len $ makeRelative (takeDirectory out) aud
   let findColorMaps = \case
         Element "COLORMAP" [cmap] _ -> [cmap]

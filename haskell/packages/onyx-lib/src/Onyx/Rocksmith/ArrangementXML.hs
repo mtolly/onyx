@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -504,7 +505,7 @@ parseFile f = inside ("Loading: " <> f) $ do
       else fmap PartArrangement $ codecIn $ isTag "song"   $ parseInside' insideCodec
 
 writePart :: (MonadIO m) => FilePath -> PartContents -> m ()
-writePart f pc = liftIO $ do
+writePart f pc = liftIO do
   let xml = case pc of
         PartArrangement arr -> makeDoc "song" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Arrangement) arr
         PartVocals vocs -> makeDoc "vocals" $ void $ codecOut (insideCodec :: InsideCodec (PureLog Identity) Vocals) vocs

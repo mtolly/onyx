@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -120,7 +121,7 @@ groupBy3 = go [] where
 listOfPairs :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
 listOfPairs = \case
   QBArrayOfFloatRaw [] -> return []
-  QBArrayOfArray arys -> forM arys $ \case
+  QBArrayOfArray arys -> forM arys \case
     QBArrayOfInteger [x, y] -> return (x, y)
     _                       -> fatal "Expected an array of 2 integers"
   _                   -> fatal "Expected array of arrays"
@@ -128,7 +129,7 @@ listOfPairs = \case
 listOfTriples :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32, Word32)]
 listOfTriples = \case
   QBArrayOfFloatRaw [] -> return []
-  QBArrayOfArray arys -> forM arys $ \case
+  QBArrayOfArray arys -> forM arys \case
     QBArrayOfInteger [x, y, z] -> return (x, y, z)
     _                          -> fatal "Expected an array of 3 integers"
   _                   -> fatal "Expected array of arrays"
@@ -187,7 +188,7 @@ parseBackground dlc qb sfx inner = do
 parseMarkers :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Either QBKey T.Text)]
 parseMarkers = \case
   QBArrayOfFloatRaw [] -> return []
-  QBArrayOfStruct marks -> forM marks $ \case
+  QBArrayOfStruct marks -> forM marks \case
     QBStructHeader : items -> let
       time      = [ v | QBStructItemInteger810000     "time"   v <- items ]
       markerKey = [ v | QBStructItemQbKeyString9A0000 "marker" v <- items ]
@@ -222,7 +223,7 @@ parseMidQB dlc qb = do
 
   gh3BackgroundNotes <- parseBackground dlc qb "_notes" $ \case
     QBArrayOfFloatRaw [] -> return []
-    QBArrayOfArray arys -> forM arys $ \case
+    QBArrayOfArray arys -> forM arys \case
       QBArrayOfInteger xs -> return xs
       _                   -> fatal "Expected array of integers"
     _                   -> fatal "Expected array of arrays"
@@ -234,7 +235,7 @@ parseMidQB dlc qb = do
   return GH3MidQB{..}
 
 makeMidQB :: QBKey -> B.ByteString -> GH3MidQB -> [QBSection Word32 QBKey]
-makeMidQB file dlc GH3MidQB{..} = execWriter $ do
+makeMidQB file dlc GH3MidQB{..} = execWriter do
 
   let makePart str GH3Part{..} = do
         makeDifficulty (str <> "easy"  ) gh3Easy
@@ -273,7 +274,7 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
 
   makeTriples "_timesig" gh3TimeSignatures
   makeSection "_fretbars" $ QBArrayOfInteger gh3FretBars
-  makeSection "_markers" $ QBArrayOfStruct $ do
+  makeSection "_markers" $ QBArrayOfStruct do
     (time, marker) <- gh3Markers
     return
       [ QBStructHeader
@@ -283,9 +284,9 @@ makeMidQB file dlc GH3MidQB{..} = execWriter $ do
         Right s -> QBStructItemStringW "marker" s
       ]
 
-  makeBackground "_notes" gh3BackgroundNotes $ \str notes -> makeSection str $
+  makeBackground "_notes" gh3BackgroundNotes \str notes -> makeSection str $
     QBArrayOfArray $ map QBArrayOfInteger notes
-  makeBackground "" gh3Background $ \str evts -> makeSection str $ QBArrayOfStruct $ do
+  makeBackground "" gh3Background \str evts -> makeSection str $ QBArrayOfStruct do
     GH3AnimEvent{..} <- evts
     return
       [ QBStructHeader
@@ -333,7 +334,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   sustainTrim :: Word32
   sustainTrim = quot sustainThreshold 2
   getTrack :: GH3Track -> Five.FiveDifficulty U.Beats
-  getTrack trk = emitGuitar5 $ emitTrack hopoThreshold $ fromPairs $ do
+  getTrack trk = emitGuitar5 $ emitTrack hopoThreshold $ fromPairs do
     (time, len, bits) <- trk.gh3Notes
     let pos = toBeats time
         lenTrimmed = if len > sustainThreshold
@@ -360,13 +361,13 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     , Five.fivePlayer1 = makeSpan gh3.gh3P1FaceOff
     , Five.fivePlayer2 = makeSpan gh3.gh3P2FaceOff
     }
-  makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+  makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
     (time, len) <- spans
     [(toBeats time, True), (toBeats $ time + len, False)]
-  trackLead = getPart $ if coopTracks then gh3.gh3CoopGuitar else gh3.gh3Guitar
-  trackCoop = getPart $ if coopTracks then gh3.gh3CoopRhythm else gh3.gh3Rhythm
+  trackLead = getPart if coopTracks then gh3.gh3CoopGuitar else gh3.gh3Guitar
+  trackCoop = getPart if coopTracks then gh3.gh3CoopRhythm else gh3.gh3Rhythm
   events = mempty
-    { eventsSections = fromPairs $ do
+    { eventsSections = fromPairs do
       (t, marker) <- gh3.gh3Markers
       let str = case marker of
             Right s -> s
@@ -392,7 +393,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
     }
   in F.Song
     { F.tempos = tempos
-    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ do
+    , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList do
       (time, num, den) <- gh3.gh3TimeSignatures
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
@@ -428,11 +429,11 @@ gh3DrumMapping =
 gh3DrumsToElite :: (Word32 -> U.Beats) -> [[Word32]] -> EliteDrumTrack U.Beats
 gh3DrumsToElite toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
-  allGemPairs = flip mapMaybe notes $ \case
+  allGemPairs = flip mapMaybe notes \case
     time : pitch : _ -> flip fmap (lookup pitch gh3DrumMapping)
       $ \(gem, hand) -> (toBeats time, hand <$ gem)
     _                -> Nothing
-  hands = RTB.collectCoincident $ fromPairs $ flip filter allGemPairs $ \case
+  hands = RTB.collectCoincident $ fromPairs $ flip filter allGemPairs \case
     (_time, Kick _) -> False
     _               -> True
   in mempty
@@ -443,7 +444,7 @@ gh3DrumsToElite toBeats notes = let
         = blipEdgesRBNice
         $ fmap (\fgem -> (D.VelocityNormal, (fgem, TBDefault), Nothing))
         $ RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ fromPairs allGemPairs
-      , tdFlam = flip RTB.mapMaybe hands $ \case
+      , tdFlam = flip RTB.mapMaybe hands \case
         [x, y] | x == y -> Just ()
         _               -> Nothing
       }
@@ -481,7 +482,7 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
     lenMS = case len of
       Nothing      -> 1
       Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
-    bits = foldr (.|.) 0 $ flip map gems $ \(gem, force) -> let
+    bits = foldr (.|.) 0 $ flip map gems \(gem, force) -> let
       force' = force && null (drop 1 gems) -- can't force chords (though gh3LegalHOPOs should force strum)
       in (if force' then bit 5 else 0) .|. case gem of
         Five.Green  -> bit 0

@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -75,7 +76,7 @@ qbKeyCRCNoLowercase = go 0xFFFFFFFF where
 
 {-# NOINLINE knownKeys #-}
 knownKeys :: HM.HashMap QBKey B.ByteString
-knownKeys = unsafePerformIO $ do
+knownKeys = unsafePerformIO do
   path <- getResourcesPath "gh-debug.txt"
   doesFileExist path >>= \case
     False -> return HM.empty

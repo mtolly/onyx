@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -69,7 +70,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
   let luaLines = T.lines lua
 
       syncHackMS :: Maybe Int
-      syncHackMS = listToMaybe $ do
+      syncHackMS = listToMaybe do
         ln <- luaLines
         sfx <- toList $ T.stripPrefix rrMP3HackString ln
         toList $ readMaybe $ T.unpack sfx
@@ -81,7 +82,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
 
       -- difficulty rating referred to as "stars" in lua but skulls in game
       getSkulls :: T.Text -> Maybe Int
-      getSkulls diffKey = listToMaybe $ do
+      getSkulls diffKey = listToMaybe do
         ln <- luaLines
         braceList <- case T.words ln of
           k : "=" : rest | k == diffKey -> [T.unwords rest]
@@ -111,7 +112,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     ImportQuick -> return $ const Nothing
     ImportFull -> do
       fev <- need ("s" <> key <> ".fev") >>= runGetM (codecIn binFEV)
-      return $ \eventName -> listToMaybe $ do
+      return \eventName -> listToMaybe do
         let bsLower = B8.map toLower
         eventGroup <- fev.topLevelEventGroups
         guard $ bsLower eventGroup.name == "stems"
@@ -133,10 +134,10 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       drumsDef   = findDef "drums"
       backingDef = findDef "backing"
       allFSBNames = nubOrd $ map fst $ catMaybes [guitarDef, bassDef, drumsDef, backingDef]
-  allFSB <- forM allFSBNames $ \bankName -> do
+  allFSB <- forM allFSBNames \bankName -> do
     r <- need $ bankName <> ".fsb"
     return (bankName, r)
-  loadedFSB <- stackIO $ forConcurrently allFSB $ \(bankName, r) -> do
+  loadedFSB <- stackIO $ forConcurrently allFSB \(bankName, r) -> do
     streams <- loadAudio r
     return (bankName, streams)
   let getStream (bankName, index) = do
@@ -167,7 +168,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
   let loadGuitarBass inst = case level of
         ImportQuick -> return mempty
         ImportFull  -> do
-          fiveDiffs <- forM diffs $ \(num, diff) -> do
+          fiveDiffs <- forM diffs \(num, diff) -> do
             let midName = T.concat ["s", key, "_", inst, "_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
@@ -180,7 +181,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       loadDrums = case level of
         ImportQuick -> return mempty
         ImportFull  -> do
-          rrDiffs <- fmap Map.fromList $ forM diffs $ \(num, diff) -> do
+          rrDiffs <- fmap Map.fromList $ forM diffs \(num, diff) -> do
             let midName = T.concat ["s", key, "_drums_", num, ".mid"]
             inside ("Loading " <> T.unpack midName) $ do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
@@ -214,7 +215,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     , global = def'
       { backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
-      , fileMidi = SoftFile "notes.mid" $ SoftChart $ case level of
+      , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
         ImportFull  -> controlMid
           { F.tracks = mempty
             { F.onyxParts = Map.fromList
@@ -241,7 +242,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         ImportQuick -> emptyChart
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ do
+    , audio = HM.fromList do
       (name, bs, _) <- catMaybes [guitarStream, bassStream, drumsStream, backingStream]
       let str = T.unpack name
       return (name, AudioFile AudioInfo
@@ -256,7 +257,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
       { song = (\(s, _, _) -> Input $ Named s) <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream $ \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
+        [ flip fmap guitarStream \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
         , flip fmap bassStream   $ \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
         , flip fmap drumsStream  $ \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
         ]

@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -139,7 +140,7 @@ instance Bin MiloDir where
       miloFiles <- replicateM (fromIntegral entryCount) parseFileADDE
       return MiloDir{..}
 
-    , codecOut = fmapArg $ \MiloDir{..} -> do
+    , codecOut = fmapArg \MiloDir{..} -> do
       putWord32be miloVersion
       putStringBE miloType
       putStringBE miloName
@@ -148,7 +149,7 @@ instance Bin MiloDir where
       let putArray xs p = do
             putWord32be $ fromIntegral $ length xs
             mapM_ p xs
-      putArray miloEntryNames $ \(x, y) -> putStringBE x >> putStringBE y
+      putArray miloEntryNames \(x, y) -> putStringBE x >> putStringBE y
       putWord32be miloU3
       mapM_ putWord32be miloU4
       mapM_ putStringBE miloSubname

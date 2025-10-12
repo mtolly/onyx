@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -87,7 +88,7 @@ instance ParseTrack ProKeysTrack where
     pkBRE       <- (.pkBRE      ) =. edges 120
     chordSnap [48 .. 72]
     pkNotes     <- ((.pkNotes   ) =.) $ fatBlips (1/8) $ translateEdges
-      $ condenseMap $ eachKey each $ \k -> edges $ fromEnum k + 48
+      $ condenseMap $ eachKey each \k -> edges $ fromEnum k + 48
     pkLanes     <- ((.pkLanes   ) =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
       RangeC -> 0
       RangeD -> 2

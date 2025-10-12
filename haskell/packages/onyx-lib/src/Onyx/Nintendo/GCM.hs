@@ -3,6 +3,7 @@ Ported from
 https://github.com/LagoLunatic/wwrando/blob/46f14efd873c6ebde1782576070a87bc22ca5b69/wwlib/gcm.py
 -}
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -43,7 +44,7 @@ data File = File
   } deriving (Show)
 
 loadGCM :: Readable -> IO (Folder B.ByteString Readable)
-loadGCM gcm = useHandle gcm $ \h -> do
+loadGCM gcm = useHandle gcm \h -> do
 
   let read_u32 off = do
         hSeek h AbsoluteSeek off
@@ -79,7 +80,7 @@ loadGCM gcm = useHandle gcm $ \h -> do
       0 -> return ""
       _ -> read_str_until_null_character $ fromIntegral $ fnt_offset + name_offset
 
-    return $ if is_dir
+    return if is_dir
       then let
         parent_fst_index = file_data_offset_or_parent_fst_index
         next_fst_index = file_size_or_next_fst_index

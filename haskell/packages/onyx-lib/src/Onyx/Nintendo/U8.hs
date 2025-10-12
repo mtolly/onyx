@@ -6,8 +6,9 @@ Written with reference to
   * u8it by icefire: <https://github.com/Plombo/romextract/blob/master/src/u8it.c>
 
 -}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE BangPatterns   #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase     #-}
 module Onyx.Nintendo.U8 (packU8, packU8Folder, readU8) where
 
 import           Control.Monad         (replicateM)
@@ -64,7 +65,7 @@ getRoot = getFolder [] B8.empty where
       }
 
 writeU8 :: FilePath -> U8Folder -> IO ()
-writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
+writeU8 out root = withBinaryFile out WriteMode \hout -> do
 
   let align a n = case quotRem n a of
         (_, 0) -> n
@@ -100,7 +101,7 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
       putWord24be n = do
         putWord8 $ fromIntegral $ n `shiftR` 16
         putWord16be $ fromIntegral n
-      fileToNode f = runPut $ do
+      fileToNode f = runPut do
         putWord8 0
         putWord24be $ fromIntegral $ lookup' (u8FileName f                  ) nameLookup
         putWord32be $ fromIntegral  (lookup' (u8FileName f : u8FileParents f) dataLookup) + alignedDataOffset
@@ -111,7 +112,7 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
         in dnodes ++ subdirNodes (n + length dnodes) ds
       dirToNodes n dir = let
         contents = subdirNodes (n + 1) (u8FolderFolders dir) ++ map fileToNode (u8FolderFiles dir)
-        top = runPut $ do
+        top = runPut do
           putWord8 1
           putWord24be $ fromIntegral $ lookup' (u8FolderName dir) nameLookup
           putWord32be $ fromIntegral $ u8FolderLevel dir
@@ -121,7 +122,7 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
       headerSize = fromIntegral (length nodes * 12) + fromIntegral (BL.length nameTable) -- nodes size + string table size
       alignedDataOffset = align 0x40 $ 0x20 + headerSize
 
-  BL.hPut hout $ runPut $ do
+  BL.hPut hout $ runPut do
     putWord32be 0x55AA382D -- tag, "U.8-"
     putWord32be 0x20 -- offset to root node
     putWord32be headerSize
@@ -148,7 +149,7 @@ readU8 u8 = do
         dataOrLevel <- getWord32be
         sizeOrExtent <- getWord32be
         return (isDir, name, dataOrLevel, sizeOrExtent)
-  (nodes, stringTableStart) <- flip runGetM u8 $ do
+  (nodes, stringTableStart) <- flip runGetM u8 do
     skip 0x20 -- assume this is where node list starts
     firstNode <- getNode
     restNodes <- case firstNode of

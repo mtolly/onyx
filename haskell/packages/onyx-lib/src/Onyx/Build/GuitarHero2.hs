@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -77,10 +78,10 @@ gh2Rules buildInfo dir gh2 = do
       pkg = T.unpack key
 
   let loadPartAudioCheck = case plan of
-        StandardPlan x -> return $ \part -> HM.member part x.parts.getParts
+        StandardPlan x -> return \part -> HM.member part x.parts.getParts
         MoggPlan     x -> do
           silentChans <- shk $ read <$> readFile' (planDir </> "silent-channels.txt")
-          return $ \part -> case HM.lookup part x.parts.getParts of
+          return \part -> case HM.lookup part x.parts.getParts of
             Nothing    -> False
             Just chans -> any (`notElem` (silentChans :: [Int])) $ concat $ toList chans
 
@@ -114,7 +115,7 @@ gh2Rules buildInfo dir gh2 = do
         hasAudio <- loadPartAudioCheck
         audio <- computeGH2Audio songYaml gh2 is360 hasAudio
         mid <- loadGH2Midi
-        srcs <- forM audio.audioSections $ \case
+        srcs <- forM audio.audioSections \case
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
@@ -161,7 +162,7 @@ gh2Rules buildInfo dir gh2 = do
           src <- applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
           return (src, True)
         _ -> do
-          srcs <- forM audio.practice $ \case
+          srcs <- forM audio.practice \case
             Nothing   -> applyVolsMono [0] <$> shk (buildSource $ Input $ planDir </> "everything.wav")
             Just part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           return (foldr1 merge srcs, False)

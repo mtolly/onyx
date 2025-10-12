@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -56,7 +57,7 @@ atomStr (Int  i) = T.pack $ show i
 atomStr (Real r) = T.pack $ show (realToFrac r :: Milli)
 
 parseSong :: (Monad m) => RawLines -> StackTraceT m (HM.HashMap T.Text Atom)
-parseSong lns = fmap HM.fromList $ forM lns $ \(k, vs) -> do
+parseSong lns = fmap HM.fromList $ forM lns \(k, vs) -> do
   let key = atomStr k
       val = case vs of
         [atom] -> atom
@@ -70,7 +71,7 @@ readTicks i = if i < 0
 
 parseTrack :: (Monad m) => RawLines -> StackTraceT m (RTB.T Ticks (Event Ticks))
 parseTrack lns = do
-  parsed <- forM lns $ \(k, vs) -> do
+  parsed <- forM lns \(k, vs) -> do
     time <- case k of
       Int i -> readTicks i
       Str s -> fatal $ "Track event has non-number timestamp: " <> show s
@@ -101,7 +102,7 @@ parseChart :: (Monad m) => [RawSection] -> StackTraceT m (Chart Ticks)
 parseChart sects = do
   let (songs, notSongs) = partition (("Song" ==) . fst) sects
   song <- mconcat <$> mapM (parseSong . snd) songs
-  trks <- fmap HM.fromList $ forM notSongs $ \(name, lns) -> do
+  trks <- fmap HM.fromList $ forM notSongs \(name, lns) -> do
     inside (".chart track [" <> T.unpack name <> "]") $ do
       trk <- parseTrack lns
       return (name, trk)
@@ -185,7 +186,7 @@ traverseWithAbsTime f
 applyChartSwitch :: (NNC.C t, Ord a) => RTB.T t t -> RTB.T t a -> RTB.T t (Bool, a)
 applyChartSwitch switch rtb = let
   (zero, nonzero) = RTB.partition (== NNC.zero) switch
-  nonzero' = U.trackJoin $ flip fmap nonzero $ \len -> RTB.fromPairList
+  nonzero' = U.trackJoin $ flip fmap nonzero \len -> RTB.fromPairList
     [ (NNC.zero, ((), True ))
     , (len     , ((), False))
     ]
@@ -220,7 +221,7 @@ data TrackEvent t a
 emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
 emitTrack hopoThreshold trk = let
   -- we call nub for each note group in case of two copies of a note (seen in the wild)
-  gnotes = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
+  gnotes = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ flip RTB.mapMaybe trk \case
     TrackNote x len -> Just (x, guard (len /= NNC.zero) >> Just len)
     _               -> Nothing
   gh = G.strumHOPOTap G.HOPOsGH3 hopoThreshold gnotes
@@ -230,7 +231,7 @@ emitTrack hopoThreshold trk = let
   flipSH Strum = HOPO
   flipSH HOPO  = Strum
   flipSH Tap   = Tap
-  in flip fmap applied $ \(forced, (tap, ((color, sht), len))) ->
+  in flip fmap applied \(forced, (tap, ((color, sht), len))) ->
     ((color, if tap then Tap else if forced then flipSH sht else sht), len)
 
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (FixedFile U.Beats))
@@ -238,7 +239,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
         fn $ fromMaybe RTB.empty $ HM.lookup name $ chartTracks chart
       res = fromIntegral $ chartResolution chart
-      insideEvents trk f = flip traverseWithAbsTime trk $ \t x -> do
+      insideEvents trk f = flip traverseWithAbsTime trk \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
           f x
       hopoThreshold = 65/192 -- default threshold according to moonscraper
@@ -276,8 +277,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       parseGRYBO label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
-            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
-              eachEvent evt $ \n len -> case n of
+            fmap RTB.catMaybes $ insideEvents trk \evt -> do
+              eachEvent evt \n len -> case n of
                 0 -> return $ Just $ TrackNote (Just Green ) len
                 1 -> return $ Just $ TrackNote (Just Red   ) len
                 2 -> return $ Just $ TrackNote (Just Yellow) len
@@ -314,8 +315,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       parseGHL label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
-            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
-              eachEvent evt $ \n len -> case n of
+            fmap RTB.catMaybes $ insideEvents trk \evt -> do
+              eachEvent evt \n len -> case n of
                 0 -> return $ Just $ TrackNote (Just White1) len
                 1 -> return $ Just $ TrackNote (Just White2) len
                 2 -> return $ Just $ TrackNote (Just White3) len
@@ -340,8 +341,8 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       parseDrums label = do
         diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
-            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
-              eachEvent evt $ \n len -> case n of
+            fmap RTB.catMaybes $ insideEvents trk \evt -> do
+              eachEvent evt \n len -> case n of
 
                 -- first we assign green/orange assuming this is a 4-lane chart.
                 -- then later if there are any orange notes, flip it so the lower numbers are orange and higher are green
@@ -378,7 +379,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
           let flipped5 = if any (\case TrackNote D.Orange _ -> True; _ -> False) parsed
-                then flip fmap parsed $ \case
+                then flip fmap parsed \case
                   TrackNote D.Orange           len -> TrackNote (D.Pro D.Green ()) len
                   TrackNote (D.Pro D.Green ()) len -> TrackNote D.Orange           len
                   TrackAccent D.Orange             -> TrackAccent (D.Pro D.Green ())
@@ -402,14 +403,14 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
             $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
           -- doesn't check kick accent (DrumTrack doesn't support yet)
           , D.drumKick2x = void $ RTB.filter (\case TrackKick2x -> True; _ -> False) expert
-          , D.drumDifficulties = flip fmap diffs $ \parsed -> D.DrumDifficulty
+          , D.drumDifficulties = flip fmap diffs \parsed -> D.DrumDifficulty
             { drumMix         = RTB.empty
             , drumPSModifiers = RTB.empty
             , drumGems        = RTB.flatten $ flip fmap (RTB.collectCoincident parsed) $ \instant -> let
               notes   = [ n | TrackNote   n _ <- instant ]
               ghosts  = [ n | TrackGhost  n   <- instant ]
               accents = [ n | TrackAccent n   <- instant ]
-              in flip map notes $ \note -> let
+              in flip map notes \note -> let
                 vel | elem note ghosts  = D.VelocityGhost
                     | elem note accents = D.VelocityAccent
                     | otherwise         = D.VelocityNormal
@@ -441,22 +442,22 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartGuitarCoop   <- parseGRYBO "DoubleGuitar" -- ExpertDoubleGuitar etc.
   fixedPartDrums        <- parseDrums "Drums" -- ExpertDrums etc.
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
-    { eventsSections = fmap simpleSection $ flip RTB.mapMaybe trk $ \case
+    { eventsSections = fmap simpleSection $ flip RTB.mapMaybe trk \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
     -- newly supported in CH 1.1 public test build. but maybe this will cause
     -- issues if people don't put activation (S 64) on non-drums instruments?
-    , eventsCoda = flip RTB.mapMaybe trk $ \case
+    , eventsCoda = flip RTB.mapMaybe trk \case
       Event "coda" -> Just ()
       _            -> Nothing
     }
   -- CH-format lyrics
   fixedPartVocals <- insideTrack "Events" $ \trk -> let
-    lyrics = flip RTB.mapMaybe trk $ \case
+    lyrics = flip RTB.mapMaybe trk \case
       Event t -> flip fmap (T.stripPrefix "lyric " t) $ T.replace "’" "'" . T.strip
       -- TODO probably more char fixes, also maybe it should be moved to song compile time
       _       -> Nothing
-    phrases = flip RTB.mapMaybe trk $ \case
+    phrases = flip RTB.mapMaybe trk \case
       Event "phrase_start" -> Just True
       Event "phrase_end"   -> Just False
       _                    -> Nothing

@@ -1,6 +1,7 @@
 {- |
 Common import functions for RB1, RB2, RB3, TBRB
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -128,7 +129,7 @@ importSTFSFolder src folder = do
       Just bs -> readDTBSingles $ BL.toStrict bs
       Nothing -> fatal "Couldn't find songs/songs.dta or songs/gen/songs.dtb"
   updateDir <- stackIO rb3Updates
-  fmap catMaybes $ forM packSongs $ \(DTASingle top pkg comments, _) -> errorToWarning $ do
+  fmap catMaybes $ forM packSongs \(DTASingle top pkg comments, _) -> errorToWarning do
 
     (baseX, baseY) <- case splitPath $ D.songName $ D.song pkg of
       Just ("songs" :| [x, y]) -> return (x, y) -- normal 360/ps3
@@ -150,8 +151,8 @@ importSTFSFolder src folder = do
           $ makeHandle "decrypted bink" $ decryptBink r >>= byteStringSimpleHandle . BL.fromStrict
         pss = case findFileCI pssPath folder of
           Nothing -> Nothing
-          Just r -> Just $ do
-            (bsVideo, bsVGS) <- useHandle r $ \h -> do
+          Just r -> Just do
+            (bsVideo, bsVGS) <- useHandle r \h -> do
               packets <- scanPackets h
               vid <- extractVideoStream 0xE0 packets h
               vgs <- extractVGSStream   0xBD packets h
@@ -172,7 +173,7 @@ importSTFSFolder src folder = do
     let missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
-      then return $ Just $ do
+      then return $ Just do
         Dir.doesFileExist missingArt >>= return . \case
           -- if True, old rb1 song with album art on rb3 disc
           True -> Right $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
@@ -186,12 +187,12 @@ importSTFSFolder src folder = do
               []       -> Left "Expected album art, but didn't find it"
       else return Nothing
     update <- if maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
-      then return $ Just $ do
+      then return $ Just do
         Dir.doesFileExist updateMid >>= return . \case
           True  -> Right $ fileReadable updateMid
           False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
-    return $ \level -> do
+    return \level -> do
       milo <- let
         tryMilo platform = let
           path = "songs" :| [baseX, "gen", baseY <> ".milo_" <> platform]
@@ -289,7 +290,7 @@ rockBandPS2PreSongTime pkg = if D.video pkg then 5 else 3
 loadFlatMilo :: (SendMessage m, MonadIO m) => ImportLevel -> Readable -> StackTraceT m [(B.ByteString, BL.ByteString)]
 loadFlatMilo level milo = do
   miloFolder <- case level of
-    ImportFull -> errorToWarning $ do
+    ImportFull -> errorToWarning do
       bs <- stackIO $ useHandle milo handleToByteString
       dec <- runGetM decompressMilo bs
       snd . miloToFolder <$> runGetM parseMiloFile dec
@@ -327,7 +328,7 @@ importRB rbi level = do
       is2x = fromMaybe auto2x $ c3dta2xBass rbi.comments
       hasKicks = if is2x then Kicks2x else Kicks1x
 
-  when (level == ImportFull) $ forM_ rbi.source $ \src -> do
+  when (level == ImportFull) $ forM_ rbi.source \src -> do
     lg $ "Importing Rock Band song [" <> T.unpack (D.songName $ D.song pkg) <> "] from: " <> src
 
   (midiFixed, midiOnyx) <- case level of
@@ -592,7 +593,7 @@ importRB rbi level = do
       , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyxWithAnim
       -- disabled now that we're importing it to midi
       , fileSongAnim        = Nothing -- fst <$> songAnim
-      , backgroundVideo     = flip fmap video $ \videoFile -> VideoInfo
+      , backgroundVideo     = flip fmap video \videoFile -> VideoInfo
         { fileVideo      = videoFile
         , videoStartTime = Just $ rockBandPS2PreSongTime pkg
         , videoEndTime   = Nothing
@@ -600,7 +601,7 @@ importRB rbi level = do
         }
       , fileBackgroundImage = Nothing
       }
-    , audio = HM.fromList $ do
+    , audio = HM.fromList do
       (name, bs) <- namedChans
       return $ (T.pack name ,) $ AudioFile AudioInfo
         { md5 = Nothing
@@ -646,7 +647,7 @@ importRB rbi level = do
               audioAdjust = Drop Start $ CA.Seconds $ rockBandPS2PreSongTime pkg
               mixChans cs = do
                 cs' <- NE.nonEmpty cs
-                Just $ case cs' of
+                Just case cs' of
                   c :| [] -> PansVols
                     (map realToFrac [D.pans (D.song pkg) !! c])
                     (map realToFrac [D.vols (D.song pkg) !! c])
@@ -764,7 +765,7 @@ importRB rbi level = do
           }
         })
       , ( F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode $ \vc -> ModeVocal
+        { vocal = flip fmap vocalMode \vc -> ModeVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc
           , gender = D.vocalGender pkg
@@ -794,7 +795,7 @@ importRB4 fdta level = do
         stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
       mid <- extractMidi rbmid
       -- only need to parse out the BEAT track so we can translate .rbsong times
-      beatMidi <- F.readMIDIFile' $ fmap decodeLatin1 $ case mid of
+      beatMidi <- F.readMIDIFile' $ fmap decodeLatin1 case mid of
         Cons typ dvn []       -> Cons typ dvn []
         Cons typ dvn (t : ts) -> Cons typ dvn $ t : filter (\trk -> U.trackName trk == Just "BEAT") ts
       let _ = beatMidi :: F.Song (F.OnyxFile U.Beats)
@@ -806,7 +807,7 @@ importRB4 fdta level = do
 
   -- dta.albumArt doesn't appear to be correct, it is False sometimes when song should have art
   art <- if level == ImportFull
-    then errorToWarning $ do
+    then errorToWarning do
       img <- stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "png_ps4")) >>= runGetM readPNGPS4
       return $ SoftFile "cover.png" $ SoftImage $ pixelMap dropTransparency img
     else return Nothing
@@ -827,7 +828,7 @@ importRB4 fdta level = do
     ImportFull -> stackIO (Dir.doesFileExist lipsyncPath) >>= \case
 
       True -> do
-        lips <- fmap (fromMaybe []) $ inside "Loading .lipsync_ps4" $ errorToWarning $ do
+        lips <- fmap (fromMaybe []) $ inside "Loading .lipsync_ps4" $ errorToWarning do
           bs <- stackIO $ B.readFile lipsyncPath
           runGetM getLipsyncPS4 (BL.fromStrict bs) >>= fromLipsyncPS4
 

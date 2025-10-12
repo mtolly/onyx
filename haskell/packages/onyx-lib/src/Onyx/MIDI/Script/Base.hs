@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.MIDI.Script.Base
@@ -167,7 +168,7 @@ showFraction rat = let
   (num, denom) = (numerator part, denominator part)
   in if part == 0
     then show (whole :: Integer)
-    else concat $ case quotRem 100 denom of
+    else concat case quotRem 100 denom of
       (q, 0) -> let -- show decimal if 2 or less places
         hundredths = case show $ num * q of
           [d]      -> ['0', d]
@@ -201,7 +202,7 @@ showStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> String
 showStandardMIDI opts m = let
   msrLengths = makeMeasures $ tempoTrack m
   msrStarts = scanl (+) 0 msrLengths
-  lastEventPosn = foldr max 0 $ flip map stdTracks $ \(_, t) -> if null t
+  lastEventPosn = foldr max 0 $ flip map stdTracks \(_, t) -> if null t
     then 0
     else last $ map fst t
   msrMap :: Map.Map NN.Rational Int
@@ -284,7 +285,7 @@ showEventOrNote (Note c p v len) = let
     ]
 
 showEvent :: E.T T.Text -> String
-showEvent evt = unwords $ case evt of
+showEvent evt = unwords case evt of
   E.MetaEvent meta -> case meta of
     M.SequenceNum i         -> ["seqnum", show i]
     M.TextEvent s           -> ["text", show s]

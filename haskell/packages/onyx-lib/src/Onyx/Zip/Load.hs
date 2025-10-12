@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Zip.Load where
@@ -34,17 +35,17 @@ loadZipFolder password path eachFile = do
   let path' = TE.encodeUtf8 $ T.pack path
   files <- withZip path' $ \z -> do
     n <- zip_get_num_entries z mempty
-    zipAlloca $ \stat -> do
+    zipAlloca \stat -> do
       fmap catMaybes $ forM [0 .. fromIntegral n - 1] $ \i -> do
         zip_stat_index z i mempty stat >>= \code -> case code of
           0 -> do
             info <- getZipStat stat
-            return $ do
+            return do
               filePath <- TE.decodeUtf8With lenientDecode <$> zipStatName info
               pathList <- splitPath filePath
               Just (T.unpack filePath, pathList, i)
           _ -> return Nothing
-  return $ fromFiles $ do
+  return $ fromFiles do
     (filePath, pathList, i) <- files
     -- I'm making an assumption that the indexes won't change between zip loads
     let output = eachFile path filePath $ withZip path' $ \z -> do
@@ -60,16 +61,16 @@ loadZipReadables :: Maybe B.ByteString -> FilePath -> IO (Folder T.Text Readable
 loadZipReadables password path = loadZipFolder password path zipFileReadable
 
 loadZipLazyBytes :: Maybe B.ByteString -> FilePath -> IO (Folder T.Text (IO BL.ByteString))
-loadZipLazyBytes password path = loadZipFolder password path $ \_ _ -> id
+loadZipLazyBytes password path = loadZipFolder password path \_ _ -> id
 
 loadZipStrictBytes :: Maybe B.ByteString -> FilePath -> IO (Folder T.Text (IO B.ByteString))
-loadZipStrictBytes password path = loadZipFolder password path $ \_ _ -> fmap BL.toStrict
+loadZipStrictBytes password path = loadZipFolder password path \_ _ -> fmap BL.toStrict
 
 zipFileReadable :: FilePath -> FilePath -> IO BL.ByteString -> Readable
 zipFileReadable path filePath reader = makeHandle (path <> " | " <> filePath) $ reader >>= byteStringSimpleHandle
 
 readZipFile :: ZipFile -> IO BL.ByteString
-readZipFile zf = allocaBytes smallChunkSize $ \buf -> let
+readZipFile zf = allocaBytes smallChunkSize \buf -> let
   loop !builder = zip_fread zf buf (fromIntegral smallChunkSize) >>= \n -> case n of
     0         -> return $ BB.toLazyByteString builder
     bytesRead -> do

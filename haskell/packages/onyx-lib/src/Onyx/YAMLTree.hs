@@ -14,6 +14,7 @@ The reference to @D.png@ is actually @B/D.png@ because it is relative to @B/C.ym
 So, when the contents of @B/C.yml@ get glued into @A.yml@,
 the filename will be edited into @B/D.png@.
 -}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.YAMLTree (readYAMLTree) where
@@ -50,7 +51,7 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
     Just "include" -> case stringOrStrings v of
       A.Success e -> do
         let files = either (: []) id e
-        vs <- forM files $ \file -> liftIO (makeAbsolute $ dir </> file) >>= readYAMLTree
+        vs <- forM files \file -> liftIO (makeAbsolute $ dir </> file) >>= readYAMLTree
         case mapM A.fromJSON vs of
           A.Success objs -> goPairs (foldl' KM.union o objs) rest
           -- TODO: KM.union above should be edited so that sub-objects are merged
@@ -58,10 +59,10 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
       A.Error s -> fail s
     Just _ -> case stringOrStrings v of
       A.Success e -> do
-        v' <- liftIO $ case e of
+        v' <- liftIO case e of
           Left  s  -> fmap A.toJSON $ makeAbsolute $ dir </> s
           Right [] -> return A.Null
-          Right ss -> fmap A.toJSON $ forM ss $ \s -> makeAbsolute $ dir </> s
+          Right ss -> fmap A.toJSON $ forM ss \s -> makeAbsolute $ dir </> s
         goPairs (KM.insert k v' o) rest
       A.Error s -> fail s
     _ -> go v >>= \v' -> goPairs (KM.insert k v' o) rest

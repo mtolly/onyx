@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
@@ -179,7 +180,7 @@ instance ParseTrack FiveTrack where
 
     -- preprocess CH pitch 104 format for tap sections
     Codec
-      { codecIn = lift $ modify $ \mt -> let
+      { codecIn = lift $ modify \mt -> let
         p104 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 104) (midiNotes mt)
         in if RTB.null p104 then mt else let
           newPS = flip fmap p104 $ PS.PSMessage Nothing PS.TapNotes . \case
@@ -195,7 +196,7 @@ instance ParseTrack FiveTrack where
     -- check for CH text event to determine whether to read new open note format on all difficulties
     enhancedOpens <- Codec
       { codecIn = do
-        evts <- slurpTrack $ \mt -> let
+        evts <- slurpTrack \mt -> let
           (brackets  , cmds'  ) = RTB.partition (== ["ENHANCED_OPENS"]) $ midiCommands mt
           (noBrackets, lyrics') = RTB.partition (== "ENHANCED_OPENS") $ midiLyrics mt
           mt' = mt
@@ -205,7 +206,7 @@ instance ParseTrack FiveTrack where
           in (RTB.merge (void brackets) (void noBrackets), mt')
         return $ not $ RTB.null evts
       , codecOut = \trk -> let
-        hasEnhancedOpens = not $ null $ do
+        hasEnhancedOpens = not $ null do
           diff <- Map.elems trk.fiveDifficulties
           e <- RTB.getBodies diff.fiveGems
           Nothing <- toList e
@@ -229,7 +230,7 @@ instance ParseTrack FiveTrack where
     fiveSolo         <- (.fiveSolo      ) =. edges 103
     fivePlayer1      <- (.fivePlayer1   ) =. edges 105
     fivePlayer2      <- (.fivePlayer2   ) =. edges 106
-    fiveDifficulties <- (=.) (.fiveDifficulties) $ eachKey each $ \diff -> fatBlips (1/8) $ do
+    fiveDifficulties <- (=.) (.fiveDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72

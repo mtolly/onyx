@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -58,7 +59,7 @@ preprocessDTA (x : xs) = case x of
     Nothing -> (x :) <$> preprocessDTA xs
 
   Undef s -> do
-    lift $ modify $ \pp -> pp
+    lift $ modify \pp -> pp
       { defines = HM.delete s pp.defines }
     preprocessDTA xs
 
@@ -82,7 +83,7 @@ preprocessDTA (x : xs) = case x of
       warn $ "#define does not have a value following it: " <> show x
       return []
     next : rest -> do
-      lift $ modify $ \pp -> pp
+      lift $ modify \pp -> pp
         { defines = HM.insert s next pp.defines }
       preprocessDTA rest
 
@@ -181,7 +182,7 @@ initDTAState = DTAState
       , \case
         Var v : args -> do
           results <- concatMapM evaluateDTA args
-          lift $ modify $ \s -> s { variables = HM.insert v results s.variables }
+          lift $ modify \s -> s { variables = HM.insert v results s.variables }
           return []
         args -> do
           warn $ "{set} was not given $variable as first parameter: " <> show args
@@ -242,7 +243,7 @@ initDTAState = DTAState
                 lift $ put origState
                 return results
               in do
-                lift $ modify $ \s -> s { functions = HM.insert name newFunc s.functions }
+                lift $ modify \s -> s { functions = HM.insert name newFunc s.functions }
                 return []
             Nothing -> do
               warn $ "Non-variable in parameter list for {func}: " <> show params'
@@ -367,7 +368,7 @@ initDTAState = DTAState
     ]
 
   } where
-    getNumbers name = mapMaybeM $ \case
+    getNumbers name = mapMaybeM \case
       Int   n -> return $ Just $ Left  n
       Float n -> return $ Just $ Right n
       arg     -> do
@@ -388,7 +389,7 @@ initDTAState = DTAState
       [Float  0 ] -> False
       [String ""] -> False
       _           -> True
-    returnBool b = return [Int $ if b then 1 else 0]
+    returnBool b = return [Int if b then 1 else 0]
     comparison name intOp floatOp = concatMapM evaluateDTA >=> \case
       -- actually in lisp these can take more than 2 args
       [Int   x, Int   y] -> returnBool $ intOp x y
@@ -400,7 +401,7 @@ initDTAState = DTAState
         return []
 
 testRun :: T.Text -> IO (Either Messages [Chunk T.Text])
-testRun txt = logStdout $ do
+testRun txt = logStdout do
   DTA _ (Tree _ chunks) <- scanStack txt >>= parseStack
   prep <- mapStackTraceT (`evalStateT` initPreprocess) $ preprocessDTA chunks
   mapStackTraceT (`evalStateT` initDTAState) $ concatMapM evaluateDTA prep

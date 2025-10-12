@@ -7,6 +7,7 @@ Many thanks to
 - xoreos's parser for an earlier .fev version used in BioWare's Aurora engine
 
 -}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -62,7 +63,7 @@ fevString = Codec
         bs <- getByteString $ fromIntegral len
         unless (B.last bs == 0) $ fail $ "Invalid string: " <> show bs
         return $ B.init bs
-  , codecOut = fmapArg $ \bs -> if B.null bs
+  , codecOut = fmapArg \bs -> if B.null bs
     then putWord32le 0
     else do
       putWord32le $ fromIntegral $ B.length bs + 1
@@ -75,7 +76,7 @@ fevLenArray c = Codec
   { codecIn = do
     len <- getWord32le
     replicateM (fromIntegral len) $ codecIn c
-  , codecOut = fmapArg $ \xs -> do
+  , codecOut = fmapArg \xs -> do
     putWord32le $ fromIntegral $ length xs
     forM_ xs $ codecOut c
   }
@@ -88,7 +89,7 @@ fevLenArray2 clen c1 c2 = Codec
     xs <- replicateM (fromIntegral len1) $ codecIn c1
     ys <- replicateM (fromIntegral len2) $ codecIn c2
     return (xs, ys)
-  , codecOut = fmapArg $ \(xs, ys) -> do
+  , codecOut = fmapArg \(xs, ys) -> do
     void $ codecOut clen $ fromIntegral $ length xs
     void $ codecOut clen $ fromIntegral $ length ys
     forM_ xs $ codecOut c1
@@ -140,7 +141,7 @@ data FEV = FEV
 testParseFEV :: FilePath -> IO ()
 testParseFEV f = do
   fev <- BL.readFile f >>= runGetM (codecIn binFEV)
-  withBinaryFile (f -<.> "txt") WriteMode $ \h -> pHPrint h fev
+  withBinaryFile (f -<.> "txt") WriteMode \h -> pHPrint h fev
 
 binFEV :: BinaryCodec FEV
 binFEV = do
@@ -148,7 +149,7 @@ binFEV = do
     { codecIn = getByteString 4 >>= \case
       "FEV1" -> return ()
       magic  -> fail $ "Invalid .fev magic identifier: " <> show magic
-    , codecOut = fmapArg $ \() -> putByteString "FEV1"
+    , codecOut = fmapArg \() -> putByteString "FEV1"
     }
   version               <- (.version) =. Codec
     { codecIn = getWord32le >>= \case
@@ -178,7 +179,7 @@ binFEV = do
     { codecIn = isEmpty >>= \case
       True  -> return ()
       False -> fail "Failed to parse all data in .fev file"
-    , codecOut = fmapArg $ \_ -> return ()
+    , codecOut = fmapArg \_ -> return ()
     }
   return FEV{..}
 
@@ -226,7 +227,7 @@ binEventGroup version = do
   name           <- (.name) =. fevString
   userProperties <- (.userProperties) =. fevLenArray Codec
     { codecIn = fail "Unsupported .fev feature: user properties"
-    , codecOut = fmapArg $ \UserProperty -> return ()
+    , codecOut = fmapArg \UserProperty -> return ()
     }
   (subgroups, events)
     <- (\layer -> (layer.subgroups, layer.events))

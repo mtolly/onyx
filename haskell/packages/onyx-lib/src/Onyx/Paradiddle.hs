@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -121,7 +122,7 @@ Z is up/down, higher is up
 
 jsonV3 :: (Monad m) => JSONCodec m (V3 Scientific)
 jsonV3 = Codec
-  { codecOut = makeOut $ \(V3 x y z) -> A.toJSON [x, y, z]
+  { codecOut = makeOut \(V3 x y z) -> A.toJSON [x, y, z]
   , codecIn = lift ask >>= \case
     A.Array (V.toList -> [A.Number x, A.Number y, A.Number z])
       -> return $ V3 x y z

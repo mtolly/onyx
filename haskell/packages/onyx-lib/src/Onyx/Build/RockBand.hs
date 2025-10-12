@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -115,7 +116,7 @@ import           System.IO                             (IOMode (ReadMode),
 moggToStandardPlan :: T.Text -> MoggPlanInfo f -> StandardPlanInfo f
 moggToStandardPlan planName info = StandardPlanInfo
   { song        = channelsToMaybeAudio backingTrackChannels
-  , parts       = Parts $ flip HM.mapMaybe info.parts.getParts $ \pa -> case pa of
+  , parts       = Parts $ flip HM.mapMaybe info.parts.getParts \pa -> case pa of
     PartSingle channels -> fmap PartSingle $ channelsToMaybeAudio $ filter (not . isBackingTrack) channels
     PartDrumKit{}       -> let
       allDrumChannels = concat $ toList pa
@@ -154,7 +155,7 @@ rbRules buildInfo dir rb3 mrb2 = do
 
   (planName, plan) <- case getPlan rb3.common.plan songYaml of
     Nothing               -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
-    Just pair@(planName, plan) -> return $ case plan of
+    Just pair@(planName, plan) -> return case plan of
       MoggPlan info -> let
         instrumentHasChannels inst = maybe False (not . null) $ HM.lookup inst info.parts.getParts
         allInstrumentsHaveChannels = and
@@ -353,7 +354,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           , cents = getTuningCents plan
           }
     makeReaperShake tunings pathMagmaMid pathMagmaMid auds' out
-  phony pathMagmaSetup $ do
+  phony pathMagmaSetup do
     -- Just make all the Magma prereqs, but don't actually run Magma
     auds <- magmaNeededAudio
     shk $ need $ auds ++ [pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3, pathMagmaRPP]
@@ -389,7 +390,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         lg "# Running Magma v2 to export MIDI"
         errorToEither magma >>= \case
           Right result -> return result
-          Left (Messages errors) -> throwNoContext $ Messages $ do
+          Left (Messages errors) -> throwNoContext $ Messages do
             let annotation = "\n" <> magmaErrorMessage <> "\n"
             Message str ctx <- errors
             return $ Message (str <> annotation) ctx
@@ -621,7 +622,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                 LipsyncTrack2 -> return $ lip vox.onyxLipsync2
                 LipsyncTrack3 -> return $ lip vox.onyxLipsync3
                 LipsyncTrack4 -> return $ lip vox.onyxLipsync4
-                LipsyncVocal mvc -> return $ auto $ case mvc of
+                LipsyncVocal mvc -> return $ auto case mvc of
                   Nothing     -> vox.onyxPartVocals
                   Just Vocal1 -> vox.onyxHarm1
                   Just Vocal2 -> vox.onyxHarm2
@@ -683,12 +684,12 @@ rbRules buildInfo dir rb3 mrb2 = do
   rb3ps3Mogg %> \out -> do
     -- PS3 RB3 can't play unencrypted moggs
     shk $ need [pathMogg]
-    moggType <- stackIO $ withBinaryFile pathMogg ReadMode $ \h -> B.hGet h 1
+    moggType <- stackIO $ withBinaryFile pathMogg ReadMode \h -> B.hGet h 1
     case B.unpack moggType of
       [0xA] -> stackIO $ encryptMOGGFiles pathMogg out
       _     -> shk $ copyFile' pathMogg out
   rb3ps3Milo %> shk . copyFile' pathMilo
-  phony rb3ps3Root $ do
+  phony rb3ps3Root do
     shk $ need [rb3ps3DTA, rb3ps3Mogg, rb3ps3Mid, rb3ps3Art, rb3ps3Milo]
 
   rb3ps3Pkg %> \out -> do
@@ -819,7 +820,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             lg "# Running Magma v1 to export MIDI"
             errorToEither magma >>= \case
               Right result -> return result
-              Left (Messages errors) -> throwNoContext $ Messages $ do
+              Left (Messages errors) -> throwNoContext $ Messages do
                 let annotation = "\n" <> magmaErrorMessage <> "\n"
                 Message str ctx <- errors
                 return $ Message (str <> annotation) ctx
@@ -846,7 +847,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             rb2Pan = dir </> "rb2/songs" </> pkg </> pkg <.> "pan"
             fixDict = HM.fromList . fixAssoc . HM.toList
             fixDictList = D.DictList . fixAssoc . D.fromDictList
-            fixAssoc = mapMaybe $ \(k, v) -> case k of
+            fixAssoc = mapMaybe \(k, v) -> case k of
               "guitar" -> Just (k, v)
               "bass"   -> Just (k, v)
               "keys"   -> Nothing
@@ -887,7 +888,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.preview = D.preview rb3DTA
                     , D.rank = fixDict $ D.rank rb3DTA
                     , D.genre = Just $ rbn1Genre thisFullGenre
-                    , D.decade = Just $ case D.yearReleased rb3DTA of
+                    , D.decade = Just case D.yearReleased rb3DTA of
                       Nothing -> "the10s"
                       Just y
                         | 1960 <= y && y < 1970 -> "the60s"
@@ -915,7 +916,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                       (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
                       (_   , x) -> x
                     , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre thisFullGenre
-                    , D.songId = Just $ case rb2.songID of
+                    , D.songId = Just case rb2.songID of
                       SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
                       SongIDInt i      -> Left $ fromIntegral i
                       SongIDAutoSymbol -> if isPS3
@@ -995,7 +996,7 @@ rbRules buildInfo dir rb3 mrb2 = do
           let _ = mid :: F.Song (F.FixedFile U.Beats)
               lipsyncLen :: U.Seconds
               lipsyncLen = fromIntegral (F.songLengthMS mid) / 1000 + 1
-              miloDir = rb2MiloDir $ case map (extendLipsync lipsyncLen) lips of
+              miloDir = rb2MiloDir case map (extendLipsync lipsyncLen) lips of
                 []                    -> MagmaLipsync1 $ extendLipsync lipsyncLen emptyLipsync
                 [l1]                  -> MagmaLipsync1 l1
                 [l1, l2]              -> MagmaLipsync2 l1 l2
@@ -1039,14 +1040,14 @@ rbRules buildInfo dir rb3 mrb2 = do
         rb2ps3Mogg %> \out -> do
           -- PS3 RB3 can't play unencrypted moggs (RB2 might be fine, but we may as well be compatible)
           shk $ need [rb2Mogg]
-          moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode $ \h -> B.hGet h 1
+          moggType <- stackIO $ withBinaryFile rb2Mogg ReadMode \h -> B.hGet h 1
           case B.unpack moggType of
             [0xA] -> stackIO $ encryptMOGGFiles rb2Mogg out
             _     -> shk $ copyFile' rb2Mogg out
         rb2ps3Weights %> shk . copyFile' rb2Weights
         rb2ps3Milo %> shk . copyFile' rb2Milo
         rb2ps3Pan %> shk . copyFile' rb2Pan
-        phony rb2ps3Root $ do
+        phony rb2ps3Root do
           shk $ need [rb2ps3DTA, rb2ps3Mogg, rb2ps3Mid, rb2ps3Art, rb2ps3Weights, rb2ps3Milo, rb2ps3Pan]
 
         rb2ps3Pkg %> \out -> do
@@ -1261,7 +1262,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     { D.name = songName
     , D.artist = Just artistName
     , D.master = not metadata.cover
-    , D.songId = Just $ case rb3.songID of
+    , D.songId = Just case rb3.songID of
       SongIDSymbol s   -> Right s
       SongIDInt i      -> Left $ fromIntegral i
       SongIDAutoSymbol -> if isPS3
@@ -1295,22 +1296,22 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
           , ("vocals", channelIndices [drumChannels, bassChannels, guitarChannels] vocalChannels)
           , ("keys"  , channelIndices [drumChannels, bassChannels, guitarChannels, vocalChannels] keysChannels)
           ]
-      , D.vocalParts = Just $ case vocalCount of
+      , D.vocalParts = Just case vocalCount of
         Nothing     -> 0
         Just Vocal1 -> 1
         Just Vocal2 -> 2
         Just Vocal3 -> 3
-      , D.pans = map realToFrac $ case plan of
+      , D.pans = map realToFrac case plan of
         MoggPlan     x -> x.pans
         StandardPlan _ -> extend6 0 $ map fst $ partChannels <> songChannels <> crowdChannels
-      , D.vols = map realToFrac $ case plan of
+      , D.vols = map realToFrac case plan of
         MoggPlan     x -> x.vols
         StandardPlan _ -> extend6 0 $ map snd $ partChannels <> songChannels <> crowdChannels
       , D.cores = case plan of
         MoggPlan     x -> map (const (-1)) x.pans
         StandardPlan _ -> extend6 (-1) $ map (const (-1)) $ partChannels <> songChannels <> crowdChannels
         -- TODO: 1 for guitar channels?
-      , D.drumSolo = D.DrumSounds $ T.words $ case fmap (.layout) $ getPart rb3.drums songYaml >>= (.drums) of
+      , D.drumSolo = D.DrumSounds $ T.words case fmap (.layout) $ getPart rb3.drums songYaml >>= (.drums) of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
@@ -1326,12 +1327,12 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
       , D.muteVolumeVocals = Nothing
       , D.midiFile = Nothing
       }
-    , D.bank = Just $ case perctype of
+    , D.bank = Just case perctype of
       Nothing               -> "sfx/tambourine_bank.milo"
       Just Magma.Tambourine -> "sfx/tambourine_bank.milo"
       Just Magma.Cowbell    -> "sfx/cowbell_bank.milo"
       Just Magma.Handclap   -> "sfx/handclap_bank.milo"
-    , D.drumBank = Just $ case fmap (.kit) $ getPart rb3.drums songYaml >>= (.drums) of
+    , D.drumBank = Just case fmap (.kit) $ getPart rb3.drums songYaml >>= (.drums) of
       Nothing            -> "sfx/kit01_bank.milo"
       Just HardRockKit   -> "sfx/kit01_bank.milo"
       Just ArenaKit      -> "sfx/kit02_bank.milo"
@@ -1367,7 +1368,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.songFormat = 10
     , D.version = 30 -- necessary for rbn2 venues to work with rb3dx custom sources
     , D.fake = Nothing
-    , D.gameOrigin = Just $ if rb3.harmonix then "rb3_dlc" else "ugc_plus"
+    , D.gameOrigin = Just if rb3.harmonix then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
     , D.rating = case (isPS3, fromIntegral $ fromEnum metadata.rating + 1) of
       (True, 4) -> 2 -- Unrated (on RB2 at least) causes it to be locked in game on PS3
@@ -1394,7 +1395,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.realBassTuning = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) $ \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
-    , D.encoding = Just $ case rb3.encoding of
+    , D.encoding = Just case rb3.encoding of
       Latin1 -> "latin1"
       UTF8   -> "utf8"
     , D.extraAuthoring = Nothing

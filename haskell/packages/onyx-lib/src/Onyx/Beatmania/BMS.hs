@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
@@ -126,11 +127,11 @@ readBMSLines lns = BMS
     refBPMs = HM.mapMaybe textFloat $ HM.fromList $ getReferences "BPM" lns
     baseBPM = fromMaybe 0 $ HM.lookup "BASEBPM" lnsMap >>= textFloat
 
-    readPlayer c = foldr RTB.merge RTB.empty $ do
+    readPlayer c = foldr RTB.merge RTB.empty do
       (col, key) <- bmeMapping
       return $ (key,) <$> getChannel (T.pack [c, col])
 
-    readPlayerLong c = foldr RTB.merge RTB.empty $ do
+    readPlayerLong c = foldr RTB.merge RTB.empty do
       (col, key) <- bmeMapping
       let chan = getChannel $ T.pack [c, col]
           edges = zip (cycle [True, False]) $ RTB.toPairList chan

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -124,7 +125,7 @@ getManiaTrack smn translate = let
     $ smn_Notes smn
   maxKey = foldr max 0 $ fst <$> toList sourceChars
   in ManiaTrack
-    { maniaNotes = blipEdgesRBNice $ foldr RTB.merge RTB.empty $ do
+    { maniaNotes = blipEdgesRBNice $ foldr RTB.merge RTB.empty do
       key <- [0 .. maxKey]
       let filtered = RTB.mapMaybe (\(key', c) -> guard (key == key') >> Just c) sourceChars
           go ANil = ANil
@@ -181,7 +182,7 @@ importSM src level = do
       let (tempos, sigs, translate) = buildSMTempo sm
       return $ delayMIDI $ F.Song tempos sigs mempty
         { F.onyxParts = Map.singleton (F.PartName "dance") mempty
-          { F.onyxPartMania = Map.fromList $ do
+          { F.onyxPartMania = Map.fromList do
             smn <- sm_NOTES sm
             guard $ importableSMN smn
             return (smn_Difficulty smn, getManiaTrack smn translate)
@@ -193,7 +194,7 @@ importSM src level = do
         , Just $ src -<.> "ogg"
         , Just $ src -<.> "mp3"
         ]
-  audio <- fmap (fromMaybe HM.empty) $ flip firstJustM audioOptions $ \opt -> do
+  audio <- fmap (fromMaybe HM.empty) $ flip firstJustM audioOptions \opt -> do
     p <- fixFileCase opt
     stackIO (doesFileExist p) >>= \case
       False -> return Nothing
@@ -226,12 +227,12 @@ importSM src level = do
         [ filter isImageExt $ (\f -> takeDirectory src </> T.unpack f) <$> toList (sm_BACKGROUND sm)
         , addImageExts $ dropExtension src <> "-bg"
         ]
-  banner <- flip firstJustM bannerOptions $ \opt -> do
+  banner <- flip firstJustM bannerOptions \opt -> do
     path' <- fixFileCase opt
     stackIO (doesFileExist path') >>= \case
       True  -> return $ Just $ SoftFile ("banner" <.> takeExtension path') $ SoftReadable $ fileReadable path'
       False -> return Nothing
-  background <- flip firstJustM bgOptions $ \opt -> do
+  background <- flip firstJustM bgOptions \opt -> do
     path' <- fixFileCase opt
     stackIO (doesFileExist path') >>= \case
       True  -> return $ Just $ SoftFile ("background" <.> takeExtension path') $ SoftReadable $ fileReadable path'
@@ -245,7 +246,7 @@ importSM src level = do
       videoOptions = concat
         [ addVideoExts $ dropExtension src
         ]
-  video <- flip firstJustM videoOptions $ \opt -> do
+  video <- flip firstJustM videoOptions \opt -> do
     p <- fixFileCase opt
     stackIO (doesFileExist p) >>= \case
       False -> return Nothing
@@ -276,7 +277,7 @@ importSM src level = do
         (Nothing, Just jp) -> (Just jp, Nothing)
         pair               -> pair
 
-  diffs <- maybe (fatal "No .sm importable difficulties found") return $ NE.nonEmpty $ do
+  diffs <- maybe (fatal "No .sm importable difficulties found") return $ NE.nonEmpty do
     smn <- sortOn smn_NumericalMeter $ filter importableSMN $ sm_NOTES sm
     let keyCount = case concat smn.smn_Notes of
           line : _ -> T.length line

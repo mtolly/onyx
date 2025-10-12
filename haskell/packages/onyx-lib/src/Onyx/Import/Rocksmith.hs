@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -90,11 +91,11 @@ importRS psarc = do
         Nothing  -> fatal $ "Required subfolder not found: " <> show p
   xblocks <- filter (\(f, _) -> takeExtension (T.unpack f) == ".xblock") . folderFiles
     <$> subfolder ["gamexblocks", "nsongs"]
-  xblockSongs <- forM xblocks $ \(xblockName, xblock) -> do
+  xblockSongs <- forM xblocks \(xblockName, xblock) -> do
     xml <- stackIO (useHandle xblock handleToByteString) >>= \bs -> case parseXMLDoc bs of
       Nothing  -> fatal $ "Couldn't parse XML from " <> T.unpack xblockName
       Just xml -> return xml
-    return $ do
+    return do
       entitySet <- findChildren (QName "entitySet" Nothing Nothing) xml
       entity <- findChildren (QName "entity" Nothing Nothing) entitySet
       let mapping = do
@@ -153,7 +154,7 @@ importRSSong folder song level = do
         A.Number n -> return $ n /= 0
         A.Bool   b -> return b
         _          -> fatal "Expected boolean (true/false/0/1) in JSON file"
-  partsWithVox <- fmap catMaybes $ forM song $ \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
+  partsWithVox <- fmap catMaybes $ forM song \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
     header <- urn $ rsHeader entity -- urn:database:hsan-db or hson-db
     manifest <- urn $ rsManifest entity -- urn:database:json-db
     sngPath <- urn $ rsSngAsset entity -- urn:application:musicgame-song
@@ -183,7 +184,7 @@ importRSSong folder song level = do
       then do
         -- for now, only import romaji vocals for japanese songs
         japanese <- errorToEither $ prop "JapaneseVocal" jsonAttrs >>= getBool
-        return $ case japanese of
+        return case japanese of
           Right True -> Nothing
           _          -> Just $ Left sng
       else do
@@ -209,7 +210,7 @@ importRSSong folder song level = do
               (_    , _    , True , _    ) -> Just RSBass
               (False, False, False, _    ) -> Nothing
         -- TODO warn if marrtype is Nothing?
-        forM marrtype $ \arrtype -> do
+        forM marrtype \arrtype -> do
           -- I've seen CF files (Timepiece Phase II) that have a null in this tone list
           toneList <- prop "Tones" jsonAttrs >>= \v -> do
             results <- errorToWarning $ mapStackTraceT (`runReaderT` v) fromJSON
@@ -221,7 +222,7 @@ importRSSong folder song level = do
               findMaybeTone k  = Just <$> findTone k
           -- TODO support no base tone - this shouldn't happen,
           -- but does if you compile a custom with no tones
-          tones <- inside "Importing RS tones" $ errorToWarning $ do
+          tones <- inside "Importing RS tones" $ errorToWarning do
             fileToneBase <- prop "Tone_Base" jsonAttrs >>= getString >>= findTone
             fileToneA    <- prop "Tone_A" jsonAttrs >>= getString >>= findMaybeTone
             fileToneB    <- prop "Tone_B" jsonAttrs >>= getString >>= findMaybeTone
@@ -253,7 +254,7 @@ importRSSong folder song level = do
           Xbox360 -> BigEndian
           PS3     -> BigEndian
         in extractRSOgg bnkFile audioDir
-      modifiedBeats = removeDupeTimes $ case maybe [] sng_BPMs firstArr of
+      modifiedBeats = removeDupeTimes case maybe [] sng_BPMs firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t
@@ -274,12 +275,12 @@ importRSSong folder song level = do
         then removeDupeTimes bs
         else b1 : removeDupeTimes bs
       removeDupeTimes bs = bs
-      temps = U.tempoMapFromBPS $ let
+      temps = U.tempoMapFromBPS let
         makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ bpm_Time b2 - bpm_Time b1)
         in RTB.fromPairList
           $ zip (0 : repeat 1)
           $ zipWith makeTempo modifiedBeats (drop 1 modifiedBeats)
-      sigs = U.measureMapFromLengths U.Truncate $ let
+      sigs = U.measureMapFromLengths U.Truncate let
         startsBar = (== 0) . bpm_Beat
         makeBarLengths [] = []
         makeBarLengths (_ : ebeats) = case break startsBar ebeats of
@@ -303,7 +304,7 @@ importRSSong folder song level = do
         originalNames = [ name | ((_, name), _, _, _, _, _) <- input ]
         replaceName n1 n2 = do
           orig@((slot, name), sng, bnkPath, meta, isBass, tones) <- input
-          return $ if name == n1
+          return if name == n1
             then ((slot, n2), sng, bnkPath, meta, isBass, tones)
             else orig
         in if
@@ -315,7 +316,7 @@ importRSSong folder song level = do
       toSeconds = realToFrac :: Float -> U.Seconds
       midi = case level of
         ImportFull -> F.Song temps sigs mempty
-          { F.onyxParts = Map.fromList $ do
+          { F.onyxParts = Map.fromList do
             ((_, partName), Just sng, _, _, isBass, _) <- namedParts
             let capoOffset :: Int
                 capoOffset = case meta_CapoFretId $ sng_Metadata sng of
@@ -471,7 +472,7 @@ importRSSong folder song level = do
                   , ciFingers     = map (toEnum . fromIntegral) $ filter (/= (-1)) $ chord_Fingers chord
                   , ciArpeggio    = chord_Mask chord .&. 0x00000001 /= 0
                   , ciNop         = chord_Mask chord .&. 0x00000002 /= 0
-                  , ciOnce        = Just $ do
+                  , ciOnce        = Just do
                     (str, fret) <- zip [S6, S5 ..] $ chord_Frets chord
                     guard $ fret >= 0
                     return str
@@ -506,7 +507,7 @@ importRSSong folder song level = do
                       in (t, name)
                   , rsAnchorLow  = fmap (legalFret . fst) anchors
                   , rsAnchorHigh = fmap (legalFret . snd) anchors
-                  , rsModifiers  = flip RTB.mapMaybe notes $ \((_, str, len), (mods, _)) -> let
+                  , rsModifiers  = flip RTB.mapMaybe notes \((_, str, len), (mods, _)) -> let
                     mods' = mods <> case len of
                       Just n | n < minSustainLengthRB -> [ModSustain] -- force small note to sustain
                       _                               -> []
@@ -525,7 +526,7 @@ importRSSong folder song level = do
                         3 -> ToneD
                         _ -> ToneA -- TODO error?
                       in (t, tone)
-                  , rsBends      = U.unapplyTempoTrack temps $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort $ do
+                  , rsBends      = U.unapplyTempoTrack temps $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
                     ((_, str, _), (_, bends)) <- RTB.getBodies notes
                     (t, bend) <- bends
                     return (toSeconds t, ([str], realToFrac bend))
@@ -562,7 +563,7 @@ importRSSong folder song level = do
             (B8.any (\c -> not $ isSpace c || c == '+') . vocal_Lyric)
             (maybe [] sng_Vocals voxSNG)
 
-          vocals2 = sort $ do
+          vocals2 = sort do
             v <- vocals1
             let pitch = if 36 <= vocal_Note v && vocal_Note v <= 84
                   then toEnum $ fromIntegral $ vocal_Note v - 36
@@ -623,7 +624,7 @@ importRSSong folder song level = do
         pair@(_, True) : pairs -> pair : removeDupePhraseStart (dropWhile snd pairs)
         pair : pairs -> pair : removeDupePhraseStart pairs
         [] -> []
-      partsMap = HM.fromList $ do
+      partsMap = HM.fromList do
         ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
         let part = emptyPart
               { proGuitar = Just ModeProGuitar
@@ -652,7 +653,7 @@ importRSSong folder song level = do
                     }
                 , tuningRSBass = Nothing
                 , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
-                , tones = flip fmap tones $ fmap $ \tone -> let
+                , tones = flip fmap tones $ fmap \tone -> let
                   file = T.unpack (t14_Key tone) <.> "tone2014.xml"
                   in SoftFile file $ SoftReadable $ makeHandle file $
                     byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone

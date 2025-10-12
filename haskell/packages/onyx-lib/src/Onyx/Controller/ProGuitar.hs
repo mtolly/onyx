@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Controller.ProGuitar where
 
 import           Control.Monad                    (guard)

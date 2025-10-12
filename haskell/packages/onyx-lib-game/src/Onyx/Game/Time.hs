@@ -20,6 +20,7 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
+{-# LANGUAGE BlockArguments             #-}
 module Onyx.Game.Time where
 
 import           Control.Applicative              ((<|>))
@@ -120,7 +121,7 @@ makeToggle m = let
   go b = do
     cur <- get
     put b
-    return $ case (cur, b) of
+    return case (cur, b) of
       (False, False) -> ToggleEmpty
       (False, True)  -> ToggleStart ()
       (True, False)  -> ToggleEnd ()
@@ -504,7 +505,7 @@ data NoteStatus t
   deriving (Eq, Show)
 
 processedNotes :: [(t, (EventResult t pad, GamePlayState))] -> [(t, pad, NoteStatus t)]
-processedNotes = concatMap $ \(eventTime, (res, _)) -> let
+processedNotes = concatMap \(eventTime, (res, _)) -> let
   hit = case res.hit of
     Just (pad, Just t) -> [(t, pad, NoteHitAt eventTime)]
     _                  -> []
@@ -558,13 +559,13 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
     mClosestTime = case (Set.lookupLE t dps.noteTimes, Set.lookupGE t dps.noteTimes) of
       (x, Nothing)     -> x
       (Nothing, y)     -> y
-      (Just x, Just y) -> Just $ if t - x < y - t then x else y
+      (Just x, Just y) -> Just if t - x < y - t then x else y
     mClosestTime' = mClosestTime >>= \ct -> do
       guard $ abs (ct - t) < halfWindow
       return ct
-    hit = flip fmap mpad $ \pad -> let
+    hit = flip fmap mpad \pad -> let
       hitNote = mClosestTime' >>= \closestTime -> do
-        guard $ case Map.lookup closestTime dps.track of
+        guard case Map.lookup closestTime dps.track of
           Nothing -> False
           Just cs -> Set.member pad cs.inner.notes
         guard $ noteStatus closestTime pad evts == NoteFuture
@@ -616,7 +617,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
       _             -> (t, (EventResult{..}, newState)) : evts
   in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind $ \(t, (res, _)) ->
+      eventsToRewind' = flip map eventsToRewind \(t, (res, _)) ->
         (t, fmap fst res.hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
       in dps { events = newEvents }
@@ -696,7 +697,7 @@ applyEliteDrumEvent tNew mpadNew halfWindow dps = let
       ct <- case (Set.lookupLE t dps.noteTimes, Set.lookupGE t dps.noteTimes) of
         (x, Nothing)     -> x
         (Nothing, y)     -> y
-        (Just x, Just y) -> Just $ if t - x < y - t then x else y
+        (Just x, Just y) -> Just if t - x < y - t then x else y
       guard $ abs (ct - t) < halfWindow
       return ct
     originalSlices = case evts of
@@ -824,7 +825,7 @@ applyEliteDrumEvent tNew mpadNew halfWindow dps = let
     in (t, (maybeInput, newState)) : evts
   in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind $ \(t, (hit, _)) -> (t, hit)
+      eventsToRewind' = flip map eventsToRewind \(t, (hit, _)) -> (t, hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
       in dps { events = newEvents }
 
@@ -924,7 +925,7 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
       ct <- case (Set.lookupLE t gps.noteTimes, Set.lookupGE t gps.noteTimes) of
         (x, Nothing)     -> x
         (Nothing, y)     -> y
-        (Just x, Just y) -> Just $ if t - x < y - t then x else y
+        (Just x, Just y) -> Just if t - x < y - t then x else y
       guard $ abs (ct - t) < halfWindow
       return ct
     originalResults = case evts of
@@ -965,11 +966,11 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
     newResult = case targetNote of
       Nothing     -> currentResult
       Just common -> let
-        newHeldFretsMinusExtSustains = (.&.) newHeldFrets $ complement $ makeFretSet $ do
+        newHeldFretsMinusExtSustains = (.&.) newHeldFrets $ complement $ makeFretSet do
           (Just fret, pnf) <- Map.toList common.inner.notes
           guard $ isNothing (getNow pnf) && isJust (getFuture pnf)
           return fret
-        targetFrets = makeFretSet $ do
+        targetFrets = makeFretSet do
           (Just fret, pnf) <- Map.toList common.inner.notes
           guard $ isJust $ getNow pnf
           return fret
@@ -1011,7 +1012,7 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
       _                        -> False
 
     newSustains = if newHit
-      then Map.fromList $ do
+      then Map.fromList do
         -- both of these should succeed
         common <- toList targetNote
         time <- toList mClosestTime
@@ -1059,6 +1060,6 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
 
   in case span ((> tNew) . fst) gps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind $ \(t, (input, _)) -> (t, input)
+      eventsToRewind' = flip map eventsToRewind \(t, (input, _)) -> (t, input)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, minputNew)]
       in gps { events = newEvents }

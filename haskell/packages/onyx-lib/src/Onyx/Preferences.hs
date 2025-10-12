@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -107,11 +108,11 @@ readPreferences = do
     True  -> loadYaml cfg
 
 savePreferences :: (MonadIO m) => Preferences -> m ()
-savePreferences prefs = liftIO $ do
+savePreferences prefs = liftIO do
   cfg <- Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
   let configFolder = takeDirectory cfg
   exists <- Dir.doesDirectoryExist configFolder
-  unless exists $ do
+  unless exists do
     -- From getXdgDirectory docs, https://github.com/haskell/directory/blob/f6b288bd96/System/Directory.hs#L1209
     --   Note: The directory may not actually exist, in which case you would need
     --   to create it with file mode @700@ (i.e. only accessible by the owner).
@@ -141,7 +142,7 @@ instance StackJSON MagmaSetting where
 applyThreads :: Preferences -> IO ()
 applyThreads prefs = do
   procs <- getNumProcessors
-  setNumCapabilities $ case prefs.prefThreads of
+  setNumCapabilities case prefs.prefThreads of
     Nothing -> procs
     Just n  -> min n procs
 
@@ -182,7 +183,7 @@ instance StackJSON RBEncoding where
 getDefaultPS3Dir :: (SendMessage m, MonadIO m) => StackTraceT m (Maybe FilePath)
 getDefaultPS3Dir = do
   prefs <- readPreferences
-  let checkPath p = stackIO $ do
+  let checkPath p = stackIO do
         p' <- fixFileCase p
         b <- Dir.doesDirectoryExist p'
         return $ guard b >> Just p'

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns      #-}
@@ -87,10 +88,10 @@ getNamespace defaultPrefix uri = do
             { nsPrefix = prefix
             , nsURI = uri
             }
-      lift $ put $ case existing of
+      lift $ put case existing of
         h :| t -> (newNamespace : h) :| t
       tell Inside
-        { insideAttrs = V.singleton $ case prefix of
+        { insideAttrs = V.singleton case prefix of
           "" -> Attr (QName "xmlns" Nothing Nothing) uri
           _  -> Attr (QName prefix Nothing $ Just "xmlns") uri
         , insideContent = V.empty
@@ -116,7 +117,7 @@ matchTag pn elt = let
   in if matchName pn $ elName elt
     then Just layer
     else if qName (elName elt) == pName pn
-      then Just $ \inner -> layer $ do
+      then Just \inner -> layer do
         warn $ "Unexpected namespace URI; expected " <> show (pURI pn)
         inner
       else Nothing
@@ -126,7 +127,7 @@ makeDoc = makeTag []
 
 makeTag :: [[Namespace]] -> ParseName -> InsideBuilder () -> Element
 makeTag namespaces pn inner = let
-  (prefix, result) = flip evalState ([] :| namespaces) $ runWriterT $ do
+  (prefix, result) = flip evalState ([] :| namespaces) $ runWriterT do
     inner
     mapM (getNamespace Nothing) $ pURI pn
   in Element
@@ -169,7 +170,7 @@ childTagOpt t cdc = Codec
         lift $ put $ ins { insideContent = fmap fst $ before <> V.fromList after }
         return $ Just x
       _ -> return Nothing
-  , codecOut = fmapArg $ \case
+  , codecOut = fmapArg \case
     Nothing -> return ()
     Just x -> do
       elt <- makeTag' t $ void $ codecOut cdc x
@@ -233,7 +234,7 @@ optAttr a = Codec
         lift $ put $ ins { insideAttrs = before <> V.fromList after }
         return $ Just $ T.pack $ attrVal attr
       _ -> return Nothing
-  , codecOut = fmapArg $ \case
+  , codecOut = fmapArg \case
     Nothing -> return ()
     Just x -> do
       prefix <- mapM (getNamespace Nothing) $ pURI a
@@ -273,9 +274,9 @@ childElements :: (SendMessage m) => InsideCodec m (V.Vector Element)
 childElements = Codec
   { codecIn = do
     elts <- viewElements
-    lift $ modify $ \ins -> ins { insideContent = V.empty }
+    lift $ modify \ins -> ins { insideContent = V.empty }
     return elts
-  , codecOut = makeOut $ \elts -> Inside
+  , codecOut = makeOut \elts -> Inside
     { insideAttrs   = V.empty
     , insideContent = fmap Elem elts
     }
@@ -291,7 +292,7 @@ bareList cdc = Codec
             , ["list child #" <> show (i :: Int)]
             ]
       inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = fmapArg $ \xs -> void $ lift (traverse (execWriterT . codecOut cdc) xs) >>= codecOut children
+  , codecOut = fmapArg \xs -> void $ lift (traverse (execWriterT . codecOut cdc) xs) >>= codecOut children
   } where children = childElements
 
 countList :: (SendMessage m) => ValueCodec' m Element a -> InsideCodec m (V.Vector a)
@@ -299,7 +300,7 @@ countList cdc = Codec
   { codecIn = do
     mlen <- codecIn $ zoomValue (maybeValue intValue) $ optAttr "count"
     xs <- codecIn bare
-    forM_ mlen $ \len -> when (length xs /= len) $ warn $ unwords
+    forM_ mlen \len -> when (length xs /= len) $ warn $ unwords
       [ "List has count attribute of"
       , show len
       , "but contains"
@@ -307,7 +308,7 @@ countList cdc = Codec
       , "children"
       ]
     return xs
-  , codecOut = fmapArg $ \xs -> do
+  , codecOut = fmapArg \xs -> do
     tell Inside
       { insideAttrs = V.singleton $ Attr (QName "count" Nothing Nothing) (show $ length xs)
       , insideContent = V.empty
@@ -328,7 +329,7 @@ childTextRaw = Codec
       $ fmap (T.pack . cdData)
       $ V.mapMaybe getText
       $ insideContent ins
-  , codecOut = makeOut $ \t -> Inside
+  , codecOut = makeOut \t -> Inside
     { insideAttrs = V.empty
     , insideContent = do
       guard $ not $ T.null t
@@ -342,7 +343,7 @@ childText = dimap T.strip T.strip childTextRaw
 zoomValue :: (Monad m) => ValueCodec' m v a -> InsideCodec m v -> InsideCodec m a
 zoomValue z cdc = Codec
   { codecIn = codecIn cdc >>= \x -> mapStackTraceT (lift . (`runReaderT` x)) $ codecIn z
-  , codecOut = fmapArg $ \x -> void $ lift (execWriterT $ codecOut z x) >>= codecOut cdc
+  , codecOut = fmapArg \x -> void $ lift (execWriterT $ codecOut z x) >>= codecOut cdc
   }
 
 intValue :: (Monad m, Integral a) => ValueCodec' m T.Text a
@@ -361,7 +362,7 @@ maybeValue cdc = Codec
   { codecIn = lift ask >>= \case
     Nothing -> return Nothing
     Just v  -> fmap Just $ parseFrom v $ codecIn cdc
-  , codecOut = fmapArg $ \case
+  , codecOut = fmapArg \case
     Nothing -> tell Nothing
     Just a  -> void $ mapWriterT (fmap $ second Just) $ codecOut cdc a
   }
@@ -443,7 +444,7 @@ boolWordText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
 boolWordText = zoomValue boolWordValue
 
 pluralBare' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
-pluralBare' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty) $ childTagOpt many $ do
+pluralBare' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty) $ childTagOpt many do
   mapM_ (useNamespace Nothing) $ pURI one
   parseInside' $ bareList $ isTag one $ parseInside' insideCodec
 
@@ -459,10 +460,10 @@ bareListWithTagName name inner = Codec
     elts <- viewElements
     results <- forM (V.toList elts) $ \elt -> case matchTag name elt of
       Nothing    -> return $ Left elt
-      Just layer -> fmap Right $ let
+      Just layer -> fmap Right let
         ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)
         in layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn inner
-    lift $ modify $ \ins -> ins { insideContent = V.fromList $ map Elem $ lefts results }
+    lift $ modify \ins -> ins { insideContent = V.fromList $ map Elem $ lefts results }
     return $ V.fromList $ rights results
   , codecOut = codecOut $ bareList $ isTag name inner
   }

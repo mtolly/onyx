@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -57,11 +58,11 @@ type Import m = ImportLevel -> StackTraceT m (SongYaml SoftFile)
 
 saveImport :: FilePath -> SongYaml SoftFile -> IO (SongYaml FilePath)
 saveImport dout yaml = do
-  yaml2 <- flip evalStateT [] $ forM yaml $ \(SoftFile newName contents) -> do
+  yaml2 <- flip evalStateT [] $ forM yaml \(SoftFile newName contents) -> do
     gets (lookup newName) >>= \case
       Just prev -> return prev
       Nothing -> do
-        newAsync <- liftIO $ async $ do
+        newAsync <- liftIO $ async do
           let newNameFull = dout </> newName
           createDirectoryIfMissing True $ takeDirectory newNameFull
           case contents of

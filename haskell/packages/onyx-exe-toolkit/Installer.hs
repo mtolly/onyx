@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
@@ -55,7 +56,7 @@ main = getArgs >>= \args -> case args of
   "version-write" : files -> do
 
     -- Insert version string into files specified on command line
-    forM_ files $ \f -> readUTF8 f >>= insertInfo >>= writeUTF8 f
+    forM_ files \f -> readUTF8 f >>= insertInfo >>= writeUTF8 f
 
   ["dlls", exe] -> do
 
@@ -77,7 +78,7 @@ main = getArgs >>= \args -> case args of
     forM_ (filter (`Set.notMember` dlls) alldlls) $ \dll -> do
       removeFile $ dir </> dll
 
-  ["nsis"] -> writeFile "installer.nsi" $ nsis $ do
+  ["nsis"] -> writeFile "installer.nsi" $ nsis do
 
     -- Create Windows installer script
     name "Onyx Music Game Toolkit"
@@ -142,7 +143,7 @@ main = getArgs >>= \args -> case args of
         , IconIndex 0
         ]
 
-    uninstall $ do
+    uninstall do
       -- Remove registry keys
       deleteRegKey HKLM "Software/Microsoft/Windows/CurrentVersion/Uninstall/OnyxToolkit"
       deleteRegKey HKLM "SOFTWARE/OnyxToolkit"

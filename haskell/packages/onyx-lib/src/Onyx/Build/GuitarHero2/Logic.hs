@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -214,7 +215,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         moods = if RTB.null origMoods
           then RB3.makeMoods tmap timing gems
           else origMoods
-        bools = flip fmap moods $ \case
+        bools = flip fmap moods \case
           Mood_idle_realtime -> False
           Mood_idle          -> False
           Mood_idle_intense  -> False
@@ -258,7 +259,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             , partFretPosition = result.other.fiveFretPosition
             , partIdle         = idle
             , partPlay         = play
-            , partHandMap      = flip fmap result.other.fiveHandMap $ \case
+            , partHandMap      = flip fmap result.other.fiveHandMap \case
               RB.HandMap_Default   -> HandMap_Default
               RB.HandMap_NoChords  -> HandMap_NoChords
               RB.HandMap_AllChords -> HandMap_AllChords
@@ -284,7 +285,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               , part   = F.getFlexPart fpart onyx
               }
           in GH2DrumTrack
-            { gh2drumDifficulties = flip fmap trackOrig.drumDifficulties $ \diff -> GH2DrumDifficulty
+            { gh2drumDifficulties = flip fmap trackOrig.drumDifficulties \diff -> GH2DrumDifficulty
               { gh2drumStarPower = trackOrig.drumOverdrive
               , gh2drumPlayer1   = trackOrig.drumPlayer1
               , gh2drumPlayer2   = trackOrig.drumPlayer2
@@ -309,10 +310,10 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
       makeBandDrums trk = mempty
         { drumsIdle = idle
         , drumsPlay = play
-        , drumsKick  = void $ flip RTB.filter anims $ \case
+        , drumsKick  = void $ flip RTB.filter anims \case
           RB.KickRF -> True
           _         -> False
-        , drumsCrash = void $ RTB.collectCoincident $ flip RTB.filter anims $ \case
+        , drumsCrash = void $ RTB.collectCoincident $ flip RTB.filter anims \case
           RB.Crash1{}        -> True
           RB.Crash2{}        -> True
           RB.Crash1RHChokeLH -> True
@@ -514,10 +515,10 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
       }
 
 addDXExtra :: GH2DXExtra -> [D.Chunk T.Text] -> [D.Chunk T.Text]
-addDXExtra extra = map $ \case
+addDXExtra extra = map \case
   D.Parens (D.Tree _ [D.Sym "artist", artist]) -> D.Parens $ D.Tree 0
     [ D.Sym "artist"
-    , D.Braces $ D.Tree 0 $ let
+    , D.Braces $ D.Tree 0 let
       setter k v = D.Braces $ D.Tree 0 [D.Sym "set", D.Var k, v]
       in catMaybes
         [ pure $ D.Sym "do"

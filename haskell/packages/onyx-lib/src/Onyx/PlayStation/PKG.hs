@@ -6,6 +6,7 @@ References:
 - https://github.com/HACKERCHANNEL/PS3Py
 -}
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -141,7 +142,7 @@ instance Bin PKGMetadata where
       len <- getWord32be
       metaBytes <- getByteString $ fromIntegral len
       return PKGMetadata{..}
-    , codecOut = fmapArg $ \PKGMetadata{..} -> do
+    , codecOut = fmapArg \PKGMetadata{..} -> do
       putWord32be metaID
       putWord32be $ fromIntegral $ B.length metaBytes
       putByteString metaBytes
@@ -186,7 +187,7 @@ cryptFinalizedPKG header = do
   iv <- makeIV $ pkgDataRIV header
   -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
   key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
-  return $ \startIndex enc -> ctrCombine key (ivAdd iv $ fromIntegral startIndex) enc
+  return \startIndex enc -> ctrCombine key (ivAdd iv $ fromIntegral startIndex) enc
 
 nonFinalizedCrypt :: Bool -> Word64 -> B.ByteString -> BL.ByteString -> BL.ByteString
 nonFinalizedCrypt isArcade startIndex keySource bs = let
@@ -195,10 +196,10 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
     , B.take 8 keySource
     , (if isArcade then B.take else B.drop) 8 $ keySource
     , B.drop 8 keySource
-    , B.replicate 0x18 $ if isArcade then 0xA0 else 0
+    , B.replicate 0x18 if isArcade then 0xA0 else 0
     ]
   indexStream = [startIndex ..] <> [0 ..]
-  keyStream = BB.toLazyByteString $ mconcat $ flip map indexStream $ \i -> let
+  keyStream = BB.toLazyByteString $ mconcat $ flip map indexStream \i -> let
     key = runPut $ putWord64be i
     sha1 = SHA1.finalize $ SHA1.update shaInit $ BL.toStrict key
     in BB.byteString $ B.take 16 sha1
@@ -210,7 +211,7 @@ cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex
 cryptNonFinalizedPKG' :: Bool -> Word64 -> PKGHeader -> [(Int, Readable)] -> [Readable]
 cryptNonFinalizedPKG' isArcade startIndex header pieces = do
   (before, (_, this)) <- zip (inits pieces) pieces
-  return $ case sum (map fst before) `quotRem` 0x10 of
+  return case sum (map fst before) `quotRem` 0x10 of
     (hexes, 0) -> let
       newIndex = startIndex + fromIntegral hexes
       withBytes = nonFinalizedCrypt isArcade newIndex $ pkgQADigest header
@@ -238,11 +239,11 @@ loadFinalizedPKGFolder r h header = do
   recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
     >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
-  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) $ do
-          bs <- useHandle r $ \h' -> do
+          bs <- useHandle r \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
@@ -258,17 +259,17 @@ loadNonFinalizedPKGFolder r h header = do
   recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
     >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
-  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs $ \PKGItemRecord{..} -> do
+  fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) $ do
-          bs <- useHandle r $ \h' -> do
+          bs <- useHandle r \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
 loadPKGReadable :: Readable -> IO PKG
-loadPKGReadable r = useHandle r $ \h -> do
+loadPKGReadable r = useHandle r \h -> do
   pkgHeader   <- BL.hGet h 0x80 >>= runGetM (codecIn bin)
   pkgDigests1 <- B.hGet h 0x40
   let metadataSize = fromIntegral (pkgMetadataSize pkgHeader) - 0x40 -- size minus digests
@@ -433,7 +434,7 @@ getDecryptedUSRDIR folder = do
 -- Each output is (full name, (size, data), flags)
 makePKGRecords :: Folder B.ByteString Readable -> IO [(B.ByteString, (Int, Readable), Word32)]
 makePKGRecords = fmap (go "") . mapM annotate where
-  annotate r = useHandle r $ \h -> do
+  annotate r = useHandle r \h -> do
     size <- fromIntegral <$> hFileSize h
     magic <- B.hGet h 4
     return (size, magic, r)
@@ -560,11 +561,11 @@ makePKG contentID folder fout = do
         }
       (digest1, digest2) = nonFinalizedDigests header metadata
       encrypted = cryptNonFinalizedPKG' False 0 header pkgContents
-  withBinaryFile fout WriteMode $ \h -> do
+  withBinaryFile fout WriteMode \h -> do
     BL.hPut h $ runPut $ void $ codecOut bin header
     B.hPut h digest1
-    forM_ metadata $ \meta -> do
+    forM_ metadata \meta -> do
       BL.hPut h $ runPut $ void $ codecOut bin meta
     B.hPut h digest2
-    forM_ encrypted $ \piece -> copyReadableToHandle piece h
+    forM_ encrypted \piece -> copyReadableToHandle piece h
     B.hPut h $ B.replicate 0x60 0 -- this is needed to install ok, but why?

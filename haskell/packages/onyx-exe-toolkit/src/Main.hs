@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE LambdaCase     #-}
 module Main (main) where
 
 import           Control.Exception            (displayException)
@@ -30,7 +31,7 @@ main = do
     []          -> launchGUI []
     "open" : xs -> launchGUI xs
     _           -> do
-      res <- logStdout $ do
+      res <- logStdout do
         case os of
           "mingw32" -> return ()
           _ -> do

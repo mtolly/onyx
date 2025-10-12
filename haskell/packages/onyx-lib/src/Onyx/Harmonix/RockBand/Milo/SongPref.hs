@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE RecordWildCards #-}
 module Onyx.Harmonix.RockBand.Milo.SongPref where
 

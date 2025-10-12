@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -155,7 +156,7 @@ pgRules buildInfo dir pg = do
                 , gelsUnk5      = 0 -- TODO unknown
                 , gelsUnk6      = 0 -- TODO unknown
                 , gelsUnk7      = 0 -- number of power chords
-                , gelsGEVT      = V.fromList $ do
+                , gelsGEVT      = V.fromList do
                   -- TODO hopos
                   (absBeats, (fretsSHT, mlen)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 notes
                   let startSecs = realToFrac $ U.applyTempoMap mid.tempos absBeats
@@ -285,7 +286,7 @@ pgRules buildInfo dir pg = do
               , ca_num_channels = 2
               }
             , audio_count_off      = Nothing
-            , audio_preview        = V.singleton $ let
+            , audio_preview        = V.singleton let
               (pstart, pend) = previewBounds metadata mid 0 False
               in PG.Preview
                 { preview_start_position   = Just $ fromIntegral pstart / 1000
