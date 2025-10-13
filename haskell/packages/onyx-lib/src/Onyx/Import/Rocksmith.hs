@@ -3,10 +3,10 @@
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Rocksmith where
 
 import           Codec.Picture.Types              (dropTransparency, pixelMap)
@@ -24,6 +24,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (find, sort)
 import           Data.List.Extra                  (nubOrd)
@@ -57,6 +58,7 @@ import           Onyx.Rocksmith.Sng2014
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode            (decodeGeneral)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (<.>))
 import           Text.XML.Light
@@ -662,15 +664,15 @@ importRSSong folder song level = do
               }
         return (partName, part)
       partsMapWithVox = if isJust maybeVoxSNG
-        then HM.insert F.PartVocal (emptyPart :: Part SoftFile)
-          { vocal = Just ModeVocal
+        then let
+          part = (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
             { difficulty = Tier 1
             , count      = Vocal1
             , gender     = Nothing
             , key        = Nothing
             , lipsyncRB3 = Nothing
             }
-          } partsMap
+          in HM.insert F.PartVocal part partsMap
         else partsMap
 
   return SongYaml

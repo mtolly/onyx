@@ -46,3 +46,4 @@ library:
   - split
   - extra
   - StateVar
+  - optics

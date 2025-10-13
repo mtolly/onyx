@@ -1,11 +1,11 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.RockRevolution where
 
 import           Control.Concurrent.Async         (forConcurrently)
@@ -19,6 +19,7 @@ import           Data.Char                        (isDigit, toLower)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, nubSort, (!?))
 import qualified Data.Map                         as Map
@@ -41,6 +42,7 @@ import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
+import           Optics                           ((.~))
 import           Text.Read                        (readMaybe)
 
 importRR :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [Import m]
@@ -268,25 +270,19 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       }
     , parts = Parts $ HM.fromList $ concat
       [ case skullsToTier $ getSkulls "GuitarDifficulty" of
-        Just tier -> [(F.PartGuitar, emptyPart
-          { grybo = Just (def :: ModeFive)
-            { difficulty = tier
-            }
-          })]
+        Just tier -> [(F.PartGuitar, emptyPart & #grybo .~ Just do
+          (def :: ModeFive) & #difficulty .~ tier
+          )]
         Nothing -> []
       , case skullsToTier $ getSkulls "BassDifficulty" of
-        Just tier -> [(F.PartBass, emptyPart
-          { grybo = Just (def :: ModeFive)
-            { difficulty = tier
-            }
-          })]
+        Just tier -> [(F.PartBass, emptyPart & #grybo .~ Just do
+          (def :: ModeFive) & #difficulty .~ tier
+          )]
         Nothing -> []
       , case skullsToTier $ getSkulls "DrumDifficulty" of
-        Just tier -> [(F.PartDrums, (emptyPart :: Part SoftFile)
-          { drums = Just (emptyPartDrums DrumsElite Kicks1x :: ModeDrums SoftFile)
-            { difficulty = tier
-            }
-          })]
+        Just tier -> [(F.PartDrums, emptyPart & #drums .~ Just do
+          emptyPartDrums DrumsElite Kicks1x & #difficulty .~ tier
+          )]
         Nothing -> []
       {-
       , (F.PartName "hidden-drums", def

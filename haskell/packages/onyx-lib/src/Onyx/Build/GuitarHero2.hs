@@ -2,11 +2,11 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Build.GuitarHero2 (gh2Rules) where
 
 import           Control.Monad.Extra
@@ -20,6 +20,7 @@ import           Data.Conduit.Audio.SampleRate
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import           Data.Functor.Identity            (Identity (..))
 import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
@@ -50,6 +51,7 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project                     hiding (Difficulty)
 import           Onyx.StackTrace
 import           Onyx.Xbox.STFS                   (gh2pkg)
+import           Optics                           (set)
 import           Paths_onyx_lib                   (version)
 import qualified Sound.MIDI.Util                  as U
 
@@ -187,12 +189,12 @@ gh2Rules buildInfo dir gh2 = do
 
   let addExtraIfDX :: F.Song (F.OnyxFile U.Beats) -> GH2Audio -> [D.Chunk T.Text] -> [D.Chunk T.Text]
       addExtraIfDX input audio = let
-        difficulty = difficultyPS (def :: TargetPS FilePath)
-          { guitar = audio.leadTrack
-          , bass   = case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.PartName "undefined"
-          , rhythm = case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.PartName "undefined"
-          , drums  = fromMaybe (F.PartName "undefined") audio.drumTrack
-          } songYaml
+        dummyTarget = (def :: TargetPS FilePath)
+          & do set #guitar audio.leadTrack
+          & do set #bass   $ case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.PartName "undefined"
+          & do set #rhythm $ case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.PartName "undefined"
+          & do set #drums  $ fromMaybe (F.PartName "undefined") audio.drumTrack
+        difficulty = difficultyPS dummyTarget songYaml
         translateDiff = \case
           0 -> -1 -- in gh2dx, 0 means "present but unknown difficulty" which we might want to support later
           n -> fromIntegral n

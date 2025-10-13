@@ -4,10 +4,10 @@
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedLabels          #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE TupleSections             #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import where
 
 import           Control.Applicative          ((<|>))
@@ -21,6 +21,7 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (isAlpha, isDigit, toLower)
+import           Data.Function                ((&))
 import           Data.Functor                 (void)
 import           Data.Functor.Identity
 import           Data.Hashable                (hash)
@@ -58,6 +59,7 @@ import           Onyx.Neversoft.PS2           (HedFormat (..),
                                                identifyHedFormat, parseHed)
 import           Onyx.Util.Files              (fixFileCase)
 import           Onyx.Zip.Load                (loadZipReadables)
+import           Optics                       ((.~))
 -- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Encore           (importEncore)
@@ -563,20 +565,20 @@ randomRBSongID = liftIO $ randomRIO (10000000, 1000000000)
 buildRB3CON :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3CON rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3 FilePath) & #songID .~ SongIDInt songID
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3con") proj
 
 buildRB3PKG :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB3PKG rb3 proj = do
   songID <- randomRBSongID
-  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3 FilePath) & #songID .~ SongIDInt songID
   buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3.pkg") proj
 
 buildRB3LoosePS3 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
 buildRB3LoosePS3 rb3 proj = do
   let songYaml = proj.projectSongYaml
   songID <- randomRBSongID
-  let rb3' = (rb3 :: TargetRB3 FilePath) { songID = SongIDInt songID }
+  let rb3' = (rb3 :: TargetRB3 FilePath) & #songID .~ SongIDInt songID
   inner <- buildCommon (RB3 rb3') (\targetHash -> "gen/target" </> targetHash </> "rb3-ps3") proj
   dir <- stackIO $ crawlFolder inner
   return Folder
@@ -587,20 +589,20 @@ buildRB3LoosePS3 rb3 proj = do
 buildRB2CON :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2CON rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2 FilePath) & #songID .~ SongIDInt songID
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2con") proj
 
 buildRB2PKG :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
 buildRB2PKG rb2 proj = do
   songID <- randomRBSongID
-  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2 FilePath) & #songID .~ SongIDInt songID
   buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3.pkg") proj
 
 buildRB2LoosePS3 :: (MonadIO m) => TargetRB2 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
 buildRB2LoosePS3 rb2 proj = do
   let songYaml = proj.projectSongYaml
   songID <- randomRBSongID
-  let rb2' = (rb2 :: TargetRB2 FilePath) { songID = SongIDInt songID }
+  let rb2' = (rb2 :: TargetRB2 FilePath) & #songID .~ SongIDInt songID
   inner <- buildCommon (RB2 rb2') (\targetHash -> "gen/target" </> targetHash </> "rb2-ps3") proj
   dir <- stackIO $ crawlFolder inner
   return Folder

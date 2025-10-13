@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Paradiddle (importParadiddle, findParadiddle) where
 
 import           Control.Monad                    (forM, guard)
@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrdOn, sort)
 import qualified Data.List.NonEmpty               as NE
@@ -30,6 +31,7 @@ import           Onyx.Paradiddle
 import           Onyx.Project                     hiding (Difficulty (..))
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
@@ -162,9 +164,9 @@ importParadiddle diffs level = do
       , fileTempo = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
-      { drums = Just $ emptyPartDrums DrumsElite Kicks1x
-      }
+    , parts = Parts $ HM.singleton F.PartDrums
+      $ (emptyPart :: Part SoftFile)
+      & #drums .~ Just (emptyPartDrums DrumsElite Kicks1x)
     }
 
 findParadiddle :: [FilePath] -> [NE.NonEmpty (Difficulty, FilePath)]

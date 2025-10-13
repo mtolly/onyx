@@ -1,11 +1,11 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Ragnarock (importRagnarock) where
 
 import           Control.Monad                    (forM, guard)
@@ -13,6 +13,7 @@ import           Control.Monad.Codec
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort, sortOn)
 import qualified Data.Map                         as Map
@@ -28,6 +29,7 @@ import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    (<.>), (</>))
@@ -216,9 +218,9 @@ importRagnarock pathInfo level = do
       , fileTempo   = Nothing
       }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
-      { drums = Just $ emptyPartDrums Drums4 Kicks1x
-      }
+    , parts = Parts $ HM.singleton F.PartDrums
+      $ (emptyPart :: Part SoftFile)
+      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x)
     }
 
 ragnarockToDrums :: InfoDat -> [(BeatmapInfo, Beatmap)] -> F.Song (F.OnyxFile U.Beats)

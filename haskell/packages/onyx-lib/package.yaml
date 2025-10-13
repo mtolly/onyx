@@ -86,6 +86,7 @@ library:
   - stache
   - linear
   - pretty-simple
+  - optics
   # my libraries
   - jammittools
   - midi-util

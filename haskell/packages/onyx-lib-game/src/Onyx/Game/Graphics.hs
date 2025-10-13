@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -5,14 +6,13 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NegativeLiterals      #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-{-# LANGUAGE BlockArguments        #-}
 module Onyx.Game.Graphics where
 
 import           Codec.Picture
@@ -26,6 +26,7 @@ import           Data.Bifunctor               (bimap)
 import qualified Data.ByteString              as B
 import           Data.Fixed                   (Fixed (..), Milli)
 import           Data.Foldable                (toList, traverse_)
+import           Data.Function                ((&))
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
                                                writeIORef)
@@ -78,6 +79,7 @@ import           Onyx.StackTrace              (QueueLog, SendMessage,
                                                fatal, getQueueLog, inside,
                                                mapStackTraceT, stackIO, warn)
 import           Onyx.Util.Text.Transform     (showTimestamp)
+import           Optics                       ((.~))
 import qualified Sound.MIDI.Util              as U
 import           System.Directory             (doesFileExist)
 import           System.FilePath              ((<.>), (</>))
@@ -224,7 +226,7 @@ drawEliteDrums gl nowTime speed layout trk = drawEliteDrumPlay gl nowTime speed 
       let notes = Set.toList cs.inner.notes
       guard $ not $ null notes
       return (cst, Map.fromList $ map (, EDHit cst) notes)
-    in [(nowTime, (Nothing, initialEDState { noteResults = hitResults }))]
+    in [(nowTime, (Nothing, initialEDState & #noteResults .~ hitResults))]
   , track = trk
   , noteTimes = Set.empty -- not used
   }
@@ -893,7 +895,7 @@ drawFive glStuff nowTime speed trk = drawFivePlay glStuff nowTime speed GuitarPl
       guard $ any (isJust . getNow) cs.inner.notes
       return (cst, GuitarHitStrum cst)
     -- TODO we need to generate fretting events for proper target light-up (especially sustains)
-    in [(nowTime, (Nothing, initialGuitarState { noteResults = hitResults }))]
+    in [(nowTime, (Nothing, initialGuitarState & #noteResults .~ hitResults))]
   , track = trk
   , noteTimes = Set.empty -- not used
   }
@@ -1223,7 +1225,7 @@ drawPG gl nowTime speed tuning trk = do
           Just _  -> CSColor gl.gfxConfig.objects.gems.color_hit
         in draw obj stretch shade (fromMaybe 1 alpha) $ LightOffset let
           normalLight = gl.gfxConfig.objects.gems.light
-          in normalLight { C.position = V3 0 0 0.5 }
+          in normalLight & #position .~ V3 0 0 0.5
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList cs.inner.notes
@@ -1465,7 +1467,7 @@ drawMania gl nowTime speed mchart trk = do
           Just _  -> CSColor gl.gfxConfig.objects.gems.color_hit
         in draw obj stretch shade (fromMaybe 1 alpha) $ LightOffset let
           normalLight = gl.gfxConfig.objects.gems.light
-          in normalLight { C.position = V3 0 0 0.5 }
+          in normalLight & #position .~ V3 0 0 0.5
       drawNotes _        []                      = return ()
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList cs.inner.notes

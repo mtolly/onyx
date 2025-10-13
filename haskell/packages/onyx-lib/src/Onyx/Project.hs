@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
@@ -13,6 +11,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -20,6 +19,7 @@
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Onyx.Project where
 
 import           Control.Arrow                        (first)
@@ -34,6 +34,7 @@ import           Data.Default.Class
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Fixed                           (Centi, Milli)
 import           Data.Foldable                        (toList)
+import           Data.Function                        ((&))
 import           Data.Hashable                        (Hashable (..))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.Int                             (Int32)
@@ -70,6 +71,7 @@ import           Onyx.Sections                        (Section (..),
                                                        parseSection,
                                                        simpleSection)
 import           Onyx.StackTrace
+import           Optics                               ((.~))
 import qualified Sound.Jammit.Base                    as J
 import qualified Sound.MIDI.Util                      as U
 import qualified Text.ParserCombinators.ReadP         as ReadP
@@ -275,7 +277,7 @@ data MoggPlanInfo f = MoggPlanInfo
   , tuningCents   :: Int
   , fileTempo     :: Maybe f
   , decryptSilent :: Bool -- should encrypted audio just be treated as silent
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, StackJSON f) => StackJSON (MoggPlanInfo f) where
   stackJSON = asStrictObject "MoggPlanInfo" $ do
@@ -585,7 +587,7 @@ data ModeFive = ModeFive
   , sustainGap       :: Int -- ticks, 480 per beat
   , smoothFrets      :: Bool -- should animation fret positions be smoothed out like pre-RB3
   , detectMutedOpens :: Bool -- if open notes are auto-removed, should we detect when opens are used as muted strums in between chords
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
 
 instance StackJSON ModeFive where
   stackJSON = asStrictObject "ModeFive" $ do
@@ -603,7 +605,7 @@ instance Default ModeFive where
 data ModeProKeys = ModeProKeys
   { difficulty  :: Difficulty
   , fixFreeform :: Bool
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
 
 instance StackJSON ModeProKeys where
   stackJSON = asStrictObject "ModeProKeys" $ do
@@ -619,7 +621,7 @@ data ModeProGuitar f = ModeProGuitar
   , fixFreeform   :: Bool
   , tones         :: Maybe (RSTones f)
   , pickedBass    :: Bool
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
 
 tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
 tuningBaseFormat = Codec
@@ -686,7 +688,7 @@ instance (Eq f, StackJSON f) => StackJSON (RSTones f) where
 data ModeSix = ModeSix
   { difficulty    :: Difficulty
   , hopoThreshold :: Int
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
 
 instance StackJSON ModeSix where
   stackJSON = asStrictObject "ModeSix" $ do
@@ -764,7 +766,7 @@ data ModeDrums f = ModeDrums
   , fileDTXKit    :: Maybe f
   , eliteLayout   :: [EliteDrumLayoutHint]
   , difficultyDTX :: Maybe Centi
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, StackJSON f) => StackJSON (ModeDrums f) where
   stackJSON = asStrictObject "ModeDrums" $ do
@@ -809,7 +811,7 @@ data ModeVocal f = ModeVocal
   , gender     :: Maybe Magma.Gender
   , key        :: Maybe Key
   , lipsyncRB3 :: Maybe (LipsyncRB3 f)
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, StackJSON f) => StackJSON (ModeVocal f) where
   stackJSON = asStrictObject "ModeVocal" $ do
@@ -873,7 +875,7 @@ data Part f = Part
   , drums     :: Maybe (ModeDrums f)
   , vocal     :: Maybe (ModeVocal f)
   , mania     :: Maybe ModeMania
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, StackJSON f) => StackJSON (Part f) where
   stackJSON = asStrictObject "Part" $ do
@@ -1023,7 +1025,7 @@ data Global f = Global
   , animTempo           :: Either AnimTempo Integer
   , backgroundVideo     :: Maybe (VideoInfo f)
   , fileBackgroundImage :: Maybe f
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, IsString f, StackJSON f) => StackJSON (Global f) where
   stackJSON = asStrictObject "Global" $ do
@@ -1188,7 +1190,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetRB3 f) where
   stackJSON = asStrictObject "TargetRB3" parseTargetRB3
 
 instance Default (TargetRB3 f) where
-  def = (fromEmptyObject :: TargetRB3 String) { common = def }
+  def = (fromEmptyObject :: TargetRB3 String) & #common .~ def
 
 data LipsyncMember = LipsyncGuitar | LipsyncBass | LipsyncDrums
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -1281,7 +1283,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetRB2 f) where
   stackJSON = asStrictObject "TargetRB2" parseTargetRB2
 
 instance Default (TargetRB2 f) where
-  def = (fromEmptyObject :: TargetRB2 String) { common = def }
+  def = (fromEmptyObject :: TargetRB2 String) & #common .~ def
 
 data TargetPS f = TargetPS
   { common        :: TargetCommon f
@@ -1316,7 +1318,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetPS f) where
   stackJSON = asStrictObject "TargetPS" parseTargetPS
 
 instance Default (TargetPS f) where
-  def = (fromEmptyObject :: TargetPS String) { common = def }
+  def = (fromEmptyObject :: TargetPS String) & #common .~ def
 
 data TargetGH1 f = TargetGH1
   { common :: TargetCommon f
@@ -1345,7 +1347,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetGH1 f) where
   stackJSON = asStrictObject "TargetGH1" parseTargetGH1
 
 instance Default (TargetGH1 f) where
-  def = (fromEmptyObject :: TargetGH1 String) { common = def }
+  def = (fromEmptyObject :: TargetGH1 String) & #common .~ def
 
 data GH2Coop = GH2Bass | GH2Rhythm
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
@@ -1396,7 +1398,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetGH2 f) where
   stackJSON = asStrictObject "TargetGH2" parseTargetGH2
 
 instance Default (TargetGH2 f) where
-  def = (fromEmptyObject :: TargetGH2 String) { common = def }
+  def = (fromEmptyObject :: TargetGH2 String) & #common .~ def
 
 -- gh5 or ghwor, mostly same formats
 data TargetGH5 f = TargetGH5
@@ -1426,7 +1428,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetGH5 f) where
   stackJSON = asStrictObject "TargetGH5" parseTargetGH5
 
 instance Default (TargetGH5 f) where
-  def = (fromEmptyObject :: TargetGH5 String) { common = def }
+  def = (fromEmptyObject :: TargetGH5 String) & #common .~ def
 
 data TargetGH3 f = TargetGH3
   { common :: TargetCommon f
@@ -1459,7 +1461,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetGH3 f) where
   stackJSON = asStrictObject "TargetGH3" parseTargetGH3
 
 instance Default (TargetGH3 f) where
-  def = (fromEmptyObject :: TargetGH3 String) { common = def }
+  def = (fromEmptyObject :: TargetGH3 String) & #common .~ def
 
 data TargetDTX f = TargetDTX
   { common      :: TargetCommon f
@@ -1482,7 +1484,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetDTX f) where
   stackJSON = asStrictObject "TargetDTX" parseTargetDTX
 
 instance Default (TargetDTX f) where
-  def = (fromEmptyObject :: TargetDTX String) { common = def }
+  def = (fromEmptyObject :: TargetDTX String) & #common .~ def
 
 data RSArrModifier
   = RSDefault
@@ -1552,7 +1554,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetRS f) where
   stackJSON = asStrictObject "TargetRS" parseTargetRS
 
 instance Default (TargetRS f) where
-  def = (fromEmptyObject :: TargetRS String) { common = def }
+  def = (fromEmptyObject :: TargetRS String) & #common .~ def
 
 data TargetPG f = TargetPG
   { common        :: TargetCommon f
@@ -1577,7 +1579,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetPG f) where
   stackJSON = asStrictObject "TargetPG" parseTargetPG
 
 instance Default (TargetPG f) where
-  def = (fromEmptyObject :: TargetPG String) { common = def }
+  def = (fromEmptyObject :: TargetPG String) & #common .~ def
 
 data TargetRR f = TargetRR
   { common        :: TargetCommon f
@@ -1608,7 +1610,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetRR f) where
   stackJSON = asStrictObject "TargetRR" parseTargetRR
 
 instance Default (TargetRR f) where
-  def = (fromEmptyObject :: TargetRR String) { common = def }
+  def = (fromEmptyObject :: TargetRR String) & #common .~ def
 
 data TargetPart f = TargetPart
   { common :: TargetCommon f
@@ -1625,7 +1627,7 @@ instance (Eq f, StackJSON f) => StackJSON (TargetPart f) where
   stackJSON = asStrictObject "TargetPart" parseTargetPart
 
 instance Default (TargetPart f) where
-  def = (fromEmptyObject :: TargetPart String) { common = def }
+  def = (fromEmptyObject :: TargetPart String) & #common .~ def
 
 data Target f
   = RB3 (TargetRB3 f)
@@ -1697,7 +1699,7 @@ data SongYaml f = SongYaml
   , plans    :: HM.HashMap T.Text (Plan f)
   , targets  :: HM.HashMap T.Text (Target f)
   , parts    :: Parts (Part f)
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
 
 instance (Eq f, IsString f, StackJSON f) => StackJSON (SongYaml f) where
   stackJSON = asStrictObject "SongYaml" $ do

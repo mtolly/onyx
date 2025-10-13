@@ -6,6 +6,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
@@ -13,7 +14,6 @@
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.GuitarHero2 where
 
 import           Control.Arrow                    (second)
@@ -28,6 +28,7 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Int
 import           Data.List.Extra                  (firstJust, (\\))
@@ -64,6 +65,7 @@ import           Onyx.Sections                    (fromGH2Section,
                                                    simpleSection)
 import           Onyx.StackTrace
 import           Onyx.Util.Handle
+import           Optics                           (set, (.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((<.>))
 import           Text.Read                        (readMaybe)
@@ -207,35 +209,31 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     [ do
       guard $ maybe False (not . null) $ lookup "guitar" $ D.fromDictList $ tracks songChunk
       return (F.PartGuitar, emptyPart
-        { grybo = Just (def :: ModeFive)
-          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
-          }
+        { grybo = Just $ def
+          & do set #hopoThreshold $ maybe 170 fromIntegral $ hopoThreshold songChunk
+          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "bass" $ D.fromDictList $ tracks songChunk
       return (F.PartBass, emptyPart
-        { grybo = Just (def :: ModeFive)
-          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
-          }
+        { grybo = Just $ def
+          & do set #hopoThreshold $ maybe 170 fromIntegral $ hopoThreshold songChunk
+          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" $ D.fromDictList $ tracks songChunk
       return (F.PartName "rhythm", emptyPart
-        { grybo = Just (def :: ModeFive)
-          { hopoThreshold = maybe 170 fromIntegral $ hopoThreshold songChunk
-          , difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
-          }
+        { grybo = Just $ def
+          & do set #hopoThreshold $ maybe 170 fromIntegral $ hopoThreshold songChunk
+          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "drum" $ D.fromDictList $ tracks songChunk
-      return (F.PartDrums, emptyPart
-        { drums = Just (emptyPartDrums Drums4 Kicks1x :: ModeDrums SoftFile)
-          { difficulty = Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
-          -- TODO should probably save kicks 1x/2x so we can reimport here
-          }
-        })
+      -- TODO should probably save kicks 1x/2x so we can reimport here
+      return (F.PartDrums, emptyPart & #drums .~ Just do
+        emptyPartDrums Drums4 Kicks1x & #difficulty .~ do
+          Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
+        )
     ]
   }
 

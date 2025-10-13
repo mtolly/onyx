@@ -1,7 +1,9 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -9,9 +11,7 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
-{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI (launchGUI) where
 
 import           Onyx.GUI.Batch
@@ -55,6 +55,9 @@ import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import           Data.Conduit.Audio                        (integralSample,
                                                             mapSamples)
+import           Data.Function                             ((&))
+import           Optics                                    (mapped, (%), (%~),
+                                                            (.~))
 -- import qualified Data.Connection                           as Conn
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
@@ -230,21 +233,15 @@ importWithPreferences imp = do
       prefs <- readPreferences
       let applyBlackVenue, applyDecryptSilent, applyDetectMuted
             :: SongYaml FilePath -> SongYaml FilePath
-          applyBlackVenue yaml = if prefs.prefBlackVenue
-            then yaml { global = yaml.global { autogenTheme = Nothing } }
-            else yaml
-          applyDecryptSilent yaml = yaml
-            { plans = flip fmap yaml.plans \case
-              MoggPlan mogg -> MoggPlan mogg { decryptSilent = prefs.prefDecryptSilent }
-              plan          -> plan
-            }
-          applyDetectMuted yaml = yaml
-            { parts = flip fmap yaml.parts \part -> part
-              { grybo = flip fmap part.grybo \grybo -> grybo
-                { detectMutedOpens = prefs.prefDetectMuted
-                }
-              }
-            }
+          applyBlackVenue = if prefs.prefBlackVenue
+            then #global % #autogenTheme .~ Nothing
+            else id
+          applyDecryptSilent = #plans % mapped %~ \case
+            MoggPlan mogg -> MoggPlan mogg { decryptSilent = prefs.prefDecryptSilent }
+            plan          -> plan
+          applyDetectMuted
+            = #parts % mapped % #grybo % mapped % #detectMutedOpens
+            .~ prefs.prefDetectMuted
       stackIO $ saveProject projInit $ applyDetectMuted $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
     else return projInit
 
@@ -479,43 +476,49 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           applyToMetadata setter input = tell do
             val <- FL.getValue input
             let val' = guard (val /= "") >> Just val
-            return $ Endo $ \yaml -> yaml { metadata = setter val' yaml.metadata }
+            return $ Endo $ #metadata %~ setter val'
           applyIntToMetadata :: (Maybe Int -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
           applyIntToMetadata setter input = tell do
             val <- FL.getValue input
             let val' = readMaybe $ T.unpack val
-            return $ Endo $ \yaml -> yaml { metadata = setter val' yaml.metadata }
+            return $ Endo $ #metadata %~ setter val'
           simpleTextGet lbl getter setter rect' = do
             input <- simpleText lbl getter rect'
             applyToMetadata setter input
           simpleTextGetInt lbl getter setter rect' = do
             input <- simpleText' lbl FL.FlIntInput (fmap (T.pack . show) . getter) rect'
             applyIntToMetadata setter input
+          simpleCheck
+            :: T.Text
+            -> (Metadata FilePath -> Bool)
+            -> (Bool -> Metadata FilePath -> Metadata FilePath)
+            -> Rectangle
+            -> BuildYamlControl (SongYaml FilePath) ()
           simpleCheck lbl getter setter rect' = do
             input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
             liftIO $ void $ FL.setValue input $ getter (projectSongYaml proj).metadata
             liftIO $ FL.setLabelsize input $ FL.FontSize 13
             tell do
               b <- FL.getValue input
-              return $ Endo \yaml -> let SongYaml{..} = yaml in SongYaml { metadata = setter b yaml.metadata, .. }
+              return $ Endo $ #metadata %~ setter b
       void $ liftIO $ FL.boxNew (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5))) Nothing
-      fullWidth $ simpleTextGet "Title" (.title)  $ \mstr meta -> meta { title  = mstr }
+      fullWidth $ simpleTextGet "Title" (.title) (#title .~)
       fullWidth \rect' -> do
         let (artistArea, trimClock 0 0 0 50 -> yearArea) = chopRight 120 rect'
-        simpleTextGet "Artist" (.artist) (\mstr meta -> meta { artist = mstr }) artistArea
-        simpleTextGetInt "Year" (.year) (\mint meta -> meta { year = mint }) yearArea
+        simpleTextGet "Artist" (.artist) (#artist .~) artistArea
+        simpleTextGetInt "Year" (.year) (#year .~) yearArea
       fullWidth \rect' -> do
         let (albumArea, trimClock 0 0 0 30 -> trackNumArea) = chopRight 120 rect'
-        simpleTextGet "Album" (.album) (\mstr meta -> meta { album = mstr }) albumArea
-        simpleTextGetInt "#" (.trackNumber) (\mint meta -> meta { trackNumber = mint }) trackNumArea
-      fullWidth $ simpleTextGet "Author" (.author) $ \mstr meta -> meta { author = mstr }
+        simpleTextGet "Album" (.album) (#album .~) albumArea
+        simpleTextGetInt "#" (.trackNumber) (#trackNumber .~) trackNumArea
+      fullWidth $ simpleTextGet "Author" (.author) (#author .~)
       (genreInput, subgenreInput) <- fullWidth \rect' -> let
         [trimClock 0 50 0 0 -> genreArea, trimClock 0 0 0 50 -> subgenreArea] = splitHorizN 2 rect'
         in do
           genreInput    <- simpleText "Genre"    (.genre   ) genreArea
           subgenreInput <- simpleText "Subgenre" (.subgenre) subgenreArea
-          applyToMetadata (\mstr meta -> meta { genre    = mstr }) genreInput
-          applyToMetadata (\mstr meta -> meta { subgenre = mstr }) subgenreInput
+          applyToMetadata (#genre .~) genreInput
+          applyToMetadata (#subgenre .~) subgenreInput
           return (genreInput, subgenreInput)
       liftIO $ FL.end pack
       packRight <- liftIO $ FL.packNew rectRight Nothing
@@ -566,10 +569,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           return $ Endo case mpath of
             Nothing   -> id
             Just path -> \yaml -> (yaml :: SongYaml FilePath)
-              { metadata = yaml.metadata
-                { fileAlbumArt = Just path
-                }
-              }
+              & #metadata % #fileAlbumArt .~ Just path
       liftIO $ FL.end packRight
       packBottom <- liftIO $ FL.packNew rectRest Nothing
       padded 10 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> liftIO do
@@ -615,8 +615,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         -- language-clear function at the bottom; this makes it happen first
         -- (note how function composition happens via the Writer monad)
         tell $ return $ Endo \yaml -> (yaml :: SongYaml FilePath)
-          { metadata = editLangs (const []) yaml.metadata
-          }
+          & #metadata .~ editLangs (const []) yaml.metadata
       liftIO $ FL.end packBottom
       resizeBox <- liftIO $ FL.boxNew rectResize Nothing
       liftIO $ FL.setResizable tab $ Just resizeBox
@@ -690,22 +689,30 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
-              return curPart { grybo = guard isChecked >> Just (pg :: ModeFive) { difficulty = diff } }
+              return $ curPart & #grybo .~ do
+                guard isChecked
+                Just $ (pg :: ModeFive) & #difficulty .~ diff
           mbGHL <- forM part.ghl \pg -> addType "6-Fret" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
-              return curPart { ghl = guard isChecked >> Just (pg :: ModeSix) { difficulty = diff } }
+              return $ curPart & #ghl .~ do
+                guard isChecked
+                Just $ (pg :: ModeSix) & #difficulty .~ diff
           mbProKeys <- forM part.proKeys \pk -> addType "Pro Keys" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pk.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
-              return curPart { proKeys = guard isChecked >> Just (pk :: ModeProKeys) { difficulty = diff } }
+              return $ curPart & #proKeys .~ do
+                guard isChecked
+                Just $ (pk :: ModeProKeys) & #difficulty .~ diff
           mbProGuitar <- forM part.proGuitar \pg -> addType "Pro Guitar" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
-              return curPart { proGuitar = guard isChecked >> Just (pg :: ModeProGuitar FilePath) { difficulty = diff } }
+              return $ curPart & #proGuitar .~ do
+                guard isChecked
+                Just $ (pg :: ModeProGuitar FilePath) & #difficulty .~ diff
           mbDrums <- forM part.drums \pd -> addType "Drums" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pd.difficulty
             getMode <- makeChoice itemCheck pd.mode \case
@@ -729,14 +736,13 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               mode <- getMode
               kicks <- getKicks
               kit <- getKit
-              return (curPart :: Part FilePath)
-                { drums = guard isChecked >> Just pd
-                  { difficulty = diff
-                  , mode = mode
-                  , kicks = kicks
-                  , kit = kit
-                  }
-                }
+              return $ (curPart :: Part FilePath) & #drums .~ do
+                guard isChecked
+                Just $ pd
+                  & #difficulty .~ diff
+                  & #mode       .~ mode
+                  & #kicks      .~ kicks
+                  & #kit        .~ kit
           mbVocal <- forM part.vocal \pv -> addType "Vocals" $ \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pv.difficulty
             getCount <- makeChoice itemCheck pv.count \case
@@ -751,13 +757,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               diff   <- getDiff
               count  <- getCount
               gender <- getGender
-              return (curPart :: Part FilePath)
-                { vocal = guard isChecked >> Just pv
-                  { difficulty = diff
-                  , count      = count
-                  , gender     = gender
-                  }
-                }
+              return $ (curPart :: Part FilePath) & #vocal .~ do
+                guard isChecked
+                Just $ pv
+                  & #difficulty .~ diff
+                  & #count      .~ count
+                  & #gender     .~ gender
           mbMania <- forM part.mania \pm -> addType "Mania" $ \_itemCheck -> do
             return \isChecked curPart -> do
               -- TODO difficulty
@@ -770,9 +775,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           newParts <- sequence getNewParts
           bandDiff <- getBandDiff
           return \yaml -> yaml
-            { parts    = Parts $ HM.fromList newParts
-            , metadata = yaml.metadata { difficulty = bandDiff }
-            }
+            & #parts                  .~ Parts (HM.fromList newParts)
+            & #metadata % #difficulty .~ bandDiff
     FL.setResizable tab $ Just tree
     return (editParts, tab)
   let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
@@ -1186,10 +1190,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             PSZip _ -> "Building CH/PS zip file"
             PSSng _ -> "Building CH/PS .sng file"
           tgt' = (tgt :: TargetPS FilePath)
-            { audioFormat = case newPreferences.prefCHAudioFormat of
+            & #audioFormat .~ case newPreferences.prefCHAudioFormat of
               CHAudioOggVorbis -> "ogg"
               CHAudioOpus      -> "opus"
-            }
           task = case create of
             PSDir dout -> do
               tmp <- buildPSDir tgt' proj'
@@ -3585,8 +3588,8 @@ launchBatch sink makeMenuBar startFiles = mdo
           return $ guard b >> Just inst
       return \songYaml -> do
         active <- catMaybes <$> sequence getters
-        return (songYaml :: SongYaml FilePath)
-          { parts = Parts $ flip HM.filterWithKey songYaml.parts.getParts
+        return $ (songYaml :: SongYaml FilePath) & #parts .~ do
+          Parts $ flip HM.filterWithKey songYaml.parts.getParts
             $ \part _ -> case part of
               F.PartGuitar -> elem (Just Guitar) active
               F.PartBass   -> elem (Just Bass  ) active
@@ -3594,7 +3597,6 @@ launchBatch sink makeMenuBar startFiles = mdo
               F.PartKeys   -> elem (Just Keys  ) active
               F.PartVocal  -> elem (Just Vocal ) active
               _            -> elem Nothing       active
-          }
     FL.setResizable tab $ Just group
     return (tab, getter)
   -- keep track of release fns we should run when canceling batch process or closing the window.
@@ -3667,10 +3669,9 @@ launchBatch sink makeMenuBar startFiles = mdo
         startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
           let (target, creator) = settings proj
               target' = (target :: TargetPS FilePath)
-                { audioFormat = case newPreferences.prefCHAudioFormat of
+                & #audioFormat .~ case newPreferences.prefCHAudioFormat of
                   CHAudioOggVorbis -> "ogg"
                   CHAudioOpus      -> "opus"
-                }
           proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj . applyDownmix newPreferences
           case creator of
             PSDir dout -> do

@@ -5,12 +5,12 @@ Common import functions for RB1, RB2, RB3, TBRB
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.RockBand where
 
 import           Codec.Picture.Types                  (dropTransparency,
@@ -28,6 +28,7 @@ import qualified Data.ByteString.Lazy                 as BL
 import qualified Data.Conduit.Audio                   as CA
 import           Data.Default.Class                   (def)
 import           Data.Foldable                        (toList)
+import           Data.Function                        ((&))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (elemIndex, nubOrd, (\\))
 import           Data.List.NonEmpty                   (NonEmpty (..))
@@ -98,6 +99,7 @@ import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
+import           Optics                               ((.~))
 import           Sound.MIDI.File                      (T (..))
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
@@ -683,23 +685,23 @@ importRB rbi level = do
       targetShared = def
         { harmonix = dtaIsHarmonixRB3 pkg
         }
-      target1x = ("rb3", RB3 targetShared
-        { is2xBassPedal = False
-        , songID = songID1x
-        })
-      target2x = ("rb3-2x", RB3 targetShared
-        { is2xBassPedal = True
-        , songID = songID2x
-        })
+      target1x = ("rb3", RB3 $ targetShared
+        & #is2xBassPedal .~ False
+        & #songID        .~ songID1x
+        )
+      target2x = ("rb3-2x", RB3 $ targetShared
+        & #is2xBassPedal .~ True
+        & #songID        .~ songID2x
+        )
       in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , parts = Parts $ HM.fromList
-      [ ( F.PartDrums, (emptyPart :: Part SoftFile)
-        { drums = guard (hasRankStr "drum") >> Just (emptyPartDrums DrumsPro hasKicks)
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
-          , kit = drumkit
-          , layout = StandardLayout -- TODO import this
-          }
-        })
+      [ ( F.PartDrums, (emptyPart :: Part SoftFile) & #drums .~ do
+        guard (hasRankStr "drum")
+        Just $ emptyPartDrums DrumsPro hasKicks
+          & #difficulty .~ fromMaybe (Tier 1) (HM.lookup "drum" diffMap)
+          & #kit        .~ drumkit
+          & #layout     .~ StandardLayout -- TODO import this
+        )
       , ( F.PartGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "guitar") >> Just ModeFive
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
@@ -764,15 +766,15 @@ importRB rbi level = do
           , fixFreeform = False
           }
         })
-      , ( F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode \vc -> ModeVocal
+      , ( F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ do
+        flip fmap vocalMode \vc -> ModeVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc
           , gender = D.vocalGender pkg
           , key = vkey
           , lipsyncRB3 = lipsync
           }
-        })
+        )
       ]
     }
 

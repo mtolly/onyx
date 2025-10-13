@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -12,6 +13,7 @@ import           Control.Monad.Codec
 import           Data.Char           (toUpper)
 import           Data.List           (elemIndex)
 import qualified Data.Text           as T
+import           GHC.Generics        (Generic)
 import           Linear              (V3 (..), V4 (..))
 import           Onyx.Codec.Common
 import           Onyx.Codec.JSON
@@ -208,7 +210,7 @@ data Light = Light
   , ambient  :: Color
   , diffuse  :: Color
   , specular :: Color
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 instance StackJSON Light where
   stackJSON = asObject "Light" $ do

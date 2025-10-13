@@ -1,15 +1,16 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult) where
 
 import           Control.Monad                    (guard, void)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Function                    ((&))
 import           Data.List.Extra                  (nubOrd, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
@@ -33,6 +34,7 @@ import           Onyx.MIDI.Track.ProKeys          as PK
 import           Onyx.Mode
 import           Onyx.Sections                    (Section)
 import           Onyx.StackTrace
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 
 completeFiveResult :: Bool -> U.MeasureMap -> FiveResult -> FiveResult
@@ -44,14 +46,12 @@ completeFiveResult isKeys mmap result = let
   hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
   easy      = getDiff Easy   `orIfNull` gryboReduce Easy   isKeys mmap od medium
-  in result
-    { notes = Map.fromList
-      [ (Easy  , easy  )
-      , (Medium, medium)
-      , (Hard  , hard  )
-      , (Expert, expert)
-      ]
-    }
+  in result & #notes .~ Map.fromList
+    [ (Easy  , easy  )
+    , (Medium, medium)
+    , (Hard  , hard  )
+    , (Expert, expert)
+    ]
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
@@ -64,14 +64,12 @@ gryboComplete hopoThres mmap trk = let
   hard      = getDiff Hard   `orIfNull` gryboReduceDifficulty Hard   hopoThres mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduceDifficulty Medium hopoThres mmap od hard
   easy      = getDiff Easy   `orIfNull` gryboReduceDifficulty Easy   hopoThres mmap od medium
-  in trk
-    { fiveDifficulties = Map.fromList
-      [ (Easy, easy)
-      , (Medium, medium)
-      , (Hard, hard)
-      , (Expert, expert)
-      ]
-    }
+  in trk & #fiveDifficulties .~ Map.fromList
+    [ (Easy, easy)
+    , (Medium, medium)
+    , (Hard, hard)
+    , (Expert, expert)
+    ]
 
 gryboReduceDifficulty
   :: Difficulty
@@ -378,14 +376,12 @@ completeDrumResult mmap sections result = let
   easy      = getDiff Easy   `orIfNull` defVelocity (drumsReduce Easy   mmap od sections (noVelocity medium))
   defVelocity = fmap \gem -> (gem, D.VelocityNormal)
   noVelocity = fmap fst
-  in result
-    { notes = Map.fromList
-      [ (Easy  , easy  )
-      , (Medium, medium)
-      , (Hard  , hard  )
-      , (Expert, expert)
-      ]
-    }
+  in result & #notes .~ Map.fromList
+    [ (Easy  , easy  )
+    , (Medium, medium)
+    , (Hard  , hard  )
+    , (Expert, expert)
+    ]
 
 drumsComplete
   :: U.MeasureMap

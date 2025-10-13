@@ -2,10 +2,10 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Magma where
 
 import           Control.Monad                     (guard, when)
@@ -14,6 +14,7 @@ import qualified Data.ByteString.Char8             as B8
 import           Data.Char                         (toLower)
 import           Data.Default.Class                (def)
 import           Data.Foldable                     (toList)
+import           Data.Function                     ((&))
 import qualified Data.HashMap.Strict               as HM
 import           Data.Maybe                        (catMaybes, fromMaybe,
                                                     isJust)
@@ -41,6 +42,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Files                   (fixFileCase)
 import           Onyx.Util.Handle                  (fileReadable)
 import           Onyx.Util.Text.Decode             (decodeGeneral)
+import           Optics                            (set, (.~))
 import qualified System.Directory                  as Dir
 import           System.FilePath
 import           Text.Read                         (readMaybe)
@@ -144,13 +146,13 @@ importMagma fin level = do
       -- TODO support dual 1x+2x projects
       targetName = if is2x then "rb3-2x" else "rb3"
       target = (def :: TargetRB3 SoftFile)
-        { is2xBassPedal = is2x
-        , songID = case c3 of
-          Nothing -> SongIDAutoSymbol
-          Just c3file -> if C3.useNumericID c3file
-            then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
-            else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
-        }
+        & do set #is2xBassPedal is2x
+        & do set #songID
+          case c3 of
+            Nothing -> SongIDAutoSymbol
+            Just c3file -> if C3.useNumericID c3file
+              then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
+              else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
 
   let readTuning c3fn k = case c3 >>= c3fn of
         Nothing -> return Nothing
@@ -245,22 +247,22 @@ importMagma fin level = do
       }
     , targets = HM.singleton targetName $ RB3 target
     , parts = Parts $ HM.fromList
-      [ ( PartDrums, (emptyPart :: Part SoftFile)
-        { drums = guard (isJust drums) >> let
-          mode = DrumsPro -- TODO set to Drums4 for magma v1?
-          kicks = if is2x then Kicks2x else Kicks1x
-          in Just (emptyPartDrums mode kicks)
-            { difficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
-            , kit = case fmap C3.drumKitSFX c3 of
-              Nothing -> HardRockKit
-              Just 0  -> HardRockKit
-              Just 1  -> ArenaKit
-              Just 2  -> VintageKit
-              Just 3  -> TrashyKit
-              Just 4  -> ElectronicKit
-              Just _  -> HardRockKit
-            }
-        })
+      [ ( PartDrums, emptyPart & #drums .~ do
+          guard $ isJust drums
+          let mode = DrumsPro -- TODO set to Drums4 for magma v1?
+              kicks = if is2x then Kicks2x else Kicks1x
+          Just $ (emptyPartDrums mode kicks)
+            & do set #difficulty $ Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
+            &    set #kit do
+              case fmap C3.drumKitSFX c3 of
+                Nothing -> HardRockKit
+                Just 0  -> HardRockKit
+                Just 1  -> ArenaKit
+                Just 2  -> VintageKit
+                Just 3  -> TrashyKit
+                Just 4  -> ElectronicKit
+                Just _  -> HardRockKit
+        )
       , ( PartGuitar, emptyPart
         { grybo = guard (isJust gtr) >> Just ModeFive
           { difficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
@@ -329,17 +331,17 @@ importMagma fin level = do
           , fixFreeform = False
           }
         })
-      , ( PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = guard (isJust vox) >> Just ModeVocal
-          { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
-          , count = if
-            | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3
-            | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
-            | otherwise                                                  -> Vocal1
-          , gender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
-          , key = Nothing
-          , lipsyncRB3 = Nothing
-          }
-        })
+      , ( PartVocal, emptyPart & #vocal .~ do
+          guard (isJust vox) >> Just ModeVocal
+            { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
+            , count = if
+              | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3
+              | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
+              | otherwise                                                  -> Vocal1
+            , gender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
+            , key = Nothing
+            , lipsyncRB3 = Nothing
+            }
+        )
       ]
     }

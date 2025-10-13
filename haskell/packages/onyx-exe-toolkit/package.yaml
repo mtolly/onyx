@@ -53,6 +53,7 @@ executables:
     - extra
     - JuicyPixels
     - hashable
+    - optics
     # my libraries
     - midi-util
     - conduit-audio

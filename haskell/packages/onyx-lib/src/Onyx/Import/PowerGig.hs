@@ -1,11 +1,11 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.PowerGig where
 
 import           Control.Monad                     (forM, guard, unless)
@@ -17,6 +17,7 @@ import           Data.Either                       (isRight)
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
+import           Data.Function                     ((&))
 import qualified Data.HashMap.Strict               as HM
 import           Data.List.NonEmpty                (NonEmpty (..), nonEmpty)
 import qualified Data.Map                          as Map
@@ -66,6 +67,7 @@ import           Onyx.Util.Handle                  (Folder, Readable,
                                                     findFile, findFileCI,
                                                     handleToByteString,
                                                     makeHandle, useHandle)
+import           Optics                            ((.~))
 import qualified Sound.MIDI.Util                   as U
 
 importPowerGig :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> StackTraceT m [Import m]
@@ -516,16 +518,13 @@ importPowerGigSong key song folder level = do
       }
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
-      [ (F.PartGuitar, emptyPart
-        { grybo = Just (def :: ModeFive)
-          { difficulty = Tier 1 -- TODO
-          }
-        })
+      [ (F.PartGuitar, emptyPart & #grybo .~ Just do
+        (def :: ModeFive) & #difficulty .~ Tier 1 -- TODO
+        )
       , (F.PartDrums, (emptyPart :: Part SoftFile)
-        { drums = Just $ emptyPartDrums Drums4 Kicks1x -- TODO difficulty
-        })
-      , (F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = Just ModeVocal
+        & #drums .~ Just (emptyPartDrums Drums4 Kicks1x) -- TODO difficulty
+        )
+      , (F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
           { difficulty = Tier 1 -- TODO
           , gender = info_singer_gender (song_info song) >>= \case
             "male"   -> Just Male
@@ -535,7 +534,7 @@ importPowerGigSong key song folder level = do
           , key = Nothing
           , lipsyncRB3 = Nothing
           }
-        })
+        )
       ]
     , targets = HM.empty
     }

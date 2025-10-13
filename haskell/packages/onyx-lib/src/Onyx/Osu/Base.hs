@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -17,6 +18,7 @@ import           Data.Maybe
 import           Data.Scientific
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
+import           GHC.Generics                     (Generic)
 import           Onyx.MIDI.Track.Beat             (BeatEvent (..))
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.StackTrace
@@ -169,7 +171,7 @@ data OsuHitObject = OsuHitObject
   , type_        :: Integer
   , hitSound     :: Integer
   , objectParams :: V.Vector T.Text -- may include hitSample info
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 splitOsuFile :: (SendMessage m) => T.Text -> StackTraceT m (Maybe Integer, [(T.Text, [T.Text])])
 splitOsuFile f = do

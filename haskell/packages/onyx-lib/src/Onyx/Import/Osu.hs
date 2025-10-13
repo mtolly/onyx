@@ -1,10 +1,10 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Osu where
 
 import           Control.Monad                    (forM, guard, when)
@@ -16,6 +16,7 @@ import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
@@ -42,6 +43,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import           Onyx.Zip.Load                    (loadZipStrictBytes)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (<.>), (</>))
 import           Text.Read                        (readMaybe)
@@ -240,16 +242,16 @@ importOsu separateSongs f = do
         (partName, osu, track) <- convertedTracks
         case track of
           Left _drums -> return $ (partName, emptyPart
-            { drums = Just $ emptyPartDrums Drums4 Kicks1x
-            })
-          Right _mania -> return $ (partName, emptyPart
-            { mania = Just $ ModeMania $ return ManiaChart
+            & #drums .~ Just (emptyPartDrums Drums4 Kicks1x)
+            )
+          Right _mania -> return $ (partName, emptyPart & #mania .~ Just do
+            ModeMania $ return ManiaChart
               { name = "chart"
               , keys = fromIntegral $ maniaColumnCount osu
               , style = if osu.general.specialStyle then ManiaTurntable else ManiaDefault
               , difficulty = Tier 1 -- ?
               }
-            })
+            )
       }
 
 maniaColumnCount :: OsuFile -> Integer
@@ -261,8 +263,9 @@ unslopHitObjects = go Nothing where
   go _           []           = []
   go Nothing     (hit : rest) = hit : go (Just hit) rest
   go (Just prev) (hit : rest) = let
+    hit' :: OsuHitObject
     hit' = if hit.time == prev.time + 1
-      then hit { time = prev.time } :: OsuHitObject
+      then hit & #time .~ prev.time
       else hit
     in hit' : go (Just hit') rest
 

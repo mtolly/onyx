@@ -1,13 +1,13 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
-{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Song where
 
 import           Onyx.GUI.Core
@@ -19,6 +19,7 @@ import           Control.Monad.IO.Class                    (MonadIO (..),
 import           Control.Monad.Trans.Writer                (execWriterT, tell)
 import           Data.Char                                 (toLower)
 import           Data.Default.Class                        (def)
+import           Data.Function                             ((&))
 import           Data.IORef                                (modifyIORef,
                                                             newIORef, readIORef)
 import           Data.Maybe                                (fromMaybe, isJust)
@@ -40,6 +41,7 @@ import           Onyx.Preferences                          (Preferences (..),
                                                             readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Optics                                    ((%), (.~))
 import           System.FilePath                           (takeDirectory,
                                                             takeExtension,
                                                             (<.>))
@@ -61,29 +63,29 @@ songPageRB3 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \rb3 ->
-        (rb3 :: TargetRB3 FilePath) { common = rb3.common { speed = Just speed } }
+        (rb3 :: TargetRB3 FilePath) & #common % #speed .~ Just speed
       return counter
     box2x <- fullWidth 35 \rect' -> do
       box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
       tell $ FL.getValue box >>= \b -> return $ Endo \rb3 ->
-        (rb3 :: TargetRB3 FilePath) { is2xBassPedal = b }
+        (rb3 :: TargetRB3 FilePath) & #is2xBassPedal .~ b
       return box
     fullWidth 35 \rect' -> songIDBox rect' $ \sid rb3 ->
-      rb3 { songID = sid }
+      rb3 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #guitar .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar) -- technically pro guitar can make five fret. but good to be safe
         )
-      , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) { bass   = v })
+      , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #bass   .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar)
         )
-      , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) { keys   = v })
+      , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #keys   .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- similarly pro keys can make five fret
         )
-      , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) { drums  = v })
+      , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) { vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -91,13 +93,10 @@ songPageRB3 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget ?preferences >>= \rb3 -> return $ targetTitle
           (projectSongYaml proj)
-          (RB3 rb3 { common = rb3.common { override = overrideEmptyTitle } })
+          (RB3 $ rb3 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx rb3 -> (rb3 :: TargetRB3 FilePath)
-          { common = rb3.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
       liftIO $ FL.setCallback box2x \_ -> controlInput
@@ -190,26 +189,26 @@ songPageRB2 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \rb2 ->
-        (rb2 :: TargetRB2 FilePath) { common = rb2.common { speed = Just speed } }
+        (rb2 :: TargetRB2 FilePath) & #common % #speed .~ Just speed
       return counter
     box2x <- fullWidth 35 \rect' -> do
       box <- liftIO $ FL.checkButtonNew rect' (Just "2x Bass Pedal drums")
       tell $ FL.getValue box >>= \b -> return $ Endo \rb2 ->
-        (rb2 :: TargetRB2 FilePath) { is2xBassPedal = b }
+        (rb2 :: TargetRB2 FilePath) & #is2xBassPedal .~ b
       return box
     fullWidth 35 \rect' -> songIDBox rect' $ \sid rb2 ->
-      rb2 { songID = sid }
+      rb2 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) { bass   = v })
+      , ( "Bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) { drums  = v })
+      , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) { vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -217,27 +216,22 @@ songPageRB2 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget ?preferences >>= \rb2 -> return $ targetTitle
           (projectSongYaml proj)
-          (RB2 rb2 { common = rb2.common { override = overrideEmptyTitle } })
+          (RB2 $ rb2 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx rb2 -> (rb2 :: TargetRB2 FilePath)
-          { common = rb2.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
       liftIO $ FL.setCallback box2x \_ -> controlInput
   let makeTarget :: Preferences -> IO (TargetRB2 FilePath)
       makeTarget newPreferences = do
         modifier <- targetModifier
-        return $ modifier def
-          { magma = newPreferences.prefMagma
-          , legalTempos = newPreferences.prefLegalTempos
-          , common = def
-            { label2x = newPreferences.prefLabel2x
-            }
-          , ps3Encrypt = newPreferences.prefPS3Encrypt
-          }
+        return $ modifier $ def
+          & #magma .~ newPreferences.prefMagma
+          & #legalTempos .~ newPreferences.prefLegalTempos
+          & #common .~ do
+            def & #label2x .~ newPreferences.prefLabel2x
+          & #ps3Encrypt .~ newPreferences.prefPS3Encrypt
       makeFinalTarget = readPreferences >>= stackIO . makeTarget
 
   fullWidth 35 \rect' -> do
@@ -300,7 +294,7 @@ songPageGHWOR sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh5 ->
-        (gh5 :: TargetGH5 FilePath) { common = gh5.common { speed = Just speed } }
+        (gh5 :: TargetGH5 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 35 \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
@@ -309,22 +303,22 @@ songPageGHWOR sink rect tab proj build = mdo
         ]
       tell do
         b <- getProTo4
-        return $ Endo \gh5 -> (gh5 :: TargetGH5 FilePath) { proTo4 = fromMaybe False b }
+        return $ Endo \gh5 -> (gh5 :: TargetGH5 FilePath) & #proTo4 .~ fromMaybe False b
     fullWidth 35 \rect' -> numberBox rect' "Custom Song ID (dlc)" $ \sid gh5 ->
-      gh5 { songID = sid }
+      gh5 & #songID .~ sid
     fullWidth 35 \rect' -> numberBox rect' "Custom Package ID (cdl)" $ \sid gh5 ->
-      gh5 { cdl = sid }
+      gh5 & #cdl .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) { bass   = v })
+      , ( "Bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) { drums  = v })
+      , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) { vocal  = v })
+      , ( "Vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -332,13 +326,10 @@ songPageGHWOR sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh5 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH5 gh5 { common = gh5.common { override = overrideEmptyTitle } })
+          (GH5 $ gh5 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx gh5 -> (gh5 :: TargetGH5 FilePath)
-          { common = gh5.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
   let initTarget = def
@@ -404,7 +395,7 @@ songPageRR sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \rr ->
-        (rr :: TargetRR FilePath) { common = rr.common { speed = Just speed } }
+        (rr :: TargetRR FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 35 \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
@@ -413,22 +404,22 @@ songPageRR sink rect tab proj build = mdo
         ]
       tell do
         b <- getProTo4
-        return $ Endo \rr -> (rr :: TargetRR FilePath) { proTo4 = fromMaybe False b }
+        return $ Endo \rr -> (rr :: TargetRR FilePath) & #proTo4 .~ fromMaybe False b
     fullWidth 35 \rect' -> numberBox rect' "Custom Song ID" $ \sid rr ->
-      rr { songID = sid }
+      rr & #songID .~ sid
     fullWidth 35 \rect' -> numberBox rect' "Custom Leaderboard ID" $ \sid rr ->
-      rr { leaderboardID = sid }
+      rr & #leaderboardID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar"           , (.guitar), (\v rr -> (rr :: TargetRR FilePath) { guitar = v })
+      [ ( "Guitar"           , (.guitar), (\v rr -> (rr :: TargetRR FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"             , (.bass  ), (\v rr -> (rr :: TargetRR FilePath) { bass   = v })
+      , ( "Bass"             , (.bass  ), (\v rr -> (rr :: TargetRR FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums"            , (.drums ), (\v rr -> (rr :: TargetRR FilePath) { drums  = v })
+      , ( "Drums"            , (.drums ), (\v rr -> (rr :: TargetRR FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal (animation)", (.vocal ), (\v rr -> (rr :: TargetRR FilePath) { vocal  = v })
+      , ( "Vocal (animation)", (.vocal ), (\v rr -> (rr :: TargetRR FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -436,13 +427,10 @@ songPageRR sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \rr -> return $ targetTitle
           (projectSongYaml proj)
-          (RR rr { common = rr.common { override = overrideEmptyTitle } })
+          (RR $ rr & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx rr -> (rr :: TargetRR FilePath)
-          { common = rr.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
   let initTarget = def
@@ -499,28 +487,28 @@ songPagePS sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \ps ->
-        (ps :: TargetPS FilePath) { common = ps.common { speed = Just speed } }
+        (ps :: TargetPS FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS FilePath) { guitar     = v })
+      [ ( "Guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS FilePath) & #guitar     .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar) -- pro guitar redundant since it can make five fret
         )
-      , ( "Bass"       , (.bass      ), (\v ps -> (ps :: TargetPS FilePath) { bass       = v })
+      , ( "Bass"       , (.bass      ), (\v ps -> (ps :: TargetPS FilePath) & #bass       .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar)
         )
-      , ( "Keys"       , (.keys      ), (\v ps -> (ps :: TargetPS FilePath) { keys       = v })
+      , ( "Keys"       , (.keys      ), (\v ps -> (ps :: TargetPS FilePath) & #keys       .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- pro keys redundant since it can make five fret
         )
-      , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS FilePath) { drums      = v })
+      , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS FilePath) & #drums      .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS FilePath) { vocal      = v })
+      , ( "Vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS FilePath) & #vocal      .~ v)
         , (\p -> isJust p.vocal)
         )
-      , ( "Rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS FilePath) { rhythm     = v })
+      , ( "Rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS FilePath) & #rhythm     .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Guitar Coop", (.guitarCoop), (\v ps -> (ps :: TargetPS FilePath) { guitarCoop = v })
+      , ( "Guitar Coop", (.guitarCoop), (\v ps -> (ps :: TargetPS FilePath) & #guitarCoop .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
       ]
@@ -528,13 +516,10 @@ songPagePS sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \ps -> return $ targetTitle
           (projectSongYaml proj)
-          (PS ps { common = ps.common { override = overrideEmptyTitle } })
+          (PS $ ps & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx ps -> (ps :: TargetPS FilePath)
-          { common = ps.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
   let makeTarget = fmap ($ def) targetModifier
@@ -601,22 +586,22 @@ songPageGH3 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh3 ->
-        (gh3 :: TargetGH3 FilePath) { common = gh3.common { speed = Just speed } }
+        (gh3 :: TargetGH3 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { bass   = v })
+        [ ( "Bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #bass .~ v)
           , isJust . anyFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { rhythm = v })
+        [ ( "Rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #rhythm .~ v)
           , isJust . anyFiveFret
           )
         ]
@@ -635,15 +620,15 @@ songPageGH3 sink rect tab proj build = mdo
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-      tell $ readIORef coopPart >>= \coop -> return $ Endo \gh3 -> (gh3 :: TargetGH3 FilePath) { coop = coop }
+      tell $ readIORef coopPart >>= \coop -> return $ Endo \gh3 -> (gh3 :: TargetGH3 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { keys  = v })
+      [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { drums = v })
+      , ( "Drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #drums .~ v)
         , isJust . (.drums)
         )
-      , ( "Vocal", (.vocal), (\v gh3 -> (gh3 :: TargetGH3 FilePath) { vocal = v })
+      , ( "Vocal", (.vocal), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -651,13 +636,10 @@ songPageGH3 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh3 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH3 gh3 { common = gh3.common { override = overrideEmptyTitle } })
+          (GH3 $ gh3 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx gh3 -> (gh3 :: TargetGH3 FilePath)
-          { common = gh3.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
   let initTarget = def :: TargetGH3 FilePath
@@ -723,24 +705,24 @@ songPageGH1 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh1 ->
-        (gh1 :: TargetGH1 FilePath) { common = gh1.common { speed = Just speed } }
+        (gh1 :: TargetGH1 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) { bass  = v })
+      [ ( "Bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #bass  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) { keys  = v })
+      , ( "Keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1 FilePath) { drums = v })
+      , ( "Drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #drums .~ v)
         , isJust . (.drums)
         )
-      , ( "Vocal", (.vocal), (\v gh1 -> (gh1 :: TargetGH1 FilePath) { vocal = v })
+      , ( "Vocal", (.vocal), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -748,19 +730,14 @@ songPageGH1 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh1 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH1 gh1 { common = gh1.common { override = overrideEmptyTitle } })
+          (GH1 $ gh1 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx gh1 -> (gh1 :: TargetGH1 FilePath)
-          { common = gh1.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
   let initTarget :: Preferences -> TargetGH1 FilePath
-      initTarget prefs = (def :: TargetGH1 FilePath)
-        { offset = prefs.prefGH2Offset
-        }
+      initTarget prefs = (def :: TargetGH1 FilePath) & #offset .~ prefs.prefGH2Offset
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling
       makeTargetUpdatePrefs go = targetModifier >>= \modifier -> sink $ EventOnyx do
@@ -813,22 +790,22 @@ songPageGH2 sink rect tab proj build = mdo
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh2 ->
-        (gh2 :: TargetGH2 FilePath) { common = gh2.common { speed = Just speed } }
+        (gh2 :: TargetGH2 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { guitar = v })
+      [ ( "Guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { bass = v })
+        [ ( "Bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #bass .~ v)
           , isJust . anyFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { rhythm = v })
+        [ ( "Rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #rhythm .~ v)
           , isJust . anyFiveFret
           )
         ]
@@ -847,15 +824,15 @@ songPageGH2 sink rect tab proj build = mdo
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-      tell $ readIORef coopPart >>= \coop -> return $ Endo \gh2 -> (gh2 :: TargetGH2 FilePath) { coop = coop }
+      tell $ readIORef coopPart >>= \coop -> return $ Endo \gh2 -> (gh2 :: TargetGH2 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { keys  = v })
+      [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { drums = v })
+      , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #drums .~ v)
         , isJust . anyDrums
         )
-      , ( "Vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2 FilePath) { vocal = v })
+      , ( "Vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -863,13 +840,10 @@ songPageGH2 sink rect tab proj build = mdo
       controlInput <- customTitleSuffix sink rect'
         (makeTarget >>= \gh2 -> return $ targetTitle
           (projectSongYaml proj)
-          (GH2 gh2 { common = gh2.common { override = overrideEmptyTitle } })
+          (GH2 $ gh2 & #common % #override .~ overrideEmptyTitle)
         )
         (\msfx gh2 -> (gh2 :: TargetGH2 FilePath)
-          { common = gh2.common
-            { label_ = msfx
-            }
-          }
+          & #common % #label_ .~ msfx
         )
       liftIO $ FL.setCallback counterSpeed \_ -> controlInput
     fullWidth 35 \rect' -> do
@@ -882,9 +856,7 @@ songPageGH2 sink rect tab proj build = mdo
         Nothing   -> gh2 { gh2Deluxe = False, is2xBassPedal = False }
         Just is2x -> gh2 { gh2Deluxe = True , is2xBassPedal = is2x  }
   let initTarget :: Preferences -> TargetGH2 FilePath
-      initTarget prefs = (def :: TargetGH2 FilePath)
-        { offset = prefs.prefGH2Offset
-        }
+      initTarget prefs = (def :: TargetGH2 FilePath) & #offset .~ prefs.prefGH2Offset
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
       -- make sure we reload offset before compiling
       makeTargetUpdatePrefs go = targetModifier >>= \modifier -> sink $ EventOnyx do
@@ -937,4 +909,4 @@ songPageGH2 sink rect tab proj build = mdo
   return ()
 
 overrideEmptyTitle :: Metadata f
-overrideEmptyTitle = def { title = Just "" }
+overrideEmptyTitle = def & #title .~ Just ""

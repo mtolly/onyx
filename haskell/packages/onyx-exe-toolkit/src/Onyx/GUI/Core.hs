@@ -1,12 +1,12 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecursiveDo           #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
-{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Core where
 
 import           Control.Concurrent                        (ThreadId)
@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Writer                (WriterT, tell)
 import qualified Data.ByteString                           as B
 import           Data.Default.Class                        (Default, def)
 import           Data.Foldable                             (toList)
+import           Data.Function                             ((&))
 import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (newIORef, readIORef,
                                                             writeIORef)
@@ -68,6 +69,7 @@ import           Onyx.QuickConvert.RockBand
 import           Onyx.QuickConvert.RockRevolution
 import           Onyx.StackTrace
 import qualified Onyx.Xbox.STFS                            as STFS
+import           Optics                                    ((.~))
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (dropTrailingPathSeparator,
                                                             takeDirectory,
@@ -879,7 +881,5 @@ mixDownStems song = song
           x : xs -> Just $ Mix $ x NE.:| xs
       , crowd = Nothing -- just drop? dunno what people would want
       }
-    MoggPlan info -> MoggPlan info
-      { parts = Parts HM.empty
-      }
+    MoggPlan info -> MoggPlan $ info & #parts .~ Parts HM.empty
   }

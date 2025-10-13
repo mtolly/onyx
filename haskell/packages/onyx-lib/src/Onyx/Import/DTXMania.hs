@@ -1,11 +1,11 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.DTXMania where
 
 import           Control.Monad.Extra              (forM, guard, unless)
@@ -16,6 +16,7 @@ import           Data.Default.Class               (def)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
 import           Data.List.NonEmpty               (NonEmpty (..))
@@ -39,6 +40,7 @@ import           Onyx.MIDI.Track.FiveFret
 import           Onyx.Project                     hiding (TargetDTX (..))
 import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (fileReadable)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeExtension,
@@ -386,25 +388,21 @@ importSetDef setDefPath song level = do
         , plans = HM.empty
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
-          [ flip fmap topDrumDiff \diff -> (F.PartDrums, emptyPart
-            { drums = Just let
-              kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
-                then KicksBoth
-                else Kicks1x
-              in (emptyPartDrums DrumsElite kicks :: ModeDrums SoftFile)
-                { difficulty = translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
-                }
-            })
-          , flip fmap topGuitarDiff \diff -> (F.PartGuitar, emptyPart
-            { grybo = Just (def :: ModeFive)
-              { difficulty = translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
-              }
-            })
-          , flip fmap topBassDiff \diff -> (F.PartBass, emptyPart
-            { grybo = Just (def :: ModeFive)
-              { difficulty = translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
-              }
-            })
+          [ flip fmap topDrumDiff \diff -> (F.PartDrums, emptyPart & #drums .~ Just let
+            kicks = if any ((== LeftBass) . fst) $ dtx_Drums diff
+              then KicksBoth
+              else Kicks1x
+            in (emptyPartDrums DrumsElite kicks :: ModeDrums SoftFile)
+              & #difficulty .~ translateDifficulty (dtx_DLEVEL diff) (dtx_DLVDEC diff)
+            )
+          , flip fmap topGuitarDiff \diff -> (F.PartGuitar, emptyPart & #grybo .~ Just do
+            (def :: ModeFive)
+              & #difficulty .~ translateDifficulty (dtx_GLEVEL diff) (dtx_GLVDEC diff)
+            )
+          , flip fmap topBassDiff \diff -> (F.PartBass, emptyPart & #grybo .~ Just do
+            (def :: ModeFive)
+              & #difficulty .~ translateDifficulty (dtx_BLEVEL diff) (dtx_BLVDEC diff)
+            )
           ]
         }
       (finalSongYaml, finalMidi) = case level of

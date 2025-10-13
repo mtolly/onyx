@@ -1,8 +1,10 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -24,6 +26,7 @@ import           Data.Char                        (isSpace, toLower)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import           Data.Functor.Identity            (Identity, runIdentity)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -34,6 +37,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio                       (Audio (..), applyVolsMono,
                                                    audioIO, audioLengthReadable,
@@ -69,6 +73,7 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Files                  (fixFileCase)
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode            (decodeGeneral, encodeLatin1)
+import           Optics                           (mapped, (%), (%~), (.~))
 import qualified Sound.MIDI.File                  as File
 import qualified Sound.MIDI.File.Event            as Event
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -98,7 +103,7 @@ data QuickFoF = QuickFoF
   , files    :: [(T.Text, FoFFile)]
   , location :: FilePath
   , format   :: FoFFormatInput
-  }
+  } deriving (Generic)
 
 data FoFFormat
   = FoFFolder
@@ -191,7 +196,7 @@ convertAudio convFrom convTo q = do
         return (newName, FoFReadable $ makeHandle newStr $ byteStringSimpleHandle bs)
       _ -> return pair
     _ -> return pair
-  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return $ q & #files .~ newFiles
 
 convertOgg, convertOpus :: QuickFoF -> IO QuickFoF
 convertOgg  = convertAudio [".mp3", ".wav", ".opus", ".flac"] ".ogg"
@@ -209,7 +214,7 @@ convertMIDI q = do
         -- TODO should also save .chart.bak
       _ -> return pair
     _ -> return pair
-  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return $ q & #files .~ newFiles
 
 applyToMIDI
   :: (SendMessage m, MonadIO m)
@@ -221,7 +226,7 @@ applyToMIDI f q = do
       newMIDI <- getFoFMIDI file >>= f
       return (name, FoFMIDI newMIDI)
     _ -> return pair
-  return let QuickFoF{..} = q in QuickFoF { files = newFiles, .. }
+  return $ q & #files .~ newFiles
 
 quickHOPOThreshold :: QuickFoF -> U.Beats
 quickHOPOThreshold q = case lookup "hopo_frequency" q.metadata >>= readMaybe . T.unpack of
@@ -266,13 +271,9 @@ psOpenFormat hopoThreshold = modifyFiveFretTracks \dvn trk -> let
     _                                  -> False
   in if not $ any isEnhancedOpensEvent $ U.trackTakeZero trk
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk \ft -> let
-      G5.FiveTrack{..} = ft
+    else flip (overParsedFiveFret dvn) trk $ let
       eachDiff = G.emitGuitar5PS . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in G5.FiveTrack
-        { fiveDifficulties = fmap eachDiff ft.fiveDifficulties
-        , ..
-        }
+      in #fiveDifficulties % mapped %~ eachDiff
 
 -- WIP
 tapToHOPO :: (SendMessage m) => U.Beats -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
@@ -280,16 +281,12 @@ tapToHOPO hopoThreshold = modifyFiveFretTracks \dvn trk -> let
   hasTap = True -- TODO look for events
   in if not hasTap
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk \ft -> let
-      G5.FiveTrack{..} = ft
+    else flip (overParsedFiveFret dvn) trk $ let
       eachDiff
         = G.emitGuitar5PS -- should this be an option? probably always PS format opens here
         . fmap (\((color, sht), len) -> ((color, case sht of Tap -> HOPO; _ -> sht), len))
         . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in G5.FiveTrack
-        { fiveDifficulties = fmap eachDiff ft.fiveDifficulties
-        , ..
-        }
+      in #fiveDifficulties % mapped %~ eachDiff
 
 -- WIP
 removeOpenNotes :: (SendMessage m) => U.Beats -> Bool -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
@@ -297,18 +294,14 @@ removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks \dvn trk -> let
   hasOpen = True -- TODO look for events
   in if not hasOpen
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk \ft -> let
-      G5.FiveTrack{..} = ft
+    else flip (overParsedFiveFret dvn) trk $ let
       eachDiff
         = G.emitGuitar5 -- open format doesn't matter since there are none
         . fmap (\((color, sht), len) -> ((Just color, sht), len))
         . G.noOpenNotes detectMuted
         -- TODO we probably need to remove all extended sustains here
         . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in G5.FiveTrack
-        { fiveDifficulties = fmap eachDiff ft.fiveDifficulties
-        , ..
-        }
+      in #fiveDifficulties % mapped %~ eachDiff
 
 overParsedFiveFret
   :: (SendMessage m)
@@ -430,6 +423,7 @@ fillRequiredMetadata = let
   toLengthMS frames rate = let
     secs = fromIntegral frames / fromIntegral rate :: Double
     in round $ secs * 1000
+  withSongLength :: QuickFoF -> IO QuickFoF
   withSongLength q = case lookup "song_length" q.metadata of
     Just s | T.any (not . isSpace) s && T.strip s /= "0" -> return q
     _ -> do
@@ -446,12 +440,9 @@ fillRequiredMetadata = let
       let ms = case filter (/= 0) lens of
             []     -> 1 -- note, 0 does not work
             n : ns -> foldr max n ns
-      return let QuickFoF{..} = q in QuickFoF
-        { metadata
-          =  [ p | p@(k, _) <- q.metadata, k /= "song_length" ]
-          <> [ ("song_length", T.pack $ show ms) ]
-        , ..
-        }
+      return $ q & #metadata %~ \meta
+        -> [ p | p@(k, _) <- meta, k /= "song_length" ]
+        <> [ ("song_length", T.pack $ show ms) ]
   in withSongLength
 
 convertEncoreFoF :: FilePath -> EncoreInfo FilePath -> IO QuickFoF
@@ -582,13 +573,10 @@ combineCharts songBase songNew = do
     newMidi
   let combinedMetadata = combineMetadata baseWithMidi.metadata newWithMidi.metadata
       finalSong :: QuickFoF
-      finalSong = let QuickFoF{..} = baseWithMidi in QuickFoF
-        { files = do
-          (name, f) <- baseWithMidi.files
-          return (name, if name == "notes.mid" then FoFMIDI finalMidi else f)
-        , metadata = combinedMetadata
-        , ..
-        }
+      finalSong = baseWithMidi
+        & #files % mapped %~
+          (\(name, f) -> (name, if name == "notes.mid" then FoFMIDI finalMidi else f))
+        & #metadata .~ combinedMetadata
   return finalSong
 
 data FoFTrackInfo = FoFTrackInfo

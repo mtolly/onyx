@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.DonkeyKonga where
 
 import           Control.Monad                    (forM)
@@ -15,6 +15,7 @@ import           Data.Char                        (isDigit)
 import           Data.Conduit                     (yield)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.Map                         as Map
@@ -36,6 +37,7 @@ import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.Directory                 (listDirectory)
 import           System.FilePath                  ((<.>), (</>))
@@ -328,9 +330,9 @@ importDKSong chartName isMidi chartFile dsp level = do
         , fileTempo   = Nothing
         }
     , targets = HM.empty
-    , parts = Parts $ HM.singleton F.PartDrums (emptyPart :: Part SoftFile)
-      { drums = Just $ emptyPartDrums Drums4 Kicks1x
-      }
+    , parts = Parts $ HM.singleton F.PartDrums
+      $ (emptyPart :: Part SoftFile)
+      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x)
     }
 
 convertDKDrums :: RTB.T U.Seconds (DKEvent U.Seconds) -> DrumTrack U.Seconds

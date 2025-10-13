@@ -5,10 +5,10 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE StrictData            #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Import.Neversoft where
 
 import           Control.Applicative              ((<|>))
@@ -25,6 +25,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -70,6 +71,7 @@ import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
@@ -258,14 +260,14 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               }
             , targets = HM.empty
             , parts = Parts $ HM.fromList
-              [ (F.PartGuitar, (emptyPart :: Part SoftFile)
-                { grybo = readTier info.songTierGuitar \diff -> (def :: ModeFive) { difficulty = diff }
-                })
-              , (F.PartBass, (emptyPart :: Part SoftFile)
-                { grybo = readTier info.songTierBass \diff -> (def :: ModeFive) { difficulty = diff }
-                })
-              , (F.PartDrums, (emptyPart :: Part SoftFile)
-                { drums = readTier info.songTierDrums \diff -> let
+              [ (F.PartGuitar, (emptyPart :: Part SoftFile) & #grybo .~ do
+                  readTier info.songTierGuitar \diff -> (def :: ModeFive) & #difficulty .~ diff
+                )
+              , (F.PartBass, (emptyPart :: Part SoftFile) & #grybo .~ do
+                  readTier info.songTierBass \diff -> (def :: ModeFive) & #difficulty .~ diff
+                )
+              , (F.PartDrums, (emptyPart :: Part SoftFile) & #drums .~ do
+                readTier info.songTierDrums \diff -> let
                   -- can't use `info.songDoubleKick` since some WoR songs like
                   -- Aqualung say "double kick" but they only have ghost notes,
                   -- no extra kicks
@@ -273,18 +275,17 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     then Kicks1x
                     else KicksBoth
                   in (emptyPartDrums Drums5 kicks :: ModeDrums SoftFile)
-                    { difficulty = diff
-                    }
-                })
-              , (F.PartVocal, (emptyPart :: Part SoftFile)
-                { vocal = readTier info.songTierVocals \diff -> ModeVocal
+                    & #difficulty .~ diff
+                )
+              , (F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ do
+                readTier info.songTierVocals \diff -> ModeVocal
                   { difficulty = diff
                   , count      = Vocal1
                   , gender     = info.songSinger
                   , key        = Nothing
                   , lipsyncRB3 = Nothing
                   }
-                })
+                )
               ]
             }
 
@@ -604,26 +605,20 @@ importGH4Song ghi level = do
     , plans = HM.singleton "gh" plan
     , targets = HM.empty
     , parts = Parts $ HM.fromList
-      [ (F.PartGuitar, (emptyPart :: Part SoftFile)
-        { grybo = Just def
-        })
-      , (F.PartBass, (emptyPart :: Part SoftFile)
-        { grybo = Just def
-        })
-      , (F.PartDrums, (emptyPart :: Part SoftFile)
-        { drums = Just let
+      [ (F.PartGuitar, (emptyPart :: Part SoftFile) & #grybo .~ Just def)
+      , (F.PartBass  , (emptyPart :: Part SoftFile) & #grybo .~ Just def)
+      , (F.PartDrums , (emptyPart :: Part SoftFile) & #drums .~ Just let
           kicks = if info.gh4DoubleKick then KicksBoth else Kicks1x
           in emptyPartDrums Drums5 kicks
-        })
-      , (F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = Just ModeVocal
+        )
+      , (F.PartVocal , (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
           { difficulty = Tier 1
           , count      = Vocal1
           , gender     = info.gh4Singer
           , key        = Nothing
           , lipsyncRB3 = Nothing
           }
-        })
+        )
       ]
     }
 
@@ -915,9 +910,7 @@ importGH3Song ghi = let
           let expert = fromMaybe mempty $ Map.lookup Expert drums.tdDifficulties
           guard $ not $ RTB.null expert.tdGems
           let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
-          Just (F.PartDrums, emptyPart
-            { drums = Just $ emptyPartDrums DrumsElite kicks
-            })
+          Just (F.PartDrums, emptyPart & #drums .~ Just (emptyPartDrums DrumsElite kicks))
         ]
       }
 

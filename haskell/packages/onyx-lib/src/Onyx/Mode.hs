@@ -1,14 +1,15 @@
 -- Extracting and converting parts between different gameplay modes
 {-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 module Onyx.Mode where
 
 import           Control.Applicative              ((<|>))
@@ -20,6 +21,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (find, toList)
+import           Data.Function                    ((&))
 import           Data.Functor                     (void)
 import           Data.Hashable                    (hash)
 import           Data.List.Extra                  (nubOrd, sort, unsnoc)
@@ -29,6 +31,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    listToMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.AutoChart                   (autoChart)
 import           Onyx.Drums.OneFoot               (phaseShiftKicks, rockBand1x,
@@ -49,6 +52,7 @@ import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.ProKeys
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.Project
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 
 data ModeInput = ModeInput
@@ -65,7 +69,7 @@ data FiveResult = FiveResult
   , other     :: Five.FiveTrack U.Beats
   , source    :: T.Text
   , autochart :: Bool
-  }
+  } deriving (Generic)
 
 data FiveType
   = FiveTypeGuitar    -- prefer no extended sustains + no open notes
@@ -157,9 +161,7 @@ convertDrumsToFive :: BuildDrums -> BuildFive
 convertDrumsToFive bd _ftype input = let
   drumResult = bd DrumTargetRB2x input
   in FiveResult
-    { settings = (def :: ModeFive)
-      { difficulty = drumResult.settings.difficulty
-      }
+    { settings = (def :: ModeFive) & #difficulty .~ drumResult.settings.difficulty
     , notes = flip fmap drumResult.notes \drumGems ->
       strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap drumGems \(gem, _velocity) -> let
         color = case gem of
@@ -204,7 +206,7 @@ data DrumResult = DrumResult
   , source     :: T.Text
   , autochart  :: Bool
   , eliteDrums :: Maybe (ED.EliteDrumTrack U.Beats)
-  }
+  } deriving (Generic)
 
 data DrumTarget
   = DrumTargetRB1x -- pro, 1x
@@ -502,9 +504,7 @@ proGuitarToFiveFret part = flip fmap part.proGuitar \ppg _ftype input -> let
     (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
     autoResult
   in FiveResult
-    { settings = (def :: ModeFive)
-      { difficulty = ppg.difficulty
-      }
+    { settings = (def :: ModeFive) & #difficulty .~ ppg.difficulty
     , notes = Map.singleton Expert
       $ RTB.flatten
       $ adjustRocksmithHST input.tempo
@@ -539,9 +539,7 @@ proKeysToFiveFret :: Part f -> Maybe BuildFive
 proKeysToFiveFret part = flip fmap part.proKeys \ppk _ftype input -> let
   expertPK = input.part.onyxPartRealKeysX
   in FiveResult
-    { settings = (def :: ModeFive)
-      { difficulty = ppk.difficulty
-      }
+    { settings = (def :: ModeFive) & #difficulty .~ ppk.difficulty
     , notes = let
       chorded
         = RTB.toAbsoluteEventList 0

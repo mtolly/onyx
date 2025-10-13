@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveFoldable             #-}
 {-# LANGUAGE DeriveFunctor              #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoFieldSelectors           #-}
+{-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedRecordDot        #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -19,8 +21,6 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
-{-# LANGUAGE BlockArguments             #-}
 module Onyx.Game.Time where
 
 import           Control.Applicative              ((<|>))
@@ -29,6 +29,7 @@ import           Control.Monad.Trans.State        (evalState, get, put)
 import           Data.Bits
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (find, toList)
+import           Data.Function                    ((&))
 import qualified Data.Map.Strict.Internal         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -46,6 +47,7 @@ import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.PhaseShift.Dance            (NoteType (..))
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 
 data PNF sust now
@@ -496,7 +498,7 @@ data DrumPlayState t pad lane = DrumPlayState
   { events    :: [(t, (EventResult t pad, GamePlayState))]
   , track     :: Map.Map t (CommonState (DrumState pad lane))
   , noteTimes :: Set.Set t
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 data NoteStatus t
   = NoteFuture
@@ -620,7 +622,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
       eventsToRewind' = flip map eventsToRewind \(t, (res, _)) ->
         (t, fmap fst res.hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
-      in dps { events = newEvents }
+      in dps & #events .~ newEvents
 
 ----------------------------
 
@@ -640,7 +642,7 @@ data EliteDrumPlayState t = EliteDrumPlayState
   { events    :: [(t, (Maybe EliteDrumInput, EliteDrumGameState t))]
   , track     :: Map.Map t (CommonState (EliteDrumState t (EliteDrumNote FlamStatus) (EliteGem ())))
   , noteTimes :: Set.Set t
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 data EliteDrumGameState t = EliteDrumGameState
   { score       :: Int
@@ -648,7 +650,7 @@ data EliteDrumGameState t = EliteDrumGameState
   , hihatOpen   :: Bool
   , noteResults :: [(t, Map.Map (EliteDrumNote FlamStatus) (NoteResult t))] -- times are of notes
   , overhits    :: [(t, EliteDrumHit)] -- times are of inputs
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 data NoteResult t
   = EDMissed
@@ -827,7 +829,7 @@ applyEliteDrumEvent tNew mpadNew halfWindow dps = let
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind \(t, (hit, _)) -> (t, hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
-      in dps { events = newEvents }
+      in dps & #events .~ newEvents
 
 ----------------------------------------------------
 
@@ -839,7 +841,7 @@ data GuitarGameState t = GuitarGameState
   , inputs      :: [(t, GuitarInput)]
   , overstrums  :: [t]
   , noteResults :: [(t, GuitarResult t)] -- times are of notes
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 newtype FretSet = FretSet Int
   deriving (Eq, Bits)
@@ -879,7 +881,7 @@ data GuitarPlayState t = GuitarPlayState
   { events    :: [(t, (Maybe GuitarInput, GuitarGameState t))]
   , track     :: Map.Map t (CommonState (GuitarState t (Maybe Five.Color)))
   , noteTimes :: Set.Set t
-  } deriving (Show)
+  } deriving (Show, Generic)
 
 data GuitarInput
   = GuitarFret Five.Color Bool
@@ -1062,4 +1064,4 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
     (eventsToRewind, rest) -> let
       eventsToRewind' = flip map eventsToRewind \(t, (input, _)) -> (t, input)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, minputNew)]
-      in gps { events = newEvents }
+      in gps & #events .~ newEvents

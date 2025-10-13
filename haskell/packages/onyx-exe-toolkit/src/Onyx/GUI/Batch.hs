@@ -1,12 +1,12 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# OPTIONS_GHC -fno-warn-ambiguous-fields #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
-{-# LANGUAGE BlockArguments        #-}
 module Onyx.GUI.Batch where
 
 import           Onyx.GUI.Core
@@ -15,6 +15,7 @@ import           Onyx.GUI.Util                      (askFolder)
 import           Control.Applicative                ((<|>))
 import           Control.Monad.Extra                ((>=>))
 import           Data.Default.Class                 (def)
+import           Data.Function                      ((&))
 import qualified Data.HashMap.Strict                as HM
 import           Data.List                          (find)
 import           Data.Maybe                         (fromMaybe, isJust)
@@ -33,6 +34,7 @@ import           Onyx.Preferences                   (Preferences (..),
                                                      readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
+import           Optics                             (mapped, (%), (%~), (.~))
 import           System.FilePath                    (takeDirectory)
 
 batchPagePreview
@@ -132,7 +134,7 @@ batchPageRB3 sink rect tab build = do
             = (if toms then id else forceProDrums)
             $ projectSongYaml proj
           in
-            ( [ ((tgt :: TargetRB3 FilePath) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB3 FilePath) & #is2xBassPedal .~ is2x, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -183,12 +185,9 @@ batchPageGH1 sink rect tab build = do
             , F.PartName "dance"
             ]
           tgt = (def :: TargetGH1 FilePath)
-            { common = (def :: TargetGH1 FilePath).common
-              { speed = Just speed
-              }
-            , guitar = fromMaybe (F.PartName "undefined") leadPart
-            , offset = newPrefs.prefGH2Offset
-            }
+            & #common % #speed .~ Just speed
+            & #guitar          .~ fromMaybe (F.PartName "undefined") leadPart
+            & #offset          .~ newPrefs.prefGH2Offset
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH1 tgt
             , let
@@ -257,20 +256,17 @@ batchPageGH3 sink rect tab build = do
             , (F.PartName "dance" , GH2Rhythm)
             ]
           tgt = (def :: TargetGH3 FilePath)
-            { common = (def :: TargetGH3 FilePath).common
-              { speed = Just speed
-              }
-            , guitar = fromMaybe (F.PartName "undefined") leadPart
-            , bass = case coopPart of
-              Just (x, GH2Bass) -> x
-              _                 -> (def :: TargetGH3 FilePath).bass
-            , rhythm = case coopPart of
-              Just (x, GH2Rhythm) -> x
-              _                   -> (def :: TargetGH3 FilePath).rhythm
-            , coop = case coopPart of
-              Just (_, coop) -> coop
-              _              -> (def :: TargetGH3 FilePath).coop
-            }
+            & #common % #speed .~ Just speed
+            & #guitar .~ fromMaybe (F.PartName "undefined") leadPart
+            & #bass %~ case coopPart of
+              Just (x, GH2Bass) -> const x
+              _                 -> id
+            & #rhythm %~ case coopPart of
+              Just (x, GH2Rhythm) -> const x
+              _                   -> id
+            & #coop %~ case coopPart of
+              Just (_, coop) -> const coop
+              _              -> id
           fout = (if xbox then trimXbox newPrefs else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH3 tgt
             , let
@@ -433,14 +429,11 @@ batchPageGHWOR sink rect tab build = do
             ]
           defGH5 = def :: TargetGH5 FilePath
           tgt = (defGH5 :: TargetGH5 FilePath)
-            { common = defGH5.common
-              { speed = Just speed
-              }
-            , guitar = fromMaybe defGH5.guitar pickedGuitar
-            , bass = fromMaybe defGH5.bass $ pickedBass <|> pickedGuitar
-            , drums = getDrumsOrDance $ projectSongYaml proj
-            , proTo4 = proTo4
-            }
+            & #common % #speed .~ Just speed
+            & #guitar          .~ fromMaybe defGH5.guitar pickedGuitar
+            & #bass            .~ fromMaybe defGH5.bass (pickedBass <|> pickedGuitar)
+            & #drums           .~ getDrumsOrDance (projectSongYaml proj)
+            & #proTo4          .~ proTo4
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let
@@ -506,14 +499,11 @@ batchPageRR sink rect tab build = do
             ]
           defRR = def :: TargetRR FilePath
           tgt = (defRR :: TargetRR FilePath)
-            { common = defRR.common
-              { speed = Just speed
-              }
-            , guitar = fromMaybe defRR.guitar pickedGuitar
-            , bass = fromMaybe defRR.bass $ pickedBass <|> pickedGuitar
-            , drums = getDrumsOrDance $ projectSongYaml proj
-            , proTo4 = proTo4
-            }
+            & #common % #speed .~ Just speed
+            & #guitar          .~ fromMaybe defRR.guitar pickedGuitar
+            & #bass            .~ fromMaybe defRR.bass (pickedBass <|> pickedGuitar)
+            & #drums           .~ getDrumsOrDance (projectSongYaml proj)
+            & #proTo4          .~ proTo4
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RR tgt
             , let
@@ -566,18 +556,16 @@ batchPageRB2 sink rect tab build = do
         kicks <- stackIO getKicks
         newPreferences <- readPreferences
         return \proj -> let
-          tgt = preset yaml def
-            { common      = (def :: TargetRB2 FilePath).common
-              { speed   = Just speed
-              , label2x = newPreferences.prefLabel2x
-              }
-            , legalTempos = newPreferences.prefLegalTempos
-            , magma       = newPreferences.prefMagma
-            , songID      = if newPreferences.prefRBNumberID
-              then SongIDAutoInt
-              else SongIDAutoSymbol
-            , ps3Encrypt  = newPreferences.prefPS3Encrypt
-            }
+          tgt = preset yaml $ def
+            & #common % #speed   .~ Just speed
+            & #common % #label2x .~ newPreferences.prefLabel2x
+            & #legalTempos       .~ newPreferences.prefLegalTempos
+            & #magma             .~ newPreferences.prefMagma
+            & #songID            .~ do
+              if newPreferences.prefRBNumberID
+                then SongIDAutoInt
+                else SongIDAutoSymbol
+            & #ps3Encrypt        .~ newPreferences.prefPS3Encrypt
           -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart F.PartDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
@@ -599,7 +587,7 @@ batchPageRB2 sink rect tab build = do
             = forceProDrums
             $ projectSongYaml proj
           in
-            ( [ ((tgt :: TargetRB2 FilePath) { is2xBassPedal = is2x }, usePath $ fout kicksLabel)
+            ( [ ((tgt :: TargetRB2 FilePath) & #is2xBassPedal .~ is2x, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
               ]
             , yaml
@@ -639,11 +627,8 @@ batchPagePS sink rect tab build = do
         preset <- getPreset
         return \proj -> let
           defPS = def :: TargetPS FilePath
-          tgt = preset (projectSongYaml proj) defPS
-            { common = defPS.common
-              { speed = Just speed
-              }
-            }
+          tgt = preset (projectSongYaml proj)
+            $ defPS & #common % #speed .~ Just speed
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ PS tgt
             , let
@@ -673,17 +658,9 @@ batchPagePS sink rect tab build = do
   return ()
 
 forceProDrums :: SongYaml f -> SongYaml f
-forceProDrums song = song
-  { parts = flip fmap song.parts $ \part -> case part.drums of
-    Nothing    -> part
-    Just drums -> part
-      { drums = Just drums
-        { mode = case drums.mode of
-          Drums4 -> DrumsPro
-          mode   -> mode
-        }
-      }
-  }
+forceProDrums = #parts % mapped % #drums % mapped % #mode %~ \case
+  Drums4 -> DrumsPro
+  mode   -> mode
 
 -- Batch mode presets for changing parts around
 
@@ -699,120 +676,117 @@ getDrumsOrDance song
 batchPartPresetsRB3 :: [(T.Text, (Bool, SongYaml f -> TargetRB3 f -> TargetRB3 f))]
 batchPartPresetsRB3 =
   [ ("Default part configuration", (True, \song tgt -> tgt
-    { drums = getDrumsOrDance song
-    }))
+    & #drums .~ getDrumsOrDance song
+    ))
   , ("Fill empty parts with first guitar, then drums", (False, \song tgt -> let
     fillPart p defPart parts = case filter (hasPartWith p song) (defPart : parts) of
       part : _ -> part
       []       -> defPart
     in tgt
-      { guitar = fillPart anyFiveFret F.PartGuitar [F.PartDrums, F.PartName "dance"]
-      , bass = fillPart anyFiveFret F.PartBass [F.PartGuitar, F.PartDrums, F.PartName "dance"]
-      , keys = fillPart anyFiveFret F.PartKeys [F.PartGuitar, F.PartDrums, F.PartName "dance"]
-      , drums = fillPart anyDrums F.PartDrums [F.PartGuitar, F.PartName "dance"]
-      }))
+      & #guitar .~ fillPart anyFiveFret F.PartGuitar [F.PartDrums, F.PartName "dance"]
+      & #bass   .~ fillPart anyFiveFret F.PartBass [F.PartGuitar, F.PartDrums, F.PartName "dance"]
+      & #keys   .~ fillPart anyFiveFret F.PartKeys [F.PartGuitar, F.PartDrums, F.PartName "dance"]
+      & #drums  .~ fillPart anyDrums F.PartDrums [F.PartGuitar, F.PartName "dance"]
+      ))
   , ("Copy guitar to bass/keys/drums", (False, \_song tgt -> tgt
-    { bass = F.PartGuitar
-    , keys = F.PartGuitar
-    , drums = F.PartGuitar
-    }))
+    & #bass  .~ F.PartGuitar
+    & #keys  .~ F.PartGuitar
+    & #drums .~ F.PartGuitar
+    ))
   , ("Copy drums/dance to guitar/bass/keys", (False, \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = dod
-      , bass   = dod
-      , keys   = dod
-      , drums  = dod
-      }
+      & #guitar .~ dod
+      & #bass   .~ dod
+      & #keys   .~ dod
+      & #drums  .~ dod
     ))
   ]
 
 batchPartPresetsRB2 :: [(T.Text, SongYaml f -> TargetRB2 f -> TargetRB2 f)]
 batchPartPresetsRB2 =
   [ ("Default part configuration", \song tgt -> tgt
-    { drums = getDrumsOrDance song
-    })
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Copy guitar to bass if empty", \song tgt -> tgt
-    { bass = if hasPartWith anyFiveFret song F.PartBass then F.PartBass else F.PartGuitar
-    , drums = getDrumsOrDance song
-    })
+    & #bass .~ do
+      if hasPartWith anyFiveFret song F.PartBass then F.PartBass else F.PartGuitar
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Copy guitar to bass", \song tgt -> tgt
-    { bass = F.PartGuitar
-    , drums = getDrumsOrDance song
-    })
+    & #bass .~ F.PartGuitar
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Keys on guitar/bass if empty", \song tgt -> tgt
-    { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else F.PartKeys
-    , bass   = if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else F.PartKeys
-    , drums = getDrumsOrDance song
-    })
+    & #guitar .~ do
+      if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else F.PartKeys
+    & #bass   .~ do
+      if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else F.PartKeys
+    & #drums  .~ getDrumsOrDance song
+    )
   , ("Keys on guitar", \song tgt -> tgt
-    { guitar = F.PartKeys
-    , drums = getDrumsOrDance song
-    })
+    & #guitar .~ F.PartKeys
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Keys on bass", \song tgt -> tgt
-    { bass = F.PartKeys
-    , drums = getDrumsOrDance song
-    })
+    & #bass .~ F.PartKeys
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Copy drums/dance to guitar/bass if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
-      , bass   = if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else dod
-      , drums  = dod
-      }
+      & #guitar .~ do
+        if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
+      & #bass   .~ do
+        if hasPartWith anyFiveFret song F.PartBass   then F.PartBass   else dod
+      & #drums  .~ dod
     )
   , ("Copy drums/dance to guitar/bass", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = dod
-      , bass   = dod
-      , drums  = dod
-      }
+      & #guitar .~ dod
+      & #bass   .~ dod
+      & #drums  .~ dod
     )
   ]
 
 batchPartPresetsCH :: [(T.Text, SongYaml f -> TargetPS f -> TargetPS f)]
 batchPartPresetsCH =
   [ ("Default part configuration", \song tgt -> tgt
-    { drums = getDrumsOrDance song
-    })
+    & #drums .~ getDrumsOrDance song
+    )
   , ("Copy drums/dance to guitar if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
-      , drums = dod
-      }
+      & #guitar .~ do
+        if hasPartWith anyFiveFret song F.PartGuitar then F.PartGuitar else dod
+      & #drums .~ dod
     )
   , ("Copy drums/dance to guitar", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { guitar = dod
-      , drums = dod
-      }
+      & #guitar .~ dod
+      & #drums .~ dod
     )
   , ("Copy drums/dance to rhythm if empty", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { rhythm = if hasPartWith anyFiveFret song $ F.PartName "rhythm" then F.PartName "rhythm" else dod
-      , drums = dod
-      }
+      & #rhythm .~ do
+        if hasPartWith anyFiveFret song $ F.PartName "rhythm" then F.PartName "rhythm" else dod
+      & #drums .~ dod
     )
   , ("Copy drums/dance to rhythm", \song tgt -> let
     dod = getDrumsOrDance song
     in tgt
-      { rhythm = dod
-      , drums = dod
-      }
+      & #rhythm .~ dod
+      & #drums .~ dod
     )
   , ("Copy guitar and drums to each other if one is missing", \song tgt -> let
     fillPart p defPart parts = case filter (hasPartWith p song) (defPart : parts) of
       part : _ -> part
       []       -> defPart
-    TargetPS{..} = tgt
-    in TargetPS
-      { guitar = fillPart anyFiveFret F.PartGuitar [F.PartDrums]
-      , drums = fillPart anyDrums F.PartDrums [F.PartGuitar]
-      , ..
-      }
+    in tgt
+      & #guitar .~ fillPart anyFiveFret F.PartGuitar [F.PartDrums]
+      & #drums .~ fillPart anyDrums F.PartDrums [F.PartGuitar]
     )
   ]
