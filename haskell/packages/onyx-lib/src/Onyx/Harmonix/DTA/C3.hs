@@ -3,6 +3,7 @@ Add the C3 comments into a @songs.dta@ file.
 -}
 {-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE NoFieldSelectors          #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}

@@ -903,7 +903,7 @@ commands =
                       Nothing -> do
                         warn $ "Couldn't parse .fsb to determine audio codec: " <> show name
                         return False
-                      Just fsb -> case map fsbExtra $ either fsb3Songs fsb4Songs $ fsbHeader fsb of
+                      Just fsb -> case map (.fsbExtra) $ either (.fsb3Songs) (.fsb4Songs) fsb.fsbHeader of
                         [] -> do
                           warn $ ".fsb has no song tracks? " <> show name
                           return True

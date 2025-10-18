@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -15,6 +16,7 @@ import           Control.Monad.Extra              (forM, guard, mapMaybeM, when)
 import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
@@ -31,6 +33,7 @@ import qualified Onyx.Project                     as P
 import           Onyx.StackTrace                  (SendMessage, lg, stackIO)
 import           Onyx.Util.Files                  (fixFileCase)
 import           Onyx.Util.Handle                 (Readable, fileReadable)
+import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeExtension, (<.>), (</>))
@@ -210,9 +213,9 @@ encorePartData diffs mid = let
       _               -> []
 
   in Parts $ HM.fromList
-    [ (F.PartGuitar, let Part{..} = emptyPart in Part
+    [ (F.PartGuitar, emptyPart
       -- Run It (Epic Games) has no pg/gr difficulties but seems to have guitar, huh?
-      { grybo = do
+      & #grybo .~ do
         tier <- getTier ["pg", "plastic_guitar"]
         Just ModeFive
           { difficulty = tier
@@ -222,13 +225,12 @@ encorePartData diffs mid = let
           , sustainGap = 60
           , detectMutedOpens = True
           }
-      , mania = do
+      & #mania .~ do
         tier <- getTier ["gr", "guitar"]
         importPadMania tier mid.tracks.partGuitar.part
-      , ..
-      })
-    , (F.PartKeys, let Part{..} = emptyPart in Part
-      { grybo = do
+      )
+    , (F.PartKeys, emptyPart
+      & #grybo .~ do
         tier <- getTier ["pk", "plastic_keys"] -- pk not seen but just in case
         Just ModeFive
           { difficulty = tier
@@ -238,13 +240,12 @@ encorePartData diffs mid = let
           , sustainGap = 60
           , detectMutedOpens = True
           }
-      , mania = do
+      & #mania .~ do
         tier <- getTier ["keys"]
         importPadMania tier mid.tracks.partKeys.part
-      , ..
-      })
-    , (F.PartBass, let Part{..} = emptyPart in Part
-      { grybo = do
+      )
+    , (F.PartBass, emptyPart
+      & #grybo .~ do
         tier <- getTier ["pb", "plastic_bass"]
         Just ModeFive
           { difficulty = tier
@@ -254,28 +255,24 @@ encorePartData diffs mid = let
           , sustainGap = 60
           , detectMutedOpens = True
           }
-      , mania = do
+      & #mania .~ do
         tier <- getTier ["ba", "bass"]
         importPadMania tier mid.tracks.partBass.part
-      , ..
-      })
-    , (F.PartDrums, let Part{..} = emptyPart in Part
-      { drums = do
+      )
+    , (F.PartDrums, emptyPart
+      & #drums .~ do
         tier <- getTier ["pd", "plastic_drums"]
-        Just let ModeDrums{..} = emptyPartDrums DrumsPro Kicks1x in ModeDrums
-          { difficulty = tier
-          , ..
-          }
-      , mania = do
+        Just $ emptyPartDrums DrumsPro Kicks1x
+          & #difficulty .~ tier
+      & #mania .~ do
         tier <- getTier ["ds", "drums"]
         importPadMania tier mid.tracks.partDrums.part
-      , ..
-      })
-    , (F.PartVocal, let Part{..} = emptyPart in Part
-      { mania = do
+      )
+    , (F.PartVocal, emptyPart
+      & #mania .~ do
         tier <- getTier ["vl", "vocals"]
         importPadMania tier mid.tracks.partVocals
-      , vocal = do
+      & #vocal .~ do
         tier <- getTier ["pv", "pitched_vocals", "pro_vocals"]
         Just ModeVocal
           { difficulty = tier
@@ -284,6 +281,5 @@ encorePartData diffs mid = let
           , key        = Nothing
           , lipsyncRB3 = Nothing
           }
-      , ..
-      })
+      )
     ]

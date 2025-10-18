@@ -327,7 +327,7 @@ importRB rbi level = do
   let pkg = rbi.songPackage
       files2x = Nothing
       (title, auto2x) = determine2xBass $ D.name pkg
-      is2x = fromMaybe auto2x $ c3dta2xBass rbi.comments
+      is2x = fromMaybe auto2x rbi.comments.c3dta2xBass
       hasKicks = if is2x then Kicks2x else Kicks1x
 
   when (level == ImportFull) $ forM_ rbi.source \src -> do
@@ -577,16 +577,16 @@ importRB rbi level = do
       , comments     = []
       , difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , key          = skey
-      , author       = D.author pkg <|> c3dtaAuthoredBy rbi.comments
+      , author       = D.author pkg <|> rbi.comments.c3dtaAuthoredBy
       , rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
       , previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
-      , languages    = fromMaybe [] $ c3dtaLanguages rbi.comments
-      , convert      = fromMaybe False $ c3dtaConvert rbi.comments
-      , rhythmKeys   = fromMaybe False $ c3dtaRhythmKeys rbi.comments
-      , rhythmBass   = fromMaybe False $ c3dtaRhythmBass rbi.comments
-      , catEMH       = fromMaybe False $ c3dtaCATemh rbi.comments
-      , expertOnly   = fromMaybe False $ c3dtaExpertOnly rbi.comments
+      , languages    = fromMaybe []    rbi.comments.c3dtaLanguages
+      , convert      = fromMaybe False rbi.comments.c3dtaConvert
+      , rhythmKeys   = fromMaybe False rbi.comments.c3dtaRhythmKeys
+      , rhythmBass   = fromMaybe False rbi.comments.c3dtaRhythmBass
+      , catEMH       = fromMaybe False rbi.comments.c3dtaCATemh
+      , expertOnly   = fromMaybe False rbi.comments.c3dtaExpertOnly
       , cover        = not $ D.master pkg || D.gameOrigin pkg == Just "beatles"
       , loadingPhrase = D.loadingPhrase pkg
       }
@@ -631,8 +631,8 @@ importRB rbi level = do
         , comments = []
         , tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
         , fileTempo = Nothing
-        , karaoke = fromMaybe False $ c3dtaKaraoke rbi.comments
-        , multitrack = fromMaybe True $ c3dtaMultitrack rbi.comments
+        , karaoke = fromMaybe False rbi.comments.c3dtaKaraoke
+        , multitrack = fromMaybe True rbi.comments.c3dtaMultitrack
         , decryptSilent = False
         }
       in case rbi.mogg of

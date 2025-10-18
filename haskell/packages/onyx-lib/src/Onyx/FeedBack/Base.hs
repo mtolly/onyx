@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE NoFieldSelectors  #-}
 module Onyx.FeedBack.Base where
 
 import qualified Data.EventList.Relative.TimeBody as RTB

@@ -104,7 +104,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
 
       loadAudio r = do
         fsb <- parseFSB r
-        let names = map fsbSongName $ either fsb3Songs fsb4Songs $ fsbHeader fsb
+        let names = map (.fsbSongName) $ either (.fsb3Songs) (.fsb4Songs) fsb.fsbHeader
         streams <- splitFSBStreams' fsb
         forM (zip names streams) $ \(streamName, stream) -> do
           (streamData, ext) <- getFSBStreamBytes stream

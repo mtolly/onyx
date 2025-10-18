@@ -8,8 +8,9 @@ https://www.scorehero.com/forum/viewtopic.php?t=39923
 GHWT/GH5 encryption from GHWT Importer by Buldy, originally from GHWT All in One mod by .ocz
 https://www.scorehero.com/forum/viewtopic.php?t=110650
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.Neversoft.Crypt where
 
 import           Control.Applicative          ((<|>))
@@ -338,13 +339,13 @@ readFSBXMA dec = let
 readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Float)
 readFSB dec = do
   fsb <- parseFSB dec
-  let song = head $ either fsb3Songs fsb4Songs $ fsbHeader fsb
-  case fsbExtra song of
+  let song = head $ either (.fsb3Songs) (.fsb4Songs) fsb.fsbHeader
+  case song.fsbExtra of
     Left _xma -> readFSBXMA dec
     Right _mp3 -> do
-      let numStreams = case quotRem (fromIntegral $ fsbSongChannels song) 2 of
+      let numStreams = case quotRem (fromIntegral song.fsbSongChannels) 2 of
             (x, y) -> x + y
-      mp3s <- splitInterleavedMP3 numStreams $ head $ fsbSongData fsb
+      mp3s <- splitInterleavedMP3 numStreams $ head fsb.fsbSongData
       srcs <- forM mp3s \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
       return $ foldl1 CA.merge srcs
 

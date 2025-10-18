@@ -88,14 +88,14 @@ importBMS bmsPath level = do
 
   chipAudio <- case level of
     ImportQuick -> return []
-    ImportFull -> fmap catMaybes $ forM (HM.toList $ bms_WAV bms) $ \(chip, fp) -> do
+    ImportFull -> fmap catMaybes $ forM (HM.toList bms.bms_WAV) $ \(chip, fp) -> do
       msrc <- dtxAudioSource
         $ takeDirectory bmsPath
         </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
         -- ¥ is the backslash when Shift-JIS decoded
       return $ flip fmap msrc \src -> let
         -- could be smarter about this (apply volume later) but this works
-        adjustVolume = case fromMaybe 100 $ HM.lookup chip $ bms_VOLWAV bms of
+        adjustVolume = case fromMaybe 100 $ HM.lookup chip bms.bms_VOLWAV of
           100 -> id
           vol -> CA.gain $ realToFrac vol / 100
         fixMono = case CA.channels src of
@@ -123,21 +123,21 @@ importBMS bmsPath level = do
           track = Just $ F.SamplesTrack
             $ fmap (\chip -> F.SampleTrigger chip chip)
             -- don't include sample if we didn't find its audio, or if it's the long note end
-            $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms_LNOBJ bms) chips
+            $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms.bms_LNOBJ) chips
           in (audios, track)
 
       audioExpr name = Input $ Named name
 
       loadManiaTrack chips chipsLong = let
-        short = flip fmap (processLongObj (bms_LNOBJ bms) chips)
+        short = flip fmap (processLongObj bms.bms_LNOBJ chips)
           $ \(key, _, mlen) -> (key, mlen)
         long = flip fmap (joinLongNotes chipsLong)
           $ \(key, _, len) -> (key, Just len)
         in RTB.merge short long
 
       player1, player2 :: RTB.T U.Beats (BMKey, Maybe U.Beats)
-      player1 = loadManiaTrack (bms_Player1 bms) (bms_Player1Long bms)
-      player2 = loadManiaTrack (bms_Player2 bms) (bms_Player2Long bms)
+      player1 = loadManiaTrack bms.bms_Player1 bms.bms_Player1Long
+      player2 = loadManiaTrack bms.bms_Player2 bms.bms_Player2Long
 
       -- For now, we'll import BMS double play as 2 tracks, but PMS as 1 track
       shouldCombine = isPMS
@@ -161,23 +161,23 @@ importBMS bmsPath level = do
         then RTB.empty
         else first keyIndex2 <$> player2
 
-      (songAudios, songSampleTrack) = audioForChips "audio-bgm" $ bms_BGM bms
+      (songAudios, songSampleTrack) = audioForChips "audio-bgm" bms.bms_BGM
       (p1Audios, p1SampleTrack) = if shouldCombine
         then audioForChips "audio-p1" $ RTB.merge
-          (snd <$> RTB.merge (bms_Player1 bms) (bms_Player2 bms))
-          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ RTB.merge (bms_Player1Long bms) (bms_Player2Long bms))
+          (snd <$> RTB.merge bms.bms_Player1 bms.bms_Player2)
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ RTB.merge bms.bms_Player1Long bms.bms_Player2Long)
         else audioForChips "audio-p1" $ RTB.merge
-          (snd <$> bms_Player1 bms)
-          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player1Long bms)
+          (snd <$> bms.bms_Player1)
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) bms.bms_Player1Long)
       (p2Audios, p2SampleTrack) = if shouldCombine
         then ([], Nothing)
         else audioForChips "audio-p2" $ RTB.merge
-          (snd <$> bms_Player2 bms)
-          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) $ bms_Player2Long bms)
+          (snd <$> bms.bms_Player2)
+          (RTB.mapMaybe (\(_key, chip, b) -> guard b >> Just chip) bms.bms_Player2Long)
 
       midi = case level of
         ImportQuick -> emptyChart
-        ImportFull -> F.Song (bms_TempoMap bms) (bms_MeasureMap bms) mempty
+        ImportFull -> F.Song bms.bms_TempoMap bms.bms_MeasureMap mempty
           { F.onyxParts = Map.fromList do
             (fpart, indexed) <-
               [ (F.PartKeys          , player1Indexed)
@@ -198,10 +198,10 @@ importBMS bmsPath level = do
             ]
           }
 
-  background <- case bms_BGA bms of
+  background <- case bms.bms_BGA of
     _ | level == ImportQuick -> return Nothing
     RNil -> return Nothing
-    Wait bts chip RNil -> case HM.lookup chip $ bms_BMP bms of
+    Wait bts chip RNil -> case HM.lookup chip bms.bms_BMP of
       Nothing -> do
         warn $ "Couldn't find BGA chip: " <> show chip
         return Nothing
@@ -230,13 +230,13 @@ importBMS bmsPath level = do
   return SongYaml
     { metadata = def'
       -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
-      { title        = flip fmap (bms_TITLE bms) $ \title -> title <> case bms_SUBTITLE bms of
+      { title        = flip fmap bms.bms_TITLE $ \title -> title <> case bms.bms_SUBTITLE of
         Just sub -> " " <> sub
-        Nothing -> case bms_PLAYLEVEL bms of
+        Nothing -> case bms.bms_PLAYLEVEL of
           Nothing  -> ""
           Just lvl -> " [" <> T.pack (show lvl) <> "]"
-      , artist       = bms_ARTIST bms
-      , genre        = bms_GENRE bms
+      , artist       = bms.bms_ARTIST
+      , genre        = bms.bms_GENRE
       , fileAlbumArt = Nothing
       }
     , global = def'

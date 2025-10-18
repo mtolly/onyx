@@ -177,7 +177,8 @@ data LaneNotes = LaneSingle | LaneDouble
 importFoF :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> Import m
 importFoF src dir level = do
   when (level == ImportFull) $ lg $ "Importing FoF/PS/CH song from: " <> src
-  let hasCymbalMarkers chart = flip any (FB.chartTracks chart) $ any \case
+  let hasCymbalMarkers :: FB.Chart U.Beats -> Bool
+      hasCymbalMarkers chart = flip any chart.chartTracks $ any \case
         FB.Note 66 _ -> True
         FB.Note 67 _ -> True
         FB.Note 68 _ -> True

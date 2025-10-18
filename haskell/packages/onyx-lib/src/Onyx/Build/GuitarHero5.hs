@@ -145,9 +145,7 @@ gh5Rules buildInfo dir gh5 = do
         artistQS = makeQSPair $ "\\L" <> getArtist metadata
         albumQS  = makeQSPair $ getAlbum metadata
         qs = makeQS [titleQS, artistQS, albumQS]
-        genre = worGenre $ interpretGenre
-          metadata.genre
-          metadata.subgenre
+        genre = (interpretGenre metadata.genre metadata.subgenre).worGenre
         qb =
           [ QBSectionArray "gh6_dlc_songlist" textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]

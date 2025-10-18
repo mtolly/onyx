@@ -1,9 +1,11 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.DDR.DWI where
 
 import           Control.Monad                    (forM, guard)
@@ -151,10 +153,11 @@ getDWINotes top = go 24 (T.filter (not . isSpace) top) "" where
 -- Results are already RTB.collectCoincident-ed
 getDWIArrows :: (NNC.C t) => RTB.T t DWINote -> RTB.T t [(Arrow, Char)]
 getDWIArrows = RTB.filter (not . null) . go Set.empty where
+  go :: Set.Set Arrow -> RTB.T t DWINote -> RTB.T t [(Arrow, Char)]
   go _    RNil                = RNil
   go held (Wait dt note rest) = let
-    arrows = charArrows $ dwi_Note note
-    holds = maybe [] charArrows $ dwi_Hold note
+    arrows = charArrows note.dwi_Note
+    holds = maybe [] charArrows note.dwi_Hold
     this = flip map arrows \arrow -> if elem arrow holds
       then (arrow, '2') -- start hold
       else if Set.member arrow held

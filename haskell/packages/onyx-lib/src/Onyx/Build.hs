@@ -214,9 +214,9 @@ dtxRules buildInfo dir dtx = do
               , (bgmChip  , "bgm.ogg"  )
               ]
             -- TODO maybe make sure all template WAV paths are local
-            in maybe initWAV (HM.union initWAV . DTX.dtx_WAV . snd) template
-          , DTX.dtx_VOLUME        = maybe HM.empty (DTX.dtx_VOLUME . snd) template
-          , DTX.dtx_PAN           = maybe HM.empty (DTX.dtx_PAN    . snd) template
+            in maybe initWAV (HM.union initWAV . (.dtx_WAV) . snd) template
+          , DTX.dtx_VOLUME        = maybe HM.empty ((.dtx_VOLUME) . snd) template
+          , DTX.dtx_PAN           = maybe HM.empty ((.dtx_PAN   ) . snd) template
           , DTX.dtx_AVI           = HM.empty
           , DTX.dtx_MeasureMap    = mid.timesigs
           , DTX.dtx_TempoMap      = mid.tempos
@@ -270,18 +270,18 @@ dtxRules buildInfo dir dtx = do
           }
         usedChips :: [DTX.Chip]
         usedChips = nubOrd $ concat
-          [ map snd $ toList $ DTX.dtx_Drums dtxFile
-          , map snd $ toList $ DTX.dtx_DrumsDummy dtxFile
-          , map snd $ toList $ DTX.dtx_Guitar dtxFile
-          , map snd $ toList $ DTX.dtx_Bass dtxFile
-          , toList $ DTX.dtx_BGM dtxFile
-          , toList (DTX.dtx_BGMExtra dtxFile) >>= toList
+          [ map snd $ toList dtxFile.dtx_Drums
+          , map snd $ toList dtxFile.dtx_DrumsDummy
+          , map snd $ toList dtxFile.dtx_Guitar
+          , map snd $ toList dtxFile.dtx_Bass
+          , toList dtxFile.dtx_BGM
+          , toList dtxFile.dtx_BGMExtra >>= toList
           ]
         isUsedChip k _ = elem k usedChips
     liftIO $ B.writeFile out $ TE.encodeUtf16LE $ T.cons '\xFEFF' $ DTX.makeDTX dtxFile
-      { DTX.dtx_WAV    = HM.filterWithKey isUsedChip $ DTX.dtx_WAV    dtxFile
-      , DTX.dtx_VOLUME = HM.filterWithKey isUsedChip $ DTX.dtx_VOLUME dtxFile
-      , DTX.dtx_PAN    = HM.filterWithKey isUsedChip $ DTX.dtx_PAN    dtxFile
+      { DTX.dtx_WAV    = HM.filterWithKey isUsedChip dtxFile.dtx_WAV
+      , DTX.dtx_VOLUME = HM.filterWithKey isUsedChip dtxFile.dtx_VOLUME
+      , DTX.dtx_PAN    = HM.filterWithKey isUsedChip dtxFile.dtx_PAN
       }
     liftIO $ writeFile outUsedChips $ show usedChips
 
@@ -304,7 +304,7 @@ dtxRules buildInfo dir dtx = do
             $ map snd
             $ filter ((`elem` usedChips) . fst)
             $ HM.toList
-            $ DTX.dtx_WAV templateDTX
+            $ templateDTX.dtx_WAV
       forM_ usedPaths \path -> do
         -- again, maybe make sure path is local
         when (path /= "bgm.ogg") $ do

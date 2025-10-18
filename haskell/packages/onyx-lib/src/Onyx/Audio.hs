@@ -487,7 +487,7 @@ sourceXMA2CorrectLength
   -> f (AudioSource m Float)
 sourceXMA2CorrectLength r = do
   -- TODO don't read the whole file, just get the one thing from the header
-  n <- fmap xma2Samples $ liftIO (useHandle r handleToByteString) >>= parseXMA2
+  n <- fmap (.xma2Samples) $ liftIO (useHandle r handleToByteString) >>= parseXMA2
   src <- liftIO $ ffSourceFrom (Frames 0) (Left r)
   return src
     { frames = n
@@ -1059,16 +1059,16 @@ makeFSB4' wav fsb = do
 trimXMA :: (MonadFail m) => XMA2Contents -> m XMA2Contents
 trimXMA xma = do
   let blockSize = 32 * 1024
-  newSize <- case quotRem (BL.length $ xma2Data xma) blockSize of
+  newSize <- case quotRem (BL.length xma.xma2Data) blockSize of
     (q, 0) -> if q >= 2
       then return $ (q - 1) * blockSize
       else fail "trimXMA: not enough XMA data to trim off a block safely"
     (0, _) -> fail "trimXMA: not a full block in XMA data"
     (q, _) -> return $ q * blockSize
-  let newData = BL.take newSize $ xma2Data xma
+  let newData = BL.take newSize xma.xma2Data
   packets <- markXMA2PacketStreams <$> splitXMA2Packets newData
   return xma
-    { xma2Samples = fromIntegral $ sum [ if stream == 0 then xma2FrameCount pkt else 0 | (stream, pkt) <- packets ] * 512
+    { xma2Samples = fromIntegral $ sum [ if stream == 0 then pkt.xma2FrameCount else 0 | (stream, pkt) <- packets ] * 512
     , xma2Data    = newData
     }
 
@@ -1076,8 +1076,8 @@ trimXMA xma = do
 -- All except last one should end in a full block
 concatenateXMA :: [XMA2Contents] -> XMA2Contents
 concatenateXMA xmas = (head xmas)
-  { xma2Samples = sum $ map xma2Samples xmas
-  , xma2Data    = BL.concat $ map xma2Data xmas
+  { xma2Samples = sum $ map (.xma2Samples) xmas
+  , xma2Data    = BL.concat $ map (.xma2Data) xmas
   }
 
 -- Encode an XMA file, possibly splitting the input up into pieces to avoid xma2encode's memory limit.
@@ -1117,7 +1117,7 @@ makeXMAPieces input = do
                 runXMA
                 origData <- stackIO (BL.readFile xma) >>= parseXMA2
                 newData <- trimXMA origData
-                go (contents <> [newData]) $ startFrame + xma2Samples newData
+                go (contents <> [newData]) $ startFrame + newData.xma2Samples
     go [] 0
 
 makeXMAFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()

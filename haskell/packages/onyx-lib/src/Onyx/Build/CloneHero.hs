@@ -147,7 +147,7 @@ psRules buildInfo dir ps = do
           , album            = metadata.album
           , charter          = metadata.author
           , year             = T.pack . show <$> metadata.year
-          , genre            = Just $ fofGenre $ fullGenre metadata
+          , genre            = Just (fullGenre metadata).fofGenre
           , proDrums         = flip fmap dmode \case
             DrumsPro   -> True
             DrumsReal  -> True

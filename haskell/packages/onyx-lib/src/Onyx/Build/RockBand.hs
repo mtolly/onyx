@@ -790,8 +790,8 @@ rbRules buildInfo dir rb3 mrb2 = do
               }
             , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
             , Magma.metadata = (Magma.metadata $ Magma.project p)
-              { Magma.genre = rbn1Genre thisFullGenre
-              , Magma.subGenre = "subgenre_" <> rbn1Subgenre thisFullGenre
+              { Magma.genre = thisFullGenre.rbn1Genre
+              , Magma.subGenre = "subgenre_" <> thisFullGenre.rbn1Subgenre
               , Magma.author = T.strip $ T.take 75 $ Magma.author $ Magma.metadata $ Magma.project p
               -- Magma v1 (but not v2) complains if track number is over 99
               , Magma.trackNumber = min 99 $ Magma.trackNumber $ Magma.metadata $ Magma.project p
@@ -887,7 +887,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.songLength = D.songLength rb3DTA
                     , D.preview = D.preview rb3DTA
                     , D.rank = fixDict $ D.rank rb3DTA
-                    , D.genre = Just $ rbn1Genre thisFullGenre
+                    , D.genre = Just thisFullGenre.rbn1Genre
                     , D.decade = Just case D.yearReleased rb3DTA of
                       Nothing -> "the10s"
                       Just y
@@ -915,7 +915,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.rating = case (isPS3, D.rating rb3DTA) of
                       (True, 4) -> 2 -- Unrated causes it to be locked in game on PS3
                       (_   , x) -> x
-                    , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre thisFullGenre
+                    , D.subGenre = Just $ "subgenre_" <> thisFullGenre.rbn1Subgenre
                     , D.songId = Just case rb2.songID of
                       SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
                       SongIDInt i      -> Left $ fromIntegral i
@@ -1109,8 +1109,8 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         { Magma.songName = T.strip $ T.take 99 $ fixString songName
         -- "artist_name: This field must be less than 75 characters."
         , Magma.artistName = T.strip $ T.take 74 $ fixString artistName
-        , Magma.genre = rbn2Genre thisFullGenre
-        , Magma.subGenre = "subgenre_" <> rbn2Subgenre thisFullGenre
+        , Magma.genre = thisFullGenre.rbn2Genre
+        , Magma.subGenre = "subgenre_" <> thisFullGenre.rbn2Subgenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear metadata
         -- "album_name: This field must be less than 75 characters."
         , Magma.albumName = T.strip $ T.take 74 $ fixString albumName
@@ -1373,8 +1373,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.rating = case (isPS3, fromIntegral $ fromEnum metadata.rating + 1) of
       (True, 4) -> 2 -- Unrated (on RB2 at least) causes it to be locked in game on PS3
       (_   , x) -> x
-    , D.genre = Just $ rbn2Genre thisFullGenre
-    , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre thisFullGenre
+    , D.genre = Just thisFullGenre.rbn2Genre
+    , D.subGenre = Just $ "subgenre_" <> thisFullGenre.rbn2Subgenre
     , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart rb3.vocal songYaml >>= (.vocal) >>= (.gender)
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing

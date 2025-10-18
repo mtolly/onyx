@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -70,24 +71,24 @@ addAudioDir :: (MonadIO m) => AudioLibrary -> Path Abs Dir -> m ()
 addAudioDir (AudioLibrary var) dir = liftIO $ modifyMVar_ var $ return . queueDirBack dir
 
 queueDirFront :: Path Abs Dir -> AudioState -> AudioState
-queueDirFront dir ast = if HS.member dir $ audioScannedDirs ast
+queueDirFront dir ast = if HS.member dir ast.audioScannedDirs
   then ast
-  else ast { audioQueueDirs = dir <| audioQueueDirs ast }
+  else ast { audioQueueDirs = dir <| ast.audioQueueDirs }
 
 queueDirBack :: Path Abs Dir -> AudioState -> AudioState
-queueDirBack dir ast = if HS.member dir $ audioScannedDirs ast
+queueDirBack dir ast = if HS.member dir ast.audioScannedDirs
   then ast
-  else ast { audioQueueDirs = audioQueueDirs ast |> dir }
+  else ast { audioQueueDirs = ast.audioQueueDirs |> dir }
 
 queueFileBack :: Path Abs File -> AudioState -> AudioState
-queueFileBack f ast = if HS.member f $ audioScannedFiles ast
+queueFileBack f ast = if HS.member f ast.audioScannedFiles
   then ast
   else case map toLower <$> fileExtension f of
-    Just ".flac" -> ast { audioQueueFLACs = audioQueueFLACs ast |> f }
-    Just ".wav" -> ast { audioQueueWAVs = audioQueueWAVs ast |> f }
-    Just ".mogg" -> ast { audioQueueMOGGs = audioQueueMOGGs ast |> f }
+    Just ".flac"   -> ast { audioQueueFLACs  = ast.audioQueueFLACs  |> f }
+    Just ".wav"    -> ast { audioQueueWAVs   = ast.audioQueueWAVs   |> f }
+    Just ".mogg"   -> ast { audioQueueMOGGs  = ast.audioQueueMOGGs  |> f }
     _ -> case toFilePath $ filename f of
-      "info.plist" -> ast { audioQueueJammit = audioQueueJammit ast |> f }
+      "info.plist" -> ast { audioQueueJammit = ast.audioQueueJammit |> f }
       _            -> ast
 
 addDirectoryContents :: (MonadIO m) => AudioState -> Path Abs Dir -> StackTraceT m AudioState
@@ -105,27 +106,27 @@ addDirectoryContents ast dir = do
 
 popFile :: SearchType -> AudioState -> Maybe (Path Abs File, AudioState)
 popFile stype ast = case stype of
-  SearchFile -> case audioQueueFLACs ast of
-    S.Empty -> if S.null $ audioQueueDirs ast
-      then case audioQueueWAVs ast of
+  SearchFile -> case ast.audioQueueFLACs of
+    S.Empty -> if S.null ast.audioQueueDirs
+      then case ast.audioQueueWAVs of
         S.Empty    -> Nothing
         p :<| rest -> Just (p, ast { audioQueueWAVs = rest })
       else Nothing
     p :<| rest -> Just (p, ast { audioQueueFLACs = rest })
-  SearchMOGG -> case audioQueueMOGGs ast of
+  SearchMOGG -> case ast.audioQueueMOGGs of
     S.Empty    -> Nothing
     p :<| rest -> Just (p, ast { audioQueueMOGGs = rest })
-  SearchJammit -> case audioQueueJammit ast of
+  SearchJammit -> case ast.audioQueueJammit of
     S.Empty    -> Nothing
     p :<| rest -> Just (p, ast { audioQueueJammit = rest })
 
 popDir :: AudioState -> Maybe (Path Abs Dir, AudioState)
-popDir ast = case audioQueueDirs ast of
+popDir ast = case ast.audioQueueDirs of
   S.Empty -> Nothing
   d :<| ds -> let
     ast' = ast
       { audioQueueDirs = ds
-      , audioScannedDirs = HS.insert d $ audioScannedDirs ast
+      , audioScannedDirs = HS.insert d ast.audioScannedDirs
       }
     in Just (d, ast')
 
@@ -167,7 +168,7 @@ processOne stype ast = case popFile stype ast of
     computeMD5 = fmap join (stackIO' $ audioMD5 $ toFilePath f) >>= \case
       Nothing -> ret ast'
       Just md5 -> ret ast'
-        { audioFiles = HM.insert (T.pack md5) f $ audioFiles ast'
+        { audioFiles = HM.insert (T.pack md5) f ast'.audioFiles
         }
     in case map toLower <$> fileExtension f of
       Just ".flac" -> computeMD5
@@ -175,7 +176,7 @@ processOne stype ast = case popFile stype ast of
       Just ".mogg" -> stackIO' (T.pack . show . MD5.md5 <$> BL.readFile (toFilePath f)) >>= \case
         Nothing -> ret ast'
         Just md5 -> ret ast'
-          { audioMOGGs = HM.insert md5 f $ audioMOGGs ast'
+          { audioMOGGs = HM.insert md5 f ast'.audioMOGGs
           }
       _ -> case toFilePath $ filename f of
         "info.plist" -> do
@@ -184,7 +185,7 @@ processOne stype ast = case popFile stype ast of
             Just info -> let
               jmt = (T.pack $ J.title info, T.pack $ J.artist info, fromJammitInstrument $ J.instrument info)
               in ret ast'
-                { audioJammit = HM.insert jmt dir $ audioJammit ast'
+                { audioJammit = HM.insert jmt dir ast'.audioJammit
                 }
             Nothing -> ret ast'
         _ -> ret ast'
@@ -213,13 +214,13 @@ searchCommon stype f (AudioLibrary var) s = let
   in go
 
 searchFile :: (MonadIO m) => AudioLibrary -> T.Text -> StackTraceT m (Path Abs File)
-searchFile = searchCommon SearchFile audioFiles
+searchFile = searchCommon SearchFile (.audioFiles)
 
 searchMOGG :: (MonadIO m) => AudioLibrary -> T.Text -> StackTraceT m (Path Abs File)
-searchMOGG = searchCommon SearchMOGG audioMOGGs
+searchMOGG = searchCommon SearchMOGG (.audioMOGGs)
 
 searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, RB3Instrument) -> StackTraceT m (Path Abs Dir)
-searchJammit = searchCommon SearchJammit audioJammit
+searchJammit = searchCommon SearchJammit (.audioJammit)
 
 searchInfo :: (SendMessage m, MonadIO m) =>
   FilePath -> AudioLibrary -> (T.Text -> StackTraceT m FilePath) -> AudioInfo FilePath -> StackTraceT m (Audio Duration FilePath)

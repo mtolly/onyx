@@ -1,4 +1,3 @@
-{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -169,14 +168,14 @@ data DifficultyGH5 = DifficultyGH5
   }
 
 difficultyGH5 :: TargetGH5 f -> SongYaml f -> DifficultyGH5
-difficultyGH5 TargetGH5{..} songYaml = let
+difficultyGH5 gh5 songYaml = let
   rb3 = TargetRB3
-    { common        = common
-    , drums         = drums
-    , guitar        = guitar
+    { common        = gh5.common
+    , drums         = gh5.drums
+    , guitar        = gh5.guitar
     , keys          = PartName "undefined"
-    , vocal         = vocal
-    , bass          = bass
+    , vocal         = gh5.vocal
+    , bass          = gh5.bass
     , is2xBassPedal = False
     , songID        = SongIDAutoSymbol
     , harmonix      = False
@@ -185,13 +184,13 @@ difficultyGH5 TargetGH5{..} songYaml = let
     , legalTempos   = True
     , encoding      = UTF8
     }
-  DifficultyRB3{..} = difficultyRB3 rb3 songYaml
+  diffRB3 = difficultyRB3 rb3 songYaml
   rb3RankToGH5 = \case
     0 -> 0
     n -> min 10 $ quot (n - 1) 50 + 1
   in DifficultyGH5
-    { gh5GuitarTier = rb3RankToGH5 rb3GuitarRank
-    , gh5BassTier   = rb3RankToGH5 rb3BassRank
-    , gh5DrumsTier  = rb3RankToGH5 rb3DrumsRank
-    , gh5VocalsTier = rb3RankToGH5 rb3VocalRank
+    { gh5GuitarTier = rb3RankToGH5 diffRB3.rb3GuitarRank
+    , gh5BassTier   = rb3RankToGH5 diffRB3.rb3BassRank
+    , gh5DrumsTier  = rb3RankToGH5 diffRB3.rb3DrumsRank
+    , gh5VocalsTier = rb3RankToGH5 diffRB3.rb3VocalRank
     }

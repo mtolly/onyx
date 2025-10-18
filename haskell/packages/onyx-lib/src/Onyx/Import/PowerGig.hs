@@ -397,9 +397,9 @@ importPowerGigSong key song folder level = do
     ImportFull -> case xboxAudio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
       Just r -> do
         xma <- stackIO (useHandle r handleToByteString) >>= parseXMA2
-        packets <- fmap markXMA2PacketStreams $ splitXMA2Packets $ xma2Data xma
-        let ppblk = xma2PacketsPerBlock xma
-        useXboxAudio (xma2Rate xma) (xma2Samples xma) (xma2PacketsPerBlock xma)
+        packets <- fmap markXMA2PacketStreams $ splitXMA2Packets xma.xma2Data
+        let ppblk = xma.xma2PacketsPerBlock
+        useXboxAudio xma.xma2Rate xma.xma2Samples xma.xma2PacketsPerBlock
           $ map (\i -> extractXMAStream ppblk i packets) [0 .. streamCount - 1]
       Nothing -> case ps3Audio >>= \x -> findFileCI ("Audio" :| ["songs", key, x]) folder of
         Just r -> do

@@ -1,6 +1,8 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.GuitarHero.IOS where
 
 import qualified Codec.Compression.Zlib.Raw as Raw
@@ -70,9 +72,9 @@ loadIGA f = do
   -- TODO handle Get errors
   let header = runGet getIGAHeader $ BL.fromStrict bs
       namesSection
-        = B.take (fromIntegral $ igaFilenameDirectoryLength header)
-        $ B.drop (fromIntegral $ igaFilenameDirectoryOffset header) bs
-      nameOffsets = runGet (replicateM (fromIntegral $ igaFileCount header) getWord32le)
+        = B.take (fromIntegral header.igaFilenameDirectoryLength)
+        $ B.drop (fromIntegral header.igaFilenameDirectoryOffset) bs
+      nameOffsets = runGet (replicateM (fromIntegral header.igaFileCount) getWord32le)
         $ BL.fromStrict namesSection
       names = flip map nameOffsets \offset ->
         B.takeWhile (/= 0) $ B.drop (fromIntegral offset) namesSection
@@ -107,7 +109,7 @@ loadIGA f = do
                   ]
                 return uncompressed
           in (name,) <$> decodeFrom offset len
-  contents <- zipWithM sliceFile names $ igaFiles header
+  contents <- zipWithM sliceFile names header.igaFiles
   return (header, contents)
 
 extractIGA :: FilePath -> IO [FilePath]
@@ -116,7 +118,7 @@ extractIGA f = do
   let headerTxt = f -<.> "txt"
   writeFile headerTxt $ unlines
     [ show header
-    , show $ zip3 (map fst files) (igaHashes header) (igaFiles header)
+    , show $ zip3 (map fst files) header.igaHashes header.igaFiles
     ]
   extracted <- forM files \(name, contents) -> do
     let out = dropExtension f </> B8.unpack name

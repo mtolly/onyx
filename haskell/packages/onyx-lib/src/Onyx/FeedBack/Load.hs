@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TupleSections         #-}
@@ -109,7 +110,7 @@ parseChart sects = do
   return $ Chart song trks
 
 chartResolution :: Chart t -> Integer
-chartResolution chart = case HM.lookup "Resolution" $ chartSong chart of
+chartResolution chart = case HM.lookup "Resolution" chart.chartSong of
   Just (Int n) -> n
   _            -> 192
 
@@ -134,7 +135,7 @@ getTempos
   . RTB.mapMaybe (\case BPM bpm -> Just (realToFrac bpm / 60 :: U.BPS); _ -> Nothing)
   . fromMaybe RTB.empty
   . HM.lookup "SyncTrack"
-  . chartTracks
+  . (.chartTracks)
 
 getSignatures :: Chart U.Beats -> U.MeasureMap
 getSignatures
@@ -148,7 +149,7 @@ getSignatures
     )
   . fromMaybe RTB.empty
   . HM.lookup "SyncTrack"
-  . chartTracks
+  . (.chartTracks)
 
 chartToIni :: Chart t -> FoF.Song
 chartToIni chart = def
@@ -163,7 +164,7 @@ chartToIni chart = def
     (0, 0) -> Nothing
     _      -> Just previewStart
   , FoF.previewEndTime = guard (previewEnd /= 0) >> Just previewEnd
-  } where song = chartSong chart
+  } where song = chart.chartSong
           atomStr' x = case atomStr x of
             "" -> Nothing
             s  -> Just s
@@ -237,7 +238,7 @@ emitTrack hopoThreshold trk = let
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (FixedFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
-        fn $ fromMaybe RTB.empty $ HM.lookup name $ chartTracks chart
+        fn $ fromMaybe RTB.empty $ HM.lookup name chart.chartTracks
       res = fromIntegral $ chartResolution chart
       insideEvents trk f = flip traverseWithAbsTime trk \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
