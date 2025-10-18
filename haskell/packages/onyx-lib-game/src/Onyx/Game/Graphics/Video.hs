@@ -96,8 +96,10 @@ forkFrameLoader logger vi = do
     pfmt <- stackIO cctx.pix_fmt
     outData <- stackIO frameRGBA.extended_data
     outLinesize <- stackIO frameRGBA.linesize
+    -- buffer size alignment of 4 means no padding between the rows of 4-byte pixels,
+    -- so we can just copy it exactly into a JuicyPixels image later
     checkRes "av_image_alloc (output)" (>= 0)
-      (av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 16)
+      (av_image_alloc outData outLinesize w h AV_PIX_FMT_RGBA 4)
       (av_freep outData)
     stackIO $ frameRGBA.width $= w
     stackIO $ frameRGBA.height $= h
