@@ -1,7 +1,9 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.PowerGig.Songs where
 
 import qualified Codec.Compression.Zlib.Internal as Z
@@ -91,9 +93,9 @@ data Song = Song
 instance IsInside Song where
   insideCodec = do
     useNamespace (Just "xsi") cstSpaceW3
-    song_info   <- song_info   =. childTag "info"   (parseInside' insideCodec)
-    song_audio  <- song_audio  =. childTag "audio"  (parseInside' insideCodec)
-    song_source <- song_source =. childTag "source" (parseInside' childText)
+    song_info   <- (.song_info)   =. childTag "info"   (parseInside' insideCodec)
+    song_audio  <- (.song_audio)  =. childTag "audio"  (parseInside' insideCodec)
+    song_source <- (.song_source) =. childTag "source" (parseInside' childText)
     _ <- const (Just "file:../song.xsd")
       =. optAttr (inSpace cstSpaceW3 "noNamespaceSchemaLocation")
     return Song{..}
@@ -120,23 +122,23 @@ data Info = Info
 
 instance IsInside Info where
   insideCodec = do
-    info_title            <- info_title            =. childTag    "title"            (parseInside' childText)
-    info_title_short      <- info_title_short      =. childTagOpt "title_short"      (parseInside' childText)
-    info_title_shorter    <- info_title_shorter    =. childTagOpt "title_shorter"    (parseInside' childText)
-    info_artist           <- info_artist           =. childTag    "artist"           (parseInside' childText)
-    info_artist_short     <- info_artist_short     =. childTagOpt "artist_short"     (parseInside' childText)
-    info_year             <- info_year             =. childTag    "year"             (parseInside' $ intText childText)
-    info_album            <- info_album            =. childTag    "album"            (parseInside' childText)
-    info_composer         <- info_composer         =. childTag    "composer"         (parseInside' childText)
-    info_lyricist         <- info_lyricist         =. childTag    "lyricist"         (parseInside' childText)
-    info_genre            <- info_genre            =. childTag    "genre"            (parseInside' childText)
-    info_cover_artwork    <- info_cover_artwork    =. childTag    "cover_artwork"    (parseInside' insideCodec)
-    info_url              <- info_url              =. childTag    "url"              (parseInside' childText)
-    info_length           <- info_length           =. childTag    "length"           (parseInside' insideCodec)
-    info_singer_gender    <- info_singer_gender    =. childTagOpt "singer_gender"    (parseInside' childText)
-    info_guitar_intensity <- info_guitar_intensity =. childTagOpt "guitar_intensity" (parseInside' $ intText childText)
-    info_drums_intensity  <- info_drums_intensity  =. childTagOpt "drums_intensity"  (parseInside' $ intText childText)
-    info_vocals_intensity <- info_vocals_intensity =. childTagOpt "vocals_intensity" (parseInside' $ intText childText)
+    info_title            <- (.info_title)            =. childTag    "title"            (parseInside' childText)
+    info_title_short      <- (.info_title_short)      =. childTagOpt "title_short"      (parseInside' childText)
+    info_title_shorter    <- (.info_title_shorter)    =. childTagOpt "title_shorter"    (parseInside' childText)
+    info_artist           <- (.info_artist)           =. childTag    "artist"           (parseInside' childText)
+    info_artist_short     <- (.info_artist_short)     =. childTagOpt "artist_short"     (parseInside' childText)
+    info_year             <- (.info_year)             =. childTag    "year"             (parseInside' $ intText childText)
+    info_album            <- (.info_album)            =. childTag    "album"            (parseInside' childText)
+    info_composer         <- (.info_composer)         =. childTag    "composer"         (parseInside' childText)
+    info_lyricist         <- (.info_lyricist)         =. childTag    "lyricist"         (parseInside' childText)
+    info_genre            <- (.info_genre)            =. childTag    "genre"            (parseInside' childText)
+    info_cover_artwork    <- (.info_cover_artwork)    =. childTag    "cover_artwork"    (parseInside' insideCodec)
+    info_url              <- (.info_url)              =. childTag    "url"              (parseInside' childText)
+    info_length           <- (.info_length)           =. childTag    "length"           (parseInside' insideCodec)
+    info_singer_gender    <- (.info_singer_gender)    =. childTagOpt "singer_gender"    (parseInside' childText)
+    info_guitar_intensity <- (.info_guitar_intensity) =. childTagOpt "guitar_intensity" (parseInside' $ intText childText)
+    info_drums_intensity  <- (.info_drums_intensity)  =. childTagOpt "drums_intensity"  (parseInside' $ intText childText)
+    info_vocals_intensity <- (.info_vocals_intensity) =. childTagOpt "vocals_intensity" (parseInside' $ intText childText)
     return Info{..}
 
 data Audio = Audio
@@ -158,20 +160,20 @@ data Audio = Audio
 
 instance IsInside Audio where
   insideCodec = do
-    audio_combined_audio <- audio_combined_audio =. childTagOpt "combined_audio"  (parseInside' insideCodec)
-    audio_count_off      <- audio_count_off      =. childTagOpt "count_off"       (parseInside' insideCodec)
-    audio_preview        <- audio_preview        =. bareListWithTagName "preview" (parseInside' insideCodec)
-    audio_midi           <- audio_midi           =. childTag    "midi"            (parseInside' childText)
-    audio_cue            <- audio_cue            =. childTag    "cue"             (parseInside' childText)
-    audio_tempo          <- audio_tempo          =. childTag    "tempo"           (parseInside' childText)
-    audio_key_signature  <- audio_key_signature  =. childTag    "key_signature"   (parseInside' insideCodec)
-    audio_bpm            <- audio_bpm            =. childTag    "bpm"             (parseInside' $ intText childText)
-    audio_chords         <- audio_chords         =. childTag    "chords"          (parseInside' $ bareList $ isTag "chord" $ parseInside' childText)
-    audio_compressor     <- audio_compressor     =. childTagOpt "compressor"      (parseInside' insideCodec)
-    audio_backing_track  <- audio_backing_track  =. childTag    "backing_track"   (parseInside' insideCodec)
-    audio_guitar         <- audio_guitar         =. childTag    "guitar"          (parseInside' insideCodec)
-    audio_drums          <- audio_drums          =. childTag    "drums"           (parseInside' insideCodec)
-    audio_vocals         <- audio_vocals         =. childTag    "vocals"          (parseInside' insideCodec)
+    audio_combined_audio <- (.audio_combined_audio) =. childTagOpt "combined_audio"  (parseInside' insideCodec)
+    audio_count_off      <- (.audio_count_off)      =. childTagOpt "count_off"       (parseInside' insideCodec)
+    audio_preview        <- (.audio_preview)        =. bareListWithTagName "preview" (parseInside' insideCodec)
+    audio_midi           <- (.audio_midi)           =. childTag    "midi"            (parseInside' childText)
+    audio_cue            <- (.audio_cue)            =. childTag    "cue"             (parseInside' childText)
+    audio_tempo          <- (.audio_tempo)          =. childTag    "tempo"           (parseInside' childText)
+    audio_key_signature  <- (.audio_key_signature)  =. childTag    "key_signature"   (parseInside' insideCodec)
+    audio_bpm            <- (.audio_bpm)            =. childTag    "bpm"             (parseInside' $ intText childText)
+    audio_chords         <- (.audio_chords)         =. childTag    "chords"          (parseInside' $ bareList $ isTag "chord" $ parseInside' childText)
+    audio_compressor     <- (.audio_compressor)     =. childTagOpt "compressor"      (parseInside' insideCodec)
+    audio_backing_track  <- (.audio_backing_track)  =. childTag    "backing_track"   (parseInside' insideCodec)
+    audio_guitar         <- (.audio_guitar)         =. childTag    "guitar"          (parseInside' insideCodec)
+    audio_drums          <- (.audio_drums)          =. childTag    "drums"           (parseInside' insideCodec)
+    audio_vocals         <- (.audio_vocals)         =. childTag    "vocals"          (parseInside' insideCodec)
     return Audio{..}
 
 data CombinedAudio = CombinedAudio
@@ -183,10 +185,10 @@ data CombinedAudio = CombinedAudio
 
 instance IsInside CombinedAudio where
   insideCodec = do
-    ca_file         <- ca_file         =. reqAttr "file"
-    ca_xbox360_file <- ca_xbox360_file =. optAttr "xbox360_file"
-    ca_ps3_file     <- ca_ps3_file     =. optAttr "ps3_file"
-    ca_num_channels <- ca_num_channels =. intText (reqAttr "num_channels")
+    ca_file         <- (.ca_file)         =. reqAttr "file"
+    ca_xbox360_file <- (.ca_xbox360_file) =. optAttr "xbox360_file"
+    ca_ps3_file     <- (.ca_ps3_file)     =. optAttr "ps3_file"
+    ca_num_channels <- (.ca_num_channels) =. intText (reqAttr "num_channels")
     return CombinedAudio{..}
 
 data CountOff = CountOff
@@ -195,7 +197,7 @@ data CountOff = CountOff
 
 instance IsInside CountOff where
   insideCodec = do
-    count_off_bpm <- count_off_bpm =. zoomValue (maybeValue milliValue) (optAttr "bpm")
+    count_off_bpm <- (.count_off_bpm) =. zoomValue (maybeValue milliValue) (optAttr "bpm")
     return CountOff{..}
 
 data CoverArtwork = CoverArtwork
@@ -204,7 +206,7 @@ data CoverArtwork = CoverArtwork
 
 instance IsInside CoverArtwork where
   insideCodec = do
-    art_file_name <- art_file_name =. reqAttr "file_name"
+    art_file_name <- (.art_file_name) =. reqAttr "file_name"
     return CoverArtwork{..}
 
 data Length = Length
@@ -214,8 +216,8 @@ data Length = Length
 
 instance IsInside Length where
   insideCodec = do
-    length_minutes <- length_minutes =. childTag "minutes" (parseInside' $ intText childText)
-    length_seconds <- length_seconds =. childTag "seconds" (parseInside' $ intText childText)
+    length_minutes <- (.length_minutes) =. childTag "minutes" (parseInside' $ intText childText)
+    length_seconds <- (.length_seconds) =. childTag "seconds" (parseInside' $ intText childText)
     return Length{..}
 
 data KeySignature = KeySignature
@@ -226,9 +228,9 @@ data KeySignature = KeySignature
 
 instance IsInside KeySignature where
   insideCodec = do
-    ks_note  <- ks_note  =. childTag "note"  (parseInside' childText)
-    ks_pitch <- ks_pitch =. childTag "pitch" (parseInside' childText)
-    ks_key   <- ks_key   =. childTag "key"   (parseInside' childText)
+    ks_note  <- (.ks_note)  =. childTag "note"  (parseInside' childText)
+    ks_pitch <- (.ks_pitch) =. childTag "pitch" (parseInside' childText)
+    ks_key   <- (.ks_key)   =. childTag "key"   (parseInside' childText)
     return KeySignature{..}
 
 data Preview = Preview
@@ -243,13 +245,13 @@ data Preview = Preview
 
 instance IsInside Preview where
   insideCodec = do
-    preview_start_position   <- preview_start_position    =. zoomValue (maybeValue milliValue) (optAttr "start_position"  )
-    preview_attack_time      <- preview_attack_time       =. zoomValue (maybeValue milliValue) (optAttr "attack_time"     )
-    preview_release_position <- preview_release_position  =. zoomValue (maybeValue milliValue) (optAttr "release_position")
-    preview_release_time     <- preview_release_time      =. zoomValue (maybeValue milliValue) (optAttr "release_time"    )
-    preview_file             <- preview_file              =. optAttr "file"
-    preview_xbox360_file     <- preview_xbox360_file      =. optAttr "xbox360_file"
-    preview_ps3_file         <- preview_ps3_file          =. optAttr "ps3_file"
+    preview_start_position   <- (.preview_start_position)    =. zoomValue (maybeValue milliValue) (optAttr "start_position"  )
+    preview_attack_time      <- (.preview_attack_time)       =. zoomValue (maybeValue milliValue) (optAttr "attack_time"     )
+    preview_release_position <- (.preview_release_position)  =. zoomValue (maybeValue milliValue) (optAttr "release_position")
+    preview_release_time     <- (.preview_release_time)      =. zoomValue (maybeValue milliValue) (optAttr "release_time"    )
+    preview_file             <- (.preview_file)              =. optAttr "file"
+    preview_xbox360_file     <- (.preview_xbox360_file)      =. optAttr "xbox360_file"
+    preview_ps3_file         <- (.preview_ps3_file)          =. optAttr "ps3_file"
     return Preview{..}
 
 -- Leaving undone, doesn't appear to actually exist in any of the xml files
@@ -274,19 +276,19 @@ data InstrumentType = InstrumentType
 
 instance IsInside InstrumentType where
   insideCodec = do
-    inst_chord_resolution  <- inst_chord_resolution  =. childTagOpt "chord_resolution"  (parseInside' $ parsePerDifficulty intValue)
-    inst_sustain_threshold <- inst_sustain_threshold =. childTagOpt "sustain_threshold" (parseInside' $ parsePerDifficulty intValue)
-    inst_fly_time          <- inst_fly_time          =. childTagOpt "fly_time"          (parseInside' $ parsePerDifficulty milliValue)
-    inst_tolerance         <- inst_tolerance         =. childTagOpt "tolerance"         (parseInside' $ parsePerDifficulty milliValue)
-    inst_wav_file          <- inst_wav_file          =. childTagOpt "wav_file"          (parseInside' childText)
-    inst_xbox360_file      <- inst_xbox360_file      =. childTagOpt "xbox360_file"      (parseInside' childText)
-    inst_volume            <- inst_volume            =. childTag    "volume"            (parseInside' $ milliText childText)
-    inst_fill_mute_level   <- inst_fill_mute_level   =. childTagOpt "fill_mute_level"   (parseInside' $ milliText childText)
-    inst_ramp_times        <- inst_ramp_times        =. childTagOpt "ramp_times"        (parseInside' insideCodec)
-    inst_mode              <- inst_mode              =. childTag    "mode"              (parseInside' insideCodec)
-    inst_stereo_width      <- inst_stereo_width      =. childTagOpt "stereo_width"      (parseInside' insideCodec)
-    inst_samples           <- inst_samples           =. childTagOpt "samples"           (parseInside' $ bareList $ isTag "sample_kit" $ parseInside' insideCodec)
-    inst_display_range     <- inst_display_range     =. childTagOpt "display_range"     (parseInside' insideCodec)
+    inst_chord_resolution  <- (.inst_chord_resolution)  =. childTagOpt "chord_resolution"  (parseInside' $ parsePerDifficulty intValue)
+    inst_sustain_threshold <- (.inst_sustain_threshold) =. childTagOpt "sustain_threshold" (parseInside' $ parsePerDifficulty intValue)
+    inst_fly_time          <- (.inst_fly_time)          =. childTagOpt "fly_time"          (parseInside' $ parsePerDifficulty milliValue)
+    inst_tolerance         <- (.inst_tolerance)         =. childTagOpt "tolerance"         (parseInside' $ parsePerDifficulty milliValue)
+    inst_wav_file          <- (.inst_wav_file)          =. childTagOpt "wav_file"          (parseInside' childText)
+    inst_xbox360_file      <- (.inst_xbox360_file)      =. childTagOpt "xbox360_file"      (parseInside' childText)
+    inst_volume            <- (.inst_volume)            =. childTag    "volume"            (parseInside' $ milliText childText)
+    inst_fill_mute_level   <- (.inst_fill_mute_level)   =. childTagOpt "fill_mute_level"   (parseInside' $ milliText childText)
+    inst_ramp_times        <- (.inst_ramp_times)        =. childTagOpt "ramp_times"        (parseInside' insideCodec)
+    inst_mode              <- (.inst_mode)              =. childTag    "mode"              (parseInside' insideCodec)
+    inst_stereo_width      <- (.inst_stereo_width)      =. childTagOpt "stereo_width"      (parseInside' insideCodec)
+    inst_samples           <- (.inst_samples)           =. childTagOpt "samples"           (parseInside' $ bareList $ isTag "sample_kit" $ parseInside' insideCodec)
+    inst_display_range     <- (.inst_display_range)     =. childTagOpt "display_range"     (parseInside' insideCodec)
     return InstrumentType{..}
 
 data PerDifficulty a = PerDifficulty
@@ -299,11 +301,11 @@ data PerDifficulty a = PerDifficulty
 
 parsePerDifficulty :: (Monad m) => ValueCodec' m T.Text a -> InsideCodec m (PerDifficulty a)
 parsePerDifficulty c = do
-  pd_beginner <- pd_beginner =. zoomValue (maybeValue c) (optAttr "beginner")
-  pd_easy     <- pd_easy     =. zoomValue (maybeValue c) (optAttr "easy"    )
-  pd_medium   <- pd_medium   =. zoomValue (maybeValue c) (optAttr "medium"  )
-  pd_hard     <- pd_hard     =. zoomValue (maybeValue c) (optAttr "hard"    )
-  pd_expert   <- pd_expert   =. zoomValue (maybeValue c) (optAttr "expert"  )
+  pd_beginner <- (.pd_beginner) =. zoomValue (maybeValue c) (optAttr "beginner")
+  pd_easy     <- (.pd_easy)     =. zoomValue (maybeValue c) (optAttr "easy"    )
+  pd_medium   <- (.pd_medium)   =. zoomValue (maybeValue c) (optAttr "medium"  )
+  pd_hard     <- (.pd_hard)     =. zoomValue (maybeValue c) (optAttr "hard"    )
+  pd_expert   <- (.pd_expert)   =. zoomValue (maybeValue c) (optAttr "expert"  )
   return PerDifficulty{..}
 
 data RampTimes = RampTimes
@@ -315,10 +317,10 @@ data RampTimes = RampTimes
 
 instance IsInside RampTimes where
   insideCodec = do
-    ramp_mute_down      <- ramp_mute_down      =. zoomValue (maybeValue milliValue) (optAttr "mute_down")
-    ramp_mute_up        <- ramp_mute_up        =. zoomValue (maybeValue milliValue) (optAttr "mute_up")
-    ramp_fill_mute_down <- ramp_fill_mute_down =. zoomValue (maybeValue milliValue) (optAttr "fill_mute_down")
-    ramp_fill_mute_up   <- ramp_fill_mute_up   =. zoomValue (maybeValue milliValue) (optAttr "fill_mute_up")
+    ramp_mute_down      <- (.ramp_mute_down)      =. zoomValue (maybeValue milliValue) (optAttr "mute_down")
+    ramp_mute_up        <- (.ramp_mute_up)        =. zoomValue (maybeValue milliValue) (optAttr "mute_up")
+    ramp_fill_mute_down <- (.ramp_fill_mute_down) =. zoomValue (maybeValue milliValue) (optAttr "fill_mute_down")
+    ramp_fill_mute_up   <- (.ramp_fill_mute_up)   =. zoomValue (maybeValue milliValue) (optAttr "fill_mute_up")
     return RampTimes{..}
 
 data Mode = Mode
@@ -330,9 +332,9 @@ data Mode = Mode
 
 instance IsInside Mode where
   insideCodec = do
-    mode_2d       <- mode_2d       =. childTagOpt "mode_2d"       (parseInside' $ milliText childText)
-    mode_3d       <- mode_3d       =. childTagOpt "mode_3d"       (parseInside' insideCodec)
-    mode_speakers <- mode_speakers =. childTagOpt "mode_speakers" (parseInside' insideCodec)
+    mode_2d       <- (.mode_2d)       =. childTagOpt "mode_2d"       (parseInside' $ milliText childText)
+    mode_3d       <- (.mode_3d)       =. childTagOpt "mode_3d"       (parseInside' insideCodec)
+    mode_speakers <- (.mode_speakers) =. childTagOpt "mode_speakers" (parseInside' insideCodec)
     return Mode{..}
 
 data Mode3D = Mode3D
@@ -343,9 +345,9 @@ data Mode3D = Mode3D
 
 instance IsInside Mode3D where
   insideCodec = do
-    mode3d_x <- mode3d_x =. milliText (reqAttr "x")
-    mode3d_y <- mode3d_y =. milliText (reqAttr "y")
-    mode3d_z <- mode3d_z =. milliText (reqAttr "z")
+    mode3d_x <- (.mode3d_x) =. milliText (reqAttr "x")
+    mode3d_y <- (.mode3d_y) =. milliText (reqAttr "y")
+    mode3d_z <- (.mode3d_z) =. milliText (reqAttr "z")
     return Mode3D{..}
 
 data ModeSpeakers = ModeSpeakers
@@ -360,13 +362,13 @@ data ModeSpeakers = ModeSpeakers
 
 instance IsInside ModeSpeakers where
   insideCodec = do
-    mode_speakers_speaker      <- mode_speakers_speaker      =. bareListWithTagName "speaker" (parseInside' insideCodec)
-    mode_speakers_mute_levels  <- mode_speakers_mute_levels  =. childTagOpt "mute_levels" (parseInside' insideCodec)
-    mode_speakers_kit          <- mode_speakers_kit          =. bareListWithTagName "kit" (parseInside' insideCodec)
-    mode_speakers_unmute_pad   <- mode_speakers_unmute_pad   =. childTagOpt "unmute_pad"  (parseInside' $ parsePerDifficulty identityCodec')
-    mode_speakers_num_speakers <- mode_speakers_num_speakers =. zoomValue (maybeValue intValue) (optAttr "num_speakers")
-    mode_speakers_num_channels <- mode_speakers_num_channels =. zoomValue (maybeValue intValue) (optAttr "num_channels")
-    mode_speakers_base_channel <- mode_speakers_base_channel =. zoomValue (maybeValue intValue) (optAttr "base_channel")
+    mode_speakers_speaker      <- (.mode_speakers_speaker)      =. bareListWithTagName "speaker" (parseInside' insideCodec)
+    mode_speakers_mute_levels  <- (.mode_speakers_mute_levels)  =. childTagOpt "mute_levels" (parseInside' insideCodec)
+    mode_speakers_kit          <- (.mode_speakers_kit)          =. bareListWithTagName "kit" (parseInside' insideCodec)
+    mode_speakers_unmute_pad   <- (.mode_speakers_unmute_pad)   =. childTagOpt "unmute_pad"  (parseInside' $ parsePerDifficulty identityCodec')
+    mode_speakers_num_speakers <- (.mode_speakers_num_speakers) =. zoomValue (maybeValue intValue) (optAttr "num_speakers")
+    mode_speakers_num_channels <- (.mode_speakers_num_channels) =. zoomValue (maybeValue intValue) (optAttr "num_channels")
+    mode_speakers_base_channel <- (.mode_speakers_base_channel) =. zoomValue (maybeValue intValue) (optAttr "base_channel")
     return ModeSpeakers{..}
 
 data Speaker = Speaker
@@ -383,15 +385,15 @@ data Speaker = Speaker
 
 instance IsInside Speaker where
   insideCodec = do
-    speaker_output        <- speaker_output        =. reqAttr "output"
-    speaker_front_left    <- speaker_front_left    =. zoomValue (maybeValue milliValue) (optAttr "front_left"   )
-    speaker_front_right   <- speaker_front_right   =. zoomValue (maybeValue milliValue) (optAttr "front_right"  )
-    speaker_front_center  <- speaker_front_center  =. zoomValue (maybeValue milliValue) (optAttr "front_center" )
-    speaker_low_frequency <- speaker_low_frequency =. zoomValue (maybeValue milliValue) (optAttr "low_frequency")
-    speaker_back_left     <- speaker_back_left     =. zoomValue (maybeValue milliValue) (optAttr "back_left"    )
-    speaker_back_right    <- speaker_back_right    =. zoomValue (maybeValue milliValue) (optAttr "back_right"   )
-    speaker_side_left     <- speaker_side_left     =. zoomValue (maybeValue milliValue) (optAttr "side_left"    )
-    speaker_side_right    <- speaker_side_right    =. zoomValue (maybeValue milliValue) (optAttr "side_right"   )
+    speaker_output        <- (.speaker_output)        =. reqAttr "output"
+    speaker_front_left    <- (.speaker_front_left)    =. zoomValue (maybeValue milliValue) (optAttr "front_left"   )
+    speaker_front_right   <- (.speaker_front_right)   =. zoomValue (maybeValue milliValue) (optAttr "front_right"  )
+    speaker_front_center  <- (.speaker_front_center)  =. zoomValue (maybeValue milliValue) (optAttr "front_center" )
+    speaker_low_frequency <- (.speaker_low_frequency) =. zoomValue (maybeValue milliValue) (optAttr "low_frequency")
+    speaker_back_left     <- (.speaker_back_left)     =. zoomValue (maybeValue milliValue) (optAttr "back_left"    )
+    speaker_back_right    <- (.speaker_back_right)    =. zoomValue (maybeValue milliValue) (optAttr "back_right"   )
+    speaker_side_left     <- (.speaker_side_left)     =. zoomValue (maybeValue milliValue) (optAttr "side_left"    )
+    speaker_side_right    <- (.speaker_side_right)    =. zoomValue (maybeValue milliValue) (optAttr "side_right"   )
     return Speaker{..}
 
 data MuteLevels = MuteLevels
@@ -407,14 +409,14 @@ data MuteLevels = MuteLevels
 
 instance IsInside MuteLevels where
   insideCodec = do
-    mute_levels_front_left    <- mute_levels_front_left    =. zoomValue (maybeValue milliValue) (optAttr "front_left"   )
-    mute_levels_front_right   <- mute_levels_front_right   =. zoomValue (maybeValue milliValue) (optAttr "front_right"  )
-    mute_levels_front_center  <- mute_levels_front_center  =. zoomValue (maybeValue milliValue) (optAttr "front_center" )
-    mute_levels_low_frequency <- mute_levels_low_frequency =. zoomValue (maybeValue milliValue) (optAttr "low_frequency")
-    mute_levels_back_left     <- mute_levels_back_left     =. zoomValue (maybeValue milliValue) (optAttr "back_left"    )
-    mute_levels_back_right    <- mute_levels_back_right    =. zoomValue (maybeValue milliValue) (optAttr "back_right"   )
-    mute_levels_side_left     <- mute_levels_side_left     =. zoomValue (maybeValue milliValue) (optAttr "side_left"    )
-    mute_levels_side_right    <- mute_levels_side_right    =. zoomValue (maybeValue milliValue) (optAttr "side_right"   )
+    mute_levels_front_left    <- (.mute_levels_front_left)    =. zoomValue (maybeValue milliValue) (optAttr "front_left"   )
+    mute_levels_front_right   <- (.mute_levels_front_right)   =. zoomValue (maybeValue milliValue) (optAttr "front_right"  )
+    mute_levels_front_center  <- (.mute_levels_front_center)  =. zoomValue (maybeValue milliValue) (optAttr "front_center" )
+    mute_levels_low_frequency <- (.mute_levels_low_frequency) =. zoomValue (maybeValue milliValue) (optAttr "low_frequency")
+    mute_levels_back_left     <- (.mute_levels_back_left)     =. zoomValue (maybeValue milliValue) (optAttr "back_left"    )
+    mute_levels_back_right    <- (.mute_levels_back_right)    =. zoomValue (maybeValue milliValue) (optAttr "back_right"   )
+    mute_levels_side_left     <- (.mute_levels_side_left)     =. zoomValue (maybeValue milliValue) (optAttr "side_left"    )
+    mute_levels_side_right    <- (.mute_levels_side_right)    =. zoomValue (maybeValue milliValue) (optAttr "side_right"   )
     return MuteLevels{..}
 
 data Kit = Kit
@@ -431,15 +433,15 @@ data Kit = Kit
 
 instance IsInside Kit where
   insideCodec = do
-    kit_kit_number    <- kit_kit_number    =. intText (reqAttr "kit_number")
-    kit_front_left    <- kit_front_left    =. zoomValue (maybeValue intValue) (optAttr "front_left"   )
-    kit_front_right   <- kit_front_right   =. zoomValue (maybeValue intValue) (optAttr "front_right"  )
-    kit_front_center  <- kit_front_center  =. zoomValue (maybeValue intValue) (optAttr "front_center" )
-    kit_low_frequency <- kit_low_frequency =. zoomValue (maybeValue intValue) (optAttr "low_frequency")
-    kit_back_left     <- kit_back_left     =. zoomValue (maybeValue intValue) (optAttr "back_left"    )
-    kit_back_right    <- kit_back_right    =. zoomValue (maybeValue intValue) (optAttr "back_right"   )
-    kit_side_left     <- kit_side_left     =. zoomValue (maybeValue intValue) (optAttr "side_left"    )
-    kit_side_right    <- kit_side_right    =. zoomValue (maybeValue intValue) (optAttr "side_right"   )
+    kit_kit_number    <- (.kit_kit_number)    =. intText (reqAttr "kit_number")
+    kit_front_left    <- (.kit_front_left)    =. zoomValue (maybeValue intValue) (optAttr "front_left"   )
+    kit_front_right   <- (.kit_front_right)   =. zoomValue (maybeValue intValue) (optAttr "front_right"  )
+    kit_front_center  <- (.kit_front_center)  =. zoomValue (maybeValue intValue) (optAttr "front_center" )
+    kit_low_frequency <- (.kit_low_frequency) =. zoomValue (maybeValue intValue) (optAttr "low_frequency")
+    kit_back_left     <- (.kit_back_left)     =. zoomValue (maybeValue intValue) (optAttr "back_left"    )
+    kit_back_right    <- (.kit_back_right)    =. zoomValue (maybeValue intValue) (optAttr "back_right"   )
+    kit_side_left     <- (.kit_side_left)     =. zoomValue (maybeValue intValue) (optAttr "side_left"    )
+    kit_side_right    <- (.kit_side_right)    =. zoomValue (maybeValue intValue) (optAttr "side_right"   )
     return Kit{..}
 
 data StereoWidth = StereoWidth
@@ -449,8 +451,8 @@ data StereoWidth = StereoWidth
 
 instance IsInside StereoWidth where
   insideCodec = do
-    sw_wide   <- sw_wide   =. milliText (reqAttr "wide"  )
-    sw_narrow <- sw_narrow =. milliText (reqAttr "narrow")
+    sw_wide   <- (.sw_wide)   =. milliText (reqAttr "wide"  )
+    sw_narrow <- (.sw_narrow) =. milliText (reqAttr "narrow")
     return StereoWidth{..}
 
 data SampleKit = SampleKit
@@ -460,8 +462,8 @@ data SampleKit = SampleKit
 
 instance IsInside SampleKit where
   insideCodec = do
-    sample_kit_sound  <- sample_kit_sound  =. bareList (isTag "sound" $ parseInside' insideCodec)
-    sample_kit_number <- sample_kit_number =. milliText (reqAttr "number")
+    sample_kit_sound  <- (.sample_kit_sound)  =. bareList (isTag "sound" $ parseInside' insideCodec)
+    sample_kit_number <- (.sample_kit_number) =. milliText (reqAttr "number")
     return SampleKit{..}
 
 data Sound = Sound
@@ -475,12 +477,12 @@ data Sound = Sound
 
 instance IsInside Sound where
   insideCodec = do
-    sound_pad          <- sound_pad          =. reqAttr "pad"
-    sound_file         <- sound_file         =. reqAttr "file"
-    sound_xbox360_file <- sound_xbox360_file =. optAttr "xbox360_file"
-    sound_volume       <- sound_volume       =. zoomValue (maybeValue milliValue) (optAttr "volume")
-    sound_releasetime  <- sound_releasetime  =. zoomValue (maybeValue milliValue) (optAttr "releasetime")
-    sound_rvbroom      <- sound_rvbroom      =. zoomValue (maybeValue intValue  ) (optAttr "rvbroom")
+    sound_pad          <- (.sound_pad)          =. reqAttr "pad"
+    sound_file         <- (.sound_file)         =. reqAttr "file"
+    sound_xbox360_file <- (.sound_xbox360_file) =. optAttr "xbox360_file"
+    sound_volume       <- (.sound_volume)       =. zoomValue (maybeValue milliValue) (optAttr "volume")
+    sound_releasetime  <- (.sound_releasetime)  =. zoomValue (maybeValue milliValue) (optAttr "releasetime")
+    sound_rvbroom      <- (.sound_rvbroom)      =. zoomValue (maybeValue intValue  ) (optAttr "rvbroom")
     return Sound{..}
 
 data DisplayRange = DisplayRange
@@ -489,5 +491,5 @@ data DisplayRange = DisplayRange
 
 instance IsInside DisplayRange where
   insideCodec = do
-    dr_height <- dr_height =. intText (reqAttr "height")
+    dr_height <- (.dr_height) =. intText (reqAttr "height")
     return DisplayRange{..}

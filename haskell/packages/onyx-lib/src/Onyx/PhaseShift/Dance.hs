@@ -1,10 +1,12 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.PhaseShift.Dance where
 
 import           Control.Monad                    (guard)
@@ -38,14 +40,14 @@ instance TraverseTrack DanceTrack where
     <$> traverse (traverseTrack fn) a <*> fn b
 
 nullDance :: DanceTrack t -> Bool
-nullDance = all (RTB.null . danceNotes) . toList . danceDifficulties
+nullDance = all (RTB.null . (.danceNotes)) . toList . (.danceDifficulties)
 
 -- gets highest to lowest that have notes
 getDanceDifficulties :: (NNC.C t) => DanceTrack t -> [DanceDifficulty t]
 getDanceDifficulties dt = do
   diff <- [maxBound, pred maxBound .. minBound]
-  dd <- toList $ Map.lookup diff $ danceDifficulties dt
-  guard $ not $ RTB.null $ danceNotes dd
+  dd <- toList $ Map.lookup diff dt.danceDifficulties
+  guard $ not $ RTB.null dd.danceNotes
   return dd
 
 data Arrow = ArrowL | ArrowD | ArrowU | ArrowR
@@ -71,8 +73,8 @@ instance TraverseTrack DanceDifficulty where
 
 instance ParseTrack DanceTrack where
   parseTrack = do
-    danceOverdrive <- danceOverdrive =. edges 116
-    danceDifficulties <- (danceDifficulties =.) $ eachKey each \diff -> fatBlips (1/8) $ do
+    danceOverdrive <- (.danceOverdrive) =. edges 116
+    danceDifficulties <- ((.danceDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) $ do
       let base = case diff of
             SMBeginner  -> 48
             SMEasy      -> 60
@@ -85,7 +87,7 @@ instance ParseTrack DanceTrack where
           f2 = \case
             (arrow, (nt, Just _))  -> EdgeOn () (arrow, nt)
             (arrow, (nt, Nothing)) -> EdgeOff (arrow, nt)
-      danceNotes <- (danceNotes =.) $ dimap (fmap f1) (fmap f2) $ condenseMap $ eachKey each $ channelEdges . \case
+      danceNotes <- ((.danceNotes) =.) $ dimap (fmap f1) (fmap f2) $ condenseMap $ eachKey each $ channelEdges . \case
         ArrowL -> base + 0
         ArrowD -> base + 1
         ArrowU -> base + 2

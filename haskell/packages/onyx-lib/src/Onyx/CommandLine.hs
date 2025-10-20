@@ -4,6 +4,7 @@
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
@@ -433,7 +434,7 @@ getInputMIDI files = optionalFile files >>= \case
   (FileSongYaml, yamlPath) -> return $ takeDirectory yamlPath </> "notes.mid"
   (FileRBProj, rbprojPath) -> do
     rbproj <- loadRBProj rbprojPath
-    return $ T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
+    return $ T.unpack rbproj.project.midi.midiFile
   (FileMidi, mid) -> return mid
   (FilePS, ini) -> return $ takeDirectory ini </> "notes.mid"
   (ftype, fpath) -> unrecognized ftype fpath
@@ -461,9 +462,9 @@ commands =
         [x] -> return x
         _   -> fatal "Expected 0 or 1 files/folders"
       proj <- openProject (optIndex opts) fpath
-      out <- outputFile opts $ return $ projectTemplate proj ++ "_import"
+      out <- outputFile opts $ return $ proj.projectTemplate ++ "_import"
       stackIO $ Dir.createDirectoryIfMissing False out
-      copyDirRecursive (takeDirectory $ projectLocation proj) out
+      copyDirRecursive (takeDirectory proj.projectLocation) out
       when (OptVenueGen `elem` opts) $ changeToVenueGen out
       return [out]
     }
@@ -518,10 +519,10 @@ commands =
         _   -> fatal "Expected 0 or 1 files/folders"
       proj <- openProject (optIndex opts) fpath
       player <- buildPlayer (getMaybePlan opts) proj
-      case projectRelease proj of
+      case proj.projectRelease of
         Nothing -> return [player </> "index.html"] -- onyx project, return folder directly
         Just _ -> do
-          out <- outputFile opts $ return $ projectTemplate proj ++ "_player"
+          out <- outputFile opts $ return $ proj.projectTemplate ++ "_player"
           stackIO $ Dir.createDirectoryIfMissing False out
           copyDirRecursive player out
           return [out </> "index.html"]
@@ -544,12 +545,12 @@ commands =
           return [rpp]
         else do
           proj <- openProject (optIndex opts) fpath
-          yamlDir <- case projectRelease proj of
-            Nothing -> return $ takeDirectory $ projectLocation proj
+          yamlDir <- case proj.projectRelease of
+            Nothing -> return $ takeDirectory proj.projectLocation
             Just _  -> do
-              out <- outputFile opts $ return $ projectTemplate proj ++ "_reaper"
+              out <- outputFile opts $ return $ proj.projectTemplate ++ "_reaper"
               stackIO $ Dir.createDirectoryIfMissing False out
-              copyDirRecursive (takeDirectory $ projectLocation proj) out
+              copyDirRecursive (takeDirectory proj.projectLocation) out
               return out
           let yamlPath = yamlDir </> "song.yml"
           planName <- getPlanName (Just "author") yamlPath opts
@@ -576,7 +577,7 @@ commands =
         FileSongYaml -> withProject (optIndex opts) fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
           rbproj <- loadRBProj fpath
-          let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
+          let midPath = T.unpack rbproj.project.midi.midiFile
           withMIDI (takeDirectory fpath </> midPath)
         FileSTFS     -> undone
         FileRBA      -> tempDir "onyx_hanging_rba" $ \tmp -> do
@@ -885,7 +886,7 @@ commands =
     , commandRun = \args opts -> case args of
       [stfs] -> do
         out <- outputFile opts $ return $ stfs <> "_ps3"
-        displayName <- stackIO $ withSTFSPackage stfs $ return . head . md_DisplayName . stfsMetadata
+        displayName <- stackIO $ withSTFSPackage stfs $ \pkg -> return $ head pkg.stfsMetadata.md_DisplayName
         let displayName' = TE.decodeLatin1 $ packageNameHashFormat True displayName
         contents <- stackIO $ getSTFSFolder stfs
         contents' <- let
@@ -1011,7 +1012,7 @@ commands =
       (FilePKG, pkg) -> do
         out <- outputFile opts $ return $ pkg <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
-        folder <- stackIO (loadPKG pkg) >>= tryDecryptEDATs . pkgFolder
+        folder <- stackIO (loadPKG pkg) >>= tryDecryptEDATs . (.pkgFolder)
         stackIO $ saveHandleFolder (first TE.decodeLatin1 folder) out
         return out
       (FileHdrE2, hdrE2) -> do
@@ -1021,7 +1022,7 @@ commands =
         stackIO do
           tree <- crawlFolder $ takeDirectory hdrE2
           let connected = (if elem OptCrypt opts then PG.decryptPKContents else id)
-                $ PG.connectPKFiles tree base $ PG.getFolder $ PG.fh_Contents hdr
+                $ PG.connectPKFiles tree base $ PG.getFolder hdr.fh_Contents
           saveHandleFolder connected out
         return out
       (FileISO, iso) -> do
@@ -1491,7 +1492,7 @@ _oldCommands =
         return []
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadRBProj rbprojPath
-        let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
+        let isMagmaV2 = case rbproj.project.projectVersion of
               24 -> True
               5  -> False -- v1
               _  -> True -- need to do more testing
@@ -1523,9 +1524,9 @@ _oldCommands =
       -- TODO this is untested!
       [pathHdr, dir] -> do
         hdrOrig <- stackIO (B.readFile pathHdr) >>= PG.decryptE2 >>= PG.readHeader
-        let origFolder = PG.getFolder $ PG.fh_Contents hdrOrig
+        let origFolder = PG.getFolder hdrOrig.fh_Contents
             newPKNum = fromIntegral $
-              maximum (map PG.oe_PKNum $ toList origFolder >>= toList . PG.pkOffsetEntries) + 1
+              maximum (map (.oe_PKNum) $ toList origFolder >>= toList . (.pkOffsetEntries)) + 1
         src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
           <$> stackIO (crawlFolder dir)
         (newFolder, newPK) <- stackIO $ PG.makeNewPK newPKNum src
@@ -1597,7 +1598,7 @@ _oldCommands =
         targetName <- case [ t | OptTarget t <- opts ] of
           []    -> fatal "command requires --target, none given"
           t : _ -> return t
-        target <- case HM.lookup targetName (projectSongYaml proj).targets of
+        target <- case HM.lookup targetName proj.projectSongYaml.targets of
           Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
           Just target -> return target
         gh2 <- case target of
@@ -1860,7 +1861,7 @@ commandLine args = let
     [ "Onyx Music Game Toolkit"
     , ""
     , "Usage: onyx [command] [files] [options]"
-    , "Commands: " <> T.unwords (map commandWord $ filter commandList commands)
+    , "Commands: " <> T.unwords (map (.commandWord) $ filter (.commandList) commands)
     , "Run `onyx [command] --help` for further instructions."
     , ""
     ]
@@ -1869,18 +1870,18 @@ commandLine args = let
       [] -> if elem OptHelp opts
         then printIntro >> return []
         else printIntro >> fatal "No command given."
-      cmd : nonopts' -> case [ c | c <- commands, commandWord c == T.pack cmd ] of
-        [c] -> inside ("command: onyx " <> cmd) $ if elem OptHelp opts
+      cmd : nonopts' -> case [ c | c <- commands, c.commandWord == T.pack cmd ] of
+        [c@(Command { commandRun = run })] -> inside ("command: onyx " <> cmd) $ if elem OptHelp opts
           then do
             lg $ T.unpack $ T.unlines
-              [ "onyx " <> commandWord c
-              , commandDesc c
+              [ "onyx " <> c.commandWord
+              , c.commandDesc
               , ""
               , "Usage:"
-              , commandUsage c
+              , c.commandUsage
               ]
             return []
-          else commandRun c nonopts' opts
+          else run nonopts' opts
         _ -> printIntro >> fatal ("Unrecognized command: " ++ show cmd)
     _ -> inside "command line parsing" $ do
       printIntro

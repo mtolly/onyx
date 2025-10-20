@@ -386,7 +386,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
               else opart.onyxPartVocals
             sp = makeStarPower trk.vocalOverdrive
             phrases = map secondsToMS $ makePhrasePoints
-              (mapTrack (U.applyTempoTrack tmap) $ timingBeat timing)
+              (mapTrack (U.applyTempoTrack tmap) timing.timingBeat)
               (U.applyTempoTrack tmap $ vocalPhraseAll trk)
         lyricNotes <- getLyricNotes mmap trk
         let lyrics
@@ -434,7 +434,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
               $ getPhraseLabels trk.vocalPhrase1 lyricNotes
         return (notes, lyrics, sp, phrases, markers)
       Nothing -> return ([], [], [], [], [])
-    let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 $ beatLines $ timingBeat timing
+    let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 timing.timingBeat.beatLines
         beatToTimesigs = \case
           Wait t _bar rest -> case RTB.span (== Beat) rest of
             (beats, after) -> let
@@ -442,7 +442,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
               in Wait t num $ beatToTimesigs $ RTB.delay (mconcat $ RTB.getTimes beats) after
           RNil -> RNil
         timesig = do
-          (t, num) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ noRedundantStatus $ beatToTimesigs $ beatLines $ timingBeat timing
+          (t, num) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ noRedundantStatus $ beatToTimesigs timing.timingBeat.beatLines
           return TimeSig
             { tsTimestamp = beatsToMS t
             , tsNumerator = fromIntegral num
@@ -456,7 +456,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           -- Not all songs have this event, but it lets you place the song end precisely.
           -- Otherwise it just ends right after the last playable note
           sectionGH = "\\L_ENDOFSONG"
-          in RTB.singleton (timingEnd timing) (qsKey sectionGH, sectionGH)
+          in RTB.singleton timing.timingEnd (qsKey sectionGH, sectionGH)
         sectionMarkers
           = map (\(t, (qsid, _)) -> Single (beatsToMS t) qsid)
           $ ATB.toPairList
@@ -535,7 +535,7 @@ getAllMetadata :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m [Tex
 getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs \input -> do
   texts <- case map toLower $ takeExtension input of
     ".pkg" -> do
-      folder <- pkgFolder <$> stackIO (loadPKG input)
+      folder <- (.pkgFolder) <$> stackIO (loadPKG input)
       fmap catMaybes $ mapM (uncurry $ tryDecryptEDAT "") $ do
         (_, usrdir) <- folderSubfolders folder
         (_, songdir) <- folderSubfolders usrdir

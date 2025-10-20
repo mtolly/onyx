@@ -50,7 +50,7 @@ import           System.Random                    (randomRIO)
 rsRules :: BuildInfo -> FilePath -> TargetRS FilePath -> QueueLog Rules ()
 rsRules buildInfo dir rs = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
       metadata = getTargetMetadata songYaml $ RS rs
 
   (planName, plan) <- case getPlan rs.common.plan songYaml of
@@ -138,7 +138,7 @@ rsRules buildInfo dir rs = do
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartVocals vox
         RSPlayable slot pg -> do
           mapM_ (shk . need . toList) pg.tones
-          toneKeys <- forM pg.tones $ mapM $ fmap CST.t14_Key . CST.parseTone
+          toneKeys <- forM pg.tones $ mapM $ fmap (.t14_Key) . CST.parseTone
           -- TODO the first beat event needs to be a barline,
           -- otherwise DDC fails to run!
           -- also, notes can't go past the last beat event, or they disappear.
@@ -170,7 +170,7 @@ rsRules buildInfo dir rs = do
               else opart.onyxPartRSGuitar
               -- TODO maybe support using bass track for a guitar slot
             in buildRS mid.tempos tuning0.gtrCapo trk
-          let allNotes = Arr.lvl_notes rso.rso_level
+          let allNotes = rso.rso_level.lvl_notes
           time <- stackIO getZonedTime
           Arr.writePart out $ Arr.addPadding pad $ Arr.PartArrangement Arr.Arrangement
             { Arr.arr_version                = 7 -- this is what EOF has currently
@@ -217,25 +217,25 @@ rsRules buildInfo dir rs = do
               , Arr.ap_dropDPower        = False -- TODO :: Bool
               , Arr.ap_openChords        = False -- TODO :: Bool
               , Arr.ap_fingerPicking     = False -- TODO :: Bool
-              , Arr.ap_pickDirection     = any (isJust . Arr.n_pickDirection) allNotes
+              , Arr.ap_pickDirection     = any (isJust . (.n_pickDirection)) allNotes
               , Arr.ap_doubleStops       = False -- TODO :: Bool
-              , Arr.ap_palmMutes         = any Arr.n_palmMute allNotes
-              , Arr.ap_harmonics         = any Arr.n_harmonic allNotes
-              , Arr.ap_pinchHarmonics    = any Arr.n_harmonicPinch allNotes
-              , Arr.ap_hopo              = any Arr.n_hopo allNotes
-              , Arr.ap_tremolo           = any Arr.n_tremolo allNotes
-              , Arr.ap_slides            = any (isJust . Arr.n_slideTo) allNotes
-              , Arr.ap_unpitchedSlides   = any (isJust . Arr.n_slideUnpitchTo) allNotes
-              , Arr.ap_bends             = any (\n -> isJust (Arr.n_bend n) || not (V.null $ Arr.n_bendValues n)) allNotes
-              , Arr.ap_tapping           = any Arr.n_tap allNotes
-              , Arr.ap_vibrato           = any (isJust . Arr.n_vibrato) allNotes
-              , Arr.ap_fretHandMutes     = any Arr.n_mute allNotes
-              , Arr.ap_slapPop           = any (\n -> any isJust [Arr.n_slap n, Arr.n_pluck n]) allNotes
+              , Arr.ap_palmMutes         = any (.n_palmMute) allNotes
+              , Arr.ap_harmonics         = any (.n_harmonic) allNotes
+              , Arr.ap_pinchHarmonics    = any (.n_harmonicPinch) allNotes
+              , Arr.ap_hopo              = any (.n_hopo) allNotes
+              , Arr.ap_tremolo           = any (.n_tremolo) allNotes
+              , Arr.ap_slides            = any (isJust . (.n_slideTo)) allNotes
+              , Arr.ap_unpitchedSlides   = any (isJust . (.n_slideUnpitchTo)) allNotes
+              , Arr.ap_bends             = any (\n -> isJust n.n_bend || not (V.null n.n_bendValues)) allNotes
+              , Arr.ap_tapping           = any (.n_tap) allNotes
+              , Arr.ap_vibrato           = any (isJust . (.n_vibrato)) allNotes
+              , Arr.ap_fretHandMutes     = any (.n_mute) allNotes
+              , Arr.ap_slapPop           = any (\n -> any isJust [n.n_slap, n.n_pluck]) allNotes
               , Arr.ap_twoFingerPicking  = False -- TODO :: Bool
               , Arr.ap_fifthsAndOctaves  = False -- TODO :: Bool
               , Arr.ap_syncopation       = False -- TODO :: Bool
               , Arr.ap_bassPick          = pg.pickedBass
-              , Arr.ap_sustain           = any (isJust . Arr.n_sustain) allNotes
+              , Arr.ap_sustain           = any (isJust . (.n_sustain)) allNotes
               -- TODO what does Combo select for these?
               , Arr.ap_pathLead          = case slot of
                 RSArrSlot _ RSLead -> True
@@ -370,19 +370,19 @@ rsRules buildInfo dir rs = do
             RSVocal    _                             -> 0 -- shouldn't happen
           , priority     = i
           , scrollSpeed  = 1.3
-          , bassPicked   = Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
+          , bassPicked   = arr.arr_arrangementProperties.ap_bassPick
           , tuning       =
-            [ Arr.tuning_string0 $ Arr.arr_tuning arr
-            , Arr.tuning_string1 $ Arr.arr_tuning arr
-            , Arr.tuning_string2 $ Arr.arr_tuning arr
-            , Arr.tuning_string3 $ Arr.arr_tuning arr
-            , Arr.tuning_string4 $ Arr.arr_tuning arr
-            , Arr.tuning_string5 $ Arr.arr_tuning arr
+            [ arr.arr_tuning.tuning_string0
+            , arr.arr_tuning.tuning_string1
+            , arr.arr_tuning.tuning_string2
+            , arr.arr_tuning.tuning_string3
+            , arr.arr_tuning.tuning_string4
+            , arr.arr_tuning.tuning_string5
             ]
-          , tuningPitch  = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100)
+          , tuningPitch  = 440 * (2 ** (1 / 12)) ** (fromIntegral arr.arr_centOffset / 100)
           -- Builder errors if tone is "", but not if it's a key with no matching tone
-          , baseTone     = fromMaybe "no-tone" $ Arr.arr_tonebase arr
-          , tones        = catMaybes [Arr.arr_tonea arr, Arr.arr_toneb arr, Arr.arr_tonec arr, Arr.arr_toned arr]
+          , baseTone     = fromMaybe "no-tone" arr.arr_tonebase
+          , tones        = catMaybes [arr.arr_tonea, arr.arr_toneb, arr.arr_tonec, arr.arr_toned]
           , masterID     = fromIntegral arrMasterID
           , persistentID = UUID.toText persistentID
           }
@@ -437,7 +437,7 @@ rsRules buildInfo dir rs = do
       return (fpart, arrSlot, contents)
     let averageTempo = listToMaybe do
           (_, _, Arr.PartArrangement arr) <- parsedArrFiles
-          return $ Arr.arr_averageTempo arr
+          return arr.arr_averageTempo
     arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
       -- TODO ArrangementSort doesn't appear to work for multiples of the same arrangement label.
       -- Instead it sorts by the arrangement ID UUID!
@@ -492,41 +492,41 @@ rsRules buildInfo dir rs = do
             }
           }
         Arr.PartArrangement arr -> CST.Arrangement
-          { CST.arr_ArrangementName      = Arr.arr_arrangement arr
+          { CST.arr_ArrangementName      = arr.arr_arrangement
           , CST.arr_ArrangementPropeties = Just CST.ArrangementPropeties
-            { CST.ap_BarreChords       = Arr.ap_barreChords       $ Arr.arr_arrangementProperties arr
-            , CST.ap_BassPick          = Arr.ap_bassPick          $ Arr.arr_arrangementProperties arr
-            , CST.ap_Bends             = Arr.ap_bends             $ Arr.arr_arrangementProperties arr
-            , CST.ap_DoubleStops       = Arr.ap_doubleStops       $ Arr.arr_arrangementProperties arr
-            , CST.ap_DropDPower        = Arr.ap_dropDPower        $ Arr.arr_arrangementProperties arr
-            , CST.ap_FifthsAndOctaves  = Arr.ap_fifthsAndOctaves  $ Arr.arr_arrangementProperties arr
-            , CST.ap_FingerPicking     = Arr.ap_fingerPicking     $ Arr.arr_arrangementProperties arr
-            , CST.ap_FretHandMutes     = Arr.ap_fretHandMutes     $ Arr.arr_arrangementProperties arr
-            , CST.ap_Harmonics         = Arr.ap_harmonics         $ Arr.arr_arrangementProperties arr
-            , CST.ap_Hopo              = Arr.ap_hopo              $ Arr.arr_arrangementProperties arr
-            , CST.ap_NonStandardChords = Arr.ap_nonStandardChords $ Arr.arr_arrangementProperties arr
-            , CST.ap_OpenChords        = Arr.ap_openChords        $ Arr.arr_arrangementProperties arr
-            , CST.ap_PalmMutes         = Arr.ap_palmMutes         $ Arr.arr_arrangementProperties arr
-            , CST.ap_PickDirection     = Arr.ap_pickDirection     $ Arr.arr_arrangementProperties arr
-            , CST.ap_PinchHarmonics    = Arr.ap_pinchHarmonics    $ Arr.arr_arrangementProperties arr
-            , CST.ap_PowerChords       = Arr.ap_powerChords       $ Arr.arr_arrangementProperties arr
+            { CST.ap_BarreChords       = arr.arr_arrangementProperties.ap_barreChords
+            , CST.ap_BassPick          = arr.arr_arrangementProperties.ap_bassPick
+            , CST.ap_Bends             = arr.arr_arrangementProperties.ap_bends
+            , CST.ap_DoubleStops       = arr.arr_arrangementProperties.ap_doubleStops
+            , CST.ap_DropDPower        = arr.arr_arrangementProperties.ap_dropDPower
+            , CST.ap_FifthsAndOctaves  = arr.arr_arrangementProperties.ap_fifthsAndOctaves
+            , CST.ap_FingerPicking     = arr.arr_arrangementProperties.ap_fingerPicking
+            , CST.ap_FretHandMutes     = arr.arr_arrangementProperties.ap_fretHandMutes
+            , CST.ap_Harmonics         = arr.arr_arrangementProperties.ap_harmonics
+            , CST.ap_Hopo              = arr.arr_arrangementProperties.ap_hopo
+            , CST.ap_NonStandardChords = arr.arr_arrangementProperties.ap_nonStandardChords
+            , CST.ap_OpenChords        = arr.arr_arrangementProperties.ap_openChords
+            , CST.ap_PalmMutes         = arr.arr_arrangementProperties.ap_palmMutes
+            , CST.ap_PickDirection     = arr.arr_arrangementProperties.ap_pickDirection
+            , CST.ap_PinchHarmonics    = arr.arr_arrangementProperties.ap_pinchHarmonics
+            , CST.ap_PowerChords       = arr.arr_arrangementProperties.ap_powerChords
             , CST.ap_Represent         = case arrSlot of
               RSPlayable (RSArrSlot RSDefault _) _ -> True
               _                                    -> False -- vocals, bonus/alt arrangements
-            , CST.ap_SlapPop           = Arr.ap_slapPop           $ Arr.arr_arrangementProperties arr
-            , CST.ap_Slides            = Arr.ap_slides            $ Arr.arr_arrangementProperties arr
-            , CST.ap_StandardTuning    = Arr.ap_standardTuning    $ Arr.arr_arrangementProperties arr
-            , CST.ap_Sustain           = Arr.ap_sustain           $ Arr.arr_arrangementProperties arr
-            , CST.ap_Syncopation       = Arr.ap_syncopation       $ Arr.arr_arrangementProperties arr
-            , CST.ap_Tapping           = Arr.ap_tapping           $ Arr.arr_arrangementProperties arr
-            , CST.ap_Tremolo           = Arr.ap_tremolo           $ Arr.arr_arrangementProperties arr
-            , CST.ap_TwoFingerPicking  = Arr.ap_twoFingerPicking  $ Arr.arr_arrangementProperties arr
-            , CST.ap_UnpitchedSlides   = Arr.ap_unpitchedSlides   $ Arr.arr_arrangementProperties arr
-            , CST.ap_Vibrato           = Arr.ap_vibrato           $ Arr.arr_arrangementProperties arr
-            , CST.ap_BonusArr          = Arr.ap_bonusArr          $ Arr.arr_arrangementProperties arr
-            , CST.ap_PathBass          = Arr.ap_pathBass          $ Arr.arr_arrangementProperties arr
-            , CST.ap_PathLead          = Arr.ap_pathLead          $ Arr.arr_arrangementProperties arr
-            , CST.ap_PathRhythm        = Arr.ap_pathRhythm        $ Arr.arr_arrangementProperties arr
+            , CST.ap_SlapPop           = arr.arr_arrangementProperties.ap_slapPop
+            , CST.ap_Slides            = arr.arr_arrangementProperties.ap_slides
+            , CST.ap_StandardTuning    = arr.arr_arrangementProperties.ap_standardTuning
+            , CST.ap_Sustain           = arr.arr_arrangementProperties.ap_sustain
+            , CST.ap_Syncopation       = arr.arr_arrangementProperties.ap_syncopation
+            , CST.ap_Tapping           = arr.arr_arrangementProperties.ap_tapping
+            , CST.ap_Tremolo           = arr.arr_arrangementProperties.ap_tremolo
+            , CST.ap_TwoFingerPicking  = arr.arr_arrangementProperties.ap_twoFingerPicking
+            , CST.ap_UnpitchedSlides   = arr.arr_arrangementProperties.ap_unpitchedSlides
+            , CST.ap_Vibrato           = arr.arr_arrangementProperties.ap_vibrato
+            , CST.ap_BonusArr          = arr.arr_arrangementProperties.ap_bonusArr
+            , CST.ap_PathBass          = arr.arr_arrangementProperties.ap_pathBass
+            , CST.ap_PathLead          = arr.arr_arrangementProperties.ap_pathLead
+            , CST.ap_PathRhythm        = arr.arr_arrangementProperties.ap_pathRhythm
             , CST.ap_Metronome         = False
             , CST.ap_RouteMask         = case arrSlot of
               RSPlayable (RSArrSlot _ RSLead       ) _ -> 1
@@ -546,13 +546,13 @@ rsRules buildInfo dir rs = do
             RSPlayable (RSArrSlot RSBonus     _) _ -> True
             RSPlayable (RSArrSlot RSAlternate _) _ -> False -- alt: both represent and bonus set to false
             _                                      -> False
-          , CST.arr_CapoFret             = Arr.arr_capo arr
+          , CST.arr_CapoFret             = arr.arr_capo
           , CST.arr_GlyphsXmlPath        = Nothing
           , CST.arr_Id                   = UUID.toText arrID
           , CST.arr_LyricsArtPath        = Nothing
           , CST.arr_MasterId             = arrMasterID
           , CST.arr_Metronome            = "None"
-          , CST.arr_PluckedType          = if Arr.ap_bassPick $ Arr.arr_arrangementProperties arr
+          , CST.arr_PluckedType          = if arr.arr_arrangementProperties.ap_bassPick
             then "Picked"
             else "NotPicked"
           , CST.arr_Represent            = case arrSlot of
@@ -578,11 +578,11 @@ rsRules buildInfo dir rs = do
             , CST.ag_File    = T.pack $ takeFileName $ rsArr fpart arrSlot
             , CST.ag_Version = Nothing
             }
-          , CST.arr_ToneA                = fromMaybe "" $ Arr.arr_tonea arr
-          , CST.arr_ToneB                = fromMaybe "" $ Arr.arr_toneb arr
-          , CST.arr_ToneBase             = fromMaybe "" $ Arr.arr_tonebase arr
-          , CST.arr_ToneC                = fromMaybe "" $ Arr.arr_tonec arr
-          , CST.arr_ToneD                = fromMaybe "" $ Arr.arr_toned arr
+          , CST.arr_ToneA                = fromMaybe "" arr.arr_tonea
+          , CST.arr_ToneB                = fromMaybe "" arr.arr_toneb
+          , CST.arr_ToneBase             = fromMaybe "" arr.arr_tonebase
+          , CST.arr_ToneC                = fromMaybe "" arr.arr_tonec
+          , CST.arr_ToneD                = fromMaybe "" arr.arr_toned
           , CST.arr_ToneMultiplayer      = Nothing
           , CST.arr_Tuning               = let
             rs2014Tunings =
@@ -600,25 +600,25 @@ rsRules buildInfo dir rs = do
               , ([-4, -4, -4, -4, -4, -4], "C Standard")
               ]
             thisTuning =
-              [ Arr.tuning_string0 $ Arr.arr_tuning arr
-              , Arr.tuning_string1 $ Arr.arr_tuning arr
-              , Arr.tuning_string2 $ Arr.arr_tuning arr
-              , Arr.tuning_string3 $ Arr.arr_tuning arr
-              , Arr.tuning_string4 $ Arr.arr_tuning arr
-              , Arr.tuning_string5 $ Arr.arr_tuning arr
+              [ arr.arr_tuning.tuning_string0
+              , arr.arr_tuning.tuning_string1
+              , arr.arr_tuning.tuning_string2
+              , arr.arr_tuning.tuning_string3
+              , arr.arr_tuning.tuning_string4
+              , arr.arr_tuning.tuning_string5
               ]
             in fromMaybe "Custom Tuning" $ lookup thisTuning rs2014Tunings
           , CST.arr_TuningPitch          = let
             -- we use round instead of realToFrac to make sure that e.g. -1200 cents becomes 220 Hz and not 219.999
-            hertzDouble = 440 * (2 ** (1 / 12)) ** (fromIntegral (Arr.arr_centOffset arr) / 100) :: Double
+            hertzDouble = 440 * (2 ** (1 / 12)) ** (fromIntegral arr.arr_centOffset / 100) :: Double
             in MkFixed $ round $ 1000 * hertzDouble :: Milli
           , CST.arr_TuningStrings        = CST.TuningStrings
-            { CST.ts_String0 = Arr.tuning_string0 $ Arr.arr_tuning arr
-            , CST.ts_String1 = Arr.tuning_string1 $ Arr.arr_tuning arr
-            , CST.ts_String2 = Arr.tuning_string2 $ Arr.arr_tuning arr
-            , CST.ts_String3 = Arr.tuning_string3 $ Arr.arr_tuning arr
-            , CST.ts_String4 = Arr.tuning_string4 $ Arr.arr_tuning arr
-            , CST.ts_String5 = Arr.tuning_string5 $ Arr.arr_tuning arr
+            { CST.ts_String0 = arr.arr_tuning.tuning_string0
+            , CST.ts_String1 = arr.arr_tuning.tuning_string1
+            , CST.ts_String2 = arr.arr_tuning.tuning_string2
+            , CST.ts_String3 = arr.arr_tuning.tuning_string3
+            , CST.ts_String4 = arr.arr_tuning.tuning_string4
+            , CST.ts_String5 = arr.arr_tuning.tuning_string5
             }
           }
     key <- getRSKey

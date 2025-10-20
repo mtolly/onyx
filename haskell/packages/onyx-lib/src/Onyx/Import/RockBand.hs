@@ -408,7 +408,7 @@ importRB rbi level = do
           warn $ "Inconsistent drum mixes: " ++ show (nubOrd drumMixes)
           return (Nothing, "MIDI specifies more than one mix")
   let instChans :: [(T.Text, [Int])]
-      instChans = map (second $ map fromIntegral) $ D.fromDictList $ D.tracks $ D.song pkg
+      instChans = map (second $ map fromIntegral) pkg.song.tracks.fromDictList
       drumChans = fromMaybe [] $ lookup "drum" instChans
   drumSplit <- if not (hasRankStr "drum") || level == ImportQuick then return Nothing else do
     -- Usually there should be 2-6 drum channels and a matching mix event. Seen exceptions:
@@ -481,7 +481,8 @@ importRB rbi level = do
     Just bs -> do
       lg "Loading BandSongPref"
       errorToWarning $ runGetM (codecIn bin) bs
-  let lookupPref fn defAssign = case songPref of
+  let lookupPref :: (SendMessage m) => (SongPref -> B.ByteString) -> LipsyncMember -> StackTraceT m LipsyncMember
+      lookupPref fn defAssign = case songPref of
         Nothing -> return defAssign
         Just pref -> case fn pref of
           "guitar" -> return LipsyncGuitar
@@ -490,9 +491,9 @@ importRB rbi level = do
           x -> do
             warn $ "Unrecognized lipsync part assignment: " <> show x
             return defAssign
-  pref2 <- lookupPref prefPart2 LipsyncGuitar
-  pref3 <- lookupPref prefPart3 LipsyncBass
-  pref4 <- lookupPref prefPart4 LipsyncDrums
+  pref2 <- lookupPref (.prefPart2) LipsyncGuitar
+  pref3 <- lookupPref (.prefPart3) LipsyncBass
+  pref4 <- lookupPref (.prefPart4) LipsyncDrums
   -- TODO also import the animation style parameter
   let lipsync = case takeWhileJust $ map getLipsyncFile lipsyncNames of
         []   -> Nothing
@@ -803,7 +804,7 @@ importRB4 fdta level = do
       let _ = beatMidi :: F.Song (F.OnyxFile U.Beats)
       return
         ( makeHandle "notes.mid" $ byteStringSimpleHandle $ Save.toByteString mid
-        , rbmid_HopoThreshold rbmid
+        , rbmid.rbmid_HopoThreshold
         , mapTrack (U.applyTempoTrack beatMidi.tempos) beatMidi.tracks.onyxBeat
         )
 

@@ -1,6 +1,8 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Harmonix.RockBand.IOS where
 
 import           Control.Monad        (replicateM, zipWithM)
@@ -91,5 +93,5 @@ loadBlob blobPath = do
         bs <- B.readFile datPath
         dec <- decodeFileWithIV key bs
         return (decPath, dec)
-  datContents <- zipWithM readDat (blobDATKeys blob) datPaths
+  datContents <- zipWithM readDat blob.blobDATKeys datPaths
   return (blob, datContents)

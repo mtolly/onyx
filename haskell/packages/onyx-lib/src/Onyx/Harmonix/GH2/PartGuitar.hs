@@ -1,13 +1,15 @@
 {- |
 PART GUITAR, PART GUITAR COOP, PART BASS, PART RHYTHM
 -}
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH2.PartGuitar where
 
 import           Control.Monad.Codec
@@ -85,7 +87,7 @@ instance TraverseTrack PartTrack where
     <*> fn l
 
 nullPart :: PartTrack t -> Bool
-nullPart = all (RTB.null . partGems) . toList . partDifficulties
+nullPart = all (RTB.null . (.partGems)) . toList . (.partDifficulties)
 
 data PartDifficulty t = PartDifficulty
   { partStarPower  :: RTB.T t Bool
@@ -108,26 +110,26 @@ instance ParseTrack PartTrack where
     -- TODO
     -- 38 and 39 seen in Institutionalized, Jessica, John the Fisherman
     -- Strutter has 119 on PART RHYTHM and BAND BASS
-    partHandMap  <- partHandMap  =. command
-    partStrumMap <- partStrumMap =. command
-    partTempo    <- partTempo    =. command
-    partIdle     <- partIdle     =. commandMatch ["idle"]
-    partPlay     <- partPlay     =. commandMatch ["play"]
-    partFretPosition <- (partFretPosition =.) $ condenseMap $ eachKey each
+    partHandMap  <- (.partHandMap)  =. command
+    partStrumMap <- (.partStrumMap) =. command
+    partTempo    <- (.partTempo)    =. command
+    partIdle     <- (.partIdle)     =. commandMatch ["idle"]
+    partPlay     <- (.partPlay)     =. commandMatch ["play"]
+    partFretPosition <- ((.partFretPosition) =.) $ condenseMap $ eachKey each
       $ \posn -> edges $ fromEnum posn + 40
-    partWail <- (partWail =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    partWail <- ((.partWail) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["wail_on"]
       False -> ["wail_off"]
-    partSolo <- (partSolo =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    partSolo <- ((.partSolo) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["solo_on"]
       False -> ["solo_off"]
-    partOwFace <- (partOwFace =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    partOwFace <- ((.partOwFace) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["ow_face_on"]
       False -> ["ow_face_off"]
-    partUnknown110 <- partUnknown110 =. edges 110
-    partDifficulties <- (partDifficulties =.) $ eachKey each parseDifficulty
+    partUnknown110 <- (.partUnknown110) =. edges 110
+    partDifficulties <- ((.partDifficulties) =.) $ eachKey each parseDifficulty
     -- GH2DX added. pitch chosen to match RB3 protar/prokeys
-    partSoloEdge <- partSoloEdge =. fatBlips (1/8) (blip 115)
+    partSoloEdge <- (.partSoloEdge) =. fatBlips (1/8) (blip 115)
     return PartTrack{..}
 
 parseDifficulty :: (Monad m) => Difficulty -> TrackCodec m U.Beats (PartDifficulty U.Beats)
@@ -137,10 +139,10 @@ parseDifficulty diff = do
         Medium -> 72
         Hard   -> 84
         Expert -> 96
-  partStarPower <- partStarPower =. edges (base + 7)
-  partPlayer1   <- partPlayer1   =. edges (base + 9)
-  partPlayer2   <- partPlayer2   =. edges (base + 10)
-  partGems      <- (partGems =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+  partStarPower <- (.partStarPower) =. edges (base + 7)
+  partPlayer1   <- (.partPlayer1)   =. edges (base + 9)
+  partPlayer2   <- (.partPlayer2)   =. edges (base + 10)
+  partGems      <- ((.partGems) =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
     Green  -> base + 0
     Red    -> base + 1
     Yellow -> base + 2
@@ -148,7 +150,7 @@ parseDifficulty diff = do
     Orange -> base + 4
   -- tentative format for future GH2DX support.
   -- hopo/strum like RB; taps like CH's newer non-sysex format (but separated per difficulty)
-  partForceHOPO  <- partForceHOPO  =. edges (base + 5)
-  partForceStrum <- partForceStrum =. edges (base + 6)
-  partForceTap   <- partForceTap   =. edges (base + 8)
+  partForceHOPO  <- (.partForceHOPO)  =. edges (base + 5)
+  partForceStrum <- (.partForceStrum) =. edges (base + 6)
+  partForceTap   <- (.partForceTap)   =. edges (base + 8)
   return PartDifficulty{..}

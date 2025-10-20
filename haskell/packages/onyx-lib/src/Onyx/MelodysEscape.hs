@@ -1,9 +1,11 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.MelodysEscape where
 
 import           Control.Monad.Codec
@@ -45,7 +47,7 @@ data Direction = U | R | L | D
 
 instance ParseTrack MelodyTrack where
   parseTrack = do
-    melodyNotes <- (melodyNotes =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+    melodyNotes <- ((.melodyNotes) =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Obstacle D -> 60
       Obstacle L -> 61
       Obstacle R -> 62
@@ -55,7 +57,7 @@ instance ParseTrack MelodyTrack where
       Color L    -> 73
       Color R    -> 74
       Color U    -> 75
-    melodyIntensity <- (melodyIntensity =.) $ condenseMap $ eachKey each $ edges . \case
+    melodyIntensity <- ((.melodyIntensity) =.) $ condenseMap $ eachKey each $ edges . \case
       Low       -> 84
       Neutral   -> 85
       High      -> 86
@@ -103,7 +105,7 @@ writeTransitions tmap = let
   makePairs xs = error $ "MelodysEscape.writeTransitions: invalid events: " ++ show xs
   in intercalate ";" . map writePair . makePairs . ((0, (Low, False)) :)
     . ATB.toPairList . RTB.toAbsoluteEventList 0
-    . U.applyTempoTrack tmap . melodyIntensity
+    . U.applyTempoTrack tmap . (.melodyIntensity)
 
 writeNotes :: U.TempoMap -> MelodyTrack U.Beats -> String
 writeNotes tmap = let
@@ -117,12 +119,12 @@ writeNotes tmap = let
     ]
   in intercalate ";" . map writePair . ATB.toPairList . RTB.toAbsoluteEventList 0
     . joinEdges . U.applyTempoTrack tmap . splitEdges
-    . edgeBlips minSustainLengthRB . melodyNotes
+    . edgeBlips minSustainLengthRB . (.melodyNotes)
 
 -- | Any time 2 or more notes appear, randomly delete all but one of them.
 randomNotes :: (NNC.C t, MonadRandom m) => MelodyTrack t -> m (MelodyTrack t)
 randomNotes mel = do
-  notes' <- traverse uniform $ RTB.collectCoincident $ melodyNotes mel
+  notes' <- traverse uniform $ RTB.collectCoincident mel.melodyNotes
   return mel{ melodyNotes = notes' }
 
 randomNotesIO :: (NNC.C t) => MelodyTrack t -> IO (MelodyTrack t)

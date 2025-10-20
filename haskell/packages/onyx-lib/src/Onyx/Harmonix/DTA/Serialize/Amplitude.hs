@@ -58,7 +58,7 @@ data SongInfo = SongInfo
   } deriving (Eq, Show)
 
 chunkTracks :: (SendMessage m) => ChunkCodec m [(T.Text, ([Integer], T.Text))]
-chunkTracks = dimap DictList fromDictList $ chunkParens $ chunksDictList chunkSym $ chunksPair (chunkParens stackChunks) chunkSym
+chunkTracks = dimap DictList (.fromDictList) $ chunkParens $ chunksDictList chunkSym $ chunksPair (chunkParens stackChunks) chunkSym
 
 -- | Drops children that aren't parentheses.
 -- (This is a hack because in Crystal, HMX forgot to comment out the line

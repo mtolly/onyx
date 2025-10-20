@@ -464,15 +464,15 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         stringNotes = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
           note <- V.toList rso.rso_level.lvl_notes <> do
             V.toList rso.rso_level.lvl_chords >>= V.toList . (.chd_chordNotes)
-          guard $ PG.getStringIndex 6 str == n_string note
-          let time = n_time note
-              sht = if n_tap note then Tap
-                else if n_hammerOn note || n_pullOff note then HOPO
+          guard $ PG.getStringIndex 6 str == note.n_string
+          let time = note.n_time
+              sht = if note.n_tap then Tap
+                else if note.n_hammerOn || note.n_pullOff then HOPO
                   else Strum
-              fret = n_fret note
+              fret = note.n_fret
               ntype = PG.NormalNote -- TODO
-              sust = flip fmap (n_sustain note) $ \len -> let
-                slide = case n_slideTo note <|> n_slideUnpitchTo note of
+              sust = flip fmap note.n_sustain $ \len -> let
+                slide = case note.n_slideTo <|> note.n_slideUnpitchTo of
                   Nothing -> Nothing
                   Just slideToFret -> case compare fret slideToFret of
                     LT -> Just PG.SlideUp
@@ -597,7 +597,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
   beats = let
     sourceMidi = song.tracks.onyxBeat.beatLines
     source = if RTB.null sourceMidi
-      then (timingBeat timing).beatLines
+      then timing.timingBeat.beatLines
       else sourceMidi
     makeBeats _         RNil            = RNil
     makeBeats _         (Wait 0 e rest) = Wait 0 (Just e) $ makeBeats False rest

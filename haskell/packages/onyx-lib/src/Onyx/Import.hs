@@ -3,6 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields     #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
+{-# LANGUAGE NoFieldSelectors          #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedLabels          #-}
 {-# LANGUAGE OverloadedRecordDot       #-}
@@ -251,7 +252,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Nothing    -> fatal "Couldn't decrypt .psarc.edat"
           Just psarc -> importRS psarc >>= foundImports "Rocksmith" edat
       foundPS3 loc = do
-        usrdir <- stackIO (pkgFolder <$> loadPKG loc) >>= getDecryptedUSRDIR
+        usrdir <- stackIO ((.pkgFolder) <$> loadPKG loc) >>= getDecryptedUSRDIR
         rbgh <- fmap mconcat $ forM (map snd $ folderSubfolders usrdir) $ \folderBS -> let
           folder = first TE.decodeLatin1 folderBS
           in mconcat <$> sequence
@@ -516,15 +517,15 @@ openProject i fp = do
   (_, imps) <- findSongs fp
   case i of
     Nothing -> case imps of
-      [imp] -> impProject imp
+      [imp] -> imp.impProject
       []    -> fatal $ "Couldn't find a song at location: " <> fp
       _     -> fatal $ unlines
         $ ("Found more than 1 song at location: " <> fp) : do
           (j, imp) <- zip [0 :: Int ..] imps
           let f = maybe "?" T.unpack
-          return $ show j <> ": " <> f (impTitle imp) <> " (" <> f (impArtist imp) <> ")"
+          return $ show j <> ": " <> f (imp.impTitle) <> " (" <> f (imp.impArtist) <> ")"
     Just j  -> case drop j imps of
-      imp : _ -> impProject imp
+      imp : _ -> imp.impProject
       []      -> fatal $ "Couldn't find song #" <> show j <> " at location: " <> fp
 
 withProject :: (SendMessage m, MonadResource m) =>
@@ -532,13 +533,13 @@ withProject :: (SendMessage m, MonadResource m) =>
 withProject i fp fn = do
   proj <- openProject i fp
   x <- fn proj
-  stackIO $ mapM_ release $ projectRelease proj
+  stackIO $ mapM_ release proj.projectRelease
   return x
 
 getAudioDirs :: (SendMessage m, MonadIO m) => Project -> StackTraceT m [FilePath]
 getAudioDirs proj = do
   jmt <- stackIO J.findJammitDir
-  let addons = maybe id (:) jmt [takeDirectory $ projectLocation proj]
+  let addons = maybe id (:) jmt [takeDirectory proj.projectLocation]
   dirs <- (.prefAudioDirs) <$> readPreferences
   mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
@@ -550,8 +551,8 @@ shakeBuildMany :: (MonadIO m, Traversable f) =>
   Project -> [(T.Text, Target FilePath)] -> f FilePath -> StackTraceT (QueueLog m) (f FilePath)
 shakeBuildMany proj extraTargets buildables = do
   audioDirs <- getAudioDirs proj
-  buildables' <- shakeBuild audioDirs (projectLocation proj) extraTargets buildables
-  return $ fmap (takeDirectory (projectLocation proj) </>) buildables'
+  buildables' <- shakeBuild audioDirs proj.projectLocation extraTargets buildables
+  return $ fmap (takeDirectory proj.projectLocation </>) buildables'
 
 buildCommon :: (MonadIO m) => Target FilePath -> (String -> FilePath) -> Project -> StackTraceT (QueueLog m) FilePath
 buildCommon target getBuildable proj = do
@@ -685,25 +686,25 @@ installGH1 gh1 proj gen = do
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
-  let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
+  let chunks = (fmap (B8.pack . T.unpack) dta).topTree.treeChunks
       filePairs = flip mapMaybe files \f -> do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
-  let meta = getTargetMetadata (projectSongYaml proj) $ GH1 gh1
+  let meta = getTargetMetadata proj.projectSongYaml $ GH1 gh1
   stackIO $ addBonusSongGH1 GH2Installation
     { gen              = gen
     , symbol           = sym
     , song             = chunks
     , coop_max_scores  = [] -- not used
-    , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH1 gh1 -- not used
+    , shop_title       = Just $ toBytes $ targetTitle proj.projectSongYaml $ GH1 gh1 -- not used
     , shop_description = Just $ toBytes $ T.unlines
       [ "Artist: " <> getArtist meta
       , "Album: "  <> getAlbum  meta
       , "Author: " <> getAuthor meta
       ]
-    , author           = toBytes . adjustSongText <$> (projectSongYaml proj).metadata.author
+    , author           = toBytes . adjustSongText <$> proj.projectSongYaml.metadata.author
     , album_art        = Nothing -- not used
     , files            = filePairs
     , sort_            = guard prefs.prefSortGH2 >> if prefs.prefArtistSort
@@ -726,7 +727,7 @@ installGH2 gh2 proj gen = do
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
   sym <- stackIO $ B.readFile $ dir </> "symbol"
   coop <- stackIO $ readFileDTA $ dir </> "coop_max_scores.dta"
-  let chunks = treeChunks $ topTree $ fmap (B8.pack . T.unpack) dta
+  let chunks = (fmap (B8.pack . T.unpack) dta).topTree.treeChunks
       filePairs = flip mapMaybe files \f -> do
         guard $ elem (takeExtension f) [".mid", ".vgs", ".voc"]
         return (sym <> B8.pack (dropWhile isAlpha f), dir </> f)
@@ -742,13 +743,13 @@ installGH2 gh2 proj gen = do
     _ -> fatal "Couldn't read coop scores list"
   let toBytes = B8.pack . T.unpack
   prefs <- readPreferences
-  let meta = getTargetMetadata (projectSongYaml proj) $ GH2 gh2
+  let meta = getTargetMetadata proj.projectSongYaml $ GH2 gh2
   stackIO (addBonusSongGH2 GH2Installation
     { gen              = gen
     , symbol           = sym
     , song             = chunks
     , coop_max_scores  = coopNums
-    , shop_title       = Just $ toBytes $ targetTitle (projectSongYaml proj) $ GH2 gh2
+    , shop_title       = Just $ toBytes $ targetTitle proj.projectSongYaml $ GH2 gh2
     , shop_description = Just $ toBytes $ T.unlines
       [ "Artist: " <> getArtist meta
       , "Album: "  <> getAlbum  meta
@@ -822,7 +823,7 @@ buildPlayer :: (MonadIO m) => Maybe T.Text -> Project -> StackTraceT (QueueLog m
 buildPlayer mplan proj = do
   planName <- case mplan of
     Just planName -> return planName
-    Nothing       -> case HM.toList (projectSongYaml proj).plans of
+    Nothing       -> case HM.toList proj.projectSongYaml.plans of
       [(planName, _)] -> return planName
       []              -> fatal "Project has no audio plans"
       _ : _ : _       -> fatal "Project has more than 1 audio plan"
@@ -830,7 +831,7 @@ buildPlayer mplan proj = do
 
 choosePlan :: (Monad m) => Maybe T.Text -> Project -> StackTraceT m T.Text
 choosePlan (Just plan) _    = return plan
-choosePlan Nothing     proj = case HM.keys (projectSongYaml proj).plans of
+choosePlan Nothing     proj = case HM.keys proj.projectSongYaml.plans of
   [p]   -> return p
   plans -> fatal $ "No plan selected, and the project doesn't have exactly 1 plan: " <> show plans
 

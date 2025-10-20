@@ -1,12 +1,14 @@
 {- |
 BAND KEYS
 -}
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH2.BandKeys where
 
 import           Control.Monad.Codec
@@ -29,8 +31,8 @@ instance TraverseTrack BandKeysTrack where
 
 instance ParseTrack BandKeysTrack where
   parseTrack = do
-    keysTempo    <- keysTempo    =. command
+    keysTempo    <- (.keysTempo)    =. command
     -- didn't actually see double tempo on keys
-    keysIdle     <- keysIdle     =. commandMatch ["idle"]
-    keysPlay     <- keysPlay     =. commandMatch ["play"]
+    keysIdle     <- (.keysIdle)     =. commandMatch ["idle"]
+    keysPlay     <- (.keysPlay)     =. commandMatch ["play"]
     return BandKeysTrack{..}

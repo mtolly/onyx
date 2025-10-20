@@ -2,7 +2,6 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -78,6 +77,7 @@ data HedFormat
 
 identifyHedFormat :: [HedEntry] -> Maybe HedFormat
 identifyHedFormat entries = let
+  hasRootNamed :: B.ByteString -> HedEntry -> Bool
   hasRootNamed x entry = let
     name = B.dropWhile (\c -> c == 0x5C || c == 0x2F) entry.hedName
     in x `B.isPrefixOf` name
@@ -149,6 +149,7 @@ parseHDP bs = do
 applyHDP :: HDP -> [HedEntry] -> Folder B.ByteString (Word32, Word32)
 applyHDP hdp entries = let
   folderLookup = HM.fromList [ (folder.checksum, folder) | folder <- hdp.folders ]
+  getFolder :: HDPFolder -> [HDPFile]
   getFolder folder = let
     (_, x, xs) = Map.splitLookup folder.hdpOffset hdp.files
     in take (fromIntegral folder.fileCount) $ toList x <> Map.elems xs

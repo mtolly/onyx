@@ -178,7 +178,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
               return (diff, (rr, importRRGuitarBass rr))
           return mempty
             { Five.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
-            , Five.fiveSolo = maybe RTB.empty (rrfSolo . fst) $ lookup Expert fiveDiffs
+            , Five.fiveSolo = maybe RTB.empty ((.rrfSolo) . fst) $ lookup Expert fiveDiffs
             }
       loadDrums = case level of
         ImportQuick -> return mempty
@@ -194,7 +194,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
             , mempty
               { ED.tdDifficulties = fmap importRREliteDrums rrDiffs
               , ED.tdLanes = maybe RTB.empty importRREliteLanes $ Map.lookup Expert rrDiffs
-              , ED.tdSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert rrDiffs
+              , ED.tdSolo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert rrDiffs
               }
             , mempty { ED.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
             )
@@ -236,8 +236,8 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
                 })
               ]
             , F.onyxEvents = mempty
-              { eventsSections = maybe RTB.empty (fmap simpleSection . importRRSections strings . rrcSections) control
-              , eventsEnd = maybe RTB.empty rrcEnd $ control
+              { eventsSections = maybe RTB.empty (fmap simpleSection . importRRSections strings . (.rrcSections)) control
+              , eventsEnd = maybe RTB.empty (.rrcEnd) $ control
               }
             }
           }

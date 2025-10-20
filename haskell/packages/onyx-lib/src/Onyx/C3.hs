@@ -1,7 +1,9 @@
 -- | Defines a type for the @.c3@ file used by C3's Magma.
 {-# LANGUAGE BlockArguments            #-}
 {-# LANGUAGE MultiWayIf                #-}
+{-# LANGUAGE NoFieldSelectors          #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedRecordDot       #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE ViewPatterns              #-}
@@ -163,55 +165,55 @@ showC3 c3 = T.unlines $ execWriter do
   -- TODO maybe emit CRLF line endings
   line "//Created by Onyx Music Game Toolkit"
   line "//Feel free to edit manually if you know what you're doing!"
-  pair "Song" song
-  pair "Artist" artist
-  pair "Album" album
-  pair "CustomID" customID
-  showPair "Version" version
-  showPair "IsMaster" isMaster
-  showPair "EncodingQuality" encodingQuality
-  maybePair "CrowdAudio" crowdAudio
-  maybeShowPair "CrowdVol" crowdVol
-  showPair "2xBass" is2xBass
-  showPair "RhythmKeys" rhythmKeys
-  showPair "RhythmBass" rhythmBass
-  showPair "Karaoke" karaoke
-  showPair "Multitrack" multitrack
-  showPair "Convert" convert
-  showPair "ExpertOnly" expertOnly
-  maybeShowPair "ProBassDiff" proBassDiff
-  maybePair "ProBassTuning4" proBassTuning4
-  maybeShowPair "ProGuitarDiff" proGuitarDiff
-  maybePair "ProGuitarTuning" proGuitarTuning
-  showPair "DisableProKeys" disableProKeys
-  maybeShowPair "TonicNote" $ fmap fromEnum . tonicNote
-  showPair "TuningCents" tuningCents
-  showPair "SongRating" songRating
-  showPair "DrumKitSFX" drumKitSFX
-  showPair "HopoTresholdIndex" hopoThresholdIndex
-  showPair "MuteVol" muteVol
-  showPair "VocalMuteVol" vocalMuteVol
-  showPair "SoloDrums" soloDrums
-  showPair "SoloGuitar" soloGuitar
-  showPair "SoloBass" soloBass
-  showPair "SoloKeys" soloKeys
-  showPair "SoloVocals" soloVocals
-  maybeShowPair "SongPreview" songPreview
-  showPair "CheckTempoMap" checkTempoMap
-  showPair "WiiMode" wiiMode
-  showPair "DoDrumMixEvents" doDrumMixEvents
-  pair "PackageDisplay" packageDisplay
-  pair "PackageDescription" packageDescription
-  pair "SongAlbumArt" $ T.pack . songAlbumArt
-  pair "PackageThumb" $ T.pack . packageThumb
-  showPair "EncodeANSI" encodeANSI
-  showPair "EncodeUTF8" encodeUTF8
-  showPair "UseNumericID" useNumericID
-  pair "UniqueNumericID" uniqueNumericID
-  pair "UniqueNumericID2X" uniqueNumericID2X
+  pair "Song" (.song)
+  pair "Artist" (.artist)
+  pair "Album" (.album)
+  pair "CustomID" (.customID)
+  showPair "Version" (.version)
+  showPair "IsMaster" (.isMaster)
+  showPair "EncodingQuality" (.encodingQuality)
+  maybePair "CrowdAudio" (.crowdAudio)
+  maybeShowPair "CrowdVol" (.crowdVol)
+  showPair "2xBass" (.is2xBass)
+  showPair "RhythmKeys" (.rhythmKeys)
+  showPair "RhythmBass" (.rhythmBass)
+  showPair "Karaoke" (.karaoke)
+  showPair "Multitrack" (.multitrack)
+  showPair "Convert" (.convert)
+  showPair "ExpertOnly" (.expertOnly)
+  maybeShowPair "ProBassDiff" (.proBassDiff)
+  maybePair "ProBassTuning4" (.proBassTuning4)
+  maybeShowPair "ProGuitarDiff" (.proGuitarDiff)
+  maybePair "ProGuitarTuning" (.proGuitarTuning)
+  showPair "DisableProKeys" (.disableProKeys)
+  maybeShowPair "TonicNote" $ fmap fromEnum . (.tonicNote)
+  showPair "TuningCents" (.tuningCents)
+  showPair "SongRating" (.songRating)
+  showPair "DrumKitSFX" (.drumKitSFX)
+  showPair "HopoTresholdIndex" (.hopoThresholdIndex)
+  showPair "MuteVol" (.muteVol)
+  showPair "VocalMuteVol" (.vocalMuteVol)
+  showPair "SoloDrums" (.soloDrums)
+  showPair "SoloGuitar" (.soloGuitar)
+  showPair "SoloBass" (.soloBass)
+  showPair "SoloKeys" (.soloKeys)
+  showPair "SoloVocals" (.soloVocals)
+  maybeShowPair "SongPreview" (.songPreview)
+  showPair "CheckTempoMap" (.checkTempoMap)
+  showPair "WiiMode" (.wiiMode)
+  showPair "DoDrumMixEvents" (.doDrumMixEvents)
+  pair "PackageDisplay" (.packageDisplay)
+  pair "PackageDescription" (.packageDescription)
+  pair "SongAlbumArt" $ T.pack . (.songAlbumArt)
+  pair "PackageThumb" $ T.pack . (.packageThumb)
+  showPair "EncodeANSI" (.encodeANSI)
+  showPair "EncodeUTF8" (.encodeUTF8)
+  showPair "UseNumericID" (.useNumericID)
+  pair "UniqueNumericID" (.uniqueNumericID)
+  pair "UniqueNumericID2X" (.uniqueNumericID2X)
   line ""
   line "TO DO List Begin"
-  forM_ (zip [1..] $ toDoList c3) $ \(i, (todo, required, completed)) ->
+  forM_ (zip [1..] c3.toDoList) $ \(i, (todo, required, completed)) ->
     line $ "ToDo" <> showT (i :: Int) <> "=" <>
       todo <> "," <> showT required <> "," <> showT completed
   line "TO DO List End"

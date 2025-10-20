@@ -1,9 +1,11 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DefaultSignatures   #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RankNTypes          #-}
 module Onyx.Harmonix.DTA.Serialize where
 
 import           Control.Monad
@@ -64,7 +66,7 @@ instance (StackChunk a) => StackChunks [a] where
 
 chunksDTA :: (Monad m) => ChunksCodec m (DTA T.Text)
 chunksDTA = Codec
-  { codecOut  = makeOut $ treeChunks . topTree
+  { codecOut  = makeOut (.topTree.treeChunks)
   , codecIn = DTA 0 . Tree 0 <$> lift ask
   }
 
@@ -150,7 +152,7 @@ newtype DictList k a = DictList { fromDictList :: [(k, a)] }
 chunksDictList :: (Monad m, Eq k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (DictList k a)
 chunksDictList ck cv = Codec
   { codecOut = makeOut \mp ->
-    [ Parens $ Tree 0 $ makeValue' ck k : makeValue' cv v | (k, v) <- fromDictList mp ]
+    [ Parens $ Tree 0 $ makeValue' ck k : makeValue' cv v | (k, v) <- mp.fromDictList ]
   , codecIn = lift ask >>= \chunks -> fmap DictList $ forM chunks \case
     Parens (Tree _ (k : chunks')) -> do
       k' <- inside "parsing dict key" $ parseFrom k $ codecIn ck
@@ -165,7 +167,7 @@ instance (Eq k, StackChunk k, StackChunks a) => StackChunks (DictList k a) where
 chunksDict :: (Monad m, Eq k, Hashable k) => ChunkCodec m k -> ChunksCodec m a -> ChunksCodec m (HM.HashMap k a)
 chunksDict ck cv = Codec
   { codecOut = fmapArg $ void . codecOut dl . DictList . HM.toList
-  , codecIn = HM.fromList . fromDictList <$> codecIn dl
+  , codecIn = HM.fromList . (.fromDictList) <$> codecIn dl
   } where dl = chunksDictList ck cv
 
 instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (HM.HashMap k a) where
@@ -215,7 +217,7 @@ asAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec 
 asAssoc err codec = Codec
   { codecIn = inside ("parsing " ++ T.unpack err) $ do
     obj <- codecIn cdc
-    let f = withReaderT (const $ HM.fromList $ fromDictList obj) . mapReaderT (`evalStateT` HS.empty)
+    let f = withReaderT (const $ HM.fromList obj.fromDictList) . mapReaderT (`evalStateT` HS.empty)
     mapStackTraceT f $ codecIn codec
   , codecOut = fmapArg $ void . codecOut cdc . DictList . makeObject codec
   } where cdc = chunksDictList chunkSym identityCodec

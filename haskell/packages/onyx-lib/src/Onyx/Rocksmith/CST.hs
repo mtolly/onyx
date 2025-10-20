@@ -1,6 +1,8 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Rocksmith.CST where
 
 import           Control.Monad              (join, void)
@@ -66,34 +68,34 @@ instance IsInside DLCPackageData where
   insideCodec = do
     useNamespace (Just "i") cstSpaceW3
     useNamespace (Just "") cstSpaceMain
-    dlc_AlbumArtPath      <- dlc_AlbumArtPath      =. childTag (inSpace cstSpaceMain "AlbumArtPath"     ) (parseInside' childText)
-    dlc_AppId             <- dlc_AppId             =. childTag (inSpace cstSpaceMain "AppId"            ) (parseInside' $ intText childText)
-    dlc_Arrangements      <- dlc_Arrangements      =. pluralBare (inSpace cstSpaceMain "Arrangement")
-    dlc_ArtFiles          <- dlc_ArtFiles          =. childTag (inSpace cstSpaceMain "ArtFiles"         ) (parseInside' $ nillable $ return ())
-    dlc_DefaultShowlights <- dlc_DefaultShowlights =. childTag (inSpace cstSpaceMain "DefaultShowlights") (parseInside' $ boolWordText childText)
-    dlc_GameVersion       <- dlc_GameVersion       =. childTag (inSpace cstSpaceMain "GameVersion"      ) (parseInside' childText)
-    dlc_Inlay             <- dlc_Inlay             =. childTag (inSpace cstSpaceMain "Inlay"            ) (parseInside' $ nillable $ return ())
-    dlc_Mac               <- dlc_Mac               =. childTag (inSpace cstSpaceMain "Mac"              ) (parseInside' $ boolWordText childText)
-    dlc_Name              <- dlc_Name              =. childTag (inSpace cstSpaceMain "Name"             ) (parseInside' childText)
-    dlc_OggPath           <- dlc_OggPath           =. childTag (inSpace cstSpaceMain "OggPath"          ) (parseInside' childText)
-    dlc_OggPreviewPath    <- dlc_OggPreviewPath    =. childTag (inSpace cstSpaceMain "OggPreviewPath"   ) (parseInside' childText)
-    dlc_OggQuality        <- dlc_OggQuality        =. childTag (inSpace cstSpaceMain "OggQuality"       ) (parseInside' $ milliText childText)
-    dlc_PS3               <- dlc_PS3               =. childTag (inSpace cstSpaceMain "PS3"              ) (parseInside' $ boolWordText childText)
-    dlc_Pc                <- dlc_Pc                =. childTag (inSpace cstSpaceMain "Pc"               ) (parseInside' $ boolWordText childText)
-    dlc_PreviewVolume     <- dlc_PreviewVolume     =. childTag (inSpace cstSpaceMain "PreviewVolume"    ) (parseInside' $ milliText childText)
-    dlc_SignatureType     <- dlc_SignatureType     =. childTag (inSpace cstSpaceMain "SignatureType"    ) (parseInside' childText)
-    dlc_SongInfo          <- dlc_SongInfo          =. childTag (inSpace cstSpaceMain "SongInfo"         ) (parseInside' insideCodec)
+    dlc_AlbumArtPath      <- (.dlc_AlbumArtPath)      =. childTag (inSpace cstSpaceMain "AlbumArtPath"     ) (parseInside' childText)
+    dlc_AppId             <- (.dlc_AppId)             =. childTag (inSpace cstSpaceMain "AppId"            ) (parseInside' $ intText childText)
+    dlc_Arrangements      <- (.dlc_Arrangements)      =. pluralBare (inSpace cstSpaceMain "Arrangement")
+    dlc_ArtFiles          <- (.dlc_ArtFiles)          =. childTag (inSpace cstSpaceMain "ArtFiles"         ) (parseInside' $ nillable $ return ())
+    dlc_DefaultShowlights <- (.dlc_DefaultShowlights) =. childTag (inSpace cstSpaceMain "DefaultShowlights") (parseInside' $ boolWordText childText)
+    dlc_GameVersion       <- (.dlc_GameVersion)       =. childTag (inSpace cstSpaceMain "GameVersion"      ) (parseInside' childText)
+    dlc_Inlay             <- (.dlc_Inlay)             =. childTag (inSpace cstSpaceMain "Inlay"            ) (parseInside' $ nillable $ return ())
+    dlc_Mac               <- (.dlc_Mac)               =. childTag (inSpace cstSpaceMain "Mac"              ) (parseInside' $ boolWordText childText)
+    dlc_Name              <- (.dlc_Name)              =. childTag (inSpace cstSpaceMain "Name"             ) (parseInside' childText)
+    dlc_OggPath           <- (.dlc_OggPath)           =. childTag (inSpace cstSpaceMain "OggPath"          ) (parseInside' childText)
+    dlc_OggPreviewPath    <- (.dlc_OggPreviewPath)    =. childTag (inSpace cstSpaceMain "OggPreviewPath"   ) (parseInside' childText)
+    dlc_OggQuality        <- (.dlc_OggQuality)        =. childTag (inSpace cstSpaceMain "OggQuality"       ) (parseInside' $ milliText childText)
+    dlc_PS3               <- (.dlc_PS3)               =. childTag (inSpace cstSpaceMain "PS3"              ) (parseInside' $ boolWordText childText)
+    dlc_Pc                <- (.dlc_Pc)                =. childTag (inSpace cstSpaceMain "Pc"               ) (parseInside' $ boolWordText childText)
+    dlc_PreviewVolume     <- (.dlc_PreviewVolume)     =. childTag (inSpace cstSpaceMain "PreviewVolume"    ) (parseInside' $ milliText childText)
+    dlc_SignatureType     <- (.dlc_SignatureType)     =. childTag (inSpace cstSpaceMain "SignatureType"    ) (parseInside' childText)
+    dlc_SongInfo          <- (.dlc_SongInfo)          =. childTag (inSpace cstSpaceMain "SongInfo"         ) (parseInside' insideCodec)
     let emptyOnError parser = parser
           -- if a tone has an error, just ignore it and return an empty vector
           { codecIn = fmap (fromMaybe V.empty) $ errorToWarning $ codecIn parser
           }
-    dlc_Tones             <- dlc_Tones             =. emptyOnError (childTag (inSpace cstSpaceMain "Tones") (parseInside' $ return V.empty))
-    dlc_TonesRS2014       <- dlc_TonesRS2014       =. emptyOnError (pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014"))
-    dlc_ToolkitInfo       <- dlc_ToolkitInfo       =. childTag (inSpace cstSpaceMain "ToolkitInfo"      ) (parseInside' insideCodec)
-    dlc_Version           <- dlc_Version           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
-    dlc_Volume            <- dlc_Volume            =. childTag (inSpace cstSpaceMain "Volume"           ) (parseInside' $ milliText childText)
-    dlc_XBox360           <- dlc_XBox360           =. childTag (inSpace cstSpaceMain "XBox360"          ) (parseInside' $ boolWordText childText)
-    dlc_XBox360Licenses   <- dlc_XBox360Licenses   =. childTag (inSpace cstSpaceMain "XBox360Licenses"  ) (parseInside' $ return V.empty)
+    dlc_Tones             <- (.dlc_Tones)             =. emptyOnError (childTag (inSpace cstSpaceMain "Tones") (parseInside' $ return V.empty))
+    dlc_TonesRS2014       <- (.dlc_TonesRS2014)       =. emptyOnError (pluralBare' (inSpace cstSpaceMain "TonesRS2014") (inSpace cstSpaceTone2014 "Tone2014"))
+    dlc_ToolkitInfo       <- (.dlc_ToolkitInfo)       =. childTag (inSpace cstSpaceMain "ToolkitInfo"      ) (parseInside' insideCodec)
+    dlc_Version           <- (.dlc_Version)           =. childTag (inSpace cstSpaceMain "Version"          ) (parseInside' childText)
+    dlc_Volume            <- (.dlc_Volume)            =. childTag (inSpace cstSpaceMain "Volume"           ) (parseInside' $ milliText childText)
+    dlc_XBox360           <- (.dlc_XBox360)           =. childTag (inSpace cstSpaceMain "XBox360"          ) (parseInside' $ boolWordText childText)
+    dlc_XBox360Licenses   <- (.dlc_XBox360Licenses)   =. childTag (inSpace cstSpaceMain "XBox360Licenses"  ) (parseInside' $ return V.empty)
     return DLCPackageData{..}
 
 data Tone2014 = Tone2014
@@ -112,14 +114,14 @@ instance IsInside Tone2014 where
   insideCodec = do
     useNamespace (Just "i") cstSpaceW3
     useNamespace (Just "") cstSpaceTone2014
-    t14_GearList        <- t14_GearList        =. childTag    (inSpace cstSpaceTone2014 "GearList"       ) (parseInside' insideCodec)
-    t14_IsCustom        <- t14_IsCustom        =. childTag    (inSpace cstSpaceTone2014 "IsCustom"       ) (parseInside' $ boolWordText childText)
-    t14_Key             <- t14_Key             =. childTag    (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
-    t14_Name            <- t14_Name            =. childTag    (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
-    t14_NameSeparator   <- t14_NameSeparator   =. childTag    (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
-    t14_SortOrder       <- t14_SortOrder       =. optNillable (inSpace cstSpaceTone2014 "SortOrder"      ) (milliText childText)
-    t14_ToneDescriptors <- t14_ToneDescriptors =. childTag    (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
-    t14_Volume          <- t14_Volume          =. childTag    (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
+    t14_GearList        <- (.t14_GearList)        =. childTag    (inSpace cstSpaceTone2014 "GearList"       ) (parseInside' insideCodec)
+    t14_IsCustom        <- (.t14_IsCustom)        =. childTag    (inSpace cstSpaceTone2014 "IsCustom"       ) (parseInside' $ boolWordText childText)
+    t14_Key             <- (.t14_Key)             =. childTag    (inSpace cstSpaceTone2014 "Key"            ) (parseInside' childText)
+    t14_Name            <- (.t14_Name)            =. childTag    (inSpace cstSpaceTone2014 "Name"           ) (parseInside' childText)
+    t14_NameSeparator   <- (.t14_NameSeparator)   =. childTag    (inSpace cstSpaceTone2014 "NameSeparator"  ) (parseInside' childTextRaw)
+    t14_SortOrder       <- (.t14_SortOrder)       =. optNillable (inSpace cstSpaceTone2014 "SortOrder"      ) (milliText childText)
+    t14_ToneDescriptors <- (.t14_ToneDescriptors) =. childTag    (inSpace cstSpaceTone2014 "ToneDescriptors") (parseInside' toneDescriptors)
+    t14_Volume          <- (.t14_Volume)          =. childTag    (inSpace cstSpaceTone2014 "Volume"         ) (parseInside' $ milliText childText)
     return Tone2014{..}
 
 toneDescriptors :: (SendMessage m) => InsideCodec m (V.Vector T.Text)
@@ -130,14 +132,14 @@ toneDescriptors = do
 -- | Format used in manifest .json
 instance StackJSON Tone2014 where
   stackJSON = asObject "Tone2014" $ do
-    t14_GearList        <- t14_GearList        =. req "GearList" stackJSON
-    t14_IsCustom        <- t14_IsCustom        =. req "IsCustom" stackJSON
-    t14_Key             <- t14_Key             =. req "Key" stackJSON
-    t14_Name            <- t14_Name            =. req "Name" stackJSON
-    t14_NameSeparator   <- t14_NameSeparator   =. req "NameSeparator" stackJSON
-    t14_SortOrder       <- t14_SortOrder       =. opt Nothing "SortOrder" stackJSON
-    t14_ToneDescriptors <- t14_ToneDescriptors =. req "ToneDescriptors" stackJSON
-    t14_Volume          <- t14_Volume          =. req "Volume" Codec
+    t14_GearList        <- (.t14_GearList)        =. req "GearList" stackJSON
+    t14_IsCustom        <- (.t14_IsCustom)        =. req "IsCustom" stackJSON
+    t14_Key             <- (.t14_Key)             =. req "Key" stackJSON
+    t14_Name            <- (.t14_Name)            =. req "Name" stackJSON
+    t14_NameSeparator   <- (.t14_NameSeparator)   =. req "NameSeparator" stackJSON
+    t14_SortOrder       <- (.t14_SortOrder)       =. opt Nothing "SortOrder" stackJSON
+    t14_ToneDescriptors <- (.t14_ToneDescriptors) =. req "ToneDescriptors" stackJSON
+    t14_Volume          <- (.t14_Volume)          =. req "Volume" Codec
       { codecIn = codecIn stackJSON >>= \s -> case reads s of
         -- use reads due to e.g. rancfall_rhythm.json with
         --  "Volume": "-20.000Qaqaq",
@@ -166,39 +168,39 @@ data Gear2014 = Gear2014
 
 instance IsInside Gear2014 where
   insideCodec = do
-    g14_Amp        <- g14_Amp        =. childTag (inSpace cstSpaceTone2014 "Amp"       ) (parseInside' $ nillable insideCodec)
-    g14_Cabinet    <- g14_Cabinet    =. childTag (inSpace cstSpaceTone2014 "Cabinet"   ) (parseInside' $ nillable insideCodec)
-    g14_PostPedal1 <- g14_PostPedal1 =. childTag (inSpace cstSpaceTone2014 "PostPedal1") (parseInside' $ nillable insideCodec)
-    g14_PostPedal2 <- g14_PostPedal2 =. childTag (inSpace cstSpaceTone2014 "PostPedal2") (parseInside' $ nillable insideCodec)
-    g14_PostPedal3 <- g14_PostPedal3 =. childTag (inSpace cstSpaceTone2014 "PostPedal3") (parseInside' $ nillable insideCodec)
-    g14_PostPedal4 <- g14_PostPedal4 =. childTag (inSpace cstSpaceTone2014 "PostPedal4") (parseInside' $ nillable insideCodec)
-    g14_PrePedal1  <- g14_PrePedal1  =. childTag (inSpace cstSpaceTone2014 "PrePedal1" ) (parseInside' $ nillable insideCodec)
-    g14_PrePedal2  <- g14_PrePedal2  =. childTag (inSpace cstSpaceTone2014 "PrePedal2" ) (parseInside' $ nillable insideCodec)
-    g14_PrePedal3  <- g14_PrePedal3  =. childTag (inSpace cstSpaceTone2014 "PrePedal3" ) (parseInside' $ nillable insideCodec)
-    g14_PrePedal4  <- g14_PrePedal4  =. childTag (inSpace cstSpaceTone2014 "PrePedal4" ) (parseInside' $ nillable insideCodec)
-    g14_Rack1      <- g14_Rack1      =. childTag (inSpace cstSpaceTone2014 "Rack1"     ) (parseInside' $ nillable insideCodec)
-    g14_Rack2      <- g14_Rack2      =. childTag (inSpace cstSpaceTone2014 "Rack2"     ) (parseInside' $ nillable insideCodec)
-    g14_Rack3      <- g14_Rack3      =. childTag (inSpace cstSpaceTone2014 "Rack3"     ) (parseInside' $ nillable insideCodec)
-    g14_Rack4      <- g14_Rack4      =. childTag (inSpace cstSpaceTone2014 "Rack4"     ) (parseInside' $ nillable insideCodec)
+    g14_Amp        <- (.g14_Amp)        =. childTag (inSpace cstSpaceTone2014 "Amp"       ) (parseInside' $ nillable insideCodec)
+    g14_Cabinet    <- (.g14_Cabinet)    =. childTag (inSpace cstSpaceTone2014 "Cabinet"   ) (parseInside' $ nillable insideCodec)
+    g14_PostPedal1 <- (.g14_PostPedal1) =. childTag (inSpace cstSpaceTone2014 "PostPedal1") (parseInside' $ nillable insideCodec)
+    g14_PostPedal2 <- (.g14_PostPedal2) =. childTag (inSpace cstSpaceTone2014 "PostPedal2") (parseInside' $ nillable insideCodec)
+    g14_PostPedal3 <- (.g14_PostPedal3) =. childTag (inSpace cstSpaceTone2014 "PostPedal3") (parseInside' $ nillable insideCodec)
+    g14_PostPedal4 <- (.g14_PostPedal4) =. childTag (inSpace cstSpaceTone2014 "PostPedal4") (parseInside' $ nillable insideCodec)
+    g14_PrePedal1  <- (.g14_PrePedal1)  =. childTag (inSpace cstSpaceTone2014 "PrePedal1" ) (parseInside' $ nillable insideCodec)
+    g14_PrePedal2  <- (.g14_PrePedal2)  =. childTag (inSpace cstSpaceTone2014 "PrePedal2" ) (parseInside' $ nillable insideCodec)
+    g14_PrePedal3  <- (.g14_PrePedal3)  =. childTag (inSpace cstSpaceTone2014 "PrePedal3" ) (parseInside' $ nillable insideCodec)
+    g14_PrePedal4  <- (.g14_PrePedal4)  =. childTag (inSpace cstSpaceTone2014 "PrePedal4" ) (parseInside' $ nillable insideCodec)
+    g14_Rack1      <- (.g14_Rack1)      =. childTag (inSpace cstSpaceTone2014 "Rack1"     ) (parseInside' $ nillable insideCodec)
+    g14_Rack2      <- (.g14_Rack2)      =. childTag (inSpace cstSpaceTone2014 "Rack2"     ) (parseInside' $ nillable insideCodec)
+    g14_Rack3      <- (.g14_Rack3)      =. childTag (inSpace cstSpaceTone2014 "Rack3"     ) (parseInside' $ nillable insideCodec)
+    g14_Rack4      <- (.g14_Rack4)      =. childTag (inSpace cstSpaceTone2014 "Rack4"     ) (parseInside' $ nillable insideCodec)
     return Gear2014{..}
 
 -- | Format used in manifest .json
 instance StackJSON Gear2014 where
   stackJSON = asStrictObject "Gear2014" $ do
-    g14_Amp        <- g14_Amp        =. opt Nothing "Amp"        stackJSON
-    g14_Cabinet    <- g14_Cabinet    =. opt Nothing "Cabinet"    stackJSON
-    g14_PostPedal1 <- g14_PostPedal1 =. opt Nothing "PostPedal1" stackJSON
-    g14_PostPedal2 <- g14_PostPedal2 =. opt Nothing "PostPedal2" stackJSON
-    g14_PostPedal3 <- g14_PostPedal3 =. opt Nothing "PostPedal3" stackJSON
-    g14_PostPedal4 <- g14_PostPedal4 =. opt Nothing "PostPedal4" stackJSON
-    g14_PrePedal1  <- g14_PrePedal1  =. opt Nothing "PrePedal1"  stackJSON
-    g14_PrePedal2  <- g14_PrePedal2  =. opt Nothing "PrePedal2"  stackJSON
-    g14_PrePedal3  <- g14_PrePedal3  =. opt Nothing "PrePedal3"  stackJSON
-    g14_PrePedal4  <- g14_PrePedal4  =. opt Nothing "PrePedal4"  stackJSON
-    g14_Rack1      <- g14_Rack1      =. opt Nothing "Rack1"      stackJSON
-    g14_Rack2      <- g14_Rack2      =. opt Nothing "Rack2"      stackJSON
-    g14_Rack3      <- g14_Rack3      =. opt Nothing "Rack3"      stackJSON
-    g14_Rack4      <- g14_Rack4      =. opt Nothing "Rack4"      stackJSON
+    g14_Amp        <- (.g14_Amp)        =. opt Nothing "Amp"        stackJSON
+    g14_Cabinet    <- (.g14_Cabinet)    =. opt Nothing "Cabinet"    stackJSON
+    g14_PostPedal1 <- (.g14_PostPedal1) =. opt Nothing "PostPedal1" stackJSON
+    g14_PostPedal2 <- (.g14_PostPedal2) =. opt Nothing "PostPedal2" stackJSON
+    g14_PostPedal3 <- (.g14_PostPedal3) =. opt Nothing "PostPedal3" stackJSON
+    g14_PostPedal4 <- (.g14_PostPedal4) =. opt Nothing "PostPedal4" stackJSON
+    g14_PrePedal1  <- (.g14_PrePedal1)  =. opt Nothing "PrePedal1"  stackJSON
+    g14_PrePedal2  <- (.g14_PrePedal2)  =. opt Nothing "PrePedal2"  stackJSON
+    g14_PrePedal3  <- (.g14_PrePedal3)  =. opt Nothing "PrePedal3"  stackJSON
+    g14_PrePedal4  <- (.g14_PrePedal4)  =. opt Nothing "PrePedal4"  stackJSON
+    g14_Rack1      <- (.g14_Rack1)      =. opt Nothing "Rack1"      stackJSON
+    g14_Rack2      <- (.g14_Rack2)      =. opt Nothing "Rack2"      stackJSON
+    g14_Rack3      <- (.g14_Rack3)      =. opt Nothing "Rack3"      stackJSON
+    g14_Rack4      <- (.g14_Rack4)      =. opt Nothing "Rack4"      stackJSON
     return Gear2014{..}
 
 data Pedal2014 = Pedal2014
@@ -215,12 +217,12 @@ optNillable pn vc = dimap (fmap Just) join $ childTagOpt pn $ parseInside' $ nil
 
 instance IsInside Pedal2014 where
   insideCodec = do
-    p14_Category   <- p14_Category   =. optNillable (inSpace cstSpaceTone2014 "Category"  ) childText
-    p14_KnobValues <- p14_KnobValues =. childTag    (inSpace cstSpaceTone2014 "KnobValues") (parseInside' knobValues)
-    p14_PedalKey   <- p14_PedalKey   =. childTag    (inSpace cstSpaceTone2014 "PedalKey"  ) (parseInside' childText)
-    p14_Skin       <- p14_Skin       =. optNillable (inSpace cstSpaceTone2014 "Skin"      ) childText
-    p14_SkinIndex  <- p14_SkinIndex  =. optNillable (inSpace cstSpaceTone2014 "SkinIndex" ) (intText childText)
-    p14_Type       <- p14_Type       =. childTag    (inSpace cstSpaceTone2014 "Type"      ) (parseInside' childText)
+    p14_Category   <- (.p14_Category)   =. optNillable (inSpace cstSpaceTone2014 "Category"  ) childText
+    p14_KnobValues <- (.p14_KnobValues) =. childTag    (inSpace cstSpaceTone2014 "KnobValues") (parseInside' knobValues)
+    p14_PedalKey   <- (.p14_PedalKey)   =. childTag    (inSpace cstSpaceTone2014 "PedalKey"  ) (parseInside' childText)
+    p14_Skin       <- (.p14_Skin)       =. optNillable (inSpace cstSpaceTone2014 "Skin"      ) childText
+    p14_SkinIndex  <- (.p14_SkinIndex)  =. optNillable (inSpace cstSpaceTone2014 "SkinIndex" ) (intText childText)
+    p14_Type       <- (.p14_Type)       =. childTag    (inSpace cstSpaceTone2014 "Type"      ) (parseInside' childText)
     return Pedal2014{..}
 
 knobValues :: (SendMessage m) => InsideCodec m (V.Vector (T.Text, Milli))
@@ -244,13 +246,13 @@ nillable c = do
 -- | Format used in manifest .json
 instance StackJSON Pedal2014 where
   stackJSON = asStrictObject "Pedal2014" $ do
-    p14_Category   <- p14_Category   =. opt Nothing "Category" stackJSON
-    p14_KnobValues <- p14_KnobValues =. req "KnobValues"
+    p14_Category   <- (.p14_Category)   =. opt Nothing "Category" stackJSON
+    p14_KnobValues <- (.p14_KnobValues) =. req "KnobValues"
       (dimap (HM.fromList . V.toList) (V.fromList . HM.toList) $ dict stackJSON)
-    p14_PedalKey   <- p14_PedalKey   =. req "Key" stackJSON
-    p14_Skin       <- p14_Skin       =. opt Nothing "Skin" stackJSON
-    p14_SkinIndex  <- p14_SkinIndex  =. opt Nothing "SkinIndex" stackJSON
-    p14_Type       <- p14_Type       =. req "Type" stackJSON
+    p14_PedalKey   <- (.p14_PedalKey)   =. req "Key" stackJSON
+    p14_Skin       <- (.p14_Skin)       =. opt Nothing "Skin" stackJSON
+    p14_SkinIndex  <- (.p14_SkinIndex)  =. opt Nothing "SkinIndex" stackJSON
+    p14_Type       <- (.p14_Type)       =. req "Type" stackJSON
     return Pedal2014{..}
 
 data Arrangement = Arrangement
@@ -285,33 +287,33 @@ data Arrangement = Arrangement
 
 instance IsInside Arrangement where
   insideCodec = do
-    arr_ArrangementName      <- arr_ArrangementName      =. childTag (inSpace cstSpaceMain "ArrangementName") (parseInside' childText)
-    arr_ArrangementPropeties <- arr_ArrangementPropeties =. childTag (inSpace cstSpaceMain "ArrangementPropeties") (parseInside' $ nillable insideCodec)
-    arr_ArrangementSort      <- arr_ArrangementSort      =. childTag (inSpace cstSpaceMain "ArrangementSort") (parseInside' $ intText childText)
-    arr_ArrangementType      <- arr_ArrangementType      =. childTag (inSpace cstSpaceMain "ArrangementType") (parseInside' childText)
-    arr_BonusArr             <- arr_BonusArr             =. childTag (inSpace cstSpaceMain "BonusArr") (parseInside' $ boolWordText childText)
-    arr_CapoFret             <- arr_CapoFret             =. childTag (inSpace cstSpaceMain "CapoFret") (parseInside' $ intText childText)
-    arr_GlyphsXmlPath        <- arr_GlyphsXmlPath        =. childTag (inSpace cstSpaceMain "GlyphsXmlPath") (parseInside' $ nillable childText)
-    arr_Id                   <- arr_Id                   =. childTag (inSpace cstSpaceMain "Id") (parseInside' childText)
-    arr_LyricsArtPath        <- arr_LyricsArtPath        =. childTag (inSpace cstSpaceMain "LyricsArtPath") (parseInside' $ nillable childText)
-    arr_MasterId             <- arr_MasterId             =. childTag (inSpace cstSpaceMain "MasterId") (parseInside' $ intText childText)
-    arr_Metronome            <- arr_Metronome            =. childTag (inSpace cstSpaceMain "Metronome") (parseInside' childText)
-    arr_PluckedType          <- arr_PluckedType          =. childTag (inSpace cstSpaceMain "PluckedType") (parseInside' childText)
-    arr_Represent            <- arr_Represent            =. childTag (inSpace cstSpaceMain "Represent") (parseInside' $ boolWordText childText)
-    arr_RouteMask            <- arr_RouteMask            =. childTag (inSpace cstSpaceMain "RouteMask") (parseInside' childText)
-    arr_ScrollSpeed          <- arr_ScrollSpeed          =. childTag (inSpace cstSpaceMain "ScrollSpeed") (parseInside' $ intText childText)
-    arr_Sng2014              <- arr_Sng2014              =. childTag (inSpace cstSpaceMain "Sng2014") (parseInside' $ nillable $ return ())
-    arr_SongFile             <- arr_SongFile             =. childTag (inSpace cstSpaceMain "SongFile") (parseInside' insideCodec)
-    arr_SongXml              <- arr_SongXml              =. childTag (inSpace cstSpaceMain "SongXml") (parseInside' insideCodec)
-    arr_ToneA                <- arr_ToneA                =. childTag (inSpace cstSpaceMain "ToneA") (parseInside' childText)
-    arr_ToneB                <- arr_ToneB                =. childTag (inSpace cstSpaceMain "ToneB") (parseInside' childText)
-    arr_ToneBase             <- arr_ToneBase             =. childTag (inSpace cstSpaceMain "ToneBase") (parseInside' childText)
-    arr_ToneC                <- arr_ToneC                =. childTag (inSpace cstSpaceMain "ToneC") (parseInside' childText)
-    arr_ToneD                <- arr_ToneD                =. childTag (inSpace cstSpaceMain "ToneD") (parseInside' childText)
-    arr_ToneMultiplayer      <- arr_ToneMultiplayer      =. childTag (inSpace cstSpaceMain "ToneMultiplayer") (parseInside' $ nillable childText)
-    arr_Tuning               <- arr_Tuning               =. childTag (inSpace cstSpaceMain "Tuning") (parseInside' childText)
-    arr_TuningPitch          <- arr_TuningPitch          =. childTag (inSpace cstSpaceMain "TuningPitch") (parseInside' $ milliText childText)
-    arr_TuningStrings        <- arr_TuningStrings        =. childTag (inSpace cstSpaceMain "TuningStrings") (parseInside' insideCodec)
+    arr_ArrangementName      <- (.arr_ArrangementName)      =. childTag (inSpace cstSpaceMain "ArrangementName") (parseInside' childText)
+    arr_ArrangementPropeties <- (.arr_ArrangementPropeties) =. childTag (inSpace cstSpaceMain "ArrangementPropeties") (parseInside' $ nillable insideCodec)
+    arr_ArrangementSort      <- (.arr_ArrangementSort)      =. childTag (inSpace cstSpaceMain "ArrangementSort") (parseInside' $ intText childText)
+    arr_ArrangementType      <- (.arr_ArrangementType)      =. childTag (inSpace cstSpaceMain "ArrangementType") (parseInside' childText)
+    arr_BonusArr             <- (.arr_BonusArr)             =. childTag (inSpace cstSpaceMain "BonusArr") (parseInside' $ boolWordText childText)
+    arr_CapoFret             <- (.arr_CapoFret)             =. childTag (inSpace cstSpaceMain "CapoFret") (parseInside' $ intText childText)
+    arr_GlyphsXmlPath        <- (.arr_GlyphsXmlPath)        =. childTag (inSpace cstSpaceMain "GlyphsXmlPath") (parseInside' $ nillable childText)
+    arr_Id                   <- (.arr_Id)                   =. childTag (inSpace cstSpaceMain "Id") (parseInside' childText)
+    arr_LyricsArtPath        <- (.arr_LyricsArtPath)        =. childTag (inSpace cstSpaceMain "LyricsArtPath") (parseInside' $ nillable childText)
+    arr_MasterId             <- (.arr_MasterId)             =. childTag (inSpace cstSpaceMain "MasterId") (parseInside' $ intText childText)
+    arr_Metronome            <- (.arr_Metronome)            =. childTag (inSpace cstSpaceMain "Metronome") (parseInside' childText)
+    arr_PluckedType          <- (.arr_PluckedType)          =. childTag (inSpace cstSpaceMain "PluckedType") (parseInside' childText)
+    arr_Represent            <- (.arr_Represent)            =. childTag (inSpace cstSpaceMain "Represent") (parseInside' $ boolWordText childText)
+    arr_RouteMask            <- (.arr_RouteMask)            =. childTag (inSpace cstSpaceMain "RouteMask") (parseInside' childText)
+    arr_ScrollSpeed          <- (.arr_ScrollSpeed)          =. childTag (inSpace cstSpaceMain "ScrollSpeed") (parseInside' $ intText childText)
+    arr_Sng2014              <- (.arr_Sng2014)              =. childTag (inSpace cstSpaceMain "Sng2014") (parseInside' $ nillable $ return ())
+    arr_SongFile             <- (.arr_SongFile)             =. childTag (inSpace cstSpaceMain "SongFile") (parseInside' insideCodec)
+    arr_SongXml              <- (.arr_SongXml)              =. childTag (inSpace cstSpaceMain "SongXml") (parseInside' insideCodec)
+    arr_ToneA                <- (.arr_ToneA)                =. childTag (inSpace cstSpaceMain "ToneA") (parseInside' childText)
+    arr_ToneB                <- (.arr_ToneB)                =. childTag (inSpace cstSpaceMain "ToneB") (parseInside' childText)
+    arr_ToneBase             <- (.arr_ToneBase)             =. childTag (inSpace cstSpaceMain "ToneBase") (parseInside' childText)
+    arr_ToneC                <- (.arr_ToneC)                =. childTag (inSpace cstSpaceMain "ToneC") (parseInside' childText)
+    arr_ToneD                <- (.arr_ToneD)                =. childTag (inSpace cstSpaceMain "ToneD") (parseInside' childText)
+    arr_ToneMultiplayer      <- (.arr_ToneMultiplayer)      =. childTag (inSpace cstSpaceMain "ToneMultiplayer") (parseInside' $ nillable childText)
+    arr_Tuning               <- (.arr_Tuning)               =. childTag (inSpace cstSpaceMain "Tuning") (parseInside' childText)
+    arr_TuningPitch          <- (.arr_TuningPitch)          =. childTag (inSpace cstSpaceMain "TuningPitch") (parseInside' $ milliText childText)
+    arr_TuningStrings        <- (.arr_TuningStrings)        =. childTag (inSpace cstSpaceMain "TuningStrings") (parseInside' insideCodec)
     return Arrangement{..}
 
 data TuningStrings = TuningStrings
@@ -326,12 +328,12 @@ data TuningStrings = TuningStrings
 instance IsInside TuningStrings where
   insideCodec = do
     useNamespace Nothing cstSpaceArrProps
-    ts_String0 <- ts_String0 =. childTag (inSpace cstSpaceArrProps "String0") (parseInside' $ intText childText)
-    ts_String1 <- ts_String1 =. childTag (inSpace cstSpaceArrProps "String1") (parseInside' $ intText childText)
-    ts_String2 <- ts_String2 =. childTag (inSpace cstSpaceArrProps "String2") (parseInside' $ intText childText)
-    ts_String3 <- ts_String3 =. childTag (inSpace cstSpaceArrProps "String3") (parseInside' $ intText childText)
-    ts_String4 <- ts_String4 =. childTag (inSpace cstSpaceArrProps "String4") (parseInside' $ intText childText)
-    ts_String5 <- ts_String5 =. childTag (inSpace cstSpaceArrProps "String5") (parseInside' $ intText childText)
+    ts_String0 <- (.ts_String0) =. childTag (inSpace cstSpaceArrProps "String0") (parseInside' $ intText childText)
+    ts_String1 <- (.ts_String1) =. childTag (inSpace cstSpaceArrProps "String1") (parseInside' $ intText childText)
+    ts_String2 <- (.ts_String2) =. childTag (inSpace cstSpaceArrProps "String2") (parseInside' $ intText childText)
+    ts_String3 <- (.ts_String3) =. childTag (inSpace cstSpaceArrProps "String3") (parseInside' $ intText childText)
+    ts_String4 <- (.ts_String4) =. childTag (inSpace cstSpaceArrProps "String4") (parseInside' $ intText childText)
+    ts_String5 <- (.ts_String5) =. childTag (inSpace cstSpaceArrProps "String5") (parseInside' $ intText childText)
     return TuningStrings{..}
 
 data ArrangementPropeties = ArrangementPropeties
@@ -373,39 +375,39 @@ data ArrangementPropeties = ArrangementPropeties
 instance IsInside ArrangementPropeties where
   insideCodec = do
     useNamespace Nothing cstSpaceArrProps
-    ap_BarreChords       <- ap_BarreChords       =. childTag (inSpace cstSpaceArrProps "BarreChords"      ) (parseInside' $ boolText childText)
-    ap_BassPick          <- ap_BassPick          =. childTag (inSpace cstSpaceArrProps "BassPick"         ) (parseInside' $ boolText childText)
-    ap_Bends             <- ap_Bends             =. childTag (inSpace cstSpaceArrProps "Bends"            ) (parseInside' $ boolText childText)
-    ap_DoubleStops       <- ap_DoubleStops       =. childTag (inSpace cstSpaceArrProps "DoubleStops"      ) (parseInside' $ boolText childText)
-    ap_DropDPower        <- ap_DropDPower        =. childTag (inSpace cstSpaceArrProps "DropDPower"       ) (parseInside' $ boolText childText)
-    ap_FifthsAndOctaves  <- ap_FifthsAndOctaves  =. childTag (inSpace cstSpaceArrProps "FifthsAndOctaves" ) (parseInside' $ boolText childText)
-    ap_FingerPicking     <- ap_FingerPicking     =. childTag (inSpace cstSpaceArrProps "FingerPicking"    ) (parseInside' $ boolText childText)
-    ap_FretHandMutes     <- ap_FretHandMutes     =. childTag (inSpace cstSpaceArrProps "FretHandMutes"    ) (parseInside' $ boolText childText)
-    ap_Harmonics         <- ap_Harmonics         =. childTag (inSpace cstSpaceArrProps "Harmonics"        ) (parseInside' $ boolText childText)
-    ap_Hopo              <- ap_Hopo              =. childTag (inSpace cstSpaceArrProps "Hopo"             ) (parseInside' $ boolText childText)
-    ap_NonStandardChords <- ap_NonStandardChords =. childTag (inSpace cstSpaceArrProps "NonStandardChords") (parseInside' $ boolText childText)
-    ap_OpenChords        <- ap_OpenChords        =. childTag (inSpace cstSpaceArrProps "OpenChords"       ) (parseInside' $ boolText childText)
-    ap_PalmMutes         <- ap_PalmMutes         =. childTag (inSpace cstSpaceArrProps "PalmMutes"        ) (parseInside' $ boolText childText)
-    ap_PickDirection     <- ap_PickDirection     =. childTag (inSpace cstSpaceArrProps "PickDirection"    ) (parseInside' $ boolText childText)
-    ap_PinchHarmonics    <- ap_PinchHarmonics    =. childTag (inSpace cstSpaceArrProps "PinchHarmonics"   ) (parseInside' $ boolText childText)
-    ap_PowerChords       <- ap_PowerChords       =. childTag (inSpace cstSpaceArrProps "PowerChords"      ) (parseInside' $ boolText childText)
-    ap_Represent         <- ap_Represent         =. childTag (inSpace cstSpaceArrProps "Represent"        ) (parseInside' $ boolText childText)
-    ap_SlapPop           <- ap_SlapPop           =. childTag (inSpace cstSpaceArrProps "SlapPop"          ) (parseInside' $ boolText childText)
-    ap_Slides            <- ap_Slides            =. childTag (inSpace cstSpaceArrProps "Slides"           ) (parseInside' $ boolText childText)
-    ap_StandardTuning    <- ap_StandardTuning    =. childTag (inSpace cstSpaceArrProps "StandardTuning"   ) (parseInside' $ boolText childText)
-    ap_Sustain           <- ap_Sustain           =. childTag (inSpace cstSpaceArrProps "Sustain"          ) (parseInside' $ boolText childText)
-    ap_Syncopation       <- ap_Syncopation       =. childTag (inSpace cstSpaceArrProps "Syncopation"      ) (parseInside' $ boolText childText)
-    ap_Tapping           <- ap_Tapping           =. childTag (inSpace cstSpaceArrProps "Tapping"          ) (parseInside' $ boolText childText)
-    ap_Tremolo           <- ap_Tremolo           =. childTag (inSpace cstSpaceArrProps "Tremolo"          ) (parseInside' $ boolText childText)
-    ap_TwoFingerPicking  <- ap_TwoFingerPicking  =. childTag (inSpace cstSpaceArrProps "TwoFingerPicking" ) (parseInside' $ boolText childText)
-    ap_UnpitchedSlides   <- ap_UnpitchedSlides   =. childTag (inSpace cstSpaceArrProps "UnpitchedSlides"  ) (parseInside' $ boolText childText)
-    ap_Vibrato           <- ap_Vibrato           =. childTag (inSpace cstSpaceArrProps "Vibrato"          ) (parseInside' $ boolText childText)
-    ap_BonusArr          <- ap_BonusArr          =. childTag (inSpace cstSpaceArrProps "BonusArr"         ) (parseInside' $ boolText childText)
-    ap_Metronome         <- ap_Metronome         =. childTag (inSpace cstSpaceArrProps "Metronome"        ) (parseInside' $ boolText childText)
-    ap_PathBass          <- ap_PathBass          =. childTag (inSpace cstSpaceArrProps "PathBass"         ) (parseInside' $ boolText childText)
-    ap_PathLead          <- ap_PathLead          =. childTag (inSpace cstSpaceArrProps "PathLead"         ) (parseInside' $ boolText childText)
-    ap_PathRhythm        <- ap_PathRhythm        =. childTag (inSpace cstSpaceArrProps "PathRhythm"       ) (parseInside' $ boolText childText)
-    ap_RouteMask         <- ap_RouteMask         =. childTag (inSpace cstSpaceArrProps "RouteMask"        ) (parseInside' $ intText childText)
+    ap_BarreChords       <- (.ap_BarreChords      ) =. childTag (inSpace cstSpaceArrProps "BarreChords"      ) (parseInside' $ boolText childText)
+    ap_BassPick          <- (.ap_BassPick         ) =. childTag (inSpace cstSpaceArrProps "BassPick"         ) (parseInside' $ boolText childText)
+    ap_Bends             <- (.ap_Bends            ) =. childTag (inSpace cstSpaceArrProps "Bends"            ) (parseInside' $ boolText childText)
+    ap_DoubleStops       <- (.ap_DoubleStops      ) =. childTag (inSpace cstSpaceArrProps "DoubleStops"      ) (parseInside' $ boolText childText)
+    ap_DropDPower        <- (.ap_DropDPower       ) =. childTag (inSpace cstSpaceArrProps "DropDPower"       ) (parseInside' $ boolText childText)
+    ap_FifthsAndOctaves  <- (.ap_FifthsAndOctaves ) =. childTag (inSpace cstSpaceArrProps "FifthsAndOctaves" ) (parseInside' $ boolText childText)
+    ap_FingerPicking     <- (.ap_FingerPicking    ) =. childTag (inSpace cstSpaceArrProps "FingerPicking"    ) (parseInside' $ boolText childText)
+    ap_FretHandMutes     <- (.ap_FretHandMutes    ) =. childTag (inSpace cstSpaceArrProps "FretHandMutes"    ) (parseInside' $ boolText childText)
+    ap_Harmonics         <- (.ap_Harmonics        ) =. childTag (inSpace cstSpaceArrProps "Harmonics"        ) (parseInside' $ boolText childText)
+    ap_Hopo              <- (.ap_Hopo             ) =. childTag (inSpace cstSpaceArrProps "Hopo"             ) (parseInside' $ boolText childText)
+    ap_NonStandardChords <- (.ap_NonStandardChords) =. childTag (inSpace cstSpaceArrProps "NonStandardChords") (parseInside' $ boolText childText)
+    ap_OpenChords        <- (.ap_OpenChords       ) =. childTag (inSpace cstSpaceArrProps "OpenChords"       ) (parseInside' $ boolText childText)
+    ap_PalmMutes         <- (.ap_PalmMutes        ) =. childTag (inSpace cstSpaceArrProps "PalmMutes"        ) (parseInside' $ boolText childText)
+    ap_PickDirection     <- (.ap_PickDirection    ) =. childTag (inSpace cstSpaceArrProps "PickDirection"    ) (parseInside' $ boolText childText)
+    ap_PinchHarmonics    <- (.ap_PinchHarmonics   ) =. childTag (inSpace cstSpaceArrProps "PinchHarmonics"   ) (parseInside' $ boolText childText)
+    ap_PowerChords       <- (.ap_PowerChords      ) =. childTag (inSpace cstSpaceArrProps "PowerChords"      ) (parseInside' $ boolText childText)
+    ap_Represent         <- (.ap_Represent        ) =. childTag (inSpace cstSpaceArrProps "Represent"        ) (parseInside' $ boolText childText)
+    ap_SlapPop           <- (.ap_SlapPop          ) =. childTag (inSpace cstSpaceArrProps "SlapPop"          ) (parseInside' $ boolText childText)
+    ap_Slides            <- (.ap_Slides           ) =. childTag (inSpace cstSpaceArrProps "Slides"           ) (parseInside' $ boolText childText)
+    ap_StandardTuning    <- (.ap_StandardTuning   ) =. childTag (inSpace cstSpaceArrProps "StandardTuning"   ) (parseInside' $ boolText childText)
+    ap_Sustain           <- (.ap_Sustain          ) =. childTag (inSpace cstSpaceArrProps "Sustain"          ) (parseInside' $ boolText childText)
+    ap_Syncopation       <- (.ap_Syncopation      ) =. childTag (inSpace cstSpaceArrProps "Syncopation"      ) (parseInside' $ boolText childText)
+    ap_Tapping           <- (.ap_Tapping          ) =. childTag (inSpace cstSpaceArrProps "Tapping"          ) (parseInside' $ boolText childText)
+    ap_Tremolo           <- (.ap_Tremolo          ) =. childTag (inSpace cstSpaceArrProps "Tremolo"          ) (parseInside' $ boolText childText)
+    ap_TwoFingerPicking  <- (.ap_TwoFingerPicking ) =. childTag (inSpace cstSpaceArrProps "TwoFingerPicking" ) (parseInside' $ boolText childText)
+    ap_UnpitchedSlides   <- (.ap_UnpitchedSlides  ) =. childTag (inSpace cstSpaceArrProps "UnpitchedSlides"  ) (parseInside' $ boolText childText)
+    ap_Vibrato           <- (.ap_Vibrato          ) =. childTag (inSpace cstSpaceArrProps "Vibrato"          ) (parseInside' $ boolText childText)
+    ap_BonusArr          <- (.ap_BonusArr         ) =. childTag (inSpace cstSpaceArrProps "BonusArr"         ) (parseInside' $ boolText childText)
+    ap_Metronome         <- (.ap_Metronome        ) =. childTag (inSpace cstSpaceArrProps "Metronome"        ) (parseInside' $ boolText childText)
+    ap_PathBass          <- (.ap_PathBass         ) =. childTag (inSpace cstSpaceArrProps "PathBass"         ) (parseInside' $ boolText childText)
+    ap_PathLead          <- (.ap_PathLead         ) =. childTag (inSpace cstSpaceArrProps "PathLead"         ) (parseInside' $ boolText childText)
+    ap_PathRhythm        <- (.ap_PathRhythm       ) =. childTag (inSpace cstSpaceArrProps "PathRhythm"       ) (parseInside' $ boolText childText)
+    ap_RouteMask         <- (.ap_RouteMask        ) =. childTag (inSpace cstSpaceArrProps "RouteMask"        ) (parseInside' $ intText childText)
     return ArrangementPropeties{..}
 
 data SongInfo = SongInfo
@@ -423,16 +425,16 @@ data SongInfo = SongInfo
 
 instance IsInside SongInfo where
   insideCodec = do
-    si_Album               <- si_Album               =. childTag (inSpace cstSpaceMain "Album"              ) (parseInside' childText)
-    si_AlbumSort           <- si_AlbumSort           =. childTag (inSpace cstSpaceMain "AlbumSort"          ) (parseInside' childText)
-    si_Artist              <- si_Artist              =. childTag (inSpace cstSpaceMain "Artist"             ) (parseInside' childText)
-    si_ArtistSort          <- si_ArtistSort          =. childTag (inSpace cstSpaceMain "ArtistSort"         ) (parseInside' childText)
-    si_AverageTempo        <- si_AverageTempo        =. childTag (inSpace cstSpaceMain "AverageTempo"       ) (parseInside' $ intText childText)
-    si_JapaneseArtistName  <- si_JapaneseArtistName  =. childTag (inSpace cstSpaceMain "JapaneseArtistName" ) (parseInside' childText)
-    si_JapaneseSongName    <- si_JapaneseSongName    =. childTag (inSpace cstSpaceMain "JapaneseSongName"   ) (parseInside' childText)
-    si_SongDisplayName     <- si_SongDisplayName     =. childTag (inSpace cstSpaceMain "SongDisplayName"    ) (parseInside' childText)
-    si_SongDisplayNameSort <- si_SongDisplayNameSort =. childTag (inSpace cstSpaceMain "SongDisplayNameSort") (parseInside' childText)
-    si_SongYear            <- si_SongYear            =. childTag (inSpace cstSpaceMain "SongYear"           ) (parseInside' $ intText childText)
+    si_Album               <- (.si_Album)               =. childTag (inSpace cstSpaceMain "Album"              ) (parseInside' childText)
+    si_AlbumSort           <- (.si_AlbumSort)           =. childTag (inSpace cstSpaceMain "AlbumSort"          ) (parseInside' childText)
+    si_Artist              <- (.si_Artist)              =. childTag (inSpace cstSpaceMain "Artist"             ) (parseInside' childText)
+    si_ArtistSort          <- (.si_ArtistSort)          =. childTag (inSpace cstSpaceMain "ArtistSort"         ) (parseInside' childText)
+    si_AverageTempo        <- (.si_AverageTempo)        =. childTag (inSpace cstSpaceMain "AverageTempo"       ) (parseInside' $ intText childText)
+    si_JapaneseArtistName  <- (.si_JapaneseArtistName)  =. childTag (inSpace cstSpaceMain "JapaneseArtistName" ) (parseInside' childText)
+    si_JapaneseSongName    <- (.si_JapaneseSongName)    =. childTag (inSpace cstSpaceMain "JapaneseSongName"   ) (parseInside' childText)
+    si_SongDisplayName     <- (.si_SongDisplayName)     =. childTag (inSpace cstSpaceMain "SongDisplayName"    ) (parseInside' childText)
+    si_SongDisplayNameSort <- (.si_SongDisplayNameSort) =. childTag (inSpace cstSpaceMain "SongDisplayNameSort") (parseInside' childText)
+    si_SongYear            <- (.si_SongYear)            =. childTag (inSpace cstSpaceMain "SongYear"           ) (parseInside' $ intText childText)
     return SongInfo{..}
 
 data AggregateGraph = AggregateGraph
@@ -444,9 +446,9 @@ data AggregateGraph = AggregateGraph
 instance IsInside AggregateGraph where
   insideCodec = do
     useNamespace Nothing cstSpaceAggGraph
-    ag_UUID    <- ag_UUID    =. childTag (inSpace cstSpaceAggGraph "UUID"   ) (parseInside' childText)
-    ag_File    <- ag_File    =. childTag (inSpace cstSpaceAggGraph "File"   ) (parseInside' childText)
-    ag_Version <- ag_Version =. childTag (inSpace cstSpaceAggGraph "Version") (parseInside' $ nillable childText)
+    ag_UUID    <- (.ag_UUID)    =. childTag (inSpace cstSpaceAggGraph "UUID"   ) (parseInside' childText)
+    ag_File    <- (.ag_File)    =. childTag (inSpace cstSpaceAggGraph "File"   ) (parseInside' childText)
+    ag_Version <- (.ag_Version) =. childTag (inSpace cstSpaceAggGraph "Version") (parseInside' $ nillable childText)
     return AggregateGraph{..}
 
 data ToolkitInfo = ToolkitInfo
@@ -459,11 +461,11 @@ data ToolkitInfo = ToolkitInfo
 
 instance IsInside ToolkitInfo where
   insideCodec = do
-    tk_PackageAuthor  <- tk_PackageAuthor  =. childTag (inSpace cstSpaceMain "PackageAuthor" ) (parseInside' $ nillable childText)
-    tk_PackageComment <- tk_PackageComment =. childTag (inSpace cstSpaceMain "PackageComment") (parseInside' $ nillable childText)
-    tk_PackageRating  <- tk_PackageRating  =. childTag (inSpace cstSpaceMain "PackageRating" ) (parseInside' $ nillable childText)
-    tk_PackageVersion <- tk_PackageVersion =. childTag (inSpace cstSpaceMain "PackageVersion") (parseInside' $ nillable childText)
-    tk_ToolkitVersion <- tk_ToolkitVersion =. childTag (inSpace cstSpaceMain "ToolkitVersion") (parseInside' $ nillable childText)
+    tk_PackageAuthor  <- (.tk_PackageAuthor)  =. childTag (inSpace cstSpaceMain "PackageAuthor" ) (parseInside' $ nillable childText)
+    tk_PackageComment <- (.tk_PackageComment) =. childTag (inSpace cstSpaceMain "PackageComment") (parseInside' $ nillable childText)
+    tk_PackageRating  <- (.tk_PackageRating)  =. childTag (inSpace cstSpaceMain "PackageRating" ) (parseInside' $ nillable childText)
+    tk_PackageVersion <- (.tk_PackageVersion) =. childTag (inSpace cstSpaceMain "PackageVersion") (parseInside' $ nillable childText)
+    tk_ToolkitVersion <- (.tk_ToolkitVersion) =. childTag (inSpace cstSpaceMain "ToolkitVersion") (parseInside' $ nillable childText)
     return ToolkitInfo{..}
 
 parseProject :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m DLCPackageData

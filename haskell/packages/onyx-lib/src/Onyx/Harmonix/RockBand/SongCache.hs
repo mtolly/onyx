@@ -285,7 +285,7 @@ applyDTA single entry = let
     , se_DrumFreestyle    = D.seqs $ D.drumFreestyle $ D.song pkg
     , se_Tracks           = do
       (inst, chans) <- matchOrder (map (.te_Instrument) entry.se_Tracks) $ do
-        (inst, chans) <- fromDictList $ D.tracks $ D.song pkg
+        (inst, chans) <- pkg.song.tracks.fromDictList
         case inst of
           "drum"   -> [(0, chans)]
           "guitar" -> [(1, chans)]
@@ -426,7 +426,7 @@ hardcodeSongCacheIDs pathCache pathCONs = do
   forM_ cons \pathCON -> inside pathCON $ errorToWarning do
     let fullPathCON = pathCONs </> pathCON
     hdrMeta <- errorToEither $ stackIO $ withSTFSPackage fullPathCON \pkg ->
-      return (stfsHeader pkg, stfsMetadata pkg)
+      return (pkg.stfsHeader, pkg.stfsMetadata)
     case hdrMeta of
       Right (CON _, meta) -> do
         topFolder <- stackIO $ getSTFSFolder fullPathCON
@@ -489,12 +489,12 @@ hardcodeSongCacheIDs pathCache pathCONs = do
               , folderSubfolders = newSubs
               }
           opts = CreateOptions
-            { createNames         = md_DisplayName meta
-            , createDescriptions  = md_DisplayDescription meta
-            , createTitleID       = md_TitleID meta
-            , createTitleName     = md_TitleName meta
-            , createThumb         = md_ThumbnailImage meta
-            , createTitleThumb    = md_TitleThumbnailImage meta
+            { createNames         = meta.md_DisplayName
+            , createDescriptions  = meta.md_DisplayDescription
+            , createTitleID       = meta.md_TitleID
+            , createTitleName     = meta.md_TitleName
+            , createThumb         = meta.md_ThumbnailImage
+            , createTitleThumb    = meta.md_TitleThumbnailImage
             , createLicenses      = [LicenseEntry (-1) 1 0] -- unlocked
             , createMediaID       = 0
             , createVersion       = 0

@@ -105,8 +105,8 @@ printOverdrive mid = do
 dtxRules :: BuildInfo -> FilePath -> TargetDTX FilePath -> QueueLog Rules ()
 dtxRules buildInfo dir dtx = do
 
-  let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
+  let songYaml = buildInfo.biSongYaml
+      rel = buildInfo.biRelative
       gen = biGen buildInfo
       metadata = getTargetMetadata songYaml $ DTX dtx
 
@@ -318,7 +318,7 @@ dtxRules buildInfo dir dtx = do
 _melodyRules :: BuildInfo -> FilePath -> TargetPart FilePath -> QueueLog Rules ()
 _melodyRules buildInfo dir tgt = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
       gen = biGen buildInfo
 
   (planName, _) <- case getPlan tgt.common.plan songYaml of

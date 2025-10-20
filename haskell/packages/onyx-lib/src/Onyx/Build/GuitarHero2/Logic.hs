@@ -66,10 +66,10 @@ gh2Pad rb3@(F.Song tmap _ trks) = let
     Just ((dt, _), _) -> dt
     Nothing           -> 999
   firstNoteBeats = foldr min 999 $ concat
-    [ map (firstEvent . partGems) $ Map.elems $ partDifficulties $ gh2PartGuitar     trks
-    , map (firstEvent . partGems) $ Map.elems $ partDifficulties $ gh2PartBass       trks
-    , map (firstEvent . partGems) $ Map.elems $ partDifficulties $ gh2PartRhythm     trks
-    , map (firstEvent . partGems) $ Map.elems $ partDifficulties $ gh2PartGuitarCoop trks
+    [ map (firstEvent . (.partGems)) $ Map.elems trks.gh2PartGuitar.partDifficulties
+    , map (firstEvent . (.partGems)) $ Map.elems trks.gh2PartBass.partDifficulties
+    , map (firstEvent . (.partGems)) $ Map.elems trks.gh2PartRhythm.partDifficulties
+    , map (firstEvent . (.partGems)) $ Map.elems trks.gh2PartGuitarCoop.partDifficulties
     ]
   firstNoteSeconds = U.applyTempoMap tmap firstNoteBeats
   -- no idea but just going with similar value to what Magma enforces for RB
@@ -336,8 +336,8 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
       events = mempty
         { eventsSections      = fmap (makeGH2Section . sectionBody) onyx.onyxEvents.eventsSections
         , eventsOther         = foldr RTB.merge RTB.empty
-          [ RTB.cons (timingMusicStart timing) MusicStart RTB.empty
-          , RTB.cons (timingEnd        timing) End        RTB.empty
+          [ RTB.cons timing.timingMusicStart MusicStart RTB.empty
+          , RTB.cons timing.timingEnd        End        RTB.empty
           ]
         }
       triggers = mempty

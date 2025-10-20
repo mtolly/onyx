@@ -1,12 +1,14 @@
 {- |
 BAND DRUMS
 -}
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH2.BandDrums where
 
 import           Control.Monad.Codec
@@ -38,16 +40,16 @@ instance TraverseTrack BandDrumsTrack where
 
 instance ParseTrack BandDrumsTrack where
   parseTrack = do
-    drumsKick <- drumsKick =. blip 36
-    drumsCrash <- drumsCrash =. blip 37
+    drumsKick <- (.drumsKick) =. blip 36
+    drumsCrash <- (.drumsCrash) =. blip 37
     -- Laughtrack has 48 and 49, I think they are Kick and Crash (mistakenly up an octave)
-    drumsMystery65 <- drumsMystery65 =. blip 65
-    drumsTempo   <- drumsTempo   =. command
-    drumsIdle    <- drumsIdle    =. commandMatch ["idle"]
-    drumsPlay    <- drumsPlay    =. commandMatch ["play"]
-    drumsNoBeat  <- drumsNoBeat  =. commandMatch ["nobeat"]
-    drumsAllBeat <- drumsAllBeat =. commandMatch ["allbeat"] -- Jessica has [all_beat], soy bomb has [allplay]
-    drumsHalfTime  <- drumsHalfTime  =. commandMatch ["half_time"] -- new black has [halftime]
-    drumsDoubleTime  <- drumsDoubleTime  =. commandMatch ["double_time"] -- Who Was In My Room has [doubletime]
+    drumsMystery65 <- (.drumsMystery65) =. blip 65
+    drumsTempo   <- (.drumsTempo)   =. command
+    drumsIdle    <- (.drumsIdle)    =. commandMatch ["idle"]
+    drumsPlay    <- (.drumsPlay)    =. commandMatch ["play"]
+    drumsNoBeat  <- (.drumsNoBeat)  =. commandMatch ["nobeat"]
+    drumsAllBeat <- (.drumsAllBeat) =. commandMatch ["allbeat"] -- Jessica has [all_beat], soy bomb has [allplay]
+    drumsHalfTime  <- (.drumsHalfTime)  =. commandMatch ["half_time"] -- new black has [halftime]
+    drumsDoubleTime  <- (.drumsDoubleTime)  =. commandMatch ["double_time"] -- Who Was In My Room has [doubletime]
     -- War Pigs has [double]
     return BandDrumsTrack{..}

@@ -4,10 +4,10 @@
 {-# LANGUAGE DeriveFunctor            #-}
 {-# LANGUAGE DeriveTraversable        #-}
 {-# LANGUAGE EmptyCase                #-}
-{-# LANGUAGE FlexibleContexts         #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE MultiWayIf               #-}
+{-# LANGUAGE NoFieldSelectors         #-}
 {-# LANGUAGE OverloadedRecordDot      #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PatternSynonyms          #-}
@@ -388,10 +388,10 @@ data MaskSections
 seamsToSections :: [T.Text] -> [Seam Frames] -> MaskSections
 seamsToSections tags seams = let
   seams1 :: [(Frames, Frames, Bool)]
-  seams1 = flip map (sortOn seamCenter seams) $ \seam ->
-    ( seamCenter seam - (seamFade seam `quot` 2) -- seam start
-    , seamFade seam -- seam length
-    , seamTag seam `elem` tags -- is audio active after seam
+  seams1 = flip map (sortOn (.seamCenter) seams) $ \seam ->
+    ( seam.seamCenter - (seam.seamFade `quot` 2) -- seam start
+    , seam.seamFade -- seam length
+    , seam.seamTag `elem` tags -- is audio active after seam
     )
   go _   st [] = MaskEnd st
   go now st ((start, len, st') : rest) = MaskStay st (start - now) $ if st == st'

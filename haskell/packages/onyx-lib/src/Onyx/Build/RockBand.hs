@@ -145,7 +145,7 @@ moggToStandardPlan planName info = StandardPlanInfo
 
 rbRules :: BuildInfo -> FilePath -> TargetRB3 FilePath -> Maybe (TargetRB2 FilePath) -> QueueLog Rules ()
 rbRules buildInfo dir rb3 mrb2 = do
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
       thisFullGenre = fullGenre songYaml.metadata
 
   let pkg :: (IsString a) => a
@@ -754,7 +754,7 @@ rbRules buildInfo dir rb3 mrb2 = do
               , Magma.pan = [0]
               , Magma.vol = [0]
               }
-            makeDummyKeep af = case Magma.channels af of
+            makeDummyKeep af = case af.channels of
               1 -> af
                 { Magma.audioFile = "dummy-mono.wav"
                 }
@@ -765,38 +765,39 @@ rbRules buildInfo dir rb3 mrb2 = do
                 , Magma.vol = [0, 0]
                 }
         liftIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) p
-          { Magma.project = (Magma.project p)
+          { Magma.project = p.project
             { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
-            , Magma.midi = (Magma.midi $ Magma.project p)
+            , Magma.midi = p.project.midi
               { Magma.midiFile = "notes-v1.mid"
               }
             , Magma.projectVersion = 5
             , Magma.languages = let
-                lang s = elem s songYaml.metadata.languages
-                eng = lang "English"
-                fre = lang "French"
-                ita = lang "Italian"
-                spa = lang "Spanish"
-                in Magma.Languages
-                  { Magma.english  = Just $ eng || not (or [eng, fre, ita, spa])
-                  , Magma.french   = Just fre
-                  , Magma.italian  = Just ita
-                  , Magma.spanish  = Just spa
-                  , Magma.german   = Nothing
-                  , Magma.japanese = Nothing
-                  }
-            , Magma.dryVox = (Magma.dryVox $ Magma.project p)
+              lang :: T.Text -> Bool
+              lang s = elem s songYaml.metadata.languages
+              eng = lang "English"
+              fre = lang "French"
+              ita = lang "Italian"
+              spa = lang "Spanish"
+              in Magma.Languages
+                { Magma.english  = Just $ eng || not (or [eng, fre, ita, spa])
+                , Magma.french   = Just fre
+                , Magma.italian  = Just ita
+                , Magma.spanish  = Just spa
+                , Magma.german   = Nothing
+                , Magma.japanese = Nothing
+                }
+            , Magma.dryVox = p.project.dryVox
               { Magma.dryVoxFileRB2 = Just "dryvox-sine.wav"
               }
-            , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
-            , Magma.metadata = (Magma.metadata $ Magma.project p)
+            , Magma.tracks = makeDummy p.project.tracks
+            , Magma.metadata = p.project.metadata
               { Magma.genre = thisFullGenre.rbn1Genre
               , Magma.subGenre = "subgenre_" <> thisFullGenre.rbn1Subgenre
-              , Magma.author = T.strip $ T.take 75 $ Magma.author $ Magma.metadata $ Magma.project p
+              , Magma.author = T.strip $ T.take 75 p.project.metadata.author
               -- Magma v1 (but not v2) complains if track number is over 99
-              , Magma.trackNumber = min 99 $ Magma.trackNumber $ Magma.metadata $ Magma.project p
+              , Magma.trackNumber = min 99 p.project.metadata.trackNumber
               }
-            , Magma.gamedata = (Magma.gamedata $ Magma.project p)
+            , Magma.gamedata = p.project.gamedata
               { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
               }
             }
@@ -846,7 +847,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             rb2Milo = dir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
             rb2Pan = dir </> "rb2/songs" </> pkg </> pkg <.> "pan"
             fixDict = HM.fromList . fixAssoc . HM.toList
-            fixDictList = D.DictList . fixAssoc . D.fromDictList
+            fixDictList = D.DictList . fixAssoc . (.fromDictList)
             fixAssoc = mapMaybe \(k, v) -> case k of
               "guitar" -> Just (k, v)
               "bass"   -> Just (k, v)
@@ -1386,8 +1387,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.albumName = albumName
     , D.albumTrackNumber = fromIntegral <$> metadata.trackNumber
     , D.packName = Nothing
-    , D.vocalTonicNote = songKey      <$> metadata.key
-    , D.songTonality   = songTonality <$> metadata.key
+    , D.vocalTonicNote = (.songKey     ) <$> metadata.key
+    , D.songTonality   = (.songTonality) <$> metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
     , D.realGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) $ \pg ->
@@ -1455,7 +1456,7 @@ makeC3 songYaml plan rb3 midi pkg (pstart, _) = do
     , C3.disableProKeys = case getPart rb3.keys songYaml of
       Nothing   -> False
       Just part -> isJust part.grybo && isNothing part.proKeys
-    , C3.tonicNote = fmap songKey metadata.key
+    , C3.tonicNote = (.songKey) <$> metadata.key
     , C3.tuningCents = 0
     , C3.songRating = fromEnum metadata.rating + 1
     , C3.drumKitSFX = maybe 0 (fromEnum . (.kit)) $ getPart rb3.drums songYaml >>= (.drums)

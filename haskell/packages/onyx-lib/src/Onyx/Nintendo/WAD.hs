@@ -2,9 +2,11 @@
 Ported from RawkSD
 https://github.com/AerialX/rawksd/blob/f97aef64cbcc66/consolehaxx/ConsoleHaxx.Wii/WAD.cs
 -}
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Nintendo.WAD where
 
 import           Control.Monad
@@ -187,35 +189,35 @@ getWAD :: Get WAD
 getWAD = do
   wadHeader           <- getWADHeader
   skipToMultiple 0x40
-  wadCertificateChain <- getByteString $ fromIntegral $ wadCertificateChainSize wadHeader
+  wadCertificateChain <- getByteString $ fromIntegral wadHeader.wadCertificateChainSize
   skipToMultiple 0x40
   wadTicket           <- getTicket
   skipToMultiple 0x40
   wadTMD              <- getTMD
   skipToMultiple 0x40
-  wadEncrypted        <- getByteString $ fromIntegral $ wadDataSize wadHeader
+  wadEncrypted        <- getByteString $ fromIntegral wadHeader.wadDataSize
   skipToMultiple 0x40
-  wadFooter           <- getByteString $ fromIntegral $ wadFooterSize wadHeader
+  wadFooter           <- getByteString $ fromIntegral wadHeader.wadFooterSize
   return WAD{..}
 
 getKey :: (MonadFail m) => WAD -> m B.ByteString
 getKey wad = do
-  commonKey <- case B.unpack $ B.take 1 $ B.drop 0xB $ ticketUnknown3 $ wadTicket wad of
+  commonKey <- case B.unpack $ B.take 1 $ B.drop 0xB $ wad.wadTicket.ticketUnknown3 of
     -- common key
     [0] -> return $ B.pack [0xeb, 0xe4, 0x2a, 0x22, 0x5e, 0x85, 0x93, 0xe4, 0x48, 0xd9, 0xc5, 0x45, 0x73, 0x81, 0xaa, 0xf7]
     -- korean common key
     [1] -> return $ B.pack [0x63, 0xb8, 0x2b, 0xb4, 0xf4, 0x61, 0x4e, 0x2e, 0x13, 0xf2, 0xfe, 0xfb, 0xba, 0x4c, 0x9b, 0x7e]
     _   -> fail "Unrecognized key parameter"
-  Just iv <- return $ makeIV $ BL.toStrict (runPut $ putWord64be $ ticketTitleID $ wadTicket wad) <> B.replicate 8 0
+  Just iv <- return $ makeIV $ BL.toStrict (runPut $ putWord64be wad.wadTicket.ticketTitleID) <> B.replicate 8 0
   CryptoPassed cipher <- return $ cipherInit commonKey
-  return $ cbcDecrypt (cipher :: AES128) iv $ ticketEncryptedKey $ wadTicket wad
+  return $ cbcDecrypt (cipher :: AES128) iv wad.wadTicket.ticketEncryptedKey
 
 getDecryptedData :: (MonadFail m) => WAD -> m B.ByteString
 getDecryptedData wad = do
   Just iv <- return $ makeIV $ B.replicate 0x10 0
   key <- getKey wad
   CryptoPassed cipher <- return $ cipherInit key
-  return $ cbcDecrypt (cipher :: AES128) iv $ wadEncrypted wad
+  return $ cbcDecrypt (cipher :: AES128) iv wad.wadEncrypted
 
 {-
 
@@ -280,9 +282,9 @@ Our hack import process:
 hackSplitU8s :: (MonadFail m) => WAD -> m (B.ByteString, [(B.ByteString, Folder B.ByteString BL.ByteString)])
 hackSplitU8s wad = do
   dec <- getDecryptedData wad
-  firstSize <- case tmdContents $ wadTMD wad of
+  firstSize <- case wad.wadTMD.tmdContents of
     []    -> fail "No TMD contents"
-    x : _ -> return $ tcSize x
+    x : _ -> return x.tcSize
   let firstData = B.take (fromIntegral firstSize) dec
       afterFirstData = B.drop (fromIntegral $ roundUpToMultiple 0x40 firstSize) dec
       getU8s bs = if B.null bs

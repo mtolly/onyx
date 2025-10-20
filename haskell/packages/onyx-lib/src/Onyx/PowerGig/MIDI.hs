@@ -1,10 +1,12 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.PowerGig.MIDI where
 
 import           Control.Monad.Codec
@@ -43,39 +45,39 @@ data GuitarDifficulty t = GuitarDifficulty
 instance ParseTrack GuitarDifficulty where
   parseTrack = do
     let allGems = Nothing : map Just each
-    guitarGems <- (guitarGems =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+    guitarGems <- ((.guitarGems) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
       Nothing          -> 60
       Just Five.Green  -> 62
       Just Five.Red    -> 64
       Just Five.Yellow -> 65
       Just Five.Blue   -> 67
       Just Five.Orange -> 69
-    guitarPowerChordsGRYBO <- (guitarPowerChordsGRYBO =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+    guitarPowerChordsGRYBO <- ((.guitarPowerChordsGRYBO) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
       Nothing          -> 96
       Just Five.Green  -> 98
       Just Five.Red    -> 100
       Just Five.Yellow -> 101
       Just Five.Blue   -> 103
       Just Five.Orange -> 105
-    guitarPowerChordsE <- (guitarPowerChordsE =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+    guitarPowerChordsE <- ((.guitarPowerChordsE) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
       Nothing          -> 108
       Just Five.Green  -> 109
       Just Five.Red    -> 110
       Just Five.Yellow -> 111
       Just Five.Blue   -> 112
       Just Five.Orange -> 113
-    guitarPowerChordsA <- (guitarPowerChordsA =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+    guitarPowerChordsA <- ((.guitarPowerChordsA) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
       Nothing          -> 114
       Just Five.Green  -> 115
       Just Five.Red    -> 116
       Just Five.Yellow -> 117
       Just Five.Blue   -> 118
       Just Five.Orange -> 119
-    guitarHOPO           <- guitarHOPO           =. controllerBool 68 -- "legato pedal"
-    guitarPowerChordMode <- guitarPowerChordMode =. controllerBool 86
-    guitarMojoDrummer    <- guitarMojoDrummer    =. controllerBool 81
-    guitarMojoVocalist   <- guitarMojoVocalist   =. controllerBool 82
-    guitarController7    <- guitarController7    =. controller_ 7
+    guitarHOPO           <- (.guitarHOPO)           =. controllerBool 68 -- "legato pedal"
+    guitarPowerChordMode <- (.guitarPowerChordMode) =. controllerBool 86
+    guitarMojoDrummer    <- (.guitarMojoDrummer)    =. controllerBool 81
+    guitarMojoVocalist   <- (.guitarMojoVocalist)   =. controllerBool 82
+    guitarController7    <- (.guitarController7)    =. controller_ 7
     return GuitarDifficulty{..}
 
 data DrumDifficulty t = DrumDifficulty
@@ -92,23 +94,23 @@ data DrumDifficulty t = DrumDifficulty
 instance ParseTrack DrumDifficulty where
   parseTrack = do
     let allDrums = [D.Kick, D.Red, D.Pro D.Yellow (), D.Pro D.Blue (), D.Pro D.Green ()]
-    drumGems <- (drumGems =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
+    drumGems <- ((.drumGems) =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
       D.Pro D.Green  () -> 62
       D.Red             -> 64
       D.Pro D.Yellow () -> 65
       D.Pro D.Blue   () -> 67
       D.Kick            -> 69
       D.Orange          -> error "panic! orange case in powergig drums"
-    drumFreeGems <- (drumFreeGems =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
+    drumFreeGems <- ((.drumFreeGems) =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
       D.Pro D.Green  () -> 86
       D.Red             -> 88
       D.Pro D.Yellow () -> 89
       D.Pro D.Blue   () -> 91
       D.Kick            -> 93
       D.Orange          -> error "panic! orange case in powergig drums"
-    drumMojoGuitarist <- drumMojoGuitarist =. controllerBool 80
-    drumMojoVocalist  <- drumMojoVocalist  =. controllerBool 82
-    drumFreestyle     <- drumFreestyle     =. controllerBool 64
+    drumMojoGuitarist <- (.drumMojoGuitarist) =. controllerBool 80
+    drumMojoVocalist  <- (.drumMojoVocalist)  =. controllerBool 82
+    drumFreestyle     <- (.drumFreestyle)     =. controllerBool 64
     return DrumDifficulty{..}
 
 data VocalDifficulty t = VocalDifficulty
@@ -126,15 +128,15 @@ data VocalDifficulty t = VocalDifficulty
 
 instance ParseTrack VocalDifficulty where
   parseTrack = do
-    vocalNotes             <- vocalNotes             =. condenseMap (eachKey each $ edges . (+ 36) . fromEnum)
-    vocalTalkies           <- vocalTalkies           =. edges 0
-    vocalLyrics            <- vocalLyrics            =. lyrics
-    vocalPhraseEnd         <- vocalPhraseEnd         =. powerGigText "\\r"
-    vocalUnknownBackslashN <- vocalUnknownBackslashN =. powerGigText "\\n"
-    vocalFreestyle         <- vocalFreestyle         =. controllerBool 64 -- "hold pedal"
-    vocalGlue              <- vocalGlue              =. controllerBool 68 -- "legato pedal"
-    vocalMojoGuitarist     <- vocalMojoGuitarist     =. controllerBool 80
-    vocalMojoDrummer       <- vocalMojoDrummer       =. controllerBool 81
+    vocalNotes             <- (.vocalNotes)             =. condenseMap (eachKey each $ edges . (+ 36) . fromEnum)
+    vocalTalkies           <- (.vocalTalkies)           =. edges 0
+    vocalLyrics            <- (.vocalLyrics)            =. lyrics
+    vocalPhraseEnd         <- (.vocalPhraseEnd)         =. powerGigText "\\r"
+    vocalUnknownBackslashN <- (.vocalUnknownBackslashN) =. powerGigText "\\n"
+    vocalFreestyle         <- (.vocalFreestyle)         =. controllerBool 64 -- "hold pedal"
+    vocalGlue              <- (.vocalGlue)              =. controllerBool 68 -- "legato pedal"
+    vocalMojoGuitarist     <- (.vocalMojoGuitarist)     =. controllerBool 80
+    vocalMojoDrummer       <- (.vocalMojoDrummer)       =. controllerBool 81
     return VocalDifficulty{..}
 
 data BeatTrack t = BeatTrack
@@ -147,11 +149,11 @@ instance ParseTrack BeatTrack where
     -- these can be any pitch apparently
     Codec
       { codecIn = lift $ modify \mt -> mt
-        { midiNotes = Map.singleton (toPitch 60) $ mconcat $ Map.elems $ midiNotes mt
+        { midiNotes = Map.singleton (toPitch 60) $ mconcat $ Map.elems mt.midiNotes
         }
       , codecOut = const $ return ()
       }
-    beatLines <- beatLines =. blip 60
+    beatLines <- (.beatLines) =. blip 60
     return BeatTrack{..}
 
 data PGFile t = PGFile
@@ -185,28 +187,28 @@ data PGFile t = PGFile
 instance F.ParseFile PGFile where
   parseFile = do
 
-    pgGuitarBeginner <- pgGuitarBeginner =. F.fileTrack (pure "guitar_1_beginner")
-    pgGuitarEasy     <- pgGuitarEasy     =. F.fileTrack (pure "guitar_1_easy"    )
-    pgGuitarMedium   <- pgGuitarMedium   =. F.fileTrack (pure "guitar_1_medium"  )
-    pgGuitarHard     <- pgGuitarHard     =. F.fileTrack (pure "guitar_1_hard"    )
-    pgGuitarExpert   <- pgGuitarExpert   =. F.fileTrack (pure "guitar_1_expert"  )
-    pgGuitarMaster   <- pgGuitarMaster   =. F.fileTrack (pure "guitar_1_master"  )
+    pgGuitarBeginner <- (.pgGuitarBeginner) =. F.fileTrack (pure "guitar_1_beginner")
+    pgGuitarEasy     <- (.pgGuitarEasy)     =. F.fileTrack (pure "guitar_1_easy"    )
+    pgGuitarMedium   <- (.pgGuitarMedium)   =. F.fileTrack (pure "guitar_1_medium"  )
+    pgGuitarHard     <- (.pgGuitarHard)     =. F.fileTrack (pure "guitar_1_hard"    )
+    pgGuitarExpert   <- (.pgGuitarExpert)   =. F.fileTrack (pure "guitar_1_expert"  )
+    pgGuitarMaster   <- (.pgGuitarMaster)   =. F.fileTrack (pure "guitar_1_master"  )
 
-    pgDrumsBeginner <- pgDrumsBeginner =. F.fileTrack (pure "drums_1_beginner")
-    pgDrumsEasy     <- pgDrumsEasy     =. F.fileTrack (pure "drums_1_easy"    )
-    pgDrumsMedium   <- pgDrumsMedium   =. F.fileTrack (pure "drums_1_medium"  )
-    pgDrumsHard     <- pgDrumsHard     =. F.fileTrack (pure "drums_1_hard"    )
-    pgDrumsExpert   <- pgDrumsExpert   =. F.fileTrack (pure "drums_1_expert"  )
-    pgDrumsMaster   <- pgDrumsMaster   =. F.fileTrack (pure "drums_1_master"  )
+    pgDrumsBeginner <- (.pgDrumsBeginner) =. F.fileTrack (pure "drums_1_beginner")
+    pgDrumsEasy     <- (.pgDrumsEasy)     =. F.fileTrack (pure "drums_1_easy"    )
+    pgDrumsMedium   <- (.pgDrumsMedium)   =. F.fileTrack (pure "drums_1_medium"  )
+    pgDrumsHard     <- (.pgDrumsHard)     =. F.fileTrack (pure "drums_1_hard"    )
+    pgDrumsExpert   <- (.pgDrumsExpert)   =. F.fileTrack (pure "drums_1_expert"  )
+    pgDrumsMaster   <- (.pgDrumsMaster)   =. F.fileTrack (pure "drums_1_master"  )
 
-    pgVocalsBeginner <- pgVocalsBeginner =. F.fileTrack (pure "vocals_1_beginner")
-    pgVocalsEasy     <- pgVocalsEasy     =. F.fileTrack (pure "vocals_1_easy"    )
-    pgVocalsMedium   <- pgVocalsMedium   =. F.fileTrack (pure "vocals_1_medium"  )
-    pgVocalsHard     <- pgVocalsHard     =. F.fileTrack (pure "vocals_1_hard"    )
-    pgVocalsExpert   <- pgVocalsExpert   =. F.fileTrack (pure "vocals_1_expert"  )
-    pgVocalsMaster   <- pgVocalsMaster   =. F.fileTrack (pure "vocals_1_master"  )
+    pgVocalsBeginner <- (.pgVocalsBeginner) =. F.fileTrack (pure "vocals_1_beginner")
+    pgVocalsEasy     <- (.pgVocalsEasy)     =. F.fileTrack (pure "vocals_1_easy"    )
+    pgVocalsMedium   <- (.pgVocalsMedium)   =. F.fileTrack (pure "vocals_1_medium"  )
+    pgVocalsHard     <- (.pgVocalsHard)     =. F.fileTrack (pure "vocals_1_hard"    )
+    pgVocalsExpert   <- (.pgVocalsExpert)   =. F.fileTrack (pure "vocals_1_expert"  )
+    pgVocalsMaster   <- (.pgVocalsMaster)   =. F.fileTrack (pure "vocals_1_master"  )
 
-    pgBeat <- pgBeat =. F.fileTrack (pure "beat")
+    pgBeat <- (.pgBeat) =. F.fileTrack (pure "beat")
 
     return PGFile{..}
 

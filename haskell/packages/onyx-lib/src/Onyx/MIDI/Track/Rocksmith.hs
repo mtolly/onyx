@@ -456,26 +456,26 @@ initialAnchor capo consts = let
 autoAnchors :: [Note] -> Int -> [(ChordTemplate, U.Seconds, U.Seconds)] -> Map.Map U.Seconds (GtrFret, GtrFret)
 autoAnchors allNotes capo shapes = let
   noteConstraints = ATB.fromPairList $ sort $ allNotes >>= \note ->
-    case n_fret note of
-      0 -> [(n_time note, FretZero)]
-      _ -> case n_sustain note of
-        Nothing -> [(n_time note, FretBlip (NoteString $ n_string note) (n_fret note))]
+    case note.n_fret of
+      0 -> [(note.n_time, FretZero)]
+      _ -> case note.n_sustain of
+        Nothing -> [(note.n_time, FretBlip (NoteString note.n_string) note.n_fret)]
         Just sust -> concat
-          [ [(n_time note, FretHold (NoteString $ n_string note) (n_fret note))]
-          , [(n_time note <> sust, FretRelease $ NoteString $ n_string note)]
-          , case n_slideTo note <|> n_slideUnpitchTo note of
-            Just slide -> [(n_time note <> sust, FretBlip (NoteString $ n_string note) slide)]
+          [ [(note.n_time, FretHold (NoteString note.n_string) note.n_fret)]
+          , [(note.n_time <> sust, FretRelease $ NoteString note.n_string)]
+          , case note.n_slideTo <|> note.n_slideUnpitchTo of
+            Just slide -> [(note.n_time <> sust, FretBlip (NoteString note.n_string) slide)]
             Nothing -> []
           ]
   shapeConstraints = ATB.fromPairList $ sort $ shapes >>= \(template, tstart, tend) -> let
     pairs = do
       (str, mfret) <-
-        [ (0, ct_fret0 template)
-        , (1, ct_fret1 template)
-        , (2, ct_fret2 template)
-        , (3, ct_fret3 template)
-        , (4, ct_fret4 template)
-        , (5, ct_fret5 template)
+        [ (0, template.ct_fret0)
+        , (1, template.ct_fret1)
+        , (2, template.ct_fret2)
+        , (3, template.ct_fret3)
+        , (4, template.ct_fret4)
+        , (5, template.ct_fret5)
         ]
       fret <- toList mfret
       guard $ fret /= 0
@@ -524,7 +524,7 @@ backportAnchors tmap trk rso = let
     $ RTB.fromAbsoluteEventList
     $ ATB.fromPairList
     $ sort
-    $ map (\a -> (an_time a, (an_fret a, an_fret a + an_width a - 1)))
+    $ map (\a -> (a.an_time, (a.an_fret, a.an_fret + a.an_width - 1)))
     $ toList rso.rso_level.lvl_anchors
   in trk
     { rsAnchorLow  = fmap fst anchors
@@ -732,13 +732,13 @@ buildRS tmap capo trk = do
               triple <- noteGroup
               let note = makeNote t triple
               return note
-                { n_leftHand = case n_string note of
-                  0 -> ct_finger0 template
-                  1 -> ct_finger1 template
-                  2 -> ct_finger2 template
-                  3 -> ct_finger3 template
-                  4 -> ct_finger4 template
-                  5 -> ct_finger5 template
+                { n_leftHand = case note.n_string of
+                  0 -> template.ct_finger0
+                  1 -> template.ct_finger1
+                  2 -> template.ct_finger2
+                  3 -> template.ct_finger3
+                  4 -> template.ct_finger4
+                  5 -> template.ct_finger5
                   _ -> Nothing
                 }
         return $ Right (template, madeNotes)
@@ -821,15 +821,15 @@ buildRS tmap capo trk = do
       , lvl_chords        = V.fromList do
         Right (template, notes) <- notesAndChords
         return Chord
-          { chd_time         = n_time $ head notes
+          { chd_time         = (head notes).n_time
           , chd_chordId      = fromMaybe (-1) $ Map.lookup template chordTemplateIndexes
-          , chd_accent       = all n_accent notes
+          , chd_accent       = all (.n_accent) notes
           , chd_highDensity  = False -- TODO what does this do exactly? is it visual or scoring?
-          , chd_palmMute     = all n_palmMute notes
-          , chd_fretHandMute = all n_mute notes
-          , chd_linkNext     = all n_linkNext notes
+          , chd_palmMute     = all (.n_palmMute) notes
+          , chd_fretHandMute = all (.n_mute) notes
+          , chd_linkNext     = all (.n_linkNext) notes
           , chd_chordNotes   = V.fromList notes
-          , chd_ignore       = all n_ignore notes
+          , chd_ignore       = all (.n_ignore) notes
           , chd_hopo         = False -- is this required?
           , chd_strum        = Nothing -- TODO get from n_pickDirection
           }

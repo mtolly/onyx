@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
@@ -61,7 +62,7 @@ gh1Pad rb3@(F.Song tmap _ trks) = let
   firstEvent rtb = case RTB.viewL rtb of
     Just ((dt, _), _) -> dt
     Nothing           -> 999
-  firstNoteBeats = foldr min 999 $ map (firstEvent . partGems) $ Map.elems $ gemsDifficulties $ gh1T1Gems trks
+  firstNoteBeats = foldr min 999 $ map (firstEvent . (.partGems)) $ Map.elems trks.gh1T1Gems.gemsDifficulties
   firstNoteSeconds = U.applyTempoMap tmap firstNoteBeats
   -- no idea but just going with similar value to what Magma enforces for RB
   padSeconds = max 0 $ ceiling $ 2.6 - (realToFrac firstNoteSeconds :: Rational)
@@ -174,12 +175,12 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         = makePlayBools result.other.fiveMood
         $ maybe mempty (splitEdges . fmap (\((fret, sht), len) -> (fret, sht, len)))
         $ Map.lookup Expert result.notes
-  guitarResult <- getLeadData $ gh1LeadTrack audio
-  leadDiffs <- makeDiffs (gh1LeadTrack audio) guitarResult
+  guitarResult <- getLeadData audio.gh1LeadTrack
+  leadDiffs <- makeDiffs audio.gh1LeadTrack guitarResult
   gh1Pad $ F.Song tmap mmap GH1File
     { gh1T1Gems   = GemsTrack
       { gemsDifficulties = leadDiffs
-      , gemsMouthOpen    = case gh1AnimVocal audio of
+      , gemsMouthOpen    = case audio.gh1AnimVocal of
         Nothing   -> RTB.empty
         Just part -> fmap snd (F.getFlexPart part onyx).onyxPartVocals.vocalNotes
       }
@@ -202,7 +203,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
       { eventsList = foldr RTB.merge RTB.empty
         [ fmap (\b -> if b then Event_gtr_on else Event_gtr_off)
           $ fiveResultMoods guitarResult
-        , case gh1AnimVocal audio of
+        , case audio.gh1AnimVocal of
           Nothing -> RTB.empty
           Just part -> let
             trk = (F.getFlexPart part onyx).onyxPartVocals
@@ -212,29 +213,29 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
               $ trk.vocalNotes
         , fmap (\b -> if b then Event_bass_on else Event_bass_off)
           $ maybe RTB.empty fiveResultMoods
-          $ gh1AnimBass audio >>= getFive
+          $ audio.gh1AnimBass >>= getFive
         , fmap (\b -> if b then Event_keys_on else Event_keys_off)
           $ maybe RTB.empty fiveResultMoods
-          $ gh1AnimKeys audio >>= getFive
-        , case gh1AnimDrums audio of
+          $ audio.gh1AnimKeys >>= getFive
+        , case audio.gh1AnimDrums of
           Nothing -> RTB.empty
           Just part -> let
             trk = (F.getFlexPart part onyx).onyxPartDrums
             anims = (RB.fillDrumAnimation (0.25 :: U.Seconds) tmap trk).drumAnimation
             in fmap (\b -> if b then Event_drum_on else Event_drum_off)
               $ makePlayBools trk.drumMood $ Blip () () <$ anims
-        , RTB.singleton (timingEnd timing) Event_end
+        , RTB.singleton timing.timingEnd Event_end
         ]
       }
     }
 
 bandMembers :: SongYaml f -> GH1Audio -> Maybe [Either D.BandMember T.Text]
 bandMembers song audio = let
-  vocal = case gh1AnimVocal audio of
+  vocal = case audio.gh1AnimVocal of
     Nothing    -> Nothing
     Just fpart -> Just $ fromMaybe Magma.Male $ getPart fpart song >>= (.vocal) >>= (.gender)
   bass = True -- we'll just assume there's always a bassist, don't know if required (all songs on disc have one)
-  keys = isJust $ gh1AnimKeys audio
+  keys = isJust audio.gh1AnimKeys
   drums = True -- gh2 crashes if missing, haven't tested gh1 but likely the same
   in case (vocal, bass, keys, drums) of
     (Just Magma.Male, True, False, True) -> Nothing -- the default configuration
@@ -252,20 +253,20 @@ makeGH1DTA song key preview audio gh1 = D.SongPackage
   , D.song = D.Song
     { D.songName = "songs/" <> key <> "/" <> key
     , D.tracks = 1
-    , D.slip_tracks = [map fromIntegral $ gh1LeadChannels audio]
+    , D.slip_tracks = [map fromIntegral audio.gh1LeadChannels]
     -- note, we don't actually use GH2PartMono
-    , D.pans = gh1AudioSections audio >>= \case
+    , D.pans = audio.gh1AudioSections >>= \case
       GH2PartStereo _ -> [-1, 1]
       GH2PartMono   _ -> [0]
       GH2Band         -> [-1, 1]
       GH2Silent       -> [0]
-    , D.vols = gh1AudioSections audio >>= \case
+    , D.vols = audio.gh1AudioSections >>= \case
       -- gh1 uses gain ratios, not decibels like gh2 and later!
       GH2PartStereo _ -> [1, 1]
       GH2PartMono   _ -> [2, 2] -- compensate for half volume later
       GH2Band         -> [1, 1]
       GH2Silent       -> [0] -- doesn't matter
-    , D.cores = gh1AudioSections audio >>= \case
+    , D.cores = audio.gh1AudioSections >>= \case
       GH2PartStereo _ -> [1, 1]
       GH2PartMono   _ -> [1]
       GH2Band         -> [-1, -1]
@@ -293,7 +294,7 @@ hashGH1 songYaml gh1 = let
 gh1Rules :: BuildInfo -> FilePath -> TargetGH1 FilePath -> QueueLog Rules ()
 gh1Rules buildInfo dir gh1 = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
 
   (planName, plan) <- case getPlan gh1.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh1
@@ -335,12 +336,12 @@ gh1Rules buildInfo dir gh1 = do
         hasAudio <- loadPartAudioCheck
         audio <- computeGH1Audio songYaml gh1 hasAudio
         mid <- loadGH1Midi
-        srcs <- forM (gh1AudioSections audio) $ \case
+        srcs <- forM audio.gh1AudioSections $ \case
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           GH2Band -> sourceBacking buildInfo def mid 0 planName plan
-            [ (gh1LeadTrack audio, 1)
+            [ (audio.gh1LeadTrack, 1)
             ]
           GH2Silent -> return $ silent (Seconds 0) 11025 1
         pad <- shk $ read <$> readFile' (dir </> "gh1/pad.txt")
@@ -373,7 +374,7 @@ gh1Rules buildInfo dir gh1 = do
           audio
           gh1
     stackIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0
-      [ D.Parens $ D.Tree 0 $ D.Sym key : D.treeChunks (D.topTree inner) ]
+      [ D.Parens $ D.Tree 0 $ D.Sym key : inner.topTree.treeChunks ]
     stackIO $ D.writeFileDTA_latin1 outInner inner
 
   dir </> "gh1/symbol" %> \out -> do

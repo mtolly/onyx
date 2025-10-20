@@ -291,8 +291,8 @@ instance ParseTrack DrumTrack where
       -- support text event both with and without brackets
       -- (the no-brackets version gets turned into a lyric by preprocessing)
       { codecIn = slurpTrack \mt -> let
-        (brackets  , cmds'  ) = RTB.partition (== ["ENABLE_CHART_DYNAMICS"]) $ midiCommands mt
-        (noBrackets, lyrics') = RTB.partition (== "ENABLE_CHART_DYNAMICS") $ midiLyrics mt
+        (brackets  , cmds'  ) = RTB.partition (== ["ENABLE_CHART_DYNAMICS"]) mt.midiCommands
+        (noBrackets, lyrics') = RTB.partition (== "ENABLE_CHART_DYNAMICS") mt.midiLyrics
         mt' = mt
           { midiCommands = cmds'
           , midiLyrics   = lyrics'

@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -78,6 +77,7 @@ instance ParseTrack ProKeysTrack where
   parseTrack = do
     pkTrainer   <- (.pkTrainer  ) =. let
       parse = toCommand >=> \case (t, k) | k == T.pack "key" -> Just t; _ -> Nothing
+      unparse :: Trainer -> [T.Text]
       unparse t = fromCommand (t, T.pack "key")
       in commandMatch' parse unparse
     pkMood      <- (.pkMood     ) =. command

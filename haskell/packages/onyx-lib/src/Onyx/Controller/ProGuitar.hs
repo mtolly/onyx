@@ -1,4 +1,6 @@
-{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Controller.ProGuitar where
 
 import           Control.Monad                    (guard)
@@ -100,21 +102,21 @@ sendCommand (cont, msg) = let
     ChangeButtons btns -> let flag n f = if f btns then n else 0 in
       [ 8
       , foldr (.|.) 0
-        [ flag 1 buttonX
-        , flag 2 buttonA
-        , flag 4 buttonB
-        , flag 8 buttonY
+        [ flag 1 (.buttonX)
+        , flag 2 (.buttonA)
+        , flag 4 (.buttonB)
+        , flag 8 (.buttonY)
         ]
       , foldr (.|.) 0
-        [ flag 1 buttonBack
-        , flag 2 buttonStart
-        , flag 16 buttonXbox
-        , flag 64 buttonSync
+        [ flag 1 (.buttonBack)
+        , flag 2 (.buttonStart)
+        , flag 16 (.buttonXbox)
+        , flag 64 (.buttonSync)
         ]
       , foldr (.|.) 0
-        [ fromIntegral $ fromEnum $ buttonDpad btns
-        , flag 32 button32
-        , flag 64 buttonTilt
+        [ fromIntegral $ fromEnum btns.buttonDpad
+        , flag 32 (.button32)
+        , flag 64 (.buttonTilt)
         ]
       , 0
       ]

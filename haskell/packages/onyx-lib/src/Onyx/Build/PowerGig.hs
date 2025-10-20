@@ -52,7 +52,7 @@ import           Text.Mustache                    (compileMustacheFile,
 pgRules :: BuildInfo -> FilePath -> TargetPG FilePath -> QueueLog Rules ()
 pgRules buildInfo dir pg = do
 
-  let songYaml      = biSongYaml buildInfo
+  let songYaml      = buildInfo.biSongYaml
       key           = fromMaybe "TodoAutoSongKey" pg.key -- TODO generate automatic
       k             = T.unpack key
       metadata      = getTargetMetadata songYaml $ PG pg

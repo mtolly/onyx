@@ -58,7 +58,7 @@ loadRRXbox r = do
 loadRRPS3 :: (MonadIO m, SendMessage m) => Readable -> StackTraceT m [RRSong]
 loadRRPS3 r = do
   pkg <- stackIO $ loadPKGReadable r
-  usrdir <- getDecryptedUSRDIR $ pkgFolder pkg
+  usrdir <- getDecryptedUSRDIR pkg.pkgFolder
   stackIO $ scanRRFolder True $ map (first TE.decodeLatin1) $ folderFiles usrdir
 
 scanRRFolder :: Bool -> [(T.Text, Readable)] -> IO [RRSong]

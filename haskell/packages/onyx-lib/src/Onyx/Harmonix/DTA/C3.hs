@@ -206,7 +206,7 @@ readDTBSingles bs = do
   dta <- D.decodeDTB if B.take 1 bs == "\x01"
     then BL.fromStrict bs
     else D.decrypt D.newCrypt $ BL.fromStrict bs
-  let songs = D.treeChunks $ D.topTree dta
+  let songs = dta.topTree.treeChunks
   fmap catMaybes $ forM (zip [1..] songs) $ \(i, chunk) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
       errorToWarning $ readDTASingle (B.empty, chunk)

@@ -55,7 +55,7 @@ importMagma fin level = do
       locate f = fixFileCase $ oldDir </> f
   RBProj.RBProj rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
 
-  midiLoc <- locate $ T.unpack $ RBProj.midiFile $ RBProj.midi rbproj
+  midiLoc <- locate $ T.unpack rbproj.midi.midiFile
   let midi = SoftFile "notes.mid" $ SoftReadable $ fileReadable midiLoc
   bassBase <- detectExtProBass . (.tracks) <$> case level of
     ImportFull  -> F.loadMIDI midiLoc
@@ -68,10 +68,10 @@ importMagma fin level = do
       then fmap Just $ stackIO (decodeGeneral <$> B8.readFile pathC3) >>= C3.readC3
       else return Nothing
 
-  artLoc <- locate $ maybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj) C3.songAlbumArt c3
+  artLoc <- locate $ maybe (T.unpack rbproj.albumArt.albumArtFile) (.songAlbumArt) c3
   let art = SoftFile ("album" <.> map toLower (takeExtension artLoc)) $ SoftReadable $ fileReadable artLoc
 
-  let hopoThresh = case fmap C3.hopoThresholdIndex c3 of
+  let hopoThresh = case fmap (.hopoThresholdIndex) c3 of
         Nothing -> 170
         Just 0  -> 90
         Just 1  -> 130
@@ -80,16 +80,21 @@ importMagma fin level = do
         Just _  -> 170
 
   -- TODO detect silent audio files and don't import them
-  let getTrack s f = let
-        aud = f $ RBProj.tracks rbproj
-        in if RBProj.audioEnabled aud
+  let getTrack
+        :: (MonadIO m)
+        => String
+        -> (RBProj.Tracks -> RBProj.AudioFile)
+        -> StackTraceT m (Maybe (Audio t AudioInput, (T.Text, AudioFile SoftFile)))
+      getTrack s f = let
+        aud = f rbproj.tracks
+        in if aud.audioEnabled
           then do
-            src <- locate $ T.unpack $ RBProj.audioFile aud
+            src <- locate $ T.unpack aud.audioFile
             let dst = s -<.> map toLower (takeExtension src)
             return $ Just
               ( PansVols
-                (map realToFrac $ RBProj.pan aud)
-                (map realToFrac $ RBProj.vol aud)
+                (map realToFrac aud.pan)
+                (map realToFrac aud.vol)
                 (Input $ Named $ T.pack s)
               , ( T.pack s
                 , AudioFile AudioInfo
@@ -98,20 +103,20 @@ importMagma fin level = do
                   , filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
                   , commands = []
                   , rate = Nothing
-                  , channels = fromIntegral $ RBProj.channels aud
+                  , channels = fromIntegral $ aud.channels
                   }
                 )
               )
           else return Nothing
-  drums <- getTrack "drums" RBProj.drumKit
-  kick <- getTrack "kick" RBProj.drumKick
-  snare <- getTrack "snare" RBProj.drumSnare
-  gtr <- getTrack "guitar" RBProj.guitar
-  bass <- getTrack "bass" RBProj.bass
-  keys <- getTrack "keys" RBProj.keys
-  vox <- getTrack "vocal" RBProj.vocals
-  song <- getTrack "song" RBProj.backing
-  crowd <- case c3 >>= C3.crowdAudio of
+  drums <- getTrack "drums"  (.drumKit)
+  kick  <- getTrack "kick"   (.drumKick)
+  snare <- getTrack "snare"  (.drumSnare)
+  gtr   <- getTrack "guitar" (.guitar)
+  bass  <- getTrack "bass"   (.bass)
+  keys  <- getTrack "keys"   (.keys)
+  vox   <- getTrack "vocal"  (.vocals)
+  song  <- getTrack "song"   (.backing)
+  crowd <- case c3 >>= (.crowdAudio) of
     Nothing -> return Nothing
     Just f  -> do
       src <- locate $ T.unpack f
@@ -125,7 +130,7 @@ importMagma fin level = do
       return $ Just
         ( PansVols
           (case chans of 2 -> [-1, 1]; _ -> replicate chans 0) -- eh
-          (replicate chans $ maybe 0 realToFrac $ c3 >>= C3.crowdVol)
+          (replicate chans $ maybe 0 realToFrac $ c3 >>= (.crowdVol))
           (Input $ Named $ T.pack s)
         , ( T.pack s
           , AudioFile AudioInfo
@@ -141,8 +146,8 @@ importMagma fin level = do
   let allAudio = map snd $ catMaybes [drums, kick, snare, gtr, bass, keys, vox, song, crowd]
 
   let (title, is2x) = case c3 of
-        Nothing     -> determine2xBass $ RBProj.songName $ RBProj.metadata rbproj
-        Just c3file -> (C3.song c3file, C3.is2xBass c3file)
+        Nothing     -> determine2xBass rbproj.metadata.songName
+        Just c3file -> (c3file.song, c3file.is2xBass)
       -- TODO support dual 1x+2x projects
       targetName = if is2x then "rb3-2x" else "rb3"
       target = (def :: TargetRB3 SoftFile)
@@ -150,9 +155,9 @@ importMagma fin level = do
         & do set #songID
           case c3 of
             Nothing -> SongIDAutoSymbol
-            Just c3file -> if C3.useNumericID c3file
-              then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
-              else case C3.customID c3file of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
+            Just c3file -> if c3file.useNumericID
+              then maybe SongIDAutoSymbol SongIDSymbol $ readMaybe $ T.unpack c3file.uniqueNumericID
+              else case c3file.customID of "" -> SongIDAutoSymbol; cid -> SongIDSymbol cid
 
   let readTuning c3fn k = case c3 >>= c3fn of
         Nothing -> return Nothing
@@ -162,59 +167,59 @@ importMagma fin level = do
               Just ints -> return $ Just ints
               Nothing   -> warn "Non-integer value in tuning" >> return Nothing
           _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
-  tuneGtr <- inside "Reading pro guitar tuning" $ readTuning C3.proGuitarTuning "real_guitar_tuning"
-  tuneBass <- inside "Reading pro bass tuning" $ readTuning C3.proBassTuning4 "real_bass_tuning"
+  tuneGtr  <- inside "Reading pro guitar tuning" $ readTuning (.proGuitarTuning) "real_guitar_tuning"
+  tuneBass <- inside "Reading pro bass tuning"   $ readTuning (.proBassTuning4)  "real_bass_tuning"
 
   return SongYaml
     { metadata = Metadata
       { title        = Just title
       , titleJP      = Nothing
-      , artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
+      , artist       = Just $ maybe rbproj.metadata.artistName (.artist) c3
       , artistJP     = Nothing
-      , album        = Just $ maybe (RBProj.albumName $ RBProj.metadata rbproj) C3.album c3
-      , genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
-      , subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
-      , year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
+      , album        = Just $ maybe rbproj.metadata.albumName (.album) c3
+      , genre        = Just rbproj.metadata.genre
+      , subgenre     = Just rbproj.metadata.subGenre
+      , year         = Just $ fromIntegral rbproj.metadata.yearReleased
       , fileAlbumArt = Just art
-      , trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
+      , trackNumber  = Just $ fromIntegral rbproj.metadata.trackNumber
       , comments     = []
-      , difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
-      , key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
-      , author       = Just $ RBProj.author $ RBProj.metadata rbproj
-      , rating       = case fmap C3.songRating c3 of
+      , difficulty   = Tier rbproj.gamedata.rankBand
+      , key          = fmap (`SongKey` Major) $ c3 >>= (.tonicNote)
+      , author       = Just rbproj.metadata.author
+      , rating       = case fmap (.songRating) c3 of
         Nothing -> Unrated
         Just 1  -> FamilyFriendly
         Just 2  -> SupervisionRecommended
         Just 3  -> Mature
         Just 4  -> Unrated
         Just _  -> Unrated
-      , previewStart = Just $ PreviewSeconds $ fromIntegral (RBProj.previewStartMs $ RBProj.gamedata rbproj) / 1000
+      , previewStart = Just $ PreviewSeconds $ fromIntegral rbproj.gamedata.previewStartMs / 1000
       , previewEnd   = Nothing
       , languages    = let
-        lang s f = [s | fromMaybe False $ f $ RBProj.languages rbproj]
+        lang s f = [s | fromMaybe False $ f rbproj.languages]
         in concat
-          [ lang "English"  RBProj.english
-          , lang "French"   RBProj.french
-          , lang "Italian"  RBProj.italian
-          , lang "Spanish"  RBProj.spanish
-          , lang "German"   RBProj.german
-          , lang "Japanese" RBProj.japanese
+          [ lang "English"  (.english)
+          , lang "French"   (.french)
+          , lang "Italian"  (.italian)
+          , lang "Spanish"  (.spanish)
+          , lang "German"   (.german)
+          , lang "Japanese" (.japanese)
           ]
-      , convert      = maybe False C3.convert c3
-      , rhythmKeys   = maybe False C3.rhythmKeys c3
-      , rhythmBass   = maybe False C3.rhythmBass c3
+      , convert      = maybe False (.convert) c3
+      , rhythmKeys   = maybe False (.rhythmKeys) c3
+      , rhythmBass   = maybe False (.rhythmBass) c3
       , catEMH       = False -- not stored in .c3 file
-      , expertOnly   = maybe False C3.expertOnly c3
-      , cover        = maybe False (not . C3.isMaster) c3
+      , expertOnly   = maybe False (.expertOnly) c3
+      , cover        = maybe False (not . (.isMaster)) c3
       , loadingPhrase = Nothing
       }
     , global = Global
       { fileMidi = midi
       , fileSongAnim = Nothing
-      , autogenTheme = Just case RBProj.autogenTheme $ RBProj.midi rbproj of
+      , autogenTheme = Just case rbproj.midi.autogenTheme of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
-      , animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
+      , animTempo    = Right rbproj.gamedata.animTempo
       , backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
       }
@@ -242,7 +247,7 @@ importMagma fin level = do
         ]
       , crowd = fmap fst crowd
       , comments = []
-      , tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
+      , tuningCents = maybe 0 (.tuningCents) c3 -- TODO use this, or Magma.tuningOffsetCents?
       , fileTempo = Nothing
       }
     , targets = HM.singleton targetName $ RB3 target
@@ -252,9 +257,9 @@ importMagma fin level = do
           let mode = DrumsPro -- TODO set to Drums4 for magma v1?
               kicks = if is2x then Kicks2x else Kicks1x
           Just $ (emptyPartDrums mode kicks)
-            & do set #difficulty $ Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
+            & do set #difficulty $ Tier rbproj.gamedata.rankDrum
             &    set #kit do
-              case fmap C3.drumKitSFX c3 of
+              case fmap (.drumKitSFX) c3 of
                 Nothing -> HardRockKit
                 Just 0  -> HardRockKit
                 Just 1  -> ArenaKit
@@ -265,7 +270,7 @@ importMagma fin level = do
         )
       , ( PartGuitar, emptyPart
         { grybo = guard (isJust gtr) >> Just ModeFive
-          { difficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
+          { difficulty = Tier rbproj.gamedata.rankGuitar
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -273,7 +278,7 @@ importMagma fin level = do
           , detectMutedOpens = True
           }
         , proGuitar = do
-          diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
+          diff <- guard (isJust gtr) >> c3 >>= (.proGuitarDiff)
           Just ModeProGuitar
             { difficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
@@ -292,7 +297,7 @@ importMagma fin level = do
         })
       , ( PartBass, emptyPart
         { grybo = guard (isJust bass) >> Just ModeFive
-          { difficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
+          { difficulty = Tier rbproj.gamedata.rankBass
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -300,7 +305,7 @@ importMagma fin level = do
           , detectMutedOpens = True
           }
         , proGuitar = do
-          diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
+          diff <- guard (isJust gtr) >> c3 >>= (.proBassDiff)
           Just ModeProGuitar
             { difficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
@@ -319,26 +324,26 @@ importMagma fin level = do
         })
       , ( PartKeys, emptyPart
         { grybo = guard (isJust keys) >> Just ModeFive
-          { difficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
+          { difficulty = Tier rbproj.gamedata.rankKeys
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
           , sustainGap = 60
           , detectMutedOpens = True
           }
-        , proKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just ModeProKeys
-          { difficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj
+        , proKeys = guard (isJust keys && maybe False (not . (.disableProKeys)) c3) >> Just ModeProKeys
+          { difficulty = Tier rbproj.gamedata.rankProKeys
           , fixFreeform = False
           }
         })
       , ( PartVocal, emptyPart & #vocal .~ do
           guard (isJust vox) >> Just ModeVocal
-            { difficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
+            { difficulty = Tier rbproj.gamedata.rankVocals
             , count = if
-              | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3
-              | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
-              | otherwise                                                  -> Vocal1
-            , gender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
+              | rbproj.dryVox.part2.dryVoxEnabled -> Vocal3
+              | rbproj.dryVox.part1.dryVoxEnabled -> Vocal2
+              | otherwise                         -> Vocal1
+            , gender = Just rbproj.gamedata.vocalGender
             , key = Nothing
             , lipsyncRB3 = Nothing
             }

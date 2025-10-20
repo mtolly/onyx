@@ -1,12 +1,14 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.SpinRhythm where
 
 import           Control.Monad.Codec
@@ -92,25 +94,25 @@ data TrackData = TrackData
 instance StackJSON TrackData where
   stackJSON = asObject "TrackData" $ do
     let unitList = listCodec $ Codec (return ()) (makeOut \() -> "unknown")
-    td_customName                <- td_customName                =. req "customName"                stackJSON
-    td_previewLoopBars           <- td_previewLoopBars           =. req "previewLoopBars"           stackJSON
-    td_goBeatOffsetFromFirstNote <- td_goBeatOffsetFromFirstNote =. req "goBeatOffsetFromFirstNote" stackJSON
-    td_scoreMedalThresholds      <- td_scoreMedalThresholds      =. req "scoreMedalThresholds"      stackJSON
-    td_difficultyType            <- td_difficultyType            =. req "difficultyType"            stackJSON
-    td_meshTrails                <- td_meshTrails                =. req "meshTrails"                unitList
-    td_initialWheelAngle         <- td_initialWheelAngle         =. req "initialWheelAngle"         stackJSON
-    td_isTutorial                <- td_isTutorial                =. req "isTutorial"                stackJSON
-    td_tutorialTitleTranslation  <- td_tutorialTitleTranslation  =. req "tutorialTitleTranslation"  stackJSON
-    td_clipInfoAssetReferences   <- td_clipInfoAssetReferences   =. req "clipInfoAssetReferences"   stackJSON
-    td_background                <- td_background                =. req "background"                stackJSON
-    td_tutorialObjects           <- td_tutorialObjects           =. req "tutorialObjects"           unitList
-    td_tutorialTexts             <- td_tutorialTexts             =. req "tutorialTexts"             unitList
-    td_clipData                  <- td_clipData                  =. req "clipData"                  stackJSON
-    td_notes                     <- td_notes                     =. req "notes"                     stackJSON
-    td_events                    <- td_events                    =. req "events"                    unitList
-    td_rewindSections            <- td_rewindSections            =. req "rewindSections"            unitList
-    td_lastEditedOnDate          <- td_lastEditedOnDate          =. req "lastEditedOnDate"          stackJSON
-    td_noteStats                 <- td_noteStats                 =. req "noteStats"                 stackJSON
+    td_customName                <- (.td_customName)                =. req "customName"                stackJSON
+    td_previewLoopBars           <- (.td_previewLoopBars)           =. req "previewLoopBars"           stackJSON
+    td_goBeatOffsetFromFirstNote <- (.td_goBeatOffsetFromFirstNote) =. req "goBeatOffsetFromFirstNote" stackJSON
+    td_scoreMedalThresholds      <- (.td_scoreMedalThresholds)      =. req "scoreMedalThresholds"      stackJSON
+    td_difficultyType            <- (.td_difficultyType)            =. req "difficultyType"            stackJSON
+    td_meshTrails                <- (.td_meshTrails)                =. req "meshTrails"                unitList
+    td_initialWheelAngle         <- (.td_initialWheelAngle)         =. req "initialWheelAngle"         stackJSON
+    td_isTutorial                <- (.td_isTutorial)                =. req "isTutorial"                stackJSON
+    td_tutorialTitleTranslation  <- (.td_tutorialTitleTranslation)  =. req "tutorialTitleTranslation"  stackJSON
+    td_clipInfoAssetReferences   <- (.td_clipInfoAssetReferences)   =. req "clipInfoAssetReferences"   stackJSON
+    td_background                <- (.td_background)                =. req "background"                stackJSON
+    td_tutorialObjects           <- (.td_tutorialObjects)           =. req "tutorialObjects"           unitList
+    td_tutorialTexts             <- (.td_tutorialTexts)             =. req "tutorialTexts"             unitList
+    td_clipData                  <- (.td_clipData)                  =. req "clipData"                  stackJSON
+    td_notes                     <- (.td_notes)                     =. req "notes"                     stackJSON
+    td_events                    <- (.td_events)                    =. req "events"                    unitList
+    td_rewindSections            <- (.td_rewindSections)            =. req "rewindSections"            unitList
+    td_lastEditedOnDate          <- (.td_lastEditedOnDate)          =. req "lastEditedOnDate"          stackJSON
+    td_noteStats                 <- (.td_noteStats)                 =. req "noteStats"                 stackJSON
     return TrackData{..}
 
 data MinMax a = MinMax
@@ -120,8 +122,8 @@ data MinMax a = MinMax
 
 instance (StackJSON a) => StackJSON (MinMax a) where
   stackJSON = asObject "MinMax" $ do
-    mm_min <- mm_min =. req "min" stackJSON
-    mm_max <- mm_max =. req "max" stackJSON
+    mm_min <- (.mm_min) =. req "min" stackJSON
+    mm_max <- (.mm_max) =. req "max" stackJSON
     return MinMax{..}
 
 data Translation = Translation
@@ -130,7 +132,7 @@ data Translation = Translation
 
 instance StackJSON Translation where
   stackJSON = asObject "Translation" $ do
-    trans_key <- trans_key =. req "key" stackJSON
+    trans_key <- (.trans_key) =. req "key" stackJSON
     return Translation{..}
 
 data AssetReference = AssetReference
@@ -140,8 +142,8 @@ data AssetReference = AssetReference
 
 instance StackJSON AssetReference where
   stackJSON = asObject "AssetReference" $ do
-    ar_bundle    <- ar_bundle    =. req "bundle"    stackJSON
-    ar_assetName <- ar_assetName =. req "assetName" stackJSON
+    ar_bundle    <- (.ar_bundle)    =. req "bundle"    stackJSON
+    ar_assetName <- (.ar_assetName) =. req "assetName" stackJSON
     return AssetReference{..}
 
 data ClipData = ClipData
@@ -158,15 +160,15 @@ data ClipData = ClipData
 
 instance StackJSON ClipData where
   stackJSON = asObject "ClipData" $ do
-    cd_clipIndex           <- cd_clipIndex           =. req "clipIndex"           stackJSON
-    cd_startBar            <- cd_startBar            =. req "startBar"            stackJSON
-    cd_endBar              <- cd_endBar              =. req "endBar"              stackJSON
-    cd_transitionIn        <- cd_transitionIn        =. req "transitionIn"        stackJSON
-    cd_transitionInValue   <- cd_transitionInValue   =. req "transitionInValue"   stackJSON
-    cd_transitionInOffset  <- cd_transitionInOffset  =. req "transitionInOffset"  stackJSON
-    cd_transitionOut       <- cd_transitionOut       =. req "transitionOut"       stackJSON
-    cd_transitionOutValue  <- cd_transitionOutValue  =. req "transitionOutValue"  stackJSON
-    cd_transitionOutOffset <- cd_transitionOutOffset =. req "transitionOutOffset" stackJSON
+    cd_clipIndex           <- (.cd_clipIndex)           =. req "clipIndex"           stackJSON
+    cd_startBar            <- (.cd_startBar)            =. req "startBar"            stackJSON
+    cd_endBar              <- (.cd_endBar)              =. req "endBar"              stackJSON
+    cd_transitionIn        <- (.cd_transitionIn)        =. req "transitionIn"        stackJSON
+    cd_transitionInValue   <- (.cd_transitionInValue)   =. req "transitionInValue"   stackJSON
+    cd_transitionInOffset  <- (.cd_transitionInOffset)  =. req "transitionInOffset"  stackJSON
+    cd_transitionOut       <- (.cd_transitionOut)       =. req "transitionOut"       stackJSON
+    cd_transitionOutValue  <- (.cd_transitionOutValue)  =. req "transitionOutValue"  stackJSON
+    cd_transitionOutOffset <- (.cd_transitionOutOffset) =. req "transitionOutOffset" stackJSON
     return ClipData{..}
 
 data Note t = Note
@@ -179,11 +181,11 @@ data Note t = Note
 
 instance (StackJSON t) => StackJSON (Note t) where
   stackJSON = asObject "Note" $ do
-    note_time       <- note_time       =. req "time"       stackJSON
-    note_type       <- note_type       =. req "type"       stackJSON
-    note_colorIndex <- note_colorIndex =. req "colorIndex" stackJSON
-    note_column     <- note_column     =. req "column"     stackJSON
-    note_m_size     <- note_m_size     =. req "m_size"     stackJSON
+    note_time       <- (.note_time)       =. req "time"       stackJSON
+    note_type       <- (.note_type)       =. req "type"       stackJSON
+    note_colorIndex <- (.note_colorIndex) =. req "colorIndex" stackJSON
+    note_column     <- (.note_column)     =. req "column"     stackJSON
+    note_m_size     <- (.note_m_size)     =. req "m_size"     stackJSON
     return Note{..}
 
 data NoteStats = NoteStats
@@ -201,16 +203,16 @@ data NoteStats = NoteStats
 
 instance StackJSON NoteStats where
   stackJSON = asObject "NoteStats" $ do
-    ns_matchNotes  <- ns_matchNotes  =. req "matchNotes"  stackJSON
-    ns_tapNotes    <- ns_tapNotes    =. req "tapNotes"    stackJSON
-    ns_beatNotes   <- ns_beatNotes   =. req "beatNotes"   stackJSON
-    ns_spinNotes   <- ns_spinNotes   =. req "spinNotes"   stackJSON
-    ns_holdNotes   <- ns_holdNotes   =. req "holdNotes"   stackJSON
-    ns_matchPerMin <- ns_matchPerMin =. req "matchPerMin" stackJSON
-    ns_tapPerMin   <- ns_tapPerMin   =. req "tapPerMin"   stackJSON
-    ns_beatsPerMin <- ns_beatsPerMin =. req "beatsPerMin" stackJSON
-    ns_spinPerMin  <- ns_spinPerMin  =. req "spinPerMin"  stackJSON
-    ns_holdPerMin  <- ns_holdPerMin  =. req "holdPerMin"  stackJSON
+    ns_matchNotes  <- (.ns_matchNotes)  =. req "matchNotes"  stackJSON
+    ns_tapNotes    <- (.ns_tapNotes)    =. req "tapNotes"    stackJSON
+    ns_beatNotes   <- (.ns_beatNotes)   =. req "beatNotes"   stackJSON
+    ns_spinNotes   <- (.ns_spinNotes)   =. req "spinNotes"   stackJSON
+    ns_holdNotes   <- (.ns_holdNotes)   =. req "holdNotes"   stackJSON
+    ns_matchPerMin <- (.ns_matchPerMin) =. req "matchPerMin" stackJSON
+    ns_tapPerMin   <- (.ns_tapPerMin)   =. req "tapPerMin"   stackJSON
+    ns_beatsPerMin <- (.ns_beatsPerMin) =. req "beatsPerMin" stackJSON
+    ns_spinPerMin  <- (.ns_spinPerMin)  =. req "spinPerMin"  stackJSON
+    ns_holdPerMin  <- (.ns_holdPerMin)  =. req "holdPerMin"  stackJSON
     return NoteStats{..}
 
 -- | The data stored in string val under SO_TrackDataAssetReference_assetRef key
@@ -222,9 +224,9 @@ data TrackDataAssetReference = TrackDataAssetReference
 
 instance StackJSON TrackDataAssetReference where
   stackJSON = asObject "TrackDataAssetReference" $ do
-    tdar_bundle     <- tdar_bundle     =. req "bundle"      stackJSON
-    tdar_assetName  <- tdar_assetName  =. req "assetName"   stackJSON
-    tdar_difficulty <- tdar_difficulty =. req "_difficulty" stackJSON
+    tdar_bundle     <- (.tdar_bundle)     =. req "bundle"      stackJSON
+    tdar_assetName  <- (.tdar_assetName)  =. req "assetName"   stackJSON
+    tdar_difficulty <- (.tdar_difficulty) =. req "_difficulty" stackJSON
     return TrackDataAssetReference{..}
 
 makeTrackFile :: TrackData -> TrackDataAssetReference -> A.Value
@@ -338,18 +340,18 @@ instance ParseTrack SRTrack where
         dimapColorMSize = dimap
           (fmap \(color, size) -> (case color of Blue -> 0; Red -> 1, 100 + size))
           (fmap \(c, v) -> (case c of 0 -> Blue; _ -> Red, v - 100))
-    srTap <- (srTap =.) $ condenseMap $ eachKey each $ \col ->
+    srTap <- ((.srTap) =.) $ condenseMap $ eachKey each $ \col ->
       dimapColor $ blipCV $ 100 - 5 * fromEnum col
-    srMatch <- (srMatch =.) $ condenseMap $ eachKey each $ \col ->
+    srMatch <- ((.srMatch) =.) $ condenseMap $ eachKey each $ \col ->
       dimapColor $ blipCV $ 100 - 5 * fromEnum col - 1
-    srSlideStart <- (srSlideStart =.) $ condenseMap $ eachKey each $ \col ->
+    srSlideStart <- ((.srSlideStart) =.) $ condenseMap $ eachKey each $ \col ->
       dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 2
-    srSlideContinue <- (srSlideContinue =.) $ condenseMap $ eachKey each $ \col ->
+    srSlideContinue <- ((.srSlideContinue) =.) $ condenseMap $ eachKey each $ \col ->
       dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 3
-    srSpin <- (srSpin =.) $ condenseMap_ $ eachKey each $ blip . \case
+    srSpin <- ((.srSpin) =.) $ condenseMap_ $ eachKey each $ blip . \case
       LH -> 55
       RH -> 54
-    srBeat <- srBeat =. blip 52
+    srBeat <- (.srBeat) =. blip 52
     return SRTrack{..}
 
 srTrackFromJSON :: [Note t] -> SRTrack t
@@ -359,42 +361,42 @@ srTrackToJSON :: (NNC.C t, Num t) => SRTrack t -> [Note t]
 srTrackToJSON sr = let
   columnNumber col = 4 - fromEnum col
   rtb = foldr RTB.merge RTB.empty
-    [ flip fmap (srTap sr) $ \(col, color) -> Note
+    [ flip fmap sr.srTap $ \(col, color) -> Note
       { note_time       = ()
       , note_type       = 8
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap (srMatch sr) $ \(col, color) -> Note
+    , flip fmap sr.srMatch $ \(col, color) -> Note
       { note_time       = ()
       , note_type       = 0
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap (srBeat sr) $ \() -> Note
+    , flip fmap sr.srBeat $ \() -> Note
       { note_time       = ()
       , note_type       = 1
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap (srSpin sr) $ \dir -> Note
+    , flip fmap sr.srSpin $ \dir -> Note
       { note_time       = ()
       , note_type       = case dir of RH -> 2; LH -> 3
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap (srSlideStart sr) $ \(col, (color, size)) -> Note
+    , flip fmap sr.srSlideStart $ \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 4
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = size
       }
-    , flip fmap (srSlideContinue sr) $ \(col, (color, size)) -> Note
+    , flip fmap sr.srSlideContinue $ \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 5
       , note_colorIndex = fromEnum color

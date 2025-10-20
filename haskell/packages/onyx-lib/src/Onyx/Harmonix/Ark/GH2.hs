@@ -158,7 +158,7 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
           (newChunks, finalState) <- flip mapStackTraceT runner \x -> do
             (result, finalState) <- runStateT x Run.initDTAState
             return $ (, finalState) <$> result
-          pairs <- fmap D.fromDictList
+          pairs <- fmap (.fromDictList)
             $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
             $ D.DTA 0 $ D.Tree 0 newChunks
           let retrieveText k = case HM.lookup k finalState.variables of
@@ -191,12 +191,12 @@ readSongListGH2
 
 readSongListGH1 :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m [(T.Text, GH1.SongPackage)]
 readSongListGH1 dta = let
-  editDTB d = d { D.topTree = editTree $ D.topTree d }
-  editTree t = t { D.treeChunks = filter keepChunk $ D.treeChunks t }
+  editDTB d = d { D.topTree = editTree d.topTree }
+  editTree t = t { D.treeChunks = filter keepChunk t.treeChunks }
   keepChunk = \case
     D.Parens _ -> True
     _          -> False
-  in fmap D.fromDictList
+  in fmap (.fromDictList)
     $ D.unserialize (D.chunksDictList D.chunkSym D.stackChunks)
     $ editDTB $ decodeLatin1 <$> dta
 
@@ -336,7 +336,7 @@ addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
                         Right newSongList -> return let
                           sorter = sortSongs ss \case
                             D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                              Just pkg -> (GH2.name pkg, GH2.artist pkg)
+                              Just pkg -> (pkg.name, pkg.artist)
                               Nothing  -> (T.pack $ show sym, "")
                             _                                  -> ("", "")
                           in sorter bonus'
@@ -392,7 +392,7 @@ addBonusSongGH1 gh2i = withArk gh2i.gen \ark -> do
                   Right newSongList -> return let
                     sorter = sortSongs ss \case
                       D.Parens (D.Tree _ [D.Sym sym, _]) -> case lookup (T.pack $ B8.unpack sym) newSongList of
-                        Just pkg -> (GH1.name pkg, GH1.artist pkg)
+                        Just pkg -> (pkg.name, pkg.artist)
                         Nothing  -> (T.pack $ show sym, "")
                       _                                  -> ("", "")
                     in sorter bonus'

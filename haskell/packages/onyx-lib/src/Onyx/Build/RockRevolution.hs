@@ -101,8 +101,8 @@ intToRRSongID n = T.pack $ reverse $ take 4 $ reverse (show n) <> repeat '0'
 rrRules :: BuildInfo -> FilePath -> TargetRR FilePath -> QueueLog Rules ()
 rrRules buildInfo dir rr = do
 
-  let songYaml = biSongYaml buildInfo
-      _rel = biRelative buildInfo
+  let songYaml = buildInfo.biSongYaml
+      _rel = buildInfo.biRelative
       gen = biGen buildInfo
       metadata = getTargetMetadata songYaml $ RR rr
       key = intToRRSongID $ fromMaybe 2000 rr.songID
@@ -330,7 +330,7 @@ rrRules buildInfo dir rr = do
           Mood_intense       -> 3 -- Bass_TempoB_Metal
           Mood_play_solo     -> 3
         , rrcAnimVocalist  = RTB.empty
-        , rrcGemsDrums     = fmap fst $ rrdGems $ makeRRDrumDifficulty4Lane
+        , rrcGemsDrums     = fmap fst $ (.rrdGems) $ makeRRDrumDifficulty4Lane
           Expert
           (fromMaybe RTB.empty $ drums >>= \res -> Map.lookup Expert res.notes)
           (maybe mempty (.other) drums)

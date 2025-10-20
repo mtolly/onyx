@@ -1,8 +1,10 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -156,11 +158,11 @@ importRSSong folder song level = do
         A.Number n -> return $ n /= 0
         A.Bool   b -> return b
         _          -> fatal "Expected boolean (true/false/0/1) in JSON file"
-  partsWithVox <- fmap catMaybes $ forM song \entity -> inside ("Entity " <> show (rsManifest entity)) $ do
-    header <- urn $ rsHeader entity -- urn:database:hsan-db or hson-db
-    manifest <- urn $ rsManifest entity -- urn:database:json-db
-    sngPath <- urn $ rsSngAsset entity -- urn:application:musicgame-song
-    bnkPath <- urn $ rsSoundBank entity -- urn:audio:wwise-sound-bank
+  partsWithVox <- fmap catMaybes $ forM song \entity -> inside ("Entity " <> show entity.rsManifest) do
+    header <- urn entity.rsHeader -- urn:database:hsan-db or hson-db
+    manifest <- urn entity.rsManifest -- urn:database:json-db
+    sngPath <- urn entity.rsSngAsset -- urn:application:musicgame-song
+    bnkPath <- urn entity.rsSoundBank -- urn:audio:wwise-sound-bank
     let binFolder = case platform of
           Xbox360 -> "xbox360"
           Mac     -> "macos"
@@ -217,7 +219,7 @@ importRSSong folder song level = do
           toneList <- prop "Tones" jsonAttrs >>= \v -> do
             results <- errorToWarning $ mapStackTraceT (`runReaderT` v) fromJSON
             return $ concat $ toList results
-          let findTone k = case find ((== k) . t14_Key) (toneList :: [Tone2014]) of
+          let findTone k = case find ((== k) . (.t14_Key)) (toneList :: [Tone2014]) of
                 Nothing -> fatal $ "Couldn't find tone for key: " <> show k
                 Just t  -> return t
               findMaybeTone "" = return Nothing
@@ -237,7 +239,7 @@ importRSSong folder song level = do
   (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
-  art <- case map rsAlbumArtLarge song of
+  art <- case map (.rsAlbumArtLarge) song of
     [] -> return Nothing
     art : _ -> do
       f <- urn art -- urn:image:dds
@@ -256,7 +258,7 @@ importRSSong folder song level = do
           Xbox360 -> BigEndian
           PS3     -> BigEndian
         in extractRSOgg bnkFile audioDir
-      modifiedBeats = removeDupeTimes case maybe [] sng_BPMs firstArr of
+      modifiedBeats = removeDupeTimes case maybe [] (.sng_BPMs) firstArr of
         ebeats@(BPM { bpm_Time = 0 } : _) -> ebeats
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t
@@ -273,17 +275,17 @@ importRSSong folder song level = do
         [] -> [] -- probably shouldn't happen?
       -- this prevents divide-by-zero issues when a song has two adjacent ebeats
       -- with the same timestamp. see In the Presence of Enemies on CF
-      removeDupeTimes (b1 : bs@(b2 : _)) = if bpm_Time b1 == bpm_Time b2
+      removeDupeTimes (b1 : bs@(b2 : _)) = if b1.bpm_Time == b2.bpm_Time
         then removeDupeTimes bs
         else b1 : removeDupeTimes bs
       removeDupeTimes bs = bs
       temps = U.tempoMapFromBPS let
-        makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ bpm_Time b2 - bpm_Time b1)
+        makeTempo b1 b2 = U.makeTempo 1 (realToFrac $ b2.bpm_Time - b1.bpm_Time)
         in RTB.fromPairList
           $ zip (0 : repeat 1)
           $ zipWith makeTempo modifiedBeats (drop 1 modifiedBeats)
       sigs = U.measureMapFromLengths U.Truncate let
-        startsBar = (== 0) . bpm_Beat
+        startsBar = (== 0) . (.bpm_Beat)
         makeBarLengths [] = []
         makeBarLengths (_ : ebeats) = case break startsBar ebeats of
           (inThisBar, rest) -> (1 + fromIntegral (length inThisBar)) : makeBarLengths rest
@@ -321,18 +323,18 @@ importRSSong folder song level = do
           { F.onyxParts = Map.fromList do
             ((_, partName), Just sng, _, _, isBass, _) <- namedParts
             let capoOffset :: Int
-                capoOffset = case meta_CapoFretId $ sng_Metadata sng of
+                capoOffset = case sng.sng_Metadata.meta_CapoFretId of
                   -1 -> 0
                   n  -> fromIntegral n
                 unapplyCapo 0    = 0
                 unapplyCapo fret = fret - capoOffset
                 getNotes note = let
-                  secs = toSeconds $ notes_Time note
+                  secs = toSeconds note.notes_Time
                   beats = U.unapplyTempoMap temps secs
                   len = do
                     -- Sometimes CDLC has notes with sustain of e.g. 0.002s
-                    guard $ notes_Sustain note > 0.05
-                    let endSecs = secs <> toSeconds (notes_Sustain note)
+                    guard $ note.notes_Sustain > 0.05
+                    let endSecs = secs <> toSeconds note.notes_Sustain
                     Just $ U.unapplyTempoMap temps endSecs - beats
                   parseMask mask = concat
                     [ [ModHammerOn | mask .&. 0x200 /= 0]
@@ -361,15 +363,15 @@ importRSSong folder song level = do
                   -- ModRightHand
                   numNot x n = guard (n /= x) >> Just n
                   in do
-                    let noteMods = parseMask (notes_NoteMask note) <> catMaybes
-                          [ ModVibrato      .               fromIntegral <$> numNot 0    (notes_Vibrato        note)
-                          , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideTo        note)
-                          , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (notes_SlideUnpitchTo note)
+                    let noteMods = parseMask note.notes_NoteMask <> catMaybes
+                          [ ModVibrato      .               fromIntegral <$> numNot 0    note.notes_Vibrato
+                          , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) note.notes_SlideTo
+                          , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) note.notes_SlideUnpitchTo
                           ]
-                    (str, fret, mods, bends) <- case notes_ChordId note of
+                    (str, fret, mods, bends) <- case note.notes_ChordId of
                       -1 -> let
-                        fret = unapplyCapo $ fromIntegral $ notes_FretId note
-                        str = case notes_StringIndex note of
+                        fret = unapplyCapo $ fromIntegral note.notes_FretId
+                        str = case note.notes_StringIndex of
                           0 -> S6
                           1 -> S5
                           2 -> S4
@@ -377,61 +379,61 @@ importRSSong folder song level = do
                           4 -> S2
                           5 -> S1
                           _ -> S7 -- TODO raise error
-                        bends = map (\bd -> (bd32_Time bd, bd32_Step bd)) $ notes_BendData note
+                        bends = map (\bd -> (bd.bd32_Time, bd.bd32_Step)) note.notes_BendData
                         in [(str, fret, noteMods, bends)]
                       chordID -> do
-                        let chord = sng_Chords sng !! fromIntegral chordID
-                            chordNotes = case notes_ChordNotesId note of
+                        let chord = sng.sng_Chords !! fromIntegral chordID
+                            chordNotes = case note.notes_ChordNotesId of
                               -1   -> Nothing
-                              cnid -> Just $ sng_ChordNotes sng !! fromIntegral cnid
+                              cnid -> Just $ sng.sng_ChordNotes !! fromIntegral cnid
                         (str, i) <- zip [S6, S5 ..] [0..]
-                        let fret = unapplyCapo $ fromIntegral $ chord_Frets chord !! i
+                        let fret = unapplyCapo $ fromIntegral $ chord.chord_Frets !! i
                             -- apparently need to include notes_NoteMask as well,
                             -- because fret-hand-mute chords use that as indicator (mask & 8)
                             mods = nubOrd $ noteMods <> case chordNotes of
                               Nothing -> []
-                              Just cn -> parseMask (cn_NoteMask cn !! i) <> catMaybes
-                                [ ModVibrato      .               fromIntegral <$> numNot 0    (cn_Vibrato        cn !! i)
-                                , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (cn_SlideTo        cn !! i)
-                                , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (cn_SlideUnpitchTo cn !! i)
+                              Just cn -> parseMask (cn.cn_NoteMask !! i) <> catMaybes
+                                [ ModVibrato      .               fromIntegral <$> numNot 0    (cn.cn_Vibrato !! i)
+                                , ModSlide        . unapplyCapo . fromIntegral <$> numNot (-1) (cn.cn_SlideTo !! i)
+                                , ModSlideUnpitch . unapplyCapo . fromIntegral <$> numNot (-1) (cn.cn_SlideUnpitchTo !! i)
                                 ]
                         guard $ fret >= 0
                         return (str, fret, mods, [] {- TODO -})
                     return (beats, ((fret, str, len), (mods, bends)))
                 makeShape fprint = let
-                  secs = toSeconds $ fp_StartTime fprint
+                  secs = toSeconds fprint.fp_StartTime
                   beats = U.unapplyTempoMap temps secs
                   len = let
-                    endSecs = toSeconds $ fp_EndTime fprint
+                    endSecs = toSeconds fprint.fp_EndTime
                     in U.unapplyTempoMap temps endSecs - beats
                   in do
                     (str, fret) <- zip [S6, S5 ..]
                       $ map fromIntegral
-                      $ chord_Frets
-                      $ sng_Chords sng !! fromIntegral (fp_ChordId fprint)
+                      $ (.chord_Frets)
+                      $ sng.sng_Chords !! fromIntegral fprint.fp_ChordId
                     guard $ fret >= 0
                     return (beats, (unapplyCapo fret, str, len))
-                iterBoundaries = zip (sng_PhraseIterations sng)
-                  (fmap Just (drop 1 $ sng_PhraseIterations sng) <> [Nothing])
+                iterBoundaries = zip sng.sng_PhraseIterations
+                  (fmap Just (drop 1 sng.sng_PhraseIterations) <> [Nothing])
                 getPhraseNotes iter1 miter2 = let
-                  phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
-                  lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
-                  inBounds note = pi_StartTime iter1 <= notes_Time note
-                    && all (\iter2 -> notes_Time note < pi_StartTime iter2) miter2
-                    && notes_PhraseId note /= -1 -- fix for Time Is Running Out (Muse) bass: weird phantom note past [phrase END]
-                  in filter inBounds $ arr_Notes lvl
+                  phrase = sng.sng_Phrases !! fromIntegral iter1.pi_PhraseId
+                  lvl = sng.sng_Arrangements !! fromIntegral phrase.phrase_MaxDifficulty
+                  inBounds note = iter1.pi_StartTime <= note.notes_Time
+                    && all (\iter2 -> note.notes_Time < iter2.pi_StartTime) miter2
+                    && note.notes_PhraseId /= -1 -- fix for Time Is Running Out (Muse) bass: weird phantom note past [phrase END]
+                  in filter inBounds $ lvl.arr_Notes
                 getPhraseAnchors iter1 miter2 = let
-                  phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
-                  lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
-                  inBounds anchor = pi_StartTime iter1 <= anchor_StartBeatTime anchor
-                    && all (\iter2 -> anchor_StartBeatTime anchor < pi_StartTime iter2) miter2
-                  in filter inBounds $ arr_Anchors lvl
+                  phrase = sng.sng_Phrases !! fromIntegral iter1.pi_PhraseId
+                  lvl = sng.sng_Arrangements !! fromIntegral phrase.phrase_MaxDifficulty
+                  inBounds anchor = iter1.pi_StartTime <= anchor.anchor_StartBeatTime
+                    && all (\iter2 -> anchor.anchor_StartBeatTime < iter2.pi_StartTime) miter2
+                  in filter inBounds $ lvl.arr_Anchors
                 getHandShapes iter1 miter2 = let
-                  phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter1)
-                  lvl = sng_Arrangements sng !! fromIntegral (phrase_MaxDifficulty phrase)
-                  inBounds fprint = pi_StartTime iter1 <= fp_StartTime fprint
-                    && all (\iter2 -> fp_StartTime fprint < pi_StartTime iter2) miter2
-                  in filter inBounds $ arr_Fingerprints1 lvl <> arr_Fingerprints2 lvl
+                  phrase = sng.sng_Phrases !! fromIntegral iter1.pi_PhraseId
+                  lvl = sng.sng_Arrangements !! fromIntegral phrase.phrase_MaxDifficulty
+                  inBounds fprint = iter1.pi_StartTime <= fprint.fp_StartTime
+                    && all (\iter2 -> fprint.fp_StartTime < iter2.pi_StartTime) miter2
+                  in filter inBounds $ lvl.arr_Fingerprints1 <> lvl.arr_Fingerprints2
                   -- arr_Fingerprints2 is arpeggios, but we'll get that from the mask later
                 maxLevelNotes = iterBoundaries >>= uncurry getPhraseNotes
                 maxLevelShapes = iterBoundaries >>= uncurry getHandShapes
@@ -444,9 +446,9 @@ importRSSong folder song level = do
                   $ ATB.fromPairList
                   $ sort
                   $ fmap (\anc -> let
-                    t = toSeconds $ anchor_StartBeatTime anc
-                    lowFret = unapplyCapo $ fromIntegral $ anchor_FretId anc
-                    highFret = lowFret + fromIntegral (anchor_Width anc) - 1
+                    t = toSeconds anc.anchor_StartBeatTime
+                    lowFret = unapplyCapo $ fromIntegral anc.anchor_FretId
+                    highFret = lowFret + fromIntegral anc.anchor_Width - 1
                     in (t, (lowFret, highFret))
                     )
                   $ iterBoundaries >>= uncurry getPhraseAnchors
@@ -458,28 +460,28 @@ importRSSong folder song level = do
                   $ ATB.fromPairList
                   $ map (makeChordInfo ChordLocNotes)
                   $ sort
-                  $ mapMaybe (\n -> guard (notes_ChordId n /= (-1)) >> Just (notes_Time n, notes_ChordId n))
+                  $ mapMaybe (\n -> guard (n.notes_ChordId /= (-1)) >> Just (n.notes_Time, n.notes_ChordId))
                   $ maxLevelNotes
                 shapeChordInfo = RTB.fromAbsoluteEventList
                   $ ATB.fromPairList
                   $ map (makeChordInfo ChordLocShape)
                   $ sort
-                  $ map (\fp -> (fp_StartTime fp, fp_ChordId fp))
+                  $ map (\fp -> (fp.fp_StartTime, fp.fp_ChordId))
                   $ maxLevelShapes
                 makeChordInfo loc (t, chordID) = (t', ChordInfo
                   { ciLocation    = loc
-                  , ciName        = case TE.decodeUtf8With lenientDecode $ chord_Name chord of
+                  , ciName        = case TE.decodeUtf8With lenientDecode chord.chord_Name of
                     ""   -> Nothing
                     name -> Just name
-                  , ciFingers     = map (toEnum . fromIntegral) $ filter (/= (-1)) $ chord_Fingers chord
-                  , ciArpeggio    = chord_Mask chord .&. 0x00000001 /= 0
-                  , ciNop         = chord_Mask chord .&. 0x00000002 /= 0
+                  , ciFingers     = map (toEnum . fromIntegral) $ filter (/= (-1)) chord.chord_Fingers
+                  , ciArpeggio    = chord.chord_Mask .&. 0x00000001 /= 0
+                  , ciNop         = chord.chord_Mask .&. 0x00000002 /= 0
                   , ciOnce        = Just do
-                    (str, fret) <- zip [S6, S5 ..] $ chord_Frets chord
+                    (str, fret) <- zip [S6, S5 ..] chord.chord_Frets
                     guard $ fret >= 0
                     return str
                   }) where
-                    chord = sng_Chords sng !! fromIntegral chordID
+                    chord = sng.sng_Chords !! fromIntegral chordID
                     t' = U.unapplyTempoMap temps $ toSeconds t
                 legalFret = min 27 -- TODO should warn or something. this is just so midi's fromVelocity doesn't throw an error
                 trk = RocksmithTrack
@@ -492,20 +494,20 @@ importRSSong folder song level = do
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map (sng_PhraseIterations sng)
+                    $ flip map sng.sng_PhraseIterations
                     $ \iter -> let
-                      t = toSeconds $ pi_StartTime iter
-                      phrase = sng_Phrases sng !! fromIntegral (pi_PhraseId iter)
-                      name = TE.decodeUtf8With lenientDecode $ phrase_Name phrase
+                      t = toSeconds iter.pi_StartTime
+                      phrase = sng.sng_Phrases !! fromIntegral iter.pi_PhraseId
+                      name = TE.decodeUtf8With lenientDecode phrase.phrase_Name
                       in (t, name)
                   , rsSections = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map (sng_Sections sng)
+                    $ flip map sng.sng_Sections
                     $ \sect -> let
-                      t = toSeconds $ sect_StartTime sect
-                      name = TE.decodeUtf8With lenientDecode $ sect_Name sect
+                      t = toSeconds sect.sect_StartTime
+                      name = TE.decodeUtf8With lenientDecode sect.sect_Name
                       in (t, name)
                   , rsAnchorLow  = fmap (legalFret . fst) anchors
                   , rsAnchorHigh = fmap (legalFret . snd) anchors
@@ -518,10 +520,10 @@ importRSSong folder song level = do
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map (sng_Tones sng)
+                    $ flip map sng.sng_Tones
                     $ \tid -> let
-                      t = toSeconds $ tid_Time tid
-                      tone = case tid_ID tid of
+                      t = toSeconds tid.tid_Time
+                      tone = case tid.tid_ID of
                         0 -> ToneA
                         1 -> ToneB
                         2 -> ToneC
@@ -562,21 +564,21 @@ importRSSong folder song level = do
 
           -- see Metropolis for some weird empty vocal events in instrumental section
           vocals1 = filter
-            (B8.any (\c -> not $ isSpace c || c == '+') . vocal_Lyric)
-            (maybe [] sng_Vocals voxSNG)
+            (B8.any (\c -> not $ isSpace c || c == '+') . (.vocal_Lyric))
+            (maybe [] (.sng_Vocals) voxSNG)
 
           vocals2 = sort do
             v <- vocals1
-            let pitch = if 36 <= vocal_Note v && vocal_Note v <= 84
-                  then toEnum $ fromIntegral $ vocal_Note v - 36
+            let pitch = if 36 <= v.vocal_Note && v.vocal_Note <= 84
+                  then toEnum $ fromIntegral $ v.vocal_Note - 36
                   -- just shift octaves to keep in the valid RB space
-                  else toEnum $ fromIntegral $ rem (vocal_Note v - 36) 48
-                time = toSeconds $ vocal_Time v
-                endTime = toSeconds $ vocal_Time v + vocal_Length v
-                lyric = decodeGeneral $ vocal_Lyric v
+                  else toEnum $ fromIntegral $ rem (v.vocal_Note - 36) 48
+                time = toSeconds v.vocal_Time
+                endTime = toSeconds $ v.vocal_Time + v.vocal_Length
+                lyric = decodeGeneral v.vocal_Lyric
                 -- get rid of phrase end marker, make all notes talky
                 lyric' = fromMaybe lyric (T.stripSuffix "+" lyric) <> "#"
-                phraseEnd = "+" `B8.isSuffixOf` vocal_Lyric v
+                phraseEnd = "+" `B8.isSuffixOf` v.vocal_Lyric
             return (time, (pitch, endTime, lyric', phraseEnd))
 
           vocals3 = let
@@ -637,18 +639,18 @@ importRSSong folder song level = do
                   -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
                   then GtrTuning
                     { gtrBase    = Bass4
-                    , gtrOffsets = map fromIntegral $ take 4 $ meta_Tuning $ sng_Metadata sng
+                    , gtrOffsets = map fromIntegral $ take 4 sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
-                    , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                    , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
                       n  -> n
                     , gtrName    = Nothing
                     }
                   else GtrTuning
                     { gtrBase    = Guitar6
-                    , gtrOffsets = map fromIntegral $ meta_Tuning $ sng_Metadata sng
+                    , gtrOffsets = map fromIntegral sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
-                    , gtrCapo    = case fromIntegral $ meta_CapoFretId $ sng_Metadata sng of
+                    , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0
                       n  -> n
                     , gtrName    = Nothing
@@ -656,7 +658,7 @@ importRSSong folder song level = do
                 , tuningRSBass = Nothing
                 , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
                 , tones = flip fmap tones $ fmap \tone -> let
-                  file = T.unpack (t14_Key tone) <.> "tone2014.xml"
+                  file = T.unpack tone.t14_Key <.> "tone2014.xml"
                   in SoftFile file $ SoftReadable $ makeHandle file $
                     byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone
                 , pickedBass = False -- TODO

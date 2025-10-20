@@ -2,9 +2,11 @@
 Ported from LibForge
 https://github.com/maxton/LibForge
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.RockBand.RB4.RBMid where
 
 import           Control.Monad                      (forM, when)
@@ -90,41 +92,41 @@ data RBMid = RBMid
 
 instance Bin RBMid where
   bin = do
-    rbmid_Format                <- rbmid_Format                =. word32le
+    rbmid_Format                <- (.rbmid_Format)                =. word32le
     let isRBVR = rbmid_Format == 0x2F
-    rbmid_TrackInfo             <- rbmid_TrackInfo             =. lenArray bin
-    rbmid_DrumFills             <- rbmid_DrumFills             =. lenArray bin
-    rbmid_Anims                 <- rbmid_Anims                 =. lenArray bin
-    rbmid_ProMarkers            <- rbmid_ProMarkers            =. lenArray bin
-    rbmid_LaneMarkers           <- rbmid_LaneMarkers           =. lenArray bin
-    rbmid_GtrTrills             <- rbmid_GtrTrills             =. lenArray bin
-    rbmid_DrumMixes             <- rbmid_DrumMixes             =. lenArray bin
-    rbmid_GemTracks             <- rbmid_GemTracks             =. lenArray bin
-    rbmid_OverdriveSoloSections <- rbmid_OverdriveSoloSections =. lenArray bin
-    rbmid_VocalTracks           <- rbmid_VocalTracks           =. lenArray bin
-    rbmid_UnknownOne            <- rbmid_UnknownOne            =. int32le
-    rbmid_UnknownNegOne         <- rbmid_UnknownNegOne         =. int32le
-    rbmid_UnknownHundred        <- rbmid_UnknownHundred        =. floatle
-    rbmid_Unknown4              <- rbmid_Unknown4              =. lenArray (ticked floatle)
-    rbmid_VocalRange            <- rbmid_VocalRange            =. lenArray bin
-    rbmid_HopoThreshold         <- rbmid_HopoThreshold         =. int32le
-    rbmid_NumPlayableTracks     <- rbmid_NumPlayableTracks     =. word32le
-    rbmid_FinalEventTick        <- rbmid_FinalEventTick        =. word32le
-    rbmid_UnkVRTick             <- rbmid_UnkVRTick             =. optionalData isRBVR word32le
-    rbmid_UnknownZeroByte       <- rbmid_UnknownZeroByte       =. word8
-    rbmid_PreviewStartMillis    <- rbmid_PreviewStartMillis    =. floatle
-    rbmid_PreviewEndMillis      <- rbmid_PreviewEndMillis      =. floatle
-    rbmid_HandMaps              <- rbmid_HandMaps              =. lenArray (lenArray $ ticked int32le)
-    rbmid_GuitarLeftHandPos     <- rbmid_GuitarLeftHandPos     =. lenArray (lenArray bin)
-    rbmid_StrumMaps             <- rbmid_StrumMaps             =. lenArray (lenArray $ ticked int32le)
-    rbmid_MarkupSoloNotes1      <- rbmid_MarkupSoloNotes1      =. lenArray bin
-    rbmid_MarkupLoop1           <- rbmid_MarkupLoop1           =. lenArray (ticked word32le)
-    rbmid_MarkupChords1         <- rbmid_MarkupChords1         =. lenArray bin
-    rbmid_MarkupSoloNotes2      <- rbmid_MarkupSoloNotes2      =. lenArray bin
-    rbmid_MarkupSoloNotes3      <- rbmid_MarkupSoloNotes3      =. lenArray bin
-    rbmid_MarkupLoop2           <- rbmid_MarkupLoop2           =. lenArray (ticked word32le)
-    rbmid_VREvents              <- rbmid_VREvents              =. optionalData isRBVR bin
-    rbmid_MidiFileResource      <- rbmid_MidiFileResource      =. bin
+    rbmid_TrackInfo             <- (.rbmid_TrackInfo)             =. lenArray bin
+    rbmid_DrumFills             <- (.rbmid_DrumFills)             =. lenArray bin
+    rbmid_Anims                 <- (.rbmid_Anims)                 =. lenArray bin
+    rbmid_ProMarkers            <- (.rbmid_ProMarkers)            =. lenArray bin
+    rbmid_LaneMarkers           <- (.rbmid_LaneMarkers)           =. lenArray bin
+    rbmid_GtrTrills             <- (.rbmid_GtrTrills)             =. lenArray bin
+    rbmid_DrumMixes             <- (.rbmid_DrumMixes)             =. lenArray bin
+    rbmid_GemTracks             <- (.rbmid_GemTracks)             =. lenArray bin
+    rbmid_OverdriveSoloSections <- (.rbmid_OverdriveSoloSections) =. lenArray bin
+    rbmid_VocalTracks           <- (.rbmid_VocalTracks)           =. lenArray bin
+    rbmid_UnknownOne            <- (.rbmid_UnknownOne)            =. int32le
+    rbmid_UnknownNegOne         <- (.rbmid_UnknownNegOne)         =. int32le
+    rbmid_UnknownHundred        <- (.rbmid_UnknownHundred)        =. floatle
+    rbmid_Unknown4              <- (.rbmid_Unknown4)              =. lenArray (ticked floatle)
+    rbmid_VocalRange            <- (.rbmid_VocalRange)            =. lenArray bin
+    rbmid_HopoThreshold         <- (.rbmid_HopoThreshold)         =. int32le
+    rbmid_NumPlayableTracks     <- (.rbmid_NumPlayableTracks)     =. word32le
+    rbmid_FinalEventTick        <- (.rbmid_FinalEventTick)        =. word32le
+    rbmid_UnkVRTick             <- (.rbmid_UnkVRTick)             =. optionalData isRBVR word32le
+    rbmid_UnknownZeroByte       <- (.rbmid_UnknownZeroByte)       =. word8
+    rbmid_PreviewStartMillis    <- (.rbmid_PreviewStartMillis)    =. floatle
+    rbmid_PreviewEndMillis      <- (.rbmid_PreviewEndMillis)      =. floatle
+    rbmid_HandMaps              <- (.rbmid_HandMaps)              =. lenArray (lenArray $ ticked int32le)
+    rbmid_GuitarLeftHandPos     <- (.rbmid_GuitarLeftHandPos)     =. lenArray (lenArray bin)
+    rbmid_StrumMaps             <- (.rbmid_StrumMaps)             =. lenArray (lenArray $ ticked int32le)
+    rbmid_MarkupSoloNotes1      <- (.rbmid_MarkupSoloNotes1)      =. lenArray bin
+    rbmid_MarkupLoop1           <- (.rbmid_MarkupLoop1)           =. lenArray (ticked word32le)
+    rbmid_MarkupChords1         <- (.rbmid_MarkupChords1)         =. lenArray bin
+    rbmid_MarkupSoloNotes2      <- (.rbmid_MarkupSoloNotes2)      =. lenArray bin
+    rbmid_MarkupSoloNotes3      <- (.rbmid_MarkupSoloNotes3)      =. lenArray bin
+    rbmid_MarkupLoop2           <- (.rbmid_MarkupLoop2)           =. lenArray (ticked word32le)
+    rbmid_VREvents              <- (.rbmid_VREvents)              =. optionalData isRBVR bin
+    rbmid_MidiFileResource      <- (.rbmid_MidiFileResource)      =. bin
     return RBMid{..}
 
 data TrackInfo = TrackInfo
@@ -147,11 +149,11 @@ lenString = Codec
 
 instance Bin TrackInfo where
   bin = do
-    trk_Name   <- trk_Name   =. lenString
-    trk_Lyrics <- trk_Lyrics =. lenArray (ticked lenString)
-    trk_Unk1   <- trk_Unk1   =. word32le
-    trk_Unk2   <- trk_Unk2   =. word32le
-    trk_Unk3   <- trk_Unk3   =. word8
+    trk_Name   <- (.trk_Name)   =. lenString
+    trk_Lyrics <- (.trk_Lyrics) =. lenArray (ticked lenString)
+    trk_Unk1   <- (.trk_Unk1)   =. word32le
+    trk_Unk2   <- (.trk_Unk2)   =. word32le
+    trk_Unk3   <- (.trk_Unk3)   =. word8
     return TrackInfo{..}
 
 data Ticked a = Ticked
@@ -161,8 +163,8 @@ data Ticked a = Ticked
 
 ticked :: BinaryCodec a -> BinaryCodec (Ticked a)
 ticked c = do
-  t_Tick <- t_Tick =. word32le
-  t_Data <- t_Data =. c
+  t_Tick <- (.t_Tick) =. word32le
+  t_Data <- (.t_Data) =. c
   return Ticked{..}
 
 data DrumFillInfo = DrumFillInfo
@@ -172,8 +174,8 @@ data DrumFillInfo = DrumFillInfo
 
 instance Bin DrumFillInfo where
   bin = do
-    df_Lanes <- df_Lanes =. lenArray (ticked word32le)
-    df_Fills <- df_Fills =. lenArray bin
+    df_Lanes <- (.df_Lanes) =. lenArray (ticked word32le)
+    df_Fills <- (.df_Fills) =. lenArray bin
     return DrumFillInfo{..}
 
 data FillExtent = FillExtent
@@ -184,9 +186,9 @@ data FillExtent = FillExtent
 
 instance Bin FillExtent where
   bin = do
-    fe_FillStartTick <- fe_FillStartTick =. word32le
-    fe_FillEndTick   <- fe_FillEndTick   =. word32le
-    fe_IsBRE         <- fe_IsBRE         =. boolByte
+    fe_FillStartTick <- (.fe_FillStartTick) =. word32le
+    fe_FillEndTick   <- (.fe_FillEndTick)   =. word32le
+    fe_IsBRE         <- (.fe_IsBRE)         =. boolByte
     return FillExtent{..}
 
 data FakeTrack = FakeTrack
@@ -196,8 +198,8 @@ data FakeTrack = FakeTrack
 
 instance Bin FakeTrack where
   bin = do
-    ft_Name      <- ft_Name      =. lenString
-    ft_Animation <- ft_Animation =. bin
+    ft_Name      <- (.ft_Name)      =. lenString
+    ft_Animation <- (.ft_Animation) =. bin
     return FakeTrack{..}
 
 data GameGemDB = GameGemDB
@@ -207,8 +209,8 @@ data GameGemDB = GameGemDB
 
 instance Bin GameGemDB where
   bin = do
-    ggdb_GemLists <- ggdb_GemLists =. lenArray bin
-    ggdb_End      <- ggdb_End      =. word32le
+    ggdb_GemLists <- (.ggdb_GemLists) =. lenArray bin
+    ggdb_End      <- (.ggdb_End)      =. word32le
     return GameGemDB{..}
 
 data GameGemList = GameGemList
@@ -218,8 +220,8 @@ data GameGemList = GameGemList
 
 instance Bin GameGemList where
   bin = do
-    ggl_UnknownAA <- ggl_UnknownAA =. word32le
-    ggl_Gems      <- ggl_Gems      =. lenArray bin
+    ggl_UnknownAA <- (.ggl_UnknownAA) =. word32le
+    ggl_Gems      <- (.ggl_Gems)      =. lenArray bin
     return GameGemList{..}
 
 data GameGem = GameGem
@@ -247,17 +249,17 @@ data GameGem = GameGem
 
 instance Bin GameGem where
   bin = do
-    gg_StartMillis  <- gg_StartMillis  =. floatle
-    gg_StartTicks   <- gg_StartTicks   =. word32le
-    gg_LengthMillis <- gg_LengthMillis =. word16le
-    gg_LengthTicks  <- gg_LengthTicks  =. word16le
-    gg_Lanes        <- gg_Lanes        =. word32le
-    gg_IsHOPO       <- gg_IsHOPO       =. boolByte
-    gg_NoTail       <- gg_NoTail       =. boolByte
-    gg_Flag3        <- gg_Flag3        =. word8
-    gg_Flag4        <- gg_Flag4        =. word8
-    gg_Flag5        <- gg_Flag5        =. word8
-    gg_Flag6        <- gg_Flag6        =. word8
+    gg_StartMillis  <- (.gg_StartMillis)  =. floatle
+    gg_StartTicks   <- (.gg_StartTicks)   =. word32le
+    gg_LengthMillis <- (.gg_LengthMillis) =. word16le
+    gg_LengthTicks  <- (.gg_LengthTicks)  =. word16le
+    gg_Lanes        <- (.gg_Lanes)        =. word32le
+    gg_IsHOPO       <- (.gg_IsHOPO)       =. boolByte
+    gg_NoTail       <- (.gg_NoTail)       =. boolByte
+    gg_Flag3        <- (.gg_Flag3)        =. word8
+    gg_Flag4        <- (.gg_Flag4)        =. word8
+    gg_Flag5        <- (.gg_Flag5)        =. word8
+    gg_Flag6        <- (.gg_Flag6)        =. word8
     return GameGem{..}
 
 data TomMarker = TomMarker
@@ -268,9 +270,9 @@ data TomMarker = TomMarker
 
 instance Bin TomMarker where
   bin = do
-    dm_ProMarkers  <- dm_ProMarkers  =. lenArray (ticked word32le)
-    dm_Unknown1    <- dm_Unknown1    =. word32le
-    dm_Unknown2    <- dm_Unknown2    =. word32le
+    dm_ProMarkers  <- (.dm_ProMarkers)  =. lenArray (ticked word32le)
+    dm_Unknown1    <- (.dm_Unknown1)    =. word32le
+    dm_Unknown2    <- (.dm_Unknown2)    =. word32le
     return TomMarker{..}
 
 data LaneMarkers = LaneMarkers
@@ -279,7 +281,7 @@ data LaneMarkers = LaneMarkers
 
 instance Bin LaneMarkers where
   bin = do
-    lms_Difficulties <- lms_Difficulties =. lenArray (lenArray bin)
+    lms_Difficulties <- (.lms_Difficulties) =. lenArray (lenArray bin)
     return LaneMarkers{..}
 
 data LaneMarker = LaneMarker
@@ -298,9 +300,9 @@ data LaneMarker = LaneMarker
 
 instance Bin LaneMarker where
   bin = do
-    lm_StartTick <- lm_StartTick =. word32le
-    lm_EndTick   <- lm_EndTick   =. word32le
-    lm_Flags     <- lm_Flags     =. word32le
+    lm_StartTick <- (.lm_StartTick) =. word32le
+    lm_EndTick   <- (.lm_EndTick)   =. word32le
+    lm_Flags     <- (.lm_Flags)     =. word32le
     return LaneMarker{..}
 
 data GtrTrills = GtrTrills
@@ -309,7 +311,7 @@ data GtrTrills = GtrTrills
 
 instance Bin GtrTrills where
   bin = do
-    gt_Trills <- gt_Trills =. lenArray (lenArray bin)
+    gt_Trills <- (.gt_Trills) =. lenArray (lenArray bin)
     return GtrTrills{..}
 
 data GtrTrill = GtrTrill
@@ -321,10 +323,10 @@ data GtrTrill = GtrTrill
 
 instance Bin GtrTrill where
   bin = do
-    gt_StartTick <- gt_StartTick =. word32le
-    gt_EndTick   <- gt_EndTick   =. word32le
-    gt_Fret1     <- gt_Fret1     =. int32le
-    gt_Fret2     <- gt_Fret2     =. int32le
+    gt_StartTick <- (.gt_StartTick) =. word32le
+    gt_EndTick   <- (.gt_EndTick)   =. word32le
+    gt_Fret1     <- (.gt_Fret1)     =. int32le
+    gt_Fret2     <- (.gt_Fret2)     =. int32le
     return GtrTrill{..}
 
 data DrumMixes = DrumMixes
@@ -333,7 +335,7 @@ data DrumMixes = DrumMixes
 
 instance Bin DrumMixes where
   bin = do
-    mix_Mixes <- mix_Mixes =. lenArray (lenArray $ ticked lenString)
+    mix_Mixes <- (.mix_Mixes) =. lenArray (lenArray $ ticked lenString)
     return DrumMixes{..}
 
 data GemTrack = GemTrack
@@ -343,10 +345,10 @@ data GemTrack = GemTrack
 
 instance Bin GemTrack where
   bin = do
-    gt_Gems <- gt_Gems =. lenArray do
+    gt_Gems <- (.gt_Gems) =. lenArray do
       skipBytes 4
       lenArray bin
-    gt_HopoThreshold <- gt_HopoThreshold =. int32le
+    gt_HopoThreshold <- (.gt_HopoThreshold) =. int32le
     return GemTrack{..}
 
 data Gem = Gem
@@ -362,14 +364,14 @@ data Gem = Gem
 
 instance Bin Gem where
   bin = do
-    gem_StartMillis  <- gem_StartMillis  =. floatle
-    gem_StartTicks   <- gem_StartTicks   =. word32le
-    gem_LengthMillis <- gem_LengthMillis =. word16le
-    gem_LengthTicks  <- gem_LengthTicks  =. word16le
-    gem_Lanes        <- gem_Lanes        =. int32le
-    gem_IsHOPO       <- gem_IsHOPO       =. boolByte
-    gem_NoTail       <- gem_NoTail       =. boolByte
-    gem_ProCymbal    <- gem_ProCymbal    =. int32le
+    gem_StartMillis  <- (.gem_StartMillis)  =. floatle
+    gem_StartTicks   <- (.gem_StartTicks)   =. word32le
+    gem_LengthMillis <- (.gem_LengthMillis) =. word16le
+    gem_LengthTicks  <- (.gem_LengthTicks)  =. word16le
+    gem_Lanes        <- (.gem_Lanes)        =. int32le
+    gem_IsHOPO       <- (.gem_IsHOPO)       =. boolByte
+    gem_NoTail       <- (.gem_NoTail)       =. boolByte
+    gem_ProCymbal    <- (.gem_ProCymbal)    =. int32le
     return Gem{..}
 
 data Sections = Sections
@@ -379,7 +381,7 @@ data Sections = Sections
 
 instance Bin Sections where
   bin = do
-    s_Sections <- s_Sections =. lenArray (lenArray $ lenArray $ ticked word32le)
+    s_Sections <- (.s_Sections) =. lenArray (lenArray $ lenArray $ ticked word32le)
     return Sections{..}
 
 data VocalTrack = VocalTrack
@@ -392,11 +394,11 @@ data VocalTrack = VocalTrack
 
 instance Bin VocalTrack where
   bin = do
-    vt_FakePhraseMarkers     <- vt_FakePhraseMarkers     =. lenArray bin
-    vt_AuthoredPhraseMarkers <- vt_AuthoredPhraseMarkers =. lenArray bin
-    vt_Notes                 <- vt_Notes                 =. lenArray bin
-    vt_Percussion            <- vt_Percussion            =. lenArray word32le
-    vt_FreestyleRegions      <- vt_FreestyleRegions      =. lenArray bin
+    vt_FakePhraseMarkers     <- (.vt_FakePhraseMarkers)     =. lenArray bin
+    vt_AuthoredPhraseMarkers <- (.vt_AuthoredPhraseMarkers) =. lenArray bin
+    vt_Notes                 <- (.vt_Notes)                 =. lenArray bin
+    vt_Percussion            <- (.vt_Percussion)            =. lenArray word32le
+    vt_FreestyleRegions      <- (.vt_FreestyleRegions)      =. lenArray bin
     return VocalTrack{..}
 
 data PhraseMarker = PhraseMarker
@@ -416,19 +418,19 @@ data PhraseMarker = PhraseMarker
 
 instance Bin PhraseMarker where
   bin = do
-    pm_StartMillis       <- pm_StartMillis        =. floatle
-    pm_LengthMillis      <- pm_LengthMillis       =. floatle
-    pm_StartTicks        <- pm_StartTicks         =. word32le
-    pm_LengthTicks       <- pm_LengthTicks        =. word32le
-    pm_StartNoteIdx      <- pm_StartNoteIdx       =. int32le
-    pm_EndNoteIdx        <- pm_EndNoteIdx         =. int32le
-    pm_HasPitchedVox     <- pm_HasPitchedVox      =. boolByte
-    pm_HasUnpitchedVox   <- pm_HasUnpitchedVox    =. boolByte
+    pm_StartMillis       <- (.pm_StartMillis)        =. floatle
+    pm_LengthMillis      <- (.pm_LengthMillis)       =. floatle
+    pm_StartTicks        <- (.pm_StartTicks)         =. word32le
+    pm_LengthTicks       <- (.pm_LengthTicks)        =. word32le
+    pm_StartNoteIdx      <- (.pm_StartNoteIdx)       =. int32le
+    pm_EndNoteIdx        <- (.pm_EndNoteIdx)         =. int32le
+    pm_HasPitchedVox     <- (.pm_HasPitchedVox)      =. boolByte
+    pm_HasUnpitchedVox   <- (.pm_HasUnpitchedVox)    =. boolByte
     skipBytes 9
-    pm_LowNote           <- pm_LowNote            =. floatle
-    pm_HighNote          <- pm_HighNote           =. floatle
-    pm_PhraseFlags       <- pm_PhraseFlags        =. word8
-    pm_PercussionSection <- pm_PercussionSection  =. boolByte
+    pm_LowNote           <- (.pm_LowNote)            =. floatle
+    pm_HighNote          <- (.pm_HighNote)           =. floatle
+    pm_PhraseFlags       <- (.pm_PhraseFlags)        =. word8
+    pm_PercussionSection <- (.pm_PercussionSection)  =. boolByte
     skipBytes 8
     return PhraseMarker{..}
 
@@ -454,23 +456,23 @@ data VocalNote = VocalNote
 
 instance Bin VocalNote where
   bin = do
-    vn_PhraseIndex       <- vn_PhraseIndex        =. int32le
-    vn_MidiNote          <- vn_MidiNote           =. int32le
-    vn_MidiNote2         <- vn_MidiNote2          =. int32le
-    vn_StartMillis       <- vn_StartMillis        =. floatle
-    vn_StartTicks        <- vn_StartTicks         =. word32le
-    vn_LengthMillis      <- vn_LengthMillis       =. floatle
-    vn_LengthTicks       <- vn_LengthTicks        =. word16le
-    vn_Lyric             <- vn_Lyric              =. lenString
-    vn_LastNoteInPhrase  <- vn_LastNoteInPhrase   =. boolByte
-    vn_False1            <- vn_False1             =. boolByte
-    vn_Unpitched         <- vn_Unpitched          =. boolByte
-    vn_UnpitchedGenerous <- vn_UnpitchedGenerous  =. boolByte
-    vn_RangeDivider      <- vn_RangeDivider       =. boolByte
-    vn_PhraseFlags       <- vn_PhraseFlags        =. word8
-    vn_Portamento        <- vn_Portamento         =. boolByte
-    vn_LyricShift        <- vn_LyricShift         =. boolByte
-    vn_ShowLyric         <- vn_ShowLyric          =. boolByte
+    vn_PhraseIndex       <- (.vn_PhraseIndex)        =. int32le
+    vn_MidiNote          <- (.vn_MidiNote)           =. int32le
+    vn_MidiNote2         <- (.vn_MidiNote2)          =. int32le
+    vn_StartMillis       <- (.vn_StartMillis)        =. floatle
+    vn_StartTicks        <- (.vn_StartTicks)         =. word32le
+    vn_LengthMillis      <- (.vn_LengthMillis)       =. floatle
+    vn_LengthTicks       <- (.vn_LengthTicks)        =. word16le
+    vn_Lyric             <- (.vn_Lyric)              =. lenString
+    vn_LastNoteInPhrase  <- (.vn_LastNoteInPhrase)   =. boolByte
+    vn_False1            <- (.vn_False1)             =. boolByte
+    vn_Unpitched         <- (.vn_Unpitched)          =. boolByte
+    vn_UnpitchedGenerous <- (.vn_UnpitchedGenerous)  =. boolByte
+    vn_RangeDivider      <- (.vn_RangeDivider)       =. boolByte
+    vn_PhraseFlags       <- (.vn_PhraseFlags)        =. word8
+    vn_Portamento        <- (.vn_Portamento)         =. boolByte
+    vn_LyricShift        <- (.vn_LyricShift)         =. boolByte
+    vn_ShowLyric         <- (.vn_ShowLyric)          =. boolByte
     return VocalNote{..}
 
 data ODRegion = ODRegion
@@ -480,8 +482,8 @@ data ODRegion = ODRegion
 
 instance Bin ODRegion where
   bin = do
-    od_StartMillis <- od_StartMillis =. floatle
-    od_EndMillis   <- od_EndMillis   =. floatle
+    od_StartMillis <- (.od_StartMillis) =. floatle
+    od_EndMillis   <- (.od_EndMillis  ) =. floatle
     return ODRegion{..}
 
 data VocalTrackRange = VocalTrackRange
@@ -493,10 +495,10 @@ data VocalTrackRange = VocalTrackRange
 
 instance Bin VocalTrackRange where
   bin = do
-    vtr_StartMillis <- vtr_StartMillis =. floatle
-    vtr_StartTicks  <- vtr_StartTicks  =. int32le
-    vtr_LowNote     <- vtr_LowNote     =. floatle
-    vtr_HighNote    <- vtr_HighNote    =. floatle
+    vtr_StartMillis <- (.vtr_StartMillis) =. floatle
+    vtr_StartTicks  <- (.vtr_StartTicks ) =. int32le
+    vtr_LowNote     <- (.vtr_LowNote    ) =. floatle
+    vtr_HighNote    <- (.vtr_HighNote   ) =. floatle
     return VocalTrackRange{..}
 
 data HandPos = HandPos
@@ -508,10 +510,10 @@ data HandPos = HandPos
 
 instance Bin HandPos where
   bin = do
-    hp_StartTime <- hp_StartTime =. floatle
-    hp_Length    <- hp_Length    =. floatle
-    hp_Position  <- hp_Position  =. int32le
-    hp_Unknown   <- hp_Unknown   =. word8
+    hp_StartTime <- (.hp_StartTime) =. floatle
+    hp_Length    <- (.hp_Length   ) =. floatle
+    hp_Position  <- (.hp_Position ) =. int32le
+    hp_Unknown   <- (.hp_Unknown  ) =. word8
     return HandPos{..}
 
 data MarkupSoloNotes = MarkupSoloNotes
@@ -522,9 +524,9 @@ data MarkupSoloNotes = MarkupSoloNotes
 
 instance Bin MarkupSoloNotes where
   bin = do
-    msn_StartTick  <- msn_StartTick  =. word32le
-    msn_EndTick    <- msn_EndTick    =. word32le
-    msn_NoteOffset <- msn_NoteOffset =. int32le
+    msn_StartTick  <- (.msn_StartTick ) =. word32le
+    msn_EndTick    <- (.msn_EndTick   ) =. word32le
+    msn_NoteOffset <- (.msn_NoteOffset) =. int32le
     return MarkupSoloNotes{..}
 
 data MarkupChord = MarkupChord
@@ -535,9 +537,9 @@ data MarkupChord = MarkupChord
 
 instance Bin MarkupChord where
   bin = do
-    mc_StartTick <- mc_StartTick =. word32le
-    mc_EndTick   <- mc_EndTick   =. word32le
-    mc_Pitches   <- mc_Pitches   =. lenArray int32le
+    mc_StartTick <- (.mc_StartTick) =. word32le
+    mc_EndTick   <- (.mc_EndTick  ) =. word32le
+    mc_Pitches   <- (.mc_Pitches  ) =. lenArray int32le
     return MarkupChord{..}
 
 -- TODO
@@ -573,28 +575,28 @@ data MidiFileResource = MidiFileResource
 
 instance Bin MidiFileResource where
   bin = do
-    mfr_MidiSongResourceMagic <- mfr_MidiSongResourceMagic =. int32le
-    mfr_LastTrackFinalTick    <- mfr_LastTrackFinalTick    =. word32le
-    mfr_MidiTracks            <- mfr_MidiTracks            =. lenArray bin
+    mfr_MidiSongResourceMagic <- (.mfr_MidiSongResourceMagic) =. int32le
+    mfr_LastTrackFinalTick    <- (.mfr_LastTrackFinalTick   ) =. word32le
+    mfr_MidiTracks            <- (.mfr_MidiTracks           ) =. lenArray bin
     isFuser <- Codec
       { codecIn = do
         mrev <- lookAhead $ getByteString 4
         return $ mrev == "#REV"
-      , codecOut = return . isJust . mfr_FuserRevision
+      , codecOut = return . isJust . (.mfr_FuserRevision)
       }
-    mfr_FuserRevision         <- mfr_FuserRevision         =. optionalData isFuser int32le
-    mfr_FinalTick             <- mfr_FinalTick             =. word32le
-    mfr_Measures              <- mfr_Measures              =. word32le
-    mfr_Unknown               <- mfr_Unknown               =. fixedArray 6 word32le
-    mfr_FinalTickMinusOne     <- mfr_FinalTickMinusOne     =. word32le
-    mfr_UnknownFloats         <- mfr_UnknownFloats         =. fixedArray 4 floatle
-    mfr_Tempos                <- mfr_Tempos                =. lenArray bin
-    mfr_TimeSigs              <- mfr_TimeSigs              =. lenArray bin
-    mfr_Beats                 <- mfr_Beats                 =. lenArray bin
-    mfr_UnknownZero           <- mfr_UnknownZero           =. int32le
-    mfr_FuserRevision2        <- mfr_FuserRevision2        =. optionalData isFuser int32le
-    mfr_FuserData             <- mfr_FuserData             =. optionalData isFuser (lenArray bin)
-    mfr_MidiTrackNames        <- mfr_MidiTrackNames        =. lenArray lenString
+    mfr_FuserRevision         <- (.mfr_FuserRevision        ) =. optionalData isFuser int32le
+    mfr_FinalTick             <- (.mfr_FinalTick            ) =. word32le
+    mfr_Measures              <- (.mfr_Measures             ) =. word32le
+    mfr_Unknown               <- (.mfr_Unknown              ) =. fixedArray 6 word32le
+    mfr_FinalTickMinusOne     <- (.mfr_FinalTickMinusOne    ) =. word32le
+    mfr_UnknownFloats         <- (.mfr_UnknownFloats        ) =. fixedArray 4 floatle
+    mfr_Tempos                <- (.mfr_Tempos               ) =. lenArray bin
+    mfr_TimeSigs              <- (.mfr_TimeSigs             ) =. lenArray bin
+    mfr_Beats                 <- (.mfr_Beats                ) =. lenArray bin
+    mfr_UnknownZero           <- (.mfr_UnknownZero          ) =. int32le
+    mfr_FuserRevision2        <- (.mfr_FuserRevision2       ) =. optionalData isFuser int32le
+    mfr_FuserData             <- (.mfr_FuserData            ) =. optionalData isFuser (lenArray bin)
+    mfr_MidiTrackNames        <- (.mfr_MidiTrackNames       ) =. lenArray lenString
     return MidiFileResource{..}
 
 data MidiTrack = MidiTrack
@@ -606,10 +608,10 @@ data MidiTrack = MidiTrack
 
 instance Bin MidiTrack where
   bin = do
-    mt_Unk     <- mt_Unk     =. word8
-    mt_Unk2    <- mt_Unk2    =. int32le
-    mt_Events  <- mt_Events  =. lenArray (ticked word32be) -- note, reading as BE
-    mt_Strings <- mt_Strings =. lenArray lenString
+    mt_Unk     <- (.mt_Unk    ) =. word8
+    mt_Unk2    <- (.mt_Unk2   ) =. int32le
+    mt_Events  <- (.mt_Events ) =. lenArray (ticked word32be) -- note, reading as BE
+    mt_Strings <- (.mt_Strings) =. lenArray lenString
     return MidiTrack{..}
 
 convertMidiEvent :: [B.ByteString] -> Word32 -> Maybe (E.T B.ByteString)
@@ -660,9 +662,9 @@ data Tempo = Tempo
 
 instance Bin Tempo where
   bin = do
-    tempo_StartMillis <- tempo_StartMillis =. floatle
-    tempo_StartTick   <- tempo_StartTick   =. word32le
-    tempo_Tempo       <- tempo_Tempo       =. int32le
+    tempo_StartMillis <- (.tempo_StartMillis) =. floatle
+    tempo_StartTick   <- (.tempo_StartTick  ) =. word32le
+    tempo_Tempo       <- (.tempo_Tempo      ) =. int32le
     return Tempo{..}
 
 data TimeSig = TimeSig
@@ -674,10 +676,10 @@ data TimeSig = TimeSig
 
 instance Bin TimeSig where
   bin = do
-    ts_Measure     <- ts_Measure     =. int32le
-    ts_Tick        <- ts_Tick        =. word32le
-    ts_Numerator   <- ts_Numerator   =. int16le
-    ts_Denominator <- ts_Denominator =. int16le
+    ts_Measure     <- (.ts_Measure    ) =. int32le
+    ts_Tick        <- (.ts_Tick       ) =. word32le
+    ts_Numerator   <- (.ts_Numerator  ) =. int16le
+    ts_Denominator <- (.ts_Denominator) =. int16le
     return TimeSig{..}
 
 data Beat = Beat
@@ -687,8 +689,8 @@ data Beat = Beat
 
 instance Bin Beat where
   bin = do
-    beat_Tick     <- beat_Tick     =. word32le
-    beat_Downbeat <- beat_Downbeat =. boolByte
+    beat_Tick     <- (.beat_Tick    ) =. word32le
+    beat_Downbeat <- (.beat_Downbeat) =. boolByte
     skipBytes 3
     return Beat{..}
 
@@ -703,10 +705,10 @@ instance Bin FuserData where
 
 extractMidi :: (SendMessage m) => RBMid -> StackTraceT m (F.T B.ByteString)
 extractMidi rbmid = do
-  let mfr = rbmid_MidiFileResource rbmid
-  fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM (mfr_MidiTracks mfr) $ \mt -> do
-    let raw = RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (\(Ticked delta x) -> (fromIntegral delta, x)) $ mt_Events mt
+  let mfr = rbmid.rbmid_MidiFileResource
+  fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM mfr.mfr_MidiTracks $ \mt -> do
+    let raw = RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (\(Ticked delta x) -> (fromIntegral delta, x)) mt.mt_Events
     fmap RTB.catMaybes $ forM raw \w -> do
-      let res = convertMidiEvent (mt_Strings mt) w
+      let res = convertMidiEvent mt.mt_Strings w
       when (isNothing res) $ warn $ "Unrecognized MIDI event: " <> showHex w ""
       return res

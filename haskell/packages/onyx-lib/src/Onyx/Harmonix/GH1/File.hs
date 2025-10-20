@@ -1,9 +1,11 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH1.File where
 
 import           Control.Monad.Codec
@@ -42,10 +44,10 @@ instance TraverseTrack GH1File where
 
 instance ParseFile GH1File where
   parseFile = do
-    gh1T1Gems   <- gh1T1Gems   =. fileTrack (pure "T1 GEMS" )
-    gh1Anim     <- gh1Anim     =. fileTrack (pure "ANIM"    )
-    gh1Triggers <- gh1Triggers =. fileTrack (pure "TRIGGERS")
-    gh1Events   <- gh1Events   =. fileTrack (pure "EVENTS"  )
+    gh1T1Gems   <- (.gh1T1Gems)   =. fileTrack (pure "T1 GEMS" )
+    gh1Anim     <- (.gh1Anim)     =. fileTrack (pure "ANIM"    )
+    gh1Triggers <- (.gh1Triggers) =. fileTrack (pure "TRIGGERS")
+    gh1Events   <- (.gh1Events)   =. fileTrack (pure "EVENTS"  )
     return GH1File{..}
 
 data GemsTrack t = GemsTrack
@@ -61,8 +63,8 @@ instance TraverseTrack GemsTrack where
 
 instance ParseTrack GemsTrack where
   parseTrack = do
-    gemsDifficulties <- gemsDifficulties =. eachKey each parseDifficulty
-    gemsMouthOpen    <- gemsMouthOpen    =. edges 108
+    gemsDifficulties <- (.gemsDifficulties) =. eachKey each parseDifficulty
+    gemsMouthOpen    <- (.gemsMouthOpen)    =. edges 108
     return GemsTrack{..}
 
 data FretPosition60
@@ -124,9 +126,9 @@ instance TraverseTrack AnimTrack where
 
 instance ParseTrack AnimTrack where
   parseTrack = do
-    animFretPosition <- (animFretPosition =.) $ condenseMap $ eachKey each
+    animFretPosition <- ((.animFretPosition) =.) $ condenseMap $ eachKey each
       $ \posn -> edges $ fromEnum posn + 40
-    animHandMap <- animHandMap =. simpleText ""
+    animHandMap <- (.animHandMap) =. simpleText ""
     return AnimTrack{..}
 
 instance TraverseTrack TriggersTrack where
@@ -134,8 +136,8 @@ instance TraverseTrack TriggersTrack where
 
 instance ParseTrack TriggersTrack where
   parseTrack = do
-    triggers60 <- triggers60 =. blip 60
-    triggers61 <- triggers61 =. blip 61
+    triggers60 <- (.triggers60) =. blip 60
+    triggers61 <- (.triggers61) =. blip 61
     return TriggersTrack{..}
 
 instance TraverseTrack EventsTrack where
@@ -143,14 +145,14 @@ instance TraverseTrack EventsTrack where
 
 instance ParseTrack EventsTrack where
   parseTrack = do
-    eventsList <- eventsList =. simpleText "Event_"
+    eventsList <- (.eventsList) =. simpleText "Event_"
     return EventsTrack{..}
 
 simpleText :: (Show a, Read a, Monad m, NNC.C t) => T.Text -> TrackEvent m t a
 simpleText prefix = Codec
   { codecIn = slurpTrack \mt -> let
     matcher s = readMaybe $ T.unpack $ prefix <> s
-    in case RTB.partitionMaybe matcher $ midiLyrics mt of
+    in case RTB.partitionMaybe matcher mt.midiLyrics of
       (matches, rest) -> (matches, mt { midiLyrics = rest })
   , codecOut = makeTrackBuilder $ fmap $
     E.MetaEvent . Meta.TextEvent . (\s -> fromMaybe s $ T.stripPrefix prefix s) . T.pack . show

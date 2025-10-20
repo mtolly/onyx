@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -48,19 +49,19 @@ data RRFiveDifficulty t = RRFiveDifficulty
 
 instance ParseTrack RRFiveDifficulty where
   parseTrack = fatBlips (1/8) $ do
-    rrfStrums <- (rrfStrums =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+    rrfStrums <- ((.rrfStrums) =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Five.Green  -> 48
       Five.Red    -> 49
       Five.Yellow -> 50
       Five.Blue   -> 51
       Five.Orange -> 52
-    rrfHOPOs <- (rrfHOPOs =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+    rrfHOPOs <- ((.rrfHOPOs) =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Five.Green  -> 60
       Five.Red    -> 61
       Five.Yellow -> 62
       Five.Blue   -> 63
       Five.Orange -> 64
-    rrfSolo <- rrfSolo =. edges 127
+    rrfSolo <- (.rrfSolo) =. edges 127
     return RRFiveDifficulty{..}
 
 importRRGuitarBass :: RRFiveDifficulty U.Beats -> Five.FiveDifficulty U.Beats
@@ -71,11 +72,11 @@ importRRGuitarBass rr = let
     . RTB.collectCoincident
     . fmap (\case EdgeOn{} -> True; EdgeOff{} -> False)
   in Five.FiveDifficulty
-    { Five.fiveForceStrum = forceEdges $ rrfStrums rr
-    , Five.fiveForceHOPO = forceEdges $ rrfHOPOs rr
+    { Five.fiveForceStrum = forceEdges rr.rrfStrums
+    , Five.fiveForceHOPO = forceEdges rr.rrfHOPOs
     , Five.fiveTap = RTB.empty
     , Five.fiveOpen = RTB.empty
-    , Five.fiveGems = fmap (fmap Just) $ RTB.merge (rrfStrums rr) (rrfHOPOs rr)
+    , Five.fiveGems = fmap (fmap Just) $ RTB.merge rr.rrfStrums rr.rrfHOPOs
     }
 
 -- drums
@@ -198,9 +199,9 @@ data RRDrumDifficulty t = RRDrumDifficulty
 
 instance ParseTrack RRDrumDifficulty where
   parseTrack = do
-    rrdGems      <- (rrdGems      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 48
-    rrdHidden    <- (rrdHidden    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 72
-    rrdFreestyle <- rrdFreestyle =. let
+    rrdGems      <- ((.rrdGems)      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 48
+    rrdHidden    <- ((.rrdHidden)    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 72
+    rrdFreestyle <- (.rrdFreestyle) =. let
       decodeEdge :: (RRDrum, (Int, Maybe Int)) -> Edge () (RRDrum, RRChannel)
       decodeEdge (drum, (chan, mv)) = let
         chan' = fromMaybe RRC_Hidden $ lookup chan channelMap
@@ -214,7 +215,7 @@ instance ParseTrack RRDrumDifficulty where
       in dimap (fmap encodeEdge) (fmap decodeEdge) $
         condenseMap $ eachKey each \drum ->
           edgesCV $ fromEnum drum
-    rrdSolo      <- rrdSolo =. edges 127
+    rrdSolo      <- (.rrdSolo) =. edges 127
     return RRDrumDifficulty{..}
 
 importRRDrums :: Map.Map Difficulty (RRDrumDifficulty U.Beats) -> D.DrumTrack U.Beats
@@ -229,14 +230,14 @@ importRRDrums diffs = mempty
       $ RTB.collectCoincident
       $ fmap (\pro -> (void pro, D.VelocityNormal))
       $ RTB.mapMaybe (rrChannel4Lane . snd)
-      $ rrdGems rr
+      $ rr.rrdGems
     }
   , D.drumToms = let
-    expert = maybe mempty (RTB.mapMaybe (rrChannel4Lane . snd) . rrdGems) $ Map.lookup Expert diffs
+    expert = maybe mempty (RTB.mapMaybe (rrChannel4Lane . snd) . (.rrdGems)) $ Map.lookup Expert diffs
     in U.trackJoin $ flip fmap expert \case
       D.Pro color D.Tom -> RTB.cons 0 (color, D.Tom) $ RTB.cons (1/32) (color, D.Cymbal) RTB.empty
       _                 -> RTB.empty
-  , D.drumSolo = maybe RTB.empty rrdSolo $ Map.lookup Expert diffs
+  , D.drumSolo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert diffs
   }
 
 importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
@@ -244,7 +245,7 @@ importRREliteDrums
   = ED.makeEliteDifficulty
   . fmap (\gem -> (D.RH <$ gem, ED.GemNormal, D.VelocityNormal))
   . RTB.mapMaybe (rrChannel7Lane . snd)
-  . rrdGems
+  . (.rrdGems)
 
 importRREliteLanes :: (NNC.C t) => RRDrumDifficulty t -> RTB.T t (Edge () (ED.EliteGem ()))
 importRREliteLanes rr = flip RTB.mapMaybe rr.rrdFreestyle $ mapM \(_, chan) -> rrChannel7Lane chan
@@ -253,7 +254,7 @@ importRRHiddenDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beat
 importRRHiddenDrums rr
   = ED.makeEliteDifficulty
   $ fmap (rrDrumGuessED . fst)
-  $ RTB.merge (rrdGems rr) (rrdHidden rr)
+  $ RTB.merge rr.rrdGems rr.rrdHidden
 
 -- control
 

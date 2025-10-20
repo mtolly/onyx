@@ -1,5 +1,7 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.RockBand.Save where
 
 import           Control.Monad        (guard, replicateM)

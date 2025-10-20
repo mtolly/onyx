@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -243,11 +244,12 @@ emptyLipsync = Lipsync
   }
 
 lipsyncToStates :: Lipsync -> LipsyncStates
-lipsyncToStates l = go Map.empty $ lipsyncKeyframes l where
+lipsyncToStates l = go Map.empty l.lipsyncKeyframes where
+  go :: Map.Map B.ByteString Word8 -> [Keyframe] -> [Map.Map B.ByteString Word8]
   go _ [] = []
   go m (kf : rest) = let
     m' = Map.filter (/= 0) $
-      foldr (\(VisemeEvent i w ()) -> Map.insert (lipsyncVisemes l !! i) w) m (keyframeEvents kf)
+      foldr (\(VisemeEvent i w ()) -> Map.insert (l.lipsyncVisemes !! i) w) m kf.keyframeEvents
     in m' : go m' rest
 
 lipsyncFromStates :: LipsyncStates -> Lipsync
@@ -316,17 +318,17 @@ parseLipsync = do
 
 putLipsync :: Lipsync -> Put
 putLipsync lip = do
-  putWord32be $ lipsyncVersion lip
-  putWord32be $ lipsyncSubversion lip
-  putStringBE $ lipsyncDTAImport lip
+  putWord32be lip.lipsyncVersion
+  putWord32be lip.lipsyncSubversion
+  putStringBE lip.lipsyncDTAImport
   putWord8 0
   putWord32be 0
-  putWord32be $ fromIntegral $ length $ lipsyncVisemes lip
-  mapM_ putStringBE $ lipsyncVisemes lip
-  putWord32be $ fromIntegral $ length $ lipsyncKeyframes lip
-  let keyframeBS = runPut $ forM_ (lipsyncKeyframes lip) $ \key -> do
-        putWord8 $ fromIntegral $ length $ keyframeEvents key
-        forM_ (keyframeEvents key) $ \evt -> do
+  putWord32be $ fromIntegral $ length lip.lipsyncVisemes
+  mapM_ putStringBE lip.lipsyncVisemes
+  putWord32be $ fromIntegral $ length lip.lipsyncKeyframes
+  let keyframeBS = runPut $ forM_ lip.lipsyncKeyframes $ \key -> do
+        putWord8 $ fromIntegral $ length key.keyframeEvents
+        forM_ key.keyframeEvents $ \evt -> do
           putWord8 $ fromIntegral evt.visemeKey
           putWord8 evt.visemeWeight
   putWord32be $ fromIntegral $ BL.length keyframeBS
@@ -339,10 +341,10 @@ lipsyncToMIDITrack lip
   $ RTB.flatten
   $ RTB.fromPairList
   $ do
-    (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
-    let lookupViseme i = TE.decodeLatin1 $ lipsyncVisemes lip !! i
+    (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) lip.lipsyncKeyframes
+    let lookupViseme i = TE.decodeLatin1 $ lip.lipsyncVisemes !! i
         modifyEvent (VisemeEvent i w ()) = VisemeEvent (lookupViseme i) w GraphHold
-    return (dt, map modifyEvent $ keyframeEvents key)
+    return (dt, map modifyEvent key.keyframeEvents)
 
 data VisemeMap vis = VisemeMap
   { vmVowels     :: CMUVowel     -> (vis, Maybe vis)
@@ -352,9 +354,9 @@ data VisemeMap vis = VisemeMap
 
 applyVisemeMap :: VisemeMap vis -> CMUSyllable -> VisemeSyllable vis
 applyVisemeMap vmap cmu = Syllable
-  { sylInitial = concatMap (vmConsonants vmap) $ sylInitial cmu
-  , sylVowel   = vmVowels vmap $ sylVowel cmu
-  , sylFinal   = concatMap (vmConsonants vmap) $ sylFinal cmu
+  { sylInitial = concatMap vmap.vmConsonants $ cmu.sylInitial
+  , sylVowel   = vmap.vmVowels $ cmu.sylVowel
+  , sylFinal   = concatMap vmap.vmConsonants $ cmu.sylFinal
   }
 
 loadVisemesRB3 :: (MonadIO m) => StackTraceT m (VisemeMap [(T.Text, Word8)])
@@ -443,11 +445,11 @@ justVowel v = Syllable [] v []
 
 mapVisemeSyllable :: (a -> b) -> VisemeSyllable [(a, Word8)] -> VisemeSyllable [(b, Word8)]
 mapVisemeSyllable f syl = Syllable
-  { sylInitial = map f' $ sylInitial syl
-  , sylVowel = case sylVowel syl of
+  { sylInitial = map f' syl.sylInitial
+  , sylVowel = case syl.sylVowel of
     (v1, Nothing) -> (f' v1, Nothing)
     (v1, Just v2) -> (f' v1, Just $ f' v2)
-  , sylFinal = map f' $ sylFinal syl
+  , sylFinal = map f' syl.sylFinal
   } where f' = map $ first f
 
 type Transcribe = [T.Text] -> [CMUSyllable]
@@ -508,7 +510,7 @@ splitSyllables :: [CMUPhoneme] -> [CMUSyllable]
 splitSyllables [] = []
 splitSyllables (CMUConsonant c : ps) = case splitSyllables ps of
   []         -> []
-  syl : syls -> syl { sylInitial = c : sylInitial syl } : syls
+  syl : syls -> syl { sylInitial = c : syl.sylInitial } : syls
 splitSyllables (CMUVowel v : ps) = case ps of
   CMUConsonant _ : CMUVowel _ : _ -> noFinal
   -- TODO smarter rules for consuming final consonants
@@ -611,7 +613,7 @@ syllablesToAnimations
   -> VisemeMap [pair]
   -> RTB.T U.Seconds (Maybe (VisemeSyllable [pair]))
   -> RTB.T U.Seconds (VisemeAnimation [pair])
-syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold $ vmDefault vmap) . go where
+syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold vmap.vmDefault) . go where
   halfTransition = transition / 2
   go = \case
     RNil -> RNil
@@ -622,11 +624,11 @@ syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold $ v
       finalBack = case rest of
         RNil        -> halfTransition
         Wait t3 _ _ -> min halfTransition (t3 / 2)
-      vowelBody = case sylVowel syl of
+      vowelBody = case syl.sylVowel of
         (v1, Nothing) -> VisemeHold v1
         (v1, Just v2) -> VisemeFall v1 v2
-      vowelStart = fst $ sylVowel syl
-      vowelEnd = case sylVowel syl of
+      vowelStart = fst syl.sylVowel
+      vowelEnd = case syl.sylVowel of
         (v1, Nothing) -> v1
         (_, Just v2)  -> v2
       lineSequence len x [] z continue = Wait 0 (VisemeLine x z) $ RTB.delay len continue
@@ -636,11 +638,11 @@ syllablesToAnimations transition vmap = removeCancelled . Wait 0 (VisemeHold $ v
         in Wait 0 (VisemeLine x y) $ RTB.delay firstLen
           $ lineSequence (len - firstLen) y ys z continue
       in RTB.delay (t1 - initialFront)
-        $ lineSequence (initialFront + initialBack) (vmDefault vmap) (sylInitial syl) vowelStart
+        $ lineSequence (initialFront + initialBack) vmap.vmDefault syl.sylInitial vowelStart
         $ Wait 0 vowelBody
         $ RTB.delay (t2 - initialBack - finalFront)
-        $ lineSequence (finalFront + finalBack) vowelEnd (sylFinal syl) (vmDefault vmap)
-        $ Wait 0 (VisemeHold $ vmDefault vmap)
+        $ lineSequence (finalFront + finalBack) vowelEnd syl.sylFinal vmap.vmDefault
+        $ Wait 0 (VisemeHold vmap.vmDefault)
         $ go $ U.trackDrop finalBack rest
     Wait t1 Nothing rest -> RTB.delay t1 $ go rest -- shouldn't happen
     Wait t1 (Just syl1) (Wait t2 (Just syl2) rest) -- shouldn't happen
@@ -854,7 +856,7 @@ beatlesLipsync' transition vmap trans vt = let
 gh2Lipsync :: Transcribe -> VocalTrack U.Seconds -> VocFile
 gh2Lipsync trans
   = visemesToVoc
-  . fmap (\msyl -> case msyl >>= cmuToGH2Viseme . sylVowel of
+  . fmap (\msyl -> case msyl >>= cmuToGH2Viseme . (.sylVowel) of
     Nothing  -> []
     Just vis -> [(T.replace "_" " " $ T.pack $ drop 4 $ show vis, 0.5)]
     )
@@ -930,26 +932,26 @@ lipsyncAdjustSpeed r lip = let
   r' = realToFrac r :: U.Seconds
   adjust = mapTrack $ RTB.mapTime (/ r')
   in (lipsyncFromMIDITrack emptyMap $ adjust $ lipsyncToMIDITrack lip)
-    { lipsyncVersion    = lipsyncVersion    lip
-    , lipsyncSubversion = lipsyncSubversion lip
-    , lipsyncDTAImport  = lipsyncDTAImport  lip
+    { lipsyncVersion    = lip.lipsyncVersion
+    , lipsyncSubversion = lip.lipsyncSubversion
+    , lipsyncDTAImport  = lip.lipsyncDTAImport
     }
 
 lipsyncPad :: U.Seconds -> Lipsync -> Lipsync
 lipsyncPad 0    lip = lip
 lipsyncPad secs lip = let
   pad = replicate (round $ secs * 30) $ Keyframe []
-  in lip { lipsyncKeyframes = pad <> lipsyncKeyframes lip }
+  in lip { lipsyncKeyframes = pad <> lip.lipsyncKeyframes }
 
 lipsyncTake :: U.Seconds -> Lipsync -> Lipsync
 lipsyncTake secs lip = lip
-  { lipsyncKeyframes = take (round $ secs * 30) $ lipsyncKeyframes lip
+  { lipsyncKeyframes = take (round $ secs * 30) lip.lipsyncKeyframes
   }
 
 -- TODO not quite right; should make sure to initialize first frame state correctly
 lipsyncDrop :: U.Seconds -> Lipsync -> Lipsync
 lipsyncDrop secs lip = lip
-  { lipsyncKeyframes = drop (round $ secs * 30) $ lipsyncKeyframes lip
+  { lipsyncKeyframes = drop (round $ secs * 30) lip.lipsyncKeyframes
   }
 
 testConvertLipsync :: FilePath -> [FilePath] -> FilePath -> IO ()
@@ -1154,19 +1156,19 @@ vocToMIDITrack :: VocFile -> LipsyncTrack U.Seconds
 vocToMIDITrack voc
   = LipsyncTrack RTB.empty RTB.empty RTB.empty
   $ foldr RTB.merge RTB.empty
-  $ flip map (vocVisemes voc)
+  $ flip map voc.vocVisemes
   $ \vis -> let
-    name = TE.decodeLatin1 $ vvName vis
+    name = TE.decodeLatin1 vis.vvName
     in RTB.fromAbsoluteEventList
       $ ATB.fromPairList
-      $ flip map (vvEvents vis) $ \evt -> let
+      $ flip map vis.vvEvents $ \evt -> let
         -- arterialblack.voc has a veTime of -2.3666643e-2 so we clamp to 0
-        time = realToFrac if veTime evt < 0 then 0 else veTime evt
+        time = realToFrac if evt.veTime < 0 then 0 else evt.veTime
         -- TODO extend lipsync track to support the full range
         weight
-          | veWeight evt < 0 = 0
-          | veWeight evt > 1 = 255
-          | otherwise        = round $ veWeight evt * 255
+          | evt.veWeight < 0 = 0
+          | evt.veWeight > 1 = 255
+          | otherwise        = round $ evt.veWeight * 255
         in (time, VisemeEvent name weight GraphHold)
 
 visemesToVoc :: RTB.T U.Seconds [(T.Text, Float)] -> VocFile
@@ -1226,5 +1228,5 @@ extendLipsync len lip = let
   in lip
     { lipsyncKeyframes
         = take lenFrames
-        $ lipsyncKeyframes lip <> repeat (Keyframe [])
+        $ lip.lipsyncKeyframes <> repeat (Keyframe [])
     }

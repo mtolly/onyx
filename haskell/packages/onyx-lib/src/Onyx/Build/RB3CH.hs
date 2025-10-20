@@ -4,6 +4,8 @@ Shared logic used by the build processes for RB3 and CH targets.
 -}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -74,7 +76,7 @@ processRBPad (a, b) c d e f = do
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
   (mid', pad) <- fixNotelessOD legal >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
-  return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc, pad)
+  return (proKeysODOnlyExpert mid', diffs.psDifficultyRB3, vc, pad)
 
 processRB
   :: (SendMessage m, MonadIO m)
@@ -89,7 +91,7 @@ processRB (a, b) c d e f = do
   -- TODO we probably should run fixBrokenUnisons before autoreductions
   legal <- if a.legalTempos then magmaLegalTemposFile mid else return mid
   mid' <- fmap fixBeatTrack' $ fixNotelessOD legal >>= fixBrokenUnisons
-  return (proKeysODOnlyExpert mid', psDifficultyRB3 diffs, vc)
+  return (proKeysODOnlyExpert mid', diffs.psDifficultyRB3, vc)
 
 processPS
   :: (SendMessage m, MonadIO m)
@@ -248,7 +250,7 @@ makeMoods' buffer gap rtb = let
 
 makeMoods :: U.TempoMap -> BasicTiming -> RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats Mood
 makeMoods tmap timing
-  = U.trackTake (timingEnd timing)
+  = U.trackTake timing.timingEnd
   . U.unapplyTempoTrack tmap
   . makeMoods' (0.4 :: U.Seconds) 2
   . U.applyTempoTrack tmap
@@ -398,7 +400,8 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
       . noOpenNotes result.settings.detectMutedOpens
       . noTaps
       . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
-      . maybe id (\x -> breRemoveBlips x) breRemover -- note: lambda needed for GHC 9+ (if DeepSubsumption not on) due to forall weirdness
+      . maybe id (\BRERemover{breRemoveBlips} -> breRemoveBlips) breRemover
+      -- note: can't just do above with "maybe id (.breRemoveBlips) breRemover" due to forall weirdness
     makeDifficultyPS = emitGuitar5
     finalSteps
       = (if result.settings.fixFreeform then F.fixFreeformFive else id)
@@ -416,8 +419,8 @@ buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = cas
           $ U.applyTempoTrack tempos
           $ result.other.fiveFretPosition
         else result.other.fiveFretPosition
-      , fiveTremolo = maybe id breRemoveLanes breRemover result.other.fiveTremolo
-      , fiveTrill = maybe id breRemoveLanes breRemover result.other.fiveTrill
+      , fiveTremolo = maybe id (.breRemoveLanes) breRemover result.other.fiveTremolo
+      , fiveTrill = maybe id (.breRemoveLanes) breRemover result.other.fiveTrill
       , fiveOverdrive = result.other.fiveOverdrive
       , fiveBRE = result.other.fiveBRE
       , fiveSolo = result.other.fiveSolo
@@ -812,7 +815,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         ]
       editRanks = case editCount of
         Nothing -> originalRanks
-          { psDifficultyRB3 = (psDifficultyRB3 originalRanks)
+          { psDifficultyRB3 = originalRanks.psDifficultyRB3
             { rb3VocalRank = 0
             , rb3VocalTier = 0
             }

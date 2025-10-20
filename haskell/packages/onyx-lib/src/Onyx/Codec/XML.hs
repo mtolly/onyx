@@ -1,7 +1,9 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.Codec.XML where
 
 import           Control.Arrow              (second)
@@ -75,8 +77,8 @@ inSpace = ParseName . Just
 getNamespace :: Maybe String -> String -> InsideBuilder String
 getNamespace defaultPrefix uri = do
   existing <- lift get
-  case filter (\ns -> nsURI ns == uri) $ concat $ NE.toList existing of
-    ns : _ -> return $ nsPrefix ns
+  case filter (\ns -> ns.nsURI == uri) $ concat $ NE.toList existing of
+    ns : _ -> return ns.nsPrefix
     []     -> do
       let prefix = case defaultPrefix of
             Just p -> p -- TODO maybe check if it's being used already
@@ -105,7 +107,7 @@ useNamespace dp uri = Codec
   }
 
 matchName :: ParseName -> QName -> Bool
-matchName pn qn = qURI qn == pURI pn && qName qn == pName pn
+matchName pn qn = qURI qn == pn.pURI && qName qn == pn.pName
 
 matchTag :: (SendMessage m) => ParseName -> Element -> Maybe (StackTraceT m a -> StackTraceT m a)
 matchTag pn elt = let
@@ -116,9 +118,9 @@ matchTag pn elt = let
     ]
   in if matchName pn $ elName elt
     then Just layer
-    else if qName (elName elt) == pName pn
+    else if qName (elName elt) == pn.pName
       then Just \inner -> layer do
-        warn $ "Unexpected namespace URI; expected " <> show (pURI pn)
+        warn $ "Unexpected namespace URI; expected " <> show pn.pURI
         inner
       else Nothing
 
@@ -129,17 +131,17 @@ makeTag :: [[Namespace]] -> ParseName -> InsideBuilder () -> Element
 makeTag namespaces pn inner = let
   (prefix, result) = flip evalState ([] :| namespaces) $ runWriterT do
     inner
-    mapM (getNamespace Nothing) $ pURI pn
+    mapM (getNamespace Nothing) pn.pURI
   in Element
     { elName = QName
-      { qName = pName pn
-      , qURI = pURI pn
+      { qName = pn.pName
+      , qURI = pn.pURI
       , qPrefix = case prefix of
         Just "" -> Nothing
         _       -> prefix
       }
-    , elAttribs = V.toList $ insideAttrs result
-    , elContent = V.toList $ insideContent result
+    , elAttribs = V.toList result.insideAttrs
+    , elContent = V.toList result.insideContent
     , elLine = Nothing
     }
 
@@ -163,7 +165,7 @@ childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
     let isElement = \case Elem e -> Just e; _ -> Nothing
-    case V.break (isJust . snd) $ fmap (\x -> (x, isElement x >>= matchTag t)) $ insideContent ins of
+    case V.break (isJust . snd) $ fmap (\x -> (x, isElement x >>= matchTag t)) ins.insideContent of
       (before, V.toList -> (Elem elt, Just layer) : after) -> do
         let ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)
         x <- layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn cdc
@@ -208,10 +210,10 @@ warnUnused :: (SendMessage m) => InsideCodec m a -> InsideCodec m a
 warnUnused cdc = cdc
   { codecIn = codecIn cdc <* do
     ins <- lift get
-    forM_ (insideAttrs ins) $ \attr ->
+    forM_ ins.insideAttrs $ \attr ->
       unless (qName (attrKey attr) == "xmlns" || qPrefix (attrKey attr) == Just "xmlns") $
         warn $ "Unused attribute " <> show (qName $ attrKey attr)
-    forM_ (insideContent ins) $ \case
+    forM_ ins.insideContent $ \case
       Elem elt -> warn $ unwords $ concat
         [ ["Unused element <" <> qName (elName elt) <> ">"]
         , toList (elLine elt) >>= \ln -> ["at line", show ln]
@@ -229,7 +231,7 @@ optAttr :: (Monad m) => ParseName -> InsideCodec m (Maybe T.Text)
 optAttr a = Codec
   { codecIn = do
     ins <- lift get
-    case V.break (matchName a . attrKey) $ insideAttrs ins of
+    case V.break (matchName a . attrKey) ins.insideAttrs of
       (before, V.toList -> attr : after) -> do
         lift $ put $ ins { insideAttrs = before <> V.fromList after }
         return $ Just $ T.pack $ attrVal attr
@@ -237,10 +239,10 @@ optAttr a = Codec
   , codecOut = fmapArg \case
     Nothing -> return ()
     Just x -> do
-      prefix <- mapM (getNamespace Nothing) $ pURI a
+      prefix <- mapM (getNamespace Nothing) a.pURI
       let qn = QName
-            { qName = pName a
-            , qURI = pURI a
+            { qName = a.pName
+            , qURI = a.pURI
             , qPrefix = case prefix of
               Just "" -> Nothing
               _       -> prefix
@@ -262,7 +264,7 @@ reqAttr a = Codec
 viewElements :: (SendMessage m) => InsideParser m (V.Vector Element)
 viewElements = do
   ins <- lift get
-  fmap (V.mapMaybe id) $ forM (insideContent ins) $ \case
+  fmap (V.mapMaybe id) $ forM ins.insideContent $ \case
     Elem elt -> return $ Just elt
     Text cd -> do
       unless (all isSpace $ cdData cd) $ do
@@ -321,14 +323,13 @@ childTextRaw = Codec
   { codecIn = do
     ins <- lift get
     let getText = \case Text cd -> Just cd; _ -> Nothing
-    lift $ put $ ins { insideContent = V.filter (isNothing . getText) $ insideContent ins }
+    lift $ put $ ins { insideContent = V.filter (isNothing . getText) ins.insideContent }
     return
       $ T.unwords
       $ V.toList
       $ V.filter (not . T.null)
       $ fmap (T.pack . cdData)
-      $ V.mapMaybe getText
-      $ insideContent ins
+      $ V.mapMaybe getText ins.insideContent
   , codecOut = makeOut \t -> Inside
     { insideAttrs = V.empty
     , insideContent = do
@@ -413,7 +414,7 @@ plural' many one = dimap Just (fromMaybe V.empty)
 
 plural :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
 plural one = let
-  many = one { pName = pName one <> "s" }
+  many = one { pName = one.pName <> "s" }
   in plural' many one
 
 pluralOpt' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
@@ -422,7 +423,7 @@ pluralOpt' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe
 
 pluralOpt :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
 pluralOpt one = let
-  many = one { pName = pName one <> "s" }
+  many = one { pName = one.pName <> "s" }
   in pluralOpt' many one
 
 flag :: (Monad m) => ParseName -> InsideCodec m Bool
@@ -445,12 +446,12 @@ boolWordText = zoomValue boolWordValue
 
 pluralBare' :: (SendMessage m, IsInside a) => ParseName -> ParseName -> InsideCodec m (V.Vector a)
 pluralBare' many one = dimap (\xs -> guard (not $ null xs) >> Just xs) (fromMaybe V.empty) $ childTagOpt many do
-  mapM_ (useNamespace Nothing) $ pURI one
+  mapM_ (useNamespace Nothing) one.pURI
   parseInside' $ bareList $ isTag one $ parseInside' insideCodec
 
 pluralBare :: (SendMessage m, IsInside a) => ParseName -> InsideCodec m (V.Vector a)
 pluralBare one = let
-  many = one { pName = pName one <> "s" }
+  many = one { pName = one.pName <> "s" }
   in pluralBare' many one
 
 -- Only consumes tags with the given name, doesn't touch others

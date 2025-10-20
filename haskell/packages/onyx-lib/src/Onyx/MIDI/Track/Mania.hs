@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -48,7 +47,7 @@ instance ParseTrack ManiaTrack where
         notes
           = foldr RTB.merge RTB.empty
           $ map applyPitchEdges
-          $ Map.toList $ midiNotes mt
+          $ Map.toList mt.midiNotes
         mt' = mt { midiNotes = Map.empty }
         in (notes, mt')
       , codecOut = makeTrackBuilder $ fmap $ makeEdge' . bimap

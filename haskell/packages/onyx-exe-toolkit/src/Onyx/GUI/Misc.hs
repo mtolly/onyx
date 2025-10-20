@@ -304,7 +304,7 @@ miscPageLipsync sink rect tab startTasks = do
           useLipsyncTracks <- hasLipsyncTracks mid
           let editDir dir = dir
                 { miloFiles = do
-                  ((_, name), contents) <- zip (miloEntryNames dir) (miloFiles dir)
+                  ((_, name), contents) <- zip dir.miloEntryNames dir.miloFiles
                   return case name of
                     "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
                     "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
@@ -321,7 +321,7 @@ miscPageLipsync sink rect tab startTasks = do
                       else getVocal [(.fixedHarm3)]
                     "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
                     _                -> contents
-                , miloSubdirs = map editDir $ miloSubdirs dir
+                , miloSubdirs = map editDir dir.miloSubdirs
                 }
               getVocal getTracks = let
                 trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
@@ -672,7 +672,7 @@ miscPageCONtoPKG sink rect tab startTasks = do
       [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
   group <- fileLoadWindow filesRect sink "Rock Band CON/LIVE" "Rock Band CON/LIVE" (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
     entry = T.pack $ stfsPath info
-    sublines = take 1 $ STFS.md_DisplayName $ stfsMeta info
+    sublines = take 1 info.stfsMeta.md_DisplayName
     in (entry, sublines)
   FL.setResizable tab $ Just group
   let callback isRB3 = sink $ EventIO do

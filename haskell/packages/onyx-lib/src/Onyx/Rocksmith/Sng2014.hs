@@ -1,6 +1,8 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE ImplicitParams  #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Rocksmith.Sng2014 where
 
 import           Control.Monad
@@ -39,11 +41,11 @@ data BPM = BPM -- actually <ebeat>
 
 instance BinEndian BPM where
   binEndian = do
-    bpm_Time            <- bpm_Time             =. binEndian
-    bpm_Measure         <- bpm_Measure          =. binEndian
-    bpm_Beat            <- bpm_Beat             =. binEndian
-    bpm_PhraseIteration <- bpm_PhraseIteration  =. binEndian
-    bpm_Mask            <- bpm_Mask             =. binEndian
+    bpm_Time            <- (.bpm_Time)            =. binEndian
+    bpm_Measure         <- (.bpm_Measure)         =. binEndian
+    bpm_Beat            <- (.bpm_Beat)            =. binEndian
+    bpm_PhraseIteration <- (.bpm_PhraseIteration) =. binEndian
+    bpm_Mask            <- (.bpm_Mask)            =. binEndian
     return BPM{..}
 
 data Phrase = Phrase
@@ -58,13 +60,13 @@ data Phrase = Phrase
 
 instance BinEndian Phrase where
   binEndian = do
-    phrase_Solo                 <- phrase_Solo                 =. bin
-    phrase_Disparity            <- phrase_Disparity            =. bin
-    phrase_Ignore               <- phrase_Ignore               =. bin
-    phrase_Padding              <- phrase_Padding              =. bin
-    phrase_MaxDifficulty        <- phrase_MaxDifficulty        =. binEndian
-    phrase_PhraseIterationLinks <- phrase_PhraseIterationLinks =. binEndian
-    phrase_Name                 <- phrase_Name                 =. nullTerm 32
+    phrase_Solo                 <- (.phrase_Solo)                 =. bin
+    phrase_Disparity            <- (.phrase_Disparity)            =. bin
+    phrase_Ignore               <- (.phrase_Ignore)               =. bin
+    phrase_Padding              <- (.phrase_Padding)              =. bin
+    phrase_MaxDifficulty        <- (.phrase_MaxDifficulty)        =. binEndian
+    phrase_PhraseIterationLinks <- (.phrase_PhraseIterationLinks) =. binEndian
+    phrase_Name                 <- (.phrase_Name)                 =. nullTerm 32
     return Phrase{..}
 
 data Chord = Chord -- actually <chordTemplate>
@@ -77,11 +79,11 @@ data Chord = Chord -- actually <chordTemplate>
 
 instance BinEndian Chord where
   binEndian = do
-    chord_Mask    <- chord_Mask    =. binEndian
-    chord_Frets   <- chord_Frets   =. fixedArray 6 bin
-    chord_Fingers <- chord_Fingers =. fixedArray 6 bin
-    chord_Notes   <- chord_Notes   =. fixedArray 6 binEndian
-    chord_Name    <- chord_Name    =. nullTerm 32
+    chord_Mask    <- (.chord_Mask)    =. binEndian
+    chord_Frets   <- (.chord_Frets)   =. fixedArray 6 bin
+    chord_Fingers <- (.chord_Fingers) =. fixedArray 6 bin
+    chord_Notes   <- (.chord_Notes)   =. fixedArray 6 binEndian
+    chord_Name    <- (.chord_Name)    =. nullTerm 32
     return Chord{..}
 
 data BendData32 = BendData32
@@ -94,11 +96,11 @@ data BendData32 = BendData32
 
 instance BinEndian BendData32 where
   binEndian = do
-    bd32_Time   <- bd32_Time   =. binEndian
-    bd32_Step   <- bd32_Step   =. binEndian
-    bd32_Unk3_0 <- bd32_Unk3_0 =. binEndian
-    bd32_Unk4_0 <- bd32_Unk4_0 =. bin
-    bd32_Unk5   <- bd32_Unk5   =. bin
+    bd32_Time   <- (.bd32_Time)   =. binEndian
+    bd32_Step   <- (.bd32_Step)   =. binEndian
+    bd32_Unk3_0 <- (.bd32_Unk3_0) =. binEndian
+    bd32_Unk4_0 <- (.bd32_Unk4_0) =. bin
+    bd32_Unk5   <- (.bd32_Unk5)   =. bin
     return BendData32{..}
 
 data BendData = BendData
@@ -108,8 +110,8 @@ data BendData = BendData
 
 instance BinEndian BendData where
   binEndian = do
-    bd_BendData32 <- bd_BendData32 =. fixedArray 32 binEndian
-    bd_UsedCount  <- bd_UsedCount  =. binEndian
+    bd_BendData32 <- (.bd_BendData32) =. fixedArray 32 binEndian
+    bd_UsedCount  <- (.bd_UsedCount)  =. binEndian
     return BendData{..}
 
 data ChordNotes = ChordNotes
@@ -122,11 +124,11 @@ data ChordNotes = ChordNotes
 
 instance BinEndian ChordNotes where
   binEndian = do
-    cn_NoteMask       <- cn_NoteMask       =. fixedArray 6 binEndian
-    cn_BendData       <- cn_BendData       =. fixedArray 6 binEndian
-    cn_SlideTo        <- cn_SlideTo        =. fixedArray 6 bin
-    cn_SlideUnpitchTo <- cn_SlideUnpitchTo =. fixedArray 6 bin
-    cn_Vibrato        <- cn_Vibrato        =. fixedArray 6 binEndian
+    cn_NoteMask       <- (.cn_NoteMask)       =. fixedArray 6 binEndian
+    cn_BendData       <- (.cn_BendData)       =. fixedArray 6 binEndian
+    cn_SlideTo        <- (.cn_SlideTo)        =. fixedArray 6 bin
+    cn_SlideUnpitchTo <- (.cn_SlideUnpitchTo) =. fixedArray 6 bin
+    cn_Vibrato        <- (.cn_Vibrato)        =. fixedArray 6 binEndian
     return ChordNotes{..}
 
 data Vocal = Vocal
@@ -138,10 +140,10 @@ data Vocal = Vocal
 
 instance BinEndian Vocal where
   binEndian = do
-    vocal_Time   <- vocal_Time   =. binEndian
-    vocal_Note   <- vocal_Note   =. binEndian
-    vocal_Length <- vocal_Length =. binEndian
-    vocal_Lyric  <- vocal_Lyric  =. nullTerm 48
+    vocal_Time   <- (.vocal_Time)   =. binEndian
+    vocal_Note   <- (.vocal_Note)   =. binEndian
+    vocal_Length <- (.vocal_Length) =. binEndian
+    vocal_Lyric  <- (.vocal_Lyric)  =. nullTerm 48
     return Vocal{..}
 
 writePosn :: String -> CodecFor Get PutM a ()
@@ -165,14 +167,14 @@ data SymbolHeader = SymbolHeader
 
 instance BinEndian SymbolHeader where
   binEndian = do
-    sh_Unk1 <- sh_Unk1 =. binEndian
-    sh_Unk2 <- sh_Unk2 =. binEndian
-    sh_Unk3 <- sh_Unk3 =. binEndian
-    sh_Unk4 <- sh_Unk4 =. binEndian
-    sh_Unk5 <- sh_Unk5 =. binEndian
-    sh_Unk6 <- sh_Unk6 =. binEndian
-    sh_Unk7 <- sh_Unk7 =. binEndian
-    sh_Unk8 <- sh_Unk8 =. binEndian
+    sh_Unk1 <- (.sh_Unk1) =. binEndian
+    sh_Unk2 <- (.sh_Unk2) =. binEndian
+    sh_Unk3 <- (.sh_Unk3) =. binEndian
+    sh_Unk4 <- (.sh_Unk4) =. binEndian
+    sh_Unk5 <- (.sh_Unk5) =. binEndian
+    sh_Unk6 <- (.sh_Unk6) =. binEndian
+    sh_Unk7 <- (.sh_Unk7) =. binEndian
+    sh_Unk8 <- (.sh_Unk8) =. binEndian
     return SymbolHeader{..}
 
 data SymbolTexture = SymbolTexture
@@ -185,11 +187,11 @@ data SymbolTexture = SymbolTexture
 
 instance BinEndian SymbolTexture where
   binEndian = do
-    st_Font           <- st_Font           =. nullTerm 128
-    st_FontpathLength <- st_FontpathLength =. binEndian
-    st_Unk1_0         <- st_Unk1_0         =. binEndian
-    st_Width          <- st_Width          =. binEndian
-    st_Height         <- st_Height         =. binEndian
+    st_Font           <- (.st_Font)           =. nullTerm 128
+    st_FontpathLength <- (.st_FontpathLength) =. binEndian
+    st_Unk1_0         <- (.st_Unk1_0)         =. binEndian
+    st_Width          <- (.st_Width)          =. binEndian
+    st_Height         <- (.st_Height)         =. binEndian
     return SymbolTexture{..}
 
 data Rect = Rect
@@ -201,10 +203,10 @@ data Rect = Rect
 
 instance BinEndian Rect where
   binEndian = do
-    rect_yMin <- rect_yMin =. binEndian
-    rect_xMin <- rect_xMin =. binEndian
-    rect_yMax <- rect_yMax =. binEndian
-    rect_xMax <- rect_xMax =. binEndian
+    rect_yMin <- (.rect_yMin) =. binEndian
+    rect_xMin <- (.rect_xMin) =. binEndian
+    rect_yMax <- (.rect_yMax) =. binEndian
+    rect_xMax <- (.rect_xMax) =. binEndian
     return Rect{..}
 
 data SymbolDefinition = SymbolDefinition
@@ -215,9 +217,9 @@ data SymbolDefinition = SymbolDefinition
 
 instance BinEndian SymbolDefinition where
   binEndian = do
-    sd_Text       <- sd_Text       =. nullTerm 12
-    sd_Rect_Outer <- sd_Rect_Outer =. binEndian
-    sd_Rect_Inner <- sd_Rect_Inner =. binEndian
+    sd_Text       <- (.sd_Text)       =. nullTerm 12
+    sd_Rect_Outer <- (.sd_Rect_Outer) =. binEndian
+    sd_Rect_Inner <- (.sd_Rect_Inner) =. binEndian
     return SymbolDefinition{..}
 
 data PhraseIteration = PhraseIteration
@@ -229,10 +231,10 @@ data PhraseIteration = PhraseIteration
 
 instance BinEndian PhraseIteration where
   binEndian = do
-    pi_PhraseId       <- pi_PhraseId       =. binEndian
-    pi_StartTime      <- pi_StartTime      =. binEndian
-    pi_NextPhraseTime <- pi_NextPhraseTime =. binEndian
-    pi_Difficulty     <- pi_Difficulty     =. fixedArray 3 binEndian
+    pi_PhraseId       <- (.pi_PhraseId)       =. binEndian
+    pi_StartTime      <- (.pi_StartTime)      =. binEndian
+    pi_NextPhraseTime <- (.pi_NextPhraseTime) =. binEndian
+    pi_Difficulty     <- (.pi_Difficulty)     =. fixedArray 3 binEndian
     return PhraseIteration{..}
 
 data PhraseExtraInfo = PhraseExtraInfo
@@ -246,12 +248,12 @@ data PhraseExtraInfo = PhraseExtraInfo
 
 instance BinEndian PhraseExtraInfo where
   binEndian = do
-    pei_PhraseId   <- pei_PhraseId   =. binEndian
-    pei_Difficulty <- pei_Difficulty =. binEndian
-    pei_Empty      <- pei_Empty      =. binEndian
-    pei_LevelJump  <- pei_LevelJump  =. bin
-    pei_Redundant  <- pei_Redundant  =. binEndian
-    pei_Padding    <- pei_Padding    =. bin
+    pei_PhraseId   <- (.pei_PhraseId)   =. binEndian
+    pei_Difficulty <- (.pei_Difficulty) =. binEndian
+    pei_Empty      <- (.pei_Empty)      =. binEndian
+    pei_LevelJump  <- (.pei_LevelJump)  =. bin
+    pei_Redundant  <- (.pei_Redundant)  =. binEndian
+    pei_Padding    <- (.pei_Padding)    =. bin
     return PhraseExtraInfo{..}
 
 data NLinkedDifficulty = NLinkedDifficulty
@@ -261,8 +263,8 @@ data NLinkedDifficulty = NLinkedDifficulty
 
 instance BinEndian NLinkedDifficulty where
   binEndian = do
-    nld_LevelBreak <- nld_LevelBreak =. binEndian
-    nld_Phrase     <- nld_Phrase     =. lenArray binEndian
+    nld_LevelBreak <- (.nld_LevelBreak) =. binEndian
+    nld_Phrase     <- (.nld_Phrase)     =. lenArray binEndian
     return NLinkedDifficulty{..}
 
 data TimeName = TimeName
@@ -272,8 +274,8 @@ data TimeName = TimeName
 
 instance BinEndian TimeName where
   binEndian = do
-    tn_Time <- tn_Time =. binEndian
-    tn_Name <- tn_Name =. nullTerm 256
+    tn_Time <- (.tn_Time) =. binEndian
+    tn_Name <- (.tn_Name) =. nullTerm 256
     return TimeName{..}
 
 data TimeID = TimeID
@@ -283,8 +285,8 @@ data TimeID = TimeID
 
 instance BinEndian TimeID where
   binEndian = do
-    tid_Time <- tid_Time =. binEndian
-    tid_ID   <- tid_ID   =. binEndian
+    tid_Time <- (.tid_Time) =. binEndian
+    tid_ID   <- (.tid_ID)   =. binEndian
     return TimeID{..}
 
 data Section = Section
@@ -299,13 +301,13 @@ data Section = Section
 
 instance BinEndian Section where
   binEndian = do
-    sect_Name                   <- sect_Name                   =. nullTerm 32
-    sect_Number                 <- sect_Number                 =. binEndian
-    sect_StartTime              <- sect_StartTime              =. binEndian
-    sect_EndTime                <- sect_EndTime                =. binEndian
-    sect_StartPhraseIterationId <- sect_StartPhraseIterationId =. binEndian
-    sect_EndPhraseIterationId   <- sect_EndPhraseIterationId   =. binEndian
-    sect_StringMask             <- sect_StringMask             =. byteString 36
+    sect_Name                   <- (.sect_Name)                   =. nullTerm 32
+    sect_Number                 <- (.sect_Number)                 =. binEndian
+    sect_StartTime              <- (.sect_StartTime)              =. binEndian
+    sect_EndTime                <- (.sect_EndTime)                =. binEndian
+    sect_StartPhraseIterationId <- (.sect_StartPhraseIterationId) =. binEndian
+    sect_EndPhraseIterationId   <- (.sect_EndPhraseIterationId)   =. binEndian
+    sect_StringMask             <- (.sect_StringMask)             =. byteString 36
     return Section{..}
 
 data Anchor = Anchor
@@ -321,14 +323,14 @@ data Anchor = Anchor
 
 instance BinEndian Anchor where
   binEndian = do
-    anchor_StartBeatTime      <- anchor_StartBeatTime      =. binEndian
-    anchor_EndBeatTime        <- anchor_EndBeatTime        =. binEndian
-    anchor_Unk3_FirstNoteTime <- anchor_Unk3_FirstNoteTime =. binEndian
-    anchor_Unk4_LastNoteTime  <- anchor_Unk4_LastNoteTime  =. binEndian
-    anchor_FretId             <- anchor_FretId             =. bin
-    anchor_Padding            <- anchor_Padding            =. byteString 3
-    anchor_Width              <- anchor_Width              =. binEndian
-    anchor_PhraseIterationId  <- anchor_PhraseIterationId  =. binEndian
+    anchor_StartBeatTime      <- (.anchor_StartBeatTime)      =. binEndian
+    anchor_EndBeatTime        <- (.anchor_EndBeatTime)        =. binEndian
+    anchor_Unk3_FirstNoteTime <- (.anchor_Unk3_FirstNoteTime) =. binEndian
+    anchor_Unk4_LastNoteTime  <- (.anchor_Unk4_LastNoteTime)  =. binEndian
+    anchor_FretId             <- (.anchor_FretId)             =. bin
+    anchor_Padding            <- (.anchor_Padding)            =. byteString 3
+    anchor_Width              <- (.anchor_Width)              =. binEndian
+    anchor_PhraseIterationId  <- (.anchor_PhraseIterationId)  =. binEndian
     return Anchor{..}
 
 data AnchorExtension = AnchorExtension
@@ -341,11 +343,11 @@ data AnchorExtension = AnchorExtension
 
 instance BinEndian AnchorExtension where
   binEndian = do
-    ae_BeatTime <- ae_BeatTime =. binEndian
-    ae_FretId   <- ae_FretId   =. bin
-    ae_Unk2_0   <- ae_Unk2_0   =. binEndian
-    ae_Unk3_0   <- ae_Unk3_0   =. binEndian
-    ae_Unk4_0   <- ae_Unk4_0   =. bin
+    ae_BeatTime <- (.ae_BeatTime) =. binEndian
+    ae_FretId   <- (.ae_FretId)   =. bin
+    ae_Unk2_0   <- (.ae_Unk2_0)   =. binEndian
+    ae_Unk3_0   <- (.ae_Unk3_0)   =. binEndian
+    ae_Unk4_0   <- (.ae_Unk4_0)   =. bin
     return AnchorExtension{..}
 
 data Fingerprint = Fingerprint
@@ -358,11 +360,11 @@ data Fingerprint = Fingerprint
 
 instance BinEndian Fingerprint where
   binEndian = do
-    fp_ChordId            <- fp_ChordId            =. binEndian
-    fp_StartTime          <- fp_StartTime          =. binEndian
-    fp_EndTime            <- fp_EndTime            =. binEndian
-    fp_Unk3_FirstNoteTime <- fp_Unk3_FirstNoteTime =. binEndian
-    fp_Unk4_LastNoteTime  <- fp_Unk4_LastNoteTime  =. binEndian
+    fp_ChordId            <- (.fp_ChordId)            =. binEndian
+    fp_StartTime          <- (.fp_StartTime)          =. binEndian
+    fp_EndTime            <- (.fp_EndTime)            =. binEndian
+    fp_Unk3_FirstNoteTime <- (.fp_Unk3_FirstNoteTime) =. binEndian
+    fp_Unk4_LastNoteTime  <- (.fp_Unk4_LastNoteTime)  =. binEndian
     return Fingerprint{..}
 
 data Notes = Notes
@@ -397,33 +399,33 @@ data Notes = Notes
 
 instance BinEndian Notes where
   binEndian = do
-    notes_NoteMask          <- notes_NoteMask          =. binEndian
-    notes_NoteFlags         <- notes_NoteFlags         =. binEndian
-    notes_Hash              <- notes_Hash              =. binEndian
-    notes_Time              <- notes_Time              =. binEndian
-    notes_StringIndex       <- notes_StringIndex       =. bin
-    notes_FretId            <- notes_FretId            =. bin
-    notes_AnchorFretId      <- notes_AnchorFretId      =. bin
-    notes_AnchorWidth       <- notes_AnchorWidth       =. bin
-    notes_ChordId           <- notes_ChordId           =. binEndian
-    notes_ChordNotesId      <- notes_ChordNotesId      =. binEndian
-    notes_PhraseId          <- notes_PhraseId          =. binEndian
-    notes_PhraseIterationId <- notes_PhraseIterationId =. binEndian
-    notes_FingerPrintId     <- notes_FingerPrintId     =. fixedArray 2 binEndian
-    notes_NextIterNote      <- notes_NextIterNote      =. binEndian
-    notes_PrevIterNote      <- notes_PrevIterNote      =. binEndian
-    notes_ParentPrevNote    <- notes_ParentPrevNote    =. binEndian
-    notes_SlideTo           <- notes_SlideTo           =. bin
-    notes_SlideUnpitchTo    <- notes_SlideUnpitchTo    =. bin
-    notes_LeftHand          <- notes_LeftHand          =. bin
-    notes_Tap               <- notes_Tap               =. bin
-    notes_PickDirection     <- notes_PickDirection     =. bin
-    notes_Slap              <- notes_Slap              =. bin
-    notes_Pluck             <- notes_Pluck             =. bin
-    notes_Vibrato           <- notes_Vibrato           =. binEndian
-    notes_Sustain           <- notes_Sustain           =. binEndian
-    notes_MaxBend           <- notes_MaxBend           =. binEndian
-    notes_BendData          <- notes_BendData          =. lenArray binEndian
+    notes_NoteMask          <- (.notes_NoteMask)          =. binEndian
+    notes_NoteFlags         <- (.notes_NoteFlags)         =. binEndian
+    notes_Hash              <- (.notes_Hash)              =. binEndian
+    notes_Time              <- (.notes_Time)              =. binEndian
+    notes_StringIndex       <- (.notes_StringIndex)       =. bin
+    notes_FretId            <- (.notes_FretId)            =. bin
+    notes_AnchorFretId      <- (.notes_AnchorFretId)      =. bin
+    notes_AnchorWidth       <- (.notes_AnchorWidth)       =. bin
+    notes_ChordId           <- (.notes_ChordId)           =. binEndian
+    notes_ChordNotesId      <- (.notes_ChordNotesId)      =. binEndian
+    notes_PhraseId          <- (.notes_PhraseId)          =. binEndian
+    notes_PhraseIterationId <- (.notes_PhraseIterationId) =. binEndian
+    notes_FingerPrintId     <- (.notes_FingerPrintId)     =. fixedArray 2 binEndian
+    notes_NextIterNote      <- (.notes_NextIterNote)      =. binEndian
+    notes_PrevIterNote      <- (.notes_PrevIterNote)      =. binEndian
+    notes_ParentPrevNote    <- (.notes_ParentPrevNote)    =. binEndian
+    notes_SlideTo           <- (.notes_SlideTo)           =. bin
+    notes_SlideUnpitchTo    <- (.notes_SlideUnpitchTo)    =. bin
+    notes_LeftHand          <- (.notes_LeftHand)          =. bin
+    notes_Tap               <- (.notes_Tap)               =. bin
+    notes_PickDirection     <- (.notes_PickDirection)     =. bin
+    notes_Slap              <- (.notes_Slap)              =. bin
+    notes_Pluck             <- (.notes_Pluck)             =. bin
+    notes_Vibrato           <- (.notes_Vibrato)           =. binEndian
+    notes_Sustain           <- (.notes_Sustain)           =. binEndian
+    notes_MaxBend           <- (.notes_MaxBend)           =. binEndian
+    notes_BendData          <- (.notes_BendData)          =. lenArray binEndian
     return Notes{..}
 
 data Arrangement = Arrangement -- actually <level>
@@ -440,15 +442,15 @@ data Arrangement = Arrangement -- actually <level>
 
 instance BinEndian Arrangement where
   binEndian = do
-    arr_Difficulty               <- arr_Difficulty               =. binEndian
-    arr_Anchors                  <- arr_Anchors                  =. lenArray binEndian
-    arr_AnchorExtensions         <- arr_AnchorExtensions         =. lenArray binEndian
-    arr_Fingerprints1            <- arr_Fingerprints1            =. lenArray binEndian
-    arr_Fingerprints2            <- arr_Fingerprints2            =. lenArray binEndian
-    arr_Notes                    <- arr_Notes                    =. lenArray binEndian
-    arr_AverageNotesPerIteration <- arr_AverageNotesPerIteration =. lenArray binEndian
-    arr_NotesInIteration1        <- arr_NotesInIteration1        =. lenArray binEndian
-    arr_NotesInIteration2        <- arr_NotesInIteration2        =. lenArray binEndian
+    arr_Difficulty               <- (.arr_Difficulty)               =. binEndian
+    arr_Anchors                  <- (.arr_Anchors)                  =. lenArray binEndian
+    arr_AnchorExtensions         <- (.arr_AnchorExtensions)         =. lenArray binEndian
+    arr_Fingerprints1            <- (.arr_Fingerprints1)            =. lenArray binEndian
+    arr_Fingerprints2            <- (.arr_Fingerprints2)            =. lenArray binEndian
+    arr_Notes                    <- (.arr_Notes)                    =. lenArray binEndian
+    arr_AverageNotesPerIteration <- (.arr_AverageNotesPerIteration) =. lenArray binEndian
+    arr_NotesInIteration1        <- (.arr_NotesInIteration1)        =. lenArray binEndian
+    arr_NotesInIteration2        <- (.arr_NotesInIteration2)        =. lenArray binEndian
     return Arrangement{..}
 
 data Metadata = Metadata
@@ -470,20 +472,20 @@ data Metadata = Metadata
 
 instance BinEndian Metadata where
   binEndian = do
-    meta_MaxScore               <- meta_MaxScore                =. binEndian
-    meta_MaxNotesAndChords      <- meta_MaxNotesAndChords       =. binEndian
-    meta_MaxNotesAndChords_Real <- meta_MaxNotesAndChords_Real  =. binEndian
-    meta_PointsPerNote          <- meta_PointsPerNote           =. binEndian
-    meta_FirstBeatLength        <- meta_FirstBeatLength         =. binEndian
-    meta_StartTime              <- meta_StartTime               =. binEndian
-    meta_CapoFretId             <- meta_CapoFretId              =. bin
-    meta_LastConversionDateTime <- meta_LastConversionDateTime  =. nullTerm 32
-    meta_Part                   <- meta_Part                    =. binEndian
-    meta_SongLength             <- meta_SongLength              =. binEndian
-    meta_Tuning                 <- meta_Tuning                  =. lenArray binEndian
-    meta_Unk11_FirstNoteTime    <- meta_Unk11_FirstNoteTime     =. binEndian
-    meta_Unk12_FirstNoteTime    <- meta_Unk12_FirstNoteTime     =. binEndian
-    meta_MaxDifficulty          <- meta_MaxDifficulty           =. binEndian
+    meta_MaxScore               <- (.meta_MaxScore)                =. binEndian
+    meta_MaxNotesAndChords      <- (.meta_MaxNotesAndChords)       =. binEndian
+    meta_MaxNotesAndChords_Real <- (.meta_MaxNotesAndChords_Real)  =. binEndian
+    meta_PointsPerNote          <- (.meta_PointsPerNote)           =. binEndian
+    meta_FirstBeatLength        <- (.meta_FirstBeatLength)         =. binEndian
+    meta_StartTime              <- (.meta_StartTime)               =. binEndian
+    meta_CapoFretId             <- (.meta_CapoFretId)              =. bin
+    meta_LastConversionDateTime <- (.meta_LastConversionDateTime)  =. nullTerm 32
+    meta_Part                   <- (.meta_Part)                    =. binEndian
+    meta_SongLength             <- (.meta_SongLength)              =. binEndian
+    meta_Tuning                 <- (.meta_Tuning)                  =. lenArray binEndian
+    meta_Unk11_FirstNoteTime    <- (.meta_Unk11_FirstNoteTime)     =. binEndian
+    meta_Unk12_FirstNoteTime    <- (.meta_Unk12_FirstNoteTime)     =. binEndian
+    meta_MaxDifficulty          <- (.meta_MaxDifficulty)           =. binEndian
     return Metadata{..}
 
 data SNG2014 = SNG2014
@@ -509,25 +511,25 @@ data SNG2014 = SNG2014
 
 instance BinEndian SNG2014 where
   binEndian = do
-    sng_BPMs              <- sng_BPMs              =. lenArray binEndian
-    sng_Phrases           <- sng_Phrases           =. lenArray binEndian
-    sng_Chords            <- sng_Chords            =. lenArray binEndian
-    sng_ChordNotes        <- sng_ChordNotes        =. lenArray binEndian
-    sng_Vocals            <- sng_Vocals            =. lenArray binEndian
+    sng_BPMs              <- (.sng_BPMs)              =. lenArray binEndian
+    sng_Phrases           <- (.sng_Phrases)           =. lenArray binEndian
+    sng_Chords            <- (.sng_Chords)            =. lenArray binEndian
+    sng_ChordNotes        <- (.sng_ChordNotes)        =. lenArray binEndian
+    sng_Vocals            <- (.sng_Vocals)            =. lenArray binEndian
     let onlyVox p = if null sng_Vocals then return [] else p
-    sng_SymbolHeaders     <- onlyVox $ sng_SymbolHeaders     =. lenArray binEndian
-    sng_SymbolTextures    <- onlyVox $ sng_SymbolTextures    =. lenArray binEndian
-    sng_SymbolDefinitions <- onlyVox $ sng_SymbolDefinitions =. lenArray binEndian
-    sng_PhraseIterations  <- sng_PhraseIterations  =. lenArray binEndian
-    sng_PhraseExtraInfo   <- sng_PhraseExtraInfo   =. lenArray binEndian
-    sng_NLinkedDifficulty <- sng_NLinkedDifficulty =. lenArray binEndian
-    sng_Actions           <- sng_Actions           =. lenArray binEndian
-    sng_Events            <- sng_Events            =. lenArray binEndian
-    sng_Tones             <- sng_Tones             =. lenArray binEndian
-    sng_DNAs              <- sng_DNAs              =. lenArray binEndian
-    sng_Sections          <- sng_Sections          =. lenArray binEndian
-    sng_Arrangements      <- sng_Arrangements      =. lenArray binEndian
-    sng_Metadata          <- sng_Metadata          =. binEndian
+    sng_SymbolHeaders     <- onlyVox $ (.sng_SymbolHeaders)     =. lenArray binEndian
+    sng_SymbolTextures    <- onlyVox $ (.sng_SymbolTextures)    =. lenArray binEndian
+    sng_SymbolDefinitions <- onlyVox $ (.sng_SymbolDefinitions) =. lenArray binEndian
+    sng_PhraseIterations  <- (.sng_PhraseIterations)  =. lenArray binEndian
+    sng_PhraseExtraInfo   <- (.sng_PhraseExtraInfo)   =. lenArray binEndian
+    sng_NLinkedDifficulty <- (.sng_NLinkedDifficulty) =. lenArray binEndian
+    sng_Actions           <- (.sng_Actions)           =. lenArray binEndian
+    sng_Events            <- (.sng_Events)            =. lenArray binEndian
+    sng_Tones             <- (.sng_Tones)             =. lenArray binEndian
+    sng_DNAs              <- (.sng_DNAs)              =. lenArray binEndian
+    sng_Sections          <- (.sng_Sections)          =. lenArray binEndian
+    sng_Arrangements      <- (.sng_Arrangements)      =. lenArray binEndian
+    sng_Metadata          <- (.sng_Metadata)          =. binEndian
     return SNG2014{..}
 
 loadSNG :: (MonadFail m) => GamePlatform -> B.ByteString -> m SNG2014

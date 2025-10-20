@@ -1,6 +1,8 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.DTA.Serialize.GH1 where
 
 import           Control.Monad.Codec                  ((=.))
@@ -27,13 +29,13 @@ data Song = Song
 
 instance StackChunks Song where
   stackChunks = asWarnAssoc "Song" $ do
-    songName      <- songName      =. req "name"        (single chunkString)
-    tracks        <- tracks        =. req "tracks"      stackChunks
-    slip_tracks   <- slip_tracks   =. req "slip_tracks" (chunksParens $ chunksList $ chunkParens $ chunksList chunkInt)
-    pans          <- pans          =. req "pans"        (chunksParens stackChunks)
-    vols          <- vols          =. req "vols"        (chunksParens stackChunks)
-    cores         <- cores         =. req "cores"       (chunksParens stackChunks)
-    solo          <- solo          =. req "solo"        (chunksParens $ chunksList chunkSym)
+    songName      <- (.songName)      =. req "name"        (single chunkString)
+    tracks        <- (.tracks)        =. req "tracks"      stackChunks
+    slip_tracks   <- (.slip_tracks)   =. req "slip_tracks" (chunksParens $ chunksList $ chunkParens $ chunksList chunkInt)
+    pans          <- (.pans)          =. req "pans"        (chunksParens stackChunks)
+    vols          <- (.vols)          =. req "vols"        (chunksParens stackChunks)
+    cores         <- (.cores)         =. req "cores"       (chunksParens stackChunks)
+    solo          <- (.solo)          =. req "solo"        (chunksParens $ chunksList chunkSym)
     return Song{..}
 
 data Character
@@ -81,10 +83,10 @@ data Quickplay = Quickplay
 
 instance StackChunks Quickplay where
   stackChunks = asWarnAssoc "Quickplay" $ do
-    character   <- character   =. req         "character"   stackChunks
-    guitar      <- guitar      =. req         "guitar"      stackChunks
-    guitar_skin <- guitar_skin =. opt Nothing "guitar_skin" stackChunks
-    venue       <- venue       =. req         "venue"       stackChunks
+    character   <- (.character)   =. req         "character"   stackChunks
+    guitar      <- (.guitar)      =. req         "guitar"      stackChunks
+    guitar_skin <- (.guitar_skin) =. opt Nothing "guitar_skin" stackChunks
+    venue       <- (.venue)       =. req         "venue"       stackChunks
     return Quickplay{..}
 
 randomQuickplay :: (MonadRandom m) => m Quickplay
@@ -121,14 +123,14 @@ data SongPackage = SongPackage
 
 instance StackChunks SongPackage where
   stackChunks = asWarnAssoc "SongPackage" $ do
-    name      <- name      =. req         "name"       (single chunkString)
-    artist    <- artist    =. req         "artist"     (single chunkString)
-    song      <- song      =. req         "song"       stackChunks
-    band      <- band      =. opt Nothing "band"       stackChunks
-    bank      <- bank      =. req         "bank"       stackChunks
-    bpm       <- bpm       =. req         "bpm"        stackChunks
-    animTempo <- animTempo =. req         "anim_tempo" stackChunks
-    preview   <- preview   =. req         "preview"    stackChunks
-    midiFile  <- midiFile  =. req         "midi_file"  stackChunks
-    quickplay <- quickplay =. req         "quickplay"  stackChunks
+    name      <- (.name)      =. req         "name"       (single chunkString)
+    artist    <- (.artist)    =. req         "artist"     (single chunkString)
+    song      <- (.song)      =. req         "song"       stackChunks
+    band      <- (.band)      =. opt Nothing "band"       stackChunks
+    bank      <- (.bank)      =. req         "bank"       stackChunks
+    bpm       <- (.bpm)       =. req         "bpm"        stackChunks
+    animTempo <- (.animTempo) =. req         "anim_tempo" stackChunks
+    preview   <- (.preview)   =. req         "preview"    stackChunks
+    midiFile  <- (.midiFile)  =. req         "midi_file"  stackChunks
+    quickplay <- (.quickplay) =. req         "quickplay"  stackChunks
     return SongPackage{..}

@@ -3078,10 +3078,10 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
 
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   forM_ gl.previewSong \psong -> let
-    songLength = U.applyTempoMap (previewTempo psong) $ timingEnd $ previewTiming psong
+    songLength = U.applyTempoMap (previewTempo psong) (previewTiming psong).timingEnd
     currentBeats = U.unapplyTempoMap (previewTempo psong) (realToFrac time :: U.Seconds)
     currentMB = showPosition (previewMeasures psong) currentBeats
-    lengthMB = showPosition (previewMeasures psong) $ timingEnd $ previewTiming psong
+    lengthMB = showPosition (previewMeasures psong) (previewTiming psong).timingEnd
     currentBPM = realToFrac (U.getTempoAtTime (previewTempo psong) currentBeats) * 60 * realToFrac speed :: Rational
     -- round into Fixed type, rather than realToFrac which uses floor
     bpmMilli = MkFixed $ round $ currentBPM * 1000 :: Milli

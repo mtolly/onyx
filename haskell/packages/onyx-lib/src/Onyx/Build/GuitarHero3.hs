@@ -81,7 +81,7 @@ hashGH3 songYaml gh3 = let
 gh3Rules :: BuildInfo -> FilePath -> TargetGH3 FilePath -> QueueLog Rules ()
 gh3Rules buildInfo dir gh3 = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
 
   (planName, plan) <- case getPlan gh3.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh3

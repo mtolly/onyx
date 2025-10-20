@@ -95,7 +95,7 @@ onyxGH5PackageTitle songYaml gh5 cdl = let
 gh5Rules :: BuildInfo -> FilePath -> TargetGH5 FilePath-> QueueLog Rules ()
 gh5Rules buildInfo dir gh5 = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
 
   (planName, plan) <- case getPlan gh5.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh5
@@ -187,10 +187,10 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemInteger "thin_fretbar_8note_params_high_bpm" 150
               , QBStructItemInteger "thin_fretbar_16note_params_low_bpm" 1
               , QBStructItemInteger "thin_fretbar_16note_params_high_bpm" 120
-              , QBStructItemInteger "guitar_difficulty_rating" $ fromIntegral $ gh5GuitarTier difficulties
-              , QBStructItemInteger "bass_difficulty_rating" $ fromIntegral $ gh5BassTier difficulties
-              , QBStructItemInteger "vocals_difficulty_rating" $ fromIntegral $ gh5VocalsTier difficulties
-              , QBStructItemInteger "drums_difficulty_rating" $ fromIntegral $ gh5DrumsTier difficulties
+              , QBStructItemInteger "guitar_difficulty_rating" $ fromIntegral difficulties.gh5GuitarTier
+              , QBStructItemInteger "bass_difficulty_rating"   $ fromIntegral difficulties.gh5BassTier
+              , QBStructItemInteger "vocals_difficulty_rating" $ fromIntegral difficulties.gh5VocalsTier
+              , QBStructItemInteger "drums_difficulty_rating"  $ fromIntegral difficulties.gh5DrumsTier
               , QBStructItemInteger "band_difficulty_rating" 10 -- doesn't seem to be used anywhere, but we could fill in
               -- maybe we could figure out the options for these and match them to the RB kit options?
               , QBStructItemString "snare" "ModernRock"

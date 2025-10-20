@@ -2,6 +2,7 @@
 {-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NoFieldSelectors  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Onyx.Harmonix.RockBand.Milo.Dir where

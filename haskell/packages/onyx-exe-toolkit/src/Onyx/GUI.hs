@@ -226,9 +226,9 @@ startLoad makeMenuBar hasAudio fs = do
 
 importWithPreferences :: Importable OnyxInner -> Onyx Project
 importWithPreferences imp = do
-  projInit <- impProject imp
+  projInit <- imp.impProject
   -- only edit yml and resave if it's a temp-imported project, not one of my song.yml
-  if isJust $ projectRelease projInit
+  if isJust projInit.projectRelease
     then do
       prefs <- readPreferences
       let applyBlackVenue, applyDecryptSilent, applyDetectMuted
@@ -242,7 +242,7 @@ importWithPreferences imp = do
           applyDetectMuted
             = #parts % mapped % #grybo % mapped % #detectMutedOpens
             .~ prefs.prefDetectMuted
-      stackIO $ saveProject projInit $ applyDetectMuted $ applyBlackVenue $ applyDecryptSilent $ projectSongYaml projInit
+      stackIO $ saveProject projInit $ applyDetectMuted $ applyBlackVenue $ applyDecryptSilent projInit.projectSongYaml
     else return projInit
 
 continueImport
@@ -259,10 +259,10 @@ continueImport makeMenuBar hasAudio imp = do
   let withPlan k = do
         let planMidi = "gen/plan" </> T.unpack k </> "processed.mid"
         planMidi' <- shakeBuild1 proj [] planMidi
-        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> planMidi'
+        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> planMidi'
         void $ forkOnyx $ projectAudio k proj >>= withAudio song
       withNoPlan = do
-        song <- loadTracks (projectSongYaml proj) $ takeDirectory (projectLocation proj) </> "notes.mid"
+        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> "notes.mid"
         withAudio song Nothing
       withAudio song maybeAudio = stackIO $ sink $ EventOnyx do
         prefs <- readPreferences
@@ -276,7 +276,7 @@ continueImport makeMenuBar hasAudio imp = do
           1 -> withPlan k
           _ -> selectPlan ks
   if hasAudio
-    then selectPlan $ HM.keys (projectSongYaml proj).plans
+    then selectPlan $ HM.keys proj.projectSongYaml.plans
     else withNoPlan
 
 multipleSongsWindow
@@ -323,9 +323,9 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
     -- TODO ampersands in the label text here turn into "underline next character".
     -- need to figure out how to escape
     let entry = T.concat
-          [ fromMaybe "Untitled" $ impTitle imp
-          , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
-          , if imp2x imp then " (2x)" else ""
+          [ fromMaybe "Untitled" imp.impTitle
+          , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
+          , if imp.imp2x then " (2x)" else ""
           ]
         dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
     check <- FL.checkButtonNew dummyRect $ Just entry
@@ -432,7 +432,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   window <- FL.windowNew
     windowSize
     Nothing
-    (Just $ T.replace "/" "_" $ fromMaybe "Song" (projectSongYaml proj).metadata.title)
+    (Just $ T.replace "/" "_" $ fromMaybe "Song" proj.projectSongYaml.metadata.title)
     -- if the window title has a slash like "Pupa / Cocoon" this makes weird new menus
     -- on Mac that can crash (bc you can reopen a closed song window and try to
     -- delete the temp folder a second time). to fix properly I think we need
@@ -470,7 +470,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             FL.setLabelsize input $ FL.FontSize 13
             FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
             FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
-            void $ FL.setValue input $ fromMaybe "" $ getter (projectSongYaml proj).metadata
+            void $ FL.setValue input $ fromMaybe "" $ getter proj.projectSongYaml.metadata
             return input
           applyToMetadata :: (Maybe T.Text -> Metadata f -> Metadata f) -> FL.Ref FL.Input -> BuildYamlControl (SongYaml f) ()
           applyToMetadata setter input = tell do
@@ -496,7 +496,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             -> BuildYamlControl (SongYaml FilePath) ()
           simpleCheck lbl getter setter rect' = do
             input <- liftIO $ FL.checkButtonNew rect' $ Just lbl
-            liftIO $ void $ FL.setValue input $ getter (projectSongYaml proj).metadata
+            liftIO $ void $ FL.setValue input $ getter proj.projectSongYaml.metadata
             liftIO $ FL.setLabelsize input $ FL.FontSize 13
             tell do
               b <- FL.getValue input
@@ -537,11 +537,11 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               FL.setImage cover $ Just png
               return (png, guard (not defaultImage) >> Just f)
         currentImage <- liftIO
-          $ setPNG True (takeDirectory (projectLocation proj) </> albumArt)
+          $ setPNG True (takeDirectory proj.projectLocation </> albumArt)
           >>= newMVar
         let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning do
               inside ("Loading image: " <> f) $ do
-                let newPath = takeDirectory (projectLocation proj) </> "new-cover.png"
+                let newPath = takeDirectory proj.projectLocation </> "new-cover.png"
                 if elem (takeExtension f) [".png_xbox", ".png_wii"]
                   then stackIO (BL.readFile f) >>= maybe
                     (fatal "Couldn't read RB image file")
@@ -660,8 +660,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             if i == tierCount
               then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
               else return $ Tier $ fromIntegral i + 1
-    getBandDiff <- makeDifficulty root (projectSongYaml proj).metadata.difficulty
-    getNewParts <- fmap catMaybes $ forM (HM.toList (projectSongYaml proj).parts.getParts) $ \(fpart, part) ->
+    getBandDiff <- makeDifficulty root proj.projectSongYaml.metadata.difficulty
+    getNewParts <- fmap catMaybes $ forM (HM.toList proj.projectSongYaml.parts.getParts) $ \(fpart, part) ->
       if part == emptyPart
         then return Nothing
         else do
@@ -782,7 +782,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
       fullProjModify extraMods p = do
         modifiers <- sequence [modifyMeta, modifyInsts]
-        let newYaml = foldr ($) (projectSongYaml p) $ modifiers <> extraMods
+        let newYaml = foldr ($) p.projectSongYaml $ modifiers <> extraMods
         saveProject p newYaml
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
     homeTabColor >>= setTabColor tab
@@ -848,7 +848,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   (Position (X x') (Y $ y + h - 4))
         case Map.keys $ previewSections song of
           []    -> return ()
-          times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) $ timingEnd $ previewTiming song
+          times -> drawSections times $ realToFrac $ U.applyTempoMap (previewTempo song) (previewTiming song).timingEnd
       ) $ Just FL.defaultCustomWidgetFuncs
         { FL.handleCustom = Just \ref evt -> let
           updateTime = do
@@ -908,8 +908,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     -- the following used to be done in a thread, to call loadTracks after window launch
     let songLength :: Double
         songLength = realToFrac $ U.applyTempoMap
-          (previewTempo song)
-          (timingEnd $ previewTiming song)
+          song.previewTempo
+          song.previewTiming.timingEnd
     FL.setMaximum scrubber songLength
     FL.activate scrubber
     FL.activate playButton
@@ -1049,7 +1049,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     pack <- FL.packNew rect Nothing
     FL.end pack
     sink $ EventOnyx $ void $ forkOnyx do
-      let input = takeDirectory (projectLocation proj) </> "notes.mid"
+      let input = takeDirectory proj.projectLocation </> "notes.mid"
       mid <- F.loadMIDI input
       let fixed = F.onyxToFixed mid.tracks
           foundTracksRB3 = getScoreTracks    fixed
@@ -1084,12 +1084,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             return cutoffLabel
         let updateLabelRB3 = do
               stars <- tracksToStars <$> getTracksRB3
-              FL.setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) $ stars1    stars
-              FL.setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) $ stars2    stars
-              FL.setLabel l3S $ maybe "" (\n -> "3*: " <> commafy n) $ stars3    stars
-              FL.setLabel l4S $ maybe "" (\n -> "4*: " <> commafy n) $ stars4    stars
-              FL.setLabel l5S $ maybe "" (\n -> "5*: " <> commafy n) $ stars5    stars
-              FL.setLabel lGS $ maybe "" (\n -> "G*: " <> commafy n) $ starsGold stars
+              FL.setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) stars.stars1
+              FL.setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) stars.stars2
+              FL.setLabel l3S $ maybe "" (\n -> "3*: " <> commafy n) stars.stars3
+              FL.setLabel l4S $ maybe "" (\n -> "4*: " <> commafy n) stars.stars4
+              FL.setLabel l5S $ maybe "" (\n -> "5*: " <> commafy n) stars.stars5
+              FL.setLabel lGS $ maybe "" (\n -> "G*: " <> commafy n) stars.starsGold
         updateLabelRB3
 
         -- GH2
@@ -1324,7 +1324,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       FL.setCallback btn \_ -> sink $ EventIO do
         picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
         FL.setTitle picker "Save web preview folder"
-        FL.setPresetFile picker $ T.pack $ projectTemplate proj <> "_player"
+        FL.setPresetFile picker $ T.pack $ proj.projectTemplate <> "_player"
         forM_ ?preferences.prefDirPreview $ FL.setDirectory picker . T.pack
         FL.showWidget picker >>= \case
           FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -1344,10 +1344,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       FL.setCallback btn \_ -> sink $ EventIO do
         picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
         FL.setTitle picker "Save MIDI file"
-        isDir <- Dir.doesDirectoryExist $ projectSource proj
+        isDir <- Dir.doesDirectoryExist proj.projectSource
         FL.setDirectory picker $ T.pack if isDir
-          then projectSource proj
-          else takeDirectory $ projectSource proj
+          then proj.projectSource
+          else takeDirectory proj.projectSource
         FL.setFilter picker "*.mid"
         FL.setPresetFile picker "reduced.mid" -- .mid gets chopped off on mac
         FL.showWidget picker >>= \case
@@ -1360,7 +1360,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 else f <.> "mid"
               in sink $ EventOnyx let
                 task = do
-                  simpleReduce (takeDirectory (projectLocation proj) </> "notes.mid") f'
+                  simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
                   return [f']
                 in startTasks [(f', task)]
           _ -> return ()
@@ -1394,7 +1394,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   FL.setCallback window $ windowCloser do
     cancelTasks
     cleanupGL
-    mapM_ release $ projectRelease proj
+    mapM_ release proj.projectRelease
     -- TODO fix final bugs relating to this
     -- modifyMVar_ doesWindowExist \_ -> do
     --   FL.destroy window
@@ -1414,7 +1414,7 @@ windowCloser finalize window = do
 
 saveProject :: Project -> SongYaml FilePath -> IO Project
 saveProject proj song = do
-  yamlEncodeFile (projectLocation proj) $ toJSON song
+  yamlEncodeFile proj.projectLocation $ toJSON song
   -- don't need to delete gen folder anymore now that it's a newly created one
   return proj { projectSongYaml = song }
 
@@ -1538,8 +1538,9 @@ _selectArkDestination _sink gen withLocation = do
     pack <- FL.packNew songsInnerArea Nothing
 
     let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25))
+        songButton :: (B.ByteString, D.SongPackage) -> IO ()
         songButton (k, pkg) = do
-          btn <- FL.buttonNew dummyRect $ Just $ D.name pkg <> " (" <> D.artist pkg <> ")"
+          btn <- FL.buttonNew dummyRect $ Just $ pkg.name <> " (" <> pkg.artist <> ")"
           void $ FL.setCallback btn \_ -> do
             withLocation $ GH2Replace k
             FL.hide window
@@ -1660,7 +1661,7 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
             liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) taskName
             errorToEither task >>= \case
               Left e -> liftIO $ sink $ EventIO do
-                forM_ (getMessages e) $ addTerm termTask . TermError
+                forM_ e.getMessages $ addTerm termTask . TermError
                 updateStatus \case
                   (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
               Right fs -> liftIO $ sink $ EventIO do
@@ -1726,19 +1727,19 @@ miscPagePacks sink rect tab startTasks = mdo
           FL.setLabel gameBox case newSTFS of
             info : _ -> T.unlines
               [ "Game (from first in list):"
-              , STFS.md_TitleName $ stfsMeta info
-              , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
+              , info.stfsMeta.md_TitleName
+              , "(" <> T.toUpper (T.pack $ showHex info.stfsMeta.md_TitleID "") <> ")"
               ]
             []       -> ""
   group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
     $ \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
-        [ take 1 $ STFS.md_DisplayName $ stfsMeta info
+        [ take 1 info.stfsMeta.md_DisplayName
         , return $ T.unwords
           [ "Game:"
-          , STFS.md_TitleName $ stfsMeta info
-          , "(" <> T.toUpper (T.pack $ showHex (STFS.md_TitleID $ stfsMeta info) "") <> ")"
+          , info.stfsMeta.md_TitleName
+          , "(" <> T.toUpper (T.pack $ showHex info.stfsMeta.md_TitleID "") <> ")"
           ]
         ]
       in (entry, sublines)
@@ -1837,7 +1838,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         maxSizeInput <- MaybeT $ readIORef packMaxSizeRef
         maxSizeMB <- MaybeT $ readMaybe . T.unpack <$> FL.getValue maxSizeInput
         let maxSizeBytes = maxSizeMB * 1024 * 1024
-        return $ organizePacks maxSizeBytes $ concatMap quickInputSongs files
+        return $ organizePacks maxSizeBytes $ concatMap (.quickInputSongs) files
       updatePackGo = readIORef packGoRef >>= \case
         Nothing -> return ()
         Just go -> computePacks >>= \case
@@ -1856,7 +1857,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         Nothing -> return ()
         Just go -> do
           files <- readMVar loadedFiles
-          let isValidInPlace qinput = case quickInputFormat qinput of
+          let isValidInPlace :: QuickInput -> Bool
+              isValidInPlace qinput = case qinput.quickInputFormat of
                 QCInputTwoWay _ -> True
                 _               -> False
           if all isValidInPlace files
@@ -1871,8 +1873,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         sink $ EventIO $ updatePackGo >> updateInPlace
   (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
     $ \qinput -> let
-      entry = T.pack $ quickInputPath qinput
-      subline = T.pack case length $ quickInputSongs qinput of
+      entry = T.pack qinput.quickInputPath
+      subline = T.pack case length qinput.quickInputSongs of
         1 -> "1 song"
         n -> show n <> " songs"
       in (entry, [subline])
@@ -1881,14 +1883,14 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   packProcessors <- FL.packNew (trimClock 5 5 5 0 processorsRect) Nothing
   let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 40))
       procFolder f qsong = do
-        newFiles <- f $ quickSongFiles qsong
+        newFiles <- f qsong.quickSongFiles
         return qsong { quickSongFiles = newFiles }
       processors :: [(T.Text, T.Text, QuickSong -> Onyx QuickSong)]
       processors =
         [ (,,) "Black VENUE"
           "Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format."
           $ \qsong -> do
-            let isRB3 = qdtaRB3 $ quickSongDTA qsong
+            let isRB3 = qsong.quickSongDTA.qdtaRB3
             procFolder (QRB.applyToMIDI $ return . blackVenue isRB3) qsong
         , (,,) "No Overdrive"
           "Removes overdrive phrases from all instruments."
@@ -1961,17 +1963,18 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
         , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
         , T.intercalate ext . T.splitOn "%ext%"
-        , T.intercalate (validFileNamePiece NameRulePC $ maybe "" qdtaTitle qdta) . T.splitOn "%title%"
-        , T.intercalate (validFileNamePiece NameRulePC $ fromMaybe "" $ qdta >>= qdtaArtist) . T.splitOn "%artist%"
+        , T.intercalate (validFileNamePiece NameRulePC $ maybe "" (.qdtaTitle) qdta) . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePC $ fromMaybe "" $ qdta >>= (.qdtaArtist)) . T.splitOn "%artist%"
         ] where dropExt f = fromMaybe f $ T.stripSuffix ".pkg" f
                 fixXbox = case fmt of
                   QCFormatCON  -> trimXbox prefs
                   QCFormatLIVE -> trimXbox prefs
                   QCFormatPKG  -> id
 
+      artistTitle :: QuickSong -> T.Text
       artistTitle qsong = T.intercalate " - " $ concat
-        [ toList $ qdtaArtist $ quickSongDTA qsong
-        , [qdtaTitle $ quickSongDTA qsong]
+        [ toList qsong.quickSongDTA.qdtaArtist
+        , [qsong.quickSongDTA.qdtaTitle]
         ]
 
       defaultTitle qsongs = case qsongs of
@@ -2035,12 +2038,12 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       -- should come up with a better solution!
       stackIO clearFiles
       startTasks $ flip map files \qinput -> let
-        fin = quickInputPath qinput
-        qsongs = quickInputSongs qinput
+        fin = qinput.quickInputPath
+        qsongs = qinput.quickInputSongs
         task = do
           qsongs' <- mapM songTransform qsongs
           let tmp = fin <> ".tmp"
-              isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+              isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
               ps3Settings = QuickPS3Settings
                 { qcPS3Folder      = ps3Folder
                 , qcPS3EncryptMIDI = enc
@@ -2050,10 +2053,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
               xboxSettings live = stackIO $
                 (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
                 -- default values should never be used (source will be stfs already)
-                (maybe "Onyx Quick Convert" (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
-                (maybe ""                   (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
+                (maybe "Onyx Quick Convert" (T.concat . take 1 . (.md_DisplayName       )) qinput.quickInputXbox)
+                (maybe ""                   (T.concat . take 1 . (.md_DisplayDescription)) qinput.quickInputXbox)
                 live
-          case quickInputFormat qinput of
+          case qinput.quickInputFormat of
             QCInputTwoWay fmt -> case fmt of
               QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
               QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
@@ -2097,8 +2100,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           decryptMOGGs <- stackIO getDecryptMOGGs
           newPreferences <- readPreferences
           startTasks $ flip map files \qinput -> let
-            fin = quickInputPath qinput
-            qsongs = quickInputSongs qinput
+            fin = qinput.quickInputPath
+            qsongs = qinput.quickInputSongs
             task = do
               qsongs' <- mapM songTransform qsongs
               let ext = case fmt of
@@ -2106,7 +2109,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                     QCFormatLIVE -> ""
                     QCFormatPKG  -> ".pkg"
                   fout = quickTemplate newPreferences fmt fin ext template Nothing
-                  isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                  isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
                   ps3Settings = QuickPS3Settings
                     { qcPS3Folder      = ps3Folder
                     , qcPS3EncryptMIDI = enc
@@ -2115,8 +2118,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                     }
                   xboxSettings live = stackIO $
                     (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                    (maybe (defaultTitle qsongs') (T.concat . take 1 . STFS.md_DisplayName       ) $ quickInputXbox qinput)
-                    (maybe ""                     (T.concat . take 1 . STFS.md_DisplayDescription) $ quickInputXbox qinput)
+                    (maybe (defaultTitle qsongs') (T.concat . take 1 . (.md_DisplayName       )) qinput.quickInputXbox)
+                    (maybe ""                     (T.concat . take 1 . (.md_DisplayDescription)) qinput.quickInputXbox)
                     live
               case fmt of
                 QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
@@ -2138,11 +2141,11 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         defDir <- getDefaultPS3Dir
         stackIO $ askFolder defDir \dout -> do
           sink $ EventOnyx $ startTasks $ flip map files \qinput -> let
-            fin = quickInputPath qinput
-            qsongs = quickInputSongs qinput
+            fin = qinput.quickInputPath
+            qsongs = qinput.quickInputSongs
             task = do
               qsongs' <- mapM songTransform qsongs
-              let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+              let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
                   ps3Settings = QuickPS3Settings
                     { qcPS3Folder      = ps3Folder
                     , qcPS3EncryptMIDI = enc
@@ -2204,7 +2207,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   task = do
                     mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM songTransform qsongs
-                    let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                    let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
                         ps3Folder' = case ps3Folder of
                           QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
                           _                 -> ps3Folder
@@ -2235,7 +2238,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                         task = do
                           mapM_ (lg . T.unpack . artistTitle) qsongs
                           qsongs' <- mapM songTransform qsongs
-                          let isRB3 = any (qdtaRB3 . quickSongDTA) qsongs'
+                          let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
                               maybeEncoding = if isRB3
                                 then newPreferences.prefPackEncoding
                                 else Just Latin1
@@ -2292,8 +2295,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           enc <- getEncrypt
           songTransform <- getSongTransform
           decryptMOGGs <- getDecryptMOGGs
-          askFolder (takeDirectory . quickInputPath <$> listToMaybe files) $ \dout -> do
-            let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
+          askFolder (takeDirectory . (.quickInputPath) <$> listToMaybe files) $ \dout -> do
+            let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
             sink $ EventOnyx do
               newPreferences <- readPreferences
               startTasks $ flip map inputSongs \(qinput, qsong) -> let
@@ -2301,8 +2304,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
                   QCFormatPKG  -> ".pkg"
-                fout = dout </> quickTemplate newPreferences fmt (quickInputPath qinput) ext template (Just $ quickSongDTA qsong)
-                isRB3 = qdtaRB3 $ quickSongDTA qsong
+                fout = dout </> quickTemplate newPreferences fmt qinput.quickInputPath ext template (Just qsong.quickSongDTA)
+                isRB3 = qsong.quickSongDTA.qdtaRB3
                 task = do
                   qsong' <- songTransform qsong
                   let ps3Settings = QuickPS3Settings
@@ -2334,9 +2337,9 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       sink $ EventOnyx do
         defDir <- getDefaultPS3Dir
         stackIO $ askFolder defDir \dout -> do
-          let inputSongs = files >>= \f -> map (f,) (quickInputSongs f)
+          let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
           sink $ EventOnyx $ startTasks $ flip map inputSongs \(_qinput, qsong) -> let
-            isRB3 = qdtaRB3 $ quickSongDTA qsong
+            isRB3 = qsong.quickSongDTA.qdtaRB3
             task = do
               qsong' <- songTransform qsong
               let ps3Settings = QuickPS3Settings
@@ -2366,7 +2369,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           { qcDolphinPreview = tryPreview
           }
         task = do
-          qsongs <- mapM songTransform $ concatMap quickInputSongs files
+          qsongs <- mapM songTransform $ concatMap (.quickInputSongs) files
           saveQuickSongsDolphin qsongs settings dout
         in [("Make Dolphin pack", task)]
 
@@ -3554,18 +3557,18 @@ launchBatch sink makeMenuBar startFiles = mdo
     let (songsRect, importToggles) = chopBottom 40 rect
     group <- fileLoadWindow songsRect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
       entry = T.concat
-        [ fromMaybe "Untitled" $ impTitle imp
-        , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
-        , if imp2x imp then " (2x)" else ""
+        [ fromMaybe "Untitled" imp.impTitle
+        , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
+        , if imp.imp2x then " (2x)" else ""
         ]
       sublines = concat
-        [ case impAuthor imp of
+        [ case imp.impAuthor of
           Just author | T.any (not . isSpace) author -> ["Author: " <> author]
           _                                          -> []
-        , ["Format: " <> impFormat imp]
-        , ["Path: " <> T.pack (impPath imp) <> index]
+        , ["Format: " <> imp.impFormat]
+        , ["Path: " <> T.pack imp.impPath <> index]
         ]
-      index = case impIndex imp of
+      index = case imp.impIndex of
         Nothing -> ""
         Just i  -> T.pack $ " (#" <> show i <> ")"
       in (entry, sublines)
@@ -3604,19 +3607,19 @@ launchBatch sink makeMenuBar startFiles = mdo
   cleanupOnCancel <- newMVar HM.empty
   let doImport imp fn = do
         proj <- importWithPreferences imp
-        stackIO $ forM_ (projectRelease proj) $ \k -> do
-          modifyMVar_ cleanupOnCancel $ return . HM.insert (projectLocation proj) k
+        stackIO $ forM_ proj.projectRelease $ \k -> do
+          modifyMVar_ cleanupOnCancel $ return . HM.insert proj.projectLocation k
         res <- errorToEither $ fn proj
-        stackIO $ forM_ (projectRelease proj) $ \k -> modifyMVar_ cleanupOnCancel \m -> do
+        stackIO $ forM_ proj.projectRelease $ \k -> modifyMVar_ cleanupOnCancel \m -> do
           release k
-          return $ HM.delete (projectLocation proj) m
+          return $ HM.delete proj.projectLocation m
         either throwNoContext return res
   functionTabs <- sequence
     [ makeTab windowRect "RB3" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab \qcPossible settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        let go = startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        let go = startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
               let (targets, yaml) = settings proj
               proj' <- stackIO $ filterParts yaml >>= saveProject proj
               fmap concat $ forM targets \(target, creator) -> do
@@ -3644,7 +3647,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRB2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let (targets, yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           fmap concat $ forM targets \(target, creator) -> do
@@ -3666,13 +3669,13 @@ launchBatch sink makeMenuBar startFiles = mdo
       batchPagePS sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
         newPreferences <- readPreferences
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let (target, creator) = settings proj
               target' = (target :: TargetPS FilePath)
                 & #audioFormat .~ case newPreferences.prefCHAudioFormat of
                   CHAudioOggVorbis -> "ogg"
                   CHAudioOpus      -> "opus"
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj . applyDownmix newPreferences
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj . applyDownmix newPreferences
           case creator of
             PSDir dout -> do
               tmp <- buildPSDir target' proj'
@@ -3691,9 +3694,9 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH1 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let (target, creator) = settings proj
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           case creator of
             GH1ARK fout -> do
               installGH1 target proj' fout
@@ -3706,9 +3709,9 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let (target, creator) = settings proj
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           case creator of
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE target proj'
@@ -3728,9 +3731,9 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH3 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let (target, creator) = settings proj
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           results <- case creator of
             GH3LIVE fout -> do
               tmp <- buildGH3LIVE target proj'
@@ -3750,7 +3753,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGHWOR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           let warnWoR = warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
@@ -3773,7 +3776,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           let warnRR = warn "All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use \"Quick Convert > RR renumber\" to reassign IDs."
@@ -3793,9 +3796,9 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPagePreview sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map impPath files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
           let dout = settings proj
-          proj' <- stackIO $ filterParts (projectSongYaml proj) >>= saveProject proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           tmp <- buildPlayer Nothing proj'
           copyDirRecursive tmp dout
           return [dout]
@@ -3832,10 +3835,10 @@ updateTabsColor tabs = FL.getValue tabs >>= \case
   Just tab -> FL.getSelectionColor tab >>= FL.setSelectionColor tabs
 
 replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
-replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . fromQueueLog
+replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . (.fromQueueLog)
 
 _localResources :: Onyx a -> Onyx a
-_localResources = mapStackTraceT $ QueueLog . mapReaderT (mapReaderT $ liftIO . runResourceT) . fromQueueLog
+_localResources = mapStackTraceT $ QueueLog . mapReaderT (mapReaderT $ liftIO . runResourceT) . (.fromQueueLog)
 
 data TermMessage
   = TermStart String String -- "Task 4" "/path/to/file"
@@ -3845,7 +3848,7 @@ data TermMessage
   | TermSuccess String
 
 toTermMessage :: (MessageLevel, Message) -> TermMessage
-toTermMessage (MessageLog    , msg) = TermLog $ messageString msg
+toTermMessage (MessageLog    , msg) = TermLog msg.messageString
 toTermMessage (MessageWarning, msg) = TermWarning msg
 
 addTerm :: FL.Ref FL.SimpleTerminal -> TermMessage -> IO ()

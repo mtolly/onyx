@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
@@ -434,7 +433,8 @@ importGH4Song ghi level = do
             GH4AudioPS2{} -> LittleEndian
       songNodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
         inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
-      let matchQB node = node.nodeFileType == ".qb"
+      let matchQB :: Node -> Bool
+          matchQB node = node.nodeFileType == ".qb"
             && node.nodeFilenameCRC == qbKeyCRC info.gh4Name
       case filter (matchQB . fst) songNodes of
         [] -> fatal "Couldn't find chart .qb file"
@@ -466,6 +466,7 @@ importGH4Song ghi level = do
   let adjustedInput
         = (case info.gh4OverallSongVolume of 0 -> id; db -> PansVols [-1, 1] [db, db])
         . Input . Named
+      adjustedInputNS :: (T.Text, (NeoStream, [BL.ByteString])) -> Audio t AudioInput
       adjustedInputNS (name, (ns, _)) = case ns.channels of
         1 -> (case info.gh4OverallSongVolume of 0 -> id; db -> PansVols [0] [db])
           $ Input $ Named name
@@ -779,7 +780,8 @@ importGH3Song ghi = let
               GH3AudioPS2{} -> LittleEndian
         nodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
           inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
-        let isMidQB node
+        let isMidQB :: Node -> Bool
+            isMidQB node
               = elem node.nodeFileType [".qb", ".mqb"] -- .mqb on PS2
               && node.nodeFilenameCRC == qbKeyCRC info.gh3Name
         case filter (isMidQB . fst) nodes of

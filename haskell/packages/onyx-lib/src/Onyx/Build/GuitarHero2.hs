@@ -67,7 +67,7 @@ hashGH2 songYaml gh2 = let
 gh2Rules :: BuildInfo -> FilePath -> TargetGH2 FilePath -> QueueLog Rules ()
 gh2Rules buildInfo dir gh2 = do
 
-  let songYaml = biSongYaml buildInfo
+  let songYaml = buildInfo.biSongYaml
 
   (planName, plan) <- case getPlan gh2.common.plan songYaml of
     Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
@@ -207,10 +207,10 @@ gh2Rules buildInfo dir gh2 = do
             , songgenre      = metadata.genre
             , songorigin     = Nothing
             , songduration   = Just $ fromIntegral $ F.songLengthMS input
-            , songguitarrank = Just $ translateDiff $ rb3GuitarTier $ psDifficultyRB3 difficulty
-            , songbassrank   = Just $ translateDiff $ rb3BassTier $ psDifficultyRB3 difficulty
-            , songrhythmrank = Just $ translateDiff $ psRhythmTier difficulty
-            , songdrumrank   = Just $ translateDiff $ rb3DrumsTier $ psDifficultyRB3 difficulty
+            , songguitarrank = Just $ translateDiff difficulty.psDifficultyRB3.rb3GuitarTier
+            , songbassrank   = Just $ translateDiff difficulty.psDifficultyRB3.rb3BassTier
+            , songrhythmrank = Just $ translateDiff difficulty.psRhythmTier
+            , songdrumrank   = Just $ translateDiff difficulty.psDifficultyRB3.rb3DrumsTier
             , songartist     = Nothing -- not needed
             }
           else id

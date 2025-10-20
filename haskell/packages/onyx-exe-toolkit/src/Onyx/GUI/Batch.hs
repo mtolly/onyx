@@ -132,7 +132,7 @@ batchPageRB3 sink rect tab build = do
             ]
           yaml
             = (if toms then id else forceProDrums)
-            $ projectSongYaml proj
+            $ proj.projectSongYaml
           in
             ( [ ((tgt :: TargetRB3 FilePath) & #is2xBassPedal .~ is2x, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
@@ -176,7 +176,7 @@ batchPageGH1 sink rect tab build = do
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
-          leadPart = find (hasPartWith anyFiveFret $ projectSongYaml proj)
+          leadPart = find (hasPartWith anyFiveFret proj.projectSongYaml)
             [ F.PartGuitar
             , F.PartName "rhythm"
             , F.PartKeys
@@ -238,7 +238,7 @@ batchPageGH3 sink rect tab build = do
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
-          hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
+          hasPart = hasPartWith anyFiveFret proj.projectSongYaml
           leadPart = find hasPart
             [ F.PartGuitar
             , F.PartName "rhythm"
@@ -315,7 +315,7 @@ batchPageGH2 sink rect tab build = do
         deluxe2x <- getDeluxe
         go \proj -> let
           defGH2 = def :: TargetGH2 FilePath
-          hasPart = hasPartWith anyFiveFret $ projectSongYaml proj
+          hasPart = hasPartWith anyFiveFret proj.projectSongYaml
           leadPart = find hasPart
             [ F.PartGuitar
             , F.PartName "rhythm"
@@ -414,7 +414,7 @@ batchPageGHWOR sink rect tab build = do
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
         return \proj -> let
-          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
+          hasPart p = isJust $ HM.lookup p proj.projectSongYaml.parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
             [ F.PartGuitar
             , F.PartName "rhythm"
@@ -432,7 +432,7 @@ batchPageGHWOR sink rect tab build = do
             & #common % #speed .~ Just speed
             & #guitar          .~ fromMaybe defGH5.guitar pickedGuitar
             & #bass            .~ fromMaybe defGH5.bass (pickedBass <|> pickedGuitar)
-            & #drums           .~ getDrumsOrDance (projectSongYaml proj)
+            & #drums           .~ getDrumsOrDance proj.projectSongYaml
             & #proTo4          .~ proTo4
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
@@ -444,7 +444,7 @@ batchPageGHWOR sink rect tab build = do
                 ]
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
-          in ((tgt, usePath fout), projectSongYaml proj)
+          in ((tgt, usePath fout), proj.projectSongYaml)
   makeTemplateRunner
     sink
     "Create Xbox 360 LIVE files"
@@ -484,7 +484,7 @@ batchPageRR sink rect tab build = do
         proTo4 <- stackIO getProTo4
         newPreferences <- readPreferences
         return \proj -> let
-          hasPart p = isJust $ HM.lookup p (projectSongYaml proj).parts.getParts >>= anyFiveFret
+          hasPart p = isJust $ HM.lookup p proj.projectSongYaml.parts.getParts >>= anyFiveFret
           pickedGuitar = find hasPart
             [ F.PartGuitar
             , F.PartName "rhythm"
@@ -502,7 +502,7 @@ batchPageRR sink rect tab build = do
             & #common % #speed .~ Just speed
             & #guitar          .~ fromMaybe defRR.guitar pickedGuitar
             & #bass            .~ fromMaybe defRR.bass (pickedBass <|> pickedGuitar)
-            & #drums           .~ getDrumsOrDance (projectSongYaml proj)
+            & #drums           .~ getDrumsOrDance proj.projectSongYaml
             & #proTo4          .~ proTo4
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RR tgt
@@ -514,7 +514,7 @@ batchPageRR sink rect tab build = do
                 ]
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
-          in ((tgt, usePath fout), projectSongYaml proj)
+          in ((tgt, usePath fout), proj.projectSongYaml)
   makeTemplateRunner
     sink
     "Create Xbox 360 LIVE files"
@@ -583,9 +583,7 @@ batchPageRB2 sink rect tab build = do
                 ]
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
-          yaml
-            = forceProDrums
-            $ projectSongYaml proj
+          yaml = forceProDrums proj.projectSongYaml
           in
             ( [ ((tgt :: TargetRB2 FilePath) & #is2xBassPedal .~ is2x, usePath $ fout kicksLabel)
               | (is2x, kicksLabel) <- kicksConfigs
@@ -627,7 +625,7 @@ batchPagePS sink rect tab build = do
         preset <- getPreset
         return \proj -> let
           defPS = def :: TargetPS FilePath
-          tgt = preset (projectSongYaml proj)
+          tgt = preset proj.projectSongYaml
             $ defPS & #common % #speed .~ Just speed
           fout = T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ PS tgt

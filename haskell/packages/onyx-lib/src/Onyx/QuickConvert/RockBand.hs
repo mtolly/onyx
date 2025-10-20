@@ -9,6 +9,7 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -276,9 +277,9 @@ loadQuickSongsLoose pathDTA = do
   let maybePackageName = B8.pack $ takeFileName $ takeDirectory $ takeDirectory pathDTA
   songRefs <- splitSongsDTA $ fileReadable pathDTA
   forM songRefs \qdta -> do
-    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
+    songFolder <- case findFolderCI [qdta.qdtaFolder] songsFolder of
       Just dir -> return dir
-      Nothing -> fatal $ "Song folder not found in directory structure: " <> show (qdtaFolder qdta)
+      Nothing -> fatal $ "Song folder not found in directory structure: " <> show qdta.qdtaFolder
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
           fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
@@ -307,9 +308,9 @@ loadQuickSongsPS3 packageName packageFolder = do
     Nothing -> fatal $ "No songs.dta found inside .pkg for: " <> show packageName
   songRefs <- splitSongsDTA dta
   forM songRefs \qdta -> do
-    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
+    songFolder <- case findFolderCI [qdta.qdtaFolder] songsFolder of
       Just dir -> return dir
-      Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdtaFolder qdta)
+      Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdta.qdtaFolder)
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
           fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
@@ -335,9 +336,9 @@ loadQuickSongsXbox folder = do
     Nothing -> fatal "No songs.dta found inside CON/LIVE"
   songRefs <- splitSongsDTA dta
   forM songRefs \qdta -> do
-    songFolder <- case findFolderCI [qdtaFolder qdta] songsFolder of
+    songFolder <- case findFolderCI [qdta.qdtaFolder] songsFolder of
       Just dir -> return dir
-      Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show (qdtaFolder qdta)
+      Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show qdta.qdtaFolder
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
           fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
@@ -421,7 +422,7 @@ loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe
 loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtension fin of
   ".pkg" -> errorToWarning do
     pkg <- stackIO $ loadPKG fin
-    usr <- case findFolder ["USRDIR"] $ pkgFolder pkg of
+    usr <- case findFolder ["USRDIR"] pkg.pkgFolder of
       Just dir -> return dir
       Nothing  -> fatal "No USRDIR found inside .pkg"
     songs <- fmap concat $ forM (folderSubfolders usr) $ \(packageName, folder) -> do
@@ -443,7 +444,7 @@ loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtens
   _ -> errorToEither (stackIO $ getSTFSFolder fin) >>= \case
     Right folder -> errorToWarning do
       songs <- loadQuickSongsXbox folder
-      (header, meta) <- stackIO $ withSTFSPackage fin \stfs -> return (stfsHeader stfs, stfsMetadata stfs)
+      (header, meta) <- stackIO $ withSTFSPackage fin \stfs -> return (stfs.stfsHeader, stfs.stfsMetadata)
       return QuickInput
         { quickInputPath   = fin
         , quickInputFormat = QCInputTwoWay case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
@@ -683,8 +684,8 @@ getWiiFile (name, qfile) = case qfile of
 saveQuickSongsSTFS :: (MonadIO m, SendMessage m) => Bool -> [QuickSong] -> CreateOptions -> FilePath -> StackTraceT m ()
 saveQuickSongsSTFS decrypt qsongs opts fout = do
   xboxFolders <- forM qsongs \qsong -> do
-    xboxFolder <- mapMFilesWithName (getXboxFile decrypt . discardSize) $ quickSongFiles qsong
-    return (qdtaFolder $ quickSongDTA qsong, xboxFolder)
+    xboxFolder <- mapMFilesWithName (getXboxFile decrypt . discardSize) qsong.quickSongFiles
+    return (qsong.quickSongDTA.qdtaFolder, xboxFolder)
   let songsFolder = Folder
         { folderSubfolders = xboxFolders
         , folderFiles = [("songs.dta", songsDTA)]
@@ -695,7 +696,7 @@ saveQuickSongsSTFS decrypt qsongs opts fout = do
         }
       songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
         qsong <- qsongs
-        return (qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
+        return (qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
   stackIO $ makeCONReadable opts topFolder fout
 
 data QuickPS3Folder
@@ -718,34 +719,34 @@ discardSize (t, (_, x)) = (t, x)
 
 defaultFolderPS3 :: [QuickSong] -> B.ByteString
 defaultFolderPS3 qsongs = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-  $ "O" <> take 6 (show $ hash $ map (qdtaOriginal . quickSongDTA) qsongs) <> case qsongs of
+  $ "O" <> take 6 (show $ hash $ map (.quickSongDTA.qdtaOriginal) qsongs) <> case qsongs of
     []        -> "" -- shouldn't happen
-    qsong : _ -> T.unpack (qdtaTitle $ quickSongDTA qsong)
+    qsong : _ -> T.unpack qsong.quickSongDTA.qdtaTitle
 
 quickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> StackTraceT m (Folder T.Text Readable)
 quickSongsPS3Folder qsongs settings = do
   let oneFolder = defaultFolderPS3 qsongs
   qsongMapping <- fmap (Map.unionsWith (<>)) $ forM qsongs \qsong -> do
     let separateFolder = B8.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
-          $ "O" <> take 6 (show $ hash $ qdtaOriginal $ quickSongDTA qsong) <> T.unpack (qdtaTitle $ quickSongDTA qsong)
-        chosenFolder = case qcPS3Folder settings of
+          $ "O" <> take 6 (show $ hash qsong.quickSongDTA.qdtaOriginal) <> T.unpack qsong.quickSongDTA.qdtaTitle
+        chosenFolder = case settings.qcPS3Folder of
           Just QCOneFolder         -> oneFolder      -- one folder for whole pkg
           Just QCSeparateFolders   -> separateFolder -- separate folder for each song
           Just (QCCustomFolder bs) -> bs
-          Nothing                  -> case quickSongPS3Folder qsong of
+          Nothing                  -> case qsong.quickSongPS3Folder of
             Just dir -> dir       -- came from ps3, keep the same subfolder
             Nothing  -> oneFolder -- came from xbox, assign new random folder
-        mcrypt = guard (qcPS3EncryptMIDI settings) >> Just (chosenFolder, qcPS3RB3 settings)
-    ps3Folder <- mapMFilesWithName (getPS3File mcrypt (qcPS3EncryptMOGG settings) . discardSize) $ quickSongFiles qsong
+        mcrypt = guard settings.qcPS3EncryptMIDI >> Just (chosenFolder, settings.qcPS3RB3)
+    ps3Folder <- mapMFilesWithName (getPS3File mcrypt settings.qcPS3EncryptMOGG . discardSize) qsong.quickSongFiles
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
   return $ mconcat do
     (usrdirSub, songs) <- Map.toList qsongMapping
     let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
           (qsong, _) <- songs
-          return (makePS3DTA $ qdtaParsed $ quickSongDTA qsong, qdtaComments $ quickSongDTA qsong)
+          return (makePS3DTA qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
     return $ singleFolder (TE.decodeLatin1 usrdirSub) $ singleFolder "songs" Folder
       { folderFiles = [("songs.dta", songsDTA)]
-      , folderSubfolders = map (first $ qdtaFolder . quickSongDTA) songs
+      , folderSubfolders = map (first (.quickSongDTA.qdtaFolder)) songs
       }
 
 saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3Settings -> FilePath -> StackTraceT m ()
@@ -753,10 +754,10 @@ saveQuickSongsPKG qsongs settings fout = do
   contents <- quickSongsPS3Folder qsongs settings
   let oneFolder = defaultFolderPS3 qsongs
       contentID = npdContentID
-        $ (if qcPS3RB3 settings then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
+        $ (if settings.qcPS3RB3 then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
       rootFolder = singleFolder "USRDIR" contents
   stackIO do
-    extraPath <- getResourcesPath if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2"
+    extraPath <- getResourcesPath if settings.qcPS3RB3 then "pkg-contents/rb3" else "pkg-contents/rb2"
     extra <- crawlFolder extraPath
     makePKG contentID (first TE.encodeUtf8 $ rootFolder <> extra) fout
 
@@ -764,13 +765,13 @@ saveQuickSongsPS3Folder :: (MonadResource m, SendMessage m) => [QuickSong] -> Qu
 saveQuickSongsPS3Folder qsongs settings dout = do
   contents <- quickSongsPS3Folder qsongs settings
   stackIO $ installPS3Folder
-    (if qcPS3RB3 settings then "BLUS30463" else "BLUS30050")
-    (Just if qcPS3RB3 settings then "pkg-contents/rb3" else "pkg-contents/rb2")
+    (if settings.qcPS3RB3 then "BLUS30463" else "BLUS30050")
+    (Just if settings.qcPS3RB3 then "pkg-contents/rb3" else "pkg-contents/rb2")
     contents
     dout
 
 contentsSize :: QuickSong -> Integer
-contentsSize qsong = sum $ map fst $ toList $ quickSongFiles qsong
+contentsSize qsong = sum $ map fst $ toList qsong.quickSongFiles
 
 -- Organizes based on combined size of song files.
 -- Should add some buffer to account for package overhead and platform conversion.
@@ -796,13 +797,13 @@ saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> Quic
 saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
   triples <- forM qsongs \qsong -> do
     lg $ T.unpack $ T.intercalate " - " $ concat
-      [ toList $ qdtaArtist $ quickSongDTA qsong
-      , [qdtaTitle $ quickSongDTA qsong]
+      [ toList qsong.quickSongDTA.qdtaArtist
+      , [qsong.quickSongDTA.qdtaTitle]
       ]
-    wiiFiles <- mapMFilesWithName (getWiiFile . discardSize) $ quickSongFiles qsong
-    let (prevStart, prevEnd) = qdtaPreview $ quickSongDTA qsong
+    wiiFiles <- mapMFilesWithName (getWiiFile . discardSize) qsong.quickSongFiles
+    let (prevStart, prevEnd) = qsong.quickSongDTA.qdtaPreview
         prevLength = min 15000 $ prevEnd - prevStart
-        dta = makeWiiDTA prevLength $ qdtaParsed $ quickSongDTA qsong
+        dta = makeWiiDTA prevLength qsong.quickSongDTA.qdtaParsed
         fullOgg = temp </> "full.ogg"
         prevOgg = temp </> "preview.ogg"
         prevMogg = temp </> "preview.mogg"
@@ -810,8 +811,8 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
           $ runResourceT
           $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
           $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
-    if qcDolphinPreview settings
-      then case [r | (_, QFUnencryptedMOGG r) <- toList $ quickSongFiles qsong] of
+    if settings.qcDolphinPreview
+      then case [r | (_, QFUnencryptedMOGG r) <- toList qsong.quickSongFiles] of
         [] -> do
           lg "No unencrypted .mogg found, making silent preview"
           silentPreview
@@ -827,7 +828,7 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
                 $ fadeStart (CA.Seconds 0.75)
                 $ fadeEnd (CA.Seconds 0.75)
                 $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-                $ applyPansVols (qdtaPans $ quickSongDTA qsong) (qdtaVols $ quickSongDTA qsong)
+                $ applyPansVols qsong.quickSongDTA.qdtaPans qsong.quickSongDTA.qdtaVols
                 $ src
             Left _err -> do
               lg "Couldn't decrypt audio, making silent preview"
@@ -835,17 +836,17 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> d
       else silentPreview
     oggToMoggFiles prevOgg prevMogg
     previewReadable <- stackIO $ makeHandle "preview mogg" . byteStringSimpleHandle . BL.fromStrict <$> B.readFile prevMogg
-    let metaContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles \case
+    let metaContents = singleFolder "songs" $ singleFolder qsong.quickSongDTA.qdtaFolder $ flip mapMaybeFolder wiiFiles \case
           (WiiMeta, r) -> Just r
           _            -> Nothing
-        previewContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) Folder
+        previewContents = singleFolder "songs" $ singleFolder qsong.quickSongDTA.qdtaFolder Folder
           { folderSubfolders = []
-          , folderFiles = [(qdtaFolder (quickSongDTA qsong) <> "_prev.mogg", previewReadable)]
+          , folderFiles = [(qsong.quickSongDTA.qdtaFolder <> "_prev.mogg", previewReadable)]
           }
-        songContents = singleFolder "songs" $ singleFolder (qdtaFolder $ quickSongDTA qsong) $ flip mapMaybeFolder wiiFiles \case
+        songContents = singleFolder "songs" $ singleFolder qsong.quickSongDTA.qdtaFolder $ flip mapMaybeFolder wiiFiles \case
           (WiiSong, r) -> Just r
           _            -> Nothing
-    return ((dta, qdtaComments $ quickSongDTA qsong), metaContents <> previewContents, songContents)
+    return ((dta, qsong.quickSongDTA.qdtaComments), metaContents <> previewContents, songContents)
   let dta = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA $ map fst3 triples
       dtaFolder = singleFolder "songs" Folder
         { folderSubfolders = []
@@ -1050,13 +1051,13 @@ decompressMilos = mapMFilesWithName \(name, (size, qfile)) -> do
 -- Fills in the Deluxe author DTA tag from the C3 comment
 transferAuthorToTag :: QuickSong -> QuickSong
 transferAuthorToTag qsong = let
-  qdta = quickSongDTA qsong
+  qdta = qsong.quickSongDTA
   isAuthorTag = \case
     Key "author" _ -> True
     _              -> False
-  in case mapMaybe (B8.stripPrefix ";Song authored by ") $ qdtaComments qdta of
+  in case mapMaybe (B8.stripPrefix ";Song authored by ") qdta.qdtaComments of
     []         -> qsong
-    author : _ -> case qdtaParsed qdta of
+    author : _ -> case qdta.qdtaParsed of
       Parens (Tree w children@(_ : rest)) -> if any isAuthorTag rest
         then qsong -- existing author tag
         else qsong
@@ -1068,11 +1069,11 @@ transferAuthorToTag qsong = let
 
 modifyTitle :: (B.ByteString -> B.ByteString) -> QuickSong -> QuickSong
 modifyTitle f qsong = let
-  qdta = quickSongDTA qsong
+  qdta = qsong.quickSongDTA
   eachChild = \case
     Key "name" [String s] -> Key "name" [String $ f s]
     x                     -> x
-  in case qdtaParsed qdta of
+  in case qdta.qdtaParsed of
     Parens (Tree w (k : rest)) -> qsong
       { quickSongDTA = qdta
         { qdtaParsed = Parens $ Tree w $ k : map eachChild rest
@@ -1143,7 +1144,7 @@ noteShuffleMIDI _ (F.Cons _ F.SMPTE{} _) = fatal "SMPTE time not supported"
 noteShuffle :: (SendMessage m, MonadIO m) => QuickSong -> StackTraceT m QuickSong
 noteShuffle qsong = do
   let hopoThreshold = fromIntegral (fromMaybe 170 qsong.quickSongDTA.qdtaHOPOThreshold) / 480
-  newFiles <- applyToMIDI (noteShuffleMIDI hopoThreshold) $ quickSongFiles qsong
+  newFiles <- applyToMIDI (noteShuffleMIDI hopoThreshold) qsong.quickSongFiles
   return qsong { quickSongFiles = newFiles }
 
 -- Gives a new random song ID and file naming structure.
@@ -1180,7 +1181,7 @@ enforceEncoding enc dta = let
 conToPkg :: (SendMessage m, MonadResource m) => Bool -> FilePath -> FilePath -> StackTraceT m ()
 conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
   conFolder <- stackIO $ getSTFSFolder fin
-  title <- stackIO $ withSTFSPackage fin $ return . T.concat . take 1 . md_DisplayName . stfsMetadata
+  title <- stackIO $ withSTFSPackage fin $ return . T.concat . take 1 . (.stfsMetadata.md_DisplayName)
   let rbps3Folder = T.toUpper $ T.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
         $ "O" <> take 6 (show $ hash $ show $ void conFolder) <> T.unpack title
       rbps3EDATConfig = if isRB3

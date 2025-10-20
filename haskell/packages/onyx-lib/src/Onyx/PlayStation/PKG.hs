@@ -5,11 +5,13 @@ References:
 - https://www.psdevwiki.com/ps3/PKG_files
 - https://github.com/HACKERCHANNEL/PS3Py
 -}
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.PlayStation.PKG
 ( PKGHeader(..), PKGMetadata(..), PKG(..)
 , loadPKG, loadPKGReadable
@@ -84,23 +86,23 @@ data PKGHeader = PKGHeader
 
 instance Bin PKGHeader where
   bin = do
-    pkgMagic          <- pkgMagic          =. word32be
+    pkgMagic          <- (.pkgMagic)          =. word32be
     Codec
       { codecIn  = unless (pkgMagic == 0x7F504B47) $ fail "Incorrect PKG magic"
       , codecOut = \_ -> return ()
       }
-    pkgRevision       <- pkgRevision       =. word16be
-    pkgType           <- pkgType           =. word16be
-    pkgMetadataOffset <- pkgMetadataOffset =. word32be
-    pkgMetadataCount  <- pkgMetadataCount  =. word32be
-    pkgMetadataSize   <- pkgMetadataSize   =. word32be
-    pkgItemCount      <- pkgItemCount      =. word32be
-    pkgTotalSize      <- pkgTotalSize      =. word64be
-    pkgDataOffset     <- pkgDataOffset     =. word64be
-    pkgDataSize       <- pkgDataSize       =. word64be
-    pkgContentID      <- pkgContentID      =. nullPadded 0x30
-    pkgQADigest       <- pkgQADigest       =. byteString 0x10
-    pkgDataRIV        <- pkgDataRIV        =. byteString 0x10
+    pkgRevision       <- (.pkgRevision)       =. word16be
+    pkgType           <- (.pkgType)           =. word16be
+    pkgMetadataOffset <- (.pkgMetadataOffset) =. word32be
+    pkgMetadataCount  <- (.pkgMetadataCount)  =. word32be
+    pkgMetadataSize   <- (.pkgMetadataSize)   =. word32be
+    pkgItemCount      <- (.pkgItemCount)      =. word32be
+    pkgTotalSize      <- (.pkgTotalSize)      =. word64be
+    pkgDataOffset     <- (.pkgDataOffset)     =. word64be
+    pkgDataSize       <- (.pkgDataSize)       =. word64be
+    pkgContentID      <- (.pkgContentID)      =. nullPadded 0x30
+    pkgQADigest       <- (.pkgQADigest)       =. byteString 0x10
+    pkgDataRIV        <- (.pkgDataRIV)        =. byteString 0x10
     return PKGHeader{..}
 
 -- Not finished
@@ -159,16 +161,16 @@ data PKGItemRecord = PKGItemRecord
 
 instance Bin PKGItemRecord where
   bin = do
-    recFilenameOffset <- recFilenameOffset =. word32be
-    recFilenameSize   <- recFilenameSize   =. word32be
-    recDataOffset     <- recDataOffset     =. word64be
-    recDataSize       <- recDataSize       =. word64be
-    recFlags          <- recFlags          =. word32be
+    recFilenameOffset <- (.recFilenameOffset) =. word32be
+    recFilenameSize   <- (.recFilenameSize)   =. word32be
+    recDataOffset     <- (.recDataOffset)     =. word64be
+    recDataSize       <- (.recDataSize)       =. word64be
+    recFlags          <- (.recFlags)          =. word32be
     -- flags seen:
     -- 0x80000002 .edat file
     -- 0x80000003 unencrypted file
     -- 0x80000004 folder (data size is 0)
-    recPadding        <- recPadding        =. word32be
+    recPadding        <- (.recPadding)        =. word32be
     return PKGItemRecord{..}
 
 data PKG = PKG
@@ -184,7 +186,7 @@ cryptFinalizedPKG header = do
   let makeKey k = case cipherInit k of
         CryptoPassed cipher -> Just (cipher :: AES128)
         _                   -> Nothing
-  iv <- makeIV $ pkgDataRIV header
+  iv <- makeIV header.pkgDataRIV
   -- ps3_gpkg_aes_key from https://www.psdevwiki.com/ps3/Keys
   key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
   return \startIndex enc -> ctrCombine key (ivAdd iv $ fromIntegral startIndex) enc
@@ -206,7 +208,7 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
   in BL.packZipWith xor bs keyStream
 
 cryptNonFinalizedPKG :: Bool -> Word64 -> PKGHeader -> BL.ByteString -> BL.ByteString
-cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . pkgQADigest
+cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . (.pkgQADigest)
 
 cryptNonFinalizedPKG' :: Bool -> Word64 -> PKGHeader -> [(Int, Readable)] -> [Readable]
 cryptNonFinalizedPKG' isArcade startIndex header pieces = do
@@ -214,7 +216,7 @@ cryptNonFinalizedPKG' isArcade startIndex header pieces = do
   return case sum (map fst before) `quotRem` 0x10 of
     (hexes, 0) -> let
       newIndex = startIndex + fromIntegral hexes
-      withBytes = nonFinalizedCrypt isArcade newIndex $ pkgQADigest header
+      withBytes = nonFinalizedCrypt isArcade newIndex header.pkgQADigest
       in transformBytes withBytes this
     _ -> error "Contents start at a position not divisble by 0x10"
 
@@ -232,12 +234,12 @@ loadFinalizedPKGFolder r h header = do
   decoder <- maybe (fail "Couldn't decode PKG contents") return $ cryptFinalizedPKG header
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
-          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + pkgDataOffset header
+          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + header.pkgDataOffset
           enc <- B.hGet aHandle len
           return $ BL.fromStrict $ decoder hexes enc
         _ -> fail "Expected a read position divisible by 0x10"
-  recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
-    >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
+  recs <- decryptPart h 0 (0x20 * fromIntegral header.pkgItemCount)
+    >>= runGetM (replicateM (fromIntegral header.pkgItemCount) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
@@ -252,12 +254,12 @@ loadNonFinalizedPKGFolder :: Readable -> Handle -> PKGHeader -> IO (Folder B.Byt
 loadNonFinalizedPKGFolder r h header = do
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
-          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + pkgDataOffset header
+          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + header.pkgDataOffset
           enc <- BL.hGet aHandle len
           return $ cryptNonFinalizedPKG False hexes header enc
         _ -> fail "Expected a read position divisible by 0x10"
-  recs <- decryptPart h 0 (0x20 * fromIntegral (pkgItemCount header))
-    >>= runGetM (replicateM (fromIntegral $ pkgItemCount header) $ codecIn bin)
+  recs <- decryptPart h 0 (0x20 * fromIntegral header.pkgItemCount)
+    >>= runGetM (replicateM (fromIntegral header.pkgItemCount) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
@@ -272,11 +274,11 @@ loadPKGReadable :: Readable -> IO PKG
 loadPKGReadable r = useHandle r \h -> do
   pkgHeader   <- BL.hGet h 0x80 >>= runGetM (codecIn bin)
   pkgDigests1 <- B.hGet h 0x40
-  let metadataSize = fromIntegral (pkgMetadataSize pkgHeader) - 0x40 -- size minus digests
-  pkgMetadata <- BL.hGet h metadataSize >>= runGetM (replicateM (fromIntegral $ pkgMetadataCount pkgHeader) $ codecIn bin)
+  let metadataSize = fromIntegral pkgHeader.pkgMetadataSize - 0x40 -- size minus digests
+  pkgMetadata <- BL.hGet h metadataSize >>= runGetM (replicateM (fromIntegral pkgHeader.pkgMetadataCount) $ codecIn bin)
   pkgDigests2 <- B.hGet h 0x40
 
-  isFinalized <- case pkgRevision pkgHeader of
+  isFinalized <- case pkgHeader.pkgRevision of
     0x8000 -> return True
     0x0000 -> return False
     n      -> fail $ "Unrecognized finalization value in .pkg: " <> showHex n ""

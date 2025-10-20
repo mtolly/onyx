@@ -1,9 +1,11 @@
 {-
 Thanks to PyMilo, LibForge, and MiloMod for information on these structures.
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.Harmonix.RockBand.Milo
 ( module Onyx.Harmonix.RockBand.Milo.Compression
 , module Onyx.Harmonix.RockBand.Milo.Dir
@@ -53,9 +55,9 @@ loadMilo fin = do
   inside ("Parsing milo file: " <> fin) $ runGetM parseMiloFile dec
 
 miloToFolder :: MiloDir -> (B.ByteString, Folder B.ByteString BL.ByteString)
-miloToFolder dir = (miloName dir, Folder
-  { folderFiles      = zip (map snd $ miloEntryNames dir) (miloFiles dir)
-  , folderSubfolders = map miloToFolder $ miloSubdirs dir
+miloToFolder dir = (dir.miloName, Folder
+  { folderFiles      = zip (map snd dir.miloEntryNames) dir.miloFiles
+  , folderSubfolders = map miloToFolder dir.miloSubdirs
   })
 
 -- | Decompresses a milo and tries to parse the directory structure inside.
@@ -77,8 +79,8 @@ unpackMilo fin dout = do
           folder' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) folder
       stackIO $ saveHandleFolder folder' $ dout </> B8.unpack topname
       let removeFiles dir = dir
-            { miloSubdirs = map removeFiles $ miloSubdirs dir
-            , miloFiles = map (const "(file contents)") $ miloFiles dir
+            { miloSubdirs = map removeFiles dir.miloSubdirs
+            , miloFiles = map (const "(file contents)") dir.miloFiles
             }
       stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
       lg "Recognized and extracted milo contents."
@@ -102,10 +104,10 @@ packMilo din fout = do
           $ inside ("position " <> show pos) $ fatal err
         Right (_, _, topdir) -> do
           let reload parent milodir = do
-                let thisout = parent </> B8.unpack (miloName milodir)
+                let thisout = parent </> B8.unpack milodir.miloName
                 newFiles <- mapM (BL.readFile . (thisout </>) . B8.unpack . snd)
-                  $ miloEntryNames milodir
-                newDirs <- mapM (reload thisout) $ miloSubdirs milodir
+                  $ milodir.miloEntryNames
+                newDirs <- mapM (reload thisout) milodir.miloSubdirs
                 return milodir
                   { miloFiles = newFiles
                   , miloSubdirs = newDirs

@@ -4,6 +4,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoFieldSelectors           #-}
+{-# LANGUAGE OverloadedRecordDot        #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE UndecidableInstances       #-}
@@ -76,7 +78,7 @@ newtype Messages = Messages { getMessages :: [Message] }
   deriving (Eq, Ord, Show, Semigroup, Monoid)
 
 instance Exc.Exception Messages where
-  displayException = unlines . map Exc.displayException . getMessages
+  displayException = unlines . map Exc.displayException . (.getMessages)
 
 data MessageLevel = MessageLog | MessageWarning
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -94,10 +96,10 @@ instance (Monad m) => SendMessage (PureLog m) where
   sendMessage lvl msg = PureLog $ tell [(lvl, msg)]
 
 runPureLog :: PureLog Identity a -> (a, [(MessageLevel, Message)])
-runPureLog = runWriter . fromPureLog
+runPureLog = runWriter . (.fromPureLog)
 
 runPureLogT :: (Monad m) => PureLog m a -> m (a, [(MessageLevel, Message)])
-runPureLogT = runWriterT . fromPureLog
+runPureLogT = runWriterT . (.fromPureLog)
 
 withPureLog :: (SendMessage m, Monad n) => (forall b. n b -> m b) -> PureLog n a -> m a
 withPureLog f st = do
@@ -112,7 +114,7 @@ getQueueLog :: (Monad m) => StackTraceT (QueueLog m) ((MessageLevel, Message) ->
 getQueueLog = lift $ QueueLog ask
 
 mapQueueLog :: (m a -> n b) -> QueueLog m a -> QueueLog n b
-mapQueueLog f = QueueLog . mapReaderT f . fromQueueLog
+mapQueueLog f = QueueLog . mapReaderT f . (.fromQueueLog)
 
 instance MonadTrans QueueLog where
   lift = QueueLog . lift
@@ -189,7 +191,7 @@ instance (Monad m) => MonadError Messages (StackTraceT m) where
   throwError (Messages msgs) = StackTraceT do
     upper <- lift ask
     throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
-  StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
+  StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` ((.fromStackTraceT) . f)
 
 throwNoContext :: (Monad m) => Messages -> StackTraceT m a
 throwNoContext = StackTraceT . throwE
@@ -221,7 +223,7 @@ liftBracketLog
   -> (a -> StackTraceT (PureLog IO) c)
   -> StackTraceT m c
 liftBracketLog io st = do
-  (res, msgs) <- liftIO $ io $ runWriterT . fromPureLog . runStackTraceT . st
+  (res, msgs) <- liftIO $ io $ runWriterT . (.fromPureLog) . runStackTraceT . st
   mapM_ (uncurry sendMessage') msgs
   either throwError return res
 
@@ -304,7 +306,7 @@ shakeEmbed opts rules = do
           Just msgs -> throwError msgs
         in go (Shake.shakeExceptionStack se) (Shake.shakeExceptionInner se)
   writeMsg <- getQueueLog
-  stackCatchIO handleShakeErr $ Shake.shake opts $ runReaderT (fromQueueLog rules) writeMsg
+  stackCatchIO handleShakeErr $ Shake.shake opts $ runReaderT rules.fromQueueLog writeMsg
 
 shakeTrace :: StackTraceT (QueueLog Shake.Action) a -> QueueLog Shake.Action a
 shakeTrace stk = runStackTraceT stk >>= \res -> do
@@ -317,29 +319,29 @@ class ShakeBuildable pattern file | pattern -> file where
 infix 1 %>
 
 instance ShakeBuildable Shake.FilePattern FilePath where
-  pat %> f = QueueLog $ ReaderT \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+  pat %> f = QueueLog $ ReaderT \q -> pat Shake.%> (`runReaderT` q) . (.fromQueueLog) . shakeTrace . f
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath) where
   (patx, paty) %> f = QueueLog $ ReaderT \q -> [patx, paty] Shake.&%> \case
-    [x, y] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y)) q
+    [x, y] -> runReaderT (shakeTrace (f (x, y))).fromQueueLog q
     fs     -> fail $ "Panic! (%>) rule expected to get 2 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath) where
   (patx, paty, patz) %> f = QueueLog $ ReaderT \q -> [patx, paty, patz] Shake.&%> \case
-    [x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (x, y, z)) q
+    [x, y, z] -> runReaderT (shakeTrace (f (x, y, z))).fromQueueLog q
     fs        -> fail $ "Panic! (%>) rule expected to get 3 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable (Shake.FilePattern, Shake.FilePattern, Shake.FilePattern, Shake.FilePattern) (FilePath, FilePath, FilePath, FilePath) where
   (patw, patx, paty, patz) %> f = QueueLog $ ReaderT \q -> [patw, patx, paty, patz] Shake.&%> \case
-    [w, x, y, z] -> runReaderT (fromQueueLog $ shakeTrace $ f (w, x, y, z)) q
+    [w, x, y, z] -> runReaderT (shakeTrace (f (w, x, y, z))).fromQueueLog q
     fs           -> fail $ "Panic! (%>) rule expected to get 4 filenames from Shake, but got " <> show (length fs)
 
 instance ShakeBuildable [Shake.FilePattern] [FilePath] where
-  pats %> f = QueueLog $ ReaderT \q -> pats Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+  pats %> f = QueueLog $ ReaderT \q -> pats Shake.&%> (`runReaderT` q) . (.fromQueueLog) . shakeTrace . f
 
 phony :: FilePath -> StackTraceT (QueueLog Shake.Action) () -> QueueLog Shake.Rules ()
 phony s act = QueueLog $ ReaderT \q -> do
-  let act' = runReaderT (fromQueueLog $ shakeTrace act) q
+  let act' = runReaderT (shakeTrace act).fromQueueLog q
   Shake.phony s act'
   Shake.phony (s ++ "/") act'
 
@@ -350,9 +352,9 @@ logIO
   => ((MessageLevel, Message) -> IO ())
   -> StackTraceT (QueueLog m) a
   -> m (Either Messages a)
-logIO logger task = runReaderT (fromQueueLog $ runStackTraceT task) logger
+logIO logger task = runReaderT (runStackTraceT task).fromQueueLog logger
 
 logStdout :: (MonadIO m) => StackTraceT (QueueLog m) a -> m (Either Messages a)
 logStdout = logIO $ putStrLn . \case
-  (MessageLog    , msg) -> messageString msg
+  (MessageLog    , msg) -> msg.messageString
   (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg

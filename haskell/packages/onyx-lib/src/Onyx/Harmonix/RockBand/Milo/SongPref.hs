@@ -1,5 +1,7 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.RockBand.Milo.SongPref where
 
 import qualified Data.ByteString                 as B
@@ -28,16 +30,16 @@ data SongPref = SongPref
 
 instance Bin SongPref where
   bin = do
-    prefU1 <- prefU1 =. word32be
-    prefU2 <- prefU2 =. word32be
-    prefU3 <- prefU3 =. word32be
-    prefU4 <- prefU4 =. word32be
-    prefU5 <- prefU5 =. word8
+    prefU1 <- (.prefU1) =. word32be
+    prefU2 <- (.prefU2) =. word32be
+    prefU3 <- (.prefU3) =. word32be
+    prefU4 <- (.prefU4) =. word32be
+    prefU5 <- (.prefU5) =. word8
     let stringBE = Codec getStringBE $ fmapArg putStringBE
-    prefPart2 <- prefPart2 =. stringBE
-    prefPart3 <- prefPart3 =. stringBE
-    prefPart4 <- prefPart4 =. stringBE
-    prefStyle <- prefStyle =. stringBE
+    prefPart2 <- (.prefPart2) =. stringBE
+    prefPart3 <- (.prefPart3) =. stringBE
+    prefPart4 <- (.prefPart4) =. stringBE
+    prefStyle <- (.prefStyle) =. stringBE
     return SongPref{..}
 
 {-

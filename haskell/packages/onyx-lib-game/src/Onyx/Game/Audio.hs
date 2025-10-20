@@ -445,25 +445,25 @@ splitPlanSources
 splitPlanSources planName proj lib audios = let
   evalAudioInput = \case
     Named name -> do
-      afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name (projectSongYaml proj).audio
+      afile <- maybe (fatal "Undefined audio name") return $ HM.lookup name proj.projectSongYaml.audio
       let buildDependency n = shakeBuild1 proj [] $ "gen/audio" </> T.unpack n <.> "wav"
           getSamples = loadSamplesFromBuildDir
             (shakeBuild1 proj [])
             planName
       case afile of
-        AudioFile ainfo -> searchInfo (takeDirectory $ projectLocation proj) lib buildDependency ainfo
+        AudioFile ainfo -> searchInfo (takeDirectory proj.projectLocation) lib buildDependency ainfo
         AudioSnippet expr -> join <$> mapM evalAudioInput expr
         AudioSamples _info -> manualLeaf
-          (takeDirectory $ projectLocation proj)
+          (takeDirectory proj.projectLocation)
           lib
           buildDependency
           getSamples
-          (projectSongYaml proj)
+          proj.projectSongYaml
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
     Mogg{} -> fatal "MOGG channel audio not supported in preview yet" -- TODO
   in fmap concat $ forM audios \audio -> do
-    let chans = computeChannelsPlan (projectSongYaml proj) audio
+    let chans = computeChannelsPlan proj.projectSongYaml audio
         pans = case chans of
           1 -> [0]
           2 -> [-1, 1]
@@ -479,7 +479,7 @@ splitPlanSources planName proj lib audios = let
       Mix parts -> return [PlanAudio (join $ fmap snd partExpr) pans vols | partExpr <- NE.toList parts]
       -- merge: split pans and vols to go with the appropriate input
       Merge parts -> do
-        let partChannels = map (computeChannelsPlan (projectSongYaml proj) . fmap fst) $ NE.toList parts
+        let partChannels = map (computeChannelsPlan proj.projectSongYaml . fmap fst) $ NE.toList parts
         return $ zipWith3
           (\x p v -> PlanAudio (join $ fmap snd x) p v)
           (NE.toList parts)
@@ -488,7 +488,7 @@ splitPlanSources planName proj lib audios = let
       expr -> return [PlanAudio (join $ fmap snd expr) pans vols]
 
 projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
-projectAudio k proj = case lookup k $ HM.toList (projectSongYaml proj).plans of
+projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
   Just (MoggPlan x) -> errorToWarning case x.fileMOGG of
     Just path | takeExtension path == ".bik" -> let
       bik = takeDirectory proj.projectLocation </> path

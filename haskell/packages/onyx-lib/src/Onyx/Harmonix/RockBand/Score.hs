@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -239,7 +240,7 @@ tracksToStars trks = let
     ((fromIntegral solo *) <$> new_bonus_thresholds)
   allCutoffs = Just . (floor :: Float -> Int) <$> sumOfBases
   allExpert = all (\(_, diff, _) -> diff == Expert) trks
-  in allCutoffs { starsGold = guard allExpert >> starsGold allCutoffs }
+  in allCutoffs { starsGold = guard allExpert >> allCutoffs.starsGold }
 
 starCutoffs :: F.FixedFile U.Beats -> [(ScoreTrack, Difficulty)] -> Stars (Maybe Int)
 starCutoffs mid trks = tracksToStars do

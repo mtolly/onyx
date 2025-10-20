@@ -1,10 +1,12 @@
 {-
 Preprocessed version of MIDI file
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.PowerGig.GEV where
 
 import           Control.Monad                    (forM_, guard)
@@ -323,30 +325,30 @@ debugPrintGEV GEV{..} = do
         putStrLn $ typ <> " #" <> show (i :: Int) <> ":"
         each x
   print gevPCMC
-  printVector "GELS" (gelhGELS gevGELH) $ \gels -> do
+  printVector "GELS" gevGELH.gelhGELS $ \gels -> do
     print gels { gelsGEVT = V.empty }
-    printVector "GEVT" (gelsGEVT gels) $ \gevt -> do
+    printVector "GEVT" gels.gelsGEVT $ \gevt -> do
       print gevt
-      print $ findBits guitarDrumBit $ gevtGameBits gevt
-  printVector "String" (strhData gevSTRH) $ \offset -> do
-    print $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) $ strsData gevSTRS
+      print $ findBits guitarDrumBit gevt.gevtGameBits
+  printVector "String" gevSTRH.strhData $ \offset -> do
+    print $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) gevSTRS.strsData
   print gevTMPO { tmpoEvents = V.empty }
-  printVector "TMPOEvent" (tmpoEvents gevTMPO) print
+  printVector "TMPOEvent" gevTMPO.tmpoEvents print
 
 getMIDITempos :: GEV -> U.TempoMap
 getMIDITempos gev
   = U.makeTempoMap
   $ RTB.fromAbsoluteEventList
   $ ATB.fromPairList
-  $ flip map (V.toList $ tmpoEvents $ gevTMPO gev) $ \e -> let
-    posn = fromIntegral (tmpoEventTicks e) / fromIntegral (tmpoResolution $ gevTMPO gev)
-    event = E.MetaEvent $ Meta.SetTempo $ fromIntegral $ tmpoEventUSPQN e
+  $ flip map (V.toList gev.gevTMPO.tmpoEvents) $ \e -> let
+    posn = fromIntegral e.tmpoEventTicks / fromIntegral gev.gevTMPO.tmpoResolution
+    event = E.MetaEvent $ Meta.SetTempo $ fromIntegral e.tmpoEventUSPQN
     in (posn, event)
 
 getString :: Word32 -> GEV -> Maybe B.ByteString
 getString i gev = do
-  offset <- strhData (gevSTRH gev) V.!? fromIntegral i
-  return $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) $ strsData $ gevSTRS gev
+  offset <- gev.gevSTRH.strhData V.!? fromIntegral i
+  return $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) gev.gevSTRS.strsData
 
 makeStringBank :: [B.ByteString] -> (STRH, STRS, Map.Map B.ByteString Word32)
 makeStringBank = go BL.empty [] Map.empty where

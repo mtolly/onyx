@@ -1,14 +1,15 @@
 {- |
 EVENTS
 -}
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE FlexibleContexts   #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DerivingStrategies  #-}
+{-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH2.Events where
 
 import           Control.Monad.Codec
@@ -102,11 +103,11 @@ instance TraverseTrack EventsTrack where
 
 instance ParseTrack EventsTrack where
   parseTrack = do
-    eventsCrowdTempo    <- eventsCrowdTempo    =. command
-    eventsCrowdLighters <- eventsCrowdLighters =. command
-    eventsLighting      <- eventsLighting      =. command
-    eventsOther         <- eventsOther         =. command
-    eventsSections      <- eventsSections      =. let
+    eventsCrowdTempo    <- (.eventsCrowdTempo)    =. command
+    eventsCrowdLighters <- (.eventsCrowdLighters) =. command
+    eventsLighting      <- (.eventsLighting)      =. command
+    eventsOther         <- (.eventsOther)         =. command
+    eventsSections      <- (.eventsSections)      =. let
       fp = \case
         ("section" : s) -> Just $ T.unwords s
         _               -> Nothing

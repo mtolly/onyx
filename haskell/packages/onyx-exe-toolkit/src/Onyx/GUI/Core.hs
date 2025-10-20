@@ -166,8 +166,8 @@ data RRCreate
 
 templateApplyInput :: Project -> Maybe (Target FilePath) -> T.Text -> T.Text
 templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
-  [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
-  , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
+  [ T.intercalate (T.pack $ takeDirectory proj.projectTemplate) . T.splitOn "%input_dir%"
+  , T.intercalate (validFileNamePiece NameRulePC $ T.pack $ takeFileName proj.projectTemplate) . T.splitOn "%input_base%"
   , T.intercalate (validFileNamePiece NameRulePC title) . T.splitOn "%title%"
   , T.intercalate (validFileNamePiece NameRulePC $ getArtist metadata) . T.splitOn "%artist%"
   , T.intercalate (validFileNamePiece NameRulePC $ getAlbum metadata) . T.splitOn "%album%"
@@ -175,16 +175,16 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
   , T.intercalate (validFileNamePiece NameRulePC songID) . T.splitOn "%song_id%"
   ] where
     metadata = case mtgt of
-      Nothing  -> (projectSongYaml proj).metadata
-      Just tgt -> getTargetMetadata (projectSongYaml proj) tgt
+      Nothing  -> proj.projectSongYaml.metadata
+      Just tgt -> getTargetMetadata proj.projectSongYaml tgt
     title = case mtgt of
       Nothing  -> getTitle metadata
-      Just tgt -> targetTitle (projectSongYaml proj) tgt
+      Just tgt -> targetTitle proj.projectSongYaml tgt
     songID = case mtgt of
       Just (RB3 rb3) -> case rb3.songID of
         SongIDInt    n -> T.pack $ show n
         SongIDSymbol s -> s
-        _              -> T.pack $ show $ hashRB3 (projectSongYaml proj) rb3
+        _              -> T.pack $ show $ hashRB3 proj.projectSongYaml rb3
       _              -> ""
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
@@ -502,7 +502,7 @@ data PKGSpec = PKGSpec
 type PackageSpec = Either STFSSpec PKGSpec
 
 getSTFSSpec :: FilePath -> IO (Maybe STFSSpec)
-getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . STFS.stfsMetadata) >>= \case
+getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . (.stfsMetadata)) >>= \case
   Left e -> let
     _ = e :: Exc.IOException
     in return Nothing
@@ -518,7 +518,7 @@ getPKGSpec f = Exc.try (PKG.loadPKG f) >>= \case
     in return Nothing
   Right pkg -> return $ Just PKGSpec
     { pkgPath      = f
-    , pkgContentID = PKG.pkgContentID $ PKG.pkgHeader pkg
+    , pkgContentID = pkg.pkgHeader.pkgContentID
     }
 
 getPackageSpec :: FilePath -> IO (Maybe PackageSpec)
@@ -570,7 +570,7 @@ isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
 isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
   then return $ Just (f, "") -- could read content ID from EDAT if we wanted
   else getPackageSpec f >>= \case
-    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
 
@@ -578,7 +578,7 @@ isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
 isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
   then return $ Just (f, "")
   else getPackageSpec f >>= \case
-    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 $ STFS.md_DisplayName $ stfsMeta stfs)
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
 
@@ -841,7 +841,7 @@ partSelectors
 partSelectors rect proj slots = let
   rects = splitHorizN (length slots) rect
   fparts = do
-    (fpart, part) <- HM.toList (projectSongYaml proj).parts.getParts
+    (fpart, part) <- HM.toList proj.projectSongYaml.parts.getParts
     guard $ part /= emptyPart
     return (fpart, T.toTitle $ F.getPartName fpart, part)
   instSelector ((lbl, getter, setter, partFilter), r) = do

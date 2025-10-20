@@ -1,5 +1,6 @@
 -- | The encryption scheme used for DTB files found on game discs.
-{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE BlockArguments   #-}
+{-# LANGUAGE NoFieldSelectors #-}
 module Onyx.Harmonix.DTA.Crypt
 ( oldCrypt, newCrypt
 , decrypt, encrypt

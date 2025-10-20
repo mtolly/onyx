@@ -4,12 +4,14 @@ Done with the help of
 https://wiki.xentax.com/index.php/Wwise_SoundBank_(*.bnk)
 
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Rocksmith.BNK where
 
 import           Control.Monad        (replicateM)
@@ -37,18 +39,18 @@ extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
   codebook <- getResourcesPath "packed_codebooks_aoTuV_603.bin"
   chunks <- parseBNK <$> useHandle bnk handleToByteString
   let hirc = chunks >>= \case
-        ChunkHIRC h -> hirc_objects h
+        ChunkHIRC h -> h.hirc_objects
         _           -> []
   actionIDs <- case [ e | HIRCEvent e <- hirc ] of
-    [x] -> return $ evt_actions x
+    [x] -> return x.evt_actions
     _   -> fail "Not exactly 1 event in .bnk HIRC"
-  let actions = [ act | HIRCEventAction act <- hirc, elem (eact_id act) actionIDs ]
+  let actions = [ act | HIRCEventAction act <- hirc, elem act.eact_id actionIDs ]
   -- eact_type appears to be 4 for pc/mac, 3 for xbox?
-  soundID <- case [ act | act <- actions, eact_type act == 4 || eact_type act == 3 ] of
-    [act] -> return $ eact_objectID act
+  soundID <- case [ act | act <- actions, act.eact_type == 4 || act.eact_type == 3 ] of
+    [act] -> return act.eact_objectID
     _     -> fail "Not exactly 1 play action in .bnk HIRC"
-  sourceID <- case [ s | HIRCSound s <- hirc, snd_id s == soundID ] of
-    [s] -> return $ snd_sourceID s
+  sourceID <- case [ s | HIRCSound s <- hirc, s.snd_id == soundID ] of
+    [s] -> return s.snd_sourceID
     _   -> fail "Sound referenced by play action not found in .bnk HIRC"
   wem <- case findFile (return $ T.pack $ show sourceID <.> "wem") audioDir of
     Nothing -> fail "Couldn't locate .wem audio file"

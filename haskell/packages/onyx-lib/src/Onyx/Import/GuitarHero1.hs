@@ -140,7 +140,7 @@ importGH1 path gen = do
 importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
 importGH1Song pkg path folder level = do
   when (level == ImportFull) $ do
-    lg $ "Importing GH1 song [" <> T.unpack (songName $ song pkg) <> "] from: " <> path
+    lg $ "Importing GH1 song [" <> T.unpack pkg.song.songName <> "] from: " <> path
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -148,39 +148,39 @@ importGH1Song pkg path folder level = do
       need p = case findFile p folder of
         Just r  -> return r
         Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
-  midi <- split (midiFile pkg) >>= need . fmap encLatin1
-  vgs <- split (songName (song pkg) <> ".vgs") >>= need . fmap encLatin1
+  midi <- split pkg.midiFile >>= need . fmap encLatin1
+  vgs <- split (pkg.song.songName <> ".vgs") >>= need . fmap encLatin1
   F.Song tmap mmap gh1 <- case level of
     ImportFull  -> F.loadMIDIReadable midi
-    ImportQuick -> return emptyChart
+    ImportQuick -> return (emptyChart :: F.Song (GH1File U.Beats))
   let convmid :: F.Song (F.OnyxFile U.Beats)
       convmid = F.Song tmap mmap $ F.fixedToOnyx mempty
         { F.fixedPartGuitar = mempty
           { RB.fiveDifficulties = flip fmap diffs \diff -> mempty
-            { RB.fiveGems = fmap (fmap Just) $ partGems diff
+            { RB.fiveGems = fmap (fmap Just) diff.partGems
             }
-          , RB.fiveOverdrive    = maybe RTB.empty partStarPower $ Map.lookup Expert diffs
-          , RB.fivePlayer1      = maybe RTB.empty partPlayer1   $ Map.lookup Expert diffs
-          , RB.fivePlayer2      = maybe RTB.empty partPlayer2   $ Map.lookup Expert diffs
-          , RB.fiveFretPosition = flip fmap (animFretPosition $ gh1Anim gh1) $ \case
+          , RB.fiveOverdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert diffs
+          , RB.fivePlayer1      = maybe RTB.empty (.partPlayer1)   $ Map.lookup Expert diffs
+          , RB.fivePlayer2      = maybe RTB.empty (.partPlayer2)   $ Map.lookup Expert diffs
+          , RB.fiveFretPosition = flip fmap gh1.gh1Anim.animFretPosition $ \case
             (FretPosition p, b) -> (p        , b)
             (Fret60        , b) -> (RB.Fret59, b)
-          , RB.fiveHandMap      = flip fmap (animHandMap $ gh1Anim gh1) $ \case
+          , RB.fiveHandMap      = flip fmap gh1.gh1Anim.animHandMap $ \case
             HandMap_Default   -> RB.HandMap_Default
             HandMap_DropD2    -> RB.HandMap_DropD2
             HandMap_Solo      -> RB.HandMap_Solo
             HandMap_NoChords  -> RB.HandMap_NoChords
             HandMap_AllChords -> RB.HandMap_AllChords
-          , RB.fiveMood         = flip RTB.mapMaybe (eventsList $ gh1Events gh1) $ \case
+          , RB.fiveMood         = flip RTB.mapMaybe gh1.gh1Events.eventsList $ \case
             Event_gtr_on  -> Just Mood_play
             Event_gtr_off -> Just Mood_idle
             _             -> Nothing
           }
         , F.fixedEvents = mempty
-          { RB.eventsEnd = void $ RTB.filter (== Event_end) $ eventsList $ gh1Events gh1
+          { RB.eventsEnd = void $ RTB.filter (== Event_end) gh1.gh1Events.eventsList
           }
         }
-      diffs = gemsDifficulties $ gh1T1Gems gh1
+      diffs = gh1.gh1T1Gems.gemsDifficulties
   numChannels <- stackIO $ vgsChannelCount vgs
   namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
     bs <- case level of
@@ -189,12 +189,12 @@ importGH1Song pkg path folder level = do
     return ("vgs-" <> show i, bs)
   return SongYaml
     { metadata = def'
-      { title  = Just $ name pkg
-      , artist = Just $ artist pkg
+      { title  = Just pkg.name
+      , artist = Just pkg.artist
       , cover = False -- TODO maybe make this true if it's in the main setlist (I think that's how the game does it)
       , fileAlbumArt = Nothing
-      , previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ preview pkg) / 1000
-      , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd $ preview pkg) / 1000
+      , previewStart = Just $ PreviewSeconds $ fromIntegral (fst pkg.preview) / 1000
+      , previewEnd = Just $ PreviewSeconds $ fromIntegral (snd pkg.preview) / 1000
       -- TODO import loadingPhrase
       }
     , global = def'
@@ -215,11 +215,11 @@ importGH1Song pkg path folder level = do
         }
     , jammit = HM.empty
     , plans = HM.singleton "vgs" $ let
-      guitarChans = map fromIntegral $ concat $ take 1 $ slip_tracks $ song pkg
-      songChans = zipWith const [0..] (pans $ song pkg) \\ guitarChans
+      guitarChans = map fromIntegral $ concat $ take 1 pkg.song.slip_tracks
+      songChans = zipWith const [0..] pkg.song.pans \\ guitarChans
       -- in gh1, volumes are stored as gain ratios, unlike gh2 and later where they are decibels
       volumesDecibels = do
-        volRatio <- vols $ song pkg
+        volRatio <- pkg.song.vols
         return $ decibelDifferenceInPanRatios (1, 1) (volRatio, volRatio)
       mixChans cs = do
         presentChannels <- NE.nonEmpty do
@@ -229,14 +229,14 @@ importGH1Song pkg path folder level = do
             (cname, _) : _ -> [(c, T.pack cname)]
             []             -> []
         -- return Nothing if all channels are silenced by vols
-        guard $ any (\c -> (vols (song pkg) !! c) > 0) cs
+        guard $ any (\c -> (pkg.song.vols !! c) > 0) cs
         Just case presentChannels of
           (c, cname) :| [] -> PansVols
-            (map realToFrac [pans (song pkg) !! c])
+            (map realToFrac [pkg.song.pans !! c])
             (map realToFrac [volumesDecibels !! c])
             (Input $ Named cname)
           _ -> PansVols
-            (map realToFrac [ pans (song pkg) !! c | (c, _) <- toList presentChannels ])
+            (map realToFrac [ pkg.song.pans !! c | (c, _) <- toList presentChannels ])
             (map realToFrac [ volumesDecibels !! c | (c, _) <- toList presentChannels ])
             (Merge $ fmap (Input . Named . snd) presentChannels)
       in StandardPlan StandardPlanInfo

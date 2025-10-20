@@ -181,14 +181,14 @@ instance ParseTrack FiveTrack where
     -- preprocess CH pitch 104 format for tap sections
     Codec
       { codecIn = lift $ modify \mt -> let
-        p104 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 104) (midiNotes mt)
+        p104 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 104) mt.midiNotes
         in if RTB.null p104 then mt else let
           newPS = flip fmap p104 $ PS.PSMessage Nothing PS.TapNotes . \case
             EdgeOn {} -> True
             EdgeOff{} -> False
           in mt
-            { midiPhaseShift = RTB.merge newPS $ midiPhaseShift mt
-            , midiNotes = Map.delete (V.toPitch 104) $ midiNotes mt
+            { midiPhaseShift = RTB.merge newPS mt.midiPhaseShift
+            , midiNotes = Map.delete (V.toPitch 104) mt.midiNotes
             }
       , codecOut = const $ return ()
       }
@@ -197,8 +197,8 @@ instance ParseTrack FiveTrack where
     enhancedOpens <- Codec
       { codecIn = do
         evts <- slurpTrack \mt -> let
-          (brackets  , cmds'  ) = RTB.partition (== ["ENHANCED_OPENS"]) $ midiCommands mt
-          (noBrackets, lyrics') = RTB.partition (== "ENHANCED_OPENS") $ midiLyrics mt
+          (brackets  , cmds'  ) = RTB.partition (== ["ENHANCED_OPENS"]) mt.midiCommands
+          (noBrackets, lyrics') = RTB.partition (== "ENHANCED_OPENS") mt.midiLyrics
           mt' = mt
             { midiCommands = cmds'
             , midiLyrics   = lyrics'

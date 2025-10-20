@@ -1,5 +1,4 @@
 {-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -47,8 +46,8 @@ import qualified Sound.MIDI.Util                  as U
 psRules :: BuildInfo -> FilePath -> TargetPS FilePath -> QueueLog Rules ()
 psRules buildInfo dir ps = do
 
-  let songYaml = biSongYaml buildInfo
-      rel = biRelative buildInfo
+  let songYaml = buildInfo.biSongYaml
+      rel = buildInfo.biRelative
       gen = biGen buildInfo
       metadata = getTargetMetadata songYaml $ PS ps
 
@@ -123,7 +122,9 @@ psRules buildInfo dir ps = do
               , events = mempty
               , part = mempty
               }
+            isFiveAutochart :: (FiveType -> ModeInput -> FiveResult) -> Bool
             isFiveAutochart builder = (builder FiveTypeGuitarExt emptyModeInput).autochart
+            isDrumAutochart :: (DrumTarget -> ModeInput -> DrumResult) -> Bool
             isDrumAutochart builder = (builder DrumTargetCH emptyModeInput).autochart
             usesAutochart = or
               [ maybe False isFiveAutochart $ getPart ps.guitar     songYaml >>= anyFiveFret
@@ -248,7 +249,7 @@ psRules buildInfo dir ps = do
         timing <- RB3.basicTiming False midSegment $
           applyTargetLength ps.common midRaw <$> getAudioLength buildInfo planName plan
         let endSecs = U.applyTempoMap midSegment.tempos timing.timingEnd
-        return (midRaw, diffs, psDifficultyRB3 diffs, endSecs)
+        return (midRaw, diffs, diffs.psDifficultyRB3, endSecs)
   let setInstLength secs s = stackIO $ runResourceT $ setAudioLengthOrEmpty secs s
   dir </> audioExt "audio/drums"   %> \out -> do
     (mid, DifficultyPS{}, DifficultyRB3{..}, endSecs) <- loadPSMidi

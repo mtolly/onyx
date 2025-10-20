@@ -142,7 +142,7 @@ readGH3TextSetDLC folder = let
 loadGH3TextSetDLC :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m GH3TextSet
 loadGH3TextSetDLC f = case map toLower $ takeExtension f of
   ".pkg"  -> do
-    usrdir <- stackIO (pkgFolder <$> loadPKG f) >>= getDecryptedUSRDIR
+    usrdir <- stackIO ((.pkgFolder) <$> loadPKG f) >>= getDecryptedUSRDIR
     fmap mconcat $ forM (map snd $ folderSubfolders usrdir) $ \dir -> do
       readGH3TextSetDLC $ first TE.decodeLatin1 dir
   ".edat" -> do

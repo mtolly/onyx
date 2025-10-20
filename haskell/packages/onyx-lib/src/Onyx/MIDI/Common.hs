@@ -9,6 +9,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoFieldSelectors       #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE PatternSynonyms        #-}
 {-# LANGUAGE TupleSections          #-}

@@ -1,7 +1,9 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Amplitude.File where
 
 import           Control.Monad                    (forM, forM_)
@@ -55,7 +57,7 @@ instance TraverseTrack AmplitudeFile where
 
 instance ParseFile AmplitudeFile where
   parseFile = do
-    ampTracks <- ampTracks =. Codec
+    ampTracks <- (.ampTracks) =. Codec
       { codecIn = fmap Map.fromList do
         trks <- lift get
         fmap catMaybes $ forM trks \trk -> let
