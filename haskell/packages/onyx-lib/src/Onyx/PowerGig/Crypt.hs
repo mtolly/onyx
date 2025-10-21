@@ -298,7 +298,7 @@ rebuildFullHeader dir = let
     dirIndex <- gets $ Seq.length . (.rbsDirs)
     modify \rbs -> rbs { rbsDirs = rbs.rbsDirs |> newDirEntry }
     -- then add new file entries
-    forM_ (folderFiles curDir) $ \(fileName, pkref) -> do
+    forM_ (folderFiles curDir) \(fileName, pkref) -> do
       offsetIndex <- gets $ Seq.length . (.rbsOffsets)
       let fileEntry = pkref.pkFileEntry
             { fe_PathHash  = hashPath $ fileName : curName
@@ -311,7 +311,7 @@ rebuildFullHeader dir = let
         , rbsFiles   = rbs.rbsFiles |> fileEntry
         }
     -- then recurse into subfolders
-    forM_ (folderSubfolders curDir) $ \(folderName, subDir) -> do
+    forM_ (folderSubfolders curDir) \(folderName, subDir) -> do
       go subDir dirIndex (folderName : curName)
   finalState = execState (go dir (-1) []) $ RebuildState Seq.empty Seq.empty Seq.empty
   in HeaderContents

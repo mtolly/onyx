@@ -470,10 +470,10 @@ processMIDI
   -> Drums.Audio
   -> StackTraceT m U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT m (F.Song (F.FixedFile U.Beats), DifficultyPS, Maybe VocalCount) -- ^ output midi, filtered difficulties, vocal count
-processMIDI target songYaml origInput mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
+processMIDI target songYaml origInput mixMode getAudioLength = inside "Processing MIDI for RB3/PS" do
   let input@(F.Song tempos mmap trks) = case target of
-        SharedTargetPS ps | not $ ps.bigRockEnding -> deleteBRE origInput
-        _                                          -> origInput
+        SharedTargetPS ps | not ps.bigRockEnding -> deleteBRE origInput
+        _                                        -> origInput
   timing@BasicTiming{..} <- basicTiming True input getAudioLength
   let targetPS = case target of
         SharedTargetPS ps    -> ps
@@ -939,7 +939,7 @@ magmaLegalTemposNoWipe endTime tempos sigs = do
       numMeasures = fst (U.applyMeasureMap sigs endTime) + 1
       minTempo =  40 / 60 :: U.BPS
       maxTempo = 300 / 60 :: U.BPS
-  measureChanges <- forM [0 .. numMeasures - 1] $ \msr -> do
+  measureChanges <- forM [0 .. numMeasures - 1] \msr -> do
     let msrStart = U.unapplyMeasureMap sigs (msr, 0)
         msrLength = U.unapplyMeasureMap sigs (msr + 1, 0) - msrStart
         msrEvents = U.trackTake msrLength $ U.trackDrop msrStart allTempos
@@ -1109,19 +1109,19 @@ findProblems song = execWriter do
         _                             -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox   = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxPartVocals
-      harm1 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm1
-      harm2 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm2
-      harm3 = RBVox.vocalToLegacy $ (F.getFlexPart F.PartVocal song.tracks).onyxHarm3
+  let vox   = RBVox.vocalToLegacy (F.getFlexPart F.PartVocal song.tracks).onyxPartVocals
+      harm1 = RBVox.vocalToLegacy (F.getFlexPart F.PartVocal song.tracks).onyxHarm1
+      harm2 = RBVox.vocalToLegacy (F.getFlexPart F.PartVocal song.tracks).onyxHarm2
+      harm3 = RBVox.vocalToLegacy (F.getFlexPart F.PartVocal song.tracks).onyxHarm3
       phraseOff = RBVox.Phrase False
       isLyric = \case RBVox.Lyric _ -> True; _ -> False
-      voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do
+      voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) \evts -> do
         guard $ elem phraseOff evts && any isLyric evts
         return ()
-      harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) $ \evts -> do
+      harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) \evts -> do
         guard $ elem phraseOff evts && any isLyric evts
         return ()
-      harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) $ \evts -> do
+      harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) \evts -> do
         guard $ elem phraseOff evts && any isLyric evts
         return ()
   -- Put it all together and show the error positions.
@@ -1130,7 +1130,7 @@ findProblems song = execWriter do
         = map (showPosition song.timesigs)
         . ATB.getTimes
         . RTB.toAbsoluteEventList 0
-      message rtb msg = forM_ (showPositions rtb) $ \pos ->
+      message rtb msg = forM_ (showPositions rtb) \pos ->
         tell [pos ++ ": " ++ msg]
   message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
   message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"

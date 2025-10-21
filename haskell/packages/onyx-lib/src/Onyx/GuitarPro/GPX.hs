@@ -31,7 +31,7 @@ isFileSector sect = case runGetM getWord32le sect of
   Just 2 -> do
     let name = BL.toStrict $ BL.takeWhile (/= 0) $ BL.drop 4 sect
     size <- fmap fromIntegral $ runGetM getWord32le $ BL.drop 0x8C sect
-    sectorIDs <- flip runGetM (BL.drop 0x94 sect) $ let
+    sectorIDs <- flip runGetM (BL.drop 0x94 sect) let
       go = getWord32le >>= \case
         0 -> return []
         n -> (fromIntegral n :) <$> go

@@ -41,8 +41,8 @@ readSFO bs = do
     unless (magic == "\0PSF") $ fail $ "Unrecognized magic identifier in .SFO: " <> show magic
     (,,,) <$> getWord32le <*> getWord32le <*> getWord32le <*> getWord32le
   let toText = TE.decodeUtf8With lenientDecode . BL.toStrict
-  entries <- flip runGetM (BL.drop 0x14 bs) $ do
-    replicateM (fromIntegral numEntries) $ do
+  entries <- flip runGetM (BL.drop 0x14 bs) do
+    replicateM (fromIntegral numEntries) do
       keyOffset  <- getWord16le
       dataFormat <- getWord16be
       usedBytes  <- getWord32le

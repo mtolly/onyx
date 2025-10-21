@@ -140,7 +140,7 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) $ \builder -> let
+            [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) \builder -> let
               result = completeFiveResult False mid.timesigs $ builder FiveTypeGuitar ModeInput
                 { tempo = mid.tempos
                 , events = mid.tracks.onyxEvents

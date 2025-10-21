@@ -66,7 +66,7 @@ loadGCM gcm = useHandle gcm \h -> do
   -- read_filesystem
   num_file_entries <- read_u32 $ fromIntegral fst_offset + 8
   let fnt_offset = fst_offset + num_file_entries * 0xC
-  entries <- forM [0 .. num_file_entries - 1] $ \file_index -> do
+  entries <- forM [0 .. num_file_entries - 1] \file_index -> do
     let file_entry_offset = fst_offset + file_index * 0xC
     -- FileEntry.read
     is_dir_and_name_offset <- read_u32 $ fromIntegral file_entry_offset
@@ -123,12 +123,12 @@ loadGCM gcm = useHandle gcm \h -> do
       apploader_img = makeFile ("sys" :| ["apploader.img"]) 0x2440 (fromIntegral apploader_full_size)
 
   dol_offset <- read_u32 0x420
-  dol_sizes_text <- forM [0..6] $ \i -> do -- Text sections
+  dol_sizes_text <- forM [0..6] \i -> do -- Text sections
     section_offset <- read_u32 $ fromIntegral dol_offset + 0x00 + i*4
     section_size <- read_u32 $ fromIntegral dol_offset + 0x90 + i*4
     let section_end_offset = section_offset + section_size
     return section_end_offset
-  dol_sizes_data <- forM [0..10] $ \i -> do -- Data sections
+  dol_sizes_data <- forM [0..10] \i -> do -- Data sections
     section_offset <- read_u32 $ fromIntegral dol_offset + 0x1C + i*4
     section_size <- read_u32 $ fromIntegral dol_offset + 0xAC + i*4
     let section_end_offset = section_offset + section_size

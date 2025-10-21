@@ -107,7 +107,7 @@ binToMidi bin = let
 
 -- testConvert :: FilePath -> IO ()
 -- testConvert f = BL.readFile f >>= runGetM readSheetBin >>= \bin ->
---   F.saveMIDIUtf8 (f <> ".mid") $ let
+--   F.saveMIDIUtf8 (f <> ".mid") let
 --     (tempos, track) = binToMidi bin
 --     in F.Song
 --       { F.tempos = tempos
@@ -157,7 +157,7 @@ interpretDK1 dk = let
 readTrackDK2 :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (DKEvent t)
 readTrackDK2 mid = let
   notes = joinEdgesSimple $ flip RTB.mapMaybe mid \e ->
-    flip fmap (isNoteEdge e) $ \(p, b) ->
+    flip fmap (isNoteEdge e) \(p, b) ->
       (if b then EdgeOn () else EdgeOff) p
   noPurple = flip RTB.mapMaybe notes \case
     ((), 39, len) -> Just $ noteOrRoll DKClap   len

@@ -56,7 +56,7 @@ findRRSongKeys dir = do
   return key
 
 importRRSong :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> T.Text -> Import m
-importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
+importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
 
   when (level == ImportFull) $ lg $ "Importing Rock Revolution song [" <> T.unpack key <> "]"
 
@@ -106,7 +106,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         fsb <- parseFSB r
         let names = map (.fsbSongName) $ either (.fsb3Songs) (.fsb4Songs) fsb.fsbHeader
         streams <- splitFSBStreams' fsb
-        forM (zip names streams) $ \(streamName, stream) -> do
+        forM (zip names streams) \(streamName, stream) -> do
           (streamData, ext) <- getFSBStreamBytes stream
           return (TE.decodeLatin1 streamName <> "." <> ext, streamData, ext)
 
@@ -154,10 +154,10 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
     ImportQuick -> return (emptyChart, Nothing)
     ImportFull  -> do
       let midName = "s" <> key <> "_control.mid"
-      inside ("Loading " <> T.unpack midName) $ do
+      inside ("Loading " <> T.unpack midName) do
         mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
         let (parsedControl, unrec) = readRRControl mid.tracks
-        forM_ (nubSort $ RTB.getBodies unrec) $ \e -> warn $ "Unrecognized MIDI event: " <> show e
+        forM_ (nubSort $ RTB.getBodies unrec) \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
   -- undo the sync hack if we did that on exporting a custom song,
   -- by increasing tempo at start of midi to account for mp3 delay
@@ -172,7 +172,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         ImportFull  -> do
           fiveDiffs <- forM diffs \(num, diff) -> do
             let midName = T.concat ["s", key, "_", inst, "_", num, ".mid"]
-            inside ("Loading " <> T.unpack midName) $ do
+            inside ("Loading " <> T.unpack midName) do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
               rr <- F.parseTrackReport mid.tracks
               return (diff, (rr, importRRGuitarBass rr))
@@ -185,7 +185,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
         ImportFull  -> do
           rrDiffs <- fmap Map.fromList $ forM diffs \(num, diff) -> do
             let midName = T.concat ["s", key, "_drums_", num, ".mid"]
-            inside ("Loading " <> T.unpack midName) $ do
+            inside ("Loading " <> T.unpack midName) do
               mid <- needRead midName >>= F.loadRawMIDIReadable >>= F.readMixedMIDI
               rrd <- F.parseTrackReport mid.tracks
               return (diff, rrd)
@@ -237,7 +237,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
               ]
             , F.onyxEvents = mempty
               { eventsSections = maybe RTB.empty (fmap simpleSection . importRRSections strings . (.rrcSections)) control
-              , eventsEnd = maybe RTB.empty (.rrcEnd) $ control
+              , eventsEnd = maybe RTB.empty (.rrcEnd) control
               }
             }
           }
@@ -260,8 +260,8 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) $ do
       { song = (\(s, _, _) -> Input $ Named s) <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
         [ flip fmap guitarStream \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
-        , flip fmap bassStream   $ \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
-        , flip fmap drumsStream  $ \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
+        , flip fmap bassStream   \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
+        , flip fmap drumsStream  \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
         ]
       , crowd = Nothing
       , comments = []

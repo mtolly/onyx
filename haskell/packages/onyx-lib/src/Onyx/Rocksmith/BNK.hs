@@ -35,7 +35,7 @@ import           Control.Applicative  (liftA2)
 #endif
 
 extractRSOgg :: (?endian :: ByteOrder) => Readable -> Folder T.Text Readable -> Readable
-extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
+extractRSOgg bnk audioDir = makeHandle "converted .wem audio" do
   codebook <- getResourcesPath "packed_codebooks_aoTuV_603.bin"
   chunks <- parseBNK <$> useHandle bnk handleToByteString
   let hirc = chunks >>= \case
@@ -60,7 +60,7 @@ extractRSOgg bnk audioDir = makeHandle "converted .wem audio" $ do
     Just ogg -> byteStringSimpleHandle $ BL.fromStrict ogg
 
 parseBNK :: (?endian :: ByteOrder) => BL.ByteString -> [Chunk]
-parseBNK bs = flip map (splitChunks bs) $ \(magic, chunk) -> case magic of
+parseBNK bs = flip map (splitChunks bs) \(magic, chunk) -> case magic of
   "BKHD" -> ChunkBKHD $ runGet getBKHD chunk
   "DIDX" -> ChunkDIDX $ runGet getDIDX chunk
   "DATA" -> ChunkDATA $ runGet getDATA chunk
@@ -238,7 +238,7 @@ getSTID :: (?endian :: ByteOrder) => Get STID
 getSTID = do
   stid_unknown <- getWord32Platform
   bankCount <- getWord32Platform
-  stid_banks <- replicateM (fromIntegral bankCount) $ do
+  stid_banks <- replicateM (fromIntegral bankCount) do
     bankID <- getWord32Platform
     len <- getWord8
     name <- getByteString $ fromIntegral len

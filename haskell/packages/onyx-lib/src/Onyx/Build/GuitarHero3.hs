@@ -201,7 +201,7 @@ gh3Rules buildInfo dir gh3 = do
       datEntry "preview" 0
       datEntry "song" 1
       when hasGuitarAudio $ datEntry "guitar" 2
-      when hasRhythmAudio $ datEntry "rhythm" $ if hasGuitarAudio then 3 else 2
+      when hasRhythmAudio $ datEntry "rhythm" if hasGuitarAudio then 3 else 2
 
   let pathDL = dir </> "xbox" </> (dl <> ".pak.xen")
       pathText = dir </> "xbox" </> (dl <> "_text.pak.xen")
@@ -238,31 +238,31 @@ gh3Rules buildInfo dir gh3 = do
                   , QBStructItemStringW "title" $ targetTitle songYaml (GH3 gh3)
                   , QBStructItemStringW "artist" $ getArtist metadata
                   -- Need to have a year string, even if empty. Otherwise it glitches out and takes other strings' values
-                  , QBStructItemStringW "year" $ case metadata.year of
+                  , QBStructItemStringW "year" case metadata.year of
                     Nothing   -> ""
                     Just year -> T.pack $ ", " <> show year
-                  , QBStructItemQbKeyString9A0000 "artist_text" $ if metadata.cover
+                  , QBStructItemQbKeyString9A0000 "artist_text" if metadata.cover
                     then "artist_text_as_made_famous_by"
                     else "artist_text_by"
                   , QBStructItemInteger810000 "original_artist"
-                    $ if metadata.cover then 0 else 1
+                    if metadata.cover then 0 else 1
                   , QBStructItemQbKey8D0000 "version" "gh3"
                   , QBStructItemInteger810000 "leaderboard" 1
                   , QBStructItemInteger810000 "gem_offset" 0
                   , QBStructItemInteger810000 "input_offset" 0
-                  , QBStructItemQbKey8D0000 "singer" $ case getPart gh3.vocal songYaml >>= (.vocal) of
+                  , QBStructItemQbKey8D0000 "singer" case getPart gh3.vocal songYaml >>= (.vocal) of
                     Nothing -> "none"
                     Just pv -> case pv.gender of
                       Just Female -> "female"
                       Just Male   -> "male"
                       Nothing     -> "male"
-                  , QBStructItemQbKey8D0000 "keyboard" $ case getPart gh3.keys songYaml >>= (.grybo) of
+                  , QBStructItemQbKey8D0000 "keyboard" case getPart gh3.keys songYaml >>= (.grybo) of
                     Nothing -> "false"
                     Just _  -> "true"
                   , QBStructItemInteger810000 "band_playback_volume" 0
                   , QBStructItemInteger810000 "guitar_playback_volume" 0
                   , QBStructItemString830000 "countoff" "HiHat01"
-                  , QBStructItemInteger810000 "rhythm_track" $ case gh3.coop of
+                  , QBStructItemInteger810000 "rhythm_track" case gh3.coop of
                     GH2Bass   -> 0
                     GH2Rhythm -> 1
                   ]
@@ -308,7 +308,7 @@ gh3Rules buildInfo dir gh3 = do
     stackIO $ writeFile pathPad $ show padSeconds
 
   let gh3Files = pathFsbXen : pathDatXen : pathDL : pathText : pathSongPak : pathTextLangs
-  phony (dir </> "xbox") $ do
+  phony (dir </> "xbox") do
     shk $ need gh3Files
   dir </> "gh3live" %> \out -> do
     let files = map (\f -> (takeFileName f, f)) gh3Files
@@ -362,7 +362,7 @@ gh3Rules buildInfo dir gh3 = do
   ps3DL      %> makeEDAT pathDL
   ps3Text    %> makeEDAT pathText
   ps3SongPak %> makeEDAT pathSongPak
-  forM_ (zip ps3TextLangs pathTextLangs) $ \(ps3, xen) -> ps3 %> makeEDAT xen
+  forM_ (zip ps3TextLangs pathTextLangs) \(ps3, xen) -> ps3 %> makeEDAT xen
   -- apparently we don't need to add the empty VRAM paks, song works fine without them
   phony ps3Root do
     shk $ need $ ps3Fsb : ps3Dat : ps3DL : ps3Text : ps3SongPak : ps3TextLangs
@@ -382,7 +382,7 @@ makeGH3Spans tmap spans gems = let
     True  -> EdgeOn  () ()
   collectedGems = RTB.collectCoincident gems
   fromBeats bts = fromSeconds $ U.applyTempoMap tmap bts
-  in flip fmap spans' $ \(pos, ((), (), len)) -> let
+  in flip fmap spans' \(pos, ((), (), len)) -> let
     msStart = fromBeats pos
     msEnd   = fromBeats $ pos + len
     count   = fromIntegral $ length $ U.trackTake len $ U.trackDrop pos collectedGems
@@ -407,7 +407,7 @@ makeGH3Timing tmap mmap end = let
     measureEnd = U.unapplyMeasureMap mmap (i + 1, 0)
     len = measureEnd - measureStart
     sig = U.timeSigAt measureStart mmap
-    thisMeasure = U.trackTake len $ RTB.cons 0 Bar $ infiniteBeats
+    thisMeasure = U.trackTake len $ RTB.cons 0 Bar infiniteBeats
     infiniteBeats = RTB.cons (U.timeSigUnit sig) Beat infiniteBeats
     in trackGlue len thisMeasure $ go $ i + 1
   sigs

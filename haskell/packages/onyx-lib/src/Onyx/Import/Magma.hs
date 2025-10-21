@@ -103,7 +103,7 @@ importMagma fin level = do
                   , filePath = Just $ SoftFile dst $ SoftReadable $ fileReadable src
                   , commands = []
                   , rate = Nothing
-                  , channels = fromIntegral $ aud.channels
+                  , channels = fromIntegral aud.channels
                   }
                 )
               )

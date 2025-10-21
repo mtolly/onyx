@@ -30,7 +30,7 @@ readPNGPS4 = do
     PNGPS4Magic_4 -> 0xA4 -- LibForge says 0xA8 but this appears to be correct
     PNGPS4Magic_3 -> 0x8C -- just guessing
   mipmapLevels <- getWord32le
-  mipmaps <- replicateM (fromIntegral mipmapLevels) $ do
+  mipmaps <- replicateM (fromIntegral mipmapLevels) do
     width <- fromIntegral <$> getWord32le
     height <- fromIntegral <$> getWord32le
     flags <- getInt32le

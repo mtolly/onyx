@@ -169,7 +169,7 @@ readPKG h = do
   headerSignature <- B.hGet h 256
   hSeek h AbsoluteSeek $ fromIntegral header.entry_table_offset
   metasBytes      <- BL.hGet h $ 0x20 * fromIntegral header.entry_count
-  metasEmpty      <- flip runGetM metasBytes $ replicateM (fromIntegral header.entry_count) $ do
+  metasEmpty      <- flip runGetM metasBytes $ replicateM (fromIntegral header.entry_count) do
     id_ <- getWord32be
     nameTableOffset <- getWord32be
     flags1 <- getWord32be
@@ -421,7 +421,7 @@ readPfs orig pkg = do
   useHandle reader \h -> do
     let readDinodes dinodeReader dinodeSize = do
           let maxPerSector = toInteger $ quot header.blockSize dinodeSize
-          fmap concat $ forM [0 .. fromIntegral header.dinodeBlockCount - 1] $ \i -> do
+          fmap concat $ forM [0 .. fromIntegral header.dinodeBlockCount - 1] \i -> do
             let dinodesInThisBlock = max maxPerSector $ toInteger header.dinodeCount - i * toInteger maxPerSector
             hSeek h AbsoluteSeek $ fromIntegral $ toInteger header.blockSize * (1 + i)
             bs <- BL.hGet h $ fromIntegral header.blockSize
@@ -491,7 +491,7 @@ pfsGenCryptoKey ekpfs seed index = let
 --------------------------------------------------------------------------------
 
 xtsReadable :: (B.ByteString, B.ByteString) -> Integer -> Integer -> Readable -> Readable
-xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS decryption" $ do
+xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS decryption" do
   dataCipher <- case cipherInit dataKey of
     CryptoPassed cipher -> return (cipher :: AES128)
     CryptoFailed e      -> fail $ "Couldn't set up data cipher for XTS: " <> show e
@@ -511,7 +511,7 @@ xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS
           let ivBytes = BL.toStrict $ runPut do
                 putWord64le $ fromIntegral n
                 putWord64le 0
-          iv <- maybe (fail $ "Couldn't make IV for XTS") return $ makeIV ivBytes
+          iv <- maybe (fail "Couldn't make IV for XTS") return $ makeIV ivBytes
           hSeek h AbsoluteSeek $ fromIntegral $ n * xtsSectorSize
           bs <- B.hGet h $ fromIntegral xtsSectorSize
           let sector = if n < xtsStartSector

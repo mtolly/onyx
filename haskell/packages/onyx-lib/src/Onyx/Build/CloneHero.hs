@@ -313,8 +313,8 @@ psRules buildInfo dir ps = do
     runAudio (setAudioLength endSecs s) out
 
   -- Only copy instrument audio over if it's not silent
-  forM_ ["drums", "drums_1", "drums_2", "drums_3", "drums_4", "guitar", "keys", "rhythm", "vocals", "crowd"] $ \inst -> do
-    phony (audioExt $ dir </> "ps/try-" <> inst) $ do
+  forM_ ["drums", "drums_1", "drums_2", "drums_3", "drums_4", "guitar", "keys", "rhythm", "vocals", "crowd"] \inst -> do
+    phony (audioExt $ dir </> "ps/try-" <> inst) do
       let fin = dir </> "audio" </> audioExt inst
       shk $ need [fin]
       -- above, we clamped to 0 frames if silent
@@ -322,7 +322,7 @@ psRules buildInfo dir ps = do
         Just 0 -> return ()
         _      -> shk $ copyFile' fin $ dir </> "ps" </> audioExt inst
 
-  phony (dir </> "ps") $ do
+  phony (dir </> "ps") do
     (_, mixMode, ghDrumsAudio) <- computeDrumsPart ps.drums plan songYaml
     let needsPartAudio f = maybe False (/= emptyPart) (getPart (f ps) songYaml) && case plan of
           StandardPlan x -> HM.member (f ps) x.parts.getParts

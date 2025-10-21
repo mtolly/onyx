@@ -127,7 +127,7 @@ instance ParseTrack EliteDrumTrack where
     tdFooting <- ((.tdFooting) =.) $ condenseMap_ $ eachKey each $ blip . \case
       D.RH -> 97
       D.LH -> 96
-    tdDifficulties <- ((.tdDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) $ do
+    tdDifficulties <- ((.tdDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 0
             Medium -> 24
@@ -349,7 +349,7 @@ getDifficulty diff trk = let
     hihatType  = fromMaybe GemHihatOpen $ listToMaybe $ filter (`elem` [GemNormal, GemHihatClosed]) types
     drumType   = fromMaybe GemNormal $ listToMaybe $ filter (== GemRim) types
     cymbalType = fromMaybe GemNormal $ listToMaybe $ filter (== GemCymbalChoke) types
-    outputNotKick = flip fmap notKick' $ \(gem, basic, vel) -> EliteDrumNote
+    outputNotKick = flip fmap notKick' \(gem, basic, vel) -> EliteDrumNote
       { tdn_gem      = gem
       , tdn_type     = case gem of
         Hihat     -> hihatType
@@ -414,7 +414,7 @@ data CymbalInstant lc rd = CymbalInstant
 -- add a foot hihat note. Used for DTX export where it is the norm for readability
 addExplicitStomps :: (NNC.C t) => t -> RTB.T t (EliteDrumNote FlamStatus) -> RTB.T t (EliteDrumNote FlamStatus)
 addExplicitStomps threshold trk = let
-  hihatNotes = flip RTB.mapMaybe (RTB.collectCoincident trk) $ \instant -> let
+  hihatNotes = flip RTB.mapMaybe (RTB.collectCoincident trk) \instant -> let
     open   = any (\tdn -> tdn.tdn_gem == Hihat && tdn.tdn_type == GemHihatOpen  ) instant
     closed = any (\tdn -> tdn.tdn_gem == Hihat && tdn.tdn_type == GemHihatClosed) instant
     pedal  = any (\tdn -> tdn.tdn_gem == HihatFoot                              ) instant
@@ -661,7 +661,7 @@ makeEliteDifficulty' basicMapping gems = let
 
 makeEliteDifficulty, makeEliteDifficultyDTX :: RTB.T U.Beats (EliteGem D.Hand, EliteGemType, DrumVelocity) -> EliteDrumDifficulty U.Beats
 makeEliteDifficulty    = makeEliteDifficulty' $ const TBDefault
-makeEliteDifficultyDTX = makeEliteDifficulty' $ \case
+makeEliteDifficultyDTX = makeEliteDifficulty' \case
   Hihat  -> TBYellow
   CrashL -> TBBlue
   CrashR -> TBGreen

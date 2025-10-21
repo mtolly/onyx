@@ -220,7 +220,7 @@ instance ParseTrack FiveTrack where
     fiveHandMap      <- (.fiveHandMap   ) =. command
     fiveStrumMap     <- (.fiveStrumMap  ) =. command
     fiveFretPosition <- (=.) (.fiveFretPosition) $ condenseMap $ eachKey each
-      $ \posn -> case posn of
+      \posn -> case posn of
         Fret59 | enhancedOpens -> emptyCodec
         _                      -> edges $ fromEnum posn + 40
     fiveTremolo      <- (.fiveTremolo   ) =. edgesLanes 126
@@ -230,7 +230,7 @@ instance ParseTrack FiveTrack where
     fiveSolo         <- (.fiveSolo      ) =. edges 103
     fivePlayer1      <- (.fivePlayer1   ) =. edges 105
     fivePlayer2      <- (.fivePlayer2   ) =. edges 106
-    fiveDifficulties <- (=.) (.fiveDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
+    fiveDifficulties <- (=.) (.fiveDifficulties) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -242,7 +242,7 @@ instance ParseTrack FiveTrack where
       fiveOpen       <- (.fiveOpen      ) =. sysexPS diff PS.OpenStrum
       chordSnap [base - 1 .. base + 4]
       fiveGems       <- (.fiveGems      ) =. do
-        translateEdges $ condenseMap $ eachKey (Nothing : map Just each) $ \case
+        translateEdges $ condenseMap $ eachKey (Nothing : map Just each) \case
           -- Always support pitch 95 opens for expert since I am already using it in my midis
           Nothing -> if enhancedOpens || diff == Expert
             then edges $ base - 1

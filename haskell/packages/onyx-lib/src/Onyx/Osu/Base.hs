@@ -266,8 +266,8 @@ readOsu sections = do
 
   editor <- do
     let section = splitKeyValue True $ getSection "Editor"
-    bookmarks       <- fmap (V.fromList . catMaybes) $ do
-      forM (T.splitOn "," $ fromMaybe "" $ lookup "Bookmarks" section) $ \case
+    bookmarks       <- fmap (V.fromList . catMaybes) do
+      forM (T.splitOn "," $ fromMaybe "" $ lookup "Bookmarks" section) \case
         "" -> return Nothing
         s  -> do
           let result = readMaybe $ T.unpack s
@@ -303,7 +303,7 @@ readOsu sections = do
     sliderTickRate    <- parseOrNothing $ lookup "SliderTickRate"    section
     return OsuDifficulty{..}
 
-  events <- fmap (V.fromList . catMaybes) $ forM (getSection "Events") $ \ln -> do
+  events <- fmap (V.fromList . catMaybes) $ forM (getSection "Events") \ln -> do
     case splitCommaList ln of
       x : rest -> let
         eventType = maybe (Left x) Right $ readMaybe $ T.unpack x
@@ -313,7 +313,7 @@ readOsu sections = do
         warn $ "Less than 2 values for event: " <> show ln
         return Nothing
 
-  timingPoints <- fmap (V.fromList . catMaybes) $ forM (getSection "TimingPoints") $ \ln -> do
+  timingPoints <- fmap (V.fromList . catMaybes) $ forM (getSection "TimingPoints") \ln -> do
     case splitCommaList ln of
       [a, b, c, d, e, f, g, h] -> errorToWarning do
         time        <- parseOrFail a
@@ -329,7 +329,7 @@ readOsu sections = do
         warn $ "Wrong value count (not 8) for event: " <> show ln
         return Nothing
 
-  colours <- fmap (V.fromList . catMaybes) $ forM (getSection "Colours") $ \ln -> do
+  colours <- fmap (V.fromList . catMaybes) $ forM (getSection "Colours") \ln -> do
     case map T.strip $ T.splitOn ":" ln of
       [option, rgb] -> case splitCommaList rgb of
         [r, g, b] -> errorToWarning do
@@ -344,7 +344,7 @@ readOsu sections = do
         warn $ "More than one colon in colour entry: " <> show ln
         return Nothing
 
-  hitObjects <- fmap (V.fromList . catMaybes) $ forM (getSection "HitObjects") $ \ln -> do
+  hitObjects <- fmap (V.fromList . catMaybes) $ forM (getSection "HitObjects") \ln -> do
     case splitCommaList ln of
       a : b : c : d : e : rest -> errorToWarning do
         x        <- parseOrFail a

@@ -78,7 +78,7 @@ dtxConvertGuitar = dtxConvertGB (.dtx_Guitar) (.dtx_GuitarLong) \onyx five -> F.
   F.PartGuitar
   (\opart -> opart { F.onyxPartGuitar = five })
   onyx
-dtxConvertBass   = dtxConvertGB (.dtx_Bass  ) (.dtx_BassLong  ) $ \onyx five -> F.editOnyxPart
+dtxConvertBass   = dtxConvertGB (.dtx_Bass  ) (.dtx_BassLong  ) \onyx five -> F.editOnyxPart
   F.PartBass
   (\opart -> opart { F.onyxPartGuitar = five })
   onyx
@@ -103,7 +103,7 @@ dtxConvertGB getter getLong setter dtx (F.Song tmap mmap fixed) = let
         [] -> [((Nothing, Strum), Nothing)]
         xs -> [((Just x , Strum), Nothing) | x <- xs ]
       merged = RTB.merge (Left <$> longLengths) (Right <$> noSustains)
-      in RTB.flatten $ flip fmap (RTB.collectCoincident merged) $ \instant ->
+      in RTB.flatten $ flip fmap (RTB.collectCoincident merged) \instant ->
         case lefts instant of
           sustain : _ -> [ (note, Just sustain) | (note, _) <- rights instant ]
           []          -> rights instant
@@ -115,7 +115,7 @@ dtxBaseMIDI dtx = F.Song dtx.dtx_TempoMap dtx.dtx_MeasureMap mempty
 
 dtxAddChipAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT m (SongYaml SoftFile -> SongYaml SoftFile)
 dtxAddChipAudio dtx fin = do
-  audio <- fmap catMaybes $ forM (HM.toList dtx.dtx_WAV) $ \(chip, fp) -> do
+  audio <- fmap catMaybes $ forM (HM.toList dtx.dtx_WAV) \(chip, fp) -> do
     msrc <- dtxAudioSource $ takeDirectory fin </> fp -- already fixed backslashes and yens in readDTXLines
     return $ flip fmap msrc \src -> let
       -- could be smarter about this (apply volume later) but this works
@@ -206,7 +206,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     }
   cymbalTrack' = flip fmap cymbalTrack $ fmap \trk -> trk
     { F.sampleTriggers = RTB.merge trk.sampleTriggers $
-      RTB.flatten $ flip fmap (RTB.collectCoincident dtx.dtx_Drums) $ \instant ->
+      RTB.flatten $ flip fmap (RTB.collectCoincident dtx.dtx_Drums) \instant ->
         if any (\(lane, _) -> elem lane [LeftPedal, HihatClose]) instant
           then case length $ filter (\(lane, _) -> elem lane [HihatClose, HihatOpen]) instant of
             0 -> [hihatSilencerTrigger, hihatSilencerTrigger]
@@ -214,7 +214,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
             _ -> []
           else []
     }
-  extraResults = flip map (HM.toList dtx.dtx_BGMExtra) $ \(chan, chips) ->
+  extraResults = flip map (HM.toList dtx.dtx_BGMExtra) \(chan, chips) ->
     audioForChipGroups 1 ("audio-extra-" <> chan) [("", chips)]
   audioExpr name = Input $ Named name
   audiosExpr names = Mix $ fmap (Input . Named) names
@@ -240,7 +240,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
               (name, _) :| [] -> audioExpr name
               _               -> audiosExpr $ fmap fst xs
         , flip mapMaybe extraResults \(extraAudio, _) -> flip fmap extraAudio
-          $ \(name, _) -> (F.PartName name, PartSingle $ audioExpr name)
+          \(name, _) -> (F.PartName name, PartSingle $ audioExpr name)
         ]
       , crowd       = Nothing
       , comments    = []
@@ -258,7 +258,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   in (songYaml', mid')
 
 importSet :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [Import m]
-importSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) $ do
+importSet setDefPath = inside ("Loading DTX set.def from: " <> setDefPath) do
   songs <- stackIO $ loadSet setDefPath
   return $ map (importSetDef $ Just setDefPath) songs
 

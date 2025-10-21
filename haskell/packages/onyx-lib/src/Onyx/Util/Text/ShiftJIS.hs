@@ -41,7 +41,7 @@ so instead, we use putenv, which seems to update both methods.
 
 setEnvKakasi :: String -> String -> IO ()
 #ifdef WINDOWS
-setEnvKakasi k v = withCString (k <> "=" <> v) $ \cstr -> do
+setEnvKakasi k v = withCString (k <> "=" <> v) \cstr -> do
   res <- c_putenv cstr
   when (res /= 0) $ fail $ "setEnvKakasi: couldn't set variable, code " <> show res
 

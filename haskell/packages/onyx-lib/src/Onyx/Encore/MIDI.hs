@@ -72,7 +72,7 @@ instance Command CharInstrument where
 
 instance ParseTrack EncorePart where
   parseTrack = do
-    difficulties <- (=.) (.difficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
+    difficulties <- (=.) (.difficulties) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 60
             Medium -> 72

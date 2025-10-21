@@ -706,7 +706,7 @@ instance Bin FuserData where
 extractMidi :: (SendMessage m) => RBMid -> StackTraceT m (F.T B.ByteString)
 extractMidi rbmid = do
   let mfr = rbmid.rbmid_MidiFileResource
-  fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM mfr.mfr_MidiTracks $ \mt -> do
+  fmap (F.Cons F.Parallel $ F.Ticks 480) $ forM mfr.mfr_MidiTracks \mt -> do
     let raw = RTB.fromAbsoluteEventList $ ATB.fromPairList $ map (\(Ticked delta x) -> (fromIntegral delta, x)) mt.mt_Events
     fmap RTB.catMaybes $ forM raw \w -> do
       let res = convertMidiEvent mt.mt_Strings w

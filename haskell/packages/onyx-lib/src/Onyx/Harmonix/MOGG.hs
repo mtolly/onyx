@@ -36,7 +36,7 @@ moggToOggFiles mogg ogg = stackIO $ saveReadable (moggToOgg $ fileReadable mogg)
 
 -- Output is a 0x0A type (unencrypted) mogg, with header
 decryptMOGG :: Readable -> Readable
-decryptMOGG enc = makeHandle "decrypted mogg" $ do
+decryptMOGG enc = makeHandle "decrypted mogg" do
   header <- useHandle enc \h -> do
     hSeek h AbsoluteSeek 16
     numPairs <- BL.hGet h 4 >>= runGetM getWord32le
@@ -66,7 +66,7 @@ makeMoggTable bufSize audioLen = go 0 (0, 0) where
         else prevPair : go (curSample + bufSize) prevPair pairs
 
 oggToMogg :: Readable -> Readable
-oggToMogg ogg = makeHandle "ogg -> mogg" $ do
+oggToMogg ogg = makeHandle "ogg -> mogg" do
   (audioLen, table) <- runVorbisReadable ogg \case
     Nothing -> fail "Couldn't open Ogg file to generate MOGG"
     Just ov -> let
@@ -88,7 +88,7 @@ oggToMogg ogg = makeHandle "ogg -> mogg" $ do
     putWord32le 0x10 -- "ogg map version"
     putWord32le bufSize -- buffer size
     putWord32le len -- number of pairs
-    forM_ table' $ \(bytes, samples) -> do
+    forM_ table' \(bytes, samples) -> do
       putWord32le bytes
       putWord32le samples
   shOgg <- rOpen ogg >>= simplifyHandle
@@ -114,7 +114,7 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg \case
           Just (releaseOV, ov) -> let
             loop = do
               (numRead, ppfloat) <- liftIO $ alloca \pppfloat -> do
-                with (-1) $ \psection -> do
+                with (-1) \psection -> do
                   numRead <- ov_read_float ov pppfloat (fromIntegral CA.chunkSize) psection
                   ppfloat <- peek pppfloat
                   return (numRead, ppfloat)
@@ -132,7 +132,7 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg \case
               void $ liftIO $ ov_pcm_seek ov seekTo
               loop
               releaseOV
-              liftIO $ releaseHandle
+              liftIO releaseHandle
       , CA.rate = fromIntegral rate
       , CA.channels = fromIntegral chans
       , CA.frames = max 0 $ fromIntegral total - fromIntegral seekTo

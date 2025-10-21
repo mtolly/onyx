@@ -78,7 +78,7 @@ getNote = do
   "note" <- getQBKeyBE
   zeroes <- getByteString 12
   guard $ B.all (== 0) zeroes
-  entries <- replicateM (fromIntegral count) $ do
+  entries <- replicateM (fromIntegral count) do
     entryIdentifier <- getQBKeyBE
     entryCount <- getWord32be
     entryType <- getQBKeyBE
@@ -272,7 +272,7 @@ data SongPakContents = SongPakContents
 
 -- Load from an uncompressed _song.pak.xen
 loadSongPakContents :: (Monad m) => B.ByteString -> BL.ByteString -> StackTraceT m SongPakContents
-loadSongPakContents songKey bs = inside "loading _song.pak.*" $ do
+loadSongPakContents songKey bs = inside "loading _song.pak.*" do
   nodes <- inside "splitting pak nodes" $ splitPakNodes pakFormatWoR bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
       nodesOfType t = filter (\(n, _) -> n.nodeFileType == t) nodes
@@ -282,7 +282,7 @@ loadSongPakContents songKey bs = inside "loading _song.pak.*" $ do
     Just (_node, noteData) -> do
       noteFile <- inside "loading .note file" $ loadNoteFile noteData
       let ?endian = BigEndian
-      qbSections <- fmap concat $ forM (nodesOfType ".qb") $ \(_, qbBytes) -> runGetM parseQB qbBytes
+      qbSections <- fmap concat $ forM (nodesOfType ".qb") \(_, qbBytes) -> runGetM parseQB qbBytes
       let noteTrackNames = do
             suffix <- ["anim_notes", "drums_notes", "cameras_notes", "crowd_notes", "lightshow_notes"]
             return (qbKeyCRC $ songKey <> "_" <> suffix, suffix)
@@ -487,7 +487,7 @@ convertVocals toBeats vox lyrics phrases sp = let
     else pair
   -- Each phrase will be drawn between two adjacent points in the phrase points list,
   -- if there are vocal notes in it. Then determine SP phrases so they match
-  drawnPhrases = flip mapMaybe (zip phrases $ drop 1 phrases) $ \(start, end) -> let
+  drawnPhrases = flip mapMaybe (zip phrases $ drop 1 phrases) \(start, end) -> let
     notesInPhrase = filter (\vn -> start <= vn.vnTimeOffset && vn.vnTimeOffset < end) vox
     isStarPower = case notesInPhrase of
       [] -> False

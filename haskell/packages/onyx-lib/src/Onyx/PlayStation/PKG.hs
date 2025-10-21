@@ -196,7 +196,7 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
   shaInit = SHA1.start $ B.concat
     [ B.take 8 keySource
     , B.take 8 keySource
-    , (if isArcade then B.take else B.drop) 8 $ keySource
+    , (if isArcade then B.take else B.drop) 8 keySource
     , B.drop 8 keySource
     , B.replicate 0x18 if isArcade then 0xA0 else 0
     ]
@@ -244,7 +244,7 @@ loadFinalizedPKGFolder r h header = do
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
-    let readable = makeHandle (B8.unpack name) $ do
+    let readable = makeHandle (B8.unpack name) do
           bs <- useHandle r \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
@@ -264,7 +264,7 @@ loadNonFinalizedPKGFolder r h header = do
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
     name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
-    let readable = makeHandle (B8.unpack name) $ do
+    let readable = makeHandle (B8.unpack name) do
           bs <- useHandle r \h' -> do
             decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
@@ -369,7 +369,7 @@ tryDecryptEDAT dir name readable = do
             _ -> do
               when (isJust mrap) $ lg $ "Found matching RAP for: " <> B8.unpack contentID
               let cfg = NPDecryptConfig { decKLIC = klic, decRAP = mrap }
-              errorToWarning $ stackIO $ withSystemTempDirectory "onyx-edat-decrypt" $ \tmp -> do
+              errorToWarning $ stackIO $ withSystemTempDirectory "onyx-edat-decrypt" \tmp -> do
                 BL.writeFile (tmp </> "in.edat") edat
                 decryptNPData cfg (tmp </> "in.edat") (tmp </> "out.bin") name
                 bs <- B.readFile $ tmp </> "out.bin"
@@ -394,7 +394,7 @@ tryDecryptEDATsInFolder
   -> Folder B.ByteString Readable
   -> StackTraceT m (Folder B.ByteString Readable)
 tryDecryptEDATsInFolder dir folder = do
-  subs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+  subs <- forM (folderSubfolders folder) \(name, sub) -> do
     sub' <- tryDecryptEDATsInFolder dir sub
     return (name, sub')
   files <- mapM (tryDecryptIfEDAT dir) $ folderFiles folder
@@ -412,7 +412,7 @@ tryDecryptEDATs folder = case findFolder ["USRDIR"] folder of
     warn "Couldn't find USRDIR in .pkg"
     return folder
   Just usr -> do
-    subs <- forM (folderSubfolders usr) $ \(subName, sub) -> do
+    subs <- forM (folderSubfolders usr) \(subName, sub) -> do
       sub' <- tryDecryptEDATsInFolder subName sub
       return (subName, sub')
     files <- mapM (tryDecryptIfEDAT "") $ folderFiles usr

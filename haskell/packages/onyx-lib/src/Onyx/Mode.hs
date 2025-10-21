@@ -186,7 +186,7 @@ convertDrumsToFive bd _ftype input = let
         coda = fmap (fst . fst) $ RTB.viewL input.events.eventsCoda
         in case coda of
           Nothing -> RTB.empty
-          Just c  -> RTB.delay c $ U.trackDrop c $ drumResult.other.drumActivation
+          Just c  -> RTB.delay c $ U.trackDrop c drumResult.other.drumActivation
       , Five.fiveSolo         = drumResult.other.drumSolo
       , Five.fivePlayer1      = drumResult.other.drumPlayer1
       , Five.fivePlayer2      = drumResult.other.drumPlayer2
@@ -220,10 +220,10 @@ type BuildDrums = DrumTarget -> ModeInput -> DrumResult
 nativeDrums :: Part f -> Maybe BuildDrums
 nativeDrums part = flip fmap part.drums \pd dtarget input -> let
 
-  src1x   =                                          input.part.onyxPartDrums
-  src2x   =                                          input.part.onyxPartDrums2x
-  srcReal = D.psRealToPro                          $ input.part.onyxPartRealDrumsPS
-  srcTrue = snd $ ED.convertEliteDrums input.tempo $ input.part.onyxPartEliteDrums
+  src1x   =                                        input.part.onyxPartDrums
+  src2x   =                                        input.part.onyxPartDrums2x
+  srcReal = D.psRealToPro                          input.part.onyxPartRealDrumsPS
+  srcTrue = snd $ ED.convertEliteDrums input.tempo input.part.onyxPartEliteDrums
   srcsRB = case dtarget of
     DrumTargetRB1x -> [src1x, src2x]
     _              -> [src2x, src1x]
@@ -753,7 +753,7 @@ drumNoteShuffle dt = let
           laneAnnotated = applyStatus lanes $ RTB.collectCoincident gems
           thisSeed = mkStdGen $ randomSeed + fromEnum diff
           newGems = RTB.flatten $ flip evalRand thisSeed $ RTB.fromPairList <$> do
-            forM (RTB.toPairList laneAnnotated) $ \(t, (activeLanes, instant)) -> do
+            forM (RTB.toPairList laneAnnotated) \(t, (activeLanes, instant)) -> do
               instant' <- if null activeLanes
                 then do
                   let kick = any (\case (D.Kick, _) -> True; _ -> False) instant

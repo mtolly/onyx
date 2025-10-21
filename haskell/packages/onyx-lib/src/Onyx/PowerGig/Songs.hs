@@ -43,7 +43,7 @@ findSongKeys bs = do
     >>= T.stripSuffix "\""
 
 loadSongXML :: (MonadIO m, SendMessage m) => T.Text -> Folder T.Text Readable -> StackTraceT m Song
-loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) $ do
+loadSongXML k dir = inside ("Loading PowerGig song XML for: " <> show k) do
   -- need case-insensitive because some are different
   case findFileCI ("Audio" :| ["songs", k, k <> ".xml"]) dir of
     Nothing -> fatal "Couldn't find XML file"

@@ -471,7 +471,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
                   else Strum
               fret = note.n_fret
               ntype = PG.NormalNote -- TODO
-              sust = flip fmap note.n_sustain $ \len -> let
+              sust = flip fmap note.n_sustain \len -> let
                 slide = case note.n_slideTo <|> note.n_slideUnpitchTo of
                   Nothing -> Nothing
                   Just slideToFret -> case compare fret slideToFret of
@@ -613,7 +613,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       $ RTB.toAbsoluteEventList 0
       $ makeBeats True source
 
-  tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList parts.getParts) $ \(fpart, part) -> let
+  tracks = fmap (filter $ not . null) $ forM (sortOn fst $ HM.toList parts.getParts) \(fpart, part) -> let
     five = case nativeFiveFret part <|> proGuitarToFiveFret part <|> proKeysToFiveFret part of
       Nothing -> []
       Just buildFive -> let

@@ -117,7 +117,7 @@ magmaMiloDir ml = MiloDir
   , miloU11 = Nothing
   , miloSubdirs = []
   , miloUnknownBytes = BL.replicate 13 0
-  , miloFiles = map (runPut . putLipsync) $ case ml of
+  , miloFiles = map (runPut . putLipsync) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]
     MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]
@@ -169,7 +169,7 @@ rb2MiloDir ml = MiloDir
   , miloU11 = Nothing
   , miloSubdirs = []
   , miloUnknownBytes = "\NUL\NUL\NUL\NUL\NUL\NUL\STX\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
-  , miloFiles = map (runPut . putLipsync . setRB2) $ case ml of
+  , miloFiles = map (runPut . putLipsync . setRB2) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]
     MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]
@@ -306,9 +306,9 @@ parseLipsync = do
   lipsyncVisemes <- replicateM (fromIntegral visemeCount) getStringBE
   keyframeCount <- getWord32be
   _followingSize <- getWord32be
-  lipsyncKeyframes <- replicateM (fromIntegral keyframeCount) $ do
+  lipsyncKeyframes <- replicateM (fromIntegral keyframeCount) do
     eventCount <- getWord8
-    keyframeEvents <- replicateM (fromIntegral eventCount) $ do
+    keyframeEvents <- replicateM (fromIntegral eventCount) do
       visemeKey <- fromIntegral <$> getWord8
       visemeWeight <- getWord8
       let visemeGraph = ()
@@ -326,9 +326,9 @@ putLipsync lip = do
   putWord32be $ fromIntegral $ length lip.lipsyncVisemes
   mapM_ putStringBE lip.lipsyncVisemes
   putWord32be $ fromIntegral $ length lip.lipsyncKeyframes
-  let keyframeBS = runPut $ forM_ lip.lipsyncKeyframes $ \key -> do
+  let keyframeBS = runPut $ forM_ lip.lipsyncKeyframes \key -> do
         putWord8 $ fromIntegral $ length key.keyframeEvents
-        forM_ key.keyframeEvents $ \evt -> do
+        forM_ key.keyframeEvents \evt -> do
           putWord8 $ fromIntegral evt.visemeKey
           putWord8 evt.visemeWeight
   putWord32be $ fromIntegral $ BL.length keyframeBS
@@ -354,9 +354,9 @@ data VisemeMap vis = VisemeMap
 
 applyVisemeMap :: VisemeMap vis -> CMUSyllable -> VisemeSyllable vis
 applyVisemeMap vmap cmu = Syllable
-  { sylInitial = concatMap vmap.vmConsonants $ cmu.sylInitial
-  , sylVowel   = vmap.vmVowels $ cmu.sylVowel
-  , sylFinal   = concatMap vmap.vmConsonants $ cmu.sylFinal
+  { sylInitial = concatMap vmap.vmConsonants cmu.sylInitial
+  , sylVowel   = vmap.vmVowels cmu.sylVowel
+  , sylFinal   = concatMap vmap.vmConsonants cmu.sylFinal
   }
 
 loadVisemesRB3 :: (MonadIO m) => StackTraceT m (VisemeMap [(T.Text, Word8)])
@@ -366,14 +366,14 @@ loadVisemesTBRB :: (MonadIO m) => StackTraceT m (VisemeMap [(T.Text, Word8)])
 loadVisemesTBRB = stackIO (getResourcesPath "visemes/beatles.yml") >>= loadVisemeMap
 
 loadVisemeMap :: (MonadIO m) => FilePath -> StackTraceT m (VisemeMap [(T.Text, Word8)])
-loadVisemeMap f = inside ("Loading viseme map from: " <> f) $ do
+loadVisemeMap f = inside ("Loading viseme map from: " <> f) do
   stackIO (Y.decodeFileEither f) >>= \case
     Right v -> return v
     Left  e -> fatal $ Y.prettyPrintParseException e
 
 instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
-  parseJSON = A.withObject "VisemeMap" $ \o -> do
-    let readMap m = forM (HM.toList $ KM.toHashMapText m) $ \(k, v) -> do
+  parseJSON = A.withObject "VisemeMap" \o -> do
+    let readMap m = forM (HM.toList $ KM.toHashMapText m) \(k, v) -> do
           v' <- A.parseJSON v
           return (k, v')
         readVowel A.Null = return ([], Nothing)
@@ -393,7 +393,7 @@ instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
         readConsonant v = A.typeMismatch "object/array/null" v
     objVowels <- o .: "vowels"
     vmVowels <- do
-      m <- fmap Map.fromList $ forM (HM.toList objVowels) $ \(k, v) -> do
+      m <- fmap Map.fromList $ forM (HM.toList objVowels) \(k, v) -> do
         cmuv <- case readMaybe $ T.unpack k of
           Just cmuv -> return cmuv
           Nothing   -> fail $ "Unrecognized vowel: " <> show k
@@ -402,13 +402,13 @@ instance A.FromJSON (VisemeMap [(T.Text, Word8)]) where
       return \vowel -> fromMaybe ([], Nothing) $ Map.lookup vowel m
     objConsonants <- o .: "consonants"
     vmConsonants <- do
-      m <- fmap Map.fromList $ forM (HM.toList objConsonants) $ \(k, v) -> do
+      m <- fmap Map.fromList $ forM (HM.toList objConsonants) \(k, v) -> do
         cmuc <- case readMaybe $ T.unpack k of
           Just cmuc -> return cmuc
           Nothing   -> fail $ "Unrecognized consonant: " <> show k
         cm <- readConsonant v
         return (cmuc, cm)
-      return $ \consonant -> fromMaybe [] $ Map.lookup consonant m
+      return \consonant -> fromMaybe [] $ Map.lookup consonant m
     objDefault <- o .: "default"
     vmDefault <- A.withObject "default viseme setting" readMap objDefault
     return VisemeMap{..}
@@ -456,7 +456,7 @@ type Transcribe = [T.Text] -> [CMUSyllable]
 
 spanishVowels :: Transcribe
 spanishVowels = fmap \t -> let
-  vowels = flip mapMaybe (T.unpack $ T.toLower t) $ \case
+  vowels = flip mapMaybe (T.unpack $ T.toLower t) \case
     'á' -> Just 'a'
     'é' -> Just 'e'
     'í' -> Just 'i'
@@ -598,7 +598,7 @@ simpleAnimations transition = go [] where
     Wait t1 s (Wait t2 x rest) -> let
       front = min halfTransition t1
       back = min halfTransition (t2 / 2)
-      in Wait (t1 - front) (VisemeLine prev s) $ if back == t2 / 2
+      in Wait (t1 - front) (VisemeLine prev s) if back == t2 / 2
         then go s $ Wait (t2 - back) x rest -- don't need to hold, will immediately do another transition
         else Wait (front + back) (VisemeHold s)
           $ go s $ Wait (t2 - back) x rest
@@ -676,7 +676,7 @@ singleAnimsToStates vis anims = let
     Wait t1 (VisemeHold v) rest -> Wait t1 [makeVisemeEvent v] $ go rest
     Wait t1 (VisemeLine v1 v2) (Wait t2 x xs) -> if t2 /= 0
       then RTB.delay t1 $ animate id t2 v1 v2 $ Wait 0 x xs
-      else go $ Wait t1 (VisemeHold v1) $ let -- probably shouldn't happen
+      else go $ Wait t1 (VisemeHold v1) let -- probably shouldn't happen
         x' = case x of
           VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
           VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
@@ -684,7 +684,7 @@ singleAnimsToStates vis anims = let
         in Wait t2 x' xs
     Wait t1 (VisemeFall v1 v2) (Wait t2 x xs) -> if t2 /= 0
       then RTB.delay t1 $ animate easeInExpo t2 v1 v2 $ Wait 0 x xs
-      else go $ Wait t1 (VisemeHold v1) $ let -- can happen if a diphthong has zero time to do its transition
+      else go $ Wait t1 (VisemeHold v1) let -- can happen if a diphthong has zero time to do its transition
         x' = case x of
           VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
           VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
@@ -742,7 +742,7 @@ animationsToStates anims = let
     Wait t1 (VisemeHold v) rest -> Wait t1 (makeVisemeEvent v) $ go rest
     Wait t1 (VisemeLine v1 v2) (Wait t2 x xs) -> if t2 /= 0
       then RTB.delay t1 $ animate id t2 v1 v2 $ Wait 0 x xs
-      else go $ Wait t1 (VisemeHold v1) $ let -- probably shouldn't happen
+      else go $ Wait t1 (VisemeHold v1) let -- probably shouldn't happen
         x' = case x of
           VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
           VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
@@ -750,7 +750,7 @@ animationsToStates anims = let
         in Wait t2 x' xs
     Wait t1 (VisemeFall v1 v2) (Wait t2 x xs) -> if t2 /= 0
       then RTB.delay t1 $ animate easeInExpo t2 v1 v2 $ Wait 0 x xs
-      else go $ Wait t1 (VisemeHold v1) $ let -- can happen if a diphthong has zero time to do its transition
+      else go $ Wait t1 (VisemeHold v1) let -- can happen if a diphthong has zero time to do its transition
         x' = case x of
           VisemeLine next1 next2 | next1 == v2 -> VisemeLine v1 next2
           VisemeFall next1 next2 | next1 == v2 -> VisemeFall v1 next2
@@ -1062,7 +1062,7 @@ parseVocFile = do
   vocFileSize <- getWord32le
   vocMystery9 <- getWord16le
   visemeCount <- getWord32le
-  vocVisemes <- replicateM (fromIntegral visemeCount) $ do
+  vocVisemes <- replicateM (fromIntegral visemeCount) do
     vvMystery1 <- getWord32le
     vvMystery2 <- getWord16le
     vvMystery3 <- getWord16le
@@ -1070,7 +1070,7 @@ parseVocFile = do
     vvMystery4 <- getWord32le
     vvMystery5 <- getWord32le
     eventCount <- getWord16le
-    vvEvents <- replicateM (fromIntegral eventCount) $ do
+    vvEvents <- replicateM (fromIntegral eventCount) do
       veMystery1 <- getWord32le
       veTime <- getFloatle
       veWeight <- getFloatle
@@ -1161,7 +1161,7 @@ vocToMIDITrack voc
     name = TE.decodeLatin1 vis.vvName
     in RTB.fromAbsoluteEventList
       $ ATB.fromPairList
-      $ flip map vis.vvEvents $ \evt -> let
+      $ flip map vis.vvEvents \evt -> let
         -- arterialblack.voc has a veTime of -2.3666643e-2 so we clamp to 0
         time = realToFrac if evt.veTime < 0 then 0 else evt.veTime
         -- TODO extend lipsync track to support the full range
@@ -1186,7 +1186,7 @@ visemesToVoc visemes = VocFile
   , vocMystery8 = 0
   , vocFileSize = 0xDEADBEEF -- calculated later
   , vocMystery9 = 0
-  , vocVisemes = flip map (nubOrd $ map fst $ concat $ RTB.getBodies visemes) $ \vis -> VocViseme
+  , vocVisemes = flip map (nubOrd $ map fst $ concat $ RTB.getBodies visemes) \vis -> VocViseme
     { vvMystery1 = 0
     , vvMystery2 = 0
     , vvMystery3 = 0

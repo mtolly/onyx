@@ -128,12 +128,12 @@ getMIDITrack = let
   in go empty . reverse . ATB.toPairList
 
 putMIDITrack :: (Functor f) => (f (E.T T.Text) -> f (E.T T.Text) -> f (E.T T.Text)) -> MIDITrack f -> f (E.T T.Text)
-putMIDITrack merge mt = foldr merge mt.midiUnknown $ let
-  notes = flip map (Map.toList mt.midiNotes) $ \(p, lane) -> let
+putMIDITrack merge mt = foldr merge mt.midiUnknown let
+  notes = flip map (Map.toList mt.midiNotes) \(p, lane) -> let
     f (EdgeOff  c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) Nothing
     f (EdgeOn v c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) (Just $ V.fromVelocity v)
     in f <$> lane
-  controllers = flip fmap (Map.toList mt.midiControllers) $ \(cont, lane) -> let
+  controllers = flip fmap (Map.toList mt.midiControllers) \(cont, lane) -> let
     f (chan, v) = E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v)))
     in f <$> lane
   in notes ++ controllers ++
@@ -151,7 +151,7 @@ type TrackCodec m t a = Codec (TrackParser m t) (TrackBuilder t) a
 type TrackEvent m t a = TrackCodec m t (RTB.T t a)
 
 makeTrackBuilder :: (NNC.C t) => (c -> RTB.T t (E.T T.Text)) -> (c -> TrackBuilder t c)
-makeTrackBuilder f = fmapArg \xs -> modify' $ \ys -> let
+makeTrackBuilder f = fmapArg \xs -> modify' \ys -> let
   ys' = RTB.merge ys $ f xs
   in seq (forceTrackSpine ys') ys'
 
@@ -345,7 +345,7 @@ matchEdgesCV = dimap
 -- start simultaneous with the earlier note.
 chordSnap :: (Monad m) => [Int] -> CodecFor (TrackParser m U.Beats) (TrackBuilder U.Beats) a ()
 chordSnap pitches = Codec
-  { codecIn = lift $ modify' $ \mt -> let
+  { codecIn = lift $ modify' \mt -> let
     pitches' = map V.toPitch pitches
     (target, other) = Map.partitionWithKey (\p _ -> elem p pitches') mt.midiNotes
 

@@ -134,7 +134,7 @@ rrRules buildInfo dir rr = do
   let sFevSeq = file $ "s" <> str <> ".fev.seq"
       sFsbSeq = file $ "s" <> str <> ".fsb.seq"
       sDrumsFsbSeq = file $ "s" <> str <> "_Drums.fsb.seq"
-  forM_ [sFevSeq, sFsbSeq, sDrumsFsbSeq] $ \f -> do
+  forM_ [sFevSeq, sFsbSeq, sDrumsFsbSeq] \f -> do
     f %> \out -> stackIO $ B.writeFile out (B.pack [1, 0, 0, 0])
 
   let rrPartDrums  = getPart rr.drums  songYaml >>= anyDrums
@@ -304,7 +304,7 @@ rrRules buildInfo dir rr = do
 
     stackIO $ Save.toFile control $ F.showMixedMIDI $ adjustMidiTiming mid
       { F.tracks = showRRControl RRControl
-        { rrcAnimDrummer   = flip fmap (moodFor rr.drums) $ \case
+        { rrcAnimDrummer   = flip fmap (moodFor rr.drums) \case
           -- obviously not great, need to instead translate from drum animations
           Mood_idle          -> 109 -- Drummer_NoPlay
           Mood_idle_realtime -> 109
@@ -313,7 +313,7 @@ rrRules buildInfo dir rr = do
           Mood_mellow        -> 52
           Mood_intense       -> 52
           Mood_play_solo     -> 52
-        , rrcAnimGuitarist = flip fmap (moodFor rr.guitar) $ \case
+        , rrcAnimGuitarist = flip fmap (moodFor rr.guitar) \case
           Mood_idle          -> 0 -- Guitar_NoPlay
           Mood_idle_realtime -> 0
           Mood_idle_intense  -> 0
@@ -321,7 +321,7 @@ rrRules buildInfo dir rr = do
           Mood_play          -> 2 -- Guitar_TempoB_Rock
           Mood_intense       -> 3 -- Guitar_TempoB_Metal
           Mood_play_solo     -> 3
-        , rrcAnimBassist   = flip fmap (moodFor rr.guitar) $ \case
+        , rrcAnimBassist   = flip fmap (moodFor rr.guitar) \case
           Mood_idle          -> 0 -- Bass_NoPlay
           Mood_idle_realtime -> 0
           Mood_idle_intense  -> 0
@@ -345,7 +345,7 @@ rrRules buildInfo dir rr = do
         , rrcEnd           = mid.tracks.onyxEvents.eventsEnd
         , rrcSections      = sections
         -- TODO add half-beats (do these even do anything?)
-        , rrcBeat          = fmap Just $ mid.tracks.onyxBeat.beatLines
+        , rrcBeat          = Just <$> mid.tracks.onyxBeat.beatLines
         }
       }
 
@@ -576,7 +576,7 @@ rrRules buildInfo dir rr = do
         else shk $ copyFile' f ps3
     return ps3
 
-  phony (dir </> "files-ps3") $ do
+  phony (dir </> "files-ps3") do
     shk $ need rrPS3Files
 
   dir </> "rr.pkg" %> \out -> do
@@ -618,7 +618,7 @@ removeGemsUnderFreestyle rrd = let
     EdgeOff  (_, rrc) -> (rrc, False)
   in rrd
     { rrdGems = flip RTB.mapMaybe (applyStatus laneBools rrd.rrdGems)
-      $ \(currentLanes, pair@(_perc, chan)) -> do
+      \(currentLanes, pair@(_perc, chan)) -> do
         guard $ notElem chan currentLanes
         return pair
     }
@@ -648,7 +648,7 @@ data RRDrumInput t = RRDrumInput
 
 makeRRDrumDifficulty :: (NNC.C t) => RRDrumInput t -> RRDrumDifficulty t
 makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
-  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident input.notes) $ \gems -> concat
+  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident input.notes) \gems -> concat
     [ [ (RR_Kick     , RRC_Kick   ) | elem (E.Kick ()) gems ]
     , [ (RR_Snare    , RRC_Snare  ) | elem E.Snare     gems ]
     , [ (RR_HihatOpen, RRC_Hihat  ) | elem E.Hihat     gems ]
@@ -679,7 +679,7 @@ makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
         $ U.trackDrop codaTime input.activation
     breEdge b = map (if b then EdgeOn () else EdgeOff)
       [RRC_Kick, RRC_Snare, RRC_Hihat, RRC_CrashL, RRC_HighTom, RRC_LowTom, RRC_CrashR]
-    withPerc = fmap $ fmap $ \chan -> let
+    withPerc = fmap $ fmap \chan -> let
       perc = case chan of
         RRC_Kick    -> RR_Kick
         RRC_Snare   -> RR_Snare

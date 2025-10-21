@@ -245,7 +245,7 @@ instance ParseTrack DrumTrack where
     drumSolo <- (.drumSolo) =. edges 103
     drumPlayer1 <- (.drumPlayer1) =. edges 105
     drumPlayer2 <- (.drumPlayer2) =. edges 106
-    drumDifficulties <- (=.) (.drumDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
+    drumDifficulties <- (=.) (.drumDifficulties) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -401,7 +401,7 @@ psRealToPro trk = trk
   { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties \diff this -> this
     -- this will fail if you use discobeat on the real track, so don't do that
     { drumPSModifiers = RTB.empty
-    , drumGems = flip RTB.mapMaybe (computePSReal (Just diff) trk) $ \case
+    , drumGems = flip RTB.mapMaybe (computePSReal (Just diff) trk) \case
       (Left Rimshot, vel) -> Just (Red, vel)
       (Left HHPedal, _)   -> Nothing
       (Left _, vel)       -> Just (Pro Yellow (), vel)
@@ -472,7 +472,7 @@ fillDrumAnimation closeTime tmap trk = let
 
 autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
 autoDrumAnimation closeTime pro = let
-  hands = RTB.flatten $ flip fmap (RTB.collectCoincident pro) $ \inst -> if
+  hands = RTB.flatten $ flip fmap (RTB.collectCoincident pro) \inst -> if
     | all (`elem` inst) [Pro Yellow Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
@@ -500,7 +500,7 @@ data AnimInput = AnimInput
 
 autoDrumHands :: (NNC.C t) => t -> RTB.T t AnimInput -> RTB.T t Animation
 autoDrumHands closeTime pads = let
-  groups = flip RTB.mapMaybe (RTB.collectCoincident pads) $ \case
+  groups = flip RTB.mapMaybe (RTB.collectCoincident pads) \case
     x : y : _ -> Just $ Right (min x y, max x y)
     [x]       -> Just $ Left x
     []        -> Nothing

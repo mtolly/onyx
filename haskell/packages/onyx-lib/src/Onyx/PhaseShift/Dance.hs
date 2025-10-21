@@ -74,7 +74,7 @@ instance TraverseTrack DanceDifficulty where
 instance ParseTrack DanceTrack where
   parseTrack = do
     danceOverdrive <- (.danceOverdrive) =. edges 116
-    danceDifficulties <- ((.danceDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) $ do
+    danceDifficulties <- ((.danceDifficulties) =.) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             SMBeginner  -> 48
             SMEasy      -> 60

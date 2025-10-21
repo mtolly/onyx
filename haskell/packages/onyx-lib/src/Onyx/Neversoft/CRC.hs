@@ -51,7 +51,7 @@ instance BinEndian QBKey where
   binEndian = dimap fromQBKey QBKey binEndian
 
 crcTable :: VU.Vector Word32
-crcTable = VU.fromList $ flip map [0..255] $ let
+crcTable = VU.fromList $ flip map [0..255] let
   poly = 0xEDB88320 :: Word32
   crcStep crc = if crc `testBit` 0
     then (crc `shiftR` 1) `xor` poly

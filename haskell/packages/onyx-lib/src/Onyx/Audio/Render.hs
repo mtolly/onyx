@@ -71,7 +71,7 @@ checkDefined :: (Monad m) => SongYaml f -> StackTraceT m ()
 checkDefined songYaml = do
   -- TODO this doesn't actually check that the keys are in the right place (audio vs jammit vs mogg-plans)
   let definedLeaves = HM.keys songYaml.audio ++ HM.keys songYaml.jammit ++ HM.keys songYaml.plans
-  forM_ (HM.toList songYaml.plans) $ \(planName, plan) -> do
+  forM_ (HM.toList songYaml.plans) \(planName, plan) -> do
     let leaves = case plan of
           MoggPlan _ -> []
           StandardPlan x -> let
@@ -123,7 +123,7 @@ manualLeaf
   -> StackTraceT m (Audio Duration FilePath)
 manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.lookup name songYaml.audio of
   Just audioQuery -> case audioQuery of
-    AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
+    AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) do
       aud <- searchInfo rel alib buildDependency ainfo
       -- lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
@@ -203,7 +203,7 @@ channelsToSpec
   -> [(Double, Double)]
   -> [Int]
   -> Staction (AudioSource m Float)
-channelsToSpec pvOut pathChannel pvIn chans = inside "conforming MOGG channels to output spec" $ do
+channelsToSpec pvOut pathChannel pvIn chans = inside "conforming MOGG channels to output spec" do
   let partPVIn = map (pvIn !!) chans
   src <- case NE.nonEmpty chans of
     Nothing -> do
@@ -250,7 +250,7 @@ buildAudioToSpec
   -> T.Text -- plan
   -> Maybe (Audio Duration AudioInput)
   -> Staction (AudioSource m Float)
-buildAudioToSpec rel alib buildDependency songYaml pvOut planName maud = inside "conforming audio file to output spec" $ do
+buildAudioToSpec rel alib buildDependency songYaml pvOut planName maud = inside "conforming audio file to output spec" do
   (expr, pans, vols) <- completeAudio songYaml
     $ fromMaybe (Silence 1 $ Frames 0) maud
   let loadSamples = loadSamplesFromBuildDirShake rel planName
@@ -284,7 +284,7 @@ computeDrumsPart
   -> Plan f
   -> SongYaml f
   -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), Drums.Audio, Bool)
-computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
+computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" case plan of
   MoggPlan x -> case HM.lookup fpart x.parts.getParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo

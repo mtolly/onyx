@@ -89,6 +89,6 @@ instance ParseFile AmplitudeFile where
               Left  n               -> (n,) . Freestyle       <$> codecIn (fileTrack $ pure trackName)
               Right (n, inst, name) -> (n,) . Catch inst name <$> codecIn (fileTrack $ pure trackName)
             _ -> return Nothing
-      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) $ \(ix, trk) -> undefined ix trk
+      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) \(ix, trk) -> undefined ix trk
       }
     return AmplitudeFile{..}

@@ -77,9 +77,9 @@ parseSongInfoGH4 songEntries = do
         QBStructItemQbKeyStringQs k (KnownQS _ s) | k == crc -> [s]
         _                                                    -> []
       metaError s = Left $ "parseSongInfoGH4: " <> s <> " for song " <> show gh4Name
-  gh4Title  <- maybe (metaError $ "couldn't get song title" ) (Right . stripBackL) $ getString "title"
-  gh4Artist <- maybe (metaError $ "couldn't get song artist") (Right . stripBackL) $ getString "artist"
-  gh4Year   <- maybe (metaError $ "couldn't get song year"  ) (Right . stripBackL) $ getString "year"
+  gh4Title  <- maybe (metaError "couldn't get song title" ) (Right . stripBackL) $ getString "title"
+  gh4Artist <- maybe (metaError "couldn't get song artist") (Right . stripBackL) $ getString "artist"
+  gh4Year   <- maybe (metaError "couldn't get song year"  ) (Right . stripBackL) $ getString "year"
   let gh4Genre = listToMaybe [ n | QBStructItemQbKey "genre" n <- songEntries ]
       gh4DoubleKick = case [ n | QBStructItemInteger "double_kick" n <- songEntries ] of
         n : _ -> n /= 0

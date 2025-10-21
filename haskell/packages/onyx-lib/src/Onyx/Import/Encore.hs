@@ -135,7 +135,7 @@ importEncore dir level = do
     , audio = audios
     , jammit = HM.empty
     , plans = HM.singleton "encore" $ StandardPlan StandardPlanInfo
-      { song        = fmap (fmap $ (\(f, _) -> Named $ T.pack f)) audioBacking
+      { song        = fmap (\(f, _) -> Named $ T.pack f) <$> audioBacking
       , parts       = Parts $ HM.fromList do
         let (newLead, newGuitar) = case (audioLead, audioGuitar) of
               -- move lead to guitar if possible

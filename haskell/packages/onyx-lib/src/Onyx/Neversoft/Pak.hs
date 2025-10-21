@@ -228,7 +228,7 @@ parseQS bs = do
   t <- if "\xFF\xFE" `BL.isPrefixOf` bs
     then T.stripPrefix "\xFEFF" $ TE.decodeUtf16LE $ BL.toStrict bs
     else return $ TE.decodeLatin1 $ BL.toStrict bs -- ghwt ps2
-  fmap concat $ forM (T.lines t) $ \ln ->
+  fmap concat $ forM (T.lines t) \ln ->
     if T.all isSpace ln
       then return []
       else do

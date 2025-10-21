@@ -88,7 +88,7 @@ readHdr bs = do
         arkCount <- getWord32le
         arkCount2 <- getWord32le
         when (arkCount /= arkCount2) $ fail $ "ARK version 3: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
-        arkSizes <- replicateM (fromIntegral arkCount) $ do
+        arkSizes <- replicateM (fromIntegral arkCount) do
           size <- getWord32le
           return ArkReference { path = Nothing, size = fromIntegral size }
         stringBytes <- parseStrings
@@ -104,7 +104,7 @@ readHdr bs = do
         arkCount <- getWord32le
         arkCount2 <- getWord32le
         when (arkCount /= arkCount2) $ fail $ "ARK version 4: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
-        arkSizes <- replicateM (fromIntegral arkCount) $ do
+        arkSizes <- replicateM (fromIntegral arkCount) do
           size <- getWord64le -- only in v4: each ark size is 8 bytes
           return ArkReference { path = Nothing, size = fromIntegral size }
         stringBytes <- parseStrings
@@ -176,14 +176,14 @@ readHdr bs = do
         -- all empty in amp ps3
         arkCount5 <- getWord32le
         when (arkCount /= arkCount5) $ fail $ "ARK version 9: ark count doesn't match unknown string count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
-        replicateM_ (fromIntegral arkCount5) $ do
+        replicateM_ (fromIntegral arkCount5) do
           stringCount <- getWord32le
-          replicateM_ (fromIntegral stringCount) $ do
+          replicateM_ (fromIntegral stringCount) do
             stringLen <- getWord32le
             skip $ fromIntegral stringLen
         -- new file table format, ignoring a bunch of details here
         numFiles <- getWord32le
-        entries <- replicateM (fromIntegral numFiles) $ do
+        entries <- replicateM (fromIntegral numFiles) do
           arkFileOffset <- getInt64le
           path <- parseStrings
           _flags <- getInt32le

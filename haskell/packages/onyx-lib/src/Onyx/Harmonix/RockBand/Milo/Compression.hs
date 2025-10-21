@@ -60,7 +60,7 @@ decompressMilo = do
   blockCount <- getWord32le
   _largestBlock <- getWord32le -- max uncompressed size
   let maxSize = 1 `shiftL` 24
-  blockInfo <- replicateM (fromIntegral blockCount) $ do
+  blockInfo <- replicateM (fromIntegral blockCount) do
     size <- getWord32le
     let (compressed, size') = case comp of
           MILO_A -> (False, size)

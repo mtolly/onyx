@@ -105,7 +105,7 @@ findSection
   -> B.ByteString
   -> (QBArray Word32 QBKey -> StackTraceT m a)
   -> StackTraceT m a
-findSection qb name go = inside ("QB section: " <> show name) $ do
+findSection qb name go = inside ("QB section: " <> show name) do
   let key = qbKeyCRC name
   case [ ary | QBSectionArray k _ ary <- qb, k == key ] of
     [ary] -> go ary
@@ -137,7 +137,7 @@ listOfTriples = \case
 parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> B.ByteString -> StackTraceT m GH3Part
 parsePart dlc qb part = let
   parseTrack diff = do
-    gh3Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) $ \case
+    gh3Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) \case
       QBArrayOfFloatRaw [] -> return []
       QBArrayOfInteger ns  -> groupBy3 ns
       _                    -> fatal "Expected array of integers for notes"
@@ -215,19 +215,19 @@ parseMidQB dlc qb = do
   gh3P2BossBattle <- findSection qb (dlc <> "_bossbattlep2") listOfPairs -- TODO check
 
   gh3TimeSignatures <- findSection qb (dlc <> "_timesig") listOfTriples
-  gh3FretBars       <- findSection qb (dlc <> "_fretbars") $ \case
+  gh3FretBars       <- findSection qb (dlc <> "_fretbars") \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfInteger ns  -> return ns
     _                    -> fatal "Expected array of integers for fretbars"
   gh3Markers        <- findSection qb (dlc <> "_markers") parseMarkers
 
-  gh3BackgroundNotes <- parseBackground dlc qb "_notes" $ \case
+  gh3BackgroundNotes <- parseBackground dlc qb "_notes" \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfArray arys -> forM arys \case
       QBArrayOfInteger xs -> return xs
       _                   -> fatal "Expected array of integers"
     _                   -> fatal "Expected array of arrays"
-  gh3Background      <- parseBackground dlc qb "" $ \case
+  gh3Background      <- parseBackground dlc qb "" \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfStruct entries -> mapM parseAnimEvent entries
     _ -> fatal "Expected array of structs for background events"
@@ -431,7 +431,7 @@ gh3DrumsToElite toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   allGemPairs = flip mapMaybe notes \case
     time : pitch : _ -> flip fmap (lookup pitch gh3DrumMapping)
-      $ \(gem, hand) -> (toBeats time, hand <$ gem)
+      \(gem, hand) -> (toBeats time, hand <$ gem)
     _                -> Nothing
   hands = RTB.collectCoincident $ fromPairs $ flip filter allGemPairs \case
     (_time, Kick _) -> False

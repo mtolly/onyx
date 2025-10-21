@@ -45,7 +45,7 @@ readRB3SaveDat :: Get RB3Save
 readRB3SaveDat = do
   sUnknown1 <- getWord32le
   awardLen <- getWord32le
-  sAwards <- replicateM (fromIntegral awardLen) $ do
+  sAwards <- replicateM (fromIntegral awardLen) do
     aKey <- readFixedString 46
     aValue <- getWord32le
     return Award{..}

@@ -59,7 +59,7 @@ getIGAHeader = do
   igaFilenameDirectoryLength <- getWord32le
   igaUnk3 <- getByteString 16
   igaHashes <- replicateM (fromIntegral igaFileCount) getWord32le
-  igaFiles <- replicateM (fromIntegral igaFileCount) $ do
+  igaFiles <- replicateM (fromIntegral igaFileCount) do
     fileOffset <- getWord32le
     fileLength <- getWord32le
     fileUnk <- getWord32le

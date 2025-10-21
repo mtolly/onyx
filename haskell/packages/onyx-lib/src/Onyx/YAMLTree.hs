@@ -38,7 +38,7 @@ stringOrStrings v      =
   fmap Left (A.fromJSON v) <|> fmap Right (A.fromJSON v)
 
 readYAMLTree :: (MonadIO m) => FilePath -> StackTraceT m Y.Value
-readYAMLTree f = inside ("YAML file " ++ show f) $ let
+readYAMLTree f = inside ("YAML file " ++ show f) let
   dir = takeDirectory f
   go :: (MonadIO m) => Y.Value -> StackTraceT m Y.Value
   go v = case v of

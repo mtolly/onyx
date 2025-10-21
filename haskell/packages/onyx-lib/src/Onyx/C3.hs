@@ -80,8 +80,8 @@ data C3 = C3
   } deriving (Eq, Ord, Show)
 
 readC3 :: (SendMessage m) => T.Text -> StackTraceT m C3
-readC3 txt = inside "Reading .c3 file" $ do
-  kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines $ T.filter (/= '\r') txt) $ \ln -> if
+readC3 txt = inside "Reading .c3 file" do
+  kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines $ T.filter (/= '\r') txt) \ln -> if
     | T.all isSpace ln         -> return Nothing
     | "//" `T.isPrefixOf` ln   -> return Nothing
     | ln == "TO DO List Begin" -> return Nothing
@@ -213,7 +213,7 @@ showC3 c3 = T.unlines $ execWriter do
   pair "UniqueNumericID2X" (.uniqueNumericID2X)
   line ""
   line "TO DO List Begin"
-  forM_ (zip [1..] c3.toDoList) $ \(i, (todo, required, completed)) ->
+  forM_ (zip [1..] c3.toDoList) \(i, (todo, required, completed)) ->
     line $ "ToDo" <> showT (i :: Int) <> "=" <>
       todo <> "," <> showT required <> "," <> showT completed
   line "TO DO List End"

@@ -129,7 +129,7 @@ makeRBN2Sections :: (Ord a) => [(a, Section)] -> ([(a, Section)], [Section])
 makeRBN2Sections sects = let
   (valid, notValid) = partitionMaybe (mapM tryRBN2Form) sects
   used = map (\(_, s) -> s.name) valid
-  replacements = map (Section SectionRB3 Nothing) $ filter (`notElem` used) $ do
+  replacements = map (Section SectionRB3 Nothing) $ filter (`notElem` used) do
     x <- ['a'..'k']
     y <- ['0'..'9']
     return $ T.pack $ x : [y | y /= '0']

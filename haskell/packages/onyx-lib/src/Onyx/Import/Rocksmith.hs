@@ -80,7 +80,7 @@ importRSXbox dir = case findFile (return "PackageList.txt") dir of
   Just r -> do
     plist <- TE.decodeUtf8 . BL.toStrict <$> stackIO (useHandle r handleToByteString)
     -- entries are separated by CRLF
-    fmap concat $ forM (T.lines plist) $ \pkg -> do
+    fmap concat $ forM (T.lines plist) \pkg -> do
       let psarcPath = T.strip pkg <> ".psarc"
       case findFile (return psarcPath) dir of
         Nothing    -> fatal $ "Couldn't find " <> show psarcPath <> " inside STFS file"
@@ -263,7 +263,7 @@ importRSSong folder song level = do
         ebeats@(BPM { bpm_Time = t } : _) -> let
           newBeatCount = ceiling t
           newBeatDuration = t / fromInteger newBeatCount
-          in (<> ebeats) $ do
+          in (<> ebeats) do
             i <- [0 .. newBeatCount - 1]
             return BPM
               { bpm_Time            = newBeatDuration * fromIntegral i
@@ -421,13 +421,13 @@ importRSSong folder song level = do
                   inBounds note = iter1.pi_StartTime <= note.notes_Time
                     && all (\iter2 -> note.notes_Time < iter2.pi_StartTime) miter2
                     && note.notes_PhraseId /= -1 -- fix for Time Is Running Out (Muse) bass: weird phantom note past [phrase END]
-                  in filter inBounds $ lvl.arr_Notes
+                  in filter inBounds lvl.arr_Notes
                 getPhraseAnchors iter1 miter2 = let
                   phrase = sng.sng_Phrases !! fromIntegral iter1.pi_PhraseId
                   lvl = sng.sng_Arrangements !! fromIntegral phrase.phrase_MaxDifficulty
                   inBounds anchor = iter1.pi_StartTime <= anchor.anchor_StartBeatTime
                     && all (\iter2 -> anchor.anchor_StartBeatTime < iter2.pi_StartTime) miter2
-                  in filter inBounds $ lvl.arr_Anchors
+                  in filter inBounds lvl.arr_Anchors
                 getHandShapes iter1 miter2 = let
                   phrase = sng.sng_Phrases !! fromIntegral iter1.pi_PhraseId
                   lvl = sng.sng_Arrangements !! fromIntegral phrase.phrase_MaxDifficulty

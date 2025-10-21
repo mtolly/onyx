@@ -129,7 +129,7 @@ fixGHVocals
   fixEarlyPhraseEnd rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, evts), rtb') -> RTB.cons dt evts $ fixEarlyPhraseEnd
-      $ if null [ () | Note True _ <- evts ]
+      if null [ () | Note True _ <- evts ]
         then rtb'
         else pushPhraseEnd False rtb'
   pushPhraseEnd False rtb = case RTB.viewL rtb of

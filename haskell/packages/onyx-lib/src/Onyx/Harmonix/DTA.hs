@@ -76,7 +76,7 @@ readFileDTA_utf8 :: FilePath -> IO (DTA T.Text)
 readFileDTA_utf8 = fmap (readDTA . decodeUtf8) . B.readFile
 
 readFileDTA_latin1' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
-readFileDTA_latin1' f = inside ("DTA file: " ++ show f) $ do
+readFileDTA_latin1' f = inside ("DTA file: " ++ show f) do
   liftIO (tryIOError $ B.readFile f) >>= \case
     Left err -> fatal $ show err
     Right bs -> scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
@@ -100,7 +100,7 @@ readDTASections bs = do
     return (sectBS, B8.pack . T.unpack <$> snd sect)
 
 readFileDTA_utf8' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
-readFileDTA_utf8' f = inside ("DTA file: " ++ show f) $ do
+readFileDTA_utf8' f = inside ("DTA file: " ++ show f) do
   liftIO (tryIOError $ B.readFile f) >>= \case
     Left err -> fatal $ show err
     Right bs -> case decodeUtf8' bs of

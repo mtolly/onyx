@@ -337,7 +337,7 @@ rsRules buildInfo dir rs = do
     when (isNothing volume) $ warn "Unable to calculate integrated volume of audio file"
     prevVolume <- stackIO $ audioIntegratedVolume rsPreview
     when (isNothing prevVolume) $ warn "Unable to calculate integrated volume of preview audio file"
-    arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
+    arrangements <- forM (zip [0..] parsedArrFiles) \(i, (fpart, arrSlot, contents)) -> do
       -- TODO check if the following still applies with DLC Builder:
       -- ArrangementSort doesn't appear to work for multiples of the same arrangement label.
       -- Instead it sorts by the arrangement ID UUID!
@@ -438,7 +438,7 @@ rsRules buildInfo dir rs = do
     let averageTempo = listToMaybe do
           (_, _, Arr.PartArrangement arr) <- parsedArrFiles
           return arr.arr_averageTempo
-    arrangements <- forM (zip [0..] parsedArrFiles) $ \(i, (fpart, arrSlot, contents)) -> do
+    arrangements <- forM (zip [0..] parsedArrFiles) \(i, (fpart, arrSlot, contents)) -> do
       -- TODO ArrangementSort doesn't appear to work for multiples of the same arrangement label.
       -- Instead it sorts by the arrangement ID UUID!
       -- So, we could just use the first character or so to encode `i`.

@@ -366,7 +366,7 @@ convertAudio fin fout = do
   audioIO Nothing src fout
 
 reverseMapping :: B.ByteString
-reverseMapping = B.pack $ flip map [0 .. 0xFF] $ \i -> foldr (.|.) 0
+reverseMapping = B.pack $ flip map [0 .. 0xFF] \i -> foldr (.|.) 0
   -- i is a Word8 so shiftR fills with zeroes, matching the Java >>>
   [  i `shiftR` 7
   , (i `shiftR` 5) .&. 0x02
@@ -416,7 +416,7 @@ ghwtKey :: B.ByteString -> B.ByteString
 ghwtKey str = runST do
   let ncycle = 32
   vxor <- newSTRef (0xFFFFFFFF :: Word32)
-  encstr <- fmap B.pack $ forM [0 .. ncycle - 1] $ \i -> do
+  encstr <- fmap B.pack $ forM [0 .. ncycle - 1] \i -> do
     let ch = B.index str $ i `rem` B.length str
         QBKey crc = qbKeyCRC $ B.singleton ch
     xorOld <- readSTRef vxor
@@ -424,7 +424,7 @@ ghwtKey str = runST do
     writeSTRef vxor xorNew
     let index = fromIntegral $ xorNew `rem` fromIntegral (B.length str)
     return $ B.index str index
-  key <- forM [0 .. ncycle - 2] $ \i -> do
+  key <- forM [0 .. ncycle - 2] \i -> do
     let ch = B.index encstr i
         QBKey crc = qbKeyCRC $ B.singleton ch
     xorOld <- readSTRef vxor

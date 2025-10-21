@@ -106,7 +106,7 @@ toStandardMIDI (F.Cons F.Parallel (F.Ticks res) trks) = let
       "Tracks without names (0 is tempo track): " ++ show unnamedIndexes
 toStandardMIDI (F.Cons F.Mixed (F.Ticks res) [trk]) = let
   trk' = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral res) trk
-  (tempos, noTempos) = flip RTB.partition trk' $ \e -> case e of
+  (tempos, noTempos) = flip RTB.partition trk' \e -> case e of
     E.MetaEvent M.SetTempo{} -> True
     E.MetaEvent M.TimeSig{}  -> True
     _                        -> False
@@ -115,7 +115,7 @@ toStandardMIDI _ = Left "Unsupported MIDI format: must be ticks-based, and must 
 
 fromStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> (F.T T.Text, Maybe String)
 fromStandardMIDI opts sm = let
-  withNames = flip map sm.namedTracks $ \(s, rtb) ->
+  withNames = flip map sm.namedTracks \(s, rtb) ->
     RTB.cons 0 (E.MetaEvent (M.TrackName s)) rtb
   allBeats = sm.tempoTrack : withNames
   denoms = flip concatMap allBeats $

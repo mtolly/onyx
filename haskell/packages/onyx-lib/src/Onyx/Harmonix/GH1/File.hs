@@ -127,7 +127,7 @@ instance TraverseTrack AnimTrack where
 instance ParseTrack AnimTrack where
   parseTrack = do
     animFretPosition <- ((.animFretPosition) =.) $ condenseMap $ eachKey each
-      $ \posn -> edges $ fromEnum posn + 40
+      \posn -> edges $ fromEnum posn + 40
     animHandMap <- (.animHandMap) =. simpleText ""
     return AnimTrack{..}
 

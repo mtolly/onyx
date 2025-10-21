@@ -358,11 +358,11 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = mdo
     updateButtons
   FL.setCallback openButton \_ -> do
     bools <- mapM FL.getValue checks
-    forM_ (zip bools imps) $ \(b, imp) -> when b do
+    forM_ (zip bools imps) \(b, imp) -> when b do
       sink $ EventOnyx $ void $ forkOnyx do
         continueImport makeMenuBar hasAudio imp
     FL.hide window
-  forM_ checks $ \check -> FL.setCallback check \_ -> updateButtons
+  forM_ checks \check -> FL.setCallback check \_ -> updateButtons
   FL.end window
   FL.setResizable window $ Just scroll
   FL.sizeRange window windowSize
@@ -446,7 +446,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   FL.sizeRange window $ Size (Width 800) (Height 500)
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  (modifyMeta, metaTab) <- makeTab windowRect "Metadata" $ \rect tab -> do
+  (modifyMeta, metaTab) <- makeTab windowRect "Metadata" \rect tab -> do
     homeTabColor >>= setTabColor tab
     let (rectSplit, rectRest) = chopTop 200 rect
         (rectLeft, rectRight) = chopRight 200 rectSplit
@@ -522,7 +522,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           return (genreInput, subgenreInput)
       liftIO $ FL.end pack
       packRight <- liftIO $ FL.packNew rectRight Nothing
-      padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> mdo
+      padded 10 10 0 0 (Size (Width 190) (Height 190)) \rect' -> mdo
         cover <- liftIO $ FL.buttonCustom rect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
           { FL.handleCustom = Just
             $ dragAndDrop (mapM_ swapImage . listToMaybe)
@@ -540,7 +540,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           $ setPNG True (takeDirectory proj.projectLocation </> albumArt)
           >>= newMVar
         let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning do
-              inside ("Loading image: " <> f) $ do
+              inside ("Loading image: " <> f) do
                 let newPath = takeDirectory proj.projectLocation </> "new-cover.png"
                 if elem (takeExtension f) [".png_xbox", ".png_wii"]
                   then stackIO (BL.readFile f) >>= maybe
@@ -572,7 +572,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               & #metadata % #fileAlbumArt .~ Just path
       liftIO $ FL.end packRight
       packBottom <- liftIO $ FL.packNew rectRest Nothing
-      padded 10 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> liftIO do
+      padded 10 10 5 10 (Size (Width 500) (Height 30)) \rect' -> liftIO do
         calcGenreBox <- FL.boxNew rect' Nothing
         let calcGenre = do
               g <- FL.getValue genreInput
@@ -586,11 +586,11 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 , "RB2: ", rbn1Genre, " (", rbn1Subgenre, ")"
                 ]
         calcGenre
-        FL.setCallback genreInput    $ \_ -> calcGenre
+        FL.setCallback genreInput    \_ -> calcGenre
         FL.setCallback subgenreInput \_ -> calcGenre
         FL.setWhen genreInput    [FLE.WhenChanged]
         FL.setWhen subgenreInput [FLE.WhenChanged]
-      padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) \rect' -> do
         let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
         simpleCheck "Convert"     (.convert   ) (\b meta -> meta { convert    = b }) r1
         simpleCheck "Rhythm Keys" (.rhythmKeys) (\b meta -> meta { rhythmKeys = b }) r2
@@ -598,7 +598,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         simpleCheck "Auto EMH"    (.catEMH    ) (\b meta -> meta { catEMH     = b }) r4
         simpleCheck "Expert Only" (.expertOnly) (\b meta -> meta { expertOnly = b }) r5
         simpleCheck "Cover"       (.cover     ) (\b meta -> meta { cover      = b }) r6
-      padded 5 10 5 10 (Size (Width 500) (Height 30)) $ \rect' -> do
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) \rect' -> do
         let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
             editLangs f meta = meta
               { languages = f meta.languages
@@ -620,7 +620,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       resizeBox <- liftIO $ FL.boxNew rectResize Nothing
       liftIO $ FL.setResizable tab $ Just resizeBox
     return (yamlModifier, tab)
-  (modifyInsts, instTab) <- makeTab windowRect "Instruments" $ \rect tab -> do
+  (modifyInsts, instTab) <- makeTab windowRect "Instruments" \rect tab -> do
     homeTabColor >>= setTabColor tab
     let instRect = trimClock 10 10 10 10 rect
     tree <- FL.treeNew instRect Nothing
@@ -637,7 +637,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           let (choiceArea, textArea) = chopLeft 100 dummyRect
           choice <- FL.choiceNew choiceArea Nothing
           let tierCount = 7
-          forM_ [1 .. tierCount] $ \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
+          forM_ [1 .. tierCount] \i -> FL.addName choice $ T.pack $ "Tier " <> show (i :: Int)
           FL.addName choice "Rank"
           input <- FL.inputNew textArea Nothing $ Just FL.FlNormalInput
           let setChoice = void . FL.setValue choice . FL.MenuItemByIndex . FL.AtIndex
@@ -661,7 +661,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               then Rank . fromMaybe 0 . readMaybe . T.unpack <$> FL.getValue input
               else return $ Tier $ fromIntegral i + 1
     getBandDiff <- makeDifficulty root proj.projectSongYaml.metadata.difficulty
-    getNewParts <- fmap catMaybes $ forM (HM.toList proj.projectSongYaml.parts.getParts) $ \(fpart, part) ->
+    getNewParts <- fmap catMaybes $ forM (HM.toList proj.projectSongYaml.parts.getParts) \(fpart, part) ->
       if part == emptyPart
         then return Nothing
         else do
@@ -672,7 +672,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 void $ FL.setValue check True
                 FL.setWidget itemCheck $ Just check
                 fn <- extra itemCheck
-                return $ \curPart -> do
+                return \curPart -> do
                   isChecked <- FL.getValue check
                   fn isChecked curPart
               makeChoiceFrom :: (Eq a) => [a] -> FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
@@ -685,35 +685,35 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 return $ (\(FL.AtIndex i) -> opts !! i) <$> FL.getValue choice
               makeChoice :: (Eq a, Enum a, Bounded a) => FL.Ref FL.TreeItem -> a -> (a -> T.Text) -> IO (IO a)
               makeChoice = makeChoiceFrom [minBound .. maxBound]
-          mbGRYBO <- forM part.grybo \pg -> addType "5-Fret" $ \itemCheck -> do
+          mbGRYBO <- forM part.grybo \pg -> addType "5-Fret" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #grybo .~ do
                 guard isChecked
                 Just $ (pg :: ModeFive) & #difficulty .~ diff
-          mbGHL <- forM part.ghl \pg -> addType "6-Fret" $ \itemCheck -> do
+          mbGHL <- forM part.ghl \pg -> addType "6-Fret" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #ghl .~ do
                 guard isChecked
                 Just $ (pg :: ModeSix) & #difficulty .~ diff
-          mbProKeys <- forM part.proKeys \pk -> addType "Pro Keys" $ \itemCheck -> do
+          mbProKeys <- forM part.proKeys \pk -> addType "Pro Keys" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pk.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #proKeys .~ do
                 guard isChecked
                 Just $ (pk :: ModeProKeys) & #difficulty .~ diff
-          mbProGuitar <- forM part.proGuitar \pg -> addType "Pro Guitar" $ \itemCheck -> do
+          mbProGuitar <- forM part.proGuitar \pg -> addType "Pro Guitar" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #proGuitar .~ do
                 guard isChecked
                 Just $ (pg :: ModeProGuitar FilePath) & #difficulty .~ diff
-          mbDrums <- forM part.drums \pd -> addType "Drums" $ \itemCheck -> do
+          mbDrums <- forM part.drums \pd -> addType "Drums" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pd.difficulty
             getMode <- makeChoice itemCheck pd.mode \case
               Drums4     -> "4-Lane Drums"
@@ -743,7 +743,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   & #mode       .~ mode
                   & #kicks      .~ kicks
                   & #kit        .~ kit
-          mbVocal <- forM part.vocal \pv -> addType "Vocals" $ \itemCheck -> do
+          mbVocal <- forM part.vocal \pv -> addType "Vocals" \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pv.difficulty
             getCount <- makeChoice itemCheck pv.count \case
               Vocal1 -> "Solo"
@@ -763,7 +763,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   & #difficulty .~ diff
                   & #count      .~ count
                   & #gender     .~ gender
-          mbMania <- forM part.mania \pm -> addType "Mania" $ \_itemCheck -> do
+          mbMania <- forM part.mania \pm -> addType "Mania" \_itemCheck -> do
             return \isChecked curPart -> do
               -- TODO difficulty
               return curPart { mania = guard isChecked >> Just pm }
@@ -784,7 +784,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         modifiers <- sequence [modifyMeta, modifyInsts]
         let newYaml = foldr ($) p.projectSongYaml $ modifiers <> extraMods
         saveProject p newYaml
-  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" $ \rect tab -> mdo
+  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" \rect tab -> mdo
     homeTabColor >>= setTabColor tab
     let (topControlsArea1, glArea) = chopTop 40 rect
         (trimClock 0 5 0 5 -> volPlayButtonArea, topControlsArea2) = chopLeft 160 topControlsArea1
@@ -829,7 +829,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         vmax <- FL.getMaximum s
         let progressWidth = floor $ realToFrac w * (v / vmax)
             progressRect = Rectangle (Position (X x) (Y y)) (Size (Width progressWidth) (Height h))
-        when (progressWidth >= 2) $ do
+        when (progressWidth >= 2) do
           FL.flcSetColor filledColor
           FL.flcRectf progressRect
           FL.flcSetColor FLE.blackColor
@@ -951,7 +951,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 (\_ -> return dummyHandle)
             Nothing -> return dummyHandle
           curTime <- getTimeMonotonic
-          stopAnim <- startAnimation (recip $ realToFrac ?preferences.prefPreviewFPS) $ do
+          stopAnim <- startAnimation (recip $ realToFrac ?preferences.prefPreviewFPS) do
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
             -- first draw a new frame
             _ <- FLTK.lock
@@ -959,7 +959,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             redrawGL
             FLTK.unlock
             -- then check if time is past song end, and stop if so
-            when (t' >= songLength) $ do
+            when (t' >= songLength) do
               ss <- takeState
               ss' <- case songPlaying ss of
                 Nothing -> return ss -- probably shouldn't happen?
@@ -1044,7 +1044,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         stop audio
 
     -}
-  _starsTab <- makeTab windowRect "Stars" $ \rect tab -> do
+  _starsTab <- makeTab windowRect "Stars" \rect tab -> do
     homeTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
     FL.end pack
@@ -1067,9 +1067,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             go xs = xs
 
         -- RB3
-        padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' -> do
           void $ FL.boxNew rect' $ Just "Rock Band 3 Star Cutoffs"
-        getTracksRB3 <- padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+        getTracksRB3 <- padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' -> do
           starSelectors rect' foundTracksRB3 updateLabelRB3 scoreTrackName
             [ ("Guitar", [ScoreGuitar, ScoreProGuitar])
             , ("Bass"  , [ScoreBass  , ScoreProBass  ])
@@ -1077,8 +1077,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             , ("Drums" , [ScoreDrums , ScoreProDrums ])
             , ("Vocal" , [ScoreVocals, ScoreHarmonies])
             ]
-        [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
-          forM (splitHorizN 6 bottomArea) $ \cell -> do
+        [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) \bottomArea -> do
+          forM (splitHorizN 6 bottomArea) \cell -> do
             cutoffLabel <- FL.boxNew cell Nothing
             FL.setLabelfont cutoffLabel FLE.helveticaBold
             return cutoffLabel
@@ -1093,15 +1093,15 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         updateLabelRB3
 
         -- GH2
-        padded 5 10 5 10 (Size (Width 800) (Height 50)) $ \rect' -> do
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' -> do
           void $ FL.boxNew rect' $ Just "Guitar Hero 1/2 Star Cutoffs"
-        getTracksGH2 <- padded 5 150 5 150 (Size (Width 800) (Height 50)) $ \rect' -> do
+        getTracksGH2 <- padded 5 150 5 150 (Size (Width 800) (Height 50)) \rect' -> do
           starSelectors rect' foundTracksGH2 updateLabelGH2 scoreTrackNameGH2
             [ ("Lead", [ScoreGH2Guitar])
             , ("Coop", [ScoreGH2Bass, ScoreGH2Rhythm])
             ]
-        [ghBase, ghFour, gh2Five, gh1Five] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) $ \bottomArea -> do
-          forM (splitHorizN 4 bottomArea) $ \cell -> do
+        [ghBase, ghFour, gh2Five, gh1Five] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) \bottomArea -> do
+          forM (splitHorizN 4 bottomArea) \cell -> do
             cutoffLabel <- FL.boxNew cell Nothing
             FL.setLabelfont cutoffLabel FLE.helveticaBold
             return cutoffLabel
@@ -1128,7 +1128,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         FLTK.redraw
     FL.setResizable tab $ Just pack
     return tab
-  rb3Tab <- makeTab windowRect "RB3" $ \rect tab -> do
+  rb3Tab <- makeTab windowRect "RB3" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB3 sink rect tab proj \qcPossible tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1158,7 +1158,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         then warnQuickConvert 1 sink go
         else go
     return tab
-  rb2Tab <- makeTab windowRect "RB2" $ \rect tab -> do
+  rb2Tab <- makeTab windowRect "RB2" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRB2 sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1180,7 +1180,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  psTab <- makeTab windowRect "CH/PS" $ \rect tab -> do
+  psTab <- makeTab windowRect "CH/PS" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPagePS sink rect tab proj \tgt create -> sink $ EventOnyx do
       newPreferences <- readPreferences
@@ -1208,7 +1208,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
       startTasks [(name, task)]
     return tab
-  gh1Tab <- makeTab windowRect "GH1" $ \rect tab -> do
+  gh1Tab <- makeTab windowRect "GH1" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH1 sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1224,7 +1224,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  gh2Tab <- makeTab windowRect "GH2" $ \rect tab -> do
+  gh2Tab <- makeTab windowRect "GH2" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH2 sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1248,7 +1248,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  gh3Tab <- makeTab windowRect "GH3" $ \rect tab -> do
+  gh3Tab <- makeTab windowRect "GH3" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGH3 sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1275,7 +1275,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return results
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  worTab <- makeTab windowRect "GH:WoR" $ \rect tab -> do
+  worTab <- makeTab windowRect "GH:WoR" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageGHWOR sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1297,7 +1297,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  rrTab <- makeTab windowRect "RR" $ \rect tab -> do
+  rrTab <- makeTab windowRect "RR" \rect tab -> do
     functionTabColor >>= setTabColor tab
     songPageRR sink rect tab proj \tgt create -> do
       proj' <- fullProjModify [] proj
@@ -1315,10 +1315,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
+  utilsTab <- makeTab windowRect "Utilities" \rect tab -> do
     functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Build web preview"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventIO do
@@ -1338,7 +1338,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               sink $ EventOnyx $ startTasks [("Build web preview", task)]
           _ -> return ()
       return ()
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Produce MIDI with automatic reductions"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventIO do
@@ -1365,7 +1365,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 in startTasks [(f', task)]
           _ -> return ()
       return ()
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventOnyx do
@@ -1374,7 +1374,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     FL.setResizable tab $ Just pack
     return tab
   let tabsToDisable = [metaTab, instTab, rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, rrTab, utilsTab]
-  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
@@ -1441,7 +1441,7 @@ makePS3PackPresetDropdown _sink rect = do
     (FL.MenuItemFlags [])
   void $ FL.add menu labelCustomInitial Nothing
     ((Just \_ -> do
-      defValue <- flip fmap (readIORef ref) $ \case
+      defValue <- flip fmap (readIORef ref) \case
         QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
         _                 -> Nothing
       FL.flInput customPrompt defValue >>= \case
@@ -1552,7 +1552,7 @@ _selectArkDestination _sink gen withLocation = do
             withLocation $ maybe GH2AddBonus GH2AddTier maybeTier
             FL.hide window
 
-    forM_ (zip [0..] setlist.campaign) $ \(tierIndex, (_, songs)) -> do
+    forM_ (zip [0..] setlist.campaign) \(tierIndex, (_, songs)) -> do
       _ <- FL.boxNew dummyRect $ Just $ T.pack $ "Tier " <> show (tierIndex + 1 :: Int)
       addButton $ Just tierIndex
       mapM_ songButton songs
@@ -1657,7 +1657,7 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
       startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
         Right status -> liftIO $ putMVar taskStatus $ Right status -- shouldn't happen
         Left _ -> do
-          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (taskName, task)) -> do
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) \(i, (taskName, task)) -> do
             liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) taskName
             errorToEither task >>= \case
               Left e -> liftIO $ sink $ EventIO do
@@ -1732,7 +1732,7 @@ miscPagePacks sink rect tab startTasks = mdo
               ]
             []       -> ""
   group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
-    $ \info -> let
+    \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
         [ take 1 info.stfsMeta.md_DisplayName
@@ -1872,7 +1872,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         modifyMVar_ loadedFiles f
         sink $ EventIO $ updatePackGo >> updateInPlace
   (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
-    $ \qinput -> let
+    \qinput -> let
       entry = T.pack qinput.quickInputPath
       subline = T.pack case length qinput.quickInputSongs of
         1 -> "1 song"
@@ -1889,7 +1889,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       processors =
         [ (,,) "Black VENUE"
           "Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format."
-          $ \qsong -> do
+          \qsong -> do
             let isRB3 = qsong.quickSongDTA.qdtaRB3
             procFolder (QRB.applyToMIDI $ return . blackVenue isRB3) qsong
         , (,,) "No Overdrive"
@@ -1921,7 +1921,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           $ return . stripTitleTags
         , (,,) "Note shuffle"
           "Shuffles notes on 5-fret and drum parts."
-          $ \qsong -> do
+          \qsong -> do
             shuffled <- noteShuffle qsong
             seed <- randomIO
             return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
@@ -1997,7 +1997,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           , ("LIVE (360)"   , QCOutputTwoWay QCFormatLIVE)
           , ("PKG (PS3)"    , QCOutputTwoWay QCFormatPKG )
           , ("Folders (PS3)", QCOutputLoosePS3           )
-          ] $ \x -> sink $ EventIO do
+          ] \x -> sink $ EventIO do
             writeIORef ref x
             case x of
               QCOutputTwoWay QCFormatPKG -> ps3On
@@ -2090,7 +2090,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       row4
       "Start"
       "%input_dir%/%input_base%_convert%ext%"
-      $ \template -> sink $ EventOnyx $ stackIO getFormat >>= \case
+      \template -> sink $ EventOnyx $ stackIO getFormat >>= \case
         QCOutputLoosePS3   -> return () -- shouldn't happen
         QCOutputTwoWay fmt -> do
           files <- stackIO $ readMVar loadedFiles
@@ -2203,7 +2203,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
             QCOutputLoosePS3 -> do
               defDir <- getDefaultPS3Dir
               stackIO $ askFolder defDir \dout -> do
-                sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) \(i, qsongs) -> let
                   task = do
                     mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM songTransform qsongs
@@ -2233,7 +2233,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                       _           -> userPath <> packNumber n
                     in sink $ EventOnyx do
                       newPreferences <- readPreferences
-                      startTasks $ flip map (zip [1..] packs) $ \(i, qsongs) -> let
+                      startTasks $ flip map (zip [1..] packs) \(i, qsongs) -> let
                         fout = getOutputPath i
                         task = do
                           mapM_ (lg . T.unpack . artistTitle) qsongs
@@ -2244,7 +2244,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                                 else Just Latin1
                               qsongsReencode = case maybeEncoding of
                                 Nothing          -> qsongs'
-                                Just newEncoding -> flip map qsongs' $ \qsong -> qsong
+                                Just newEncoding -> flip map qsongs' \qsong -> qsong
                                   { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
                                   }
                               ps3Folder' = case ps3Folder of
@@ -2288,14 +2288,14 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       row4
       "Select folder…"
       "%artist% - %title%%ext%"
-      $ \template -> sink $ EventIO $ getFormat >>= \case
+      \template -> sink $ EventIO $ getFormat >>= \case
         QCOutputLoosePS3   -> return () -- shouldn't happen
         QCOutputTwoWay fmt -> do
           files <- readMVar loadedFiles
           enc <- getEncrypt
           songTransform <- getSongTransform
           decryptMOGGs <- getDecryptMOGGs
-          askFolder (takeDirectory . (.quickInputPath) <$> listToMaybe files) $ \dout -> do
+          askFolder (takeDirectory . (.quickInputPath) <$> listToMaybe files) \dout -> do
             let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
             sink $ EventOnyx do
               newPreferences <- readPreferences
@@ -2387,7 +2387,7 @@ pageRenumberRR sink rect tab startTasks = mdo
   let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
       updateFiles = modifyMVar_ loadedFiles
   (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "RR song" "RR songs" updateFiles [] searchRockRevolution
-    $ \(path, songs) -> let
+    \(path, songs) -> let
       entry = T.pack path
       subline = case length songs of
         1 -> "1 song"
@@ -2447,7 +2447,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
       updateFiles = modifyMVar_ loadedFiles
   (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
-    $ \qfof -> let
+    \qfof -> let
       entry = T.pack $ qfof.location
       subline = case qfof.format of
         FoFFormat FoFFolder -> "folder format"
@@ -2621,7 +2621,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       row4
       "Start"
       "%input_dir%/%input_base%"
-      $ \template -> do
+      \template -> do
         deleteOriginals <- FL.getValue checkDeleteOriginals
         qfofs <- readMVar loadedFiles
         transform <- getTransform
@@ -2646,7 +2646,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       row4
       "Start"
       "%input_dir%/%input_base%.sng"
-      $ \template -> do
+      \template -> do
         deleteOriginals <- FL.getValue checkDeleteOriginals
         qfofs <- readMVar loadedFiles
         transform <- getTransform
@@ -2708,7 +2708,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             else mapM_ FL.activate   [btnMogg, btnVgs, btnFsb3, btnFsb4]
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
-    $ \info -> let
+    \info -> let
       entry = T.pack $ audioPath info
       sublines =
         [ audioFormat info <> ", " <> T.pack (show $ audioChannels info)
@@ -2749,11 +2749,11 @@ miscPageMOGG sink rect tab startTasks = mdo
           in sink $ EventOnyx $ startTasks case isSingleOgg audio of
             Just aud -> [("Ogg to MOGG", oggToMoggFiles (audioPath aud) f' >> return [f'])]
             Nothing  -> let
-              task = tempDir "makemogg" $ \tmp -> do
+              task = tempDir "makemogg" \tmp -> do
                 let ogg = tmp </> "temp.ogg"
                 case map audioRate audio of
                   []             -> return () -- shouldn't happen
-                  rates@(r : rs) -> unless (all (== r) rs) $ do
+                  rates@(r : rs) -> unless (all (== r) rs) do
                     fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
                 ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
                 src <- buildSource' $ Merge $ fmap (Input . audioPath) ne
@@ -2816,8 +2816,8 @@ miscPageMOGG sink rect tab startTasks = mdo
             then f
             else f <.> "fsb"
           in sink $ EventOnyx $ startTasks let
-            task = tempDir "makefsb3" $ \tmp -> do
-              wavs <- forM (zip [0..] audio) $ \(i, aud) -> do
+            task = tempDir "makefsb3" \tmp -> do
+              wavs <- forM (zip [0..] audio) \(i, aud) -> do
                 src <- buildSource' $ Input $ audioPath aud
                 let wav = tmp </> show (i :: Int) <.> "wav"
                 runAudio src wav
@@ -2850,7 +2850,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             then f
             else f <.> "fsb"
           in sink $ EventOnyx $ startTasks let
-            task = tempDir "makefsb4" $ \tmp -> do
+            task = tempDir "makefsb4" \tmp -> do
               let wav = tmp </> "audio.wav"
               audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
               src <- buildSource' $ Merge $ fmap (Input . audioPath) audio'
@@ -2869,7 +2869,7 @@ miscPageMIDI
   -> IO ()
 miscPageMIDI sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 120 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -2896,7 +2896,7 @@ miscPageMIDI sink rect tab startTasks = do
 
   midiButtons <- sequence
 
-    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Fill in lower difficulties and drum animations"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventIO do
@@ -2921,7 +2921,7 @@ miscPageMIDI sink rect tab startTasks = do
           _ -> return ()
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventIO do
@@ -2934,7 +2934,7 @@ miscPageMIDI sink rect tab startTasks = do
           in startTasks [("Pro Keys range check: " <> input, task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Make REAPER project with RB template"
       taskColor >>= FL.setColor btn
       FL.setCallback btn \_ -> sink $ EventIO do
@@ -2959,7 +2959,7 @@ miscPageMIDI sink rect tab startTasks = do
           _ -> return ()
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
 
       let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
 
@@ -3024,7 +3024,7 @@ miscPageHardcodeSongCache
   -> IO ()
 miscPageHardcodeSongCache sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  pickedFolder <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  pickedFolder <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -3039,7 +3039,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     FL.setCallback pick \_ -> sink $ EventIO $ askFolder Nothing \f -> do
       void $ FL.setValue input $ T.pack f
     return $ fmap T.unpack $ FL.getValue input
-  pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -3061,7 +3061,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Apply numeric IDs from song cache"
     taskColor >>= FL.setColor btn
     FL.setCallback btn \_ -> sink $ EventIO do
@@ -3102,28 +3102,28 @@ launchQuickConvert sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "RB quick convert + pack creator" $ \rect tab -> do
+    [ makeTab windowRect "RB quick convert + pack creator" \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageQuickConvertRB sink rect tab startTasks
       return tab
-    , makeTab windowRect "CH quick convert" $ \rect tab -> do
+    , makeTab windowRect "CH quick convert" \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageQuickConvertCH sink rect tab startTasks
       return tab
-    , makeTab windowRect "RR renumber" $ \rect tab -> do
+    , makeTab windowRect "RR renumber" \rect tab -> do
       functionTabColor >>= setTabColor tab
       pageRenumberRR sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH2 pack creator" $ \rect tab -> do
+    , makeTab windowRect "GH2 pack creator" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPagePacks sink rect tab startTasks
       return tab
-    , makeTab windowRect "RB legacy CON->PKG" $ \rect tab -> do
+    , makeTab windowRect "RB legacy CON->PKG" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageCONtoPKG sink rect tab startTasks
       return tab
     ]
-  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
@@ -3159,40 +3159,40 @@ launchMisc sink makeMenuBar = mdo
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   functionTabs <- sequence
-    [ makeTab windowRect "MIDI stuff" $ \rect tab -> do
+    [ makeTab windowRect "MIDI stuff" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG/VGS/FSB" $ \rect tab -> do
+    , makeTab windowRect "MOGG/VGS/FSB" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Lipsync" $ \rect tab -> do
+    , makeTab windowRect "Lipsync" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageLipsync sink rect tab startTasks
       return tab
-    , makeTab windowRect "Dry vox" $ \rect tab -> do
+    , makeTab windowRect "Dry vox" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageDryVox sink rect tab startTasks
       return tab
-    , makeTab windowRect ".milo" $ \rect tab -> do
+    , makeTab windowRect ".milo" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageMilo sink rect tab startTasks
       return tab
-    , makeTab windowRect "RB3 cache" $ \rect tab -> do
+    , makeTab windowRect "RB3 cache" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageHardcodeSongCache sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH3 cache" $ \rect tab -> do
+    , makeTab windowRect "GH3 cache" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageGH3SongCache sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH:WoR cache" $ \rect tab -> do
+    , makeTab windowRect "GH:WoR cache" \rect tab -> do
       functionTabColor >>= setTabColor tab
       miscPageWoRSongCache sink rect tab startTasks
       return tab
     ]
-  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
@@ -3298,9 +3298,9 @@ _launchTimeServer sink varTime inputPort button label = do
           dat' = dat <> bs
           in case reverse $ B8.split '|' dat' of
             after : s : _ -> do
-              forM_ (readMaybe $ B8.unpack s) $ \d -> liftIO $ sink $ EventIO do
+              forM_ (readMaybe $ B8.unpack s) \d -> liftIO $ sink $ EventIO do
                 old <- readIORef varTime
-                when (old /= d) $ do
+                when (old /= d) do
                   writeIORef varTime d
                   FLTK.redraw
               goConnected after port ps pc
@@ -3342,12 +3342,12 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle = do
             _ -> return Nothing
       updateParts redraw names = sink $ EventIO do
         cur <- readIORef currentParts
-        when (cur /= names) $ do
+        when (cur /= names) do
           selected <- case cur of
             [] -> return $ names >>= take 1
             _  -> selectedNames
           FL.clear trackMenu
-          forM_ (concat names) $ \t -> do
+          forM_ (concat names) \t -> do
             let flags = FL.MenuItemToggle : [FL.MenuItemValue | elem t selected]
             FL.add trackMenu t Nothing
               (Nothing :: Maybe (FL.Ref FL.MenuItem -> IO ()))
@@ -3552,7 +3552,7 @@ launchBatch sink makeMenuBar startFiles = mdo
   FL.sizeRange window windowSize
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  (tabSongs, filterParts) <- makeTab windowRect "Songs" $ \rect tab -> do
+  (tabSongs, filterParts) <- makeTab windowRect "Songs" \rect tab -> do
     homeTabColor >>= setTabColor tab
     let (songsRect, importToggles) = chopBottom 40 rect
     group <- fileLoadWindow songsRect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
@@ -3583,7 +3583,7 @@ launchBatch sink makeMenuBar startFiles = mdo
             , ("Other" , Nothing    )
             ]
       void $ FL.boxNew (head subrects) $ Just "Import:"
-      getters <- forM (zip insts $ drop 1 subrects) $ \((txt, inst), subrect) -> do
+      getters <- forM (zip insts $ drop 1 subrects) \((txt, inst), subrect) -> do
         btn <- FL.checkButtonNew subrect $ Just txt
         void $ FL.setValue btn True
         return do
@@ -3593,7 +3593,7 @@ launchBatch sink makeMenuBar startFiles = mdo
         active <- catMaybes <$> sequence getters
         return $ (songYaml :: SongYaml FilePath) & #parts .~ do
           Parts $ flip HM.filterWithKey songYaml.parts.getParts
-            $ \part _ -> case part of
+            \part _ -> case part of
               F.PartGuitar -> elem (Just Guitar) active
               F.PartBass   -> elem (Just Bass  ) active
               F.PartDrums  -> elem (Just Drums ) active
@@ -3607,15 +3607,15 @@ launchBatch sink makeMenuBar startFiles = mdo
   cleanupOnCancel <- newMVar HM.empty
   let doImport imp fn = do
         proj <- importWithPreferences imp
-        stackIO $ forM_ proj.projectRelease $ \k -> do
+        stackIO $ forM_ proj.projectRelease \k -> do
           modifyMVar_ cleanupOnCancel $ return . HM.insert proj.projectLocation k
         res <- errorToEither $ fn proj
-        stackIO $ forM_ proj.projectRelease $ \k -> modifyMVar_ cleanupOnCancel \m -> do
+        stackIO $ forM_ proj.projectRelease \k -> modifyMVar_ cleanupOnCancel \m -> do
           release k
           return $ HM.delete proj.projectLocation m
         either throwNoContext return res
   functionTabs <- sequence
-    [ makeTab windowRect "RB3" $ \rect tab -> do
+    [ makeTab windowRect "RB3" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab \qcPossible settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3643,7 +3643,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           then warnQuickConvert (length files) sink go
           else go
       return tab
-    , makeTab windowRect "RB2" $ \rect tab -> do
+    , makeTab windowRect "RB2" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3664,7 +3664,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                 folder <- buildRB2LoosePS3 target proj'
                 stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
       return tab
-    , makeTab windowRect "Clone Hero" $ \rect tab -> do
+    , makeTab windowRect "Clone Hero" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePS sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3690,7 +3690,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       return tab
-    , makeTab windowRect "GH1" $ \rect tab -> do
+    , makeTab windowRect "GH1" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGH1 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3705,7 +3705,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH1DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "GH2" $ \rect tab -> do
+    , makeTab windowRect "GH2" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGH2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3727,7 +3727,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH2DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "GH3" $ \rect tab -> do
+    , makeTab windowRect "GH3" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGH3 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3749,7 +3749,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
           return results
       return tab
-    , makeTab windowRect "GH:WoR" $ \rect tab -> do
+    , makeTab windowRect "GH:WoR" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageGHWOR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3772,7 +3772,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               folder <- buildGHWORLoosePS3 target proj'
               stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
       return tab
-    , makeTab windowRect "RR" $ \rect tab -> do
+    , makeTab windowRect "RR" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3792,7 +3792,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               warnRR
               return [fout]
       return tab
-    , makeTab windowRect "Preview" $ \rect tab -> do
+    , makeTab windowRect "Preview" \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePreview sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3805,7 +3805,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       return tab
     ]
   let nonTermTabs = tabSongs : functionTabs
-  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
     taskColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
@@ -3862,7 +3862,7 @@ addTerm term pair = do
       -- this comes from the default exception type but it's confusing to users
       filterUserError = T.replace "user error " ""
   FL.withRef term \ptr ->
-    B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") $ \cs ->
+    B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") \cs ->
       c_append ptr cs
 
 -- present in C layer but missing from Haskell
@@ -3934,7 +3934,7 @@ launchPreferences sink makeMenuBar = do
     tabs <- FL.tabsNew tabsRect Nothing
     let combinePrefs :: [IO (a -> a)] -> IO (a -> a)
         combinePrefs = fmap (foldr (.) id) . sequence
-    (tab1, pref1) <- makeTab tabsRect "General" $ \rect tab -> do
+    (tab1, pref1) <- makeTab tabsRect "General" \rect tab -> do
       pack <- FL.packNew rect Nothing
       fn <- combinePrefs <$> sequence
         [ lineBox \box -> do
@@ -3971,7 +3971,7 @@ launchPreferences sink makeMenuBar = do
       FL.end pack
       return (tab, fn)
     restPrefs <- sequence
-      [ makeTab tabsRect "Rock Band" $ \rect _tab -> do
+      [ makeTab tabsRect "Rock Band" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4019,7 +4019,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "Guitar Hero" $ \rect _tab -> do
+      , makeTab tabsRect "Guitar Hero" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ lineBox \box -> do
@@ -4051,7 +4051,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "Clone Hero" $ \rect _tab -> do
+      , makeTab tabsRect "Clone Hero" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4070,7 +4070,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "360" $ \rect _tab -> do
+      , makeTab tabsRect "360" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4099,7 +4099,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "PS3" $ \rect _tab -> do
+      , makeTab tabsRect "PS3" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4118,7 +4118,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "Wii" $ \rect _tab -> do
+      , makeTab tabsRect "Wii" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4127,7 +4127,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "3D Preview" $ \rect _tab -> do
+      , makeTab tabsRect "3D Preview" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4199,7 +4199,7 @@ launchPreferences sink makeMenuBar = do
           ]
         FL.end pack
         return fn
-      , makeTab tabsRect "Audio" $ \rect _tab -> do
+      , makeTab tabsRect "Audio" \rect _tab -> do
         pack <- FL.packNew rect Nothing
         fn <- combinePrefs <$> sequence
           [ do
@@ -4394,7 +4394,7 @@ launchGUI initSongs = withAL \hasAudio -> do
       (Size (Width 520) (Height 25))
     )
     (Just "Checking for updates…")
-  _ <- forkIO $ isNewestRelease $ \comp -> sink $ EventIO do
+  _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO do
     FL.setLabel labelLatest case comp of
       EQ -> "You are using the latest version."
       LT -> "New version available!"
@@ -4447,7 +4447,7 @@ launchGUI initSongs = withAL \hasAudio -> do
   miscColor >>= FL.setColor buttonMisc
   FL.setCallback buttonMisc \_ -> launchMisc sink makeMenuBar
 
-  forM_ [buttonOpen, buttonBatch, buttonQuick, buttonMisc] $ \btn ->
+  forM_ [buttonOpen, buttonBatch, buttonQuick, buttonMisc] \btn ->
     FL.setLabelsize btn $ FL.FontSize 13
 
   FL.end termWindow
@@ -4462,7 +4462,7 @@ launchGUI initSongs = withAL \hasAudio -> do
   {-
   -- on linux, supposedly you need to show(argc,argv) for icon to work
   FL.withRef termWindow \pwin -> do
-    withMany withCString ["onyx"] $ \ps -> do
+    withMany withCString ["onyx"] \ps -> do
       withArrayLen ps \argc argv -> do
         c_show_with_args pwin (fromIntegral argc) argv
   -}

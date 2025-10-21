@@ -56,7 +56,7 @@ data InfoDat = InfoDat
   } deriving (Show)
 
 instance StackJSON InfoDat where
-  stackJSON = asObject "info.dat" $ do
+  stackJSON = asObject "info.dat" do
     version                   <- (.version                  ) =. opt  Nothing "_version"                   stackJSON
     songName                  <- (.songName                 ) =. req          "_songName"                  stackJSON
     songSubName               <- (.songSubName              ) =. opt  Nothing "_songSubName"               stackJSON
@@ -82,7 +82,7 @@ data BeatmapSet = BeatmapSet
   } deriving (Eq, Show)
 
 instance StackJSON BeatmapSet where
-  stackJSON = asObject "info.dat beatmap set" $ do
+  stackJSON = asObject "info.dat beatmap set" do
     beatmapCharacteristicName <- (.beatmapCharacteristicName) =. req     "_beatmapCharacteristicName" stackJSON
     difficultyBeatmaps        <- (.difficultyBeatmaps       ) =. fill [] "_difficultyBeatmaps"        stackJSON
     return BeatmapSet{..}
@@ -97,7 +97,7 @@ data BeatmapInfo = BeatmapInfo
   } deriving (Eq, Show)
 
 instance StackJSON BeatmapInfo where
-  stackJSON = asObject "info.dat beatmap" $ do
+  stackJSON = asObject "info.dat beatmap" do
     difficulty              <- (.difficulty             ) =. req "_difficulty"              stackJSON
     difficultyRank          <- (.difficultyRank         ) =. req "_difficultyRank"          stackJSON
     beatmapFilename         <- (.beatmapFilename        ) =. req "_beatmapFilename"         stackJSON
@@ -114,7 +114,7 @@ data Beatmap = Beatmap
   } deriving (Show)
 
 instance StackJSON Beatmap where
-  stackJSON = asObject "Beatmap" $ do
+  stackJSON = asObject "Beatmap" do
     version    <- (.version   ) =. req     "_version"    stackJSON
     customData <- (.customData) =. req     "_customData" stackJSON
     notes      <- (.notes     ) =. fill [] "_notes"      stackJSON
@@ -126,7 +126,7 @@ data BeatmapCustomData = BeatmapCustomData
   } deriving (Show)
 
 instance StackJSON BeatmapCustomData where
-  stackJSON = asObject "BeatmapCustomData" $ do
+  stackJSON = asObject "BeatmapCustomData" do
     time       <- (.time      ) =. req     "_time"       stackJSON
     bpmChanges <- (.bpmChanges) =. fill [] "_bpmChanges" stackJSON
     return BeatmapCustomData{..}
@@ -139,7 +139,7 @@ data BPMChange = BPMChange
   } deriving (Eq, Show)
 
 instance StackJSON BPMChange where
-  stackJSON = asObject "BPMChange" $ do
+  stackJSON = asObject "BPMChange" do
     bpm             <- (.bpm            ) =. req "_bpm"             stackJSON
     time            <- (.time           ) =. req "_time"            stackJSON
     beatsPerBar     <- (.beatsPerBar    ) =. req "_beatsPerBar"     stackJSON
@@ -155,7 +155,7 @@ data Note = Note
   } deriving (Eq, Show)
 
 instance StackJSON Note where
-  stackJSON = asObject "Note" $ do
+  stackJSON = asObject "Note" do
     time         <- (.time        ) =. req "_time"         stackJSON
     lineIndex    <- (.lineIndex   ) =. req "_lineIndex"    stackJSON
     lineLayer    <- (.lineLayer   ) =. req "_lineLayer"    stackJSON
@@ -199,7 +199,7 @@ importRagnarock pathInfo level = do
         ImportQuick -> emptyChart
       , fileSongAnim = Nothing
       }
-    , audio = HM.singleton "song" $ let
+    , audio = HM.singleton "song" let
       f = dir </> T.unpack info.songFilename
       in AudioFile AudioInfo
         { md5      = Nothing
@@ -226,7 +226,7 @@ importRagnarock pathInfo level = do
 ragnarockToDrums :: InfoDat -> [(BeatmapInfo, Beatmap)] -> F.Song (F.OnyxFile U.Beats)
 ragnarockToDrums info maps = let
   maps' = zip [Expert, Hard, Medium, Easy]
-    $ sortOn (\(mapInfo, _) -> negate $ mapInfo.difficultyRank) maps
+    $ sortOn (\(mapInfo, _) -> negate mapInfo.difficultyRank) maps
   toBPS :: Scientific -> U.BPS
   toBPS sci = realToFrac sci / 60
   -- TODO probably need to apply songTimeOffset (and/or do that in audio plan)

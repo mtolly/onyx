@@ -112,7 +112,7 @@ readGH3TextSetDLC folder = let
     (T.stripSuffix "_text_i.pak" -> Just dlName) -> Just (GH3Italian, dlName)
     (T.stripSuffix "_text_s.pak" -> Just dlName) -> Just (GH3Spanish, dlName)
     _                                            -> Nothing
-  in fmap mconcat $ forM (folderFiles folder) $ \(name, r) -> case stripLang name of
+  in fmap mconcat $ forM (folderFiles folder) \(name, r) -> case stripLang name of
     -- require "dl" in front to ignore GHWT files in Death Magnetic
     Just (lang, dlName) | "dl" `T.isPrefixOf` dlName -> do
       bs <- liftIO $ useHandle r handleToByteString
@@ -143,7 +143,7 @@ loadGH3TextSetDLC :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m GH3
 loadGH3TextSetDLC f = case map toLower $ takeExtension f of
   ".pkg"  -> do
     usrdir <- stackIO ((.pkgFolder) <$> loadPKG f) >>= getDecryptedUSRDIR
-    fmap mconcat $ forM (map snd $ folderSubfolders usrdir) $ \dir -> do
+    fmap mconcat $ forM (map snd $ folderSubfolders usrdir) \dir -> do
       readGH3TextSetDLC $ first TE.decodeLatin1 dir
   ".edat" -> do
     -- search folder for any package metadata edats and try to load them
@@ -197,7 +197,7 @@ buildGH3TextSet prefs dlName lang paks = let
         , QBStructItemInteger810000 "num_tiers" 1
         , QBStructItemStruct8A0000 "tier1"
           [ QBStructHeader
-          , QBStructItemStringW "title" $ case lang of
+          , QBStructItemStringW "title" case lang of
             GH3English -> "Downloaded songs"
             GH3French  -> "Chansons téléchargées"
             GH3German  -> "Heruntergel. Songs"
@@ -207,7 +207,7 @@ buildGH3TextSet prefs dlName lang paks = let
           , if isAerosmith
             then QBStructItemInteger810000 "defaultunlocked" 4
             else QBStructItemQbKey8D0000 0 "unlockall"
-          , QBStructItemQbKey8D0000 "level" $ if isAerosmith
+          , QBStructItemQbKey8D0000 "level" if isAerosmith
             then "load_z_Nipmuc"
             else "load_z_artdeco"
           ]
@@ -323,7 +323,7 @@ combineGH3SongCachePS3Folder ins = do
         [ pak | (lang', pak) <- sets.languages, lang == lang' ]
   lg $ "Found " <> show (length engLog) <> " songs"
   forM_ engLog \line -> lg $ "- " <> T.unpack line
-  edats <- tempDir "onyx-gh3-ps3" $ \tmp -> do
+  edats <- tempDir "onyx-gh3-ps3" \tmp -> do
     let fin  = tmp </> "tmp.pak"
         fout = tmp </> "tmp.edat"
     fout' <- shortWindowsPath True fout
@@ -372,7 +372,7 @@ readGH3TextPakQB nodes = let
     Right (pair, qb) -> case getSonglistProps qb of
       []    -> Left pair
       songs -> Right songs
-  structs = concat $ flip map (concat $ rights sortedNodes') $ \case
+  structs = concat $ flip map (concat $ rights sortedNodes') \case
     QBStructItemStruct8A0000 k struct -> [(k, struct)] -- gh3
     QBStructItemStruct       k struct -> [(k, struct)] -- ghwt
     _                                 -> []
@@ -427,8 +427,8 @@ parseSongInfoGH3 songEntries = do
         QBStructItemStringW       k s | k == crc -> [s]                 -- 360
         QBStructItemString830000  k s | k == crc -> [TE.decodeLatin1 s] -- PS2
         _                                        -> []
-  gh3Title <- maybe (Left $ "parseSongInfoGH3: couldn't get song title") Right $ getString "title"
-  gh3Artist <- maybe (Left $ "parseSongInfoGH3: couldn't get song artist") Right $ getString "artist"
+  gh3Title <- maybe (Left "parseSongInfoGH3: couldn't get song title") Right $ getString "title"
+  gh3Artist <- maybe (Left "parseSongInfoGH3: couldn't get song artist") Right $ getString "artist"
   -- tutorial songs don't have a year
   let gh3Year = getString "year"
   gh3Singer <- case [ s | QBStructItemQbKey8D0000 "singer" s <- songEntries ] of
@@ -502,7 +502,7 @@ getGH3Dat :: Get GH3Dat
 getGH3Dat = do
   count <- getWord32be
   gh3DatLength <- getWord32be
-  gh3DatAudio <- replicateM (fromIntegral count) $ do
+  gh3DatAudio <- replicateM (fromIntegral count) do
     nameKey <- QBKey <$> getWord32be
     streamIndex <- getWord32be
     -- are these always zero?

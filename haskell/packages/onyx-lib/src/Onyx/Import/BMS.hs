@@ -43,7 +43,7 @@ processLongObj :: (NNC.C t) =>
   Maybe Chip -> RTB.T t (BMKey, Chip) -> RTB.T t (BMKey, Chip, Maybe t)
 processLongObj Nothing      chips = (\(key, chip) -> (key, chip, Nothing)) <$> chips
 processLongObj (Just lnobj) chips = let
-  eachKey = flip map [minBound .. maxBound] $ \key -> let
+  eachKey = flip map [minBound .. maxBound] \key -> let
     go = \case
       Wait t1 (_, c1) after1@(Wait t2 (_, c2) rest) -> if c2 == lnobj
         then Wait t1 (key, c1, Just t2) $ RTB.delay t2 $ go rest
@@ -88,7 +88,7 @@ importBMS bmsPath level = do
 
   chipAudio <- case level of
     ImportQuick -> return []
-    ImportFull -> fmap catMaybes $ forM (HM.toList bms.bms_WAV) $ \(chip, fp) -> do
+    ImportFull -> fmap catMaybes $ forM (HM.toList bms.bms_WAV) \(chip, fp) -> do
       msrc <- dtxAudioSource
         $ takeDirectory bmsPath
         </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
@@ -130,9 +130,9 @@ importBMS bmsPath level = do
 
       loadManiaTrack chips chipsLong = let
         short = flip fmap (processLongObj bms.bms_LNOBJ chips)
-          $ \(key, _, mlen) -> (key, mlen)
+          \(key, _, mlen) -> (key, mlen)
         long = flip fmap (joinLongNotes chipsLong)
-          $ \(key, _, len) -> (key, Just len)
+          \(key, _, len) -> (key, Just len)
         in RTB.merge short long
 
       player1, player2 :: RTB.T U.Beats (BMKey, Maybe U.Beats)
@@ -230,7 +230,7 @@ importBMS bmsPath level = do
   return SongYaml
     { metadata = def'
       -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
-      { title        = flip fmap bms.bms_TITLE $ \title -> title <> case bms.bms_SUBTITLE of
+      { title        = flip fmap bms.bms_TITLE \title -> title <> case bms.bms_SUBTITLE of
         Just sub -> " " <> sub
         Nothing -> case bms.bms_PLAYLEVEL of
           Nothing  -> ""

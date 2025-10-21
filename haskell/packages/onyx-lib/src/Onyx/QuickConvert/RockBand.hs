@@ -258,7 +258,7 @@ detectMIDI packageFolder r = do
 mapMFilesWithName :: (Monad m) => ((T.Text, a) -> m (T.Text, b)) -> Folder T.Text a -> m (Folder T.Text b)
 mapMFilesWithName f dir = do
   newFiles <- mapM f $ folderFiles dir
-  newSubs  <- forM (folderSubfolders dir) $ \(subName, sub) -> do
+  newSubs  <- forM (folderSubfolders dir) \(subName, sub) -> do
     sub' <- mapMFilesWithName f sub
     return (subName, sub')
   return Folder { folderFiles = newFiles, folderSubfolders = newSubs }
@@ -266,7 +266,7 @@ mapMFilesWithName f dir = do
 mapMaybeFolder :: (a -> Maybe b) -> Folder t a -> Folder t b
 mapMaybeFolder f dir = Folder
   { folderSubfolders = map (second $ mapMaybeFolder f) $ folderSubfolders dir
-  , folderFiles = flip mapMaybe (folderFiles dir) $ \(name, file) -> case f file of
+  , folderFiles = flip mapMaybe (folderFiles dir) \(name, file) -> case f file of
     Nothing    -> Nothing
     Just file' -> Just (name, file')
   }
@@ -282,7 +282,7 @@ loadQuickSongsLoose pathDTA = do
       Nothing -> fatal $ "Song folder not found in directory structure: " <> show qdta.qdtaFolder
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
-          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+          addSize size <$> case map toLower $ takeExtension $ T.unpack name of
             ".mogg"      -> (name,) <$> detectMOGG r
             ".milo_xbox" -> return (name, QFMilo r)
             ".milo_ps3"  -> return (name, QFMilo r)
@@ -313,7 +313,7 @@ loadQuickSongsPS3 packageName packageFolder = do
       Nothing -> fatal $ "Song folder not found in .pkg for " <> show (packageName, qdta.qdtaFolder)
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
-          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+          addSize size <$> case map toLower $ takeExtension $ T.unpack name of
             ".mogg"     -> (name,) <$> detectMOGG r
             ".milo_ps3" -> return (name, QFMilo r)
             ".png_ps3"  -> return (name, QFPNGPS3 r)
@@ -341,7 +341,7 @@ loadQuickSongsXbox folder = do
       Nothing -> fatal $ "Song folder not found in CON/LIVE: " <> show qdta.qdtaFolder
     let identifyFile (name, r) = do
           size <- stackIO $ useHandle r hFileSize
-          fmap (addSize size) $ case map toLower $ takeExtension $ T.unpack name of
+          addSize size <$> case map toLower $ takeExtension $ T.unpack name of
             ".mogg"      -> (name,) <$> detectMOGG r
             ".milo_xbox" -> return (name, QFMilo r)
             ".png_xbox"  -> return (name, QFPNGXbox r)
@@ -419,13 +419,13 @@ loadQuickSongsRBA fin = do
     ]
 
 loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickInput)
-loadQuickInput fin = inside ("Loading: " <> fin) $ case map toLower $ takeExtension fin of
+loadQuickInput fin = inside ("Loading: " <> fin) case map toLower $ takeExtension fin of
   ".pkg" -> errorToWarning do
     pkg <- stackIO $ loadPKG fin
     usr <- case findFolder ["USRDIR"] pkg.pkgFolder of
       Just dir -> return dir
       Nothing  -> fatal "No USRDIR found inside .pkg"
-    songs <- fmap concat $ forM (folderSubfolders usr) $ \(packageName, folder) -> do
+    songs <- fmap concat $ forM (folderSubfolders usr) \(packageName, folder) -> do
       loadQuickSongsPS3 packageName $ first TE.decodeLatin1 folder
     return QuickInput
       { quickInputPath   = fin
@@ -474,7 +474,7 @@ decryptEDAT crypt name r = tryDecryptEDAT crypt name r >>= \case
     Nothing -> fatal $ "Couldn't decrypt " <> show name
 
 encryptEDAT :: (MonadResource m) => B.ByteString -> B.ByteString -> Bool -> Readable -> StackTraceT m Readable
-encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" $ \tmp -> stackIO do
+encryptEDAT crypt name rb3 r = tempDir "onyxquickconv" \tmp -> stackIO do
   let cfg = if rb3
         then rb3CustomMidEdatConfig crypt
         else rb2CustomMidEdatConfig crypt
@@ -794,7 +794,7 @@ data QuickDolphinSettings = QuickDolphinSettings
   }
 
 saveQuickSongsDolphin :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickDolphinSettings -> FilePath -> StackTraceT m [FilePath]
-saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" $ \temp -> do
+saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" \temp -> do
   triples <- forM qsongs \qsong -> do
     lg $ T.unpack $ T.intercalate " - " $ concat
       [ toList qsong.quickSongDTA.qdtaArtist
@@ -869,7 +869,7 @@ glueDTA = let
 
 blackVenue :: Bool -> F.T B.ByteString -> F.T B.ByteString
 blackVenue isRB3 (F.Cons typ dvn trks) = let
-  black = U.setTrackName "VENUE" $ if isRB3
+  black = U.setTrackName "VENUE" if isRB3
     then RTB.fromPairList $ map (\s -> (0, E.MetaEvent $ Meta.TextEvent s))
       ["[lighting (blackout_fast)]", "[film_b+w.pp]", "[coop_all_far]"]
     else Wait 0 (E.MetaEvent $ Meta.TextEvent "[verse]")
@@ -1179,7 +1179,7 @@ enforceEncoding enc dta = let
 
 -- Old direct con to pkg, works with non-songs like pro upgrades
 conToPkg :: (SendMessage m, MonadResource m) => Bool -> FilePath -> FilePath -> StackTraceT m ()
-conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
+conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" \tmp -> do
   conFolder <- stackIO $ getSTFSFolder fin
   title <- stackIO $ withSTFSPackage fin $ return . T.concat . take 1 . (.stfsMetadata.md_DisplayName)
   let rbps3Folder = T.toUpper $ T.pack $ take 0x1B $ filter (\c -> isAlphaNum c && isAscii c)
@@ -1189,7 +1189,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
         else rb2CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
       rbps3ContentID = npdContentID rbps3EDATConfig
       adjustFiles folder = do
-        newFiles <- forM (folderFiles folder) $ \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
+        newFiles <- forM (folderFiles folder) \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
           ".mogg" -> stackIO do
             moggType <- useHandle r \h -> B.hGet h 1
             case B.unpack moggType of
@@ -1239,7 +1239,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" $ \tmp -> do
                 r' = makeHandle "" $ byteStringSimpleHandle b'
             return (name', r')
           _ -> return (name, r)
-        newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+        newSubs <- forM (folderSubfolders folder) \(name, sub) -> do
           sub' <- adjustFiles sub
           return (name, sub')
         return Folder { folderSubfolders = newSubs, folderFiles = newFiles }

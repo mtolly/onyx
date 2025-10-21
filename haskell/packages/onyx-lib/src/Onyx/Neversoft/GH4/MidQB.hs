@@ -126,7 +126,7 @@ parseGH4MidQB :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> StackT
 parseGH4MidQB dlc qb = do
 
   gh4TimeSignatures <- findSection qb (dlc <> "_timesig") listOfTriples
-  gh4FretBars       <- findSection qb (dlc <> "_fretbars") $ \case
+  gh4FretBars       <- findSection qb (dlc <> "_fretbars") \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfInteger ns  -> return ns
     _                    -> fatal "Expected array of integers for fretbars"
@@ -147,16 +147,16 @@ parseGH4MidQB dlc qb = do
   gh4HardDrumFill <- findSection qb (dlc <> "_hard_drumfill") listOfPairs
   gh4ExpertDrumFill <- findSection qb (dlc <> "_expert_drumfill") listOfPairs
 
-  gh4SongVocals <- findSection qb (dlc <> "_song_vocals") $ \case
+  gh4SongVocals <- findSection qb (dlc <> "_song_vocals") \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfInteger ns  -> groupBy3 ns
     _                    -> fatal "Expected array of integers for vocals notes"
   gh4VocalsFreeform <- findSection qb (dlc <> "_vocals_freeform") listOfTriples
-  gh4VocalsPhrases <- findSection qb (dlc <> "_vocals_phrases") $ \case
+  gh4VocalsPhrases <- findSection qb (dlc <> "_vocals_phrases") \case
     QBArrayOfFloatRaw [] -> return []
     QBArrayOfInteger ns  -> groupBy2 ns
     _                    -> fatal "Expected array of integers for vocals phrases"
-  gh4VocalsNoteRange <- findSection qb (dlc <> "_vocals_note_range") $ \case
+  gh4VocalsNoteRange <- findSection qb (dlc <> "_vocals_note_range") \case
     QBArrayOfInteger [x, y] -> return (x, y)
     _                       -> fatal "Unexpected vocals note range contents, expected array of 2 integers"
   gh4Lyrics <- findSection qb (dlc <> "_lyrics") parseLyrics
@@ -167,7 +167,7 @@ parseGH4MidQB dlc qb = do
 parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> B.ByteString -> StackTraceT m GH4Part
 parsePart dlc qb part = let
   parseTrack diff = do
-    gh4Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) $ \case
+    gh4Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) \case
       QBArrayOfFloatRaw [] -> return []
       QBArrayOfInteger ns  -> groupBy2 ns
       _                    -> fatal "Expected array of integers for notes"

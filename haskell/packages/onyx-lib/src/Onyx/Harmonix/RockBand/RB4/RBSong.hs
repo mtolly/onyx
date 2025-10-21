@@ -118,12 +118,12 @@ getEntityResource :: Get EntityResource
 getEntityResource = do
   version <- getInt32le
   -- Maxton's code went up to 0x11, MT: changed to 0x12 for juice.rbsong
-  when (version < 0xC || version > 0x12) $ do
+  when (version < 0xC || version > 0x12) do
     fail $ "Can't handle EntityResource version " <> show version
   inlineLayerNames <- getArray getString
-  when (version >= 0xF) $ do
+  when (version >= 0xF) do
     _unk0 <- getInt32le
-    when (version >= 0x10) $ do
+    when (version >= 0x10) do
       _unk1 <- getInt32le
       return ()
   entity <- getEntity
@@ -152,7 +152,7 @@ getEntity = do
         else do
           _arraySize <- getInt16le
           return 1
-  replicateM_ (fromIntegral numLayers) $ do
+  replicateM_ (fromIntegral numLayers) do
     if version < 8
       then do
         when (version >= 7) $ void getInt16le -- layer_field_28
@@ -161,7 +161,7 @@ getEntity = do
         when (propArrayBaseSize > 0) $ fail "Version < 8 should load objs here"
       else when (version <= 11) $ void getString -- layer_name
   when (version < 8) $ fail "Version < 8 not implemented"
-  layers <- forM [0 .. numLayers - 1] $ \i -> do
+  layers <- forM [0 .. numLayers - 1] \i -> do
     layer <- getEntityLayer i version
     inlineResources <- if version >= 0xC
       then Just <$> loadInlineResources
@@ -181,7 +181,7 @@ loadInlineResources = do
       getInt32le
     else return versionOrig
   count <- getInt32le
-  replicateM (fromIntegral count) $ do
+  replicateM (fromIntegral count) do
     type_ <- getString
     path <- getString
     contents <- case type_ of
@@ -247,7 +247,7 @@ getObject layerVersion = do
           return GameObject{..}
         else do
           numChildren <- getInt32le
-          components <- replicateM (fromIntegral numChildren) $ do
+          components <- replicateM (fromIntegral numChildren) do
             getComponent rev layerVersion
           return GameObject{..}
 
@@ -327,7 +327,7 @@ getPropertyType = do
 getPropertyReaders :: Get [(B.ByteString, Get Value)]
 getPropertyReaders = do
   numProps <- getInt32le
-  replicateM (fromIntegral numProps) $ do
+  replicateM (fromIntegral numProps) do
     name <- getString
     reader <- getPropertyType
     return (name, reader)
@@ -352,13 +352,13 @@ getRBSongLipsync res = let
     let visemes = do
           prop <- comp.props
           guard $ prop.name == "visemes"
-          ArrayValue arr <- return $ prop.value
+          ArrayValue arr <- return prop.value
           SymbolValue sym <- arr
           return sym
         keyframeData = BL.pack do
           prop <- comp.props
           guard $ prop.name == "data"
-          ArrayValue arr <- return $ prop.value
+          ArrayValue arr <- return prop.value
           ByteValue b <- arr
           return b
     return (lipsyncName, visemes, keyframeData)
@@ -366,7 +366,7 @@ getRBSongLipsync res = let
     True -> return $ reverse prev
     False -> do
       eventCount <- getWord8
-      keyframeEvents <- replicateM (fromIntegral eventCount) $ do
+      keyframeEvents <- replicateM (fromIntegral eventCount) do
         visemeKey <- fromIntegral <$> getWord8
         visemeWeight <- getWord8
         let visemeGraph = ()

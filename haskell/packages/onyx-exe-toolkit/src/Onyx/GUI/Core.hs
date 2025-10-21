@@ -189,7 +189,7 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
     input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
     FL.setTooltip input $ T.unlines
       [ "Template for where to create new files."
@@ -332,9 +332,9 @@ centerFixed rect makeChildren = do
       myResize this rect' = do
         FL.resizeWidgetBase (FL.safeCast this) rect'
         children <- FL.children this
-        forM_ [0 .. children - 1] $ \i -> do
+        forM_ [0 .. children - 1] \i -> do
           mcw <- FL.getChild this $ FL.AtIndex i
-          forM_ mcw $ \cw -> do
+          forM_ mcw \cw -> do
             newX <- centerX this cw
             newY <- centerY this cw
             newW <- FL.getW cw
@@ -363,7 +363,7 @@ horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Mayb
 horizRadio' _    _  []   = error "horizRadio: empty option list"
 horizRadio' rect cb opts = do
   let rects = splitHorizN (length opts) rect
-  btns <- forM (zip opts rects) $ \((label, _, b), rectButton) -> do
+  btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
     btn <- FL.roundButtonNew rectButton $ Just label
     void $ FL.setValue btn b
     return btn
@@ -851,7 +851,7 @@ partSelectors rect proj slots = let
       choice <- FL.choiceNew r' $ Just lbl
       FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
       FL.addName choice "(none)"
-      forM_ fparts' $ \(_, opt, _) -> FL.addName choice opt
+      forM_ fparts' \(_, opt, _) -> FL.addName choice opt
       void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
         case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
           Nothing -> 0 -- (none)

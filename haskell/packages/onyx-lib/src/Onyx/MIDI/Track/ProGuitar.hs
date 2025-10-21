@@ -309,14 +309,14 @@ instance ParseTrack ProGuitarTrack where
     pgMystery45    <- (.pgMystery45) =. edges 45
     pgMystery69    <- (.pgMystery69) =. edges 69
     pgMystery93    <- (.pgMystery93) =. edges 93
-    pgDifficulties <- (=.) (.pgDifficulties) $ eachKey each \diff -> fatBlips (1/8) $ do
+    pgDifficulties <- (=.) (.pgDifficulties) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 24
             Medium -> 48
             Hard   -> 72
             Expert -> 96
       chordSnap [base - 2 .. base + 5]
-      pgNotes        <- (=.) (.pgNotes) $ let
+      pgNotes        <- (.pgNotes) =. let
         fs = \case
           EdgeOn fret (str, nt) -> (str, (nt, Just $ fret + 100))
           EdgeOff (str, nt)     -> (str, (nt, Nothing))
@@ -528,7 +528,7 @@ computeChordNames diff tuning flatDefault pg = let
   overrides = let
     go evs = case lefts evs of
       []           -> rights evs
-      override : _ -> map (fmap $ \cd -> cd { chordName = fromMaybe "" override }) $ rights evs
+      override : _ -> map (fmap \cd -> cd { chordName = fromMaybe "" override }) $ rights evs
     in RTB.flatten . fmap go . RTB.collectCoincident . RTB.merge (Left <$> pgd.pgChordName) . fmap Right
 
   -- The same chord strummed multiple times will keep the chord name next to
@@ -584,7 +584,7 @@ autoHandPosition pg = if RTB.null pg.pgHandPosition
       return $ flip RTB.mapMaybe pgd.pgNotes \case
         EdgeOn fret _ -> Just fret
         EdgeOff _     -> Nothing
-    posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
+    posns = flip fmap (RTB.collectCoincident frets) \fs ->
       case filter (/= 0) fs of
         []     -> 0
         f : ft -> foldr min f ft
@@ -606,7 +606,7 @@ autoChordRoot tuning pg = if RTB.null pg.pgChordRoot
       return $ flip RTB.mapMaybe pgd.pgNotes \case
         EdgeOn fret (str, _) -> Just (diff, getPitch str fret)
         EdgeOff _            -> Nothing
-    roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns -> let
+    roots = flip RTB.mapMaybe (RTB.collectCoincident notes) \ns -> let
       findChord diff = case map snd $ filter ((== diff) . fst) ns of
         p : ps@(_ : _) -> Just $ toEnum $ foldr min p ps `rem` 12
         _              -> case diff of

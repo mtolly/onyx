@@ -126,14 +126,15 @@ instance ParseTrack LightingTrack where
       Lighting_flare_slow       -> 15
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
-    lightingStrobe <- ((.lightingStrobe) =.) $ let
+    lightingStrobe <- (.lightingStrobe) =. let
       fs = fmap \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
       fp = fmap \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
       in dimap fs fp $ edgesCV 8
-    lightingCommands <- ((.lightingCommands) =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
-      LightingFirst -> 32
-      LightingPrev  -> 31
-      LightingNext  -> 30
+    lightingCommands <- (.lightingCommands) =. do
+      fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
+        LightingFirst -> 32
+        LightingPrev  -> 31
+        LightingNext  -> 30
     lightingBonusFX         <- (.lightingBonusFX        ) =. fatBlips (1/8) (blip 11)
     lightingBonusFXOptional <- (.lightingBonusFXOptional) =. fatBlips (1/8) (blip 10)
     return LightingTrack{..}
@@ -194,7 +195,7 @@ applyStrobeNotes lt = let
     Wait dt (Strobe speed len) rest -> let
       rest' = U.trackDrop len rest
       immediateSwitch = not $ null $ U.trackTakeZero rest'
-      stepLength = (/ 2) $ case speed of
+      stepLength = (/ 2) case speed of
         Strobe4         -> 1
         Strobe8         -> 1/2
         Strobe16        -> 1/4
@@ -446,7 +447,7 @@ unbuildCamera lastLen vt = CameraTrack
     -- each set of cuts, just make it a note that extends to the next set of cuts
     pairs = RTB.toPairList $ RTB.collectCoincident vt.venueCameraRB3
     lens = drop 1 (map fst pairs) ++ [lastLen]
-    in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) $ \((dt, cuts), len) ->
+    in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) \((dt, cuts), len) ->
       (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])
     -- TODO this makes repeated directed cuts look weird, should fix
   , cameraRandom = RTB.empty

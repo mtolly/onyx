@@ -94,8 +94,8 @@ readPSARCFolder readable = do
     tocEnc <- B.hGet h $ fromIntegral hdr.hdr_tocLength - 32
     toc <- decryptPSARCTable' tocEnc
     return (hdr, toc, SH.handleLabel h)
-  (toc, zlengths) <- return $ flip runGet (BL.fromStrict tocBytes) $ do
-    toc <- replicateM (fromIntegral hdr.hdr_tocEntries) $ do
+  (toc, zlengths) <- return $ flip runGet (BL.fromStrict tocBytes) do
+    toc <- replicateM (fromIntegral hdr.hdr_tocEntries) do
       codecIn (bin :: BinaryCodec TOCEntry)
     let getZLengths = isEmpty >>= \case
           True  -> return []

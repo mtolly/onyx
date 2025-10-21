@@ -103,7 +103,7 @@ readBMSLines lns = BMS
       = U.measureMapFromLengths U.Error
       $ assembleMMap
       $ map getBarLength [0 .. maxBar]
-    getBarLength n = maybe 4 (* 4) $ do
+    getBarLength n = maybe 4 (* 4) do
       obj <- Map.lookup n objects
       lens <- HM.lookup "02" obj
       listToMaybe lens >>= textFloat
@@ -137,4 +137,4 @@ readBMSLines lns = BMS
       let chan = getChannel $ T.pack [c, col]
           edges = zip (cycle [True, False]) $ RTB.toPairList chan
       return $ RTB.fromPairList $ flip fmap edges
-        $ \(edge, (dt, chip)) -> (dt, (key, chip, edge))
+        \(edge, (dt, chip)) -> (dt, (key, chip, edge))

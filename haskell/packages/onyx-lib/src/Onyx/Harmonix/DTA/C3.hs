@@ -116,7 +116,7 @@ removeOldDTAKeys = filter \case
 -- | Ignore DTA scripts used in songs such as TBRB's All You Need Is Love,
 -- as well as songs produced by the TBRB Custom DLC Project.
 skipScripting :: [D.Chunk T.Text] -> [D.Chunk T.Text]
-skipScripting = map $ \chunk -> case chunk of
+skipScripting = map \chunk -> case chunk of
   D.Braces (D.Tree _ (D.Sym "do" : xs)) -> case reverse xs of
     val : _ -> val
     []      -> chunk
@@ -196,8 +196,8 @@ readDTASingle (bytes, chunk) = do
 readDTASingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
 readDTASingles bs = do
   songs <- D.readDTASections bs
-  fmap catMaybes $ forM (zip [1..] songs) $ \(i, pair) -> do
-    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
+  fmap catMaybes $ forM (zip [1..] songs) \(i, pair) -> do
+    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") do
       errorToWarning $ readDTASingle pair
 
 readDTBSingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
@@ -207,12 +207,12 @@ readDTBSingles bs = do
     then BL.fromStrict bs
     else D.decrypt D.newCrypt $ BL.fromStrict bs
   let songs = dta.topTree.treeChunks
-  fmap catMaybes $ forM (zip [1..] songs) $ \(i, chunk) -> do
-    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
+  fmap catMaybes $ forM (zip [1..] songs) \(i, chunk) -> do
+    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") do
       errorToWarning $ readDTASingle (B.empty, chunk)
 
 readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]
-readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) $ do
+readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) do
   stackIO (B.readFile file) >>= readDTASingles
 
 --- | Returns @(short song name, DTA file contents, is UTF8)@

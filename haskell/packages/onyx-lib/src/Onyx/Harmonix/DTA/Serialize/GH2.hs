@@ -31,7 +31,7 @@ data Song = Song
   } deriving (Eq, Show)
 
 instance StackChunks Song where
-  stackChunks = asWarnAssoc "Song" $ do
+  stackChunks = asWarnAssoc "Song" do
     songName      <- (.songName)      =. req         "name"           (single chunkString)
     tracks        <- (.tracks)        =. req         "tracks"         (chunksParens $ chunksDictList chunkSym channelList)
     pans          <- (.pans)          =. req         "pans"           (chunksParens stackChunks)
@@ -110,7 +110,7 @@ data Quickplay = Quickplay
   } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance StackChunks Quickplay where
-  stackChunks = asWarnAssoc "Quickplay" $ do
+  stackChunks = asWarnAssoc "Quickplay" do
     characterOutfit <- (.characterOutfit) =. req "character_outfit" stackChunks
     guitar          <- (.guitar)          =. req "guitar"           stackChunks
     venue           <- (.venue)           =. req "venue"            stackChunks
@@ -159,7 +159,7 @@ data SongPackage = SongPackage
   } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
-  stackChunks = asWarnAssoc "SongPackage" $ do
+  stackChunks = asWarnAssoc "SongPackage" do
     name           <- (.name)           =. req         "name"            (single chunkString)
     artist         <- (.artist)         =. req         "artist"          (single chunkString)
     caption        <- (.caption)        =. opt Nothing "caption"         (chunksMaybe $ single chunkSym)

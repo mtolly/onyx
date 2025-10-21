@@ -37,7 +37,7 @@ getMIDI = do
   case chunks of
     ("MThd", headerDataStart, header, _) : rest -> do
       (fmt, ntrks, dvn) <- runGetMOffset headerDataStart getHeader header
-      tracks <- forM [(n, chunk) | ("MTrk", n, chunk, _) <- rest] $ \(chunkDataStart, chunk) -> do
+      tracks <- forM [(n, chunk) | ("MTrk", n, chunk, _) <- rest] \(chunkDataStart, chunk) -> do
         runGetMOffset chunkDataStart getTrack chunk
       let warnings = do
             (cid, chunkDataStart, _, maybeWarning) <- rest

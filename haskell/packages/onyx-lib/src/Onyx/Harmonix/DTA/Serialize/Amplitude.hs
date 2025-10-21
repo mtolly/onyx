@@ -72,7 +72,7 @@ cleanAssoc cdc = cdc
   }
 
 instance StackChunks Song where
-  stackChunks = cleanAssoc $ asStrictAssoc "Song" $ do
+  stackChunks = cleanAssoc $ asStrictAssoc "Song" do
     mogg_path          <- (.mogg_path          ) =. req "mogg_path"           (single chunkSym)
     midi_path          <- (.midi_path          ) =. req "midi_path"           (single chunkSym)
     song_info          <- (.song_info          ) =. req "song_info"           stackChunks
@@ -119,7 +119,7 @@ chunkBarBeatTick = Codec
   }
 
 instance StackChunks SongInfo where
-  stackChunks = cleanAssoc $ asStrictAssoc "SongInfo" $ do
+  stackChunks = cleanAssoc $ asStrictAssoc "SongInfo" do
     length_ <- (.length_) =. req "length" (single chunkBarBeatTick)
     countin <- (.countin) =. req "countin" stackChunks
     return SongInfo{..}

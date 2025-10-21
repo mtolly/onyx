@@ -42,7 +42,7 @@ stackColor = Codec
   }
 
 stackXYZ :: (SendMessage m) => JSONCodec m (V3 Float)
-stackXYZ = asObject "(x,y,z) triple" $ do
+stackXYZ = asObject "(x,y,z) triple" do
   x <- (\(V3 x _ _) -> x) =. req "x" stackJSON
   y <- (\(V3 _ y _) -> y) =. req "y" stackJSON
   z <- (\(V3 _ _ z) -> z) =. req "z" stackJSON
@@ -56,7 +56,7 @@ data Config = Config
   } deriving (Show)
 
 instance StackJSON Config where
-  stackJSON = asObject "Config" $ do
+  stackJSON = asObject "Config" do
     view    <- (.view   ) =. req "view"    stackJSON
     track   <- (.track  ) =. req "track"   stackJSON
     objects <- (.objects) =. req "objects" stackJSON
@@ -71,7 +71,7 @@ data View = View
   } deriving (Show)
 
 instance StackJSON View where
-  stackJSON = asObject "View" $ do
+  stackJSON = asObject "View" do
     background         <- (.background        ) =. req "background"         stackColor
     track_fade         <- (.track_fade        ) =. req "track-fade"         stackJSON
     height_width_ratio <- (.height_width_ratio) =. req "height-width-ratio" stackJSON
@@ -84,7 +84,7 @@ data TrackFade = TrackFade
   } deriving (Show)
 
 instance StackJSON TrackFade where
-  stackJSON = asObject "TrackFade" $ do
+  stackJSON = asObject "TrackFade" do
     bottom <- (.bottom) =. req "bottom" stackJSON
     top    <- (.top   ) =. req "top"    stackJSON
     return TrackFade{..}
@@ -98,7 +98,7 @@ data Camera = Camera
   } deriving (Show)
 
 instance StackJSON Camera where
-  stackJSON = asObject "Camera" $ do
+  stackJSON = asObject "Camera" do
     position <- (.position) =. req "position" stackXYZ
     rotate   <- (.rotate  ) =. req "rotate"   stackJSON
     fov      <- (.fov     ) =. req "fov"      stackJSON
@@ -118,7 +118,7 @@ data Track = Track
   } deriving (Show)
 
 instance StackJSON Track where
-  stackJSON = asObject "Track" $ do
+  stackJSON = asObject "Track" do
     y         <- (.y        ) =. req "y"         stackJSON
     note_area <- (.note_area) =. req "note-area" stackJSON
     time      <- (.time     ) =. req "time"      stackJSON
@@ -135,7 +135,7 @@ data NoteArea = NoteArea
   } deriving (Show)
 
 instance StackJSON NoteArea where
-  stackJSON = asObject "NoteArea" $ do
+  stackJSON = asObject "NoteArea" do
     x_left  <- (.x_left ) =. req "x-left"  stackJSON
     x_right <- (.x_right) =. req "x-right" stackJSON
     return NoteArea{..}
@@ -148,7 +148,7 @@ data TrackTime = TrackTime
   } deriving (Show)
 
 instance StackJSON TrackTime where
-  stackJSON = asObject "TrackTime" $ do
+  stackJSON = asObject "TrackTime" do
     z_past      <- (.z_past     ) =. req "z-past"      stackJSON
     z_now       <- (.z_now      ) =. req "z-now"       stackJSON
     z_future    <- (.z_future   ) =. req "z-future"    stackJSON
@@ -161,7 +161,7 @@ data TrackColor = TrackColor
   } deriving (Show)
 
 instance StackJSON TrackColor where
-  stackJSON = asObject "TrackColor" $ do
+  stackJSON = asObject "TrackColor" do
     normal <- (.normal) =. req "normal" stackColor
     solo   <- (.solo  ) =. req "solo"   stackColor
     return TrackColor{..}
@@ -174,7 +174,7 @@ data Railings = Railings
   } deriving (Show)
 
 instance StackJSON Railings where
-  stackJSON = asObject "Railings" $ do
+  stackJSON = asObject "Railings" do
     color    <- (.color   ) =. req "color"    stackColor
     x_width  <- (.x_width ) =. req "x-width"  stackJSON
     y_top    <- (.y_top   ) =. req "y-top"    stackJSON
@@ -187,7 +187,7 @@ data Beats = Beats
   } deriving (Show)
 
 instance StackJSON Beats where
-  stackJSON = asObject "Beats" $ do
+  stackJSON = asObject "Beats" do
     z_past   <- (.z_past  ) =. req "z-past"   stackJSON
     z_future <- (.z_future) =. req "z-future" stackJSON
     return Beats{..}
@@ -199,7 +199,7 @@ data Targets = Targets
   } deriving (Show)
 
 instance StackJSON Targets where
-  stackJSON = asObject "Targets" $ do
+  stackJSON = asObject "Targets" do
     z_past     <- (.z_past    ) =. req "z-past"     stackJSON
     z_future   <- (.z_future  ) =. req "z-future"   stackJSON
     secs_light <- (.secs_light) =. req "secs-light" stackJSON
@@ -213,7 +213,7 @@ data Light = Light
   } deriving (Show, Generic)
 
 instance StackJSON Light where
-  stackJSON = asObject "Light" $ do
+  stackJSON = asObject "Light" do
     position <- (.position) =. req "position" stackXYZ
     ambient  <- (.ambient ) =. req "ambient"  stackColor
     diffuse  <- (.diffuse ) =. req "diffuse"  stackColor
@@ -226,7 +226,7 @@ data Objects = Objects
   } deriving (Show)
 
 instance StackJSON Objects where
-  stackJSON = asObject "Objects" $ do
+  stackJSON = asObject "Objects" do
     gems     <- (.gems    ) =. req "gems"     stackJSON
     sustains <- (.sustains) =. req "sustains" stackJSON
     return Objects{..}
@@ -238,7 +238,7 @@ data Gems = Gems
   } deriving (Show)
 
 instance StackJSON Gems where
-  stackJSON = asObject "Gems" $ do
+  stackJSON = asObject "Gems" do
     color_hit <- (.color_hit) =. req "color-hit" stackColor
     secs_fade <- (.secs_fade) =. req "secs-fade" stackJSON
     light     <- (.light    ) =. req "light"     stackJSON
@@ -251,7 +251,7 @@ data Sustains = Sustains
   } deriving (Show)
 
 instance StackJSON Sustains where
-  stackJSON = asObject "Sustains" $ do
+  stackJSON = asObject "Sustains" do
     colors <- (.colors) =. req "colors" stackJSON
     width  <- (.width ) =. req "width"  stackJSON
     height <- (.height) =. req "height" stackJSON
@@ -269,7 +269,7 @@ data SustainColors = SustainColors
   } deriving (Show)
 
 instance StackJSON SustainColors where
-  stackJSON = asObject "SustainColors" $ do
+  stackJSON = asObject "SustainColors" do
     open   <- (.open  ) =. req "open"   stackColor
     green  <- (.green ) =. req "green"  stackColor
     red    <- (.red   ) =. req "red"    stackColor
@@ -286,7 +286,7 @@ data SustainWidth = SustainWidth
   } deriving (Show)
 
 instance StackJSON SustainWidth where
-  stackJSON = asObject "SustainWidth" $ do
+  stackJSON = asObject "SustainWidth" do
     open <- (.open) =. req "open" stackJSON
     fret <- (.fret) =. req "fret" stackJSON
     return SustainWidth{..}
@@ -298,7 +298,7 @@ data TextConfig = TextConfig
   } deriving (Show)
 
 instance StackJSON TextConfig where
-  stackJSON = asObject "TextConfig" $ do
+  stackJSON = asObject "TextConfig" do
     timeBox    <- (.timeBox   ) =. req "time-box"    stackJSON
     trackLabel <- (.trackLabel) =. req "track-label" stackJSON
     lyrics     <- (.lyrics    ) =. req "lyrics"      stackJSON
@@ -311,7 +311,7 @@ data FontConfig = FontConfig
   } deriving (Show)
 
 instance StackJSON FontConfig where
-  stackJSON = asObject "FontConfig" $ do
+  stackJSON = asObject "FontConfig" do
     font   <- (.font  ) =. req "font"   stackJSON
     size   <- (.size  ) =. req "size"   stackJSON
     margin <- (.margin) =. req "margin" stackJSON

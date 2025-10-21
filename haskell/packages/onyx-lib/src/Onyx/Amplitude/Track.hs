@@ -34,7 +34,7 @@ data Gem = L | M | R
 
 instance ParseTrack CatchTrack where
   parseTrack = do
-    catchDifficulties <- (catchDifficulties =.) $ eachKey each \diff -> fatBlips (1/8) $ do
+    catchDifficulties <- (catchDifficulties =.) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 96  -- beginner
             Medium -> 102 -- intermediate

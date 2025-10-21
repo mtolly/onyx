@@ -116,8 +116,8 @@ osOpenFile f = liftIO $ withCWString f \wstr -> do
 
 osShowFolder dir [] = osOpenFile dir
 osShowFolder dir fs = liftIO $
-  withCWString dir $ \cdir ->
-  withMany withCWString fs $ \cfiles ->
+  withCWString dir \cdir ->
+  withMany withCWString fs \cfiles ->
   withArrayLen cfiles \len pcfiles ->
   c_ShowFiles cdir pcfiles $ fromIntegral len
 
@@ -142,7 +142,7 @@ foreign import ccall safe "onyx_ShowFiles"
 
 osShowFolder dir [] = osOpenFile dir
 osShowFolder _   fs = do
-  liftIO $ withMany withCString fs $ \cstrs -> do
+  liftIO $ withMany withCString fs \cstrs -> do
     withArrayLen cstrs \len pcstrs -> do
       c_ShowFiles pcstrs $ fromIntegral len
 

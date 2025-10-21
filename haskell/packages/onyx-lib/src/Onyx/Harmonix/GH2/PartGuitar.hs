@@ -116,7 +116,7 @@ instance ParseTrack PartTrack where
     partIdle     <- (.partIdle)     =. commandMatch ["idle"]
     partPlay     <- (.partPlay)     =. commandMatch ["play"]
     partFretPosition <- ((.partFretPosition) =.) $ condenseMap $ eachKey each
-      $ \posn -> edges $ fromEnum posn + 40
+      \posn -> edges $ fromEnum posn + 40
     partWail <- ((.partWail) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["wail_on"]
       False -> ["wail_off"]

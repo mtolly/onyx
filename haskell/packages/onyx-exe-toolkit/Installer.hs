@@ -45,7 +45,7 @@ main = getArgs >>= \args -> case args of
 
     -- Make sure I wrote up the changes for this version
     changes <- readUTF8 "CHANGES.md"
-    unless (versionString `T.isInfixOf` changes) $ do
+    unless (versionString `T.isInfixOf` changes) do
       error $ "No changelog written for version " ++ versionString
 
   ["version-print"] -> do
@@ -75,7 +75,7 @@ main = getArgs >>= \args -> case args of
         go [] dlls = return dlls
     dlls <- go [takeFileName exe] Set.empty
     alldlls <- filter ((== ".dll") . takeExtension) <$> listDirectory dir
-    forM_ (filter (`Set.notMember` dlls) alldlls) $ \dll -> do
+    forM_ (filter (`Set.notMember` dlls) alldlls) \dll -> do
       removeFile $ dir </> dll
 
   ["nsis"] -> writeFile "installer.nsi" $ nsis do
@@ -92,7 +92,7 @@ main = getArgs >>= \args -> case args of
     page Directory
     page InstFiles
     -- hack to run onyx without admin privilege so drag and drop works
-    event "LaunchApplication" $ do
+    event "LaunchApplication" do
       exec "\"$WINDIR/explorer.exe\" \"$INSTDIR/onyx.exe\""
     unsafeInjectGlobal "!define MUI_FINISHPAGE_RUN_FUNCTION LaunchApplication"
     page $ Finish finishOptions
@@ -106,7 +106,7 @@ main = getArgs >>= \args -> case args of
     unpage Confirm
     unpage InstFiles
 
-    _ <- section "Onyx" [Required] $ do
+    _ <- section "Onyx" [Required] do
       setOutPath "$INSTDIR"
       -- delete existing resource folder and older resource locations
       rmdir [Recursive] "$INSTDIR/onyx-resource"
@@ -130,7 +130,7 @@ main = getArgs >>= \args -> case args of
       writeRegDWORD HKLM "Software/Microsoft/Windows/CurrentVersion/Uninstall/OnyxToolkit" "NoRepair" 1
       writeUninstaller "uninstall.exe"
 
-    _ <- section "Start Menu Shortcuts" [] $ do
+    _ <- section "Start Menu Shortcuts" [] do
       createDirectory "$SMPROGRAMS/Onyx Music Game Toolkit"
       createShortcut "$SMPROGRAMS/Onyx Music Game Toolkit/Uninstall.lnk"
         [ Target "$INSTDIR/uninstall.exe"

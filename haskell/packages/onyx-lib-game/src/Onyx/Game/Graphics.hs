@@ -118,7 +118,7 @@ drawObject gl obj posn colorSource alpha lightOffset = do
         Model modelID -> fromMaybe (gl.flatObject { objVertexCount = 0 })
           $ lookup modelID gl.models
   glBindVertexArray thisObject.objVAO
-  sendUniformName gl.objectShader "model" $ case posn of
+  sendUniformName gl.objectShader "model" case posn of
     ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2) -> let
       yScale = case obj of
         Flat -> 1 -- so we don't try to scale by 0 since y1 == y2
@@ -342,7 +342,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
           ED.Kick () -> (x2' - x1') / 2
           _          -> 0.5 / 2
         xPairs = case note.tdn_extra of
-          ED.Flam -> map (, obj) $ case note.tdn_gem of
+          ED.Flam -> map (, obj) case note.tdn_gem of
             ED.Kick () -> [(x1', x1' + (x2' - x1') * (1/3)), (x1' + (x2' - x1') * (2/3), x2')]
             _          -> let
               -- make 2 slightly narrower notes, and adjust to keep it within the track
@@ -398,7 +398,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
         , (     [ED.CrashR], TextureTargetGreen       , TextureTargetGreenLight       , Just if layoutRightNearCrash then V4 0 0 0 0.2 else V4 1 1 1 0.2)
         ]
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gl.gfxConfig.track.color
@@ -508,15 +508,15 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
         let lanes = Map.toList cs.inner.lanes
             bre = cs.bre
         -- draw following lanes
-        forM_ lanes \(pad, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        forM_ lanes \(pad, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           drawLane thisTime nextTime pad
-        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           mapM_ (drawLane thisTime nextTime) [ED.Snare, ED.Hihat, ED.CrashL, ED.Tom1, ED.Tom2, ED.Tom3, ED.CrashR, ED.Ride]
         -- draw past lanes if rest is empty
-        when (null rest) $ do
-          forM_ lanes \(pad, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (null rest) do
+          forM_ lanes \(pad, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             drawLane nearTime thisTime pad
-          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             mapM_ (drawLane nearTime thisTime) [ED.Snare, ED.Hihat, ED.CrashL, ED.Tom1, ED.Tom2, ED.Tom3, ED.CrashR, ED.Ride]
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
@@ -531,7 +531,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
         pad = note.gem
         (colorsYes, colorsNo) = partition (\(pads, _, _, _) -> elem pad pads) colors
         alpha = 1 - realToFrac (nowTime - t) / gl.gfxConfig.track.targets.secs_light
-        in when (t > nearTime) $ do
+        in when (t > nearTime) do
           forM_ colorsYes \(pads, _, light, _) -> let
             x1 = minimum $ map (fst . gemBounds) pads
             x2 = minimum $ map (snd . gemBounds) pads
@@ -714,7 +714,7 @@ drawDrumPlay gl nowTime speed mode dps = do
         z2 = gl.gfxConfig.track.targets.z_future
         in draw Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gl.gfxConfig.track.color
@@ -806,20 +806,20 @@ drawDrumPlay gl nowTime speed mode dps = do
         let lanes = Map.toList cs.inner.lanes
             bre = cs.bre
         -- draw following lanes
-        forM_ lanes \(pad, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        forM_ lanes \(pad, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           drawLane thisTime nextTime pad
-        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           mapM_ (drawLane thisTime nextTime) [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Pro D.Green D.Tom]
         -- draw past lanes if rest is empty
-        when (null rest) $ do
-          forM_ lanes \(pad, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (null rest) do
+          forM_ lanes \(pad, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             drawLane nearTime thisTime pad
-          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             mapM_ (drawLane nearTime thisTime) [D.Red, D.Pro D.Yellow D.Tom, D.Pro D.Blue D.Tom, D.Pro D.Green D.Tom]
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
   -- draw target
-  mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $ zip [0..] $ case mode of
+  mapM_ (\(i, tex) -> drawTargetSquare i tex 1) $ zip [0..] case mode of
     Drums5 -> [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetOrange, TextureTargetGreen]
     _      -> [TextureTargetRed, TextureTargetYellow, TextureTargetBlue, TextureTargetGreen]
   let drawLights [] _ = return ()
@@ -827,10 +827,10 @@ drawDrumPlay gl nowTime speed mode dps = do
       drawLights ((t, pad) : states) colors = let
         (colorsYes, colorsNo) = partition (\(_, _, pads) -> elem pad pads) colors
         alpha = 1 - realToFrac (nowTime - t) / gl.gfxConfig.track.targets.secs_light
-        in when (t > nearTime) $ do
+        in when (t > nearTime) do
           forM_ colorsYes \(i, light, _) -> drawTargetSquare i light alpha
           drawLights states colorsNo
-  drawLights [ (t, pad) | (t, (res, _)) <- dps.events, Just ((pad, _vel), _) <- [res.hit] ] $ if gl.leftyFlip
+  drawLights [ (t, pad) | (t, (res, _)) <- dps.events, Just ((pad, _vel), _) <- [res.hit] ] if gl.leftyFlip
     then case mode of
       Drums5 ->
         [ (0, TextureTargetRedLight   , [D.Pro D.Green  D.Tom, D.Pro D.Green  D.Cymbal])
@@ -982,7 +982,7 @@ drawFivePlay gl nowTime speed gps = do
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList cs.inner.notes
         -- draw following sustain
-        forM_ notes \(color, pnf) -> forM_ (getFuture pnf) $ \sust -> do
+        forM_ notes \(color, pnf) -> forM_ (getFuture pnf) \sust -> do
           drawSustain thisTime nextTime sust.overdrive color
         -- draw note
         let thisOD = case cs.overdrive of
@@ -990,7 +990,7 @@ drawFivePlay gl nowTime speed gps = do
               ToggleEnd () -> False
               _            -> True
             fadeTime = gl.gfxConfig.objects.gems.secs_fade
-        forM_ notes \(color, pnf) -> forM_ (getNow pnf) $ \sht ->
+        forM_ notes \(color, pnf) -> forM_ (getNow pnf) \sht ->
           case guitarNoteStatus thisTime gps.events of
             NoteFuture        -> drawGem thisTime thisOD color sht Nothing
             NoteMissed        -> drawGem thisTime thisOD color sht Nothing
@@ -998,8 +998,8 @@ drawFivePlay gl nowTime speed gps = do
               then drawGem nowTime thisOD color sht $ Just $ 1 - realToFrac (nowTime - hitTime) / fadeTime
               else return ()
         -- draw past sustain if rest is empty
-        when (null rest) $ do
-          forM_ notes \(color, pnf) -> forM_ (getPast pnf) $ \sust -> do
+        when (null rest) do
+          forM_ notes \(color, pnf) -> forM_ (getPast pnf) \sust -> do
             drawSustain nearTime thisTime sust.overdrive color
         drawNotes thisTime rest
       drawBeat t cs = case cs.beats of
@@ -1027,7 +1027,7 @@ drawFivePlay gl nowTime speed gps = do
         z2 = gl.gfxConfig.track.targets.z_future
         in draw Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gl.gfxConfig.track.color
@@ -1111,19 +1111,19 @@ drawFivePlay gl nowTime speed gps = do
             bre     = cs.bre
             _ = cs :: CommonState (GuitarState Double (Maybe Five.Color))
         -- draw following lanes
-        forM_ tremolo \(color, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        forM_ tremolo \(color, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           drawLane thisTime nextTime color
-        forM_ trill \(color, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        forM_ trill \(color, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           drawLane thisTime nextTime color
-        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           mapM_ (drawLane thisTime nextTime) $ map Just each
         -- draw past lanes if rest is empty
-        when (null rest) $ do
-          forM_ tremolo \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+        when (null rest) do
+          forM_ tremolo \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             drawLane nearTime thisTime color
-          forM_ trill \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+          forM_ trill \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             drawLane nearTime thisTime color
-          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) $ do
+          when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             mapM_ (drawLane nearTime thisTime) $ map Just each
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
@@ -1176,7 +1176,7 @@ drawPG gl nowTime speed tuning trk = do
         PG.Bass5        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO            ]
         PG.Bass6        -> zip [PG.S6 ..] [      strP, strR, strY, strB, strO, strG      ]
         PG.GtrCustom ns -> case length ns of
-          n | n <= 6 -> take n $ zip [PG.S6 ..] $ if PG.lowBassTuning tuning
+          n | n <= 6 -> take n $ zip [PG.S6 ..] if PG.lowBassTuning tuning
             then [strP, strR, strY, strB, strO, strG]
             else [strR, strY, strB, strO, strG, strP]
           7          -> zip [PG.S7 ..] [      strP, strR, strY, strB, strO, strG, strP]
@@ -1230,7 +1230,7 @@ drawPG gl nowTime speed tuning trk = do
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList cs.inner.notes
         -- draw following sustain
-        forM_ notes \(str, pnf) -> forM_ (getFuture pnf) $ \sust -> do
+        forM_ notes \(str, pnf) -> forM_ (getFuture pnf) \sust -> do
           drawSustain thisTime nextTime sust.overdrive str
         -- draw note
         let thisOD = case cs.overdrive of
@@ -1238,14 +1238,14 @@ drawPG gl nowTime speed tuning trk = do
               ToggleEnd () -> False
               _            -> True
             fadeTime = gl.gfxConfig.objects.gems.secs_fade
-        forM_ notes \(str, pnf) -> forM_ (getNow pnf) $ \note -> if nowTime <= thisTime
+        forM_ notes \(str, pnf) -> forM_ (getNow pnf) \note -> if nowTime <= thisTime
           then drawGem thisTime thisOD str note Nothing
           else if nowTime - thisTime < realToFrac fadeTime
             then drawGem nowTime thisOD str note $ Just $ 1 - realToFrac (nowTime - thisTime) / fadeTime
             else return ()
         -- draw past sustain if rest is empty
-        when (null rest) $ do
-          forM_ notes \(str, pnf) -> forM_ (getPast pnf) $ \sust -> do
+        when (null rest) do
+          forM_ notes \(str, pnf) -> forM_ (getPast pnf) \sust -> do
             drawSustain nearTime thisTime sust.overdrive str
         drawNotes thisTime rest
       drawBeat t cs = case cs.beats of
@@ -1273,7 +1273,7 @@ drawPG gl nowTime speed tuning trk = do
         z2 = gl.gfxConfig.track.targets.z_future
         in draw Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gl.gfxConfig.track.color
@@ -1472,18 +1472,18 @@ drawMania gl nowTime speed mchart trk = do
       drawNotes nextTime ((thisTime, cs) : rest) = do
         let notes = Map.toList cs.inner.notes
         -- draw following sustain
-        forM_ notes \(key, pnf) -> forM_ (getFuture pnf) $ \_ntype -> do
+        forM_ notes \(key, pnf) -> forM_ (getFuture pnf) \_ntype -> do
           drawSustain thisTime nextTime (keyColor key) key
         -- draw note
         let fadeTime = gl.gfxConfig.objects.gems.secs_fade
-        forM_ notes \(key, pnf) -> forM_ (getNow pnf) $ \ntype -> if nowTime <= thisTime
+        forM_ notes \(key, pnf) -> forM_ (getNow pnf) \ntype -> if nowTime <= thisTime
           then drawGem thisTime ntype (keyColor key) key Nothing
           else if nowTime - thisTime < realToFrac fadeTime
             then drawGem nowTime ntype (keyColor key) key $ Just $ 1 - realToFrac (nowTime - thisTime) / fadeTime
             else return ()
         -- draw past sustain if rest is empty
-        when (null rest) $ do
-          forM_ notes \(key, pnf) -> forM_ (getPast pnf) $ \_ntype -> do
+        when (null rest) do
+          forM_ notes \(key, pnf) -> forM_ (getPast pnf) \_ntype -> do
             drawSustain nearTime thisTime (keyColor key) key
         drawNotes thisTime rest
       drawTargetSquare i tex alpha = let
@@ -1493,7 +1493,7 @@ drawMania gl nowTime speed mchart trk = do
         z2 = gl.gfxConfig.track.targets.z_future
         in draw Flat (ObjectStretch (V3 x1 y z1) (V3 x2 y z2)) (CSImage tex) alpha globalLight
   -- draw highway
-  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) $ \(t1, t2, isSolo) -> do
+  forM_ (makeToggleBounds nearTime farTime $ fmap (.solo) zoomed) \(t1, t2, isSolo) -> do
     let highwayColor
           = (if isSolo then (.solo) else (.normal))
           $ gl.gfxConfig.track.color
@@ -1549,7 +1549,7 @@ drawMania gl nowTime speed mchart trk = do
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
   -- draw target
-  forM_ (zip [0..] keys) $ \(i, color) -> let
+  forM_ (zip [0..] keys) \(i, color) -> let
     tex = case mchart.style of
       ManiaAmplitude inst -> case inst of
         Amp.Drums  -> TextureTargetRed
@@ -1628,7 +1628,7 @@ drawLyrics gl dims (x, y, w, h) nowTime vocals = let
     syl.lyric.lyricText : if syl.lyric.lyricContinues then [] else [" "]
   futureText = T.strip $ joinText future
   pastText = (if T.null futureText then T.strip else T.stripStart) $ joinText past
-  in unless (T.null pastText && T.null futureText) $ do
+  in unless (T.null pastText && T.null futureText) do
 
     pastTextures <- prepareText gl (.lyrics) pastText
     futureTextures <- prepareText gl (.lyrics) futureText
@@ -1678,9 +1678,9 @@ loadProgram shaderPairs = do
   versionGL <- getStringGL GL_VERSION
   let isGLES = "OpenGL ES" `isPrefixOf` versionGL
   when isGLES $ warn "Loading shaders as GLSL ES. Please report if an error occurs"
-  mapStackTraceT (liftIO . runResourceT) $ do
+  mapStackTraceT (liftIO . runResourceT) do
     shaders <- forM shaderPairs \(shaderType, f) -> do
-      inside ("compiling shader: " <> f) $ do
+      inside ("compiling shader: " <> f) do
         source <- stackIO $ B.readFile f
         let source' = if isGLES then hackShaderGLES source else source
         shader <- stackIO (compileShader shaderType source') >>= either fatal return
@@ -1691,13 +1691,13 @@ loadProgram shaderPairs = do
 compileShader :: GLenum -> B.ByteString -> IO (Either String GLuint)
 compileShader shaderType source = do
   shader <- glCreateShader shaderType
-  B.useAsCString source $ \cs' -> with cs' $ \cs -> do
+  B.useAsCString source \cs' -> with cs' \cs -> do
     glShaderSource shader 1 cs nullPtr
     glCompileShader shader
     fillPtr (glGetShaderiv shader GL_COMPILE_STATUS) >>= \case
       GL_FALSE -> do
         errLen <- fillPtr $ glGetShaderiv shader GL_INFO_LOG_LENGTH
-        allocaArray (fromIntegral errLen) $ \infoLog -> do
+        allocaArray (fromIntegral errLen) \infoLog -> do
           glGetShaderInfoLog shader errLen nullPtr infoLog
           peekCString infoLog >>= return . Left
       _ -> return $ Right shader
@@ -1710,7 +1710,7 @@ compileProgram shaders = do
   fillPtr (glGetProgramiv program GL_LINK_STATUS) >>= \case
     GL_FALSE -> do
       errLen <- fillPtr $ glGetProgramiv program GL_INFO_LOG_LENGTH
-      allocaArray (fromIntegral errLen) $ \infoLog -> do
+      allocaArray (fromIntegral errLen) \infoLog -> do
         glGetProgramInfoLog program errLen nullPtr infoLog
         peekCString infoLog >>= return . Left
     _ -> return $ Right program
@@ -1942,7 +1942,7 @@ loadTexture linear img = liftIO do
   let filtering = if linear then GL_LINEAR else GL_NEAREST
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER filtering
   glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER filtering
-  VS.unsafeWith (imageData flippedVert) $ \p -> do
+  VS.unsafeWith (imageData flippedVert) \p -> do
     glTexImage2D GL_TEXTURE_2D 0 (pixelProp glPixelInternalFormat img)
       (fromIntegral $ imageWidth flippedVert)
       (fromIntegral $ imageHeight flippedVert)
@@ -1962,7 +1962,7 @@ updateTexture img tex = liftIO do
         (imageWidth img)
         (imageHeight img)
   glBindTexture GL_TEXTURE_2D tex.textureGL
-  VS.unsafeWith (imageData flippedVert) $ \p -> do
+  VS.unsafeWith (imageData flippedVert) \p -> do
     glTexSubImage2D GL_TEXTURE_2D 0 0 0
       (fromIntegral $ imageWidth flippedVert)
       (fromIntegral $ imageHeight flippedVert)
@@ -2157,7 +2157,7 @@ data ModelID
   deriving (Eq, Show, Enum, Bounded)
 
 loadObj :: (MonadIO m) => FilePath -> StackTraceT m [Vertex]
-loadObj f = inside ("loading model: " <> f) $ do
+loadObj f = inside ("loading model: " <> f) do
   obj <- stackIO (Obj.fromFile f) >>= either fatal return
   return do
     Obj.Face a b c rest <- map Obj.elValue $ V.toList $ Obj.objFaces obj
@@ -2283,14 +2283,14 @@ loadGLStuff scaleUI previewSong = do
         return object
 
   quadObject <- load2DShape quadVertices quadIndices
-  cornerObjects <- forM [TL, TR, BL, BR] $ \corner -> do
+  cornerObjects <- forM [TL, TR, BL, BR] \corner -> do
     let (vertices, indices) = makeCorner corner 16
     object <- load2DShape vertices indices
     return (corner, object)
 
   -- textures
 
-  textures <- fmap catMaybes $ forM [minBound .. maxBound] $ \texID -> do
+  textures <- fmap catMaybes $ forM [minBound .. maxBound] \texID -> do
     let imageName = textureToPath texID
     base <- stackIO $ getResourcesPath $ "textures" </> imageName
     let isLinear = case texID of
@@ -2314,7 +2314,7 @@ loadGLStuff scaleUI previewSong = do
 
   -- models
 
-  models <- forM [minBound .. maxBound] $ \modID -> do
+  models <- forM [minBound .. maxBound] \modID -> do
     path <- liftIO $ getResourcesPath case modID of
       ModelDrumTom            -> "models/drum-tom.obj"
       ModelDrumRim            -> "models/drum-rim.obj"
@@ -2406,7 +2406,7 @@ loadGLStuff scaleUI previewSong = do
     _              -> setupSimple
   let fxaaEnabled = prefs.prefFXAA
 
-  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) $ \case
+  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) \case
     PreviewBGVideo vi -> do
       writeMsg <- getQueueLog
       frameLoader <- stackIO $ forkFrameLoader writeMsg vi
@@ -2417,7 +2417,7 @@ loadGLStuff scaleUI previewSong = do
         , filePath    = vi.fileVideo
         })
     _ -> return Nothing
-  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) $ \case
+  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) \case
     PreviewBGImage f -> stackIO (readImage f) >>= \case
       Left _err -> do
         warn "Failed to load song image background"
@@ -2602,7 +2602,7 @@ deleteGLStuff gl = liftIO do
 
 stopVideoLoaders :: (MonadIO m) => GLStuff -> m ()
 stopVideoLoaders gl = liftIO do
-  forM_ (Map.elems gl.videoBGs) $ \vh -> frameMessage vh.frameLoader CloseLoader
+  forM_ (Map.elems gl.videoBGs) \vh -> frameMessage vh.frameLoader CloseLoader
 
 data WindowDims = WindowDims Int Int
 
@@ -2960,7 +2960,7 @@ drawTimeBox gl dims@(WindowDims _ hWhole) timeLines = do
     backgroundColor
     backgroundBoxRadius
     [BR]
-  forM_ (zip [1..] texLines) $ \(i, texLine) -> do
+  forM_ (zip [1..] texLines) \(i, texLine) -> do
     drawTextLine gl dims (map (, Nothing) texLine) $ V2 margin $ hWhole - (margin + fontSize) * i
 
 drawVenueDebug :: GLStuff -> WindowDims -> Double -> VenueState Double -> IO ()
@@ -2969,7 +2969,7 @@ drawVenueDebug gl dims@(WindowDims _wWhole hWhole) _time venueState = do
     [ T.pack $ show venueState.lighting
     , T.pack $ show venueState.postProcessing
     ]
-  forM_ (zip [1..] texLines) $ \(i, texLine) -> do
+  forM_ (zip [1..] texLines) \(i, texLine) -> do
     drawTextLine gl dims (map (, Nothing) texLine) $ V2 300 $ hWhole - 50 * i
 
 drawViaFramebuffer :: GLStuff -> WindowDims -> QuadDrawSettings -> (Int, Int, Int, Int) -> IO a -> IO a
@@ -3030,9 +3030,9 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
 
   glDepthFunc GL_ALWAYS -- turn off z to draw backgrounds + time box
 
-  let waveform = when gl.waveform $ forM_ mAudioHandle \audioHandle -> checkGL "draw waveform" $ do
+  let waveform = when gl.waveform $ forM_ mAudioHandle \audioHandle -> checkGL "draw waveform" do
         waveformData <- audioWaveform audioHandle
-        unless (VS.null waveformData) $ do
+        unless (VS.null waveformData) do
           drawWaveform gl dims waveformData
 
   -- TODO should allow user choice between fit and fill background modes
@@ -3049,7 +3049,7 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
               writeIORef videoHandle.texture $ Just (timeNew, tex)
               return $ Just tex
             Just (timeCurrent, tex) -> do
-              when (timeNew /= timeCurrent) $ do
+              when (timeNew /= timeCurrent) do
                 updateTexture image tex
                 writeIORef videoHandle.texture $ Just (timeNew, tex)
               return $ Just tex
@@ -3068,7 +3068,7 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
         { fadeHorizon = False
         , fxaa = False
         , postProcess = Just postProc
-        } (0, 0, wWhole, hWhole) $ do
+        } (0, 0, wWhole, hWhole) do
           case gl.gfxConfig.view.background of
             V4 r g b a -> glClearColor r g b a
           glClear GL_COLOR_BUFFER_BIT
@@ -3099,14 +3099,14 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
 
   let (vocalSpaces, highwaySpaces) = splitSpace gl trks dims
 
-  forM_ vocalSpaces \(space, (_name, trk)) -> checkGL "draw vocals" $ case trk of
+  forM_ vocalSpaces \(space, (_name, trk)) -> checkGL "draw vocals" case trk of
     PreviewVocal m -> drawLyrics gl dims space time m
     _              -> return () -- shouldn't happen
 
   glDepthFunc GL_LESS
   glClear GL_DEPTH_BUFFER_BIT
 
-  mvps <- forM highwaySpaces \(xywh@(_x, _y, w, h), (_name, trk)) -> checkGL "draw" $ do
+  mvps <- forM highwaySpaces \(xywh@(_x, _y, w, h), (_name, trk)) -> checkGL "draw" do
     drawViaFramebuffer gl dims QuadDrawSettings
       { fadeHorizon = True
       , fxaa = True
@@ -3125,7 +3125,7 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
   glDepthFunc GL_ALWAYS -- turn off z to draw track labels
 
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
-  forM_ (zip highwaySpaces mvps) $ \(((x, y, w, h), (name, _trk)), mvp) -> checkGL "draw track label" $ do
+  forM_ (zip highwaySpaces mvps) \(((x, y, w, h), (name, _trk)), mvp) -> checkGL "draw track label" do
     texLine <- prepareText gl (.trackLabel) name
 
     -- use view/projection matrix to get pixel position of the closer edge of the strikeline
@@ -3161,11 +3161,11 @@ drawWaveform gl (WindowDims wWhole hWhole) waveformData = do
       numSamples = VS.length waveformData
 
   -- Draw waveform samples as vertical lines
-  when (numSamples > 0) $ do
+  when (numSamples > 0) do
     let centerY = waveformY + waveformHeight `div` 2
         maxHeight = fromIntegral waveformHeight / 2.0 - 5  -- Leave some margin
 
-    forM_ [0 .. waveformWidth - 1] $ \i -> do
+    forM_ [0 .. waveformWidth - 1] \i -> do
       let -- Map pixel position to sample position with interpolation
           samplePos = fromIntegral i * fromIntegral (numSamples - 1) / fromIntegral (waveformWidth - 1)
           sampleIdx = floor samplePos

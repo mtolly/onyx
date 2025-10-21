@@ -27,7 +27,7 @@ data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk AnimTempo where
-  stackChunk = enumCodec "AnimTempo" $ \case
+  stackChunk = enumCodec "AnimTempo" \case
     KTempoSlow   -> Sym "kTempoSlow"
     KTempoMedium -> Sym "kTempoMedium"
     KTempoFast   -> Sym "kTempoFast"
@@ -38,7 +38,7 @@ newtype DrumSounds = DrumSounds
   } deriving (Eq, Ord, Show)
 
 instance StackChunks DrumSounds where
-  stackChunks = asWarnAssoc "DrumSounds" $ do
+  stackChunks = asWarnAssoc "DrumSounds" do
     seqs <- (.seqs) =. req "seqs" (chunksParens $ chunksList chunkSym)
     return DrumSounds{..}
 
@@ -72,7 +72,7 @@ data Song = Song
   } deriving (Eq, Show)
 
 instance StackChunks Song where
-  stackChunks = asWarnAssoc "Song" $ do
+  stackChunks = asWarnAssoc "Song" do
     songName         <- (.songName        ) =. req         "name"               (single chunkString)
     tracksCount      <- (.tracksCount     ) =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
     tracks           <- (.tracks          ) =. req         "tracks"             (chunksParens $ chunksDictList chunkSym channelList)
@@ -146,7 +146,7 @@ data SongPackage = SongPackage
   } deriving (Eq, Show)
 
 instance StackChunks SongPackage where
-  stackChunks = asWarnAssoc "SongPackage" $ do
+  stackChunks = asWarnAssoc "SongPackage" do
     name              <- (.name             ) =. req         "name"                (single chunkString)
     artist            <- (.artist           ) =. opt Nothing "artist"              (chunksMaybe $ single chunkString)
     master            <- (.master           ) =. fill False  "master"              stackChunks

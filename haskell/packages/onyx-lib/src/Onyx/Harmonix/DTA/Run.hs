@@ -124,7 +124,7 @@ initPreprocess = DTAPreprocess
   }
 
 runPreprocess :: (SendMessage m, IsString s, Hashable s, Show s) => [Chunk s] -> StackTraceT m [Chunk s]
-runPreprocess chunks = inside "DTA preprocessing" $ do
+runPreprocess chunks = inside "DTA preprocessing" do
   mapStackTraceT (`evalStateT` initPreprocess) $ preprocessDTA chunks
 
 -- evaluation
@@ -332,7 +332,7 @@ initDTAState = DTAState
         case args of
           var@(Var _) : start : end : body -> evaluateDTA start >>= \case
             [Int startIndex] -> evaluateDTA end >>= \case
-              [Int endIndex] -> forM_ [startIndex .. endIndex - 1] $ \i -> do
+              [Int endIndex] -> forM_ [startIndex .. endIndex - 1] \i -> do
                 -- is the last index endIndex or endIndex - 1?
                 void $ evaluateDTA $ call [Sym "set", var, Int i]
                 mapM_ evaluateDTA body

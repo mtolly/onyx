@@ -144,7 +144,7 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
               , D.Int if b then 1 else 0
               ]
         return (comboName, comboSets)
-  fmap concat $ forM preproc $ \chunk -> case chunk of
+  fmap concat $ forM preproc \chunk -> case chunk of
     D.Parens (D.Tree _ (D.Sym shortName : rest)) -> if any isIgnore rest
       then return []
       else do
@@ -248,7 +248,7 @@ replaceSong
   -> [(B.ByteString, FilePath)] -- ^ the files to copy into the song folder, e.g. @("yyz.mid", "some/dir/notes.mid")@
   -> IO ()
 replaceSong gen sym snippet files = withArk gen \ark -> do
-  withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
+  withSystemTempFile "songs.dtb" \fdtb hdl -> do
     IO.hClose hdl
     ark_GetFile ark fdtb "config/gen/songs.dtb" True
     D.DTA z (D.Tree _ chunks) <- D.readFileDTB fdtb
@@ -297,10 +297,10 @@ data GH2Installation = GH2Installation
 -- Returns a list of warnings for missing optional .dtb files.
 addBonusSongGH2 :: GH2Installation -> IO [String]
 addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
-  withSystemTempFile "songs.dtb"             $ \fdtb1 hdl1 -> do
-    withSystemTempFile "coop_max_scores.dtb" $ \fdtb2 hdl2 -> do
-      withSystemTempFile "store.dtb"         $ \fdtb3 hdl3 -> do
-        withSystemTempFile "locale.dtb"      $ \fdtb4 hdl4 -> do
+  withSystemTempFile "songs.dtb"             \fdtb1 hdl1 -> do
+    withSystemTempFile "coop_max_scores.dtb" \fdtb2 hdl2 -> do
+      withSystemTempFile "store.dtb"         \fdtb3 hdl3 -> do
+        withSystemTempFile "locale.dtb"      \fdtb4 hdl4 -> do
           IO.hClose hdl1
           IO.hClose hdl2
           IO.hClose hdl3
@@ -317,16 +317,16 @@ addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
               tryEditDTB tmp path f = editDTB tmp path f >>= \case
                 Just _  -> return []
                 Nothing -> return ["Couldn't find optional .dtb: " <> B8.unpack path]
-          songResult <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+          songResult <- editDTB fdtb1 "config/gen/songs.dtb" \chunks -> do
             return $ D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : chunks
           newSongs <- maybe
             (fail "Failed to extract config/gen/songs.dtb when installing a new song")
             return
             songResult
           warnings <- fmap concat $ sequence
-            [ tryEditDTB fdtb2 "config/gen/coop_max_scores.dtb" $ \chunks -> do
+            [ tryEditDTB fdtb2 "config/gen/coop_max_scores.dtb" \chunks -> do
                 return $ D.Parens (D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 (map (D.Int . fromIntegral) gh2i.coop_max_scores)]) : chunks
-            , tryEditDTB fdtb3 "config/gen/store.dtb" $ \chunks -> do
+            , tryEditDTB fdtb3 "config/gen/store.dtb" \chunks -> do
                 forM chunks \case
                   D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
                     let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
@@ -344,7 +344,7 @@ addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
                       Nothing -> return bonus'
                     return $ D.Parens $ D.Tree 0 bonusSorted
                   chunk -> return chunk
-            , tryEditDTB fdtb4 "ui/eng/gen/locale.dtb" $ \chunks -> do
+            , tryEditDTB fdtb4 "ui/eng/gen/locale.dtb" \chunks -> do
                 return $ catMaybes
                   [ (\x -> D.Parens (D.Tree 0 [D.Sym gh2i.symbol                    , D.String x])) <$> gh2i.shop_title
                   , (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
@@ -363,9 +363,9 @@ addBonusSongGH2 gh2i = withArk gh2i.gen \ark -> do
 -- | Adds a song to a GH1 ARK, and registers it as a bonus song with price 0.
 addBonusSongGH1 :: GH2Installation -> IO ()
 addBonusSongGH1 gh2i = withArk gh2i.gen \ark -> do
-  withSystemTempFile "songs.dtb"      $ \fdtb1 hdl1 -> do
-    withSystemTempFile "store.dtb"    $ \fdtb2 hdl2 -> do
-      withSystemTempFile "locale.dtb" $ \fdtb3 hdl3 -> do
+  withSystemTempFile "songs.dtb"      \fdtb1 hdl1 -> do
+    withSystemTempFile "store.dtb"    \fdtb2 hdl2 -> do
+      withSystemTempFile "locale.dtb" \fdtb3 hdl3 -> do
         IO.hClose hdl1
         IO.hClose hdl2
         IO.hClose hdl3
@@ -376,13 +376,13 @@ addBonusSongGH1 gh2i = withArk gh2i.gen \ark -> do
               D.writeFileDTB tmp $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 chunks'
               ark_ReplaceAFile ark tmp path True
               return chunks'
-        newSongs <- editDTB fdtb1 "config/gen/songs.dtb" $ \chunks -> do
+        newSongs <- editDTB fdtb1 "config/gen/songs.dtb" \chunks -> do
           let (before, after) = case chunks of
                 -- put new songs after "#include ../charsys/band_chars.dta"
                 inc@(D.Include _) : rest -> ([inc], rest  )
                 _                        -> ([]   , chunks)
           return $ before <> (D.Parens (D.Tree 0 (D.Sym gh2i.symbol : gh2i.song)) : after)
-        void $ editDTB fdtb2 "config/gen/store.dtb" $ \chunks -> do
+        void $ editDTB fdtb2 "config/gen/store.dtb" \chunks -> do
           forM chunks \case
             D.Parens (D.Tree _ bonus@(D.Sym "song" : _)) -> do
               let bonus' = bonus <> [D.Parens $ D.Tree 0 [D.Sym gh2i.symbol, D.Parens $ D.Tree 0 [D.Sym "price", D.Int 0]]]
@@ -400,7 +400,7 @@ addBonusSongGH1 gh2i = withArk gh2i.gen \ark -> do
                 Nothing -> return bonus'
               return $ D.Parens $ D.Tree 0 bonusSorted
             chunk -> return chunk
-        void $ editDTB fdtb3 "ghui/eng/gen/locale.dtb" $ \chunks -> do
+        void $ editDTB fdtb3 "ghui/eng/gen/locale.dtb" \chunks -> do
           return $ catMaybes
             [ (\x -> D.Parens (D.Tree 0 [D.Sym $ gh2i.symbol <> "_shop_desc"  , D.String x])) <$> gh2i.shop_description
             , (\x -> D.Parens (D.Tree 0 [D.Sym $ "loading_tip_" <> gh2i.symbol, D.String x])) <$> gh2i.loading_phrase

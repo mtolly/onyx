@@ -428,7 +428,7 @@ ensureODNotes = go . RTB.normalize where
       original' = U.trackDrop dt original
       reduced' = U.trackDrop dt reduced
       in trackGlue dt reduced if RTB.null $ odLength reduced'
-        then go od' original' $ case RTB.viewL original' of
+        then go od' original' case RTB.viewL original' of
           Just ((originalTime, originalEvent), _) -> RTB.insert originalTime originalEvent reduced'
           Nothing -> reduced'
         else go od' original' reduced'

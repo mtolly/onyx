@@ -109,7 +109,7 @@ getSMNumber lns k = getSMString lns k >>= \case
 getSMNumberPairs :: (MonadFail m) => [(T.Text, [T.Text])] -> T.Text -> m [(Scientific, Scientific)]
 getSMNumberPairs lns k = getSMString lns k >>= \case
   Nothing -> return []
-  Just s -> forM (splitNoEmpty "," s) $ \pair -> case T.splitOn "=" pair of
+  Just s -> forM (splitNoEmpty "," s) \pair -> case T.splitOn "=" pair of
     [x, y] -> case (readMaybe $ T.unpack x, readMaybe $ T.unpack y) of
       (Just x', Just y') -> return (x', y')
       _                  -> fail $ "Couldn't parse number=number: " <> show pair
@@ -160,11 +160,11 @@ readSMNotes = \case
     smn_NumericalMeter <- case readMaybe $ T.unpack nm of
       Nothing -> fail $ "Couldn't read numerical meter value: " <> show nm
       Just v  -> return v
-    smn_GrooveRadar <- forM (splitNoEmpty "," gr) $ \x -> case readMaybe $ T.unpack x of
+    smn_GrooveRadar <- forM (splitNoEmpty "," gr) \x -> case readMaybe $ T.unpack x of
       Nothing -> fail $ "Couldn't read groove radar value: " <> show x
       Just v  -> return v
-    smn_Notes <- forM (splitNoEmpty "," notes) $ \bar -> do
-      forM (filter (T.any $ not . isSpace) $ T.lines bar) $ \line -> do
+    smn_Notes <- forM (splitNoEmpty "," notes) \bar -> do
+      forM (filter (T.any $ not . isSpace) $ T.lines bar) \line -> do
         return $ T.strip line
     return SMNotes{..}
   xs -> fail $ "Expected 6 parts to #NOTES but found " <> show (length xs)

@@ -77,7 +77,7 @@ readTrack msrs tmps trk = let
         in M.KeySig $ Key.Cons mode' $ Key.Accidentals $ int n
       SequencerSpecific bytes -> M.SequencerSpecific $ map int bytes
       Unknown n bytes -> M.Unknown (int n) $ map int bytes
-    MIDI ch m -> E.MIDIEvent $ C.Cons ch' $ case m of
+    MIDI ch m -> E.MIDIEvent $ C.Cons ch' case m of
       NoteOn p v -> C.Voice $ V.NoteOn (V.toPitch $ int p) (V.toVelocity $ int v)
       NoteOff p v -> C.Voice $ V.NoteOff (V.toPitch $ int p) (V.toVelocity $ int v)
       PolyAftertouch p v -> C.Voice $ V.PolyAftertouch (V.toPitch $ int p) (int v)

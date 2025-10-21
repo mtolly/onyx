@@ -43,7 +43,7 @@ forkFrameLoader logger vi = do
   let logResult f = f >>= \case
         Right ()              -> return ()
         Left  (Messages msgs) -> mapM_ (\m -> logger (MessageWarning, m)) msgs
-  void $ forkIO $ logResult $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) $ do
+  void $ forkIO $ logResult $ runResourceT $ logIO logger $ inside ("Playing video: " <> videoPath) do
     let res a f = snd <$> allocate a f
         check_ s p a = inside s do
           code <- stackIO a
@@ -87,7 +87,7 @@ forkFrameLoader logger vi = do
     let videoStart = maybe 0 realToFrac vi.videoStartTime
         videoEnd = maybe duration realToFrac vi.videoEndTime
         playLength = videoEnd - videoStart
-    cctx <- res (avcodec_alloc_context3 codec) $ \c -> with c avcodec_free_context
+    cctx <- res (avcodec_alloc_context3 codec) \c -> with c avcodec_free_context
     check_ "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context cctx params
     check_ "avcodec_open2 (input)" (>= 0) $ avcodec_open2 cctx codec nullPtr
     frame <- res av_frame_alloc \f -> with f av_frame_free

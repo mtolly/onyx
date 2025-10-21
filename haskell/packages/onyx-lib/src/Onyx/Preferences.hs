@@ -61,7 +61,7 @@ data Preferences = Preferences
   }
 
 instance StackJSON Preferences where
-  stackJSON = asObject "Preferences" $ do
+  stackJSON = asObject "Preferences" do
     prefMagma         <- (.prefMagma        ) =. fill MagmaRequire     "magma"           stackJSON
     prefBlackVenue    <- (.prefBlackVenue   ) =. fill False            "black-venue"     stackJSON
     prefLabel2x       <- (.prefLabel2x      ) =. fill True             "label-2x"        stackJSON
@@ -134,7 +134,7 @@ data MagmaSetting
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackJSON MagmaSetting where
-  stackJSON = enumCodecFull "a Magma setting from {require, try, disable}" $ \case
+  stackJSON = enumCodecFull "a Magma setting from {require, try, disable}" \case
     MagmaRequire -> is "require" |?> is (A.Bool True)
     MagmaTry     -> is "try"
     MagmaDisable -> is "disable" |?> is (A.Bool False)
@@ -154,7 +154,7 @@ data EliteDrumLayoutHint
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackJSON EliteDrumLayoutHint where
-  stackJSON = enumCodec "an elite drums layout hint" $ \case
+  stackJSON = enumCodec "an elite drums layout hint" \case
     EDLeftCrossHand  -> "cross-hand"
     EDLeftOpenHand   -> "open-hand"
     EDRightFarCrash  -> "far-crash"
@@ -166,7 +166,7 @@ data CHAudioFormat
   deriving (Eq, Enum, Bounded)
 
 instance StackJSON CHAudioFormat where
-  stackJSON = enumCodec "a CH audio format" $ \case
+  stackJSON = enumCodec "a CH audio format" \case
     CHAudioOggVorbis -> "ogg"
     CHAudioOpus      -> "opus"
 
@@ -176,7 +176,7 @@ data RBEncoding
   deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
 
 instance StackJSON RBEncoding where
-  stackJSON = enumCodec "an RB dta encoding" $ \case
+  stackJSON = enumCodec "an RB dta encoding" \case
     Latin1 -> "latin1"
     UTF8   -> "utf8"
 

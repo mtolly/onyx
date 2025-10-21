@@ -153,7 +153,7 @@ gh2Rules buildInfo dir gh2 = do
     audioLen <- loadGH2Midi >>= correctAudioLength
     stackIO $ runResourceT $ writeVGS out
       $ silent (Seconds $ realToFrac audioLen) 1024 1
-  forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
+  forM_ ([90, 75, 60] :: [Int]) \speed -> do
     dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") %> \out -> do
       hasAudio <- loadPartAudioCheck
       audio <- computeGH2Audio songYaml gh2 False hasAudio
@@ -191,8 +191,8 @@ gh2Rules buildInfo dir gh2 = do
       addExtraIfDX input audio = let
         dummyTarget = (def :: TargetPS FilePath)
           & do set #guitar audio.leadTrack
-          & do set #bass   $ case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.PartName "undefined"
-          & do set #rhythm $ case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.PartName "undefined"
+          & do set #bass   case gh2.coop of GH2Bass -> audio.coopTrack; GH2Rhythm -> F.PartName "undefined"
+          & do set #rhythm case gh2.coop of GH2Rhythm -> audio.coopTrack; GH2Bass -> F.PartName "undefined"
           & do set #drums  $ fromMaybe (F.PartName "undefined") audio.drumTrack
         difficulty = difficultyPS dummyTarget songYaml
         translateDiff = \case
@@ -270,7 +270,7 @@ gh2Rules buildInfo dir gh2 = do
       [ D.Parens $ D.Tree 0 $ catMaybes
         [ Just $ D.Sym key
         -- include author for gh2dx
-        , flip fmap (guard gh2.gh2Deluxe >> songYaml.metadata.author) $ \author -> D.Braces $ D.Tree 0
+        , flip fmap (guard gh2.gh2Deluxe >> songYaml.metadata.author) \author -> D.Braces $ D.Tree 0
           [ D.Sym "set"
           , D.Var "author"
           , D.String author

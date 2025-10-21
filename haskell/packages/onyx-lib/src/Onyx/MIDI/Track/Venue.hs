@@ -440,7 +440,7 @@ instance ParseTrack VenueTrack where
       specificLighting case T.stripPrefix "Lighting_" $ T.pack $ show light of
         Just s  -> s
         Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
-    venueLightingCommands <- ((.venueLightingCommands) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) $ \case
+    venueLightingCommands <- ((.venueLightingCommands) =.) $ condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) \case
       (LightingFirst, RBN2) -> commandMatch ["first"]
       (LightingPrev , RBN2) -> commandMatch ["prev"]
       (LightingNext , RBN2) -> commandMatch ["next"]
@@ -608,7 +608,7 @@ compileVenueRB2 vt = let
   far = cut [NoBehind, OnlyFar, NoClose]
   near = cut [NoBehind, NoClose]
   directed x = [Right $ DoDirectedCut x]
-  camera = RTB.flatten $ flip fmap (RTB.collectCoincident vt.venueCameraRB3) $ \cams -> case sortBy (flip compare) cams of
+  camera = RTB.flatten $ flip fmap (RTB.collectCoincident vt.venueCameraRB3) \cams -> case sortBy (flip compare) cams of
     [] -> [] -- shouldn't happen
     x : _ -> case x of
       -- generic 4 camera shots

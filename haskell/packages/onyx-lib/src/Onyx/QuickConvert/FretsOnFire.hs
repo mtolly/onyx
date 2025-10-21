@@ -120,7 +120,7 @@ data FoFFile
   | FoFMIDI (File.T B.ByteString)
 
 loadQuickFoF :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickFoF)
-loadQuickFoF fin = inside ("Loading: " <> fin) $ let
+loadQuickFoF fin = inside ("Loading: " <> fin) let
   r = fileReadable fin
   in case map toLower $ takeFileName fin of
     "song.ini" -> do
@@ -129,7 +129,7 @@ loadQuickFoF fin = inside ("Loading: " <> fin) $ let
       folder <- stackIO $ crawlFolder dir
       return $ Just QuickFoF
         { metadata = ini
-        , files    = flip mapMaybe (folderFiles folder) $ \(name, x) -> do
+        , files    = flip mapMaybe (folderFiles folder) \(name, x) -> do
           guard $ T.toLower name /= "song.ini"
           Just (name, FoFReadable x)
         , location = dir
@@ -186,7 +186,7 @@ convertAudio convFrom convTo q = do
         let newName = name <> convTo
             newStr = T.unpack newName
         bs <- withSystemTempFile newStr \fout hout -> do
-          withSystemTempFile (T.unpack name) $ \fin hin -> do
+          withSystemTempFile (T.unpack name) \fin hin -> do
             hClose hin
             hClose hout
             saveReadable r fin
@@ -256,7 +256,7 @@ psTapFormat = (runIdentity .) $ modifyFiveFretTracks \_dvn trk -> return let
       _           -> Nothing
   in if RTB.null notes
     then trk -- nothing to do
-    else RTB.merge trk2 $ flip fmap (G.applyStatus events events) $ \(active, _) ->
+    else RTB.merge trk2 $ flip fmap (G.applyStatus events events) \(active, _) ->
       -- only emit all difficulties sysex
       unparsePSSysEx PSMessage
         { psDifficulty = Nothing
@@ -271,7 +271,7 @@ psOpenFormat hopoThreshold = modifyFiveFretTracks \dvn trk -> let
     _                                  -> False
   in if not $ any isEnhancedOpensEvent $ U.trackTakeZero trk
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ let
+    else flip (overParsedFiveFret dvn) trk let
       eachDiff = G.emitGuitar5PS . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
       in #fiveDifficulties % mapped %~ eachDiff
 
@@ -281,7 +281,7 @@ tapToHOPO hopoThreshold = modifyFiveFretTracks \dvn trk -> let
   hasTap = True -- TODO look for events
   in if not hasTap
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ let
+    else flip (overParsedFiveFret dvn) trk let
       eachDiff
         = G.emitGuitar5PS -- should this be an option? probably always PS format opens here
         . fmap (\((color, sht), len) -> ((color, case sht of Tap -> HOPO; _ -> sht), len))
@@ -294,7 +294,7 @@ removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks \dvn trk -> let
   hasOpen = True -- TODO look for events
   in if not hasOpen
     then return trk -- nothing to do
-    else flip (overParsedFiveFret dvn) trk $ let
+    else flip (overParsedFiveFret dvn) trk let
       eachDiff
         = G.emitGuitar5 -- open format doesn't matter since there are none
         . fmap (\((color, sht), len) -> ((Just color, sht), len))
@@ -408,7 +408,7 @@ saveQuickFoFFolder :: FilePath -> QuickFoF -> IO ()
 saveQuickFoFFolder out q = do
   let temp = dropTrailingPathSeparator out <> ".temp"
   createDirectoryIfMissing False temp
-  forM_ (getFoFReadables q) $ \(name, r) -> do
+  forM_ (getFoFReadables q) \(name, r) -> do
     saveReadable r $ temp </> T.unpack name
   writePSIni (temp </> "song.ini") q.metadata
   removePathForcibly out
@@ -471,7 +471,7 @@ convertEncoreFoF f info = do
       p : ps@(_ : _) -> do
         let ext = "ogg" -- TODO use preference
         r <- generateCachedReadable do
-          bs <- withSystemTempFile ("onyx-mix" <.> ext) $ \tmp h -> do
+          bs <- withSystemTempFile ("onyx-mix" <.> ext) \tmp h -> do
             hClose h
             src <- buildSource' $ Mix $ fmap Input $ p NE.:| ps
             -- TODO use preference for ogg quality
@@ -488,7 +488,7 @@ convertEncoreFoF f info = do
       , ("album",) <$> toList info.album
       , ("loading_phrase",) <$> toList info.loading_phrase
       , [("multiplier_note", "116")]
-      , flip map (toList info.length_) $ \secs -> ("song_length", T.pack $ show $ secs * 1000) -- seconds in encore, milliseconds in fof
+      , flip map (toList info.length_) \secs -> ("song_length", T.pack $ show $ secs * 1000) -- seconds in encore, milliseconds in fof
       , ("preview_start_time",) . T.pack . show <$> toList info.preview_start_time -- milliseconds in both
       , [("charter", T.intercalate ", " info.charters) | not $ null info.charters]
       , ("year",) <$> toList info.release_year
@@ -660,7 +660,7 @@ combineMetadata baseMetadata newMetadata = let
     _ -> []
 
   -- Handle diff_ properties
-  combineDiffs = flip mapMaybe (nubOrd $ HM.keys baseMap ++ HM.keys newMap) $ \key ->
+  combineDiffs = flip mapMaybe (nubOrd $ HM.keys baseMap ++ HM.keys newMap) \key ->
     if "diff_" `T.isPrefixOf` key
       then case (HM.lookup key baseMap, HM.lookup key newMap) of
         (Just base, _) | base /= "-1" -> Just (key, base)
@@ -675,7 +675,7 @@ combineMetadata baseMetadata newMetadata = let
     fmap (key,) (HM.lookup key baseMap)
 
   -- Handle other properties (excluding charter, diff_, and special properties)
-  otherProps = flip mapMaybe (nubOrd $ HM.keys baseMap ++ HM.keys newMap) $ \key ->
+  otherProps = flip mapMaybe (nubOrd $ HM.keys baseMap ++ HM.keys newMap) \key ->
     if not ("diff_" `T.isPrefixOf` key) && key /= "charter" && not (key `elem` specialProps)
       then fmap (key,) (getValue key)
       else Nothing

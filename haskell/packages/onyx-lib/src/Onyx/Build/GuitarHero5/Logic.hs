@@ -294,7 +294,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gb_tapping = makeStarPower taps
       , gb_starpower = makeStarPower result.other.fiveOverdrive
       }
-  drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) $ \builder ->
+  drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) \builder ->
     builder DrumTargetGH ModeInput
       { tempo  = tmap
       , events = F.getEventsTrack ofile
@@ -419,7 +419,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             makeNotes = let
               makeNote t mpitch len rest = let
                 ghPitch = maybe 26 (\p -> fromIntegral $ fromEnum p + 36) (mpitch :: Maybe Pitch)
-                in Wait t (ghPitch, len) $ case rest of
+                in Wait t (ghPitch, len) case rest of
                   Wait t2 next@(SlideTo _, _) rest2 -> Wait len (2, t2 - len)
                     $ makeNotes $ Wait (t2 - len) next rest2
                   _ -> makeNotes rest
@@ -536,7 +536,7 @@ getAllMetadata inputs = fmap (combineTextPakQBs . concat) $ forM inputs \input -
   texts <- case map toLower $ takeExtension input of
     ".pkg" -> do
       folder <- (.pkgFolder) <$> stackIO (loadPKG input)
-      fmap catMaybes $ mapM (uncurry $ tryDecryptEDAT "") $ do
+      fmap catMaybes $ mapM (uncurry $ tryDecryptEDAT "") do
         (_, usrdir) <- folderSubfolders folder
         (_, songdir) <- folderSubfolders usrdir
         pair@(name, _) <- folderFiles songdir
@@ -811,7 +811,7 @@ metadataPS3Folder library = let
     ]
 
   in do
-    edats <- withSystemTempDirectory "onyx-ps3-wor-cache" $ \tmp -> do
+    edats <- withSystemTempDirectory "onyx-ps3-wor-cache" \tmp -> do
       let edatIn  = tmp </> "in.bin"
           edatOut = tmp </> "out.bin"
       forM files \(name, bs) -> do

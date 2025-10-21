@@ -349,7 +349,7 @@ convertDKDrums dk = let
     DKRoll drum t | t <= laneSpeed -> DKNote drum
     event                          -> event
 
-  normalNotes = RTB.flatten $ flip fmap dk' $ \case
+  normalNotes = RTB.flatten $ flip fmap dk' \case
     DKNote drum -> case drum of
       DKYellow -> [yellow]
       DKRed    -> [blue]
@@ -358,16 +358,16 @@ convertDKDrums dk = let
     DKRoll{} -> []
 
   makeLane len = Wait 0 (Just LaneExpert) $ Wait len Nothing RNil
-  singleLanes = U.trackJoin $ flip fmap dk' $ \case
+  singleLanes = U.trackJoin $ flip fmap dk' \case
     DKRoll DKYellow len -> makeLane len
     DKRoll DKRed    len -> makeLane len
     _                   -> RNil
-  doubleLanes = U.trackJoin $ flip fmap dk' $ \case
+  doubleLanes = U.trackJoin $ flip fmap dk' \case
     DKRoll DKPurple len -> makeLane len
     DKRoll DKClap   len -> makeLane len
     _                   -> RNil
 
-  laneNotes = U.trackJoin $ flip fmap dk' $ \case
+  laneNotes = U.trackJoin $ flip fmap dk' \case
     DKRoll drum len -> let
       pattern = case drum of
         DKYellow -> [yellow]

@@ -244,7 +244,7 @@ stracket
   -> (a -> IO ())
   -> (a -> StackTraceT (QueueLog IO) b)
   -> StackTraceT (QueueLog m) b
-stracket new del fn = mapStackTraceT (mapQueueLog (liftIO . runResourceT)) $ do
+stracket new del fn = mapStackTraceT (mapQueueLog (liftIO . runResourceT)) do
   (_, x) <- allocate new del
   mapStackTraceT (mapQueueLog lift) $ fn x
 

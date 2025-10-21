@@ -202,7 +202,7 @@ getWAD = do
 
 getKey :: (MonadFail m) => WAD -> m B.ByteString
 getKey wad = do
-  commonKey <- case B.unpack $ B.take 1 $ B.drop 0xB $ wad.wadTicket.ticketUnknown3 of
+  commonKey <- case B.unpack $ B.take 1 $ B.drop 0xB wad.wadTicket.ticketUnknown3 of
     -- common key
     [0] -> return $ B.pack [0xeb, 0xe4, 0x2a, 0x22, 0x5e, 0x85, 0x93, 0xe4, 0x48, 0xd9, 0xc5, 0x45, 0x73, 0x81, 0xaa, 0xf7]
     -- korean common key

@@ -70,7 +70,7 @@ unpackMilo fin dout = do
   stackIO $ BL.writeFile (dout </> "decompressed.bin") dec
   case runGetOrFail parseMiloFile dec of
     Left (_, pos, err) -> do
-      stackIO $ forM_ (zip [0..] $ breakMilo $ BL.toStrict dec) $ \(i, piece) -> do
+      stackIO $ forM_ (zip [0..] $ breakMilo $ BL.toStrict dec) \(i, piece) -> do
         B.writeFile (dout </> pieceName i) piece
       inside "Parsing .milo structure" $ inside ("position " <> show pos) $ warn err
       lg "Couldn't parse milo structure; split into simple pieces."
@@ -105,8 +105,9 @@ packMilo din fout = do
         Right (_, _, topdir) -> do
           let reload parent milodir = do
                 let thisout = parent </> B8.unpack milodir.miloName
-                newFiles <- mapM (BL.readFile . (thisout </>) . B8.unpack . snd)
-                  $ milodir.miloEntryNames
+                newFiles <- mapM
+                  (BL.readFile . (thisout </>) . B8.unpack . snd)
+                  milodir.miloEntryNames
                 newDirs <- mapM (reload thisout) milodir.miloSubdirs
                 return milodir
                   { miloFiles = newFiles

@@ -716,10 +716,10 @@ rbRules buildInfo dir rb3 mrb2 = do
           in U.setTrackName name $ msgToSysEx <$> auto
     F.saveMIDIUtf8 out input
       { F.tracks = F.RawFile
-        [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if nullPG gtr17  then gtr22  else gtr17
-        , playTrack pgThres PGPlay.Squier  "GTR22"  $ if nullPG gtr22  then gtr17  else gtr22
-        , playTrack pbThres PGPlay.Mustang "BASS17" $ if nullPG bass17 then bass22 else bass17
-        , playTrack pbThres PGPlay.Squier  "BASS22" $ if nullPG bass22 then bass17 else bass22
+        [ playTrack pgThres PGPlay.Mustang "GTR17"  if nullPG gtr17  then gtr22  else gtr17
+        , playTrack pgThres PGPlay.Squier  "GTR22"  if nullPG gtr22  then gtr17  else gtr22
+        , playTrack pbThres PGPlay.Mustang "BASS17" if nullPG bass17 then bass22 else bass17
+        , playTrack pbThres PGPlay.Squier  "BASS22" if nullPG bass22 then bass17 else bass22
         ]
       }
 
@@ -1273,7 +1273,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
-      , D.tracks = D.DictList $ map (second $ map fromIntegral) $ filter (not . null . snd) $ case plan of
+      , D.tracks = D.DictList $ map (second $ map fromIntegral) $ filter (not . null . snd) case plan of
         MoggPlan x -> let
           getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart x.parts
           -- * the below trick does not work. RB3 freezes if a part doesn't have any channels.
@@ -1391,9 +1391,9 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.songTonality   = (.songTonality) <$> metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
-    , D.realGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) $ \pg ->
+    , D.realGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeGuitar
-    , D.realBassTuning = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) $ \pg ->
+    , D.realBassTuning = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just case rb3.encoding of
@@ -1442,13 +1442,13 @@ makeC3 songYaml plan rb3 midi pkg (pstart, _) = do
     , C3.convert = metadata.convert
     , C3.expertOnly = metadata.expertOnly
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proBassTuning4 = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) $ \pg -> T.concat
+    , C3.proBassTuning4 = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) \pg -> T.concat
       [ "(real_bass_tuning ("
       , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeBass
       , "))"
       ]
     , C3.proGuitarDiff = case rb3ProGuitarRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) $ \pg -> T.concat
+    , C3.proGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) \pg -> T.concat
       [ "(real_guitar_tuning ("
       , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeGuitar
       , "))"

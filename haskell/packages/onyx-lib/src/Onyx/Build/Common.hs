@@ -92,7 +92,7 @@ makePS3Name num songYaml
 
 targetTitle :: SongYaml f -> Target f -> T.Text
 targetTitle songYaml target = let
-  base = fromMaybe (getTitle songYaml.metadata) $ (targetCommon target).override.title
+  base = fromMaybe (getTitle songYaml.metadata) (targetCommon target).override.title
   in addTitleSuffix target base
 
 targetTitleJP :: SongYaml f -> Target f -> Maybe T.Text
@@ -226,7 +226,7 @@ applyTargetMIDI tgt mid = let
   modifySections m f = m
     { F.tracks = m.tracks
       { F.onyxEvents = m.tracks.onyxEvents
-        { eventsSections = f $ m.tracks.onyxEvents.eventsSections
+        { eventsSections = f m.tracks.onyxEvents.eventsSections
         }
       }
     }
@@ -299,7 +299,7 @@ sourceKick buildInfo gameParts tgt mid pad specSetting planName plan fpart rank 
   ((spec', _, _), _, _) <- computeDrumsPart fpart plan buildInfo.biSongYaml
   let spec = adjustSpec specSetting spec'
   src <- case plan of
-    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ do
+    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{kick} -> fromMaybe [] kick
@@ -315,7 +315,7 @@ sourceSnare buildInfo gameParts tgt mid pad specSetting planName plan fpart rank
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan buildInfo.biSongYaml
   let spec = adjustSpec specSetting spec'
   src <- case plan of
-    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ do
+    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{snare} -> fromMaybe [] snare
@@ -331,7 +331,7 @@ sourceToms buildInfo gameParts tgt mid pad specSetting planName plan fpart rank 
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan buildInfo.biSongYaml
   let spec = adjustSpec specSetting spec'
   src <- case plan of
-    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ do
+    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms} -> fromMaybe [] toms
@@ -347,7 +347,7 @@ sourceCymbals buildInfo gameParts tgt mid pad specSetting planName plan fpart ra
   ((_, spec', _), _, _) <- computeDrumsPart fpart plan buildInfo.biSongYaml
   let spec = adjustSpec specSetting spec'
   src <- case plan of
-    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ do
+    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) do
       guard $ rank /= 0
       case HM.lookup fpart x.parts.getParts of
         Just PartDrumKit{toms, kit} -> guard (isJust toms) >> kit
@@ -396,7 +396,7 @@ getPartSource
   => BuildInfo -> [(Double, Double)] -> T.Text -> Plan FilePath -> F.PartName -> Integer
   -> Staction (AudioSource m Float)
 getPartSource buildInfo spec planName plan fpart rank = case plan of
-  MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ do
+  MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) do
     guard $ rank /= 0
     toList (HM.lookup fpart x.parts.getParts) >>= toList >>= toList
   StandardPlan x -> buildPartAudioToSpec buildInfo.biYamlDir buildInfo.biAudioLib (audioDepend buildInfo) buildInfo.biSongYaml spec planName do
@@ -451,7 +451,7 @@ sourceBacking buildInfo tgt mid pad planName plan fparts = do
         ]
       spec = [(-1, 0), (1, 0)]
   src <- case plan of
-    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) $ let
+    MoggPlan x -> channelsToSpec spec (buildInfo.biOggWavForPlan planName) (zip x.pans x.vols) let
       channelsFor fpart = toList (HM.lookup fpart x.parts.getParts) >>= toList >>= toList
       usedChannels = concatMap channelsFor usedParts ++ x.crowd
       in filter (`notElem` usedChannels) [0 .. length x.pans - 1]

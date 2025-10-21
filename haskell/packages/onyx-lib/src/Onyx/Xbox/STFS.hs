@@ -612,7 +612,7 @@ readBlock len stfs = B.hGet stfs.stfsHandle $ fromIntegral len
 readBlockHash :: STFSPackage -> IO BlockHashRecord
 readBlockHash stfs = do
   bs <- BL.hGet stfs.stfsHandle 0x18
-  runGetM (codecIn bin) $ if BL.null bs then BL.replicate 0x18 0 else bs
+  runGetM (codecIn bin) if BL.null bs then BL.replicate 0x18 0 else bs
 
 getCorrectBlockHash :: FileBlock -> STFSPackage -> IO BlockHashRecord
 getCorrectBlockHash fblk stfs = do
@@ -666,7 +666,7 @@ getFileHandle fe stfs readable = Readable
           | otherwise = do
             let len = min 0x1000 size
             blkHash <- getCorrectBlockHash fb stfs'
-            (blk :) <$> getBlockSequence (size - len) (FileBlock $ blkHash.bhr_NextBlock) blkHash.bhr_Status
+            (blk :) <$> getBlockSequence (size - len) (FileBlock blkHash.bhr_NextBlock) blkHash.bhr_Status
     blks <- VU.fromList <$> if fe.fe_Consecutive
       -- important optimization, this saves a lot of time when opening e.g. mogg files.
       -- unfortunately I didn't mark Onyx-created cons as consecutive until 20210702 (2ced8ab2)
@@ -767,7 +767,7 @@ verifyHashes fixHashes stfs = let
     Just rblk -> do
       seekToRealBlock rblk stfs
       contents <- readBlock 0x1000 stfs
-      unless (B.null contents) $ do
+      unless (B.null contents) do
         seekToRealBlock hblk stfs
         hSeek stfs.stfsHandle RelativeSeek $ i * 0x18
         hsh <- readBlockHash stfs
@@ -791,13 +791,13 @@ verifyHashes fixHashes stfs = let
   in do
     forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L0Hashes i -> do
-        forM_ [0 .. 0xA9] $ \j -> do
+        forM_ [0 .. 0xA9] \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (DataBlock hashedIndex) rblk j
       _ -> return ()
     forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L1Hashes i -> do
-        forM_ [0 .. 0xA9] $ \j -> do
+        forM_ [0 .. 0xA9] \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (L0Hashes hashedIndex) rblk j
         -- add a count of data blocks covered by this hash, seen in (some?) DLC files
@@ -808,7 +808,7 @@ verifyHashes fixHashes stfs = let
       _ -> return ()
     forM_ patternWithIndexes \(contents, rblk) -> case contents of
       L2Hashes i -> do
-        forM_ [0 .. 0xA9] $ \j -> do
+        forM_ [0 .. 0xA9] \j -> do
           let hashedIndex = i * 0xAA + fromIntegral j
           verify (L1Hashes hashedIndex) rblk j
         -- add a count of data blocks covered by this hash (which is all of them), seen in (some?) DLC files
@@ -937,11 +937,11 @@ type BlocksPlan = [(Int, T.Text, Maybe (Integer, IO [B.ByteString]))]
 traverseReadable :: Folder T.Text Readable -> IO BlocksPlan
 traverseReadable top = toList <$> execStateT (go (-1) top) Seq.empty where
   go parentIndex folder = do
-    forM_ (folderSubfolders folder) $ \(f, sub) -> do
+    forM_ (folderSubfolders folder) \(f, sub) -> do
       thisIndex <- gets Seq.length
       modify (|> (parentIndex, f, Nothing))
       go thisIndex sub
-    forM_ (folderFiles folder) $ \(f, r) -> do
+    forM_ (folderFiles folder) \(f, r) -> do
       lenBlocks <- splitIntoBlocks r
       modify (|> (parentIndex, f, Just lenBlocks))
   splitIntoBlocks r = do
@@ -957,11 +957,11 @@ traverseReadable top = toList <$> execStateT (go (-1) top) Seq.empty where
 traverseMemory :: Folder T.Text BL.ByteString -> BlocksPlan
 traverseMemory top = toList $ execState (go (-1) top) Seq.empty where
   go parentIndex folder = do
-    forM_ (folderSubfolders folder) $ \(f, sub) -> do
+    forM_ (folderSubfolders folder) \(f, sub) -> do
       thisIndex <- gets Seq.length
       modify (|> (parentIndex, f, Nothing))
       go thisIndex sub
-    forM_ (folderFiles folder) $ \(f, bs) -> do
+    forM_ (folderFiles folder) \(f, bs) -> do
       modify (|> (parentIndex, f, Just (fromIntegral $ BL.length bs, return $ splitIntoBlocks bs)))
   splitIntoBlocks bs = if BL.null bs
     then []
@@ -1179,8 +1179,8 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode \fd -> do
           , ch_CertOwnerConsolePartNum = "X803395-001"
           , ch_CertOwnerConsoleType    = Retail
           , ch_CertDateGeneration      = "09-18-06"
-          , ch_PublicExponent          = bytesFromInteger 4 $ public_e $ private_pub key.kv_PrivateKey
-          , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 $ public_n $ private_pub $ key.kv_PrivateKey
+          , ch_PublicExponent          = bytesFromInteger 4 key.kv_PrivateKey.private_pub.public_e
+          , ch_PublicModulus           = stockScramble $ bytesFromInteger 0x80 key.kv_PrivateKey.private_pub.public_n
           , ch_CertSignature           = B.take 0x100 $ B.drop 0xA60 kv
           , ch_Signature               = fromMaybe (B.replicate 0x80 0) maybeSig
           }
@@ -1254,7 +1254,7 @@ makeCONGeneral opts fileList con = withBinaryFile con ReadWriteMode \fd -> do
       writeFiles n ((_, _, Nothing) : rest) = writeFiles n rest
       writeFiles n ((_, _, Just (_size, getBlocks)) : rest) = do
         blocks <- getBlocks
-        forM_ (addHasNext $ zip [n..] blocks) $ \((n', block), hasNext) -> do
+        forM_ (addHasNext $ zip [n..] blocks) \((n', block), hasNext) -> do
           writeFileBlock n' hasNext $ BL.fromStrict block
         writeFiles (n + fromIntegral (length blocks)) rest
 
@@ -1380,7 +1380,7 @@ makePack inputs@(input : _) applyOpts fout = do
   roots <- stackIO $ mapM getSTFSFolder inputs
   merged <- packCombineFolders roots
   stackIO $ makeCONReadable opts merged fout
-  forM (findGH2DXAlbumArt merged) $ \art -> do
+  forM (findGH2DXAlbumArt merged) \art -> do
     let artTarget = takeDirectory fout </> "album_art"
     stackIO $ saveHandleFolder art artTarget
     return artTarget
@@ -1440,7 +1440,7 @@ saveCreateOptions copts = Folder
       , ("package-description", Y.toJSON copts.createDescriptions)
       , ("title-id", Y.toJSON copts.createTitleID) -- TODO maybe replace with hex
       , ("title-name", Y.toJSON copts.createTitleName)
-      , ("licenses", Y.toJSON $ flip map (copts.createLicenses) $ \license -> Y.object
+      , ("licenses", Y.toJSON $ flip map (copts.createLicenses) \license -> Y.object
         [ ("id", Y.toJSON license.le_LicenseID)
         , ("bits", Y.toJSON license.le_LicenseBits)
         , ("flags", Y.toJSON license.le_LicenseFlags)
@@ -1479,7 +1479,7 @@ loadCreateOptions folder = do
             createTransferFlags <- o .: "transfer-flags"
             createLIVE <- o .: "sign-live"
             licenseObjects <- o .: "licenses"
-            createLicenses <- forM (licenseObjects :: [Y.Object]) $ \lobj -> do
+            createLicenses <- forM (licenseObjects :: [Y.Object]) \lobj -> do
               le_LicenseID <- lobj .: "id"
               le_LicenseBits <- lobj .: "bits"
               le_LicenseFlags <- lobj .: "flags"

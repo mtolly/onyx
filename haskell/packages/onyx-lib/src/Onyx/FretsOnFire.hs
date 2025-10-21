@@ -262,7 +262,7 @@ saveSong fp = writePSIni fp . songToIniContents
 
 songToIniContents :: Song -> [(T.Text, T.Text)]
 songToIniContents ini = execWriter do
-  let str k = maybe (return ()) $ \v -> tell [(k, v)]
+  let str k = maybe (return ()) \v -> tell [(k, v)]
       shown k = str k . fmap (T.pack . show)
       milli k = shown k . fmap ((floor :: Milli -> Int) . (* 1000))
       tuning k = str k . fmap showPSTuning

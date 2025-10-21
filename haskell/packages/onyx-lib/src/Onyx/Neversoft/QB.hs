@@ -902,7 +902,7 @@ grow :: Int -> PutSeek s ()
 grow need = do
   (v, used) <- get
   let available = MV.length v
-  when (available < need) $ do
+  when (available < need) do
     -- at least double in size
     v' <- MV.grow v $ max available $ need - available
     put (v', used)
@@ -920,7 +920,7 @@ append :: B.ByteString -> PutSeek s ()
 append b = do
   get >>= \(_, used) -> grow $ used + B.length b
   (v, used) <- get
-  forM_ (zip [used ..] $ B.unpack b) $ \(i, c) -> MV.write v i c
+  forM_ (zip [used ..] $ B.unpack b) \(i, c) -> MV.write v i c
   put (v, used + B.length b)
 
 w32 :: Word32 -> PutSeek s ()
@@ -939,13 +939,13 @@ setPointer :: Pointer -> Word32 -> PutSeek s ()
 setPointer p w = do
   let bs = BL.toStrict $ runPut $ putWord32be w
   (v, _) <- get
-  forM_ (zip [p ..] $ B.unpack bs) $ \(i, c) -> MV.write v i c
+  forM_ (zip [p ..] $ B.unpack bs) \(i, c) -> MV.write v i c
 
 setPointerLE :: Pointer -> Word32 -> PutSeek s ()
 setPointerLE p w = do
   let bs = BL.toStrict $ runPut $ putWord32le w
   (v, _) <- get
-  forM_ (zip [p ..] $ B.unpack bs) $ \(i, c) -> MV.write v i c
+  forM_ (zip [p ..] $ B.unpack bs) \(i, c) -> MV.write v i c
 
 fillPointer :: Pointer -> PutSeek s ()
 fillPointer p = do

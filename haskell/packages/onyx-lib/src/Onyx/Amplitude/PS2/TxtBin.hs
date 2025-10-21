@@ -73,7 +73,7 @@ getNode = do
         (n, 0) -> n
         (n, _) -> n + 1
   typeWords <- replicateM numTypeWords getWord32le
-  contents <- forM [0 .. len - 1] $ \i -> do
+  contents <- forM [0 .. len - 1] \i -> do
     let typeTag = case quotRem i 16 of
           (x, y) -> ((typeWords !! x) `shiftR` (y * 2)) .&. 0x3
     case typeTag of
@@ -197,7 +197,7 @@ dtaToTxtBin (D.DTA _ (D.Tree _ root)) = do
             return (fromIntegral x, fromIntegral y, rest)
           D.Brackets (D.Tree _ [D.Int y]) : rest -> freshLine (fromIntegral y) rest
           _ -> freshLine 0 chunks
-        contents <- flip mapMaybeM chunks' $ \case
+        contents <- flip mapMaybeM chunks' \case
           D.Int      int             -> return $ Just $ I int
           D.Sym      str             -> return $ Just $ S str
           D.String   str             -> return $ Just $ S str

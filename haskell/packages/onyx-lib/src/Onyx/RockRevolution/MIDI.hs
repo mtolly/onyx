@@ -48,7 +48,7 @@ data RRFiveDifficulty t = RRFiveDifficulty
   } deriving (Show)
 
 instance ParseTrack RRFiveDifficulty where
-  parseTrack = fatBlips (1/8) $ do
+  parseTrack = fatBlips (1/8) do
     rrfStrums <- ((.rrfStrums) =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
       Five.Green  -> 48
       Five.Red    -> 49

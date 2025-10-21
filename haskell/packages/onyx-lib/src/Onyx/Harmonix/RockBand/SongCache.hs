@@ -284,7 +284,7 @@ applyDTA single entry = let
     , se_DrumSolo         = D.seqs $ D.drumSolo $ D.song pkg
     , se_DrumFreestyle    = D.seqs $ D.drumFreestyle $ D.song pkg
     , se_Tracks           = do
-      (inst, chans) <- matchOrder (map (.te_Instrument) entry.se_Tracks) $ do
+      (inst, chans) <- matchOrder (map (.te_Instrument) entry.se_Tracks) do
         (inst, chans) <- pkg.song.tracks.fromDictList
         case inst of
           "drum"   -> [(0, chans)]
@@ -325,7 +325,7 @@ applyDTA single entry = let
       maybe [] (map fromIntegral) (D.realGuitarTuning pkg) ++ repeat 0
     , se_BassTuning       = take 4 $
       maybe [] (map fromIntegral) (D.realBassTuning pkg) ++ repeat 0
-    , se_Solo             = flip map (fromMaybe [] $ D.solo pkg) $ \case
+    , se_Solo             = flip map (fromMaybe [] $ D.solo pkg) \case
       "vocal_percussion" -> "vocals"
       inst               -> inst
     }
@@ -371,11 +371,11 @@ fixSongCache path = do
               else do
                 lg $ T.unpack name <> ": updated song ID from " <> show cid <> " to " <> show nid
                 checkSongID name nid single cache
-                  { sc_Files = flip map cache.sc_Files $ \fe ->
+                  { sc_Files = flip map cache.sc_Files \fe ->
                     -- replace the existing numeric ID with a new one
                     if fe.fe_Name == name
                       then fe
-                        { fe_SongIDs = flip map (zip [0..] fe.fe_SongIDs) $ \(j, origID) ->
+                        { fe_SongIDs = flip map (zip [0..] fe.fe_SongIDs) \(j, origID) ->
                           if i == j then nid else origID
                         }
                       else fe
@@ -383,7 +383,7 @@ fixSongCache path = do
             Nothing -> checkSongID name cid single cache -- keep the generated ID
       checkSongID :: (MonadIO m, SendMessage m) => T.Text -> Word32 -> DTASingle -> SongCache -> StackTraceT m SongCache
       checkSongID name sid single cache = do
-        newSongs <- forM cache.sc_Songs $ \se ->
+        newSongs <- forM cache.sc_Songs \se ->
           if se.se_SongID == sid
             then do
               let se' = applyDTA single se
@@ -434,7 +434,7 @@ hardcodeSongCacheIDs pathCache pathCONs = do
           Nothing -> fatal "Couldn't find songs/songs.dta in the CON file"
           Just bs -> return bs
         songs <- fmap (map fst) $ readDTASingles $ BL.toStrict dtaBS
-        songs' <- forM (zip ([0..] :: [Int]) songs) $ \(i, single) -> let
+        songs' <- forM (zip ([0..] :: [Int]) songs) \(i, single) -> let
           logLabel = pathCON <> " (" <> show i <> ")"
           insertID newID = single
             { dtaSongPackage = single.dtaSongPackage { D.songId = Just $ Left $ fromIntegral newID }
@@ -466,22 +466,22 @@ hardcodeSongCacheIDs pathCache pathCONs = do
                     return $ insertID cid
                   cids -> do
                     lg $ logLabel <> ": found multiple matches for title/artist. To select an ID, rename to one of these choices:"
-                    forM_ cids $ \cid -> do
+                    forM_ cids \cid -> do
                       lg $ "  * " <> fileForID cid <> " (" <> show cid <> ")"
                     return single
-        when (songs /= songs') $ let
-          songsUTF8 = flip map songs' $ \single -> single
+        when (songs /= songs') let
+          songsUTF8 = flip map songs' \single -> single
             { dtaSongPackage = single.dtaSongPackage { D.encoding = Just "utf8" }
             }
           newDTABytes = TE.encodeUtf8 $ T.unlines $ map writeDTASingle songsUTF8
           updateFolder folder = do
-            newFiles <- forM (folderFiles folder) $ \(name, readable) -> do
+            newFiles <- forM (folderFiles folder) \(name, readable) -> do
               let r = if name == "songs.dta"
                     then makeHandle "songs.dta updated with new ID"
                       $ byteStringSimpleHandle $ BL.fromStrict newDTABytes
                     else readable
               return (name, r)
-            newSubs <- forM (folderSubfolders folder) $ \(name, sub) -> do
+            newSubs <- forM (folderSubfolders folder) \(name, sub) -> do
               sub' <- updateFolder sub
               return (name, sub')
             return Folder

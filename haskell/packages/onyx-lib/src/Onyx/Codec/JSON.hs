@@ -74,7 +74,7 @@ listCodec :: (Monad m) => JSONCodec m a -> JSONCodec m [a]
 listCodec elt = Codec
   { codecOut = makeOut $ A.Array . V.fromList . map (makeValue' elt)
   , codecIn = lift ask >>= \case
-    A.Array vect -> forM (zip [0..] $ V.toList vect) $ \(i, x) ->
+    A.Array vect -> forM (zip [0..] $ V.toList vect) \(i, x) ->
       inside ("array element " ++ show (i :: Int)) $
         parseFrom x $ codecIn elt
     _ -> expected "array"

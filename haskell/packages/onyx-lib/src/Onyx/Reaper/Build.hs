@@ -93,8 +93,8 @@ processTempoTrack = go 500000 . RTB.collectCoincident where
 
 tempoTrack :: (Monad m) =>
   ATB.T U.Seconds (Meta.Tempo, Maybe (Int, Int)) -> WriterT [Element] m ()
-tempoTrack trk = block "TEMPOENVEX" [] $ do
-  forM_ (ATB.toPairList trk) $ \(posn, (uspqn, tsig)) -> do
+tempoTrack trk = block "TEMPOENVEX" [] do
+  forM_ (ATB.toPairList trk) \(posn, (uspqn, tsig)) -> do
     let secs, bpm :: Double
         secs = realToFrac posn
         bpm = 60000000 / fromIntegral uspqn
@@ -141,7 +141,7 @@ event tks = \case
         (x, y) -> x : splitChunks y
     in case bytes of
       Nothing -> return ()
-      Just bs -> block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bs) $ \chunk -> do
+      Just bs -> block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bs) \chunk -> do
         line (TE.decodeUtf8 $ B64.encode chunk) []
   E.SystemExclusive sysex -> let
     bytes = B.pack case sysex of
@@ -151,7 +151,7 @@ event tks = \case
       then [bs]
       else case B.splitAt 40 bs of
         (x, y) -> x : splitChunks y
-    in block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
+    in block "X" [T.pack $ show tks, "0"] $ forM_ (splitChunks bytes) \chunk -> do
       line (TE.decodeUtf8 $ B64.encode chunk) []
 
 data ReaSynth = ReaSynth
@@ -194,10 +194,10 @@ track :: (Monad m, NNC.C t, Integral t) => TuningInfo -> NN.Int -> U.Seconds -> 
 track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   fpart = F.identifyFlexTrack name
-  tuning = flip fromMaybe (fpart >>= (`lookup` tunings.guitars)) $ case fpart of
+  tuning = flip fromMaybe (fpart >>= (`lookup` tunings.guitars)) case fpart of
     Just F.PartBass -> GtrTuning Bass4   [] 0 0 Nothing
     _               -> GtrTuning Guitar6 [] 0 0 Nothing
-  in block "TRACK" [] $ do
+  in block "TRACK" [] do
     line "NAME" [name]
     let yellow = (255, 221, 0)
         green = (149, 221, 33)
@@ -243,13 +243,13 @@ track tunings lenTicks lenSecs resn trk = let
           = (False, False, return ())
         mutePitches pmin pmax = do
           line "BYPASS" ["0", "0", "0"]
-          block "JS" ["IX/MIDI_Tool II", ""] $ do
+          block "JS" ["IX/MIDI_Tool II", ""] do
             line "0.000000" $ T.pack (show (pmin :: Int)) : T.pack (show (pmax :: Int)) : T.words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         transpose n = do
           line "BYPASS" ["0", "0", "0"]
-          block "JS" ["IX/MIDI_Tool II", ""] $ do
+          block "JS" ["IX/MIDI_Tool II", ""] do
             line "0.000000"
               $ T.words "0.000000 127.000000 0.000000 127.000000 0.000000 100.000000 0.000000 0.000000 127.000000"
               <> [T.pack $ show (n :: Int)]
@@ -258,7 +258,7 @@ track tunings lenTicks lenSecs resn trk = let
           line "WAK" ["0"]
         vst label dll num enabled bytes = do
           line "BYPASS" [if enabled then "0" else "1", "0", "0"]
-          block "VST" [label, dll, "0", label, T.pack $ show (num :: Integer)] $ do
+          block "VST" [label, dll, "0", label, T.pack $ show (num :: Integer)] do
             -- TODO is splitting into shorter lines required?
             line (TE.decodeUtf8 $ B64.encode $ BL.toStrict $ runPut bytes) []
           line "FLOATPOS" ["0", "0", "0", "0"]
@@ -322,7 +322,7 @@ track tunings lenTicks lenSecs resn trk = let
           ]
         hearProtar isBass = do
           line "BYPASS" ["0", "0", "0"]
-          block "JS" ["C3/progtr", ""] $ do
+          block "JS" ["C3/progtr", ""] do
             let bool b = if b then "1" else "0"
                 tuning' = reverse $ take 6 let
                   std   = (if isBass then map $ subtract 12 else id)
@@ -366,7 +366,7 @@ track tunings lenTicks lenSecs resn trk = let
         isRS = "PART RS" `T.isInfixOf` name
         isDance = "PART DANCE" `T.isSuffixOf` name
     -- newer reaper color map, attached to track
-    forM_ colorMap $ \cmap -> line "MIDICOLORMAPFN" [cmap]
+    forM_ colorMap \cmap -> line "MIDICOLORMAPFN" [cmap]
     line "FX" [if fxActive then "1" else "0"]
     hasNoteNames <- case find (($ name) . fst)
       [ (("PART DRUMS" `T.isSuffixOf`), drumNoteNames)
@@ -403,7 +403,7 @@ track tunings lenTicks lenSecs resn trk = let
       ] of
       Nothing -> return False
       Just (_, names) -> do
-        block "MIDINOTENAMES" [] $ do
+        block "MIDINOTENAMES" [] do
           -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
           -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
           forM_ names \(pitch, noteName) -> line "0" [T.pack $ show pitch, noteName]
@@ -414,20 +414,20 @@ track tunings lenTicks lenSecs resn trk = let
       line "LASTSEL" ["0"]
       line "DOCKED" ["0"]
       fx
-    block "ITEM" [] $ do
+    block "ITEM" [] do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
       line "LENGTH" [T.pack $ show (realToFrac lenSecs :: Double)]
       line "NAME" [name]
-      block "SOURCE" ["MIDI"] $ do
+      block "SOURCE" ["MIDI"] do
         line "HASDATA" ["1", T.pack $ show resn, "QN"]
-        forM_ (RTB.toPairList trk) $ \(tks, e) -> event (fromIntegral tks) e
+        forM_ (RTB.toPairList trk) \(tks, e) -> event (fromIntegral tks) e
         let lastEvent = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList 0 trk of
               t : _ -> fromIntegral t
               []    -> 0
         line "E" [T.pack $ show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
         -- older reaper color map, attached to media item
-        forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
+        forM_ colorMap \cmap -> line "COLORMAP" [cmap]
         line "CFGEDIT"
           [ "1" -- ??? if i set to 0, gets reset to 1
           , "1" -- 1 = sync editor transport to project transport, 0 = don't
@@ -500,22 +500,22 @@ track tunings lenTicks lenSecs resn trk = let
 audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
   name = takeFileName path
-  in block "TRACK" [] $ do
+  in block "TRACK" [] do
     line "NAME" [T.pack name]
     -- reapitch up 1 octave (disabled)
     line "FX" ["0"]
-    block "FXCHAIN" [] $ do
+    block "FXCHAIN" [] do
       line "SHOW" ["0"]
       line "LASTSEL" ["0"]
       line "DOCKED" ["0"]
       line "BYPASS" ["0", "0", "0"]
-      block "VST" ["VST: ReaPitch (Cockos)", "reapitch.vst.dylib", "0", "VST: ReaPitch (Cockos)", "1919250531"] $ do
+      block "VST" ["VST: ReaPitch (Cockos)", "reapitch.vst.dylib", "0", "VST: ReaPitch (Cockos)", "1919250531"] do
         line "Y3Blcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAATAAAAAEAAAAAABAA" []
         line "AAAAAP////8BAAAALAAAAAIAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAD8AAAA/AAAAPwAAQD8AAAA/AAAAPwAAAD8AAIA/AAAAPw==" []
         line "AAAQAAAA" []
       line "FLOATPOS" ["0", "0", "0", "0"]
       line "WAK" ["0"]
-    block "ITEM" [] $ do
+    block "ITEM" [] do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
       line "LENGTH" [T.pack $ show (realToFrac len :: Double)]
@@ -526,7 +526,7 @@ audio len path = let
             ".ogg" -> "VORBIS"
             ".flac" -> "FLAC"
             _ -> error $ "While generating a Reaper project: I don't know the audio format of this file: " ++ show path
-      block "SOURCE" [fmt] $ do
+      block "SOURCE" [fmt] do
         line "FILE" [T.pack path]
 
 drumNoteNames :: [(Int, T.Text)]
@@ -652,7 +652,7 @@ gryboNoteNames isKeys = execWriter do
   o 60 "EASY Green"
   unless isKeys do
     o 59 "Left Hand Highest" -- also EASY Open but whatever
-    forM_ [58, 57 .. 41] $ \i -> o i case i of
+    forM_ [58, 57 .. 41] \i -> o i case i of
       -- https://imgur.com/fRg6Vo9
       41 -> "- (1)" -- venuegen says 40
       43 -> "- (2)"
@@ -725,7 +725,7 @@ vocalNoteNames = execWriter do
   o 97 "Percussion Sound"
   o 96 "Percussion"
   x 85
-  forM_ [maxBound, pred maxBound .. minBound] $ \voxpitch -> do
+  forM_ [maxBound, pred maxBound .. minBound] \voxpitch -> do
     let midpitch = fromEnum voxpitch + 36
         str = case voxpitch of
           Vox.Octave36 C -> "C (lowest)"
@@ -1270,7 +1270,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
   project <- stackIO do
     time <- liftIO getCurrentTime
     let timestamp = T.pack $ formatTime defaultTimeLocale "%s" time
-    rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] $ do
+    rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] do
       line "VZOOMEX" ["0"]
       line "SAMPLERATE" ["44100", "0", "0"]
       block "METRONOME" ["6", "2"] $ return () -- disables metronome
@@ -1289,7 +1289,7 @@ makeReaperFromData tunings mid tempoMid audios out = do
         Element _ _ Nothing         -> []
         Element _ _ (Just sub)      -> concatMap findColorMaps sub
   stackIO $ writeRPP out project
-  stackIO $ forM_ (nubOrd $ findColorMaps project) $ \cmap -> case cmap of
+  stackIO $ forM_ (nubOrd $ findColorMaps project) \cmap -> case cmap of
     "colormap_drums.png" -> colorMapDrums >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_grybo.png" -> colorMapGRYBO >>= (`copyFile` (takeDirectory out </> T.unpack cmap))
     "colormap_ghl.png"   -> colorMapGHL   >>= (`copyFile` (takeDirectory out </> T.unpack cmap))

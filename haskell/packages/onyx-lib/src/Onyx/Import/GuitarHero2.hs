@@ -98,7 +98,7 @@ importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.Ony
 importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
-    { RB.fiveDifficulties = flip fmap part.partDifficulties $ \diff -> mempty
+    { RB.fiveDifficulties = flip fmap part.partDifficulties \diff -> mempty
       { RB.fiveGems       = fmap (fmap Just) diff.partGems
       -- stuff that we may have written for future gh2dx support
       , RB.fiveForceHOPO  = diff.partForceHOPO
@@ -106,13 +106,13 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
       , RB.fiveTap        = diff.partForceTap
       }
     , RB.fiveMood         = RTB.empty -- TODO
-    , RB.fiveHandMap      = flip fmap part.partHandMap $ \case
+    , RB.fiveHandMap      = flip fmap part.partHandMap \case
       HandMap_Default   -> RB.HandMap_Default
       HandMap_DropD2    -> RB.HandMap_DropD2
       HandMap_Solo      -> RB.HandMap_Solo
       HandMap_NoChords  -> RB.HandMap_NoChords
       HandMap_AllChords -> RB.HandMap_AllChords
-    , RB.fiveStrumMap     = flip fmap part.partStrumMap $ \case
+    , RB.fiveStrumMap     = flip fmap part.partStrumMap \case
       StrumMap_SlapBass -> RB.StrumMap_SlapBass
     , RB.fiveFretPosition = part.partFretPosition
     , RB.fiveTremolo      = RTB.empty
@@ -157,7 +157,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
         drums = gh2.gh2PartDrum
         expert = fromMaybe mempty $ Map.lookup Expert drums.gh2drumDifficulties
         in Drums.DrumTrack
-          { drumDifficulties = flip fmap drums.gh2drumDifficulties $ \diff -> Drums.DrumDifficulty
+          { drumDifficulties = flip fmap drums.gh2drumDifficulties \diff -> Drums.DrumDifficulty
             { Drums.drumMix = RTB.empty
             , Drums.drumPSModifiers = RTB.empty
             , Drums.drumGems = (, Drums.VelocityNormal) <$> diff.gh2drumGems
@@ -251,7 +251,7 @@ importGH2Song mode pkg displayPath folder level = do
     ImportCoop -> case pkg.songCoop of
       Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
       Just coop -> return coop
-  when (level == ImportFull) $ do
+  when (level == ImportFull) do
     lg $ "Importing GH2 song [" <> T.unpack songChunk.songName <> "] from: " <> displayPath
   midi <- split songChunk.midiFile >>= need . fmap encLatin1
   onyxMidi <- case level of
@@ -263,7 +263,7 @@ importGH2Song mode pkg displayPath folder level = do
     case (findFile pathVGS folder, findFile pathMogg folder) of
       (Just vgs, _) -> do
         numChannels <- stackIO $ vgsChannelCount vgs
-        namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
+        namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] \i -> do
           bs <- case level of
             ImportFull  -> splitOutVGSChannels [i] vgs
             ImportQuick -> return BL.empty
@@ -278,7 +278,7 @@ importGH2Song mode pkg displayPath folder level = do
                 , rate = Nothing
                 , channels = 1
                 }
-            plans = HM.singleton "vgs" $ let
+            plans = HM.singleton "vgs" let
               guitarChans = map fromIntegral $ fromMaybe [] $ lookup "guitar" songChunk.tracks.fromDictList
               bassChans   = map fromIntegral $ fromMaybe [] $ lookup "bass"   songChunk.tracks.fromDictList
               rhythmChans = map fromIntegral $ fromMaybe [] $ lookup "rhythm" songChunk.tracks.fromDictList
@@ -391,7 +391,7 @@ importGH2DLC src folder = do
           ImportCoop -> case pkg.songCoop of
             Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
             Just coop -> return coop
-        when (level == ImportFull) $ do
+        when (level == ImportFull) do
           lg $ "Importing GH2 DLC song [" <> T.unpack songChunk.songName <> "] from: " <> src
         midi <- split (T.unpack songChunk.midiFile) >>= need
         onyxMidi <- case level of

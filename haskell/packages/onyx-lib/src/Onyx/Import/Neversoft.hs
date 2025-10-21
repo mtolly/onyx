@@ -130,7 +130,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
       Just pakFile -> do
         return $ Just \level -> do
-          when (level == ImportFull) $ do
+          when (level == ImportFull) do
             lg $ "Importing GH song " <> show info.songName <> " from: " <> src
           (midiFixed, extraTracks) <- case level of
             ImportFull -> do
@@ -184,7 +184,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show name
                     Just dec -> return dec
                   streams <- stackIO $ parseFSB dec >>= splitFSBStreams
-                  forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+                  forM (zip ([0..] :: [Int]) streams) \(i, stream) -> do
                     (streamData, ext) <- stackIO $ getFSBStreamBytes stream
                     return (name <> "." <> T.pack (show i) <> "." <> ext, streamData)
           streams1 <- getAudio \platform -> audioPrefix <> TE.decodeUtf8 info.songName <> "_1.fsb." <> platform
@@ -424,7 +424,7 @@ importGH4DiscPS2 src folder = do
 importGH4Song :: (SendMessage m, MonadIO m) => GH4Import -> Import m
 importGH4Song ghi level = do
   let info = ghi.songInfo
-  when (level == ImportFull) $ do
+  when (level == ImportFull) do
     lg $ "Importing GH song " <> show info.gh4Name <> " from: " <> ghi.source
   midiFixed <- case level of
     ImportFull -> do
@@ -447,8 +447,8 @@ importGH4Song ghi level = do
               textBank = qsBank markerNodes <> worldTourDiscMarkers -- has section names
           -- .mid.qb has a qb key, then a separate .qb links that to a qs,
           -- then a .qs has the actual string
-          textSectionMap <- fmap (HM.fromList . concat) $ do
-            forM [ txt | (node, txt) <- markerNodes, matchQB node ] $ \txt -> do
+          textSectionMap <- fmap (HM.fromList . concat) do
+            forM [ txt | (node, txt) <- markerNodes, matchQB node ] \txt -> do
               qb <- runGetM parseQB txt
               return $ qb >>= \case
                 QBSectionQbKeyStringQs n _ qs -> [(n, qs)]
@@ -481,7 +481,7 @@ importGH4Song ghi level = do
                 Nothing  -> fatal $ "Couldn't decrypt audio file: " <> show path
                 Just dec -> return dec
               streams <- stackIO $ parseFSB dec >>= splitFSBStreams
-              forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+              forM (zip ([0..] :: [Int]) streams) \(i, stream) -> do
                 (streamData, ext) <- stackIO $ getFSBStreamBytes stream
                 return (path <> "." <> T.pack (show i) <> "." <> ext, streamData)
       streams1 <- getAudio fsb1
@@ -765,7 +765,7 @@ importGH3Song ghi = let
     then [ImportSolo, ImportCoop]
     else [ImportSolo]
   in flip map importModes \mode level -> do
-    when (level == ImportFull) $ do
+    when (level == ImportFull) do
       lg $ "Importing GH3 song " <> show info.gh3Name <> " from: " <> ghi.source
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
     -- The Pretender has rhythm track copied to non-coop rhythm track, and non-coop rhythm audio is silent. (should ignore)
@@ -823,7 +823,7 @@ importGH3Song ghi = let
           dat <- stackIO (useHandle rdat handleToByteString) >>= runGetM getGH3Dat
           -- TODO maybe only convert xma1->xma2 the fsbs we'll actually use for this import
           streams <- stackIO $ parseFSB dec >>= splitFSBStreams'
-          allAudio <- forM (zip ([0..] :: [Int]) streams) $ \(i, stream) -> do
+          allAudio <- forM (zip ([0..] :: [Int]) streams) \(i, stream) -> do
             (streamData, ext) <- stackIO $ getFSBStreamBytes stream
             return ("audio." <> T.pack (show i) <> "." <> ext, streamData)
           return $ dat.gh3DatAudio >>= \(key, index) -> case drop (fromIntegral index) allAudio of
@@ -834,7 +834,7 @@ importGH3Song ghi = let
           let applyNames names r = do
                 bs <- stackIO $ useHandle r handleToByteString
                 vgs <- fmap (chunksOf 2) $ mapM convertChannelToVGS $ splitChannels bs
-                return $ flip map (zip names vgs) $ \(name, chans) -> let
+                return $ flip map (zip names vgs) \(name, chans) -> let
                   crc = qbKeyCRC $ info.gh3Name <> "_" <> name
                   makeChannel i chan = (TE.decodeLatin1 name <> "." <> T.pack (show (i :: Int)) <> ".vgs", chan)
                   in (crc, NE.fromList $ zipWith makeChannel [0..] chans)
@@ -891,12 +891,12 @@ importGH3Song ghi = let
         toExpr ((f, _) :| []) = Input $ Named f
         toExpr xs             = Merge $ fmap (Input . Named . fst) xs
         in HM.singleton "gh" $ StandardPlan StandardPlanInfo
-          { song = flip fmap (lookup (qbKeyCRC nameBand) audio) $ \group ->
+          { song = flip fmap (lookup (qbKeyCRC nameBand) audio) \group ->
             PansVols [-1, 1] bandVol $ toExpr group
           , parts = Parts $ HM.fromList $ catMaybes
-            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) $ \group ->
+            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) \group ->
               (F.PartGuitar, PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
-            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) $ \group ->
+            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) \group ->
               (coopPart    , PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
             ]
           , crowd = Nothing

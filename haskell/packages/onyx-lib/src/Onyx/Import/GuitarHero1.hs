@@ -139,7 +139,7 @@ importGH1 path gen = do
 
 importGH1Song :: (SendMessage m, MonadResource m) => SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
 importGH1Song pkg path folder level = do
-  when (level == ImportFull) $ do
+  when (level == ImportFull) do
     lg $ "Importing GH1 song [" <> T.unpack pkg.song.songName <> "] from: " <> path
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
@@ -162,16 +162,16 @@ importGH1Song pkg path folder level = do
           , RB.fiveOverdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert diffs
           , RB.fivePlayer1      = maybe RTB.empty (.partPlayer1)   $ Map.lookup Expert diffs
           , RB.fivePlayer2      = maybe RTB.empty (.partPlayer2)   $ Map.lookup Expert diffs
-          , RB.fiveFretPosition = flip fmap gh1.gh1Anim.animFretPosition $ \case
+          , RB.fiveFretPosition = flip fmap gh1.gh1Anim.animFretPosition \case
             (FretPosition p, b) -> (p        , b)
             (Fret60        , b) -> (RB.Fret59, b)
-          , RB.fiveHandMap      = flip fmap gh1.gh1Anim.animHandMap $ \case
+          , RB.fiveHandMap      = flip fmap gh1.gh1Anim.animHandMap \case
             HandMap_Default   -> RB.HandMap_Default
             HandMap_DropD2    -> RB.HandMap_DropD2
             HandMap_Solo      -> RB.HandMap_Solo
             HandMap_NoChords  -> RB.HandMap_NoChords
             HandMap_AllChords -> RB.HandMap_AllChords
-          , RB.fiveMood         = flip RTB.mapMaybe gh1.gh1Events.eventsList $ \case
+          , RB.fiveMood         = flip RTB.mapMaybe gh1.gh1Events.eventsList \case
             Event_gtr_on  -> Just Mood_play
             Event_gtr_off -> Just Mood_idle
             _             -> Nothing
@@ -182,7 +182,7 @@ importGH1Song pkg path folder level = do
         }
       diffs = gh1.gh1T1Gems.gemsDifficulties
   numChannels <- stackIO $ vgsChannelCount vgs
-  namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] $ \i -> do
+  namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] \i -> do
     bs <- case level of
       ImportFull  -> splitOutVGSChannels [i] vgs
       ImportQuick -> return BL.empty
@@ -214,7 +214,7 @@ importGH1Song pkg path folder level = do
         , channels = 1
         }
     , jammit = HM.empty
-    , plans = HM.singleton "vgs" $ let
+    , plans = HM.singleton "vgs" let
       guitarChans = map fromIntegral $ concat $ take 1 pkg.song.slip_tracks
       songChans = zipWith const [0..] pkg.song.pans \\ guitarChans
       -- in gh1, volumes are stored as gain ratios, unlike gh2 and later where they are decibels

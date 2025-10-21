@@ -62,8 +62,8 @@ combineOD part trks = case filter (not . RTB.null . snd) trks of
       return od
 
 instance HasOverdrive OnyxFile where
-  getOverdrive onyx = fmap (foldr RTB.merge RTB.empty) $ do
-    forM (Map.toList onyx.onyxParts) $ \(inst, opart) -> do
+  getOverdrive onyx = fmap (foldr RTB.merge RTB.empty) do
+    forM (Map.toList onyx.onyxParts) \(inst, opart) -> do
       combineOD inst
         [ ("drums"          , opart.onyxPartDrums.drumOverdrive      )
         , ("drums (2x)"     , opart.onyxPartDrums2x.drumOverdrive    )
@@ -83,16 +83,16 @@ instance HasOverdrive OnyxFile where
         (inst', b) | inst == inst' -> Just b
         _                          -> Nothing
       in opart
-        { onyxPartDrums        = fn nullDrums opart.onyxPartDrums        $ \x -> x { drumOverdrive = bools }
-        , onyxPartDrums2x      = fn nullDrums opart.onyxPartDrums2x      $ \x -> x { drumOverdrive = bools }
-        , onyxPartRealDrumsPS  = fn nullDrums opart.onyxPartRealDrumsPS  $ \x -> x { drumOverdrive = bools }
-        , onyxPartGuitar       = fn nullFive  opart.onyxPartGuitar       $ \x -> x { fiveOverdrive = bools }
-        , onyxPartKeys         = fn nullFive  opart.onyxPartKeys         $ \x -> x { fiveOverdrive = bools }
-        , onyxPartGuitarExt    = fn nullFive  opart.onyxPartGuitarExt    $ \x -> x { fiveOverdrive = bools }
-        , onyxPartSix          = fn nullSix   opart.onyxPartSix          $ \x -> x { sixOverdrive  = bools }
-        , onyxPartRealGuitar   = fn nullPG    opart.onyxPartRealGuitar   $ \x -> x { pgOverdrive   = bools }
+        { onyxPartDrums        = fn nullDrums opart.onyxPartDrums        \x -> x { drumOverdrive = bools }
+        , onyxPartDrums2x      = fn nullDrums opart.onyxPartDrums2x      \x -> x { drumOverdrive = bools }
+        , onyxPartRealDrumsPS  = fn nullDrums opart.onyxPartRealDrumsPS  \x -> x { drumOverdrive = bools }
+        , onyxPartGuitar       = fn nullFive  opart.onyxPartGuitar       \x -> x { fiveOverdrive = bools }
+        , onyxPartKeys         = fn nullFive  opart.onyxPartKeys         \x -> x { fiveOverdrive = bools }
+        , onyxPartGuitarExt    = fn nullFive  opart.onyxPartGuitarExt    \x -> x { fiveOverdrive = bools }
+        , onyxPartSix          = fn nullSix   opart.onyxPartSix          \x -> x { sixOverdrive  = bools }
+        , onyxPartRealGuitar   = fn nullPG    opart.onyxPartRealGuitar   \x -> x { pgOverdrive   = bools }
         , onyxPartRealGuitar22 = fn nullPG    opart.onyxPartRealGuitar22 \x -> x { pgOverdrive   = bools }
-        , onyxPartRealKeysX    = fn nullPK    opart.onyxPartRealKeysX    $ \x -> x { pkOverdrive   = bools }
+        , onyxPartRealKeysX    = fn nullPK    opart.onyxPartRealKeysX    \x -> x { pkOverdrive   = bools }
         }
     }
 
@@ -126,19 +126,19 @@ instance HasOverdrive FixedFile where
         ]
       ]
   putOverdrive rb3 od = rb3
-    { fixedPartDrums        = fn nullDrums rb3.fixedPartDrums        $ \x -> x { drumOverdrive = drums }
-    , fixedPartGuitar       = fn nullFive  rb3.fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
-    , fixedPartGuitarGHL    = fn nullSix   rb3.fixedPartGuitarGHL    $ \x -> x { sixOverdrive = gtr }
-    , fixedPartRealGuitar   = fn nullPG    rb3.fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
-    , fixedPartRealGuitar22 = fn nullPG    rb3.fixedPartRealGuitar22 \x -> x { pgOverdrive = gtr }
-    , fixedPartBass         = fn nullFive  rb3.fixedPartBass         $ \x -> x { fiveOverdrive = bass }
-    , fixedPartBassGHL      = fn nullSix   rb3.fixedPartBassGHL      $ \x -> x { sixOverdrive = bass }
-    , fixedPartRealBass     = fn nullPG    rb3.fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
-    , fixedPartRealBass22   = fn nullPG    rb3.fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
-    , fixedPartKeys         = fn nullFive  rb3.fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
-    , fixedPartRealKeysX    = fn nullPK    rb3.fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
-    , fixedPartRhythm       = fn nullFive  rb3.fixedPartRhythm       $ \x -> x { fiveOverdrive = rhythm }
-    , fixedPartGuitarCoop   = fn nullFive  rb3.fixedPartGuitarCoop   $ \x -> x { fiveOverdrive = coop }
+    { fixedPartDrums        = fn nullDrums rb3.fixedPartDrums        \x -> x { drumOverdrive = drums  }
+    , fixedPartGuitar       = fn nullFive  rb3.fixedPartGuitar       \x -> x { fiveOverdrive = gtr    }
+    , fixedPartGuitarGHL    = fn nullSix   rb3.fixedPartGuitarGHL    \x -> x { sixOverdrive  = gtr    }
+    , fixedPartRealGuitar   = fn nullPG    rb3.fixedPartRealGuitar   \x -> x { pgOverdrive   = gtr    }
+    , fixedPartRealGuitar22 = fn nullPG    rb3.fixedPartRealGuitar22 \x -> x { pgOverdrive   = gtr    }
+    , fixedPartBass         = fn nullFive  rb3.fixedPartBass         \x -> x { fiveOverdrive = bass   }
+    , fixedPartBassGHL      = fn nullSix   rb3.fixedPartBassGHL      \x -> x { sixOverdrive  = bass   }
+    , fixedPartRealBass     = fn nullPG    rb3.fixedPartRealBass     \x -> x { pgOverdrive   = bass   }
+    , fixedPartRealBass22   = fn nullPG    rb3.fixedPartRealBass22   \x -> x { pgOverdrive   = bass   }
+    , fixedPartKeys         = fn nullFive  rb3.fixedPartKeys         \x -> x { fiveOverdrive = keys   }
+    , fixedPartRealKeysX    = fn nullPK    rb3.fixedPartRealKeysX    \x -> x { pkOverdrive   = keys   }
+    , fixedPartRhythm       = fn nullFive  rb3.fixedPartRhythm       \x -> x { fiveOverdrive = rhythm }
+    , fixedPartGuitarCoop   = fn nullFive  rb3.fixedPartGuitarCoop   \x -> x { fiveOverdrive = coop   }
     } where
       fn isEmpty trk addOD = if isEmpty trk then trk else addOD trk
       drums = bools PartDrums
@@ -284,7 +284,7 @@ notesFromRB3 FixedFile{..} = let
     return (show diff ++ " Pro " ++ name, voidEdgeOn pgd.pgNotes)
   in do
     (fpart, notes) <-
-      [ (PartDrums,) $ do
+      [ (PartDrums,) do
         (diff, dd) <- Map.toAscList fixedPartDrums.drumDifficulties
         return (show diff ++ " Drums", void dd.drumGems)
       , (PartGuitar,) $ five "Guitar" fixedPartGuitar ++ protar "Guitar" fixedPartRealGuitar ++ protar "Guitar (22)" fixedPartRealGuitar22
@@ -309,7 +309,7 @@ removeNotelessOD
   -> RTB.T U.Beats (PartName, Bool)
   -> StackTraceT m (RTB.T U.Beats (PartName, Bool))
 removeNotelessOD mmap notes allOD = foldr RTB.merge RTB.empty <$> do
-  forM (nubOrd $ map fst $ toList allOD) $ \fpart -> do
+  forM (nubOrd $ map fst $ toList allOD) \fpart -> do
     let thisODEdges = fmap snd $ RTB.filter ((== fpart) . fst) allOD
         joinOD = fmap (\((), (), len) -> len) . joinEdgesSimple . fmap (\b -> if b then EdgeOn () () else EdgeOff ())
         splitOD = U.trackJoin . fmap (\len -> Wait 0 (fpart, True) $ Wait len (fpart, False) RNil)

@@ -117,7 +117,7 @@ importParadiddle diffs level = do
             })
   lowerDiffs <- case level of
     ImportQuick -> return []
-    ImportFull  -> forM (NE.tail diffs) $ \(lowerDiff, lowerPath) -> do
+    ImportFull  -> forM (NE.tail diffs) \(lowerDiff, lowerPath) -> do
       lowerRLRR <- loadJSON lowerPath
       return $ paraToTrue tmap lowerDiff lowerRLRR
   songAudio <- getAudio rlrr.audioFileData.songTracks

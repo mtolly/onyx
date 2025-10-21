@@ -57,7 +57,7 @@ chunksList cf = Codec
   { codecOut = makeOut $ map $ makeValue' cf
   , codecIn = do
     chunks <- lift ask
-    forM (zip [0..] chunks) $ \(i, chunk) ->
+    forM (zip [0..] chunks) \(i, chunk) ->
       inside ("list element " ++ show (i :: Int)) $ parseFrom chunk $ codecIn cf
   }
 
@@ -215,7 +215,7 @@ instance (StackChunk a, StackChunk b) => StackChunk (Either a b) where
 
 asAssoc :: (Monad m) => T.Text -> ObjectCodec m [Chunk T.Text] a -> ChunksCodec m a
 asAssoc err codec = Codec
-  { codecIn = inside ("parsing " ++ T.unpack err) $ do
+  { codecIn = inside ("parsing " ++ T.unpack err) do
     obj <- codecIn cdc
     let f = withReaderT (const $ HM.fromList obj.fromDictList) . mapReaderT (`evalStateT` HS.empty)
     mapStackTraceT f $ codecIn codec

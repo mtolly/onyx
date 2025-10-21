@@ -92,11 +92,11 @@ showHSTNote = \case
 
 instance A.ToJSON (Five U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ A.object $ flip map (Map.toList x.fiveNotes) $ \(color, notes) ->
+    [ (,) "notes" $ A.object $ flip map (Map.toList x.fiveNotes) \(color, notes) ->
       (,) (maybe "open" (K.fromString . map toLower . show) color) $ eventList notes showHSTNote
     , (,) "solo" $ eventList x.fiveSolo A.toJSON
     , (,) "energy" $ eventList x.fiveEnergy A.toJSON
-    , (,) "lanes" $ A.object $ flip map (Map.toList x.fiveLanes) $ \(color, lanes) ->
+    , (,) "lanes" $ A.object $ flip map (Map.toList x.fiveLanes) \(color, lanes) ->
       (,) (maybe "open" (K.fromString . map toLower . show) color) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList x.fiveBRE A.toJSON
     ]
@@ -134,10 +134,10 @@ instance A.ToJSON (Drums U.Seconds) where
     [ (,) "notes" $ eventList x.drumNotes $ A.toJSON . map drumGemChar
     , (,) "solo" $ eventList x.drumSolo A.toJSON
     , (,) "energy" $ eventList x.drumEnergy A.toJSON
-    , (,) "lanes" $ A.object $ flip map (Map.toList x.drumLanes) $ \(gem, lanes) ->
+    , (,) "lanes" $ A.object $ flip map (Map.toList x.drumLanes) \(gem, lanes) ->
       (,) (K.fromString [drumGemChar gem]) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList x.drumBRE A.toJSON
-    , (,) "mode" $ case x.drumMode of
+    , (,) "mode" case x.drumMode of
       C.Drums4     -> "4"
       C.Drums5     -> "5"
       C.DrumsPro   -> "pro"
@@ -175,7 +175,7 @@ _readPitch t = case lookup t _pitchMap of
 
 instance A.ToJSON (ProKeys U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ A.object $ flip map (Map.toList x.proKeysNotes) $ \(p, notes) ->
+    [ (,) "notes" $ A.object $ flip map (Map.toList x.proKeysNotes) \(p, notes) ->
       (,) (K.fromText $ showPitch p) $ eventList notes \case
         NoteOff ()   -> "e"
         Blip () ()   -> "n"
@@ -183,7 +183,7 @@ instance A.ToJSON (ProKeys U.Seconds) where
     , (,) "ranges" $ eventList x.proKeysRanges $ A.toJSON . map toLower . drop 5 . show
     , (,) "solo" $ eventList x.proKeysSolo A.toJSON
     , (,) "energy" $ eventList x.proKeysEnergy A.toJSON
-    , (,) "lanes" $ A.object $ flip map (Map.toList x.proKeysLanes) $ \(pitch, lanes) ->
+    , (,) "lanes" $ A.object $ flip map (Map.toList x.proKeysLanes) \(pitch, lanes) ->
       (,) (K.fromText $ showPitch pitch) $ eventList lanes A.toJSON
     , (,) "gliss" $ eventList x.proKeysGlissando A.toJSON
     , (,) "bre" $ eventList x.proKeysBRE A.toJSON
@@ -202,7 +202,7 @@ data Protar t = Protar
 
 instance A.ToJSON (Protar U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ A.object $ flip map (Map.toList x.protarNotes) $ \(string, notes) ->
+    [ (,) "notes" $ A.object $ flip map (Map.toList x.protarNotes) \(string, notes) ->
       (,) (K.fromString $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "e"
         Blip (sht, fret, phantom, _) () -> T.concat
@@ -218,7 +218,7 @@ instance A.ToJSON (Protar U.Seconds) where
           ]
     , (,) "solo" $ eventList x.protarSolo A.toJSON
     , (,) "energy" $ eventList x.protarEnergy A.toJSON
-    , (,) "lanes" $ A.object $ flip map (Map.toList x.protarLanes) $ \(string, lanes) ->
+    , (,) "lanes" $ A.object $ flip map (Map.toList x.protarLanes) \(string, lanes) ->
       (,) (K.fromString $ map toLower $ show string) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList x.protarBRE A.toJSON
     , (,) "chords" $ eventList x.protarChords $ A.String . \case
@@ -248,7 +248,7 @@ data Six t = Six
 
 instance A.ToJSON (Six U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ A.object $ flip map (Map.toList x.sixNotes) $ \(lane, notes) ->
+    [ (,) "notes" $ A.object $ flip map (Map.toList x.sixNotes) \(lane, notes) ->
       let showLane = \case
             GHLSingle GHL.Black1 -> "b1"
             GHLSingle GHL.Black2 -> "b2"
@@ -390,7 +390,7 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties \diff -> let
     (False, False, Just _ ) -> trk1x
   drumDiff = Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
   nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> trk.drumKick2x else id)
-    $ flip fmap (fmap fst $ maybe RTB.empty (.drumGems) drumDiff) $ \case
+    $ flip fmap (fmap fst $ maybe RTB.empty (.drumGems) drumDiff) \case
       D.Kick            -> D.Kick
       D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow if is5 then D.Cymbal else D.Tom
@@ -552,10 +552,10 @@ instance A.ToJSON (Vocal U.Seconds) where
     [ (,) "harm1" $ eventList x.harm1Notes voxEvent
     , (,) "harm2" $ eventList x.harm2Notes voxEvent
     , (,) "harm3" $ eventList x.harm3Notes voxEvent
-    , (,) "percussion" $ eventList x.vocalPercussion $ \() -> A.Null
-    , (,) "phrases1" $ eventList x.vocalPhraseEnds1 $ \() -> A.Null
-    , (,) "phrases2" $ eventList x.vocalPhraseEnds2 $ \() -> A.Null
-    , (,) "ranges" $ eventList x.vocalRanges $ \case
+    , (,) "percussion" $ eventList x.vocalPercussion \() -> A.Null
+    , (,) "phrases1" $ eventList x.vocalPhraseEnds1 \() -> A.Null
+    , (,) "phrases2" $ eventList x.vocalPhraseEnds2 \() -> A.Null
+    , (,) "ranges" $ eventList x.vocalRanges \case
       VocalRange pmin pmax -> A.toJSON [pmin, pmax]
       VocalRangeShift      -> A.Null
     , (,) "energy" $ eventList x.vocalEnergy A.toJSON
@@ -579,7 +579,7 @@ processVocal tmap h1 h2 h3 tonic = let
     Vox.Phrase2 False -> Just ()
     _                 -> Nothing
   pitchToInt p = fromEnum p + 36
-  makeVoxPart trk = realTrack tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts -> let
+  makeVoxPart trk = realTrack tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) \evts -> let
     lyric = listToMaybe [ s | Vox.Lyric s <- evts ]
     note = listToMaybe [ p | Vox.Note True p <- evts ]
     end = listToMaybe [ () | Vox.Note False _ <- evts ]
@@ -623,7 +623,7 @@ data Amplitude t = Amplitude
 
 instance A.ToJSON (Amplitude U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ eventList x.ampNotes $ \case
+    [ (,) "notes" $ eventList x.ampNotes \case
       Amp.L -> A.Number 1
       Amp.M -> A.Number 2
       Amp.R -> A.Number 3
@@ -637,7 +637,7 @@ data Dance t = Dance
 
 instance A.ToJSON (Dance U.Seconds) where
   toJSON x = A.object
-    [ (,) "notes" $ A.object $ flip map (Map.toList x.danceNotes) $ \(lane, notes) ->
+    [ (,) "notes" $ A.object $ flip map (Map.toList x.danceNotes) \(lane, notes) ->
       let showLane = \case
             Dance.ArrowL -> "L"
             Dance.ArrowD -> "D"
@@ -697,13 +697,13 @@ data Processed t = Processed
 
 instance A.ToJSON (Processed U.Seconds) where
   toJSON proc = A.object $ concat
-    [ [("title"   , A.toJSON $ proc.processedTitle)]
-    , [("artist"  , A.toJSON $ proc.processedArtist)]
-    , [("author"  , A.toJSON $ proc.processedAuthor)]
-    , [("beats"   , A.toJSON $ proc.processedBeats)]
+    [ [("title"   , A.toJSON proc.processedTitle)]
+    , [("artist"  , A.toJSON proc.processedArtist)]
+    , [("author"  , A.toJSON proc.processedAuthor)]
+    , [("beats"   , A.toJSON proc.processedBeats)]
     , [("end"     , A.Number $ realToFrac (realToFrac $ proc.processedEnd :: Milli))]
     , [("sections", eventList proc.processedSections A.String)]
-    , [("parts"   , A.toJSON $ proc.processedParts)]
+    , [("parts"   , A.toJSON proc.processedParts)]
     ]
 
 makeDisplay :: C.SongYaml FilePath -> F.Song (F.OnyxFile U.Beats) -> BL.ByteString
@@ -714,7 +714,7 @@ makeDisplay songYaml song = let
   -- the above gets imported from first song_key then vocal_tonic_note
   makePart :: F.PartName -> C.Part FilePath -> Flex U.Seconds
   makePart name fpart = Flex
-    { flexFive = flip fmap (nativeFiveFret fpart) $ \builder -> let
+    { flexFive = flip fmap (nativeFiveFret fpart) \builder -> let
       result = builder FiveTypeGuitarExt ModeInput
         { tempo  = song.tempos
         , events = song.tracks.onyxEvents

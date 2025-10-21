@@ -92,7 +92,7 @@ identifyHedFormat entries = let
 hookUpWAD :: Readable -> Folder B.ByteString (Word32, Word32) -> Folder T.Text Readable
 hookUpWAD wad = bimap TE.decodeLatin1
   -- TODO add label to handle
-  $ \(pos, len) -> subHandle id (fromIntegral pos) (Just $ fromIntegral len) wad
+  \(pos, len) -> subHandle id (fromIntegral pos) (Just $ fromIntegral len) wad
 
 hedFolder :: [HedEntry] -> Folder B.ByteString (Word32, Word32)
 hedFolder entries = fromFiles let
@@ -136,8 +136,8 @@ parseHDP bs = do
           return $ Just [HDPFolder{..}]
   files <- case fileOffset of
     0 -> return Map.empty
-    _ -> flip runGetM (BL.drop (fromIntegral fileOffset) bs) $ do
-      fmap Map.fromList $ replicateM (fromIntegral numEntries) $ do
+    _ -> flip runGetM (BL.drop (fromIntegral fileOffset) bs) do
+      fmap Map.fromList $ replicateM (fromIntegral numEntries) do
         pos         <- bytesRead
         sectorIndex <- getWord32le
         dataLength  <- getWord32le
@@ -249,7 +249,7 @@ splitNeoStreams hdr bs = let
   blocks = splitEvery (fromIntegral hdr.totalBlockSize) $ BL.drop 0x10000 bs
   in flip map hdr.streams \stream -> let
     blockTake = fromIntegral stream.channelBlockSize
-    chans = flip map [0 .. stream.channels - 1] $ \i -> let
+    chans = flip map [0 .. stream.channels - 1] \i -> let
       blockDrop = fromIntegral (stream.firstBlockOffset - 0x10000)
         + fromIntegral i * blockTake
       in BL.concat $ map
@@ -261,14 +261,14 @@ neoStreamToVGS :: (NeoStream, [BL.ByteString]) -> BL.ByteString
 neoStreamToVGS (stream, chans) = runPut do
   putByteString "VgS!"
   putWord32le 2
-  forM_ chans $ \chan -> do
+  forM_ chans \chan -> do
     putWord32le $ fromIntegral stream.frequency
     putWord32le $ fromIntegral $ quot (BL.length chan) 0x10
   putByteString $ B.replicate (0x80 - 8 - 8 * length chans) 0
   let go chansLeft = if any BL.null chansLeft
         then return ()
         else do
-          forM_ (zip [0..] chansLeft) $ \(i, chanLeft) -> do
+          forM_ (zip [0..] chansLeft) \(i, chanLeft) -> do
             putWord8 $ BL.head chanLeft
             putWord8 i
             putLazyByteString $ BL.take 14 $ BL.drop 2 chanLeft
@@ -279,5 +279,5 @@ testSplitNeoIMF :: FilePath -> IO ()
 testSplitNeoIMF f = do
   bs <- BL.readFile f
   hdr <- runGetM getNeoHeader bs
-  forM_ (zip [0..] $ splitNeoStreams hdr bs) $ \(i, pair) -> do
+  forM_ (zip [0..] $ splitNeoStreams hdr bs) \(i, pair) -> do
     BL.writeFile (f <> "." <> show (i :: Int) <> ".vgs") $ neoStreamToVGS pair

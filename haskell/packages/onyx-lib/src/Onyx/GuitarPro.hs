@@ -586,7 +586,7 @@ listOfInts :: (Monad m) => InsideCodec m [Int]
 listOfInts = Codec
   { codecIn = do
     t <- codecIn childText
-    forM (T.words t) $ \word -> case readMaybe $ T.unpack word of
+    forM (T.words t) \word -> case readMaybe $ T.unpack word of
       Nothing -> fatal $ "Failed to parse list of ints: " <> show t
       Just n  -> return n
   , codecOut = undefined
@@ -595,7 +595,7 @@ listOfInts = Codec
 -- `zip-archive` package fails to parse .gp zip for some reason. `zip` and libzip are fine.
 -- does not handle edit-locked files (score.gpif is encrypted somehow, via 'editLocked' file)
 parseGP :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
-parseGP f = inside ("Loading: " <> f) $ do
+parseGP f = inside ("Loading: " <> f) do
   folder <- stackIO $ loadZipStrictBytes Nothing f
   gpif <- case findFile ("Content" NE.:| pure "score.gpif") folder of
     Nothing   -> fatal "Couldn't find Content/score.gpif in .gp zip file"
@@ -608,7 +608,7 @@ parseGPIF gpif = do
   mapStackTraceT (`runReaderT` elt) $ codecIn $ isTag "GPIF" $ parseInside' insideCodec
 
 parseGPX :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m GPIF
-parseGPX f = inside ("Loading: " <> f) $ do
+parseGPX f = inside ("Loading: " <> f) do
   files <- stackIO (B.readFile f) >>= gpxFiles . BL.fromStrict
   case lookup "score.gpif" files of
     Just bs -> parseGPIF $ BL.toStrict bs

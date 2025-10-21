@@ -156,7 +156,7 @@ parseStrings :: [T.Text] -> Maybe ([GtrString], [T.Text])
 parseStrings = \case
   "*" : rest -> Just ([], rest)
   ns  : rest | T.all isDigit ns -> do
-    strs <- forM (T.unpack ns) $ \n -> lookup n
+    strs <- forM (T.unpack ns) \n -> lookup n
       [('0', S6), ('1', S5), ('2', S4), ('3', S3), ('4', S2), ('5', S1)]
     Just (strs, rest)
   rest -> Just ([], rest)
@@ -761,7 +761,7 @@ buildRS tmap capo trk = do
         in go []
   notesAndChords <- let
     notes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap trk.rsNotes
-    in fmap concat $ forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ notes) $ \(t, noteGroup) -> insideTime t do
+    in fmap concat $ forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 notes) \(t, noteGroup) -> insideTime t do
       let (bankTime, bankState) = fromMaybe
             (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
             (Map.lookupLE t chordBank)
@@ -788,7 +788,7 @@ buildRS tmap capo trk = do
       -- note: if you have any chords in the notes, you need at least one handshape, otherwise CST crashes
   shapes <- concat <$> let
     shapeNotes = RTB.collectCoincident $ joinEdgesSimple $ U.applyTempoTrack tmap trk.rsHandShapes
-    in forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 $ shapeNotes) $ \(t, noteGroup) -> insideTime t do
+    in forM (ATB.toPairList $ RTB.toAbsoluteEventList 0 shapeNotes) \(t, noteGroup) -> insideTime t do
       let (bankTime, bankState) = fromMaybe
             (t, ChordBank Map.empty Map.empty Map.empty Map.empty)
             (Map.lookupLE t chordBank)
@@ -860,7 +860,7 @@ buildRS tmap capo trk = do
           Just (_, anchor) -> addPhraseAnchors (Map.insert t anchor m) ts
         anchorMap' = addPhraseAnchors anchorMap $ ATB.getTimes
           $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap phrases
-        in V.fromList $ flip map (Map.toList anchorMap') $ \(t, (low, high)) -> Anchor
+        in V.fromList $ flip map (Map.toList anchorMap') \(t, (low, high)) -> Anchor
           { an_time  = t
           , an_fret  = low
           , an_width = max 1 $ high - low + 1
@@ -899,7 +899,7 @@ buildRSVocals :: U.TempoMap -> VocalTrack U.Beats -> Vocals
 buildRSVocals tmap vox = Vocals $ V.fromList let
   tubes = vocalTubes vox
   pitches = fmap fst $ RTB.filter snd vox.vocalNotes
-  tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) $ \case
+  tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) \case
     (p, Just lyric) -> VocalNote lyric $ 36 + fromEnum p
     (_, Nothing   ) -> VocalNoteEnd
   phraseEnds = RTB.filter not $ RTB.merge vox.vocalPhrase1 vox.vocalPhrase2
@@ -954,7 +954,7 @@ applyTremolo freq tmap notes = let
             (str, fret, mods) <- chord
             let newMods = filter (/= ModTremolo) mods <> [ModMute | isSlide]
             return (str, fret, newMods)
-          newNotes  = removeLaterHOPO $ takeWhile ((< endBeats) . fst) $ case freq of
+          newNotes  = removeLaterHOPO $ takeWhile ((< endBeats) . fst) case freq of
             TremoloSeconds freqSecs -> do
               newSecs <- iterate (+ freqSecs) startSecs
               -- lock positions to 480 resolution to avoid problems with autochart

@@ -59,7 +59,7 @@ batchButtonLoosePS3
   :: (Event -> IO ())
   -> (FilePath -> IO ())
   -> IO ()
-batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
+batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
   let (rect', _) = chopLeft 250 rect
   button <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
   taskColor >>= FL.setColor button
@@ -76,16 +76,16 @@ batchPageRB3
   -> IO ()
 batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
     return $ FL.getValue box
-  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB3
-  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("1x Bass Pedal", Kicks1x, False)
       , ("2x Bass Pedal", Kicks2x, False)
@@ -170,7 +170,7 @@ batchPageGH1
   -> IO ()
 batchPageGH1 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
@@ -197,7 +197,7 @@ batchPageGH1 sink rect tab build = do
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           in (tgt, usePath fout)
-  padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
+  padded 5 10 5 10 (Size (Width 500) (Height 35)) \r -> do
     btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
@@ -209,7 +209,7 @@ batchPageGH1 sink rect tab build = do
           Nothing -> return ()
           Just f  -> let
             gen = takeDirectory f
-            in getTargetSong id "" $ \song -> do
+            in getTargetSong id "" \song -> do
               build \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH1ARK gen)
@@ -232,7 +232,7 @@ batchPageGH3
   -> IO ()
 batchPageGH3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
@@ -301,10 +301,10 @@ batchPageGH2
   -> IO ()
 batchPageGH2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  (getPracticeAudio, getDeluxe) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  (getPracticeAudio, getDeluxe) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     let [rectA, rectB] = splitHorizN 2 rect'
     boxA <- FL.checkButtonNew rectA $ Just "Make practice mode audio for PS2"
     getDeluxe <- gh2DeluxeSelector sink rectB
@@ -360,7 +360,7 @@ batchPageGH2 sink rect tab build = do
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           in (tgt, usePath fout)
-  padded 5 10 5 10 (Size (Width 500) (Height 35)) $ \r -> do
+  padded 5 10 5 10 (Size (Width 500) (Height 35)) \r -> do
     btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
     color <- taskColor
     FL.setColor btn color
@@ -372,7 +372,7 @@ batchPageGH2 sink rect tab build = do
           Nothing -> return ()
           Just f  -> let
             gen = takeDirectory f
-            in getTargetSong False id "" $ \song -> do
+            in getTargetSong False id "" \song -> do
               build \proj -> let
                 (tgt, _) = song proj
                 in (tgt, GH2ARK gen GH2AddBonus)
@@ -400,10 +400,10 @@ batchPageGHWOR
   -> IO ()
 batchPageGHWOR sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 5 lane", False, not ?preferences.prefGH4Lane)
       , ("Pro Drums to 4 lane", True, ?preferences.prefGH4Lane)
@@ -470,10 +470,10 @@ batchPageRR
   -> IO ()
 batchPageRR sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 6 pad", False, False)
       , ("Pro Drums to 4 pad", True, True)
@@ -538,12 +538,12 @@ batchPageRB2
   -> IO ()
 batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB2
-  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("1x Bass Pedal", Kicks1x, False)
       , ("2x Bass Pedal", Kicks2x, False)
@@ -615,10 +615,10 @@ batchPagePS
   -> IO ()
 batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> let
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
     centerRect = trimClock 0 250 0 250 rect'
     in centerFixed rect' $ speedPercent True centerRect
-  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsCH
   let getTargetSong usePath template = do
         speed <- getSpeed

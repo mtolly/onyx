@@ -22,7 +22,7 @@ import           Onyx.Zip
 
 withZip :: B.ByteString -> (Zip -> IO a) -> IO a
 withZip path f = do
-  bracket (zipEitherInt $ zip_open path zip_RDONLY) (mapM_ zip_close) $ \case
+  bracket (zipEitherInt $ zip_open path zip_RDONLY) (mapM_ zip_close) \case
     Left err -> fail $ "Failed to open zip file at " <> show path <> ": " <> show err
     Right z  -> f z
 
@@ -33,10 +33,10 @@ loadZipFolder
   -> IO (Folder T.Text a)
 loadZipFolder password path eachFile = do
   let path' = TE.encodeUtf8 $ T.pack path
-  files <- withZip path' $ \z -> do
+  files <- withZip path' \z -> do
     n <- zip_get_num_entries z mempty
     zipAlloca \stat -> do
-      fmap catMaybes $ forM [0 .. fromIntegral n - 1] $ \i -> do
+      fmap catMaybes $ forM [0 .. fromIntegral n - 1] \i -> do
         zip_stat_index z i mempty stat >>= \code -> case code of
           0 -> do
             info <- getZipStat stat
@@ -48,9 +48,9 @@ loadZipFolder password path eachFile = do
   return $ fromFiles do
     (filePath, pathList, i) <- files
     -- I'm making an assumption that the indexes won't change between zip loads
-    let output = eachFile path filePath $ withZip path' $ \z -> do
+    let output = eachFile path filePath $ withZip path' \z -> do
           void $ zip_set_default_password z password
-          bracket (zip_fopen_index z i mempty) (mapM_ zip_fclose) $ \mfile -> case mfile of
+          bracket (zip_fopen_index z i mempty) (mapM_ zip_fclose) \mfile -> case mfile of
             Nothing   -> do
               err <- zip_get_error z >>= getZipError
               fail $ "Failed to open file " <> show filePath <> " in zip file " <> show path <> ": " <> show err
@@ -83,10 +83,10 @@ readZipFile zf = allocaBytes smallChunkSize \buf -> let
 makeZipFile :: FilePath -> Folder T.Text FilePath -> IO ()
 makeZipFile path folder = do
   let flags = zip_CREATE <> zip_TRUNCATE
-  bracket (zipEitherInt $ zip_open (TE.encodeUtf8 $ T.pack path) flags) (mapM_ zip_close) $ \case
+  bracket (zipEitherInt $ zip_open (TE.encodeUtf8 $ T.pack path) flags) (mapM_ zip_close) \case
     Left err -> fail $ "Failed to open zip file at " <> show path <> ": " <> show err
     Right z  -> do
-      forM_ (allFiles folder) $ \(pathList, srcFile) -> do
+      forM_ (allFiles folder) \(pathList, srcFile) -> do
         let filePath = TE.encodeUtf8 $ T.intercalate "/" $ toList pathList
             srcPath = TE.encodeUtf8 $ T.pack srcFile
         zip_source_file z srcPath 0 zip_LENGTH_TO_END >>= \case
@@ -95,6 +95,6 @@ makeZipFile path folder = do
             fail $ "Failed to " <> show srcPath <> " into source for zip " <> show path <> ": " <> show err
           Just src -> do
             n <- zip_file_add z filePath src zip_FL_ENC_UTF_8
-            when (n < 0) $ do
+            when (n < 0) do
               err <- zip_get_error z >>= getZipError
               fail $ "Failed to add file " <> show filePath <> " to zip " <> show path <> ": " <> show err

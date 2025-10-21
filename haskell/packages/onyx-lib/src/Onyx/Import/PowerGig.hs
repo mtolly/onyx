@@ -82,7 +82,7 @@ importPowerGig sourceDir base = do
   dlcKeys <- stackIO case findFile (return "AddContent.lua") sourceDir of
     Nothing -> return []
     Just r  -> findSongKeys . BL.toStrict <$> useHandle r handleToByteString
-  forM (discKeys <> dlcKeys) $ \key -> do
+  forM (discKeys <> dlcKeys) \key -> do
     song <- loadSongXML key folder
     return $ importPowerGigSong key song folder
 
@@ -128,9 +128,9 @@ importPowerGigSong key song folder level = do
 
       getController :: Word32 -> GELS -> RTB.T U.Beats Bool
       getController n trk = RTB.fromAbsoluteEventList $ ATB.fromPairList do
-        evt <- V.toList $ trk.gelsGEVT
+        evt <- V.toList trk.gelsGEVT
         guard $ evt.gevtType == 4 && evt.gevtData1 == n
-        return (secsToBeats $ evt.gevtTime, evt.gevtData2 /= 0)
+        return (secsToBeats evt.gevtTime, evt.gevtData2 /= 0)
 
       -- For each glue phrase, mark all but the last non-slide lyric as connecting
       glueLyrics glue lyrics = go False $ RTB.merge (fmap Left glue) (fmap Right lyrics) where
@@ -210,7 +210,7 @@ importPowerGigSong key song folder level = do
           phraselessTrack = putLyricNotes lyricNotes
           finalTrack = phraselessTrack
             { vocalPhrase1 = U.trackJoin $ flip fmap phrases
-              $ \(len, _mojo) -> Wait 0 True $ Wait len False RNil
+              \(len, _mojo) -> Wait 0 True $ Wait len False RNil
             , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
               (_  , False) -> RNil
               (len, True ) -> Wait 0 True $ Wait len False RNil
@@ -244,7 +244,7 @@ importPowerGigSong key song folder level = do
         phraselessTrack = putLyricNotes lyricNotes
         finalTrack = phraselessTrack
           { vocalPhrase1 = U.trackJoin $ flip fmap phrases
-            $ \(len, _mojo) -> Wait 0 True $ Wait len False RNil
+            \(len, _mojo) -> Wait 0 True $ Wait len False RNil
           , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
             (_  , False) -> RNil
             (len, True ) -> Wait 0 True $ Wait len False RNil
@@ -342,7 +342,7 @@ importPowerGigSong key song folder level = do
         pg = f mid.tracks
         in mempty
           -- TODO handle lanes
-          { D.drumGems = flip RTB.mapMaybe pg.drumGems $ \case
+          { D.drumGems = flip RTB.mapMaybe pg.drumGems \case
             EdgeOn () gem -> Just (gem, D.VelocityNormal)
             EdgeOff _     -> Nothing
           }
@@ -378,7 +378,7 @@ importPowerGigSong key song folder level = do
         (\i -> if endsWithMono && i >= streamCount - 1 then 1 else 2)
         [0 .. streamCount - 1]
       useXboxAudio rate samples packetsPerBlock xmas = do
-        xmaBytes <- stackIO $ makeXMA2s $ flip map (zip channelCounts xmas) $ \(channels, xma) -> XMA2Contents
+        xmaBytes <- stackIO $ makeXMA2s $ flip map (zip channelCounts xmas) \(channels, xma) -> XMA2Contents
           { xma2Channels        = channels
           , xma2Rate            = rate
           , xma2Samples         = samples
@@ -386,7 +386,7 @@ importPowerGigSong key song folder level = do
           , xma2SeekTable       = Nothing
           , xma2Data            = writeXMA2Packets xma
           }
-        return $ flip map (zip [0..] $ zip channelCounts xmaBytes) $ \(i, (channels, bs)) -> let
+        return $ flip map (zip [0..] $ zip channelCounts xmaBytes) \(i, (channels, bs)) -> let
           name = "stream-" <> show (i :: Int)
           filename = name <> ".xma"
           afile = AudioFile AudioInfo
@@ -412,7 +412,7 @@ importPowerGigSong key song folder level = do
         Just r -> do
           -- These should always be MP3 inside, but we'll just use the generic split function
           streams <- stackIO $ useHandle r handleToByteString >>= parseFSB >>= splitFSBStreams
-          forM (zip [0..] $ zip channelCounts streams) $ \(i, (channels, stream)) -> do
+          forM (zip [0..] $ zip channelCounts streams) \(i, (channels, stream)) -> do
             (streamData, ext) <- stackIO $ getFSBStreamBytes stream
             let name = "stream-" <> show (i :: Int)
                 filename = name <> "." <> T.unpack ext

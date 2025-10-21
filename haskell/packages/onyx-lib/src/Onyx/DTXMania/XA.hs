@@ -144,7 +144,7 @@ sourceXA f = do
           | samplesLeft <= 0 = return ()
           | otherwise        = do
             blocks <- fmap (map $ V.take samplesLeft) $
-              forM [0 .. xa.channels - 1] $ \i -> do
+              forM [0 .. xa.channels - 1] \i -> do
                 block <- liftIO $ B.hGet h xa.blockSize
                 let (shorts, prof) = blockInflater xa.bits block
                 decodeInflated shorts i prof

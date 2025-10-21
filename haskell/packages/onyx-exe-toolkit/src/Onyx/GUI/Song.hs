@@ -58,7 +58,7 @@ songPageRB3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -70,7 +70,7 @@ songPageRB3 sink rect tab proj build = mdo
       tell $ FL.getValue box >>= \b -> return $ Endo \rb3 ->
         (rb3 :: TargetRB3 FilePath) & #is2xBassPedal .~ b
       return box
-    fullWidth 35 \rect' -> songIDBox rect' $ \sid rb3 ->
+    fullWidth 35 \rect' -> songIDBox rect' \sid rb3 ->
       rb3 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #guitar .~ v)
@@ -184,7 +184,7 @@ songPageRB2 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -196,7 +196,7 @@ songPageRB2 sink rect tab proj build = mdo
       tell $ FL.getValue box >>= \b -> return $ Endo \rb2 ->
         (rb2 :: TargetRB2 FilePath) & #is2xBassPedal .~ b
       return box
-    fullWidth 35 \rect' -> songIDBox rect' $ \sid rb2 ->
+    fullWidth 35 \rect' -> songIDBox rect' \sid rb2 ->
       rb2 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #guitar .~ v)
@@ -289,7 +289,7 @@ songPageGHWOR sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -304,9 +304,9 @@ songPageGHWOR sink rect tab proj build = mdo
       tell do
         b <- getProTo4
         return $ Endo \gh5 -> (gh5 :: TargetGH5 FilePath) & #proTo4 .~ fromMaybe False b
-    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID (dlc)" $ \sid gh5 ->
+    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID (dlc)" \sid gh5 ->
       gh5 & #songID .~ sid
-    fullWidth 35 \rect' -> numberBox rect' "Custom Package ID (cdl)" $ \sid gh5 ->
+    fullWidth 35 \rect' -> numberBox rect' "Custom Package ID (cdl)" \sid gh5 ->
       gh5 & #cdl .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #guitar .~ v)
@@ -390,7 +390,7 @@ songPageRR sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -405,9 +405,9 @@ songPageRR sink rect tab proj build = mdo
       tell do
         b <- getProTo4
         return $ Endo \rr -> (rr :: TargetRR FilePath) & #proTo4 .~ fromMaybe False b
-    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID" $ \sid rr ->
+    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID" \sid rr ->
       rr & #songID .~ sid
-    fullWidth 35 \rect' -> numberBox rect' "Custom Leaderboard ID" $ \sid rr ->
+    fullWidth 35 \rect' -> numberBox rect' "Custom Leaderboard ID" \sid rr ->
       rr & #leaderboardID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar"           , (.guitar), (\v rr -> (rr :: TargetRR FilePath) & #guitar .~ v)
@@ -482,7 +482,7 @@ songPagePS sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -581,7 +581,7 @@ songPageGH3 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -700,7 +700,7 @@ songPageGH1 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect
@@ -785,7 +785,7 @@ songPageGH2 sink rect tab proj build = mdo
   pack <- FL.packNew rect Nothing
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
-    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) $ \rect' -> do
+    counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
       let centerRect = trimClock 0 250 0 250 rect'
       (getSpeed, counter) <- liftIO $
         centerFixed rect' $ speedPercent' True centerRect

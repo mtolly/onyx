@@ -149,7 +149,7 @@ importSTFSFolder src folder = do
         midiPath = "songs" :| [baseX, baseY <> ".mid"]
 
     let mogg = SoftReadable <$> findFileCI moggPath folder
-        bink = flip fmap (findFileCI binkPath folder) $ \r -> SoftReadable
+        bink = flip fmap (findFileCI binkPath folder) \r -> SoftReadable
           $ makeHandle "decrypted bink" $ decryptBink r >>= byteStringSimpleHandle . BL.fromStrict
         pss = case findFileCI pssPath folder of
           Nothing -> Nothing
@@ -160,14 +160,14 @@ importSTFSFolder src folder = do
               vgs <- extractVGSStream   0xBD packets h
               return (vid, vgs)
             let rVideo = SoftReadable $ makeHandle "video.m2v" $ byteStringSimpleHandle bsVideo
-            chans <- withSystemTempDirectory "decrypt-vgs" $ \temp -> do
+            chans <- withSystemTempDirectory "decrypt-vgs" \temp -> do
               let enc = temp </> "enc.vgs"
                   dec = temp </> "dec.vgs"
                   rVGS = fileReadable dec
               BL.writeFile enc bsVGS
               ark_DecryptVgs dec enc >>= \b -> unless b $ fail "Couldn't decrypt VGS file"
               numChannels <- vgsChannelCount rVGS
-              forConcurrently [0 .. numChannels - 1] $ \i -> do
+              forConcurrently [0 .. numChannels - 1] \i -> do
                 splitOutVGSChannels [i] rVGS
             return (SoftFile "video.m2v" rVideo, chans)
 
@@ -642,7 +642,7 @@ importRB rbi level = do
           Just bink -> makeMoggBinkPlan "bink" "audio.bik" bink
           Nothing -> case rbi.pss of
             Nothing -> HM.empty
-            Just _pss -> HM.singleton "vgs" $ let
+            Just _pss -> HM.singleton "vgs" let
               songChans = [0 .. length namedChans - 1] \\ concat
                 [ concatMap snd instChans
                 , maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
@@ -794,7 +794,7 @@ importRB4 fdta level = do
       , mempty
       )
     ImportFull  -> do
-      rbmid <- inside "Loading .rbmid_ps4" $ do
+      rbmid <- inside "Loading .rbmid_ps4" do
         stackIO (BL.fromStrict <$> B.readFile (fdta -<.> "rbmid_ps4")) >>= runGetM (codecIn bin)
       mid <- extractMidi rbmid
       -- only need to parse out the BEAT track so we can translate .rbsong times
@@ -1040,7 +1040,7 @@ data RB4MoggDta = RB4MoggDta
   } deriving (Eq, Show)
 
 instance D.StackChunks RB4MoggDta where
-  stackChunks = D.asWarnAssoc "RB4MoggDta" $ do
+  stackChunks = D.asWarnAssoc "RB4MoggDta" do
     tracks <- (.tracks) =. req "tracks" (D.chunksParens $ D.chunksList $ D.chunkParens $ D.chunksKeyRest D.chunkSym D.channelList)
     pans   <- (.pans)   =. req "pans"   (D.chunksParens D.stackChunks)
     vols   <- (.vols)   =. req "vols"   (D.chunksParens D.stackChunks)

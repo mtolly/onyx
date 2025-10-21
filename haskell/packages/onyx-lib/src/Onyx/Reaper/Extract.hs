@@ -80,7 +80,7 @@ timingToMaps timing = let
   in (tmap, mmap)
 
 parseEvent :: (SendMessage m) => Element -> StackTraceT m (Maybe (Integer, Maybe (E.T B.ByteString)))
-parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) $ do
+parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) do
   let unhex s = case readHex $ T.unpack s of
         [(n, "")] -> Just n
         _         -> Nothing
@@ -139,7 +139,7 @@ getTracks proj = let
     items = filter (isNamed "ITEM") $ getChildren trk
     in fmap (foldr RTB.merge RTB.empty . concat) $ forM items \item -> do
       -- TODO item mute, item position
-      forM (getChildren item) $ \src -> do
+      forM (getChildren item) \src -> do
         if not $ isNamed "SOURCE" src && take 1 (args src) == ["MIDI"]
           then return RTB.empty
           else let

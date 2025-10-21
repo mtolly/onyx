@@ -157,15 +157,15 @@ gh5Rules buildInfo dir gh5 = do
               , QBStructItemString "name" $ B8.pack songKey
               , QBStructItemQbKeyStringQs "title" $ fst titleQS
               , QBStructItemQbKeyStringQs "artist" $ fst artistQS
-              , QBStructItemQbKeyString "artist_text" $ if metadata.cover
+              , QBStructItemQbKeyString "artist_text" if metadata.cover
                 then "artist_text_as_made_famous_by"
                 else "artist_text_by"
               , QBStructItemInteger "original_artist"
-                $ if metadata.cover then 0 else 1
+                if metadata.cover then 0 else 1
               -- TODO can we omit year, or pick a better default than 1960
               , QBStructItemInteger "year" $ fromIntegral $ getYear metadata
               , QBStructItemQbKeyStringQs "album_title" $ fst albumQS
-              , QBStructItemQbKey "singer" $ case getPart gh5.vocal songYaml >>= (.vocal) >>= (.gender) of
+              , QBStructItemQbKey "singer" case getPart gh5.vocal songYaml >>= (.vocal) >>= (.gender) of
                 Nothing     -> "male" -- can we just omit?
                 Just Male   -> "male"
                 Just Female -> "female"
@@ -353,7 +353,7 @@ gh5Rules buildInfo dir gh5 = do
       :| [Silence 2 $ Seconds 0]
     runAudio (applyTargetAudio (common gh5) mid src) out
 
-  forM_ ["audio1", "audio2", "audio3", "preview"] $ \audio -> do
+  forM_ ["audio1", "audio2", "audio3", "preview"] \audio -> do
     let wav = dir </> audio <.> "wav"
         fsb = dir </> audio <.> "fsb"
     fsb %> \out -> do

@@ -79,7 +79,7 @@ parseAnim = do
   animEnd <- getFloatbe
   animMystery4 <- getWord32be -- always 1
   trackCount <- getWord32be
-  animTracks <- replicateM (fromIntegral trackCount) $ do
+  animTracks <- replicateM (fromIntegral trackCount) do
     trackVersion <- getWord32be -- usually 6, 2 in postproc track
     trackSubversion <- getWord32be -- usually 6, 2 in postproc track
     trackDomain <- getStringBE -- "BandDirector"
@@ -89,7 +89,7 @@ parseAnim = do
     trackName2 <- getStringBE -- like "lightpreset_interp" but usually ""
     trackMystery3 <- getByteString 5
     eventCount <- getWord32be
-    trackEvents <- replicateM (fromIntegral eventCount) $ do
+    trackEvents <- replicateM (fromIntegral eventCount) do
       eventExtra <- if trackVersion == 2
         then Just <$> getWord32be
         else return Nothing
@@ -160,7 +160,7 @@ animPad s = let
   in fmap (+ ticks)
 
 convertFromAnim :: (SendMessage m) => Anim Float -> StackTraceT m (F.OnyxFile U.Seconds)
-convertFromAnim anim = inside "Converting venue info to MIDI" $ let
+convertFromAnim anim = inside "Converting venue info to MIDI" let
   animSeconds :: Anim U.Seconds
   -- need to clamp negative to 0, negative time seen in headlikeahole
   animSeconds = (\f -> realToFrac $ max 0 $ f / 30) <$> anim

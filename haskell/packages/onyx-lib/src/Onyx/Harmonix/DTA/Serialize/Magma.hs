@@ -28,7 +28,7 @@ data Metadata = Metadata
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Metadata where
-  stackChunks = asStrictAssoc "Metadata" $ do
+  stackChunks = asStrictAssoc "Metadata" do
     songName     <- (.songName)     =. req "song_name"     (single chunkString)
     artistName   <- (.artistName)   =. req "artist_name"   (single chunkString)
     genre        <- (.genre)        =. req "genre"         (single chunkSym)
@@ -52,7 +52,7 @@ data AudioFile = AudioFile
   } deriving (Eq, Ord, Show)
 
 instance StackChunks AudioFile where
-  stackChunks = asStrictAssoc "AudioFile" $ do
+  stackChunks = asStrictAssoc "AudioFile" do
     audioEnabled <- (.audioEnabled) =. req "enabled"  stackChunks
     channels     <- (.channels)     =. req "channels" stackChunks
     pan          <- (.pan)          =. req "pan"      stackChunks
@@ -66,7 +66,7 @@ data DryVoxPart = DryVoxPart
   } deriving (Eq, Ord, Show)
 
 instance StackChunks DryVoxPart where
-  stackChunks = asStrictAssoc "DryVoxPart" $ do
+  stackChunks = asStrictAssoc "DryVoxPart" do
     dryVoxFile    <- (.dryVoxFile)    =. req "file"    (single chunkString)
     dryVoxEnabled <- (.dryVoxEnabled) =. req "enabled" stackChunks
     return DryVoxPart{..}
@@ -80,7 +80,7 @@ data DryVox = DryVox
   } deriving (Eq, Ord, Show)
 
 instance StackChunks DryVox where
-  stackChunks = asStrictAssoc "DryVox" $ do
+  stackChunks = asStrictAssoc "DryVox" do
     dryVoxFileRB2     <- (.dryVoxFileRB2)     =. opt Nothing "file"                (chunksMaybe $ single chunkString)
     part0             <- (.part0)             =. req         "part0"               stackChunks
     part1             <- (.part1)             =. req         "part1"               stackChunks
@@ -103,7 +103,7 @@ data AutogenTheme
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk AutogenTheme where
-  stackChunk = enumCodecFull "AutogenTheme" $ \case
+  stackChunk = enumCodecFull "AutogenTheme" \case
     DefaultTheme -> is (String "") |?> is (String "Default.rbtheme")
     theme        -> is $ String $ T.pack (show theme) <> ".rbtheme"
 instance StackChunks AutogenTheme
@@ -114,7 +114,7 @@ data Midi = Midi
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Midi where
-  stackChunks = asStrictAssoc "Midi" $ do
+  stackChunks = asStrictAssoc "Midi" do
     midiFile     <- (.midiFile)     =. req "file"          (single chunkString)
     autogenTheme <- (.autogenTheme) =. req "autogen_theme" (eitherCodec stackChunks $ single chunkString)
     return Midi{..}
@@ -127,7 +127,7 @@ data DrumLayout
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk DrumLayout where
-  stackChunk = enumCodec "DrumLayout" $ \case
+  stackChunk = enumCodec "DrumLayout" \case
     Kit          -> Sym "drum_layout_kit"
     KitSnare     -> Sym "drum_layout_kit_snare"
     KitKick      -> Sym "drum_layout_kit_kick"
@@ -147,7 +147,7 @@ data Tracks = Tracks
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Tracks where
-  stackChunks = asStrictAssoc "Tracks" $ do
+  stackChunks = asStrictAssoc "Tracks" do
     drumLayout <- (.drumLayout) =. req "drum_layout" stackChunks
     drumKit    <- (.drumKit)    =. req "drum_kit"    stackChunks
     drumKick   <- (.drumKick)   =. req "drum_kick"   stackChunks
@@ -166,7 +166,7 @@ data Percussion
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk Percussion where
-  stackChunk = enumCodec "Percussion" $ \case
+  stackChunk = enumCodec "Percussion" \case
     Tambourine -> Sym "tambourine"
     Cowbell    -> Sym "cowbell"
     Handclap   -> Sym "handclap"
@@ -176,7 +176,7 @@ data Gender = Male | Female
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance StackChunk Gender where
-  stackChunk = enumCodec "Gender" $ \case
+  stackChunk = enumCodec "Gender" \case
     Male   -> Sym "male"
     Female -> Sym "female"
 instance StackChunks Gender
@@ -191,7 +191,7 @@ data Languages = Languages
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Languages where
-  stackChunks = asStrictAssoc "Languages" $ do
+  stackChunks = asStrictAssoc "Languages" do
     english  <- (.english)  =. opt Nothing "english"  stackChunks
     french   <- (.french)   =. opt Nothing "french"   stackChunks
     italian  <- (.italian)  =. opt Nothing "italian"  stackChunks
@@ -205,7 +205,7 @@ newtype AlbumArt = AlbumArt
   } deriving (Eq, Ord, Show)
 
 instance StackChunks AlbumArt where
-  stackChunks = asStrictAssoc "AlbumArt" $ do
+  stackChunks = asStrictAssoc "AlbumArt" do
     albumArtFile <- (.albumArtFile) =. req "file" (single chunkString)
     return AlbumArt{..}
 
@@ -230,7 +230,7 @@ data Gamedata = Gamedata
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Gamedata where
-  stackChunks = asStrictAssoc "Gamedata" $ do
+  stackChunks = asStrictAssoc "Gamedata" do
     previewStartMs   <- (.previewStartMs)   =. req "preview_start_ms"   stackChunks
     rankGuitar       <- (.rankGuitar)       =. req "rank_guitar"        stackChunks
     rankBass         <- (.rankBass)         =. req "rank_bass"          stackChunks
@@ -261,7 +261,7 @@ data Project = Project
   } deriving (Eq, Ord, Show)
 
 instance StackChunks Project where
-  stackChunks = asStrictAssoc "Project" $ do
+  stackChunks = asStrictAssoc "Project" do
     toolVersion     <- (.toolVersion)     =. req "tool_version"     (single chunkString)
     projectVersion  <- (.projectVersion)  =. req "project_version"  stackChunks
     metadata        <- (.metadata)        =. req "metadata"         stackChunks
@@ -279,6 +279,6 @@ newtype RBProj = RBProj
   } deriving (Eq, Ord, Show)
 
 instance StackChunks RBProj where
-  stackChunks = asStrictAssoc "RBProj" $ do
+  stackChunks = asStrictAssoc "RBProj" do
     project <- (.project) =. req "project" stackChunks
     return RBProj{..}

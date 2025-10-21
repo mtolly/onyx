@@ -249,11 +249,11 @@ searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
               -- TODO figure out better approach to quoting?
               return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")
             let replaceVar (from, to) c = T.intercalate to $ T.splitOn from c
-                newCommands = flip map info.commands $ \c -> foldr replaceVar c variableMapping
+                newCommands = flip map info.commands \c -> foldr replaceVar c variableMapping
             -- take the mvar as a hack so we never run multiple commands
             -- (or copies of the same command) at the same time
             lib <- stackIO $ takeMVar libVar
-            forM_ newCommands $ \c -> do
+            forM_ newCommands \c -> do
               out <- stackProcess (shell $ T.unpack c) { cwd = Just dir }
               lg $ "# " ++ T.unpack c ++ "\n" ++ out
             stackIO $ putMVar libVar lib

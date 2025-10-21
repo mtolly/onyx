@@ -103,7 +103,7 @@ cryptTable :: Key -> ST s (CryptTable s)
 cryptTable key = do
   v1ref <- newSTRef key
   tbl <- newArray (0, 0xF8) 0
-  forM_ [0..0xF8] $ \i -> do
+  forM_ [0..0xF8] \i -> do
     v1 <- readSTRef v1ref
     let v2 = (v1 * 0x41C64E6D) + 0x3039
     let v1' = (v2 * 0x41C64E6D) + 0x3039

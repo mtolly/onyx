@@ -53,7 +53,7 @@ getLipsyncPS4 = do
 
 splitFrameGroups :: LipsyncPS4 -> [B.ByteString]
 splitFrameGroups lip = do
-  (this, next) <- zip (0 : lip.frameIndices) $ lip.frameIndices
+  (this, next) <- zip (0 : lip.frameIndices) lip.frameIndices
   return $ B.take (fromIntegral $ next - this) $ B.drop (fromIntegral this) lip.frameData
 
 splitFrameGroup :: Get [Keyframe]

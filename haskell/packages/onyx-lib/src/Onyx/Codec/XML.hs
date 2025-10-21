@@ -210,15 +210,15 @@ warnUnused :: (SendMessage m) => InsideCodec m a -> InsideCodec m a
 warnUnused cdc = cdc
   { codecIn = codecIn cdc <* do
     ins <- lift get
-    forM_ ins.insideAttrs $ \attr ->
+    forM_ ins.insideAttrs \attr ->
       unless (qName (attrKey attr) == "xmlns" || qPrefix (attrKey attr) == Just "xmlns") $
         warn $ "Unused attribute " <> show (qName $ attrKey attr)
-    forM_ ins.insideContent $ \case
+    forM_ ins.insideContent \case
       Elem elt -> warn $ unwords $ concat
         [ ["Unused element <" <> qName (elName elt) <> ">"]
         , toList (elLine elt) >>= \ln -> ["at line", show ln]
         ]
-      Text cd -> maybe id (inside . ("line " <>) . show) (cdLine cd) $ do
+      Text cd -> maybe id (inside . ("line " <>) . show) (cdLine cd) do
         unless (all isSpace $ cdData cd)
           $ warn $ "Found text: " <> show (cdData cd)
       CRef _ -> warn "Found CRef"
@@ -264,10 +264,10 @@ reqAttr a = Codec
 viewElements :: (SendMessage m) => InsideParser m (V.Vector Element)
 viewElements = do
   ins <- lift get
-  fmap (V.mapMaybe id) $ forM ins.insideContent $ \case
+  fmap (V.mapMaybe id) $ forM ins.insideContent \case
     Elem elt -> return $ Just elt
     Text cd -> do
-      unless (all isSpace $ cdData cd) $ do
+      unless (all isSpace $ cdData cd) do
         warn $ "Unexpected text in list element: " ++ show (cdData cd)
       return Nothing
     CRef _ -> warn "Unexpected CRef" >> return Nothing
@@ -288,7 +288,7 @@ bareList :: (SendMessage m) => ValueCodec' m Element a -> InsideCodec m (V.Vecto
 bareList cdc = Codec
   { codecIn = do
     elts <- codecIn children
-    forM (V.fromList $ zip [0..] $ V.toList elts) $ \(i, e) -> do
+    forM (V.fromList $ zip [0..] $ V.toList elts) \(i, e) -> do
       let layer = unwords $ concat
             [ toList (elLine e) >>= \ln -> ["line", show ln]
             , ["list child #" <> show (i :: Int)]
@@ -459,7 +459,7 @@ bareListWithTagName :: (SendMessage m) => ParseName -> ValueCodec' m Inside a ->
 bareListWithTagName name inner = Codec
   { codecIn = do
     elts <- viewElements
-    results <- forM (V.toList elts) $ \elt -> case matchTag name elt of
+    results <- forM (V.toList elts) \elt -> case matchTag name elt of
       Nothing    -> return $ Left elt
       Just layer -> fmap Right let
         ins' = Inside (V.fromList $ elAttribs elt) (V.fromList $ elContent elt)

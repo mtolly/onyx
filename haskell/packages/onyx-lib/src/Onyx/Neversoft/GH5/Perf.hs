@@ -68,7 +68,7 @@ getPerf = do
   perfUnknown1 <- getWord32be -- always 0x36? nope, seen qb("gh5_actor_loops") in gh5
   perfUnknown2 <- getWord32be
   perfUnknown3 <- getWord32be
-  perfEntries <- replicateM (fromIntegral numEntries) $ do
+  perfEntries <- replicateM (fromIntegral numEntries) do
     entryKey <- getQBKeyBE
     -- observed key "autocutcameras" and "momentcameras" both with type "gh5_camera_note"
     entry <- getPerfEntry
@@ -94,7 +94,7 @@ makePerf p = runPut do
       PerfGH5CameraNote notes -> do
         putWord32be $ fromIntegral $ length notes
         putQBKeyBE "gh5_camera_note"
-        forM_ notes $ \cam -> do
+        forM_ notes \cam -> do
           putWord32be cam.camTime
           putWord16be cam.camLength
           putWord8    cam.camAngle

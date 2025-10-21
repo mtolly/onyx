@@ -208,7 +208,7 @@ readGEV = do
     "GELH" <- getByteString 4
     4 <- getWord32le
     gelhCount <- getWord32le
-    gelhGELS <- V.replicateM (fromIntegral gelhCount) $ do
+    gelhGELS <- V.replicateM (fromIntegral gelhCount) do
       "GELS" <- getByteString 4
       0x20 <- getWord32le
       gelsCount <- getWord32le
@@ -219,7 +219,7 @@ readGEV = do
       gelsUnk5 <- getFloatle
       gelsUnk6 <- getFloatle
       gelsUnk7 <- getWord32le
-      gelsGEVT <- V.replicateM (fromIntegral gelsCount) $ do
+      gelsGEVT <- V.replicateM (fromIntegral gelsCount) do
         "GEVT" <- getByteString 4
         0x20 <- getWord32le
         gevtTime <- getFloatle
@@ -254,7 +254,7 @@ readGEV = do
     tmpoCount <- case quotRem (tmpoSize - 8) 16 of
       (n, 0) -> return n
       _      -> fail $ "TMPO data size not divisible by 16: " <> show (tmpoSize - 8)
-    tmpoEvents <- V.replicateM (fromIntegral tmpoCount) $ do
+    tmpoEvents <- V.replicateM (fromIntegral tmpoCount) do
       tmpoEventTicks <- getWord32le
       tmpoEventUnk2 <- getWord32le
       tmpoEventUSPQN <- getWord32le
@@ -320,17 +320,17 @@ showGEV GEV{..} = do
 
 debugPrintGEV :: GEV -> IO ()
 debugPrintGEV GEV{..} = do
-  let printVector typ v each = forM_ (zip [0..] $ V.toList v) $ \(i, x) -> do
+  let printVector typ v each = forM_ (zip [0..] $ V.toList v) \(i, x) -> do
         putStrLn ""
         putStrLn $ typ <> " #" <> show (i :: Int) <> ":"
         each x
   print gevPCMC
-  printVector "GELS" gevGELH.gelhGELS $ \gels -> do
+  printVector "GELS" gevGELH.gelhGELS \gels -> do
     print gels { gelsGEVT = V.empty }
-    printVector "GEVT" gels.gelsGEVT $ \gevt -> do
+    printVector "GEVT" gels.gelsGEVT \gevt -> do
       print gevt
       print $ findBits guitarDrumBit gevt.gevtGameBits
-  printVector "String" gevSTRH.strhData $ \offset -> do
+  printVector "String" gevSTRH.strhData \offset -> do
     print $ B.takeWhile (/= 0) $ B.drop (fromIntegral offset) gevSTRS.strsData
   print gevTMPO { tmpoEvents = V.empty }
   printVector "TMPOEvent" gevTMPO.tmpoEvents print
@@ -340,7 +340,7 @@ getMIDITempos gev
   = U.makeTempoMap
   $ RTB.fromAbsoluteEventList
   $ ATB.fromPairList
-  $ flip map (V.toList gev.gevTMPO.tmpoEvents) $ \e -> let
+  $ flip map (V.toList gev.gevTMPO.tmpoEvents) \e -> let
     posn = fromIntegral e.tmpoEventTicks / fromIntegral gev.gevTMPO.tmpoResolution
     event = E.MetaEvent $ Meta.SetTempo $ fromIntegral e.tmpoEventUSPQN
     in (posn, event)

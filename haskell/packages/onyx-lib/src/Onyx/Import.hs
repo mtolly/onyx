@@ -253,7 +253,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Just psarc -> importRS psarc >>= foundImports "Rocksmith" edat
       foundPS3 loc = do
         usrdir <- stackIO ((.pkgFolder) <$> loadPKG loc) >>= getDecryptedUSRDIR
-        rbgh <- fmap mconcat $ forM (map snd $ folderSubfolders usrdir) $ \folderBS -> let
+        rbgh <- fmap mconcat $ forM (map snd $ folderSubfolders usrdir) \folderBS -> let
           folder = first TE.decodeLatin1 folderBS
           in mconcat <$> sequence
             [ case findFile ("songs" :| ["songs.dta"]) folder of
@@ -373,7 +373,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             Nothing    -> []
             Just quick -> [(imp, quick)]
         let single = null $ drop 1 scanned
-        fmap ([],) $ forM (zip [0..] scanned) $ \(i, (imp, quick)) -> do
+        fmap ([],) $ forM (zip [0..] scanned) \(i, (imp, quick)) -> do
           let index = guard (not single) >> Just i
           return Importable
             { impTitle = quick.metadata.title
@@ -612,31 +612,31 @@ buildRB2LoosePS3 rb2 proj = do
     }
 
 buildMagmaV2 :: (MonadIO m) => TargetRB3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targetHash </> "magma"
+buildMagmaV2 rb3 = buildCommon (RB3 rb3) \targetHash -> "gen/target" </> targetHash </> "magma"
 
 buildPSDir :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildPSDir ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps"
+buildPSDir ps = buildCommon (PS ps) \targetHash -> "gen/target" </> targetHash </> "ps"
 
 buildPSZip :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
+buildPSZip ps = buildCommon (PS ps) \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
 buildPSSng :: (MonadIO m) => TargetPS FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildPSSng ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.sng"
+buildPSSng ps = buildCommon (PS ps) \targetHash -> "gen/target" </> targetHash </> "ps.sng"
 
 buildGH1Dir :: (MonadIO m) => TargetGH1 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGH1Dir gh1 = buildCommon (GH1 gh1) $ \targetHash -> "gen/target" </> targetHash </> "gh1"
+buildGH1Dir gh1 = buildCommon (GH1 gh1) \targetHash -> "gen/target" </> targetHash </> "gh1"
 
 buildGH2Dir :: (MonadIO m) => TargetGH2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGH2Dir gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2"
+buildGH2Dir gh2 = buildCommon (GH2 gh2) \targetHash -> "gen/target" </> targetHash </> "gh2"
 
 buildGH2LIVE :: (MonadIO m) => TargetGH2 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGH2LIVE gh2 = buildCommon (GH2 gh2) $ \targetHash -> "gen/target" </> targetHash </> "gh2live"
+buildGH2LIVE gh2 = buildCommon (GH2 gh2) \targetHash -> "gen/target" </> targetHash </> "gh2live"
 
 buildGH3LIVE :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGH3LIVE gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "gh3live"
+buildGH3LIVE gh3 = buildCommon (GH3 gh3) \targetHash -> "gen/target" </> targetHash </> "gh3live"
 
 buildGH3PKG :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGH3PKG gh3 = buildCommon (GH3 gh3) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+buildGH3PKG gh3 = buildCommon (GH3 gh3) \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
 buildGH3LoosePS3 :: (MonadIO m) => TargetGH3 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
 buildGH3LoosePS3 gh3 proj = do
@@ -649,10 +649,10 @@ buildGH3LoosePS3 gh3 proj = do
     }
 
 buildGHWORLIVE :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGHWORLIVE gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ghworlive"
+buildGHWORLIVE gh5 = buildCommon (GH5 gh5) \targetHash -> "gen/target" </> targetHash </> "ghworlive"
 
 buildGHWORPKG :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildGHWORPKG gh5 = buildCommon (GH5 gh5) $ \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
+buildGHWORPKG gh5 = buildCommon (GH5 gh5) \targetHash -> "gen/target" </> targetHash </> "ps3.pkg"
 
 buildGHWORLoosePS3 :: (MonadIO m) => TargetGH5 FilePath -> Project -> StackTraceT (QueueLog m) (Folder T.Text Readable)
 buildGHWORLoosePS3 gh5 proj = do
@@ -669,10 +669,10 @@ buildGHWORLoosePS3 gh5 proj = do
     }
 
 buildRRLIVE :: (MonadIO m) => TargetRR FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildRRLIVE rr = buildCommon (RR rr) $ \targetHash -> "gen/target" </> targetHash </> "rrlive"
+buildRRLIVE rr = buildCommon (RR rr) \targetHash -> "gen/target" </> targetHash </> "rrlive"
 
 buildRRPKG :: (MonadIO m) => TargetRR FilePath -> Project -> StackTraceT (QueueLog m) FilePath
-buildRRPKG rr = buildCommon (RR rr) $ \targetHash -> "gen/target" </> targetHash </> "rr.pkg"
+buildRRPKG rr = buildCommon (RR rr) \targetHash -> "gen/target" </> targetHash </> "rr.pkg"
 
 installGH1 :: (MonadIO m) => TargetGH1 FilePath -> Project -> FilePath -> StackTraceT (QueueLog m) ()
 installGH1 gh1 proj gen = do
@@ -872,11 +872,11 @@ installPS3Folder gameID extraResPath contents dout = do
 savePkgGameMetadata :: Folder T.Text Readable -> FilePath -> IO ()
 savePkgGameMetadata folder dest = do
   Dir.createDirectoryIfMissing False dest
-  forM_ (folderSubfolders folder) $ \(name, sub) -> do
+  forM_ (folderSubfolders folder) \(name, sub) -> do
     let subdest = dest </> T.unpack name
     Dir.createDirectoryIfMissing False subdest
     savePkgGameMetadata sub subdest
-  forM_ (folderFiles folder) $ \(name, file) -> do
+  forM_ (folderFiles folder) \(name, file) -> do
     newPath <- fixFileCase $ dest </> T.unpack name
     let overwrite = notElem (T.toUpper name) ["PARAM.SFO", "ICON0.PNG", "PIC1.PNG"]
         save = saveReadable file newPath

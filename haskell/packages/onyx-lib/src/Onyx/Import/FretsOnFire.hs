@@ -226,7 +226,7 @@ importFoF src dir level = do
       (name, rImage) : _ -> return $ Just $ SoftFile (map toLower $ T.unpack name) $ SoftReadable rImage
       []                 -> case findFileCI (pure "label.png") dir of
         Nothing     -> return Nothing
-        Just rLabel -> inside "Converting label.png + cassettecolor to square art" $ do
+        Just rLabel -> inside "Converting label.png + cassettecolor to square art" do
           -- overlay label.png onto cassettecolor
           let hex s = case readHex s of
                 [(n, "")] -> return n
@@ -361,7 +361,7 @@ importFoF src dir level = do
           _         -> delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
 
   -- Used to clamp this at 7, but higher ones should be handled OK now
-  let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ fromIntegral n + 1
+  let toTier = maybe (Tier 1) \n -> Tier $ max 1 $ fromIntegral n + 1
 
   let maybe2x = listToMaybe do
         guard $ level == ImportFull
@@ -817,12 +817,12 @@ fixShortVoxPhrases song@(F.Song tmap mmap ps)
     -- not touching songs with harmonies
   | not $ RTB.null ps.fixedPartVocals.vocalPhrase2 = return song
     -- not touching songs with separate p1/p2 phrases
-  | otherwise = inside "Track PART VOCALS" $ do
+  | otherwise = inside "Track PART VOCALS" do
     let vox = ps.fixedPartVocals
         (vox', differenceTimes) = fixShortVoxPhrasesTrack vox
     case differenceTimes of
       [] -> return ()
-      _  -> inside (intercalate ", " $ map (showPosition mmap) differenceTimes) $ do
+      _  -> inside (intercalate ", " $ map (showPosition mmap) differenceTimes) do
         warn "Vocal phrase edges extended to be a minimum length of 1 beat"
     return $ F.Song tmap mmap ps { F.fixedPartVocals = vox' }
 

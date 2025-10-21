@@ -66,7 +66,7 @@ miscPageMilo
   -> IO ()
 miscPageMilo sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Extract .milo to folder"
     taskColor >>= FL.setColor btn
     FL.setCallback btn \_ -> do
@@ -91,7 +91,7 @@ miscPageMilo sink rect tab startTasks = do
               _ -> return ()
         _ -> return ()
     return ()
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Repack .milo from folder"
     taskColor >>= FL.setColor btn
     FL.setCallback btn \_ -> askFolder Nothing \din -> do
@@ -113,7 +113,7 @@ miscPageMilo sink rect tab startTasks = do
         _ -> return ()
     return ()
   {-
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     group <- FL.groupNew rect' Nothing
     let (trimClock 0 10 0 100 -> dropdownArea, btnArea) = chopRight 160 rect'
     choice <- FL.choiceNew dropdownArea $ Just "Contents"
@@ -146,7 +146,7 @@ miscPageLipsync
   -> IO ()
 miscPageLipsync sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -168,7 +168,7 @@ miscPageLipsync sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
     getVowels <- horizRadio langArea
       [ ("English", englishSyllables, True)
@@ -194,7 +194,7 @@ miscPageLipsync sink rect tab startTasks = do
           FL.NativeFileChooserPicked -> FL.getFilename picker >>= mapM_ (go . T.unpack)
           _                          -> return ()
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Make GH2 .voc from PART VOCALS"
     taskColor >>= FL.setColor btn
     FL.setCallback btn \_ -> sink $ EventIO do
@@ -242,7 +242,7 @@ miscPageLipsync sink rect tab startTasks = do
           else do
             lg "Updating milo from vocal chart tracks."
             return False
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let [trimClock 0 5 0 0 -> makeArea, trimClock 0 5 0 5 -> updateArea, trimClock 0 0 0 5 -> rawArea] = splitHorizN 3 rect'
     makeButton <- FL.buttonNew makeArea $ Just "Make RB3 .milo_*"
     taskColor >>= FL.setColor makeButton
@@ -341,7 +341,7 @@ miscPageLipsync sink rect tab startTasks = do
     FL.setTooltip rawButton "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files."
     FL.setCallback rawButton \_ -> sink $ EventIO do
       input <- pickedFile
-      askFolder (Just $ takeDirectory input) $ \dout -> sink $ EventOnyx let
+      askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
         task = do
           mid <- F.loadMIDI input
           let _ = mid :: F.Song (F.FixedFile U.Beats)
@@ -410,13 +410,13 @@ miscPageLipsync sink rect tab startTasks = do
             return [input]
           in startTasks [("Convert vocal tracks to LIPSYNC tracks: " <> input, task)]
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for RB3"
     taskColor >>= FL.setColor btn
     FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set."
     FL.setCallback btn \_ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- FL.buttonNew rect' $ Just "Turn vocal tracks into LIPSYNC* tracks for TBRB"
     taskColor >>= FL.setColor btn
     FL.setTooltip btn "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set."
@@ -433,7 +433,7 @@ miscPageDryVox
   -> IO ()
 miscPageDryVox sink rect tab startTasks = do
   pack <- FL.packNew rect Nothing
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -455,7 +455,7 @@ miscPageDryVox sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("PART VOCALS", Just Nothing, True)
       , ("[PART] HARM1", Just $ Just Vocal1, False)
@@ -476,7 +476,7 @@ miscPageDryVox sink rect tab startTasks = do
         Just (Just Vocal1) -> "-harm1"
         Just (Just Vocal2) -> "-harm2"
         Just (Just Vocal3) -> "-harm3"
-  let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
         btn <- FL.buttonNew rect' $ Just label
         taskColor >>= FL.setColor btn
         FL.setCallback btn \_ -> sink $ EventIO do
@@ -500,7 +500,7 @@ miscPageDryVox sink rect tab startTasks = do
                 in startTasks [(T.unpack label <> ": " <> input, task)]
             _ -> return ()
   dryvoxButton "Make sine wave dry vox from MIDI" $ return . sineDryVox
-  pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+  pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
         (inputRect, rectB) = chopRight 50 rectA
         (_, pickRect) = chopRight 40 rectB
@@ -522,7 +522,7 @@ miscPageDryVox sink rect tab startTasks = do
           Just f  -> void $ FL.setValue input f
         _                          -> return ()
     return $ fmap T.unpack $ FL.getValue input
-  dryvoxButton "Make clipped dry vox from MIDI and audio" $ \trk -> do
+  dryvoxButton "Make clipped dry vox from MIDI and audio" \trk -> do
     audio <- stackIO pickedAudio
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src

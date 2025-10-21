@@ -97,7 +97,7 @@ reqSynonym k1 k2 vc = let
   in result
 
 instance StackJSON (EncoreInfo T.Text) where
-  stackJSON = asObject "EncoreInfo" $ do
+  stackJSON = asObject "EncoreInfo" do
     title              <- (.title)              =. req         "title"              stackJSON
     artist             <- (.artist)             =. req         "artist"             stackJSON
     diff               <- (.diff)               =. req         "diff"               (dict stackJSON)

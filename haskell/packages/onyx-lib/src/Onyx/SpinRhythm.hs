@@ -92,7 +92,7 @@ data TrackData = TrackData
   } deriving (Eq, Show)
 
 instance StackJSON TrackData where
-  stackJSON = asObject "TrackData" $ do
+  stackJSON = asObject "TrackData" do
     let unitList = listCodec $ Codec (return ()) (makeOut \() -> "unknown")
     td_customName                <- (.td_customName)                =. req "customName"                stackJSON
     td_previewLoopBars           <- (.td_previewLoopBars)           =. req "previewLoopBars"           stackJSON
@@ -121,7 +121,7 @@ data MinMax a = MinMax
   } deriving (Eq, Show)
 
 instance (StackJSON a) => StackJSON (MinMax a) where
-  stackJSON = asObject "MinMax" $ do
+  stackJSON = asObject "MinMax" do
     mm_min <- (.mm_min) =. req "min" stackJSON
     mm_max <- (.mm_max) =. req "max" stackJSON
     return MinMax{..}
@@ -131,7 +131,7 @@ data Translation = Translation
   } deriving (Eq, Show)
 
 instance StackJSON Translation where
-  stackJSON = asObject "Translation" $ do
+  stackJSON = asObject "Translation" do
     trans_key <- (.trans_key) =. req "key" stackJSON
     return Translation{..}
 
@@ -141,7 +141,7 @@ data AssetReference = AssetReference
   } deriving (Eq, Show)
 
 instance StackJSON AssetReference where
-  stackJSON = asObject "AssetReference" $ do
+  stackJSON = asObject "AssetReference" do
     ar_bundle    <- (.ar_bundle)    =. req "bundle"    stackJSON
     ar_assetName <- (.ar_assetName) =. req "assetName" stackJSON
     return AssetReference{..}
@@ -159,7 +159,7 @@ data ClipData = ClipData
   } deriving (Eq, Show)
 
 instance StackJSON ClipData where
-  stackJSON = asObject "ClipData" $ do
+  stackJSON = asObject "ClipData" do
     cd_clipIndex           <- (.cd_clipIndex)           =. req "clipIndex"           stackJSON
     cd_startBar            <- (.cd_startBar)            =. req "startBar"            stackJSON
     cd_endBar              <- (.cd_endBar)              =. req "endBar"              stackJSON
@@ -180,7 +180,7 @@ data Note t = Note
   } deriving (Eq, Ord, Show, Functor)
 
 instance (StackJSON t) => StackJSON (Note t) where
-  stackJSON = asObject "Note" $ do
+  stackJSON = asObject "Note" do
     note_time       <- (.note_time)       =. req "time"       stackJSON
     note_type       <- (.note_type)       =. req "type"       stackJSON
     note_colorIndex <- (.note_colorIndex) =. req "colorIndex" stackJSON
@@ -202,7 +202,7 @@ data NoteStats = NoteStats
   } deriving (Eq, Show)
 
 instance StackJSON NoteStats where
-  stackJSON = asObject "NoteStats" $ do
+  stackJSON = asObject "NoteStats" do
     ns_matchNotes  <- (.ns_matchNotes)  =. req "matchNotes"  stackJSON
     ns_tapNotes    <- (.ns_tapNotes)    =. req "tapNotes"    stackJSON
     ns_beatNotes   <- (.ns_beatNotes)   =. req "beatNotes"   stackJSON
@@ -223,7 +223,7 @@ data TrackDataAssetReference = TrackDataAssetReference
   } deriving (Eq, Show)
 
 instance StackJSON TrackDataAssetReference where
-  stackJSON = asObject "TrackDataAssetReference" $ do
+  stackJSON = asObject "TrackDataAssetReference" do
     tdar_bundle     <- (.tdar_bundle)     =. req "bundle"      stackJSON
     tdar_assetName  <- (.tdar_assetName)  =. req "assetName"   stackJSON
     tdar_difficulty <- (.tdar_difficulty) =. req "_difficulty" stackJSON
@@ -335,18 +335,18 @@ data SRTrack t = SRTrack
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (SRTrack t)
 
 instance ParseTrack SRTrack where
-  parseTrack = fatBlips (1/8) $ do
+  parseTrack = fatBlips (1/8) do
     let dimapColor = dimap (fmap (, 100)) (fmap fst) . dimapColorMSize
         dimapColorMSize = dimap
           (fmap \(color, size) -> (case color of Blue -> 0; Red -> 1, 100 + size))
           (fmap \(c, v) -> (case c of 0 -> Blue; _ -> Red, v - 100))
-    srTap <- ((.srTap) =.) $ condenseMap $ eachKey each $ \col ->
+    srTap <- ((.srTap) =.) $ condenseMap $ eachKey each \col ->
       dimapColor $ blipCV $ 100 - 5 * fromEnum col
-    srMatch <- ((.srMatch) =.) $ condenseMap $ eachKey each $ \col ->
+    srMatch <- ((.srMatch) =.) $ condenseMap $ eachKey each \col ->
       dimapColor $ blipCV $ 100 - 5 * fromEnum col - 1
-    srSlideStart <- ((.srSlideStart) =.) $ condenseMap $ eachKey each $ \col ->
+    srSlideStart <- ((.srSlideStart) =.) $ condenseMap $ eachKey each \col ->
       dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 2
-    srSlideContinue <- ((.srSlideContinue) =.) $ condenseMap $ eachKey each $ \col ->
+    srSlideContinue <- ((.srSlideContinue) =.) $ condenseMap $ eachKey each \col ->
       dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 3
     srSpin <- ((.srSpin) =.) $ condenseMap_ $ eachKey each $ blip . \case
       LH -> 55
@@ -361,42 +361,42 @@ srTrackToJSON :: (NNC.C t, Num t) => SRTrack t -> [Note t]
 srTrackToJSON sr = let
   columnNumber col = 4 - fromEnum col
   rtb = foldr RTB.merge RTB.empty
-    [ flip fmap sr.srTap $ \(col, color) -> Note
+    [ flip fmap sr.srTap \(col, color) -> Note
       { note_time       = ()
       , note_type       = 8
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap sr.srMatch $ \(col, color) -> Note
+    , flip fmap sr.srMatch \(col, color) -> Note
       { note_time       = ()
       , note_type       = 0
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap sr.srBeat $ \() -> Note
+    , flip fmap sr.srBeat \() -> Note
       { note_time       = ()
       , note_type       = 1
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap sr.srSpin $ \dir -> Note
+    , flip fmap sr.srSpin \dir -> Note
       { note_time       = ()
       , note_type       = case dir of RH -> 2; LH -> 3
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap sr.srSlideStart $ \(col, (color, size)) -> Note
+    , flip fmap sr.srSlideStart \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 4
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = size
       }
-    , flip fmap sr.srSlideContinue $ \(col, (color, size)) -> Note
+    , flip fmap sr.srSlideContinue \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 5
       , note_colorIndex = fromEnum color

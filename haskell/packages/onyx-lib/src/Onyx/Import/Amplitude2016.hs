@@ -51,7 +51,7 @@ importAmplitudeArk _src gen = do
   folder <- loadArkFolder hdr arks
   case first TE.decodeLatin1 <$> findFolder ["ps3", "songs"] folder of
     Nothing -> return []
-    Just songsFolder -> fmap concat $ forM (folderSubfolders songsFolder) $ \(name, sub) ->
+    Just songsFolder -> fmap concat $ forM (folderSubfolders songsFolder) \(name, sub) ->
       if ("tut" `T.isPrefixOf` name) || name == "credits" -- just ignore these manually
         then return []
         else return [importAmplitudeSong sub $ name <> ".moggsong"]

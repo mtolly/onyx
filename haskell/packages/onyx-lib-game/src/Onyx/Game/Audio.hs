@@ -168,10 +168,10 @@ withAL fn = let
   destroyContext ctx = do
     AL.currentContext $= Nothing
     AL.destroyContext ctx
-  in bracket (AL.openDevice Nothing) (mapM_ AL.closeDevice) $ \mdev -> do
+  in bracket (AL.openDevice Nothing) (mapM_ AL.closeDevice) \mdev -> do
     case mdev of
       Nothing -> fn False
-      Just dev -> bracket (AL.createContext dev []) (mapM_ destroyContext) $ \mctx -> do
+      Just dev -> bracket (AL.createContext dev []) (mapM_ destroyContext) \mctx -> do
         case mctx of
           Nothing -> fn False
           Just ctx -> do
@@ -287,13 +287,13 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
   forM_ srcs \src -> do
     with src \p -> do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
-      doAL "playSource setting direct mode" $ do
+      doAL "playSource setting direct mode" do
         alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
-  let setGain g = forM_ (zip srcs $ assigned) $ \(src, srcAssigned) -> let
+  let setGain g = forM_ (zip srcs $ assigned) \(src, srcAssigned) -> let
         volDB = case srcAssigned of
           AssignedMono _ vol -> vol
           AssignedStereo vol -> vol
-        in doAL "playSource setting sourceGain" $ do
+        in doAL "playSource setting sourceGain" do
           AL.sourceGain src $= CFloat (g * (10 ** (volDB / 20)))
   setGain initGain
   firstFull <- newEmptyMVar
@@ -325,7 +325,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                     let grouped = groupChannels assigned $ CA.deinterleave (CA.channels ca) chunk
                         groupChannels (AssignedMono pan _ : xs) (chan : ys) = let
                           (ratioL, ratioR) = stereoPanRatios pan
-                          newStereo = V.generate (V.length chan * 2) $ \i -> case quotRem i 2 of
+                          newStereo = V.generate (V.length chan * 2) \i -> case quotRem i 2 of
                             (j, 0) -> CA.integralSample $ ratioL * CA.fractionalSample (chan V.! j)
                             (j, _) -> CA.integralSample $ ratioR * CA.fractionalSample (chan V.! j)
                           in newStereo : groupChannels xs ys
@@ -349,7 +349,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                           writeIORef waveformDelayQueue trimmedQueue
 
                           -- If queue is long enough, process the oldest waveform data
-                          when (length newQueue > bufferDelayCount) $ do
+                          when (length newQueue > bufferDelayCount) do
                             case reverse newQueue of
                               [] -> return ()
                               (oldestWaveform : _) -> do
@@ -358,14 +358,14 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                                 (newBuf, _) <- readIORef waveformBuf
                                 seq (V.length newBuf) (return ())
                         return ()
-                    forM_ (zip bufs grouped) $ \(buf, chan') -> do
-                      liftIO $ V.unsafeWith chan' $ \p -> do
+                    forM_ (zip bufs grouped) \(buf, chan') -> do
+                      liftIO $ V.unsafeWith chan' \p -> do
                         let _ = p :: Ptr Int16
                         doAL "playSource set bufferData" $ AL.bufferData buf $= AL.BufferData
                           (AL.MemoryRegion p $ fromIntegral $ V.length chan' * sizeOf (V.head chan'))
                           AL.Stereo16
                           floatRate
-                    forM_ (zip srcs bufs) $ \(src, buf) -> do
+                    forM_ (zip srcs bufs) \(src, buf) -> do
                       liftIO $ doAL "playSource queueBuffers" $ AL.queueBuffers src [buf]
                     let newBuffers = Set.fromList bufs
                     loop (Set.union currentBuffers newBuffers) audioState
@@ -377,7 +377,7 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
                 -- Add fake waveform progression for smooth 60fps visualization
                 liftIO do
                   (currentBuf, pos) <- readIORef waveformBuf
-                  unless (V.null currentBuf) $ do
+                  unless (V.null currentBuf) do
                     -- Create a small "shift" by taking a slice from current buffer
                     let sliceSize = min 64 (V.length currentBuf `div` 10)  -- Small slice
                         startIdx = pos `mod` max 1 (V.length currentBuf - sliceSize)

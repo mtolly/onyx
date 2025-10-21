@@ -113,7 +113,7 @@ stripMidiMagmaV1 mid = mid
 fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFiveColors trk = let
   expert = maybe RTB.empty (.fiveGems) $ Map.lookup Expert trk.fiveDifficulties
-  usedColors = Set.fromList $ flip mapMaybe (RTB.getBodies expert) $ \case
+  usedColors = Set.fromList $ flip mapMaybe (RTB.getBodies expert) \case
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing
   in trk
@@ -125,7 +125,7 @@ fixFiveColors trk = let
 useColorsFive :: (Ord color) => Set.Set color -> RTB.T U.Beats (Edge () color) -> RTB.T U.Beats (Edge () color)
 useColorsFive cols rtb = let
   gtr = guitarify' $ edgeBlips_ minSustainLengthRB rtb
-  present = Set.fromList $ flip mapMaybe (RTB.getBodies rtb) $ \case
+  present = Set.fromList $ flip mapMaybe (RTB.getBodies rtb) \case
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing
   missing = Set.difference cols present

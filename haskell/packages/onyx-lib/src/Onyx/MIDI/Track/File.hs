@@ -94,7 +94,7 @@ class ParseFile f where
 
 parseTrackReport :: (SendMessage m, ParseTrack trk) => RTB.T U.Beats (E.T T.Text) -> StackTraceT m (trk U.Beats)
 parseTrackReport trk = do
-  (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) $ \input -> do
+  (parsedTrk, unrec) <- flip mapStackTraceT (codecIn parseTrack) \input -> do
     (errorOrParsed, unrec) <- runStateT input
       $ fixZeroLengthNotes (1/480 :: U.Beats)
       $ mapMIDITrack RTB.fromAbsoluteEventList
@@ -103,7 +103,7 @@ parseTrackReport trk = do
       Left  msgs      -> return $ Left msgs
       Right parsedTrk -> return $ Right (parsedTrk, unrec)
   let unrec' = mapMIDITrack toList unrec
-  forM_ (nubSort $ putMIDITrack (++) unrec') $ \e -> case isNoteEdgeCPV e of
+  forM_ (nubSort $ putMIDITrack (++) unrec') \e -> case isNoteEdgeCPV e of
     Just (_, _, Nothing) -> return () -- don't clutter with note-off warnings
     _                    -> warn $ "Unrecognized MIDI event: " ++ show e
   return parsedTrk
@@ -470,7 +470,7 @@ parseOnyxPart partName = do
           trk <- codecIn $ fileTrack $ pure $ prefix <> maniaName
           return (maniaName, trk)
         return $ Map.fromList results
-      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) $ \(maniaName, trk) -> let
+      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) \(maniaName, trk) -> let
         name = prefix <> maniaName
         in codecOut (fileId $ fileTrack $ pure name) trk
       }
@@ -486,7 +486,7 @@ instance ParseFile OnyxFile where
           part <- codecIn $ parseOnyxPart partName
           return (partName, part)
         return $ Map.fromList results
-      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
+      , codecOut = fmapArg \parts -> forM_ (Map.toAscList parts) \(partName, trk) ->
         codecOut (fileId $ parseOnyxPart partName) trk
       }
     onyxEvents   <- (.onyxEvents  ) =. fileTrack (pure "EVENTS"   )
@@ -505,7 +505,7 @@ instance ParseFile OnyxFile where
           trk <- codecIn $ fileTrack $ pure $ "AUDIO " <> audioName
           return (audioName, trk)
         return $ Map.fromList results
-      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) $ \(audioName, trk) -> let
+      , codecOut = fmapArg \m -> forM_ (Map.toAscList m) \(audioName, trk) -> let
         name = "AUDIO " <> audioName
         in codecOut (fileId $ fileTrack $ pure name) trk
       }
@@ -671,8 +671,8 @@ mergeCharts offset base new = let
 
 parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats (E.T T.Text)] -> T.Text -> StackTraceT m (trk U.Beats)
 parseTracks trks name = do
-  (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack $ pure name) $ \f -> do
-    flip fmap (runStateT f trks) $ \case
+  (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack $ pure name) \f -> do
+    flip fmap (runStateT f trks) \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
   return file
@@ -682,8 +682,8 @@ interpretMIDIFile
   => Song [RTB.T U.Beats (E.T T.Text)]
   -> StackTraceT m (Song (f U.Beats))
 interpretMIDIFile (Song tempos mmap trks) = do
-  (file, unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
-    flip fmap (runStateT f trks) $ \case
+  (file, unrec) <- flip mapStackTraceT (codecIn parseFile) \f -> do
+    flip fmap (runStateT f trks) \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
   let mnames = map U.trackName unrec
@@ -706,7 +706,7 @@ loadRawMIDIReadable = fmap (fmap decodeGeneral) . loadMIDIBytes
 
 loadMIDIBytes :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m (F.T B.ByteString)
 loadMIDIBytes r = do
-  maybe id (\f -> inside $ "loading MIDI: " <> f) (rFilePath r) $ do
+  maybe id (\f -> inside $ "loading MIDI: " <> f) (rFilePath r) do
     bs <- stackIO $ useHandle r handleToByteString
     (mid, warnings) <- runGetM getMIDI bs
     mapM_ warn warnings
@@ -747,7 +747,7 @@ padAnyFile seconds (Song temps sigs ff) = let
   -- we only modify the first bar to have the extra time,
   -- so printed positions after that bar are unchanged from the source midi
   sigs' = U.measureMapFromTimeSigs U.Error case U.measureMapToTimeSigs sigs of
-    Wait 0 sig@(U.TimeSig len unit) rest -> Wait 0 (U.TimeSig (len + beats) unit) $ case rest of
+    Wait 0 sig@(U.TimeSig len unit) rest -> Wait 0 (U.TimeSig (len + beats) unit) case rest of
       Wait dt next rest'
         | dt == len -> Wait (dt + beats) next rest'
         | otherwise -> Wait (len + beats) sig $ Wait (dt - len) next rest'

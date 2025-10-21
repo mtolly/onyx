@@ -336,7 +336,7 @@ gh1Rules buildInfo dir gh1 = do
         hasAudio <- loadPartAudioCheck
         audio <- computeGH1Audio songYaml gh1 hasAudio
         mid <- loadGH1Midi
-        srcs <- forM audio.gh1AudioSections $ \case
+        srcs <- forM audio.gh1AudioSections \case
           GH2PartStereo part -> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           -- This halves the volume, so we set vols in .dta to compensate
           GH2PartMono part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
@@ -380,7 +380,7 @@ gh1Rules buildInfo dir gh1 = do
   dir </> "gh1/symbol" %> \out -> do
     stackIO $ B.writeFile out $ B8.pack pkg
 
-  phony (dir </> "gh1") $ shk $ need $
+  phony (dir </> "gh1") $ shk $ need
     [ dir </> "gh1/notes.mid"
     , dir </> "gh1/audio.vgs"
     , dir </> "gh1/songs.dta"

@@ -1,4 +1,5 @@
 -- | Functions dealing with the DXT texture formats used for album art by RB games.
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE BinaryLiterals    #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -34,8 +35,8 @@ import           Onyx.Util.Binary           (runGetM)
 #}
 
 compressDXTBlock :: Image PixelRGB8 -> B.ByteString
-compressDXTBlock img = unsafePerformIO $ do
-  let bs = B.pack $ do
+compressDXTBlock img = unsafePerformIO do
+  let bs = B.pack do
         y <- [0..3]
         x <- [0..3]
         let PixelRGB8 r g b = pixelAt img x y
@@ -128,8 +129,8 @@ writeDXT1Chunk fmt chunk = let
       in mconcat $ cols ++ pxs
 
 toDXT1File :: DXTFormat -> Image PixelRGB8 -> BL.ByteString
-toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
-  tell $ BB.byteString $ case fmt of
+toDXT1File fmt img_ = BB.toLazyByteString $ execWriter do
+  tell $ BB.byteString case fmt of
     DDS     -> ddsDXT1Signature
     PNGXbox -> pngXboxDXT1Signature
     PNGPS3  -> pngXboxDXT1Signature -- identical, apparently
@@ -160,7 +161,7 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
 
 -- TODO support alpha pixels (needed for "distressed photo" bonus song art)
 toHMXPS2 :: Image PixelRGB8 -> BL.ByteString
-toHMXPS2 img_ = BB.toLazyByteString $ execWriter $ do
+toHMXPS2 img_ = BB.toLazyByteString $ execWriter do
   tell $ BB.byteString $ B.pack
     [ 0x01, 0x08, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00
     , 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00
@@ -269,12 +270,12 @@ readRBImageMaybe isPS3 bs = let
   palette8bit, palette4bit :: Int -> Int -> Get (Image PixelRGBA8)
   palette8bit width height = do
     palette <- replicateM 256 readRGBA
-    fmap (Image width height . V.fromList . concat) $ replicateM (width * height) $ do
+    fmap (Image width height . V.fromList . concat) $ replicateM (width * height) do
       i <- getWord8
       return $ palette !! fromIntegral (flip34 i)
   palette4bit width height = do
     palette <- replicateM 16 readRGBA
-    fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) $ do
+    fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) do
       i <- getWord8
       let high = (i `shiftR` 4) .&. 0xF
           low  = i              .&. 0xF

@@ -131,7 +131,7 @@ toneDescriptors = do
 
 -- | Format used in manifest .json
 instance StackJSON Tone2014 where
-  stackJSON = asObject "Tone2014" $ do
+  stackJSON = asObject "Tone2014" do
     t14_GearList        <- (.t14_GearList)        =. req "GearList" stackJSON
     t14_IsCustom        <- (.t14_IsCustom)        =. req "IsCustom" stackJSON
     t14_Key             <- (.t14_Key)             =. req "Key" stackJSON
@@ -186,7 +186,7 @@ instance IsInside Gear2014 where
 
 -- | Format used in manifest .json
 instance StackJSON Gear2014 where
-  stackJSON = asStrictObject "Gear2014" $ do
+  stackJSON = asStrictObject "Gear2014" do
     g14_Amp        <- (.g14_Amp)        =. opt Nothing "Amp"        stackJSON
     g14_Cabinet    <- (.g14_Cabinet)    =. opt Nothing "Cabinet"    stackJSON
     g14_PostPedal1 <- (.g14_PostPedal1) =. opt Nothing "PostPedal1" stackJSON
@@ -228,7 +228,7 @@ instance IsInside Pedal2014 where
 knobValues :: (SendMessage m) => InsideCodec m (V.Vector (T.Text, Milli))
 knobValues = do
   useNamespace Nothing cstSpaceArrays
-  bareList $ isTag (inSpace cstSpaceArrays "KeyValueOfstringfloat") $ parseInside' $ do
+  bareList $ isTag (inSpace cstSpaceArrays "KeyValueOfstringfloat") $ parseInside' do
     x <- fst =. childTag (inSpace cstSpaceArrays "Key") (parseInside' childText)
     y <- snd =. childTag (inSpace cstSpaceArrays "Value") (parseInside' $ milliText childText)
     return (x, y)
@@ -245,7 +245,7 @@ nillable c = do
 
 -- | Format used in manifest .json
 instance StackJSON Pedal2014 where
-  stackJSON = asStrictObject "Pedal2014" $ do
+  stackJSON = asStrictObject "Pedal2014" do
     p14_Category   <- (.p14_Category)   =. opt Nothing "Category" stackJSON
     p14_KnobValues <- (.p14_KnobValues) =. req "KnobValues"
       (dimap (HM.fromList . V.toList) (V.fromList . HM.toList) $ dict stackJSON)
@@ -469,14 +469,14 @@ instance IsInside ToolkitInfo where
     return ToolkitInfo{..}
 
 parseProject :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m DLCPackageData
-parseProject f = inside ("Loading: " <> f) $ do
+parseProject f = inside ("Loading: " <> f) do
   stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
     Nothing  -> fatal "Couldn't parse XML"
     Just elt -> mapStackTraceT (`runReaderT` elt)
       $ codecIn $ isTag (inSpace cstSpaceMain "DLCPackageData") $ parseInside' insideCodec
 
 parseTone :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m Tone2014
-parseTone f = inside ("Loading: " <> f) $ do
+parseTone f = inside ("Loading: " <> f) do
   stackIO (T.readFile f) >>= \t -> case parseXMLDoc t of
     Nothing  -> fatal "Couldn't parse XML"
     Just elt -> mapStackTraceT (`runReaderT` elt)

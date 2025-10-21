@@ -53,11 +53,11 @@ importOsu separateSongs f = do
 
   tree <- stackIO $ loadZipStrictBytes Nothing f
 
-  loadedOsus <- fmap catMaybes $ forM (folderFiles tree) $ \(name, getBS) -> do
-    inside ("Loading: " <> T.unpack name) $ do
+  loadedOsus <- fmap catMaybes $ forM (folderFiles tree) \(name, getBS) -> do
+    inside ("Loading: " <> T.unpack name) do
       case map toLower $ takeExtension $ T.unpack name of
         ".osu" -> fmap Just do
-          txt <- fmap decodeGeneral $ stackIO $ getBS
+          txt <- fmap decodeGeneral $ stackIO getBS
           splitOsuFile txt >>= readOsu . snd
         _ -> return Nothing
 
@@ -201,7 +201,7 @@ importOsu separateSongs f = do
         }
       , jammit = HM.empty
       , audio = HM.fromList let
-        audioFiles = flip map (toList audio <> taikoSamples) $ \(key, fileName, r) ->
+        audioFiles = flip map (toList audio <> taikoSamples) \(key, fileName, r) ->
           (key, AudioFile AudioInfo
             { md5 = Nothing
             , frames = Nothing
@@ -241,10 +241,10 @@ importOsu separateSongs f = do
       , parts = Parts $ HM.fromList do
         (partName, osu, track) <- convertedTracks
         case track of
-          Left _drums -> return $ (partName, emptyPart
+          Left _drums -> return (partName, emptyPart
             & #drums .~ Just (emptyPartDrums Drums4 Kicks1x)
             )
-          Right _mania -> return $ (partName, emptyPart & #mania .~ Just do
+          Right _mania -> return (partName, emptyPart & #mania .~ Just do
             ModeMania $ return ManiaChart
               { name = "chart"
               , keys = fromIntegral $ maniaColumnCount osu
@@ -317,18 +317,18 @@ taikoToTrack tmap osu = let
     TaikoDenden    t | t <= laneSpeed -> TaikoSingle TaikoCenter
     event                             -> event
 
-  normalNotes = flip RTB.mapMaybe events' $ \case
+  normalNotes = flip RTB.mapMaybe events' \case
     TaikoSingle x -> Just x
     _             -> Nothing
 
   makeLane len = Wait 0 (Just LaneExpert) $ Wait len Nothing RNil
-  doubleLanes = U.trackJoin $ flip fmap events' $ \case
+  doubleLanes = U.trackJoin $ flip fmap events' \case
     TaikoRoll      len -> makeLane len
     TaikoRollLarge len -> makeLane len
     TaikoDenden    len -> makeLane len
     _                  -> RNil
 
-  laneNotes = U.trackJoin $ flip fmap events' $ \case
+  laneNotes = U.trackJoin $ flip fmap events' \case
     TaikoRoll      len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
     TaikoRollLarge len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
     TaikoDenden    len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ cycle [TaikoCenter, TaikoRim]

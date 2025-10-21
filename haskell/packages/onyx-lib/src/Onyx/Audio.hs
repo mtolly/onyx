@@ -355,7 +355,7 @@ fadeStart dur src@(AudioSource s r c l) = let
     | otherwise      = await >>= \mx -> case mx of
       Nothing -> return ()
       Just v  -> let
-        fader = V.generate (V.length v) $ \j ->
+        fader = V.generate (V.length v) \j ->
           min 1 $ fromIntegral (i + quot j c) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
   in if fadeFrames == 0
@@ -371,7 +371,7 @@ fadeEnd dur src@(AudioSource s r c l) = let
     Nothing -> return ()
     Just v  -> if i + vectorFrames v c > l - fadeFrames
       then let
-        fader = V.generate (V.length v) $ \j ->
+        fader = V.generate (V.length v) \j ->
           min 1 $ fromIntegral (l - (i + quot j c)) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
       else yield v >> go (i + vectorFrames v c)
@@ -388,13 +388,13 @@ data MaskSections
 seamsToSections :: [T.Text] -> [Seam Frames] -> MaskSections
 seamsToSections tags seams = let
   seams1 :: [(Frames, Frames, Bool)]
-  seams1 = flip map (sortOn (.seamCenter) seams) $ \seam ->
+  seams1 = flip map (sortOn (.seamCenter) seams) \seam ->
     ( seam.seamCenter - (seam.seamFade `quot` 2) -- seam start
     , seam.seamFade -- seam length
     , seam.seamTag `elem` tags -- is audio active after seam
     )
   go _   st [] = MaskEnd st
-  go now st ((start, len, st') : rest) = MaskStay st (start - now) $ if st == st'
+  go now st ((start, len, st') : rest) = MaskStay st (start - now) if st == st'
     then go start st rest
     else if len == 0
       then go start st' rest
@@ -431,7 +431,7 @@ renderMask tags seams (AudioSource s r c l) = let
         len = vectorFrames chunk c
         in if len <= total - done
           then do
-            yield $ V.generate (V.length chunk) $ \i -> let
+            yield $ V.generate (V.length chunk) \i -> let
               mult = fromIntegral (done + quot i c + 1) / fromIntegral total
               mult' = if b then mult else 1 - mult
               in (chunk V.! i) * mult'
@@ -582,7 +582,7 @@ buildSource' aud = case aud of
   Mask tags seams x -> renderMask tags seams <$> buildSource' x
   PansVols pans vols x -> applyPansVols pans vols <$> buildSource' x
   Samples poly samps -> do
-    sampleToAudio <- fmap Map.fromList $ forM (nubOrd [ sample | (_, (_, sample)) <- samps ]) $ \sample -> do
+    sampleToAudio <- fmap Map.fromList $ forM (nubOrd [ sample | (_, (_, sample)) <- samps ]) \sample -> do
       -- only cache small files. maybe should (instead or also) cache only files that are reused
       src <- buildSource' sample >>= \s -> if framesToSeconds (frames s) (rate s) < 10
         then liftIO $ cacheAudio s
@@ -614,7 +614,7 @@ buildSource' aud = case aud of
   where combine meth xs = do
           s :| ss <- mapM buildSource' xs
           return $ foldl meth s ss
-        dropPad edge dur t1 t2 x = buildSource' $ case compare t1 t2 of
+        dropPad edge dur t1 t2 x = buildSource' case compare t1 t2 of
           EQ -> x
           GT -> Drop edge (dur $ t1 - t2) x
           LT -> Pad edge (dur $ t2 - t1) x
@@ -638,7 +638,7 @@ audioToChannelWAVs src fouts = let
   in runResourceT $ C.runConduit $ (source (clampFloat src) .|) $ openSources \handles -> do
     CL.mapM_ \buf -> do
       let chans = deinterleave (channels src) buf
-      forM_ (zip handles chans) $ \(h, c) -> do
+      forM_ (zip handles chans) \(h, c) -> do
         void $ liftIO $ Snd.hPutBuffer h $ SndBuf.toBuffer c
 
 audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
@@ -809,7 +809,7 @@ applyPansVols pans    vols   src = AudioSource
   , source   = source src .| CL.map applyChunk
   } where
     applyChunk :: V.Vector Float -> V.Vector Float
-    applyChunk v = V.generate (vectorFrames v (channels src) * 2) $ \i -> do
+    applyChunk v = V.generate (vectorFrames v (channels src) * 2) \i -> do
       case quotRem i 2 of
         (frame, chan) -> let
           pvx = zip3 pans vols $ V.toList $ V.drop (frame * channels src) v
@@ -871,7 +871,7 @@ applyVolsMono vols src = AudioSource
   } where
     vols' = take (channels src) $ vols ++ repeat 0
     applyChunk :: V.Vector Float -> V.Vector Float
-    applyChunk v = V.generate (vectorFrames v $ channels src) $ \frame -> let
+    applyChunk v = V.generate (vectorFrames v $ channels src) \frame -> let
       vx = zip vols' $ V.toList $ V.drop (frame * channels src) v
       wire (volDB, sample) = let
         volRatio = 10 ** (volDB / 20)
@@ -898,7 +898,7 @@ emptyChannels src = let
   loop chans = await >>= \case
     Nothing  -> return chans
     Just blk -> let
-      chans' = flip filter chans $ \chan -> let
+      chans' = flip filter chans \chan -> let
         indexes = [chan, chan + channels src .. V.length blk - 1]
         in flip all indexes \i -> (blk V.! i) == 0
       in loop $!! chans'
@@ -1012,7 +1012,7 @@ mixMany' r c polyphony srcs = let
                 _ -> Right (osrc, group) : processSources (addGroup group groups) remaining
               processed = processSources Map.empty possibleSources
               addGroup = Map.alter $ maybe (Just 1) (Just . (+ 1))
-          opened <- unvoid $ forM (lefts processed) $ \(src, group) -> do
+          opened <- unvoid $ forM (lefts processed) \(src, group) -> do
             fmap (\(osrc, _) -> (osrc, group)) $ src =$$+ return ()
           go (opened ++ rights processed) later
         Wait dt next rest -> do
@@ -1028,7 +1028,7 @@ makeFSB4 :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m 
 makeFSB4 wav fsb = do
   exe <- stackIO makeFSB4exe
   let createProc = withWin32Exe proc exe [wav, fsb]
-  inside "converting WAV to FSB4" $ do
+  inside "converting WAV to FSB4" do
     str <- stackProcess createProc
     when (any (not . isSpace) str) $ lg str
     stackIO $ IO.withBinaryFile fsb IO.ReadWriteMode \h -> do
@@ -1048,7 +1048,7 @@ makeFSB4' wav fsb = do
   wav' <- windowsPath wav
   xma' <- windowsPath xma
   let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-  inside ("converting WAV to FSB4 (XMA)") $ do
+  inside ("converting WAV to FSB4 (XMA)") do
     str <- stackProcess createProc
     when (any (not . isSpace) str) $ lg str
     madeFSB <- stackIO (BL.readFile xma) >>= parseXMA2 >>= ghBandXMAtoFSB4
@@ -1091,7 +1091,7 @@ makeXMAPieces input = do
   let maxSamples = 15 * 60 * 44100 * 4
       -- probably could go a bit higher; xma2encode limit is somewhere between 20 and 60 minutes of 4-channel 44100 Hz
       maxFrames  = quot maxSamples c
-  tempDir "onyx-xma" $ \temp -> do
+  tempDir "onyx-xma" \temp -> do
     let windowsPath s = if os == "mingw32"
           then return s
           else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
@@ -1133,7 +1133,7 @@ makeXMAFSB3 inputs fsb = do
     wav' <- windowsPath wav
     xma' <- windowsPath xma
     let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-    madeXMA <- inside ("converting WAV to XMA: " <> wav) $ do
+    madeXMA <- inside ("converting WAV to XMA: " <> wav) do
       str <- stackProcess createProc
       when (any (not . isSpace) str) $ lg str
       stackIO (BL.readFile xma) >>= parseXMA2 >>= xma2To1
