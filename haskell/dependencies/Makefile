@@ -62,9 +62,11 @@ openal:
 	cd libs/openal-soft/build && make install
 
 ffmpeg:
-	# TODO do we need to disable cpu features that may not be present on users' machines?
-	# e.g. it prints "AVX-512 enabled yes" in the configure step
-	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers --prefix=$(current_dir)/root
+	# disabling AVX-512, AVX-512ICL, XOP, FMA4, and optionally AVX2, FMA3,
+	# were recommended by Claude Code for CPU compatibility
+	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers \
+		--disable-avx512 --disable-avx512icl --disable-xop --disable-fma4 --disable-avx2 --disable-fma3 \
+		--prefix=$(current_dir)/root
 	cd libs/FFmpeg && make
 	cd libs/FFmpeg && make install
 
