@@ -183,12 +183,16 @@ readDTASingle (bytes, chunk) = do
           return (k, pkg)
         _ -> fatal "Not a valid song chunk in the format (topkey ...)"
   (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
+  let useUTF8 = do
+        (k, pkg) <- readTextChunk $ fmap decodeGeneral chunk
+        return (k, pkg, True)
   (k, pkg, isUTF8) <- case D.encoding latinPkg of
-    Nothing -> return (latinKey, latinPkg, False)
+    Nothing -> case D.gameOrigin latinPkg of
+      Just "rb3" -> useUTF8 -- RB3 disc songs.dtb is UTF-8 but no encoding listed
+      -- But otherwise for older songs this means Latin-1 by default
+      _          -> return (latinKey, latinPkg, False)
     Just "latin1" -> return (latinKey, latinPkg, False)
-    Just "utf8" -> do
-      (k, pkg) <- readTextChunk $ fmap decodeGeneral chunk
-      return (k, pkg, True)
+    Just "utf8" -> useUTF8
     Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
   let comments = readC3Comments $ (if isUTF8 then decodeGeneral else TE.decodeLatin1) bytes
   return (DTASingle k pkg comments, isUTF8)
