@@ -9,6 +9,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.MIDI.Track.Vocal where
 
 import           Control.Monad                     ((>=>))
@@ -168,18 +169,20 @@ getLyricNotes mmap vox = let
           Nothing -> case T.stripSuffix "^" lyric of
             Just talky -> Talky TalkyEasy $ makeLyric talky
             Nothing    -> Pitched pitch $ makeLyric lyric
-      makeLyric str = case T.stripSuffix "-" str of
+      makeLyric (decodeSynalepha -> str) = case T.stripSuffix "-" str of
         Just str' -> Lyric { lyricText = str', lyricContinues = True  }
         Nothing   -> case T.stripSuffix "=" str of
           Just str' -> Lyric { lyricText = str' <> "-", lyricContinues = True  }
           Nothing   -> Lyric { lyricText = str        , lyricContinues = False }
+      decodeSynalepha s = if T.elem '§' s
+        then T.map (\case '§' -> '‿'; c -> c) s
+        else s
       in (lyricNote, len)
-  -- TODO handle the section-symbol-encoded spanish vowel elision char?
   -- TODO handle Footloose and Fancy Free style space hack (strip lyric)?
 
 putLyricNotes :: (NNC.C t) => RTB.T t (LyricNote, t) -> VocalTrack t
 putLyricNotes lnotes = mempty
-  { vocalLyrics = flip fmap lnotes \(lnote, _) -> case lnote of
+  { vocalLyrics = flip fmap lnotes \(lnote, _) -> encodeSynalepha $ case lnote of
     Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
     Talky diff (Lyric t cont) -> T.concat
       [ case (T.stripSuffix "-" t, cont) of
@@ -195,7 +198,10 @@ putLyricNotes lnotes = mempty
       Talky   _ _ -> minBound
       SlideTo p   -> p
     in RTB.fromPairList [(NNC.zero, (pitch, True)), (dur, (pitch, False))]
-  }
+  } where
+    encodeSynalepha s = if T.elem '‿' s
+      then T.map (\case '‿' -> '§'; c -> c) s
+      else s
 
 getPhraseLabels :: (Num t, NNC.C t) => RTB.T t Bool -> RTB.T t (LyricNote, t) -> RTB.T t T.Text
 getPhraseLabels phrases lnotes = let

@@ -16,6 +16,7 @@
 module Onyx.Game.Graphics where
 
 import           Codec.Picture
+import qualified Codec.Picture.STBIR          as IR
 import qualified Codec.Wavefront              as Obj
 import           Control.Arrow                (second)
 import           Control.Monad                (forM, forM_, guard, unless, void,
@@ -2890,15 +2891,28 @@ drawFivePlayFull gl dims@(WindowDims wWhole hWhole) time speed gps = do
     ]
 
 getGlyph :: GLStuff -> (C.TextConfig -> C.FontConfig) -> Char -> IO (Maybe (FT_GlyphSlotRec, Texture))
-getGlyph gl getFontConfig c = let
+getGlyph gl getFontConfig originalChar = let
   fontConfig = getFontConfig gl.gfxConfig.text
   in case Map.lookup (fontConfig.font, fontConfig.size) gl.fontFaces of
     Nothing   -> return Nothing
     Just font -> do
       table <- readIORef font.fontGlyphs
-      case HM.lookup c table of
+      case HM.lookup originalChar table of
         Just pair -> return $ Just pair
         Nothing   -> do
+
+          (c, smile) <- case originalChar of
+            '‿' -> do
+              -- Check if there is actually an undertie in the font
+              index <- ft_Get_Char_Index font.fontFace $ fromIntegral $ fromEnum originalChar
+              if index == 0
+                then return ('_', True) -- no undertie, we'll make a fake one
+                else return (originalChar, False)
+            _ -> return (originalChar, False)
+          let applySmile = if smile
+                then underscoreToUndertie
+                else id
+
           ft_Load_Char font.fontFace (fromIntegral $ fromEnum c) FT_LOAD_RENDER
           gsr <- peek font.fontSlot
           case bPixel_mode $ gsrBitmap gsr of
@@ -2907,16 +2921,40 @@ getGlyph gl getFontConfig c = let
                   h = bRows $ gsrBitmap gsr
               fptr <- newForeignPtr_ $ bBuffer $ gsrBitmap gsr
               v <- VS.freeze $ MV.unsafeFromForeignPtr0 fptr $ fromIntegral $ w * h
-              tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ Image
+              tex <- loadTexture False $ pixelMap (PixelRGBA8 255 255 255) $ applySmile $ Image
                 { imageWidth  = fromIntegral w
                 , imageHeight = fromIntegral h
                 , imageData   = v
                 }
-              writeIORef font.fontGlyphs $ HM.insert c (gsr, tex) table
+              writeIORef font.fontGlyphs $ HM.insert originalChar (gsr, tex) table
               return $ Just (gsr, tex)
             _ -> do
               putStrLn "freetype output isn't FT_PIXEL_MODE_GRAY"
               return Nothing
+
+underscoreToUndertie :: Image Word8 -> Image Word8
+underscoreToUndertie img = let
+  newWidth    = img.imageWidth
+  newHeight   = round (fromIntegral img.imageHeight * 1.5 :: Double)
+  scaleUp     = 100
+  largeWidth  = newWidth  * scaleUp
+  largeHeight = newHeight * scaleUp
+  largeImage  = generateImage generator largeWidth largeHeight
+  -- Claude Code wrote this
+  generator :: Int -> Int -> Word8
+  generator x y = let
+    -- Convert to normalized coordinates [0, 1]
+    nx, ny :: Double
+    nx = fromIntegral x / fromIntegral (largeWidth  - 1)
+    ny = fromIntegral y / fromIntegral (largeHeight - 1)
+    -- First arc: parabola from top left (0,0) through center (0.5, 0.5) to top right (1,0)
+    arc1Y = 2 * nx * (1 - nx)
+    -- Second arc: parabola from top left (0,0) through bottom mid (0.5, 1) to top right (1,0)
+    arc2Y = 4 * nx * (1 - nx)
+    -- Check if point is between the two arcs
+    inSmile = ny >= arc1Y && ny <= arc2Y
+    in if inSmile then 255 else 0
+  in IR.resize IR.defaultOptions newWidth newHeight largeImage
 
 prepareText :: GLStuff -> (C.TextConfig -> C.FontConfig) -> T.Text -> IO [(FT_GlyphSlotRec, Texture)]
 prepareText glStuff getFontConfig = fmap catMaybes . mapM (getGlyph glStuff getFontConfig) . T.unpack

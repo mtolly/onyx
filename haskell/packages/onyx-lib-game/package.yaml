@@ -28,6 +28,7 @@ library:
   - midi-util
   - gl
   - JuicyPixels
+  - JuicyPixels-stbir
   - bytestring
   - linear
   - text
