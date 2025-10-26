@@ -249,7 +249,13 @@ importRBA rba level = do
   midi <- need 1
   mogg <- SoftReadable <$> need 2
   milo <- need 3 >>= loadFlatMilo level
-  bmp <- SoftFile "cover.bmp" . SoftReadable <$> need 4
+  image <- need 4
+  -- image is .bmp in .rba, but .png_xbox in .rbs
+  magic <- stackIO $ useHandle image \h -> B.hGet h 3
+  let artName = case magic of
+        "BM6" -> "cover.bmp"
+        _     -> "cover.png_xbox"
+  art <- SoftFile artName . SoftReadable <$> need 4
   extraBS <- need 6 >>= \r -> stackIO $ useHandle r handleToByteString
   extra <- fmap (if isUTF8 then decodeUtf8With lenientDecode else decodeLatin1)
     <$> D.readDTABytes (BL.toStrict extraBS)
@@ -270,7 +276,7 @@ importRBA rba level = do
     , mogg = Just mogg
     , bink = Nothing
     , pss = Nothing
-    , albumArt = Just $ return $ Right bmp
+    , albumArt = Just $ return $ Right art
     , milo = milo
     , midi = midi
     , midiUpdate = Nothing
