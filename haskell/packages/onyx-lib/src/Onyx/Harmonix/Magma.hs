@@ -1,25 +1,55 @@
-{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveFoldable      #-}
+{-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DeriveTraversable   #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedLabels    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.Magma
 ( runMagmaMIDI, runMagma
 , runMagmaMIDIV1, runMagmaV1
-, getRBAFile, getRBAFileBS, rbaContents, withWin32Exe
+, withWin32Exe
+, RBAHeader(..), RBAFiles(..)
+, readRBAHeader, getRBAFiles, readRBAFiles, makeRBA, isReadableBMP
 ) where
 
-import           Control.Monad                (forM_, replicateM)
-import           Control.Monad.IO.Class       (MonadIO (liftIO))
-import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Binary.Get              (getWord32le)
-import qualified Data.ByteString.Lazy         as BL
-import           Onyx.Resources               (magmaCommonDir, magmaV1Dir,
-                                               magmaV2Dir)
+import           Control.Monad                 (forM_, guard, unless)
+import           Control.Monad.IO.Class        (MonadIO (liftIO))
+import           Control.Monad.Trans.Resource  (MonadResource)
+import           Control.Monad.Trans.State     (evalStateT, get, put)
+import           Crypto.Hash                   (Context, Digest, hashFinalize,
+                                                hashInit, hashUpdate, hashlazy)
+import           Crypto.Hash.Algorithms        (SHA1 (..))
+import           Data.Binary.Get               (getByteString, getWord32le)
+import           Data.Binary.Put               (putByteString, putWord32le,
+                                                runPut)
+import           Data.ByteArray                (convert)
+import qualified Data.ByteString               as B
+import qualified Data.ByteString.Lazy          as BL
+import           Data.ByteString.Lazy.Internal (smallChunkSize)
+import           Data.Foldable                 (toList)
+import           Data.Function                 ((&))
+import           Data.Maybe                    (catMaybes)
+import           Data.Tuple.Extra              (fst3, snd3, thd3)
+import           Data.Word                     (Word32)
+import           GHC.Generics                  (Generic)
+import           Onyx.Resources                (magmaCommonDir, magmaV1Dir,
+                                                magmaV2Dir)
 import           Onyx.StackTrace
-import           Onyx.Util.Binary             (runGetM)
-import           Onyx.Util.Handle             (Readable, byteStringSimpleHandle,
-                                               makeHandle)
-import qualified System.Directory             as Dir
-import           System.FilePath              ((</>))
-import           System.Info                  (os)
-import qualified System.IO                    as IO
+import           Onyx.Util.Binary              (runGetM)
+import           Onyx.Util.Handle              (Readable,
+                                                byteStringSimpleHandle,
+                                                makeHandle, subHandle,
+                                                useHandle)
+import           Optics                        ((.~))
+import qualified System.Directory              as Dir
+import           System.FilePath               ((</>))
+import           System.Info                   (os)
+import qualified System.IO                     as IO
 import           System.Process
 
 withWin32Exe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
@@ -83,26 +113,117 @@ runMagmaMIDIV1 proj mid = tempDir "magma-v1" \tmp -> do
         (tmp </> "MagmaCompiler.exe") ["-export_midi", proj', mid']
   inside "running Magma v1 to export MIDI" $ stackProcess createProc
 
-getRBAFileBS :: (MonadIO m) => Int -> FilePath -> m BL.ByteString
-getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode \h -> do
-  IO.hSeek h IO.AbsoluteSeek 0x08
-  let read7words = BL.hGet h (7 * 4) >>= runGetM (replicateM 7 getWord32le)
-  offsets <- read7words
-  sizes <- read7words
-  IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ offsets !! i
-  BL.hGet h $ fromIntegral $ sizes !! i
+--------------------------------------------------------------------------------
 
-getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
-getRBAFile i rba out = getRBAFileBS i rba >>= liftIO . BL.writeFile out
+data RBAHeader = RBAHeader
+  { version    :: Word32
+  , offsets    :: RBAFiles Word32
+  , fileSizes  :: RBAFiles Word32
+  , fileHashes :: RBAFiles B.ByteString
+  , headerHash :: B.ByteString
+  , strings    :: B.ByteString
+  } deriving (Show, Generic)
 
-rbaContents :: FilePath -> [(Int, Readable)]
-rbaContents rba =
-  -- TODO edit these to not load the whole file in advance, but instead shrink a Handle to a specific subfile
-  [ (0, makeHandle (rba <> " | songs.dta") $ getRBAFileBS 0 rba >>= byteStringSimpleHandle)
-  , (1, makeHandle (rba <> " | MIDI file") $ getRBAFileBS 1 rba >>= byteStringSimpleHandle)
-  , (2, makeHandle (rba <> " | MOGG file") $ getRBAFileBS 2 rba >>= byteStringSimpleHandle)
-  , (3, makeHandle (rba <> " | .milo file") $ getRBAFileBS 3 rba >>= byteStringSimpleHandle)
-  , (4, makeHandle (rba <> " | album art (.bmp)") $ getRBAFileBS 4 rba >>= byteStringSimpleHandle)
-  , (5, makeHandle (rba <> " | unknown file 5") $ getRBAFileBS 5 rba >>= byteStringSimpleHandle)
-  , (6, makeHandle (rba <> " | extra info DTA") $ getRBAFileBS 6 rba >>= byteStringSimpleHandle)
-  ]
+data RBAFiles a = RBAFiles
+  { dta      :: a
+  , midi     :: a
+  , mogg     :: a
+  , milo     :: a
+  , albumArt :: a
+  , weights  :: a -- is this weights.bin
+  , dtaExtra :: a
+  } deriving (Show, Functor, Foldable, Traversable)
+
+readRBAHeader :: Readable -> IO RBAHeader
+readRBAHeader r = useHandle r \h -> do
+  mainHeader <- BL.hGet h 0xE0
+  noStrings <- flip runGetM mainHeader do
+    magic <- getByteString 4
+    unless (magic == "RBSF") $ fail $ "Unrecognized RBA/RBS file identifier: " <> show magic
+    version <- getWord32le
+    let read7 eachFile = do
+          dta      <- eachFile
+          midi     <- eachFile
+          mogg     <- eachFile
+          milo     <- eachFile
+          albumArt <- eachFile
+          weights  <- eachFile
+          dtaExtra <- eachFile
+          return RBAFiles{..}
+    offsets    <- read7 getWord32le
+    fileSizes  <- read7 getWord32le
+    fileHashes <- read7 $ getByteString 0x14
+    headerHash <- getByteString 0x14
+    let strings = B.empty
+    return RBAHeader{..}
+  strings <- B.hGet h $ fromIntegral noStrings.offsets.dta - 0xE0
+  return $ noStrings & #strings .~ strings
+
+getRBAFiles :: Readable -> RBAHeader -> RBAFiles (Maybe Readable)
+getRBAFiles r header = let
+  sub label off size = do
+    guard $ off /= 0 -- weights.bin when missing has offset (and hash) as 0
+    Just $ subHandle (<> label) (fromIntegral off) (Just $ fromIntegral size) r
+  in RBAFiles
+    { dta      = sub " | songs.dta"        header.offsets.dta      header.fileSizes.dta
+    , midi     = sub " | MIDI file"        header.offsets.midi     header.fileSizes.midi
+    , mogg     = sub " | MOGG file"        header.offsets.mogg     header.fileSizes.mogg
+    , milo     = sub " | .milo file"       header.offsets.milo     header.fileSizes.milo
+    , albumArt = sub " | album art (.bmp)" header.offsets.albumArt header.fileSizes.albumArt
+    , weights  = sub " | weights.bin (?)"  header.offsets.weights  header.fileSizes.weights
+    , dtaExtra = sub " | extra info DTA"   header.offsets.dtaExtra header.fileSizes.dtaExtra
+    }
+
+readRBAFiles :: Readable -> IO (RBAFiles (Maybe Readable))
+readRBAFiles r = getRBAFiles r <$> readRBAHeader r
+
+-- album art is .bmp in .rba, but .png_xbox in .rbs
+isReadableBMP :: Readable -> IO Bool
+isReadableBMP r = do
+  magic <- useHandle r \h -> B.hGet h 3
+  return $ magic == "BM6"
+
+handleSHA1 :: IO.Handle -> IO B.ByteString
+handleSHA1 h = go hashInit where
+  go :: Context SHA1 -> IO B.ByteString
+  go !ctx = do
+    chunk <- B.hGet h smallChunkSize
+    if B.null chunk
+      then return $ convert $ hashFinalize ctx
+      else go $ hashUpdate ctx chunk
+
+writeRBAHeader :: RBAHeader -> BL.ByteString
+writeRBAHeader hdr = runPut do
+  putByteString "RBSF"
+  putWord32le hdr.version
+  mapM_ putWord32le hdr.offsets
+  mapM_ putWord32le hdr.fileSizes
+  mapM_ putByteString hdr.fileHashes
+  putByteString hdr.headerHash
+  putByteString hdr.strings
+
+makeRBA :: Word32 -> RBAFiles (Maybe Readable) -> B.ByteString -> IO [Readable]
+makeRBA version files strings = do
+  let headerSize = fromIntegral $ 0xE0 + B.length strings
+      processFile Nothing  = return (0, 0, B.replicate 0x14 0)
+      processFile (Just r) = do
+        offset <- get
+        (size, sha1) <- liftIO $ useHandle r \h -> liftA2 (,)
+          (fromIntegral <$> IO.hFileSize h)
+          (handleSHA1 h)
+        put $ offset + size
+        return (offset, size, sha1)
+  results <- evalStateT (mapM processFile files) headerSize
+  let initHeader = RBAHeader
+        { version    = version
+        , offsets    = fst3 <$> results
+        , fileSizes  = snd3 <$> results
+        , fileHashes = thd3 <$> results
+        , headerHash = B.replicate 0x14 0
+        , strings    = strings
+        }
+      finalHeader = initHeader & #headerHash .~ convert
+        (hashlazy $ writeRBAHeader initHeader :: Digest SHA1)
+  return
+    $ makeHandle ".rba header" (byteStringSimpleHandle $ writeRBAHeader finalHeader)
+    : catMaybes (toList files)

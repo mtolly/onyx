@@ -57,7 +57,9 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
 import qualified Onyx.Harmonix.DTA.Serialize          as D
 import           Onyx.Harmonix.DTA.Serialize.Magma    (Gender (..))
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
-import           Onyx.Harmonix.Magma                  (rbaContents)
+import           Onyx.Harmonix.Magma                  (RBAFiles (..),
+                                                       isReadableBMP,
+                                                       readRBAFiles)
 import           Onyx.Harmonix.MOGG.Crypt             (decryptBink)
 import           Onyx.Harmonix.RockBand.Milo          (SongPref (..),
                                                        convertFromAnim,
@@ -238,25 +240,24 @@ importWAD path = do
 importRBA :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importRBA rba level = do
   when (level == ImportFull) $ lg $ "Importing RBA from: " <> rba
-  let contents = rbaContents rba
-      need i = case lookup i contents of
-        Just r  -> return r
-        Nothing -> fatal $ "Required RBA subfile " <> show i <> " not found"
-  packSongs <- need 0 >>= \r -> stackIO (useHandle r handleToByteString) >>= readDTASingles . BL.toStrict
+  contents <- stackIO $ readRBAFiles $ fileReadable rba
+  packSongs <- case contents.dta of
+    Nothing -> fatal "No songs.dta in RBA file"
+    Just r  -> stackIO (useHandle r handleToByteString) >>= readDTASingles . BL.toStrict
   (DTASingle _top pkg comments, isUTF8) <- case packSongs of
     [song] -> return song
     _      -> fatal $ "Expected 1 song in RBA, found " <> show (length packSongs)
-  midi <- need 1
-  mogg <- SoftReadable <$> need 2
-  milo <- need 3 >>= loadFlatMilo level
-  image <- need 4
-  -- image is .bmp in .rba, but .png_xbox in .rbs
-  magic <- stackIO $ useHandle image \h -> B.hGet h 3
-  let artName = case magic of
-        "BM6" -> "cover.bmp"
-        _     -> "cover.png_xbox"
-  art <- SoftFile artName . SoftReadable <$> need 4
-  extraBS <- need 6 >>= \r -> stackIO $ useHandle r handleToByteString
+  midi <- maybe (fatal "No MIDI in RBA file") return contents.midi
+  mogg <- maybe (fatal "No MOGG in RBA file") (return . SoftReadable) contents.mogg
+  milo <- maybe (return []) (loadFlatMilo level) contents.milo
+  art <- case contents.albumArt of
+    Nothing -> return Nothing
+    Just r  -> do
+      artName <- stackIO $ (\b -> if b then "cover.bmp" else "cover.png_xbox") <$> isReadableBMP r
+      return $ Just $ SoftFile artName $ SoftReadable r
+  extraBS <- case contents.dtaExtra of
+    Nothing -> return ""
+    Just r  -> stackIO $ useHandle r handleToByteString
   extra <- fmap (if isUTF8 then decodeUtf8With lenientDecode else decodeLatin1)
     <$> D.readDTABytes (BL.toStrict extraBS)
   let author = case extra of
@@ -276,7 +277,7 @@ importRBA rba level = do
     , mogg = Just mogg
     , bink = Nothing
     , pss = Nothing
-    , albumArt = Just $ return $ Right art
+    , albumArt = return . Right <$> art
     , milo = milo
     , midi = midi
     , midiUpdate = Nothing

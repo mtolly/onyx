@@ -96,7 +96,10 @@ import qualified Onyx.Harmonix.DTA.Serialize.Magma    as RBProj
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.GH2.File               (GH2File (..))
 import           Onyx.Harmonix.GH2.PartGuitar         (nullPart)
-import           Onyx.Harmonix.Magma                  (getRBAFile, runMagmaMIDI)
+import           Onyx.Harmonix.Magma                  (RBAFiles (..),
+                                                       isReadableBMP,
+                                                       readRBAFiles,
+                                                       runMagmaMIDI)
 import           Onyx.Harmonix.MOGG                   (applyMoggPatch,
                                                        checkOldC3Mogg,
                                                        decryptBink,
@@ -580,10 +583,11 @@ commands =
           let midPath = T.unpack rbproj.project.midi.midiFile
           withMIDI (takeDirectory fpath </> midPath)
         FileSTFS     -> undone
-        FileRBA      -> tempDir "onyx_hanging_rba" \tmp -> do
-          let midPath = tmp </> "notes.mid"
-          getRBAFile 1 fpath midPath
-          withMIDI midPath
+        FileRBA      -> do
+          contents <- stackIO $ readRBAFiles $ fileReadable fpath
+          case contents.midi of
+            Nothing -> fatal "No midi found in .rba file"
+            Just r  -> F.loadMIDIBytes r >>= F.readMIDIFile' . fmap decodeGeneral >>= lg . T.unpack . closeShiftsFile
         FilePS       -> withMIDI $ takeDirectory fpath </> "notes.mid"
         FileMidi     -> withMIDI fpath
         _            -> unrecognized ftype fpath
@@ -996,14 +1000,18 @@ commands =
         return out
       (FileRBA, rba) -> do
         out <- outputFile opts $ return $ rba ++ "_extract"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        getRBAFile 0 rba $ out </> "songs.dta"
-        getRBAFile 1 rba $ out </> "notes.mid"
-        getRBAFile 2 rba $ out </> "audio.mogg"
-        getRBAFile 3 rba $ out </> "song.milo"
-        getRBAFile 4 rba $ out </> "cover.bmp"
-        getRBAFile 5 rba $ out </> "weights.bin"
-        getRBAFile 6 rba $ out </> "extra.dta"
+        stackIO do
+          Dir.createDirectoryIfMissing False out
+          contents <- readRBAFiles $ fileReadable rba
+          mapM_ (`saveReadable` (out </> "songs.dta"  )) contents.dta
+          mapM_ (`saveReadable` (out </> "notes.mid"  )) contents.midi
+          mapM_ (`saveReadable` (out </> "audio.mogg" )) contents.mogg
+          mapM_ (`saveReadable` (out </> "song.milo"  )) contents.milo
+          forM_ contents.albumArt \r -> do
+            isBMP <- isReadableBMP r
+            saveReadable r $ out </> if isBMP then "cover.bmp" else "cover.png_xbox"
+          mapM_ (`saveReadable` (out </> "weights.bin")) contents.weights
+          mapM_ (`saveReadable` (out </> "extra.dta"  )) contents.dtaExtra
         return out
       (FileMilo, milo) -> do
         out <- outputFile opts $ return $ milo ++ "_extract"

@@ -66,7 +66,9 @@ import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        readDTASingles,
                                                        writeDTASingle)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
-import           Onyx.Harmonix.Magma                  (rbaContents)
+import           Onyx.Harmonix.Magma                  (RBAFiles (..),
+                                                       isReadableBMP,
+                                                       readRBAFiles)
 import           Onyx.Harmonix.MOGG                   (decryptMOGG,
                                                        encryptMOGGToByteString,
                                                        fixOldC3Mogg, moggToOgg,
@@ -356,27 +358,33 @@ loadQuickSongsXbox folder = do
 
 loadQuickSongsRBA :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m [QuickSong]
 loadQuickSongsRBA fin = do
-  let contents = rbaContents fin
-      need i = case lookup i contents of
-        Just r  -> return r
-        Nothing -> fatal $ "Required RBA subfile " <> show i <> " not found"
-  dtaBS <- need 0 >>= \r -> stackIO $ useHandle r handleToByteString
+  contents <- stackIO $ readRBAFiles $ fileReadable fin
+  dtaBS <- maybe
+    (fatal "No songs.dta in RBA file")
+    (\r -> stackIO $ useHandle r handleToByteString)
+    contents.dta
   md5 <- stackIO $ evaluate $ MD5.md5 dtaBS
   let shortName = T.pack $ "onyx" ++ take 10 (show md5)
   packSongs <- readDTASingles $ BL.toStrict dtaBS
   (DTASingle _top pkg _comments, isUTF8) <- case packSongs of
     [song] -> return song
     _      -> fatal $ "Expected 1 song in RBA, found " <> show (length packSongs)
-  midi <- need 1
-  mogg <- need 2
-  milo <- need 3
-  bmp <- need 4 >>= \r -> stackIO $ useHandle r handleToByteString
-  extraBS <- need 6 >>= \r -> stackIO $ useHandle r handleToByteString
+  midi <- maybe (fatal "No MIDI in RBA file") return contents.midi
+  mogg <- maybe (fatal "No MOGG in RBA file") return contents.mogg
+  milo <- maybe (fatal "No .milo in RBA file") return contents.milo
+  pngXbox <- forM contents.albumArt \r -> stackIO (isReadableBMP r) >>= \case
+    False -> return r
+    True  -> do
+      bmp <- stackIO $ useHandle r handleToByteString
+      bs <- case decodeImage $ BL.toStrict bmp of
+        Left  err -> fatal err
+        Right dyn -> return $ I.toDXT1File I.PNGXbox $ convertRGB8 dyn
+      return $ makeHandle "image.png_xbox" $ byteStringSimpleHandle bs
+  extraBS <- case contents.dtaExtra of
+    Nothing -> return ""
+    Just r  -> stackIO $ useHandle r handleToByteString
   extra <- fmap (if isUTF8 then TE.decodeUtf8With lenientDecode else TE.decodeLatin1)
     <$> readDTABytes (BL.toStrict extraBS)
-  pngXbox <- case decodeImage $ BL.toStrict bmp of
-    Left  err -> fatal err
-    Right dyn -> return $ I.toDXT1File I.PNGXbox $ convertRGB8 dyn
   let newDTA
         = BL.fromStrict
         $ (if isUTF8 then TE.encodeUtf8 else B8.pack . T.unpack)
@@ -410,13 +418,14 @@ loadQuickSongsRBA fin = do
           , c3dtaExpertOnly   = Nothing
           }
         }
-  loadQuickSongsXbox $ fromFiles
+  loadQuickSongsXbox $ fromFiles $
     [ ("songs" :| ["songs.dta"], makeHandle "songs.dta" $ byteStringSimpleHandle newDTA)
     , ("songs" :| [shortName, shortName <> ".mid"], midi)
     , ("songs" :| [shortName, shortName <> ".mogg"], mogg)
     , ("songs" :| [shortName, "gen", shortName <> ".milo_xbox"], milo)
-    , ("songs" :| [shortName, "gen", shortName <> "_keep.png_xbox"], makeHandle "image.png_xbox" $ byteStringSimpleHandle pngXbox)
-    ]
+    ] <> case pngXbox of
+      Nothing -> []
+      Just r  -> [("songs" :| [shortName, "gen", shortName <> "_keep.png_xbox"], r)]
 
 loadQuickInput :: (MonadIO m, SendMessage m) => FilePath -> StackTraceT m (Maybe QuickInput)
 loadQuickInput fin = inside ("Loading: " <> fin) case map toLower $ takeExtension fin of
@@ -433,34 +442,35 @@ loadQuickInput fin = inside ("Loading: " <> fin) case map toLower $ takeExtensio
       , quickInputSongs  = songs
       , quickInputXbox   = Nothing
       }
-  ".rba" -> errorToWarning do
-    songs <- loadQuickSongsRBA fin
-    return QuickInput
-      { quickInputPath   = fin
-      , quickInputFormat = QCInputRBA
-      , quickInputSongs  = songs
-      , quickInputXbox   = Nothing
-      }
-  _ -> errorToEither (stackIO $ getSTFSFolder fin) >>= \case
-    Right folder -> errorToWarning do
-      songs <- loadQuickSongsXbox folder
-      (header, meta) <- stackIO $ withSTFSPackage fin \stfs -> return (stfs.stfsHeader, stfs.stfsMetadata)
+  ext -> if elem ext [".rba", ".rbs"]
+    then errorToWarning do
+      songs <- loadQuickSongsRBA fin
       return QuickInput
         { quickInputPath   = fin
-        , quickInputFormat = QCInputTwoWay case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
+        , quickInputFormat = QCInputRBA
         , quickInputSongs  = songs
-        , quickInputXbox   = Just meta
+        , quickInputXbox   = Nothing
         }
-    Left _ -> case takeFileName fin of
-      "songs.dta" -> errorToWarning do
-        songs <- loadQuickSongsLoose fin
+    else errorToEither (stackIO $ getSTFSFolder fin) >>= \case
+      Right folder -> errorToWarning do
+        songs <- loadQuickSongsXbox folder
+        (header, meta) <- stackIO $ withSTFSPackage fin \stfs -> return (stfs.stfsHeader, stfs.stfsMetadata)
         return QuickInput
-          { quickInputPath   = takeDirectory fin -- not sure best way to handle this
-          , quickInputFormat = QCInputLoose
+          { quickInputPath   = fin
+          , quickInputFormat = QCInputTwoWay case header of CON{} -> QCFormatCON; _ -> QCFormatLIVE
           , quickInputSongs  = songs
-          , quickInputXbox   = Nothing
+          , quickInputXbox   = Just meta
           }
-      _ -> return Nothing
+      Left _ -> case takeFileName fin of
+        "songs.dta" -> errorToWarning do
+          songs <- loadQuickSongsLoose fin
+          return QuickInput
+            { quickInputPath   = takeDirectory fin -- not sure best way to handle this
+            , quickInputFormat = QCInputLoose
+            , quickInputSongs  = songs
+            , quickInputXbox   = Nothing
+            }
+        _ -> return Nothing
 
 folderHasEDAT :: Folder T.Text a -> Bool
 folderHasEDAT folder = any isEDAT (map fst $ folderFiles folder) || any folderHasEDAT (map snd $ folderSubfolders folder)
