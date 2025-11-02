@@ -596,7 +596,7 @@ importRSSong folder song level = do
             { F.tracks = midi.tracks
               { F.onyxParts = Map.insert F.PartVocal mempty
                 { F.onyxPartVocals = fst $ fixShortVoxPhrasesTrack mempty
-                  { vocalNotes
+                  { notes
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
@@ -605,14 +605,14 @@ importRSSong folder song level = do
                       let on  = (t   , (pitch, True ))
                           off = (tend, (pitch, False))
                       [on, off]
-                  , vocalLyrics
+                  , lyrics
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ do
                       (t, (_, _, lyric, _)) <- vocals3
                       return (t, lyric)
-                  , vocalPhrase1
+                  , phrase1
                     = U.unapplyTempoTrack temps
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList

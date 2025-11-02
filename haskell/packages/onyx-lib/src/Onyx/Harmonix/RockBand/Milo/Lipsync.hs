@@ -772,7 +772,7 @@ autoLipsync transition vmap trans vt = let
     = animationsToStates
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("Blink", 255)])
-    $ vt.vocalEyesClosed
+    $ vt.eyesClosed
   mouth
     = animationsToStates
     $ syllablesToAnimations transition vmap
@@ -789,7 +789,7 @@ autoLipsync' transition vmap trans vt = let
     = animationsToEvents
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("Blink", 255)])
-    $ vt.vocalEyesClosed
+    $ vt.eyesClosed
   mouth
     = animationsToEvents
     $ syllablesToAnimations transition vmap
@@ -826,7 +826,7 @@ beatlesLipsync transition vmap trans vt = let
     = animationsToStates
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
-    $ vt.vocalEyesClosed
+    $ vt.eyesClosed
   mouth
     = animationsToStates
     $ syllablesToAnimations transition vmap
@@ -843,7 +843,7 @@ beatlesLipsync' transition vmap trans vt = let
     = animationsToEvents
     $ simpleAnimations transition
     $ fmap (\b -> guard b >> [("l_lids", 255), ("r_lids", 255)])
-    $ vt.vocalEyesClosed
+    $ vt.eyesClosed
   mouth
     = animationsToEvents
     $ syllablesToAnimations transition vmap
@@ -897,8 +897,8 @@ data LipsyncTarget
 lipLyricsStates :: VisemeMap [(T.Text, Word8)] -> LipsyncTrack U.Seconds -> LipsyncStates
 lipLyricsStates vmap lip = let
   tubes = vocalTubes mempty
-    { vocalLyrics = lip.lipLyrics
-    , vocalNotes  = lip.lipNotes
+    { lyrics = lip.lipLyrics
+    , notes  = lip.lipNotes
     }
   withLang = applyStatus1 LyricEnglish lip.lipLanguage tubes
   transcribed = runTranscribe $ flip fmap withLang \(lang, mtext) -> let

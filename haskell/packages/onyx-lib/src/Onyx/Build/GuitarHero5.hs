@@ -47,7 +47,7 @@ import           Onyx.MIDI.Common                  (RB3Instrument (..),
                                                     pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Events            (EventsTrack (..))
 import qualified Onyx.MIDI.Track.File              as F
-import           Onyx.MIDI.Track.Venue             (venueCameraRB3)
+import           Onyx.MIDI.Track.Venue             (cameraRB3)
 import           Onyx.Neversoft.CRC                (qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt              (ghworEncrypt)
 import           Onyx.Neversoft.GH4.Metadata       (makeVocalsCents)
@@ -218,12 +218,12 @@ gh5Rules buildInfo dir gh5 = do
       Nothing    -> fatal "Couldn't reparse practice sections .qs file"
 
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    endTime <- case mid.tracks.onyxEvents.eventsEnd of
+    endTime <- case mid.tracks.onyxEvents.end of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
 
     let tmap = mid.tempos
-        rbCamera = (.venueCameraRB3) $ flip evalRand (mkStdGen hashed) $ getVenue
+        rbCamera = (.cameraRB3) $ flip evalRand (mkStdGen hashed) $ getVenue
           VenueTargetRB3
           partMap
           tmap

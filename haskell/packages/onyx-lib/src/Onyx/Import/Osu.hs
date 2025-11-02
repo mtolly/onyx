@@ -142,8 +142,8 @@ importOsu separateSongs f = do
                     ]
                   )
                 $ RTB.collectCoincident
-                $ (.drumGems)
-                $ fromMaybe mempty $ Map.lookup Expert drums.drumDifficulties
+                $ (.gems)
+                $ fromMaybe mempty $ Map.lookup Expert drums.difficulties
               in [(keySamplesForPart partName, sampleTrack)]
             Right _mania -> []
 
@@ -291,12 +291,12 @@ maniaToTrack :: U.TempoMap -> OsuFile -> ManiaTrack U.Beats
 maniaToTrack tmap osu = let
   mania = getManiaChart osu
   in ManiaTrack
-    { maniaNotes = blipEdgesRB_ $ RTB.fromAbsoluteEventList $ ATB.fromPairList $
+    { notes = blipEdgesRB_ $ RTB.fromAbsoluteEventList $ ATB.fromPairList $
       mania >>= \(secs, (column, endHold)) -> let
         startBeats = U.unapplyTempoMap tmap secs
         holdBeats = (\endSecs -> U.unapplyTempoMap tmap endSecs - startBeats) <$> endHold
         in return (startBeats, ((fromIntegral column, NoteNormal), holdBeats))
-    , maniaOverdrive = RTB.empty
+    , overdrive = RTB.empty
     }
 
 taikoToTrack :: U.TempoMap -> OsuFile -> DrumTrack U.Beats
@@ -347,10 +347,10 @@ taikoToTrack tmap osu = let
     where flipHand = case nextHand of LH -> RH; RH -> LH
 
   in mapTrack (U.unapplyTempoTrack tmap) mempty
-    { drumDifficulties = Map.singleton Expert mempty
-      { drumGems = applySticking RH $ RTB.merge normalNotes laneNotes
+    { difficulties = Map.singleton Expert mempty
+      { gems = applySticking RH $ RTB.merge normalNotes laneNotes
       }
-    , drumDoubleRoll = doubleLanes
+    , doubleRoll = doubleLanes
     }
 
 getTaikoChart :: OsuFile -> [(U.Seconds, TaikoEvent U.Seconds)]

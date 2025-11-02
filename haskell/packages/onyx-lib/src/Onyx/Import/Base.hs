@@ -110,8 +110,8 @@ detectExtProBass :: F.FixedFile t -> PG.GtrBase
 detectExtProBass trks = let
   strs = do
     trk <- [trks.fixedPartRealBass, trks.fixedPartRealBass22]
-    diff <- toList trk.pgDifficulties
-    (str, _) <- toList diff.pgNotes >>= toList
+    diff <- toList trk.difficulties
+    (str, _) <- toList diff.notes >>= toList
     return str
   in if elem PG.S1 strs
     then PG.GtrCustom [28, 33, 38, 43, 47, 52] -- bass with 2 high gtr strings
@@ -131,11 +131,11 @@ checkEnableDynamics
   :: F.Song (F.FixedFile U.Beats)
   -> F.Song (F.FixedFile U.Beats)
 checkEnableDynamics (F.Song tmap mmap ps) = let
-  checkTrack trk = if RTB.null trk.drumEnableDynamics
-    then trk { drumDifficulties = noDynamics <$> trk.drumDifficulties }
+  checkTrack trk = if RTB.null trk.enableDynamics
+    then trk { difficulties = noDynamics <$> trk.difficulties }
     else trk
   noDynamics dd = dd
-    { drumGems = (\(gem, _) -> (gem, VelocityNormal)) <$> dd.drumGems
+    { gems = (\(gem, _) -> (gem, VelocityNormal)) <$> dd.gems
     }
   in F.Song tmap mmap ps
     { F.fixedPartDrums       = checkTrack ps.fixedPartDrums

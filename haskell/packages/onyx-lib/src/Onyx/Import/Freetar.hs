@@ -133,7 +133,7 @@ songToMidi song = let
     , tracks = mempty
       { F.onyxParts = Map.singleton F.PartGuitar mempty
         { F.onyxPartGuitar = mempty
-          { Five.fiveDifficulties = Map.singleton Expert gtr
+          { Five.difficulties = Map.singleton Expert gtr
           }
         }
       }

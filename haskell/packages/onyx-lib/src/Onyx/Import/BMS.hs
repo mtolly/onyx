@@ -186,8 +186,8 @@ importBMS bmsPath level = do
             guard $ not $ RTB.null indexed
             let opart = mempty
                   { F.onyxPartMania = Map.singleton "chart" ManiaTrack
-                    { maniaNotes = fmap (, NoteNormal) <$> blipEdgesRB_ indexed
-                    , maniaOverdrive = RTB.empty
+                    { notes = fmap (, NoteNormal) <$> blipEdgesRB_ indexed
+                    , overdrive = RTB.empty
                     }
                   }
             return (fpart, opart)

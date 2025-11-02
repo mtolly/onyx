@@ -2,15 +2,16 @@
 Alternate implementation of kueller's venuegen system:
 <https://github.com/kueller/ReaperRBTools>
 -}
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.MIDI.Track.VenueGen where
 
 import           Control.Arrow                    (first)
@@ -214,27 +215,27 @@ applyStrobeNotes lt = let
 
 buildLighting :: LightingTrack U.Beats -> VenueTrack U.Beats
 buildLighting lt = mempty
-  { venuePostProcessRB3   = venue_generate lt.lightingPostProcess
-  , venueLighting         = let
+  { postProcessRB3   = venue_generate lt.lightingPostProcess
+  , lighting         = let
     lightingInput = RTB.merge
       (first Just <$> lt.lightingTypes)
       ((\speed -> (Nothing, isJust speed)) <$> lt.lightingStrobe)
     in  RTB.merge (applyStrobeNotes lt)
       $ RTB.mapMaybe id
       $ venue_generate lightingInput
-  , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lt.lightingCommands
-  , venueBonusFX          = lt.lightingBonusFX
-  , venueBonusFXOptional  = lt.lightingBonusFXOptional
+  , lightingCommands = (\cmd -> (cmd, RBN2)) <$> lt.lightingCommands
+  , bonusFX          = lt.lightingBonusFX
+  , bonusFXOptional  = lt.lightingBonusFXOptional
   }
 
 unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
 unbuildLighting lastLen vt = LightingTrack
-  { lightingPostProcess     = venue_ungenerate lastLen vt.venuePostProcessRB3
-  , lightingTypes           = venue_ungenerate lastLen vt.venueLighting
+  { lightingPostProcess     = venue_ungenerate lastLen vt.postProcessRB3
+  , lightingTypes           = venue_ungenerate lastLen vt.lighting
   , lightingStrobe          = RTB.empty
-  , lightingCommands        = fst <$> vt.venueLightingCommands
-  , lightingBonusFX         = vt.venueBonusFX
-  , lightingBonusFXOptional = vt.venueBonusFXOptional
+  , lightingCommands        = fst <$> vt.lightingCommands
+  , lightingBonusFX         = vt.bonusFX
+  , lightingBonusFXOptional = vt.bonusFXOptional
   }
 
 data CameraTrack t = CameraTrack
@@ -439,13 +440,13 @@ buildCamera hasInsts ct = do
   cuts <- go [] $ RTB.collectCoincident $ RTB.merge
     (Just <$> joined)
     (const Nothing <$> ct.cameraRandom)
-  return mempty { venueCameraRB3 = U.trackJoin cuts }
+  return mempty { cameraRB3 = U.trackJoin cuts }
 
 unbuildCamera :: (NNC.C t) => t -> VenueTrack t -> CameraTrack t
 unbuildCamera lastLen vt = CameraTrack
   { cameraCuts = let
     -- each set of cuts, just make it a note that extends to the next set of cuts
-    pairs = RTB.toPairList $ RTB.collectCoincident vt.venueCameraRB3
+    pairs = RTB.toPairList $ RTB.collectCoincident vt.cameraRB3
     lens = drop 1 (map fst pairs) ++ [lastLen]
     in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) \((dt, cuts), len) ->
       (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])

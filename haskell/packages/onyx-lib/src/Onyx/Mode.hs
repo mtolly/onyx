@@ -92,7 +92,7 @@ nativeFiveFret part = flip fmap part.grybo \grybo ftype input -> let
   (trk, algo) = fromMaybe (mempty, HOPOsRBGuitar) $ find (not . Five.nullFive . fst) trks
   in FiveResult
     { settings  = grybo
-    , notes     = flip fmap trk.fiveDifficulties \diff ->
+    , notes     = flip fmap trk.difficulties \diff ->
       computeFiveFretSHT algo (fromIntegral grybo.hopoThreshold / 480) diff
     , other     = trk
     , source    = "five-fret chart"
@@ -143,7 +143,7 @@ convertFiveToDrums bf _dtarget input = let
       }
     , notes = Map.fromList $ map (second $ fmap (, D.VelocityNormal)) notes
     , other = mempty
-      { D.drumSolo = fiveResult.other.fiveSolo
+      { D.solo = fiveResult.other.solo
       }
     , hasRBMarks = False
     , animations
@@ -162,8 +162,8 @@ convertDrumsToFive bd _ftype input = let
   drumResult = bd DrumTargetRB2x input
   in FiveResult
     { settings = (def :: ModeFive) & #difficulty .~ drumResult.settings.difficulty
-    , notes = flip fmap drumResult.notes \drumGems ->
-      strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap drumGems \(gem, _velocity) -> let
+    , notes = flip fmap drumResult.notes \gems ->
+      strumHOPOTap HOPOsRBGuitar (170/480) $ flip fmap gems \(gem, _velocity) -> let
         color = case gem of
           D.Kick           -> Five.Green
           D.Red            -> Five.Red
@@ -173,23 +173,23 @@ convertDrumsToFive bd _ftype input = let
           D.Orange         -> Five.Orange -- won't happen because we called buildDrums with RB3 target
         in (Just color, Nothing)
     , other = Five.FiveTrack
-      { Five.fiveDifficulties = Map.empty
-      , Five.fiveMood         = drumResult.other.drumMood
-      , Five.fiveHandMap      = RTB.empty
-      , Five.fiveStrumMap     = RTB.empty
-      , Five.fiveFretPosition = RTB.empty
-      , Five.fiveTremolo      = RTB.empty -- TODO include these sometimes?
-      , Five.fiveTrill        = RTB.empty -- TODO include these sometimes?
-      , Five.fiveOverdrive    = drumResult.other.drumOverdrive
-      , Five.fiveBRE          = let
+      { Five.difficulties = Map.empty
+      , Five.mood         = drumResult.other.mood
+      , Five.handMap      = RTB.empty
+      , Five.strumMap     = RTB.empty
+      , Five.fretPosition = RTB.empty
+      , Five.tremolo      = RTB.empty -- TODO include these sometimes?
+      , Five.trill        = RTB.empty -- TODO include these sometimes?
+      , Five.overdrive    = drumResult.other.overdrive
+      , Five.bre          = let
         -- only copy over a fill that is actually a BRE
-        coda = fmap (fst . fst) $ RTB.viewL input.events.eventsCoda
+        coda = fmap (fst . fst) $ RTB.viewL input.events.coda
         in case coda of
           Nothing -> RTB.empty
-          Just c  -> RTB.delay c $ U.trackDrop c drumResult.other.drumActivation
-      , Five.fiveSolo         = drumResult.other.drumSolo
-      , Five.fivePlayer1      = drumResult.other.drumPlayer1
-      , Five.fivePlayer2      = drumResult.other.drumPlayer2
+          Just c  -> RTB.delay c $ U.trackDrop c drumResult.other.activation
+      , Five.solo         = drumResult.other.solo
+      , Five.player1      = drumResult.other.player1
+      , Five.player2      = drumResult.other.player2
       }
     , source = "converted drum chart to five-fret"
     , autochart = False
@@ -251,7 +251,7 @@ nativeDrums part = flip fmap part.drums \pd dtarget input -> let
     (case pd.fallback of
       FallbackBlue  -> D.Blue
       FallbackGreen -> D.Green
-    ) . (.drumGems)
+    ) . (.gems)
 
   isBasicSource = case pd.mode of
     Drums4 -> True
@@ -275,10 +275,10 @@ nativeDrums part = flip fmap part.drums \pd dtarget input -> let
       diff <- [minBound .. maxBound]
       let gems = if elem dtarget [DrumTargetCH, DrumTargetGH] && pd.mode == Drums5
             then fmap (first $ fmap $ const D.Cymbal)
-              $ (.drumGems) $ fromMaybe mempty $ Map.lookup diff src'.drumDifficulties
+              $ (.gems) $ fromMaybe mempty $ Map.lookup diff src'.difficulties
             else case pd.mode of
               Drums4 -> first (basicToProType <$) <$> D.computePro (Just diff) src'
-              Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff src'.drumDifficulties
+              Drums5 -> diffFiveToPro $ fromMaybe mempty $ Map.lookup diff src'.difficulties
               _      -> D.computePro (Just diff) src'
       guard $ not $ RTB.null gems
       return (diff, gems)
@@ -307,7 +307,7 @@ buildDrumAnimation pd tmap opart = let
   rbTracks = [opart.onyxPartRealDrumsPS, opart.onyxPartDrums2x, opart.onyxPartDrums]
   inRealTime f = U.unapplyTempoTrack tmap . f . U.applyTempoTrack tmap
   closeTime = 0.25 :: U.Seconds
-  in case filter (not . RTB.null) $ map (.drumAnimation) rbTracks of
+  in case filter (not . RTB.null) $ map (.animation) rbTracks of
     anims : _ -> anims
     []        -> case pd.mode of
       DrumsElite -> inRealTime (ED.eliteDrumsToAnimation closeTime)
@@ -382,8 +382,8 @@ maniaToProKeys part = do
         , fixFreeform = False
         }
       , difficulties = Map.singleton Expert mempty
-        { pkLanes = RTB.singleton 0 range
-        , pkNotes = fmap (fmap (keys !!)) $ maniaChordSnap $ getManiaNormalTopDifficulty pm input.part
+        { lanes = RTB.singleton 0 range
+        , notes = fmap (fmap (keys !!)) $ maniaChordSnap $ getManiaNormalTopDifficulty pm input.part
         }
       , source = "converted Mania chart to pro keys"
       , autochart = False
@@ -442,7 +442,7 @@ adjustRocksmithHST tempos = let
 loadProtarOutput :: ProGuitarTrack U.Beats -> RSRockBandOutput
 loadProtarOutput pgt = let
   -- could pass hopo threshold in via ModeInput if we really wanted
-  result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert pgt.pgDifficulties
+  result = guitarifyFull (170/480) $ fromMaybe mempty $ Map.lookup Expert pgt.difficulties
   in RSRockBandOutput
     { notesWithHandshapes = flip fmap result \(sht, notes, sustain) ->
       ( do
@@ -527,9 +527,9 @@ proGuitarToFiveFret part = flip fmap part.proGuitar \ppg _ftype input -> let
     , other = case maybePG of
       Nothing -> mempty
       Just pg -> mempty
-        { Five.fiveOverdrive = pg.pgOverdrive
-        , Five.fiveSolo      = pg.pgSolo
-        , Five.fiveBRE       = snd <$> pg.pgBRE
+        { Five.overdrive = pg.overdrive
+        , Five.solo      = pg.solo
+        , Five.bre       = snd <$> pg.bre
         }
     , source = "converted Rocksmith chart to five-fret"
     , autochart = True
@@ -545,7 +545,7 @@ proKeysToFiveFret part = flip fmap part.proKeys \ppk _ftype input -> let
         = RTB.toAbsoluteEventList 0
         $ guitarify'
         $ fmap (\((), key, len) -> (fromEnum key, guard (len >= standardBlipThreshold) >> Just len))
-        $ RB.joinEdgesSimple expertPK.pkNotes
+        $ RB.joinEdgesSimple expertPK.notes
       autoResult = autoChart 5 do
         (bts, (notes, _len)) <- ATB.toPairList chorded
         pitch <- simplifyChord notes
@@ -566,10 +566,10 @@ proKeysToFiveFret part = flip fmap part.proKeys \ppk _ftype input -> let
         $ ATB.toPairList
         $ chorded
     , other = mempty
-      { Five.fiveOverdrive = expertPK.pkOverdrive
-      , Five.fiveSolo      = expertPK.pkSolo
-      , Five.fiveBRE       = expertPK.pkBRE
-      , Five.fiveMood      = expertPK.pkMood
+      { Five.overdrive = expertPK.overdrive
+      , Five.solo      = expertPK.solo
+      , Five.bre       = expertPK.bre
+      , Five.mood      = expertPK.mood
       -- could do trill, but may not be valid if autochart was weird
       }
     , source = "converted Pro Keys chart to five-fret"
@@ -701,16 +701,16 @@ maniaToDrums part = flip fmap part.mania \pm dtarget input -> let
 drumResultToTrack :: DrumResult -> D.DrumTrack U.Beats
 drumResultToTrack dr = if dr.hasRBMarks
   then dr.other
-    { D.drumAnimation = dr.animations
+    { D.animation = dr.animations
     }
   else dr.other
-    { D.drumDifficulties = flip fmap dr.notes \notes -> D.DrumDifficulty
+    { D.difficulties = flip fmap dr.notes \notes -> D.DrumDifficulty
       -- TODO we still need to apply discobeat! flip gems + include mix events
-      { D.drumGems = first void <$> notes
-      , D.drumMix = RTB.empty
-      , D.drumPSModifiers = RTB.empty
+      { D.gems = first void <$> notes
+      , D.mix = RTB.empty
+      , D.psModifiers = RTB.empty
       }
-    , D.drumToms = let
+    , D.toms = let
       makeColorTomMarkers :: RTB.T U.Beats D.ProType -> RTB.T U.Beats D.ProType
       makeColorTomMarkers
         = RTB.mapMaybe (\case
@@ -735,7 +735,7 @@ drumResultToTrack dr = if dr.hasRBMarks
       in foldr RTB.merge RTB.empty do
         ybg <- [D.Yellow, D.Blue, D.Green]
         return $ fmap (ybg,) $ makeColorTomMarkers $ getColor ybg
-    , D.drumAnimation = dr.animations
+    , D.animation = dr.animations
     }
 
 drumNoteShuffle :: D.DrumTrack U.Beats -> D.DrumTrack U.Beats
@@ -745,8 +745,8 @@ drumNoteShuffle dt = let
     { settings   = emptyPartDrums DrumsPro Kicks1x
     , notes      = Map.fromList do
       let lanes = RTB.merge
-            (maybe (0 :: Int, False) (const (0, True)) <$> dt.drumSingleRoll)
-            (maybe (1       , False) (const (1, True)) <$> dt.drumDoubleRoll)
+            (maybe (0 :: Int, False) (const (0, True)) <$> dt.singleRoll)
+            (maybe (1       , False) (const (1, True)) <$> dt.doubleRoll)
           colors = [D.Red, D.Pro D.Yellow (), D.Pro D.Blue (), D.Pro D.Green ()]
       diff <- [Easy .. Expert]
       let gems = D.computePro (Just diff) dt
@@ -773,15 +773,15 @@ drumNoteShuffle dt = let
               return (t, instant')
       return (diff, newGems)
     , other      = dt
-    , animations = dt.drumAnimation
+    , animations = dt.animation
     , hasRBMarks = False
     , source     = ""
     , autochart  = False
     , eliteDrums = Nothing
     }
   audio = listToMaybe do
-    dd <- Map.elems dt.drumDifficulties
-    (a, _) <- RTB.getBodies dd.drumMix
+    dd <- Map.elems dt.difficulties
+    (a, _) <- RTB.getBodies dd.mix
     return a
   in maybe id D.setDrumMix audio newTrack
 
@@ -790,7 +790,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
   randomSeed = hash $ show ft
   in fiveResultToTrack FiveResult
     { settings  = def
-    , notes     = flip Map.mapWithKey ft.fiveDifficulties \diff fd -> let
+    , notes     = flip Map.mapWithKey ft.difficulties \diff fd -> let
       chorded = guitarify'
         $ computeFiveFretSHT algo hopoThreshold fd
       thisSeed = mkStdGen $ randomSeed + fromEnum diff
@@ -820,7 +820,7 @@ fiveNoteShuffle algo hopoThreshold ft = let
 
 fiveResultToTrack :: FiveResult -> Five.FiveTrack U.Beats
 fiveResultToTrack ft = ft.other
-  { Five.fiveDifficulties = Map.fromList do
+  { Five.difficulties = Map.fromList do
     diff <- [Easy .. Expert]
     gems <- toList $ Map.lookup diff ft.notes
     return (diff, emitGuitar5 gems)

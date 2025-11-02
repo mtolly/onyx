@@ -97,8 +97,8 @@ importAmplitudeSong songFolder moggSongName level = do
               { F.onyxPartMania = Map.fromList do
                 (diff, catchDiff) <- Map.toList trk.catchDifficulties
                 return (amplitudeDiffNames diff, ManiaTrack
-                  { maniaNotes     = blipEdgesRB_ $ (\gem -> ((fromEnum gem, NoteNormal), Nothing)) <$> catchDiff.catchGems
-                  , maniaOverdrive = RTB.empty
+                  { notes     = blipEdgesRB_ $ (\gem -> ((fromEnum gem, NoteNormal), Nothing)) <$> catchDiff.catchGems
+                  , overdrive = RTB.empty
                   })
               })
           }

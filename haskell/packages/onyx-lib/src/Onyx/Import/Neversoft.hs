@@ -270,7 +270,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                   -- can't use `info.songDoubleKick` since some WoR songs like
                   -- Aqualung say "double kick" but they only have ghost notes,
                   -- no extra kicks
-                  kicks = if RTB.null midiFixed.tracks.fixedPartDrums.drumKick2x
+                  kicks = if RTB.null midiFixed.tracks.fixedPartDrums.kick2x
                     then Kicks1x
                     else KicksBoth
                   in (emptyPartDrums Drums5 kicks :: ModeDrums SoftFile)
@@ -909,8 +909,8 @@ importGH3Song ghi = let
         [ Just (F.PartGuitar, emptyPart { grybo = Just def })
         , guard (hasRealCoop && hasCoopGems) >> Just (coopPart, emptyPart { grybo = Just def })
         , do
-          let expert = fromMaybe mempty $ Map.lookup Expert drums.tdDifficulties
-          guard $ not $ RTB.null expert.tdGems
+          let expert = fromMaybe mempty $ Map.lookup Expert drums.difficulties
+          guard $ not $ RTB.null expert.gems
           let kicks = if null $ Elite.edKicks2 expert then Kicks1x else KicksBoth
           Just (F.PartDrums, emptyPart & #drums .~ Just (emptyPartDrums DrumsElite kicks))
         ]

@@ -313,8 +313,8 @@ commandMatch c = commandMatch'
   (\c' -> guard (c == c') >> Just ())
   (const c)
 
-lyrics :: (Monad m, NNC.C t) => TrackEvent m t T.Text
-lyrics = Codec
+lyricEvents :: (Monad m, NNC.C t) => TrackEvent m t T.Text
+lyricEvents = Codec
   { codecIn = slurpTrack \mt -> (mt.midiLyrics, mt { midiLyrics = RTB.empty })
   , codecOut = makeTrackBuilder $ fmap $ E.MetaEvent . Meta.Lyric
   }

@@ -36,11 +36,11 @@ instance TraverseTrack LipsyncTrack where
 
 instance ParseTrack LipsyncTrack where
   parseTrack = do
-    lipLyrics <- (.lipLyrics) =. lyrics
-    lipNotes <- ((.lipNotes) =.)
-      $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
-    lipLanguage <- ((.lipLanguage) =.)
-      $ condenseMap_ $ eachKey each $ commandMatch . \case
+    lipLyrics <- (.lipLyrics) =. lyricEvents
+    lipNotes <- (.lipNotes) =. do
+      condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
+    lipLanguage <- (.lipLanguage) =. do
+      condenseMap_ $ eachKey each $ commandMatch . \case
         LyricEnglish -> ["lang", "en"]
         LyricGerman  -> ["lang", "de"]
         LyricSpanish -> ["lang", "es"]

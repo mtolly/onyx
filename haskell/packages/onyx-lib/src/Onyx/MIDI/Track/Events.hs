@@ -41,32 +41,32 @@ data Backing
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 data EventsTrack t = EventsTrack
-  { eventsMusicStart :: RTB.T t ()
-  , eventsMusicEnd   :: RTB.T t ()
-  , eventsEnd        :: RTB.T t ()
-  , eventsCoda       :: RTB.T t ()
-  , eventsCodaResume :: RTB.T t () -- onyx event: if present, notes between [coda] and [coda_resume] are removed for RB but not CH
-  , eventsCrowd      :: RTB.T t CrowdMood
-  , eventsCrowdClap  :: RTB.T t Bool
-  , eventsSections   :: RTB.T t Section
-  , eventsBacking    :: RTB.T t Backing
-  , eventsPreview    :: RTB.T t () -- seen in DLC, probably internal event that is used to calculate for songs.dta
+  { musicStart :: RTB.T t ()
+  , musicEnd   :: RTB.T t ()
+  , end        :: RTB.T t ()
+  , coda       :: RTB.T t ()
+  , codaResume :: RTB.T t () -- onyx event: if present, notes between [coda] and [coda_resume] are removed for RB but not CH
+  , crowd      :: RTB.T t CrowdMood
+  , crowdClap  :: RTB.T t Bool
+  , sections   :: RTB.T t Section
+  , backing    :: RTB.T t Backing
+  , preview    :: RTB.T t () -- seen in DLC, probably internal event that is used to calculate for songs.dta
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (EventsTrack t)
 
 instance ChopTrack EventsTrack where
   chopTake t = mapTrack $ U.trackTake t
   chopDrop t trk = EventsTrack
-    { eventsMusicStart = U.trackDrop    t trk.eventsMusicStart
-    , eventsMusicEnd   = U.trackDrop    t trk.eventsMusicEnd
-    , eventsEnd        = U.trackDrop    t trk.eventsEnd
-    , eventsCoda       = U.trackDrop    t trk.eventsCoda
-    , eventsCodaResume = U.trackDrop    t trk.eventsCodaResume
-    , eventsCrowd      = chopDropStatus t trk.eventsCrowd
-    , eventsCrowdClap  = chopDropStatus t trk.eventsCrowdClap
-    , eventsSections   = chopDropStatus t trk.eventsSections
-    , eventsBacking    = U.trackDrop    t trk.eventsBacking
-    , eventsPreview    = U.trackDrop    t trk.eventsPreview
+    { musicStart = U.trackDrop    t trk.musicStart
+    , musicEnd   = U.trackDrop    t trk.musicEnd
+    , end        = U.trackDrop    t trk.end
+    , coda       = U.trackDrop    t trk.coda
+    , codaResume = U.trackDrop    t trk.codaResume
+    , crowd      = chopDropStatus t trk.crowd
+    , crowdClap  = chopDropStatus t trk.crowdClap
+    , sections   = chopDropStatus t trk.sections
+    , backing    = U.trackDrop    t trk.backing
+    , preview    = U.trackDrop    t trk.preview
     }
 
 instance TraverseTrack EventsTrack where
@@ -75,19 +75,19 @@ instance TraverseTrack EventsTrack where
 
 instance ParseTrack EventsTrack where
   parseTrack = do
-    eventsMusicStart <- (.eventsMusicStart) =. commandMatch ["music_start"]
-    eventsMusicEnd   <- (.eventsMusicEnd  ) =. commandMatch ["music_end"]
-    eventsEnd        <- (.eventsEnd       ) =. commandMatch ["end"]
-    eventsCoda       <- (.eventsCoda      ) =. commandMatch ["coda"]
-    eventsCodaResume <- (.eventsCodaResume) =. commandMatch ["coda_resume"]
-    eventsCrowd      <- (.eventsCrowd     ) =. command
-    eventsCrowdClap  <- ((.eventsCrowdClap) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+    musicStart <- (.musicStart) =. commandMatch ["music_start"]
+    musicEnd   <- (.musicEnd  ) =. commandMatch ["music_end"]
+    end        <- (.end       ) =. commandMatch ["end"]
+    coda       <- (.coda      ) =. commandMatch ["coda"]
+    codaResume <- (.codaResume) =. commandMatch ["coda_resume"]
+    crowd      <- (.crowd     ) =. command
+    crowdClap  <- ((.crowdClap) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       False -> ["crowd_noclap"]
       True  -> ["crowd_clap"]
-    eventsSections   <- (.eventsSections  ) =. commandMatch' parseSection (pure . emitSection)
-    eventsBacking    <- ((.eventsBacking  ) =.) $ condenseMap_ $ eachKey each $ blip . \case
+    sections   <- (.sections  ) =. commandMatch' parseSection (pure . emitSection)
+    backing    <- ((.backing  ) =.) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24
       BackingSnare -> 25
       BackingHihat -> 26
-    eventsPreview    <- (.eventsPreview   ) =. commandMatch ["preview"]
+    preview    <- (.preview   ) =. commandMatch ["preview"]
     return EventsTrack{..}

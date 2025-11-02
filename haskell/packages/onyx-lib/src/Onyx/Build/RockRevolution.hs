@@ -176,7 +176,7 @@ rrRules buildInfo dir rr = do
 
   (songBinEnglish : maxScores : pathPad : allMidis) %> \_ -> do
     mid <- applyTargetMIDI rr.common <$> loadOnyxMidi
-    endTime <- case mid.tracks.onyxEvents.eventsEnd of
+    endTime <- case mid.tracks.onyxEvents.end of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
     let input partName = ModeInput
@@ -189,7 +189,7 @@ rrRules buildInfo dir rr = do
         bass   = flip fmap rrPartBass \builder ->
           completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
         drums  = flip fmap rrPartDrums \builder ->
-          completeDrumResult mid.timesigs mid.tracks.onyxEvents.eventsSections $ builder drumTarget $ input rr.drums
+          completeDrumResult mid.timesigs mid.tracks.onyxEvents.sections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
     let startNotes = concat
@@ -228,7 +228,7 @@ rrRules buildInfo dir rr = do
             = length (RTB.collectCoincident rrDiff.rrfStrums)
             + length (RTB.collectCoincident rrDiff.rrfHOPOs )
           in (F.showMixedMIDI $ toTrackMidi rrDiff
-            { rrfSolo = result.other.fiveSolo
+            { rrfSolo = result.other.solo
             }, numNotes)
 
         makeDrums :: Difficulty -> (File.T B.ByteString, Int)
@@ -246,7 +246,7 @@ rrRules buildInfo dir rr = do
               _ -> nonElite
             _ -> nonElite
           in (F.showMixedMIDI $ toTrackMidi rrDiff
-            { rrdSolo = maybe RTB.empty (\res -> res.other.drumSolo) drums
+            { rrdSolo = maybe RTB.empty (\res -> res.other.solo) drums
             }, length rrDiff.rrdGems)
 
         venue = flip evalRand (mkStdGen $ hash key) $ getVenue
@@ -262,11 +262,11 @@ rrRules buildInfo dir rr = do
         camera = RTB.mapMaybe (listToMaybe . catMaybes)
           $ flip evalRand (mkStdGen $ hash key)
           $ mapM (\cuts -> mapM rrCameraCut $ reverse $ sort cuts)
-          $ RTB.collectCoincident venue.venueCameraRB3
+          $ RTB.collectCoincident venue.cameraRB3
         moodFor part = maybe RTB.empty (getMoods mid.tempos endTime)
           $ Map.lookup part mid.tracks.onyxParts
 
-        (sections, customSections) = makeRRSections mid.tracks.onyxEvents.eventsSections
+        (sections, customSections) = makeRRSections mid.tracks.onyxEvents.sections
 
     makeStringsBin
       ( artist
@@ -342,7 +342,7 @@ rrRules buildInfo dir rr = do
           res <- bass
           makeRRFiveControl res <$> Map.lookup Expert res.notes
         , rrcVenue         = camera
-        , rrcEnd           = mid.tracks.onyxEvents.eventsEnd
+        , rrcEnd           = mid.tracks.onyxEvents.end
         , rrcSections      = sections
         -- TODO add half-beats (do these even do anything?)
         , rrcBeat          = Just <$> mid.tracks.onyxBeat.beatLines
@@ -367,7 +367,7 @@ rrRules buildInfo dir rr = do
           (minutes, afterMinutes) = quotRem ms 60000
           (seconds, milliseconds) = quotRem afterMinutes 1000
           in T.pack $ "{ " <> show minutes <> ", " <> show seconds <> ", " <> show milliseconds <> " }"
-    endMS <- case mid.tracks.onyxEvents.eventsEnd of
+    endMS <- case mid.tracks.onyxEvents.end of
       Wait dt _ _ -> return $ floor $ U.applyTempoMap mid.tempos dt * 1000
       RNil        -> fatal "panic! no [end] in processed midi"
     shk $ need [maxScores]
@@ -670,7 +670,7 @@ makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
       E.Ride      -> Just RRC_CrashR
       E.CrashR    -> Just RRC_CrashR
       E.HihatFoot -> Nothing
-    lanesBRE = case input.events.eventsCoda of
+    lanesBRE = case input.events.coda of
       RNil -> RTB.empty
       Wait codaTime _ _
         -> RTB.flatten
@@ -701,9 +701,9 @@ makeRRDrumDifficultyElite
   -> EventsTrack t
   -> RRDrumDifficulty t
 makeRRDrumDifficultyElite trk elite events = makeRRDrumDifficulty RRDrumInput
-  { notes      = (.tdn_gem) <$> trk
-  , lanes      = elite.tdLanes
-  , activation = elite.tdActivation
+  { notes      = (.gem) <$> trk
+  , lanes      = elite.lanes
+  , activation = elite.activation
   , events     = events
   }
 
@@ -715,8 +715,8 @@ legacyLanes
   -> RTB.T t (Edge () (D.Gem D.ProType))
 legacyLanes diff gems trk = let
   hands = RTB.filter (/= D.Kick) $ fmap fst gems
-  single = findTremolos hands $ laneDifficulty diff trk.drumSingleRoll
-  double = findTrills   hands $ laneDifficulty diff trk.drumDoubleRoll
+  single = findTremolos hands $ laneDifficulty diff trk.singleRoll
+  double = findTrills   hands $ laneDifficulty diff trk.doubleRoll
   in splitEdgesSimple $ fmap (\(gem, len) -> ((), gem, len)) $ RTB.merge single double
 
 makeRRDrumDifficulty6Lane, makeRRDrumDifficulty4Lane
@@ -740,7 +740,7 @@ makeRRDrumDifficulty6Lane diff gems trk events = let
   in makeRRDrumDifficulty RRDrumInput
     { notes      = gemTranslate . fst <$> gems
     , lanes      = fmap gemTranslate <$> legacyLanes diff gems trk
-    , activation = trk.drumActivation
+    , activation = trk.activation
     , events     = events
     }
 makeRRDrumDifficulty4Lane diff gems trk events = let
@@ -754,7 +754,7 @@ makeRRDrumDifficulty4Lane diff gems trk events = let
   in makeRRDrumDifficulty RRDrumInput
     { notes      = gemTranslate . fst <$> gems
     , lanes      = fmap gemTranslate <$> legacyLanes diff gems trk
-    , activation = trk.drumActivation
+    , activation = trk.activation
     , events     = events
     }
 

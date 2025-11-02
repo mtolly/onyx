@@ -426,8 +426,8 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
       phrases = map fst gh4.gh4VocalsPhrases
       in convertVocals toBeats notes lyrics phrases []
     , F.fixedEvents = mempty
-      { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
-      , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
+      { sections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
+      , end      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
   -- is this sustain cutoff still right? no trim this time
@@ -460,19 +460,19 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
       ]
   getGuitarBass :: GH4Part -> Five.FiveTrack U.Beats
   getGuitarBass part = mempty
-    { Five.fiveDifficulties = Map.fromList
+    { Five.difficulties = Map.fromList
       [ (Easy  , getGuitarBassDiff part.gh4Easy  )
       , (Medium, getGuitarBassDiff part.gh4Medium)
       , (Hard  , getGuitarBassDiff part.gh4Hard  )
       , (Expert, getGuitarBassDiff part.gh4Expert)
       ]
-    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
-    , Five.fivePlayer1 = makeSpan part.gh4FaceOffP1
-    , Five.fivePlayer2 = makeSpan part.gh4FaceOffP2
+    , Five.overdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
+    , Five.player1 = makeSpan part.gh4FaceOffP1
+    , Five.player2 = makeSpan part.gh4FaceOffP2
     }
   getDrumsDiff :: GH4Difficulty -> Drums.DrumDifficulty U.Beats
   getDrumsDiff diff = mempty
-    { Drums.drumGems = fromPairs do
+    { Drums.gems = fromPairs do
       (time, bits) <- diff.gh4Notes
       let pos = toBeats time
           dynamicBit n = if bits `testBit` n then Drums.VelocityAccent else Drums.VelocityNormal
@@ -493,16 +493,16 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
     }
   getDrums :: GH4Part -> Drums.DrumTrack U.Beats
   getDrums part = mempty
-    { Drums.drumDifficulties = Map.fromList
+    { Drums.difficulties = Map.fromList
       [ (Easy  , getDrumsDiff part.gh4Easy  )
       , (Medium, getDrumsDiff part.gh4Medium)
       , (Hard  , getDrumsDiff part.gh4Hard  )
       , (Expert, getDrumsDiff part.gh4Expert)
       ]
-    , Drums.drumOverdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
-    , Drums.drumPlayer1 = makeSpan part.gh4FaceOffP1
-    , Drums.drumPlayer2 = makeSpan part.gh4FaceOffP2
-    , Drums.drumKick2x = fromPairs do
+    , Drums.overdrive = makeSpan $ fmap (\(time, len, _) -> (time, len)) part.gh4Expert.gh4StarPower
+    , Drums.player1 = makeSpan part.gh4FaceOffP1
+    , Drums.player2 = makeSpan part.gh4FaceOffP2
+    , Drums.kick2x = fromPairs do
       (time, bits) <- part.gh4Expert.gh4Notes
       guard $ bits `testBit` 29 && not (bits `testBit` 21)
       return (toBeats time, ())

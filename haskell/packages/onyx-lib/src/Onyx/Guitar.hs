@@ -1,11 +1,12 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Guitar where
 
 import           Control.Applicative              ((<|>))
@@ -37,14 +38,14 @@ computeFiveFretSHT algo hopoThreshold fd
 computeFiveFretNotes :: FiveDifficulty U.Beats -> RTB.T U.Beats (Maybe G5.Color, Maybe U.Beats)
 computeFiveFretNotes fd
   = fmap (\(isOpen, (mcol, len)) -> (guard (not isOpen) >> mcol, len))
-  $ applyStatus1 False fd.fiveOpen
-  $ edgeBlips_ minSustainLengthRB fd.fiveGems
+  $ applyStatus1 False fd.open
+  $ edgeBlips_ minSustainLengthRB fd.gems
 
 computeSixFretSHT :: HOPOsAlgorithm -> U.Beats -> SixDifficulty U.Beats -> RTB.T U.Beats ((Maybe Fret, StrumHOPOTap), Maybe U.Beats)
 computeSixFretSHT algo hopoThreshold sd
   = applyForces (getForces6 sd)
   $ strumHOPOTap algo hopoThreshold
-  $ edgeBlips_ minSustainLengthRB sd.sixGems
+  $ edgeBlips_ minSustainLengthRB sd.gems
 
 data HOPOsAlgorithm
   = HOPOsRBGuitar
@@ -123,17 +124,17 @@ strumHOPOTap algo threshold rtb = let
 
 getForces5 :: (NNC.C t) => FiveDifficulty t -> RTB.T t (StrumHOPOTap, Bool)
 getForces5 fd = RTB.merge
-  ((Strum ,) <$> fd.fiveForceStrum)
+  ((Strum ,) <$> fd.forceStrum)
   $ RTB.merge
-    ((HOPO ,) <$> fd.fiveForceHOPO)
-    ((Tap ,) <$> fd.fiveTap)
+    ((HOPO ,) <$> fd.forceHOPO)
+    ((Tap ,) <$> fd.tap)
 
 getForces6 :: (NNC.C t) => SixDifficulty t -> RTB.T t (StrumHOPOTap, Bool)
 getForces6 sd = RTB.merge
-  ((Strum ,) <$> sd.sixForceStrum)
+  ((Strum ,) <$> sd.forceStrum)
   $ RTB.merge
-    ((HOPO ,) <$> sd.sixForceHOPO)
-    ((Tap ,) <$> sd.sixTap)
+    ((HOPO ,) <$> sd.forceHOPO)
+    ((Tap ,) <$> sd.tap)
 
 -- | Modifies the default strum or HOPO value depending on force events.
 applyForces :: (NNC.C t, Ord color, Ord len) => RTB.T t (StrumHOPOTap, Bool) -> RTB.T t ((color, StrumHOPOTap), len) -> RTB.T t ((color, StrumHOPOTap), len)
@@ -545,15 +546,15 @@ emitGuitar5PS = emitGuitar5General False
 
 emitGuitar5General :: Bool -> RTB.T U.Beats ((Maybe G5.Color, StrumHOPOTap), Maybe U.Beats) -> FiveDifficulty U.Beats
 emitGuitar5General enhancedOpens notes = FiveDifficulty
-  { fiveForceStrum = makeForce Strum
-  , fiveForceHOPO = makeForce HOPO
-  , fiveTap = makeForce Tap
-  , fiveOpen = if enhancedOpens
+  { forceStrum = makeForce Strum
+  , forceHOPO = makeForce HOPO
+  , tap = makeForce Tap
+  , open = if enhancedOpens
     then RTB.empty
     else U.trackJoin $ flip RTB.mapMaybe notes \case
       ((Nothing, _), _) -> Just boolBlip
       _                 -> Nothing
-  , fiveGems = blipEdgesRB_ if enhancedOpens
+  , gems = blipEdgesRB_ if enhancedOpens
     then (\((mc, _), len) -> (mc, len)) <$> notes
     else (\((mc, _), len) -> (mc <|> Just Green, len)) <$> noOpenExtSustains standardBlipThreshold standardSustainGap notes
   } where
@@ -565,10 +566,10 @@ emitGuitar5General enhancedOpens notes = FiveDifficulty
 -- | Writes every note with an explicit HOPO/strum force.
 emitGuitar6 :: RTB.T U.Beats ((Maybe Fret, StrumHOPOTap), Maybe U.Beats) -> SixDifficulty U.Beats
 emitGuitar6 notes = SixDifficulty
-  { sixForceStrum = makeForce Strum
-  , sixForceHOPO = makeForce HOPO
-  , sixTap = makeForce Tap
-  , sixGems = blipEdgesRB_ $ fmap (\((mc, _), len) -> (mc, len)) notes
+  { forceStrum = makeForce Strum
+  , forceHOPO = makeForce HOPO
+  , tap = makeForce Tap
+  , gems = blipEdgesRB_ $ fmap (\((mc, _), len) -> (mc, len)) notes
   } where
     shts = fmap (snd . fst) $ RTB.flatten $ fmap (take 1) $ RTB.collectCoincident notes
     shtEdges = fixTapOffCH $ cleanEdges $ U.trackJoin $ fmap (\sht -> fmap (, sht) boolBlip) shts

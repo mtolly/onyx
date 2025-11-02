@@ -156,28 +156,28 @@ importGH1Song pkg path folder level = do
   let convmid :: F.Song (F.OnyxFile U.Beats)
       convmid = F.Song tmap mmap $ F.fixedToOnyx mempty
         { F.fixedPartGuitar = mempty
-          { RB.fiveDifficulties = flip fmap diffs \diff -> mempty
-            { RB.fiveGems = fmap (fmap Just) diff.partGems
+          { RB.difficulties = flip fmap diffs \diff -> mempty
+            { RB.gems = fmap (fmap Just) diff.partGems
             }
-          , RB.fiveOverdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert diffs
-          , RB.fivePlayer1      = maybe RTB.empty (.partPlayer1)   $ Map.lookup Expert diffs
-          , RB.fivePlayer2      = maybe RTB.empty (.partPlayer2)   $ Map.lookup Expert diffs
-          , RB.fiveFretPosition = flip fmap gh1.gh1Anim.animFretPosition \case
+          , RB.overdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert diffs
+          , RB.player1      = maybe RTB.empty (.partPlayer1)   $ Map.lookup Expert diffs
+          , RB.player2      = maybe RTB.empty (.partPlayer2)   $ Map.lookup Expert diffs
+          , RB.fretPosition = flip fmap gh1.gh1Anim.animFretPosition \case
             (FretPosition p, b) -> (p        , b)
             (Fret60        , b) -> (RB.Fret59, b)
-          , RB.fiveHandMap      = flip fmap gh1.gh1Anim.animHandMap \case
+          , RB.handMap      = flip fmap gh1.gh1Anim.animHandMap \case
             HandMap_Default   -> RB.HandMap_Default
             HandMap_DropD2    -> RB.HandMap_DropD2
             HandMap_Solo      -> RB.HandMap_Solo
             HandMap_NoChords  -> RB.HandMap_NoChords
             HandMap_AllChords -> RB.HandMap_AllChords
-          , RB.fiveMood         = flip RTB.mapMaybe gh1.gh1Events.eventsList \case
+          , RB.mood         = flip RTB.mapMaybe gh1.gh1Events.eventsList \case
             Event_gtr_on  -> Just Mood_play
             Event_gtr_off -> Just Mood_idle
             _             -> Nothing
           }
         , F.fixedEvents = mempty
-          { RB.eventsEnd = void $ RTB.filter (== Event_end) gh1.gh1Events.eventsList
+          { RB.end = void $ RTB.filter (== Event_end) gh1.gh1Events.eventsList
           }
         }
       diffs = gh1.gh1T1Gems.gemsDifficulties

@@ -37,33 +37,33 @@ data Event
 
 vocalFromLegacy :: (NNC.C t) => RTB.T t Event -> VocalTrack t
 vocalFromLegacy leg = VocalTrack
-  { vocalMood          = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
-  , vocalLyrics        = RTB.mapMaybe (\case Lyric x -> Just x; _ -> Nothing) leg
-  , vocalPerc          = RTB.mapMaybe (\case Percussion -> Just (); _ -> Nothing) leg
-  , vocalPercSound     = RTB.mapMaybe (\case PercussionSound -> Just (); _ -> Nothing) leg
-  , vocalPercAnimation = RTB.mapMaybe (\case PercussionAnimation x y -> Just (x, y); _ -> Nothing) leg
-  , vocalPhrase1       = RTB.mapMaybe (\case Phrase x -> Just x; _ -> Nothing) leg
-  , vocalPhrase2       = RTB.mapMaybe (\case Phrase2 x -> Just x; _ -> Nothing) leg
-  , vocalOverdrive     = RTB.mapMaybe (\case Overdrive x -> Just x; _ -> Nothing) leg
-  , vocalLyricShift    = RTB.mapMaybe (\case LyricShift -> Just (); _ -> Nothing) leg
-  , vocalRangeShift    = RTB.mapMaybe (\case RangeShift x -> Just x; _ -> Nothing) leg
-  , vocalNotes         = RTB.mapMaybe (\case Note b p -> Just (p, b); _ -> Nothing) leg
-  , vocalEyesClosed    = RTB.empty
+  { mood                = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
+  , lyrics              = RTB.mapMaybe (\case Lyric x -> Just x; _ -> Nothing) leg
+  , percussion          = RTB.mapMaybe (\case Percussion -> Just (); _ -> Nothing) leg
+  , percussionSound     = RTB.mapMaybe (\case PercussionSound -> Just (); _ -> Nothing) leg
+  , percussionAnimation = RTB.mapMaybe (\case PercussionAnimation x y -> Just (x, y); _ -> Nothing) leg
+  , phrase1             = RTB.mapMaybe (\case Phrase x -> Just x; _ -> Nothing) leg
+  , phrase2             = RTB.mapMaybe (\case Phrase2 x -> Just x; _ -> Nothing) leg
+  , overdrive           = RTB.mapMaybe (\case Overdrive x -> Just x; _ -> Nothing) leg
+  , lyricShift          = RTB.mapMaybe (\case LyricShift -> Just (); _ -> Nothing) leg
+  , rangeShift          = RTB.mapMaybe (\case RangeShift x -> Just x; _ -> Nothing) leg
+  , notes               = RTB.mapMaybe (\case Note b p -> Just (p, b); _ -> Nothing) leg
+  , eyesClosed          = RTB.empty
   }
 
 vocalToLegacy :: (NNC.C t) => VocalTrack t -> RTB.T t Event
 vocalToLegacy o = foldr RTB.merge RTB.empty
-  [ Mood                        <$> o.vocalMood
-  , Lyric                       <$> o.vocalLyrics
-  , const Percussion            <$> o.vocalPerc
-  , const PercussionSound       <$> o.vocalPercSound
-  , uncurry PercussionAnimation <$> o.vocalPercAnimation
-  , Phrase                      <$> o.vocalPhrase1
-  , Phrase2                     <$> o.vocalPhrase2
-  , Overdrive                   <$> o.vocalOverdrive
-  , const LyricShift            <$> o.vocalLyricShift
-  , RangeShift                  <$> o.vocalRangeShift
-  , uncurry (flip Note)         <$> o.vocalNotes
+  [ Mood                        <$> o.mood
+  , Lyric                       <$> o.lyrics
+  , const Percussion            <$> o.percussion
+  , const PercussionSound       <$> o.percussionSound
+  , uncurry PercussionAnimation <$> o.percussionAnimation
+  , Phrase                      <$> o.phrase1
+  , Phrase2                     <$> o.phrase2
+  , Overdrive                   <$> o.overdrive
+  , const LyricShift            <$> o.lyricShift
+  , RangeShift                  <$> o.rangeShift
+  , uncurry (flip Note)         <$> o.notes
   ]
 
 {- |

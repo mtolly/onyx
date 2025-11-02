@@ -273,7 +273,7 @@ psOpenFormat hopoThreshold = modifyFiveFretTracks \dvn trk -> let
     then return trk -- nothing to do
     else flip (overParsedFiveFret dvn) trk let
       eachDiff = G.emitGuitar5PS . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in #fiveDifficulties % mapped %~ eachDiff
+      in #difficulties % mapped %~ eachDiff
 
 -- WIP
 tapToHOPO :: (SendMessage m) => U.Beats -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
@@ -286,7 +286,7 @@ tapToHOPO hopoThreshold = modifyFiveFretTracks \dvn trk -> let
         = G.emitGuitar5PS -- should this be an option? probably always PS format opens here
         . fmap (\((color, sht), len) -> ((color, case sht of Tap -> HOPO; _ -> sht), len))
         . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in #fiveDifficulties % mapped %~ eachDiff
+      in #difficulties % mapped %~ eachDiff
 
 -- WIP
 removeOpenNotes :: (SendMessage m) => U.Beats -> Bool -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
@@ -301,7 +301,7 @@ removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks \dvn trk -> let
         . G.noOpenNotes detectMuted
         -- TODO we probably need to remove all extended sustains here
         . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
-      in #fiveDifficulties % mapped %~ eachDiff
+      in #difficulties % mapped %~ eachDiff
 
 overParsedFiveFret
   :: (SendMessage m)
@@ -702,7 +702,7 @@ forceSHT hopoThreshold track = let
         Nothing        -> track -- warn or something?
         Just fiveTrack -> let
           allForces = fiveTrack
-            { G5.fiveDifficulties = reforce <$> fiveTrack.fiveDifficulties
+            { G5.difficulties = reforce <$> fiveTrack.difficulties
             }
           -- probably don't care about using keys algo for PART KEYS
           reforce = G.emitGuitar5 . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
@@ -712,7 +712,7 @@ forceSHT hopoThreshold track = let
         Nothing        -> track -- warn or something?
         Just sixTrack -> let
           allForces = sixTrack
-            { G6.sixDifficulties = reforce <$> sixTrack.sixDifficulties
+            { G6.difficulties = reforce <$> sixTrack.difficulties
             }
           reforce = G.emitGuitar6 . G.computeSixFretSHT G.HOPOsRBGuitar hopoThreshold
           newTrack = F.showTrack allForces

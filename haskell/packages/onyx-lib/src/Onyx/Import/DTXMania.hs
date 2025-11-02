@@ -50,7 +50,7 @@ dtxConvertDrums, dtxConvertGuitar, dtxConvertBass
   :: DTX -> F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
 dtxConvertDrums dtx (F.Song tmap mmap onyx) = let
   importEliteDrums notes = mempty
-    { ED.tdDifficulties = Map.singleton Expert let
+    { ED.difficulties = Map.singleton Expert let
       gems = flip RTB.mapMaybe notes \case
         HihatClose -> Just (ED.Hihat    , ED.GemHihatClosed, VelocityNormal)
         Snare      -> Just (ED.Snare    , ED.GemNormal     , VelocityNormal)
@@ -98,7 +98,7 @@ dtxConvertGB getter getLong setter dtx (F.Song tmap mmap fixed) = let
       pairs
       (drop 1 pairs)
   guitarToFive notes = mempty
-    { fiveDifficulties = Map.singleton Expert $ emitGuitar5 let
+    { difficulties = Map.singleton Expert $ emitGuitar5 let
       noSustains = RTB.flatten $ flip fmap notes \case
         [] -> [((Nothing, Strum), Nothing)]
         xs -> [((Just x , Strum), Nothing) | x <- xs ]

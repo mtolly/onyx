@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -24,6 +25,7 @@ import           Data.List                        (sort)
 import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
+import           GHC.Generics                     (Generic)
 import           Onyx.FretsOnFire                 (stripTags)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import           Onyx.Sections.GH2                (gh2Sections)
@@ -38,7 +40,7 @@ data Section = Section
   { type_   :: SectionType
   , segment :: Maybe T.Text -- song name using my format for album projects
   , name    :: T.Text
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Generic)
 
 simpleSection :: T.Text -> Section
 simpleSection t = Section

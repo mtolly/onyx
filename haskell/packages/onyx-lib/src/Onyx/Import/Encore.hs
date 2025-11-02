@@ -186,8 +186,8 @@ encoreToOnyxMIDI = fmap \encore -> mempty
       , F.onyxPartMania = Map.fromList $ encorePart encore.partVocals
       })
     ]
-  , F.onyxEvents   = if RTB.null encore.events.eventsSections
-    then encore.events { eventsSections = convertEncoreSections encore.section }
+  , F.onyxEvents   = if RTB.null encore.events.sections
+    then encore.events & #sections .~ convertEncoreSections encore.section
     else encore.events
   , F.onyxBeat     = encore.beat
   }

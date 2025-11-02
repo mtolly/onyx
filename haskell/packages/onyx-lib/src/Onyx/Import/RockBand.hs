@@ -78,7 +78,7 @@ import           Onyx.Import.Base
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                       (mapTrack)
 import           Onyx.MIDI.Track.Drums                as Drums
-import           Onyx.MIDI.Track.Events               (eventsEnd)
+import           Onyx.MIDI.Track.Events               (end)
 import qualified Onyx.MIDI.Track.File                 as F
 import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
@@ -315,15 +315,15 @@ midiAddSingalongs slots mid = mid
     { F.onyxVenue = let
       venue = mid.tracks.onyxVenue
       addSlot slot orig = if elem slot slots
-        then case mid.tracks.onyxEvents.eventsEnd of
+        then case mid.tracks.onyxEvents.end of
           -- in theory should be fine going the whole song length, but we'll shorten a bit to be safe
           Wait dt () _ -> Wait 0 True $ Wait (dt - 0.25) False RNil
           RNil         -> orig -- no [end], shouldn't happen
         else orig
       in venue
-        { venueSingGuitar = addSlot "guitar" venue.venueSingGuitar
-        , venueSingBass   = addSlot "bass"   venue.venueSingBass
-        , venueSingDrums  = addSlot "drum"   venue.venueSingDrums
+        { singGuitar = addSlot "guitar" venue.singGuitar
+        , singBass   = addSlot "bass"   venue.singBass
+        , singDrums  = addSlot "drum"   venue.singDrums
         }
     }
   }
@@ -404,8 +404,8 @@ importRB rbi level = do
   let drumEvents = midiFixed.tracks.fixedPartDrums
   (foundMix, foundMixStr) <- let
     drumMixes = do
-      (_, dd) <- Map.toList drumEvents.drumDifficulties
-      (aud, _dsc) <- toList dd.drumMix
+      (_, dd) <- Map.toList drumEvents.difficulties
+      (aud, _dsc) <- toList dd.mix
       return aud
     in case drumMixes of
       [] -> return (Nothing, "MIDI has no mix")
@@ -534,7 +534,7 @@ importRB rbi level = do
           , F.onyxCameraBK = mempty
           , F.onyxCameraGK = mempty
           }
-      cutoffAnimAtEnd = case midiOnyx.tracks.onyxEvents.eventsEnd of
+      cutoffAnimAtEnd = case midiOnyx.tracks.onyxEvents.end of
         RNil              -> id
         Wait endTime () _ -> chopTake endTime
   -- TODO we may need a smarter way to apply the song.anim data;

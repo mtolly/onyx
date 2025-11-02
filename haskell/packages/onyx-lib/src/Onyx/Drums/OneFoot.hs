@@ -51,8 +51,8 @@ phaseShiftKicks :: U.Seconds -> U.Seconds -> DrumTrack U.Seconds -> DrumTrack U.
 phaseShiftKicks tx ty dt = let
   kicks = RTB.merge
     (RTB.mapMaybe (\case (Kick, _) -> Just RH; _ -> Nothing)
-      $ (.drumGems) $ fromMaybe mempty $ Map.lookup Expert dt.drumDifficulties)
-    (fmap (const LH) dt.drumKick2x)
+      $ (.gems) $ fromMaybe mempty $ Map.lookup Expert dt.difficulties)
+    (fmap (const LH) dt.kick2x)
   in if LH `elem` kicks
     then dt
     else let
@@ -60,30 +60,30 @@ phaseShiftKicks tx ty dt = let
       lf = RTB.mapMaybe (\case LH -> Just (); RH -> Nothing) auto
       rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just (Kick, VelocityNormal)) auto
       in dt
-        { drumKick2x = lf
-        , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties \diff dd ->
+        { kick2x = lf
+        , difficulties = flip Map.mapWithKey dt.difficulties \diff dd ->
           case diff of
             Expert -> dd
-              { drumGems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) dd.drumGems
+              { gems = RTB.merge rf $ RTB.filter (\case (Kick, _) -> False; _ -> True) dd.gems
               }
             _ -> dd
         }
 
 rockBand1x :: DrumTrack t -> DrumTrack t
-rockBand1x dt = dt { drumKick2x = RTB.empty }
+rockBand1x dt = dt { kick2x = RTB.empty }
 
 rockBand2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 rockBand2x dt = dt
-  { drumKick2x = RTB.empty
-  , drumDifficulties = flip Map.mapWithKey dt.drumDifficulties \diff dd ->
+  { kick2x = RTB.empty
+  , difficulties = flip Map.mapWithKey dt.difficulties \diff dd ->
     case diff of
       Expert -> dd
-        { drumGems
+        { gems
           = RTB.flatten
           $ fmap nubOrd -- this is in case you have 95 + 96 kicks simultaneously
           $ RTB.collectCoincident
-          $ RTB.merge dd.drumGems
-          $ (Kick, VelocityNormal) <$ dt.drumKick2x
+          $ RTB.merge dd.gems
+          $ (Kick, VelocityNormal) <$ dt.kick2x
         }
       _ -> dd
   }

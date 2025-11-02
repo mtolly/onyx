@@ -38,35 +38,35 @@ import qualified Sound.MIDI.Util                  as U
 getMoods :: U.TempoMap -> U.Beats -> F.OnyxPart U.Beats -> RTB.T U.Beats Mood
 getMoods tmap endTime opart = let
   authoredMoods = filter (not . RTB.null)
-    [ opart.onyxPartDrums.drumMood
-    , opart.onyxPartDrums2x.drumMood
-    , opart.onyxPartRealDrumsPS.drumMood
-    , opart.onyxPartGuitar.fiveMood
-    , opart.onyxPartKeys.fiveMood
-    , opart.onyxPartGuitarExt.fiveMood
-    , opart.onyxPartVocals.vocalMood
-    , opart.onyxHarm1.vocalMood
+    [ opart.onyxPartDrums.mood
+    , opart.onyxPartDrums2x.mood
+    , opart.onyxPartRealDrumsPS.mood
+    , opart.onyxPartGuitar.mood
+    , opart.onyxPartKeys.mood
+    , opart.onyxPartGuitarExt.mood
+    , opart.onyxPartVocals.mood
+    , opart.onyxHarm1.mood
     ]
   autoMoods = mapMaybe (\t -> guard (not $ RTB.null t) >> Just (getAutoMoods t)) $
-    [ longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums
-    , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartDrums2x
-    , longBlips (\t -> Map.lookup Expert t.drumDifficulties) (.drumGems) opart.onyxPartRealDrumsPS
-    , longBlips (\t -> Map.lookup Expert t.tdDifficulties  ) (.tdGems  ) opart.onyxPartEliteDrums
-    , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartGuitar
-    , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartKeys
-    , longNotes (\t -> Map.lookup Expert t.fiveDifficulties) (.fiveGems) opart.onyxPartGuitarExt
-    , longNotes (\t -> Map.lookup Expert t.sixDifficulties) (.sixGems) opart.onyxPartSix
-    , longNotes (\t -> Map.lookup Expert t.pgDifficulties) (.pgNotes) opart.onyxPartRealGuitar
-    , longNotes (\t -> Map.lookup Expert t.pgDifficulties) (.pgNotes) opart.onyxPartRealGuitar22
+    [ longBlips (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartDrums
+    , longBlips (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartDrums2x
+    , longBlips (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartRealDrumsPS
+    , longBlips (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartEliteDrums
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartGuitar
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartKeys
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartGuitarExt
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.gems ) opart.onyxPartSix
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.notes) opart.onyxPartRealGuitar
+    , longNotes (\t -> Map.lookup Expert t.difficulties) (.notes) opart.onyxPartRealGuitar22
     , longNotes Just (.rsNotes) opart.onyxPartRSGuitar
     , longNotes Just (.rsNotes) opart.onyxPartRSBass
-    , longNotes Just (.pkNotes) opart.onyxPartRealKeysX
+    , longNotes Just (.notes) opart.onyxPartRealKeysX
     , longVox opart.onyxPartVocals
     , longVox opart.onyxHarm1
-    ] <> map (longNotes Just (.maniaNotes)) (Map.elems opart.onyxPartMania)
+    ] <> map (longNotes Just (.notes)) (Map.elems opart.onyxPartMania)
   longBlips getDiff getGems trk = maybe RTB.empty ((Blip () () <$) . getGems) $ getDiff trk
   longNotes getDiff getGems trk = maybe RTB.empty (fmap edgeToLong . getGems) $ getDiff trk
-  longVox = fmap (\(_, b) -> if b then NoteOn () () else NoteOff ()) . (.vocalNotes)
+  longVox = fmap (\(_, b) -> if b then NoteOn () () else NoteOff ()) . (.notes)
   edgeToLong = \case
     EdgeOn _ _ -> NoteOn () ()
     EdgeOff  _ -> NoteOff   ()
@@ -126,8 +126,8 @@ getVenue target partMap tmap endTime ofile = do
         , camera
         ]
   -- TODO lighting autogen
-  withCamera <- if RTB.null gen.venueCameraRB3 && RTB.null gen.venueCameraRB2 && RTB.null gen.venueDirectedRB2
-    then (\cam -> gen { venueCameraRB3 = cam }) <$> autoCamera partMap tmap endTime ofile
+  withCamera <- if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directedRB2
+    then (\cam -> gen { cameraRB3 = cam }) <$> autoCamera partMap tmap endTime ofile
     else return gen
   return $ trimEnd
     $ (case target of VenueTargetRB2 -> compileVenueRB2; VenueTargetRB3 -> compileVenueRB3)

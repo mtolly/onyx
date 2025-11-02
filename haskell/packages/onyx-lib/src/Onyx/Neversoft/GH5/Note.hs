@@ -496,14 +496,14 @@ convertVocals toBeats vox lyrics phrases sp = let
       guard $ not $ null notesInPhrase
       return (start, end, isStarPower)
   in mempty
-    { V.vocalLyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics \single ->
+    { V.lyrics = fromPairs $ (pluses <>) $ addTalkies $ fixDash $ flip map lyrics \single ->
       (toBeats single.singleTimeOffset, single.singleValue)
-    , V.vocalPhrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
+    , V.phrase1 = fromPairs $ drawnPhrases >>= \(start, end, _) ->
       [(toBeats start, True), (toBeats end, False)]
-    , V.vocalOverdrive = fromPairs $ drawnPhrases >>= \(start, end, isSP) -> do
+    , V.overdrive = fromPairs $ drawnPhrases >>= \(start, end, isSP) -> do
       guard isSP
       [(toBeats start, True), (toBeats end, False)]
-    , V.vocalNotes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
+    , V.notes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
       $ splitEdgesSimple $ fromPairs $ flip map notSlides \vn -> let
         pos = toBeats vn.vnTimeOffset
         len = toBeats (vn.vnTimeOffset + fromIntegral vn.vnDuration) - pos
@@ -552,7 +552,7 @@ ghToMidi bank nf = let
       return (pos, ((fret, sht), Just len))
   getDrums :: Drums -> D.DrumDifficulty U.Beats
   getDrums drum = mempty
-    { D.drumGems = let
+    { D.gems = let
       expert = either (map \note -> NoteExpertDrums note 0) id drum.drums_instrument
       in fromPairs $ expert >>= \note -> let
         noteBit gem b = do
@@ -594,32 +594,32 @@ ghToMidi bank nf = let
     $ nf.gh_markers
   fixed = mempty
     { F.fixedPartGuitar = mempty
-      { Five.fiveDifficulties = Map.fromList
+      { Five.difficulties = Map.fromList
         [ (Expert, getGB nf.gh_guitarexpert)
         , (Hard  , getGB nf.gh_guitarhard  )
         , (Medium, getGB nf.gh_guitarmedium)
         , (Easy  , getGB nf.gh_guitareasy  )
         ]
-      , Five.fiveOverdrive = getOD nf.gh_guitarexpert.gb_starpower
+      , Five.overdrive = getOD nf.gh_guitarexpert.gb_starpower
       }
     , F.fixedPartBass = mempty
-      { Five.fiveDifficulties = Map.fromList
+      { Five.difficulties = Map.fromList
         [ (Expert, getGB nf.gh_bassexpert)
         , (Hard  , getGB nf.gh_basshard  )
         , (Medium, getGB nf.gh_bassmedium)
         , (Easy  , getGB nf.gh_basseasy  )
         ]
-      , Five.fiveOverdrive = getOD nf.gh_bassexpert.gb_starpower
+      , Five.overdrive = getOD nf.gh_bassexpert.gb_starpower
       }
     , F.fixedPartDrums = mempty
-      { D.drumDifficulties = Map.fromList
+      { D.difficulties = Map.fromList
         [ (Expert, getDrums nf.gh_drumsexpert)
         , (Hard  , getDrums nf.gh_drumshard  )
         , (Medium, getDrums nf.gh_drumsmedium)
         , (Easy  , getDrums nf.gh_drumseasy  )
         ]
-      , D.drumOverdrive = getOD nf.gh_drumsexpert.drums_starpower
-      , D.drumKick2x = getKick2x nf.gh_drumsexpert
+      , D.overdrive = getOD nf.gh_drumsexpert.drums_starpower
+      , D.kick2x = getKick2x nf.gh_drumsexpert
       }
     , F.fixedPartVocals = convertVocals toBeats
       nf.gh_vocals
@@ -632,8 +632,8 @@ ghToMidi bank nf = let
       <*> nf.gh_backup_vocalphrase
       <*> nf.gh_backup_vocalstarpower
     , F.fixedEvents = mempty
-      { eventsSections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
-      , eventsEnd      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
+      { sections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
+      , end      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
   in F.Song

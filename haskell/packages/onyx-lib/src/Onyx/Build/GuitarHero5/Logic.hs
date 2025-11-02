@@ -261,7 +261,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   makeGB Nothing       _    = GuitarBass [] [] []
   makeGB (Just result) diff = let
     notes = worGuitarEdits $ fromMaybe mempty $ Map.lookup diff result.notes
-    taps = pullBackTapEnds' notes (emitGuitar5 notes).fiveTap
+    taps = pullBackTapEnds' notes (emitGuitar5 notes).tap
     colorToBit = \case
       Just Five.Green  -> 0
       Just Five.Red    -> 1
@@ -292,7 +292,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           , noteAccent = foldr (\mcolor n -> n `clearBit` colorToBit mcolor) 31 overlaps
           }
       , gb_tapping = makeStarPower taps
-      , gb_starpower = makeStarPower result.other.fiveOverdrive
+      , gb_starpower = makeStarPower result.other.overdrive
       }
   drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) \builder ->
     builder DrumTargetGH ModeInput
@@ -303,14 +303,14 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   makeDrums diff = case drumResult of
     Just result -> let
       trk = drumResultToTrack result
-      dd = fromMaybe mempty $ Map.lookup diff trk.drumDifficulties
+      dd = fromMaybe mempty $ Map.lookup diff trk.difficulties
       add2x xs = case diff of
-        Expert -> RTB.merge (fmap Just xs) $ Nothing <$ trk.drumKick2x
+        Expert -> RTB.merge (fmap Just xs) $ Nothing <$ trk.kick2x
         _      -> fmap Just xs
       fiveLane = case result.settings.mode of
-        Drums4 -> add2x dd.drumGems
-        Drums5 -> add2x dd.drumGems
-        _ | target.proTo4 -> add2x dd.drumGems
+        Drums4 -> add2x dd.gems
+        Drums5 -> add2x dd.gems
+        _ | target.proTo4 -> add2x dd.gems
         _ -> let
           -- TODO this logic should be moved to Onyx.Mode DrumResult
           pro = add2x $ D.computePro (Just diff) trk
@@ -371,7 +371,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         { drums_instrument = case diff of
           Expert -> Right withGhost
           _      -> Left $ map (.xdNote) withGhost
-        , drums_starpower = makeStarPower trk.drumOverdrive
+        , drums_starpower = makeStarPower trk.overdrive
         , drums_drumfill = flip map fills \(gapStart, gapEnd) ->
           Single (secondsToMS gapStart) (secondsToMS gapEnd)
         }
@@ -384,7 +384,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             trk = if nullVox opart.onyxPartVocals
               then harm1ToPartVocals opart.onyxHarm1
               else opart.onyxPartVocals
-            sp = makeStarPower trk.vocalOverdrive
+            sp = makeStarPower trk.overdrive
             phrases = map secondsToMS $ makePhrasePoints
               (mapTrack (U.applyTempoTrack tmap) timing.timingBeat)
               (U.applyTempoTrack tmap $ vocalPhraseAll trk)
@@ -431,7 +431,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             markers
               = map (\(t, label) -> Single (beatsToMS t) label)
               $ ATB.toPairList $ RTB.toAbsoluteEventList 0
-              $ getPhraseLabels trk.vocalPhrase1 lyricNotes
+              $ getPhraseLabels trk.phrase1 lyricNotes
         return (notes, lyrics, sp, phrases, markers)
       Nothing -> return ([], [], [], [], [])
     let fretbars = map beatsToMS $ ATB.getTimes $ RTB.toAbsoluteEventList 0 timing.timingBeat.beatLines
@@ -448,7 +448,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap ofile.onyxEvents.eventsSections \section -> let
+        sections = flip fmap ofile.onyxEvents.sections \section -> let
           sectionPrint = sectionBody $ makeDisplaySection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)

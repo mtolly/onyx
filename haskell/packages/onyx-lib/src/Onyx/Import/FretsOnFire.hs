@@ -130,13 +130,13 @@ redoSwells (F.Song tmap mmap ps) = let
     notes = RTB.collectCoincident
       $ RTB.filter (/= Drums.Kick)
       $ fmap fst -- discard velocity
-      $ (fromMaybe mempty $ Map.lookup Expert trk.drumDifficulties).drumGems
+      $ (fromMaybe mempty $ Map.lookup Expert trk.difficulties).gems
 
     -- for single rolls, don't process ones that include snares.
     -- otherwise we will mess up single rolls under gravity blasts
     allSingleRolls = joinEdgesSimple $ fmap
       (\case Just _ -> EdgeOn () (); Nothing -> EdgeOff ())
-      trk.drumSingleRoll
+      trk.singleRoll
     allSingleRollsWithAbsTime
       = RTB.fromAbsoluteEventList
       $ ATB.fromPairList
@@ -153,15 +153,15 @@ redoSwells (F.Song tmap mmap ps) = let
     notesWithLanes = fmap (first $ not . null)
       $ flip applyStatus notes $ RTB.merge
         (('s',)          <$> singleRollsEditBools)
-        (('d',) . isJust <$> trk.drumDoubleRoll  )
+        (('d',) . isJust <$> trk.doubleRoll  )
     (lanes1, lanes2) = generateSwells
       $ U.applyTempoTrack tmap notesWithLanes
     in trk
-      { drumSingleRoll = fmap (\b -> guard b >> Just LaneExpert)
+      { singleRoll = fmap (\b -> guard b >> Just LaneExpert)
         $ F.fixFreeform (void notes)
         $ RTB.merge singleRollsLeaveBools
         $ U.unapplyTempoTrack tmap lanes1
-      , drumDoubleRoll = fmap (\b -> guard b >> Just LaneExpert)
+      , doubleRoll = fmap (\b -> guard b >> Just LaneExpert)
         $ F.fixFreeform (void notes)
         $ U.unapplyTempoTrack tmap lanes2
       }
@@ -389,9 +389,9 @@ importFoF src dir level = do
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
       hasKicks = if isJust maybe2x
-        || not (RTB.null parsed.tracks.fixedPartDrums.drumKick2x)
-        || not (RTB.null parsed.tracks.fixedPartRealDrumsPS.drumKick2x)
-        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert parsed.tracks.fixedPartEliteDrums.tdDifficulties)
+        || not (RTB.null parsed.tracks.fixedPartDrums.kick2x)
+        || not (RTB.null parsed.tracks.fixedPartRealDrumsPS.kick2x)
+        || not (maybe False (RTB.null . ED.edKicks2) $ Map.lookup Expert parsed.tracks.fixedPartEliteDrums.difficulties)
         then KicksBoth
         else if is2x then Kicks2x else Kicks1x
 
@@ -406,9 +406,9 @@ importFoF src dir level = do
           , F.fixedPartDrums2x = swapFiveLaneTrack trks.fixedPartDrums2x
           }
         else trks
-      swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff trk.drumDifficulties }
+      swapFiveLaneTrack trk = trk { difficulties = fmap swapFiveLaneDiff trk.difficulties }
       swapFiveLaneDiff dd = dd
-        { drumGems = flip fmap dd.drumGems \case
+        { gems = flip fmap dd.gems \case
           (Drums.Orange            , vel) -> (Drums.Pro Drums.Green (), vel)
           (Drums.Pro Drums.Green (), vel) -> (Drums.Orange            , vel)
           x                               -> x
@@ -584,12 +584,12 @@ importFoF src dir level = do
           let mode = let
                 isElite = isnt ED.nullEliteDrums (.fixedPartEliteDrums)
                 isFiveLane = song.fiveLaneDrums == Just True || any
-                  (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.drumGems)
-                  (Map.toList outputFixed.fixedPartDrums.drumDifficulties)
+                  (\(_, dd) -> any (\(gem, _vel) -> gem == Drums.Orange) dd.gems)
+                  (Map.toList outputFixed.fixedPartDrums.difficulties)
                 isReal = isnt nullDrums (.fixedPartRealDrumsPS)
                 isPro = case song.proDrums of
                   Just b  -> b
-                  Nothing -> not (RTB.null outputFixed.fixedPartDrums.drumToms)
+                  Nothing -> not (RTB.null outputFixed.fixedPartDrums.toms)
                     || chartWithCymbals -- handle the case where a .chart has cymbal markers, and no toms
                 in if
                   | isElite    -> DrumsElite
@@ -717,7 +717,7 @@ importFoF src dir level = do
                 maniaTrack <- toList
                   $ Map.lookup (F.PartName "dance") outputOnyx.tracks.onyxParts
                   >>= Map.lookup name . (.onyxPartMania)
-                guard $ not $ RTB.null maniaTrack.maniaNotes
+                guard $ not $ RTB.null maniaTrack.notes
                 return name
           maniaDiffs <- NE.nonEmpty maniaDiffList
           Just $ ModeMania do
@@ -734,8 +734,8 @@ importFoF src dir level = do
 
 removeDummyTracks :: (NNC.C t) => F.FixedFile t -> F.FixedFile t
 removeDummyTracks trks = let
-  five  fd = fd { Five.fiveDifficulties  = scan (onlyOn . (.fiveGems)) fd.fiveDifficulties }
-  drums dd = dd { Drums.drumDifficulties = scan (.drumGems)            dd.drumDifficulties }
+  five  fd = fd { Five.difficulties  = scan (onlyOn . (.gems)) fd.difficulties }
+  drums dd = dd { Drums.difficulties = scan (.gems)            dd.difficulties }
   onlyOn = RTB.filter \case EdgeOn{} -> True; _ -> False
   scan getGems = Map.filter
     $ not
@@ -761,9 +761,9 @@ fixShortVoxPhrasesTrack vox = let
   minLength = 1 :: U.Beats
   joinBools = joinEdgesSimple . fmap
     (\b -> if b then EdgeOn () () else EdgeOff ())
-  phrases = RTB.toAbsoluteEventList 0 $ joinBools vox.vocalPhrase1
+  phrases = RTB.toAbsoluteEventList 0 $ joinBools vox.phrase1
   od = Set.fromList $ ATB.getTimes $ RTB.toAbsoluteEventList 0
-    $ RTB.filter id vox.vocalOverdrive
+    $ RTB.filter id vox.overdrive
   wiggle = 10/480
   isOD t = case Set.lookupGT (t NNC.-| wiggle) od of
     Nothing -> False
@@ -797,8 +797,8 @@ fixShortVoxPhrasesTrack vox = let
               in Wait dt2 on $ Wait len3 off $ fixPhrases $ U.trackDrop usedSpace rest
     Wait dt x rest -> Wait dt x $ fixPhrases rest -- shouldn't happen
   vox' = vox
-    { vocalPhrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
-    , vocalOverdrive = flip RTB.mapMaybe fixed \case
+    { phrase1 = fmap (\case EdgeOn{} -> True; EdgeOff{} -> False) fixed
+    , overdrive = flip RTB.mapMaybe fixed \case
       EdgeOn () True -> Just True
       EdgeOff   True -> Just False
       _              -> Nothing
@@ -815,7 +815,7 @@ fixShortVoxPhrases
 fixShortVoxPhrases song@(F.Song tmap mmap ps)
   | not $ nullVox ps.fixedHarm1 = return song
     -- not touching songs with harmonies
-  | not $ RTB.null ps.fixedPartVocals.vocalPhrase2 = return song
+  | not $ RTB.null ps.fixedPartVocals.phrase2 = return song
     -- not touching songs with separate p1/p2 phrases
   | otherwise = inside "Track PART VOCALS" do
     let vox = ps.fixedPartVocals

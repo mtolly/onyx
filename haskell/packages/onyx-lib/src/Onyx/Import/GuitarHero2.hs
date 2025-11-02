@@ -80,11 +80,6 @@ getSongList gen = do
     []        -> fatal "Couldn't find songs.dtb"
   D.decodeDecryptDTB dtb >>= readSongListGH2
 
-getImports :: [(T.Text, SongPackage)] -> [(T.Text, (ImportMode, SongPackage))]
-getImports = concatMap \(t, pkg) -> case pkg.songCoop of
-  Nothing -> [(t, (ImportSolo, pkg))]
-  Just _  -> [(t, (ImportSolo, pkg)), (t, (ImportCoop, pkg))]
-
 data ImportMode = ImportSolo | ImportCoop
   deriving (Eq)
 
@@ -92,36 +87,40 @@ importGH2 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Reada
 importGH2 displayPath gen = do
   (hdr, arks) <- stackIO $ loadGEN gen
   folder <- loadArkFolder hdr arks
-  map (\(_, (mode, pkg)) -> importGH2Song mode pkg displayPath folder) . getImports <$> getSongList gen
+  getSongList gen >>= return . concatMap \(_, pkg) ->
+    importGH2Song ImportSolo pkg.song pkg displayPath folder
+    : case pkg.songCoop of
+      Nothing   -> []
+      Just coop -> [importGH2Song ImportCoop coop pkg displayPath folder]
 
 importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.OnyxFile U.Beats)
 importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
-    { RB.fiveDifficulties = flip fmap part.partDifficulties \diff -> mempty
-      { RB.fiveGems       = fmap (fmap Just) diff.partGems
+    { RB.difficulties = flip fmap part.partDifficulties \diff -> mempty
+      { RB.gems       = fmap (fmap Just) diff.partGems
       -- stuff that we may have written for future gh2dx support
-      , RB.fiveForceHOPO  = diff.partForceHOPO
-      , RB.fiveForceStrum = diff.partForceStrum
-      , RB.fiveTap        = diff.partForceTap
+      , RB.forceHOPO  = diff.partForceHOPO
+      , RB.forceStrum = diff.partForceStrum
+      , RB.tap        = diff.partForceTap
       }
-    , RB.fiveMood         = RTB.empty -- TODO
-    , RB.fiveHandMap      = flip fmap part.partHandMap \case
+    , RB.mood         = RTB.empty -- TODO
+    , RB.handMap      = flip fmap part.partHandMap \case
       HandMap_Default   -> RB.HandMap_Default
       HandMap_DropD2    -> RB.HandMap_DropD2
       HandMap_Solo      -> RB.HandMap_Solo
       HandMap_NoChords  -> RB.HandMap_NoChords
       HandMap_AllChords -> RB.HandMap_AllChords
-    , RB.fiveStrumMap     = flip fmap part.partStrumMap \case
+    , RB.strumMap     = flip fmap part.partStrumMap \case
       StrumMap_SlapBass -> RB.StrumMap_SlapBass
-    , RB.fiveFretPosition = part.partFretPosition
-    , RB.fiveTremolo      = RTB.empty
-    , RB.fiveTrill        = RTB.empty
-    , RB.fiveOverdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert part.partDifficulties
-    , RB.fiveBRE          = RTB.empty
-    , RB.fiveSolo         = importSolo part.partSoloEdge
-    , RB.fivePlayer1      = maybe RTB.empty (.partPlayer1) $ Map.lookup Expert part.partDifficulties
-    , RB.fivePlayer2      = maybe RTB.empty (.partPlayer2) $ Map.lookup Expert part.partDifficulties
+    , RB.fretPosition = part.partFretPosition
+    , RB.tremolo      = RTB.empty
+    , RB.trill        = RTB.empty
+    , RB.overdrive    = maybe RTB.empty (.partStarPower) $ Map.lookup Expert part.partDifficulties
+    , RB.bre          = RTB.empty
+    , RB.solo         = importSolo part.partSoloEdge
+    , RB.player1      = maybe RTB.empty (.partPlayer1) $ Map.lookup Expert part.partDifficulties
+    , RB.player2      = maybe RTB.empty (.partPlayer2) $ Map.lookup Expert part.partDifficulties
     }
   -- import from gh2dx "on/off" solo format
   importSolo :: RTB.T t () -> RTB.T t Bool
@@ -131,15 +130,15 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
     go _    RNil             = RNil
   in F.fixedToOnyx mempty
     { F.fixedEvents = mempty
-      { RB.eventsMusicStart = void $ RTB.filter (== MusicStart) gh2.gh2Events.eventsOther
-      , RB.eventsMusicEnd   = RTB.empty
-      , RB.eventsEnd        = void $ RTB.filter (== End) gh2.gh2Events.eventsOther
-      , RB.eventsCoda       = RTB.empty
-      , RB.eventsCodaResume = RTB.empty
-      , RB.eventsCrowd      = RTB.empty -- TODO
-      , RB.eventsCrowdClap  = RTB.empty -- TODO
-      , RB.eventsSections   = (\s -> simpleSection $ fromGH2Section s) <$> gh2.gh2Events.eventsSections
-      , RB.eventsBacking    = gh2.gh2Triggers.triggersBacking
+      { RB.musicStart = void $ RTB.filter (== MusicStart) gh2.gh2Events.eventsOther
+      , RB.musicEnd   = RTB.empty
+      , RB.end        = void $ RTB.filter (== End) gh2.gh2Events.eventsOther
+      , RB.coda       = RTB.empty
+      , RB.codaResume = RTB.empty
+      , RB.crowd      = RTB.empty -- TODO
+      , RB.crowdClap  = RTB.empty -- TODO
+      , RB.sections   = (\s -> simpleSection $ fromGH2Section s) <$> gh2.gh2Events.eventsSections
+      , RB.backing    = gh2.gh2Triggers.triggersBacking
       }
     , F.fixedPartGuitar = convertPart case mode of
       ImportSolo -> gh2.gh2PartGuitar
@@ -157,23 +156,23 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
         drums = gh2.gh2PartDrum
         expert = fromMaybe mempty $ Map.lookup Expert drums.gh2drumDifficulties
         in Drums.DrumTrack
-          { drumDifficulties = flip fmap drums.gh2drumDifficulties \diff -> Drums.DrumDifficulty
-            { Drums.drumMix = RTB.empty
-            , Drums.drumPSModifiers = RTB.empty
-            , Drums.drumGems = (, Drums.VelocityNormal) <$> diff.gh2drumGems
+          { difficulties = flip fmap drums.gh2drumDifficulties \diff -> Drums.DrumDifficulty
+            { Drums.mix = RTB.empty
+            , Drums.psModifiers = RTB.empty
+            , Drums.gems = (, Drums.VelocityNormal) <$> diff.gh2drumGems
             }
-          , drumMood           = RTB.empty -- TODO import from band drummer
-          , drumToms           = RTB.empty
-          , drumSingleRoll     = RTB.empty
-          , drumDoubleRoll     = RTB.empty
-          , drumOverdrive      = expert.gh2drumStarPower
-          , drumActivation     = RTB.empty
-          , drumSolo           = importSolo drums.gh2drumSoloEdge
-          , drumPlayer1        = expert.gh2drumPlayer1
-          , drumPlayer2        = expert.gh2drumPlayer2
-          , drumKick2x         = RTB.empty
-          , drumAnimation      = RTB.empty -- TODO import from band drummer
-          , drumEnableDynamics = RTB.empty
+          , mood           = RTB.empty -- TODO import from band drummer
+          , toms           = RTB.empty
+          , singleRoll     = RTB.empty
+          , doubleRoll     = RTB.empty
+          , overdrive      = expert.gh2drumStarPower
+          , activation     = RTB.empty
+          , solo           = importSolo drums.gh2drumSoloEdge
+          , player1        = expert.gh2drumPlayer1
+          , player2        = expert.gh2drumPlayer2
+          , kick2x         = RTB.empty
+          , animation      = RTB.empty -- TODO import from band drummer
+          , enableDynamics = RTB.empty
           }
       else mempty
     }
@@ -237,8 +236,8 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     ]
   }
 
-importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
-importGH2Song mode pkg displayPath folder level = do
+importGH2Song :: (SendMessage m, MonadResource m) => ImportMode -> Song -> SongPackage -> FilePath -> Folder B.ByteString Readable -> Import m
+importGH2Song mode songChunk pkg displayPath folder level = do
   let encLatin1 = B8.pack . T.unpack
       split s = case splitPath s of
         Nothing -> fatal $ "Internal error, couldn't parse path: " <> show s
@@ -246,11 +245,6 @@ importGH2Song mode pkg displayPath folder level = do
       need p = case findFile p folder of
         Just r  -> return r
         Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
-  songChunk <- case mode of
-    ImportSolo -> return pkg.song
-    ImportCoop -> case pkg.songCoop of
-      Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
-      Just coop -> return coop
   when (level == ImportFull) do
     lg $ "Importing GH2 song [" <> T.unpack songChunk.songName <> "] from: " <> displayPath
   midi <- split songChunk.midiFile >>= need . fmap encLatin1
@@ -381,16 +375,11 @@ importGH2DLC src folder = do
       _ -> do
         warn "Couldn't recognize song path format to search for album art"
         return Nothing
-    let modes = case pkg.songCoop of
-          Nothing -> [ImportSolo]
-          Just _  -> [ImportSolo, ImportCoop]
-    forM modes \mode -> do
+    let modes = (ImportSolo, pkg.song) : case pkg.songCoop of
+          Nothing   -> []
+          Just coop -> [(ImportCoop, coop)]
+    forM modes \(mode, songChunk) -> do
       return \level -> do
-        songChunk <- case mode of
-          ImportSolo -> return pkg.song
-          ImportCoop -> case pkg.songCoop of
-            Nothing -> fatal "Tried to import coop version from a song that doesn't have one"
-            Just coop -> return coop
         when (level == ImportFull) do
           lg $ "Importing GH2 DLC song [" <> T.unpack songChunk.songName <> "] from: " <> src
         midi <- split (T.unpack songChunk.midiFile) >>= need

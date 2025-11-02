@@ -60,24 +60,24 @@ parsePercAnimation = let
   in commandMatch' (toCommand >=> parse) (fromCommand . unparse)
 
 data VocalTrack t = VocalTrack
-  { vocalMood          :: RTB.T t Mood
-  , vocalLyrics        :: RTB.T t T.Text
-  , vocalPerc          :: RTB.T t () -- ^ playable percussion notes
-  , vocalPercSound     :: RTB.T t () -- ^ nonplayable percussion, only triggers sound sample
-  , vocalPercAnimation :: RTB.T t (Percussion, Bool)
-  , vocalPhrase1       :: RTB.T t Bool -- ^ General phrase marker (RB3) or Player 1 phrases (pre-RB3)
-  , vocalPhrase2       :: RTB.T t Bool -- ^ Pre-RB3, used for 2nd player phrases in Tug of War
-  , vocalOverdrive     :: RTB.T t Bool
-  , vocalLyricShift    :: RTB.T t ()
-  , vocalRangeShift    :: RTB.T t Bool
-  , vocalNotes         :: RTB.T t (Pitch, Bool)
-  , vocalEyesClosed    :: RTB.T t Bool -- ^ Temporary event for lipsync generation (this will be moved to dedicated lipsync track)
+  { mood                :: RTB.T t Mood
+  , lyrics              :: RTB.T t T.Text
+  , percussion          :: RTB.T t () -- ^ playable percussion notes
+  , percussionSound     :: RTB.T t () -- ^ nonplayable percussion, only triggers sound sample
+  , percussionAnimation :: RTB.T t (Percussion, Bool)
+  , phrase1             :: RTB.T t Bool -- ^ General phrase marker (RB3) or Player 1 phrases (pre-RB3)
+  , phrase2             :: RTB.T t Bool -- ^ Pre-RB3, used for 2nd player phrases in Tug of War
+  , overdrive           :: RTB.T t Bool
+  , lyricShift          :: RTB.T t ()
+  , rangeShift          :: RTB.T t Bool
+  , notes               :: RTB.T t (Pitch, Bool)
+  , eyesClosed          :: RTB.T t Bool -- ^ Temporary event for lipsync generation (this will be moved to dedicated lipsync track)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VocalTrack t)
 
 nullVox :: VocalTrack t -> Bool
 -- we look at lyrics also, so lyrics can be imported from PS/CH into vox tracks
-nullVox t = RTB.null t.vocalNotes && RTB.null t.vocalLyrics
+nullVox t = RTB.null t.notes && RTB.null t.lyrics
 
 instance TraverseTrack VocalTrack where
   traverseTrack fn (VocalTrack a b c d e f g h i j k l) = VocalTrack
@@ -86,20 +86,20 @@ instance TraverseTrack VocalTrack where
 
 instance ParseTrack VocalTrack where
   parseTrack = do
-    vocalMood          <- (.vocalMood         ) =. command
+    mood                <- (.mood               ) =. command
     -- this also gets lyrics in non-lyric text events
-    vocalLyrics        <- (.vocalLyrics       ) =. lyrics
-    vocalPerc          <- (.vocalPerc         ) =. fatBlips (1/8) (blip 96)
-    vocalPercSound     <- (.vocalPercSound    ) =. fatBlips (1/8) (blip 97)
-    vocalPercAnimation <- (.vocalPercAnimation) =. parsePercAnimation
-    vocalPhrase1       <- (.vocalPhrase1      ) =. edges 105
-    vocalPhrase2       <- (.vocalPhrase2      ) =. edges 106
-    vocalOverdrive     <- (.vocalOverdrive    ) =. edges 116
-    vocalLyricShift    <- (.vocalLyricShift   ) =. fatBlips (1/8) (blip 1)
-    vocalRangeShift    <- (.vocalRangeShift   ) =. edges 0
-    vocalNotes         <- ((.vocalNotes       ) =.)
+    lyrics              <- (.lyrics             ) =. lyricEvents
+    percussion          <- (.percussion         ) =. fatBlips (1/8) (blip 96)
+    percussionSound     <- (.percussionSound    ) =. fatBlips (1/8) (blip 97)
+    percussionAnimation <- (.percussionAnimation) =. parsePercAnimation
+    phrase1             <- (.phrase1            ) =. edges 105
+    phrase2             <- (.phrase2            ) =. edges 106
+    overdrive           <- (.overdrive          ) =. edges 116
+    lyricShift          <- (.lyricShift         ) =. fatBlips (1/8) (blip 1)
+    rangeShift          <- (.rangeShift         ) =. edges 0
+    notes               <- ((.notes             ) =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
-    vocalEyesClosed <- ((.vocalEyesClosed) =.) $ condenseMap_ $ eachKey each \case
+    eyesClosed          <- ((.eyesClosed        ) =.) $ condenseMap_ $ eachKey each \case
       True  -> commandMatch ["eyes", "close"]
       False -> commandMatch ["eyes", "open" ]
     return VocalTrack{..}
@@ -120,12 +120,12 @@ asciify = let
 -- | Phase Shift doesn't support non-ASCII chars in lyrics.
 -- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
 asciiLyrics :: VocalTrack t -> VocalTrack t
-asciiLyrics vt = vt { vocalLyrics = asciify <$> vt.vocalLyrics }
+asciiLyrics vt = vt { lyrics = asciify <$> vt.lyrics }
 
 -- | Strips some CH-format tags used in lyric events.
 stripTags :: VocalTrack t -> VocalTrack t
 stripTags vt = vt
-  { vocalLyrics = FoF.stripTags <$> vt.vocalLyrics
+  { lyrics = FoF.stripTags <$> vt.lyrics
   }
 
 data TalkyDifficulty
@@ -156,8 +156,8 @@ joinMatchingTracks = go NNC.zero [] where
 
 getLyricNotes :: (Monad m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
 getLyricNotes mmap vox = let
-  joinedNotes = joinEdgesSimple $ flip fmap vox.vocalNotes \(p, b) -> if b then EdgeOn () p else EdgeOff p
-  in case joinMatchingTracks joinedNotes vox.vocalLyrics of
+  joinedNotes = joinEdgesSimple $ flip fmap vox.notes \(p, b) -> if b then EdgeOn () p else EdgeOff p
+  in case joinMatchingTracks joinedNotes vox.lyrics of
     Left (errorTime, isLyricNoNote) -> fatal if isLyricNoNote
       then "Lyric without a corresponding note at " <> showPosition mmap errorTime
       else "Note without a corresponding lyric at " <> showPosition mmap errorTime
@@ -182,7 +182,7 @@ getLyricNotes mmap vox = let
 
 putLyricNotes :: (NNC.C t) => RTB.T t (LyricNote, t) -> VocalTrack t
 putLyricNotes lnotes = mempty
-  { vocalLyrics = flip fmap lnotes \(lnote, _) -> encodeSynalepha $ case lnote of
+  { lyrics = flip fmap lnotes \(lnote, _) -> encodeSynalepha $ case lnote of
     Pitched _  (Lyric t cont) -> t <> if cont then "-" else ""
     Talky diff (Lyric t cont) -> T.concat
       [ case (T.stripSuffix "-" t, cont) of
@@ -192,7 +192,7 @@ putLyricNotes lnotes = mempty
       , case diff of TalkyNormal -> "#"; TalkyEasy -> "^"
       ]
     SlideTo _                 -> "+"
-  , vocalNotes = U.trackJoin $ flip fmap lnotes \(lnote, dur) -> let
+  , notes = U.trackJoin $ flip fmap lnotes \(lnote, dur) -> let
     pitch = case lnote of
       Pitched p _ -> p
       Talky   _ _ -> minBound
@@ -224,4 +224,4 @@ getPhraseLabels phrases lnotes = let
 
 vocalPhraseAll :: (NNC.C t) => VocalTrack t -> RTB.T t Bool
 vocalPhraseAll vt = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident
-  $ RTB.merge vt.vocalPhrase1 vt.vocalPhrase2
+  $ RTB.merge vt.phrase1 vt.phrase2

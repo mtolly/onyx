@@ -1,0 +1,55 @@
+metadata:
+  title: Paraiso
+  file-include: ../../../albums/6.yml
+  track-number: 8
+  author: Onyxite
+  rating: FamilyFriendly
+global:
+  autogen-theme: PsychJamRock
+audio:
+  album-track:
+    md5: dc6f498a7fee69667ca2220f0ec2293e
+    frames: 10070088
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+plans:
+  album:
+    song:
+      mix:
+      - flip: {pad: [3.000, album-track]}
+      - countin
+  dev:
+    song:
+      flip:
+        pad: [3.000, album-track]
+    parts:
+      bass:
+        flip:
+          pad: [3.000, channels: [[0, 1], stems]]
+      drums:
+        flip:
+          pad: [3.000, channels: [[2, 3], stems]]
+      vocal:
+        flip:
+          pad: [3.000, channels: [[4, 5], stems]]
+      other:
+        flip:
+          pad: [3.000, channels: [[6, 7], stems]]
+parts:
+  drums:
+    drums:
+      mode: elite
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

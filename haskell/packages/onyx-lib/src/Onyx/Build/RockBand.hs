@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -19,6 +20,7 @@ import           Data.Conduit.Audio.Sndfile
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Foldable                         (toList)
+import           Data.Function                         ((&))
 import           Data.Hashable                         (Hashable)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (sortOn)
@@ -103,6 +105,7 @@ import           Onyx.Vocal.DryVox                     (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
 import           Onyx.Xbox.STFS                        (rb2pkg, rb3pkg)
+import           Optics                                ((%), (%~), (.~))
 import           Paths_onyx_lib                        (version)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File.Event                 as E
@@ -364,9 +367,9 @@ rbRules buildInfo dir rb3 mrb2 = do
     lg "# Running Magma v2 (C3)"
     mapStackTraceT (liftIO . runResourceT) (Magma.runMagma pathMagmaProj out) >>= lg
   let blackVenueTrack = mempty
-        { venueCameraRB3        = RTB.singleton 0 V3_coop_all_far
-        , venuePostProcessRB3   = RTB.singleton 0 V3_film_b_w
-        , venueLighting         = RTB.singleton 0 Lighting_blackout_fast
+        { cameraRB3        = RTB.singleton 0 V3_coop_all_far
+        , postProcessRB3   = RTB.singleton 0 V3_film_b_w
+        , lighting         = RTB.singleton 0 Lighting_blackout_fast
         }
       magmaErrorMessage = unwords
         [ "Magma returned an error; check the log above for what caused"
@@ -404,12 +407,12 @@ rbRules buildInfo dir rb3 mrb2 = do
           Just () -> return ()
       MagmaDisable -> fallback
   let midRealSections :: F.Song (F.OnyxFile U.Beats) -> Staction (RTB.T U.Beats Section)
-      midRealSections = notSingleSection . (.tracks.onyxEvents.eventsSections)
+      midRealSections = notSingleSection . (.tracks.onyxEvents.sections)
       -- also applies the computed pad + tempo hacks
       getRealSections' :: Staction (RTB.T U.Beats Section)
       getRealSections' = do
         raw <- fmap (applyTargetMIDI rb3.common) $ F.shakeMIDI $ planDir </> "raw.mid"
-        let sects = raw.tracks.onyxEvents.eventsSections
+        let sects = raw.tracks.onyxEvents.sections
         maybeAdjuster <- if rb3.legalTempos
           then do
             (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
@@ -447,28 +450,28 @@ rbRules buildInfo dir rb3 mrb2 = do
           Just _  -> let
             onlyLightingPP, onlyCamera, onlyOther :: (NNC.C t) => VenueTrack t -> VenueTrack t
             onlyLightingPP venue = mempty
-              { venueSpotKeys = venue.venueSpotKeys
-              , venueSpotVocal = venue.venueSpotVocal
-              , venueSpotGuitar = venue.venueSpotGuitar
-              , venueSpotDrums = venue.venueSpotDrums
-              , venueSpotBass = venue.venueSpotBass
-              , venuePostProcessRB3 = venue.venuePostProcessRB3
-              , venuePostProcessRB2 = venue.venuePostProcessRB2
-              , venueLighting = venue.venueLighting
-              , venueLightingCommands = venue.venueLightingCommands
+              { spotlightKeys = venue.spotlightKeys
+              , spotlightVocal = venue.spotlightVocal
+              , spotlightGuitar = venue.spotlightGuitar
+              , spotlightDrums = venue.spotlightDrums
+              , spotlightBass = venue.spotlightBass
+              , postProcessRB3 = venue.postProcessRB3
+              , postProcessRB2 = venue.postProcessRB2
+              , lighting = venue.lighting
+              , lightingCommands = venue.lightingCommands
               }
             onlyCamera venue = mempty
-              { venueCameraRB3 = venue.venueCameraRB3
-              , venueCameraRB2 = venue.venueCameraRB2
-              , venueDirectedRB2 = venue.venueDirectedRB2
+              { cameraRB3 = venue.cameraRB3
+              , cameraRB2 = venue.cameraRB2
+              , directedRB2 = venue.directedRB2
               }
             onlyOther venue = mempty
-              { venueSingGuitar = venue.venueSingGuitar
-              , venueSingDrums = venue.venueSingDrums
-              , venueSingBass = venue.venueSingBass
-              , venueBonusFX = venue.venueBonusFX
-              , venueBonusFXOptional = venue.venueBonusFXOptional
-              , venueFog = venue.venueFog
+              { singGuitar = venue.singGuitar
+              , singDrums = venue.singDrums
+              , singBass = venue.singBass
+              , bonusFX = venue.bonusFX
+              , bonusFXOptional = venue.bonusFXOptional
+              , fog = venue.fog
               }
             in mconcat
               [ reauthor $ onlyLightingPP . (.fixedVenue)
@@ -477,9 +480,7 @@ rbRules buildInfo dir rb3 mrb2 = do
               ]
         , F.fixedEvents = if RTB.null sects
           then magma.fixedEvents
-          else magma.fixedEvents
-            { eventsSections = fmap makeRB3Section sects
-            }
+          else magma.fixedEvents & #sections .~ fmap makeRB3Section sects
         }
       }
 
@@ -489,12 +490,9 @@ rbRules buildInfo dir rb3 mrb2 = do
     sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> midRealSections input
     let (magmaSects, invalid) = makeRBN2Sections sects
         magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
-        adjustEvents trks = trks
-          { F.onyxEvents = trks.onyxEvents
-            { eventsSections = magmaSects'
-            }
-          }
-        input' = input { F.tracks = adjustEvents input.tracks }
+        adjustEvents :: F.OnyxFile U.Beats -> F.OnyxFile U.Beats
+        adjustEvents trks = trks & #onyxEvents % #sections .~ magmaSects'
+        input' = input & #tracks %~ adjustEvents
     (output, diffs, vc, pad) <- case plan of
       StandardPlan _ | rb3.legalTempos -> RB3.processRBPad
         (rb3, mrb2)
@@ -710,7 +708,7 @@ rbRules buildInfo dir rb3 mrb2 = do
         pbThres = maybe 170 (.hopoThreshold) $ getPart rb3.bass songYaml >>= (.proGuitar)
         playTrack :: Int -> PGPlay.Controller -> s -> ProGuitarTrack U.Beats -> RTB.T U.Beats (E.T s)
         playTrack thres cont name t = let
-          expert = fromMaybe mempty $ Map.lookup Expert t.pgDifficulties
+          expert = fromMaybe mempty $ Map.lookup Expert t.difficulties
           auto = PGPlay.autoplay (fromIntegral thres / 480) input.tempos expert
           msgToSysEx msg
             = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
@@ -966,13 +964,11 @@ rbRules buildInfo dir rb3 mrb2 = do
           let mid = F.Song tempos sigs origTracks
                 { F.fixedEvents = if RTB.null sects
                   then (fromMaybe origTracks maybeMagmaTracks).fixedEvents
-                  else origTracks.fixedEvents
-                    { eventsSections = fmap makeRB2Section sects
-                    }
+                  else origTracks.fixedEvents & #sections .~ fmap makeRB2Section sects
                 , F.fixedVenue = if origTracks.fixedVenue == mempty
                   then case maybeMagmaTracks of
                     Nothing -> mempty
-                      { venueCameraRB2      = RTB.flatten $ RTB.singleton 0
+                      { cameraRB2      = RTB.flatten $ RTB.singleton 0
                         [ CameraCut
                         , FocusBass
                         , FocusDrums
@@ -982,9 +978,9 @@ rbRules buildInfo dir rb3 mrb2 = do
                         , OnlyFar
                         , NoClose
                         ]
-                      , venuePostProcessRB2 = RTB.singleton 0 V2_video_security
-                      , venueLighting       = RTB.singleton 0 Lighting_
-                      , venueLightingMode   = RTB.singleton 0 ModeVerse
+                      , postProcessRB2 = RTB.singleton 0 V2_video_security
+                      , lighting       = RTB.singleton 0 Lighting_
+                      , lightingMode   = RTB.singleton 0 ModeVerse
                       }
                     Just magmaTracks -> magmaTracks.fixedVenue
                   else origTracks.fixedVenue

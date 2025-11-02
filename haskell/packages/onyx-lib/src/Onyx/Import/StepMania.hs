@@ -124,7 +124,7 @@ getManiaTrack smn translate = let
     $ smn.smn_Notes
   maxKey = foldr max 0 $ fst <$> toList sourceChars
   in ManiaTrack
-    { maniaNotes = blipEdgesRBNice $ foldr RTB.merge RTB.empty do
+    { notes = blipEdgesRBNice $ foldr RTB.merge RTB.empty do
       key <- [0 .. maxKey]
       let filtered = RTB.mapMaybe (\(key', c) -> guard (key == key') >> Just c) sourceChars
           go ANil = ANil
@@ -145,7 +145,7 @@ getManiaTrack smn translate = let
                     At t2 _ _ -> case translate t2 of
                       (t2', _) -> Just $ t2' - posStart
       return $ RTB.fromAbsoluteEventList $ go $ RTB.toAbsoluteEventList 0 filtered
-    , maniaOverdrive = RTB.empty
+    , overdrive = RTB.empty
     }
 
 importSM :: (SendMessage m, MonadIO m) => FilePath -> Import m

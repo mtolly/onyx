@@ -26,7 +26,7 @@ import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    minSustainLengthRB,
                                                    trackGlue)
 import qualified Onyx.MIDI.Track.Drums            as D
-import           Onyx.MIDI.Track.Events           (eventsSections)
+import           Onyx.MIDI.Track.Events           (sections)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.MIDI.Track.ProGuitar
@@ -39,7 +39,7 @@ import qualified Sound.MIDI.Util                  as U
 
 completeFiveResult :: Bool -> U.MeasureMap -> FiveResult -> FiveResult
 completeFiveResult isKeys mmap result = let
-  od        = result.other.fiveOverdrive
+  od        = result.other.overdrive
   getDiff d = fromMaybe RTB.empty $ Map.lookup d result.notes
   trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1) <= 5 then trk2 else trk1
   expert    = getDiff Expert
@@ -56,15 +56,15 @@ completeFiveResult isKeys mmap result = let
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
 gryboComplete hopoThres mmap trk = let
-  od        = trk.fiveOverdrive
-  getDiff d = fromMaybe mempty $ Map.lookup d trk.fiveDifficulties
+  od        = trk.overdrive
+  getDiff d = fromMaybe mempty $ Map.lookup d trk.difficulties
   orIfNull :: FiveDifficulty U.Beats -> FiveDifficulty U.Beats -> FiveDifficulty U.Beats
-  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1.fiveGems) <= 5 then trk2 else trk1
+  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1.gems) <= 5 then trk2 else trk1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduceDifficulty Hard   hopoThres mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduceDifficulty Medium hopoThres mmap od hard
   easy      = getDiff Easy   `orIfNull` gryboReduceDifficulty Easy   hopoThres mmap od medium
-  in trk & #fiveDifficulties .~ Map.fromList
+  in trk & #difficulties .~ Map.fromList
     [ (Easy, easy)
     , (Medium, medium)
     , (Hard, hard)
@@ -80,7 +80,7 @@ gryboReduceDifficulty
   -> FiveDifficulty U.Beats -- ^ The target difficulty
 gryboReduceDifficulty diff hopoThres mmap od fd
   = (\result -> if isNothing hopoThres || elem diff [Easy, Medium]
-    then result { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty, fiveTap = RTB.empty }
+    then result { forceStrum = RTB.empty, forceHOPO = RTB.empty, tap = RTB.empty }
     else result
     )
   $ emitGuitar5
@@ -250,10 +250,10 @@ data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show)
 
 readPKNotes :: ProKeysTrack U.Beats -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = fmap (uncurry PKNote) . guitarify' . edgeBlips_ minSustainLengthRB . (.pkNotes)
+readPKNotes = fmap (uncurry PKNote) . guitarify' . edgeBlips_ minSustainLengthRB . (.notes)
 
 showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> ProKeysTrack U.Beats
-showPKNotes pk = mempty { pkNotes = blipEdgesRB_ $ RTB.flatten $ fmap f pk } where
+showPKNotes pk = mempty & #notes .~ blipEdgesRB_ (RTB.flatten $ fmap f pk) where
   f (PKNote ps len) = map (, len) ps
 
 pkReduce
@@ -363,11 +363,11 @@ pkReduce diff   mmap od diffEvents = let
       in (t1, PKNote ps1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
   -- Step: redo range shifts
-  in completeRanges (showPKNotes pknotes6) { pkLanes = RTB.empty }
+  in completeRanges (showPKNotes pknotes6) { lanes = RTB.empty }
 
 completeDrumResult :: U.MeasureMap -> RTB.T U.Beats Section -> DrumResult -> DrumResult
 completeDrumResult mmap sections result = let
-  od        = result.other.drumOverdrive
+  od        = result.other.overdrive
   getDiff d = fromMaybe RTB.empty $ Map.lookup d result.notes
   trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1) <= 5 then trk2 else trk1
   expert    = getDiff Expert
@@ -389,12 +389,12 @@ drumsComplete
   -> D.DrumTrack U.Beats
   -> D.DrumTrack U.Beats
 drumsComplete mmap sections trk = let
-  od       = trk.drumOverdrive
+  od       = trk.overdrive
   getPro d = fmap fst $ D.computePro (Just d) trk
-  getRaw d = fromMaybe mempty $ Map.lookup d trk.drumDifficulties
+  getRaw d = fromMaybe mempty $ Map.lookup d trk.difficulties
   reduceStep diff source = let
     raw = getRaw diff
-    in if length raw.drumGems <= 5
+    in if length raw.gems <= 5
       then let
         auto = drumsReduce diff mmap od sections source
         in (proToDiff auto, auto)
@@ -403,9 +403,9 @@ drumsComplete mmap sections trk = let
   (hardRaw  , hard  ) = reduceStep Hard   expert
   (mediumRaw, _     ) = reduceStep Medium hard
   (easyRaw  , _     ) = reduceStep Easy   hard -- we want kicks that medium might've removed
-  proToDiff pro = mempty { D.drumGems = fmap (\gem -> (void gem, D.VelocityNormal)) pro }
+  proToDiff pro = mempty { D.gems = fmap (\gem -> (void gem, D.VelocityNormal)) pro }
   in trk
-    { D.drumDifficulties = Map.fromList
+    { D.difficulties = Map.fromList
       [ (Easy  , easyRaw  )
       , (Medium, mediumRaw)
       , (Hard  , hardRaw  )
@@ -536,14 +536,14 @@ drumsReduce diff   mmap od sections trk = let
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
-  let sections = onyx.onyxEvents.eventsSections
+  let sections = onyx.onyxEvents.sections
   stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
     { F.onyxParts = flip fmap onyx.onyxParts \trks -> let
       pkX = trks.onyxPartRealKeysX
       pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
       pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH
       pkE = trks.onyxPartRealKeysE `pkOr` pkReduce Easy   mmap od pkM
-      od = pkX.pkOverdrive
+      od = pkX.overdrive
       trkX `pkOr` trkY
         | nullPK pkX  = mempty
         | nullPK trkX = trkY
@@ -565,24 +565,24 @@ simpleReduce fin fout = do
 -- | Currently just fills empty lower difficulties with dummy data
 protarComplete :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 protarComplete pg = let
-  getDiff d = fromMaybe mempty $ Map.lookup d pg.pgDifficulties
+  getDiff d = fromMaybe mempty $ Map.lookup d pg.difficulties
   fill :: ProGuitarDifficulty U.Beats -> ProGuitarDifficulty U.Beats -> ProGuitarDifficulty U.Beats
-  fill upper this = if RTB.null this.pgNotes then upper else this
+  fill upper this = if RTB.null this.notes then upper else this
   x = getDiff Expert
   dummy = ProGuitarDifficulty
-    { pgChordName    = RTB.empty
-    , pgForce        = RTB.empty
-    , pgSlide        = RTB.empty
-    , pgArpeggio     = RTB.empty
-    , pgPartialChord = RTB.empty
-    , pgAllFrets     = RTB.empty
-    , pgMysteryBFlat = RTB.empty
-    , pgNotes        = let
+    { chordName    = RTB.empty
+    , force        = RTB.empty
+    , slide        = RTB.empty
+    , arpeggio     = RTB.empty
+    , partialChord = RTB.empty
+    , allFrets     = RTB.empty
+    , mysteryBFlat = RTB.empty
+    , notes        = let
       openLow EdgeOn {} = EdgeOn 0 (S6, NormalNote)
       openLow EdgeOff{} = EdgeOff  (S6, NormalNote)
-      in RTB.flatten $ fmap (nubOrd . map openLow) $ RTB.collectCoincident x.pgNotes
+      in RTB.flatten $ fmap (nubOrd . map openLow) $ RTB.collectCoincident x.notes
     }
   h = fill dummy $ getDiff Hard
   m = fill dummy $ getDiff Medium
   e = fill dummy $ getDiff Easy
-  in pg { pgDifficulties = Map.fromList [(Expert, x), (Hard, h), (Medium, m), (Easy, e)] }
+  in pg & #difficulties .~ Map.fromList [(Expert, x), (Hard, h), (Medium, m), (Easy, e)]

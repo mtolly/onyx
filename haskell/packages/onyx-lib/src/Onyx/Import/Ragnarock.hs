@@ -241,8 +241,8 @@ ragnarockToDrums info maps = let
     , F.tracks = mempty
       { F.onyxParts = Map.singleton F.PartDrums mempty
         { F.onyxPartDrums = mempty
-          { drumDifficulties = Map.fromList $ flip map maps' $ fmap \(_, beatmap) -> mempty
-            { drumGems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
+          { difficulties = Map.fromList $ flip map maps' $ fmap \(_, beatmap) -> mempty
+            { gems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
               note <- beatmap.notes
               let t = realToFrac note.time :: U.Beats
               gem <- case note.lineIndex of

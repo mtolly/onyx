@@ -651,9 +651,9 @@ data DTXOverride = DTXOverride T.Text [DTXCondition]
   deriving (Read)
 
 lookupDTXMapping :: [DTXCondition] -> ED.EliteDrumNote a -> Maybe Chip
-lookupDTXMapping conds tdn = go $ Branch conds where
+lookupDTXMapping conds edn = go $ Branch conds where
   go (Chip chip)           = Just chip
-  go (MatchNote     n sub) = if n == tdn.tdn_gem      then go sub else Nothing
-  go (MatchType     t sub) = if t == tdn.tdn_type     then go sub else Nothing
-  go (MatchVelocity v sub) = if v == tdn.tdn_velocity then go sub else Nothing
+  go (MatchNote     n sub) = if n == edn.gem      then go sub else Nothing
+  go (MatchType     t sub) = if t == edn.type_    then go sub else Nothing
+  go (MatchVelocity v sub) = if v == edn.velocity then go sub else Nothing
   go (Branch subs)         = listToMaybe $ mapMaybe go subs

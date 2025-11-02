@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -29,6 +30,7 @@ import           Data.Conduit                     (runConduit)
 import           Data.Conduit.Audio
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
 import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
@@ -55,6 +57,7 @@ import           Onyx.StackTrace
 import           Onyx.Util.Handle                 (Folder (..), Readable,
                                                    crawlFolder)
 import           Onyx.Util.Text.Transform         (replaceCharsRB)
+import           Optics                           (mapped, (%), (%~), (.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.IO.Unsafe                 (unsafePerformIO)
 
@@ -212,24 +215,19 @@ applyTargetMIDI tgt mid = let
         $ fmap (* realToFrac speed)
         $ U.tempoMapToBPS m.tempos
       }
+  applySections :: F.Song (F.OnyxFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
   applySections m = case tgt.sections of
     SectionsFull       -> m
-    SectionsMinimal    -> modifySections m
-      $ makeMinimalSections . RTB.mapMaybe (\s -> simpleSection <$> s.segment)
-    SectionsIndividual -> modifySections m
-      $ fmap \s -> s { segment = Nothing }
+    SectionsMinimal    -> m
+      & #tracks % #onyxEvents % #sections
+      %~ makeMinimalSections . RTB.mapMaybe (\s -> simpleSection <$> s.segment)
+    SectionsIndividual -> m
+      & #tracks % #onyxEvents % #sections % mapped % #segment .~ Nothing
   makeMinimalSections = \case
     Wait t1 s1 rest1@(Wait t2 s2 rest2) -> if s1.name == s2.name
       then makeMinimalSections $ Wait t1 s1 $ RTB.delay t2 rest2
       else Wait t1 s1 $ makeMinimalSections rest1
     sections -> sections
-  modifySections m f = m
-    { F.tracks = m.tracks
-      { F.onyxEvents = m.tracks.onyxEvents
-        { eventsSections = f m.tracks.onyxEvents.eventsSections
-        }
-      }
-    }
   in applySections . applySpeed . applyStart . applyEnd $ mid
 
 previewBoundsTarget
@@ -239,7 +237,7 @@ previewBoundsTarget
   -> U.Seconds -- padding for early notes, calculated after target edits
   -> (Int, Int) -- start and end in milliseconds
 previewBoundsTarget meta song tgt pad = let
-  song' = applyTargetMIDI tgt { sections = SectionsFull } song
+  song' = applyTargetMIDI (tgt & #sections .~ SectionsFull) song
   in previewBounds meta song' pad False
 
 lastEvent :: (NNC.C t) => RTB.T t a -> Maybe (t, a)

@@ -39,56 +39,56 @@ import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
 data DrumTrack t = DrumTrack
-  { drumDifficulties   :: Map.Map Difficulty (DrumDifficulty t)
-  , drumMood           :: RTB.T t Mood
-  , drumToms           :: RTB.T t (ProColor, ProType)
-  , drumSingleRoll     :: RTB.T t (Maybe LaneDifficulty)
-  , drumDoubleRoll     :: RTB.T t (Maybe LaneDifficulty)
-  , drumOverdrive      :: RTB.T t Bool -- ^ white notes to gain energy
-  , drumActivation     :: RTB.T t Bool -- ^ drum fill to activate Overdrive, or BRE
-  , drumSolo           :: RTB.T t Bool
-  , drumPlayer1        :: RTB.T t Bool
-  , drumPlayer2        :: RTB.T t Bool
-  , drumKick2x         :: RTB.T t () -- no accent support yet
-  , drumAnimation      :: RTB.T t Animation
-  , drumEnableDynamics :: RTB.T t ()
+  { difficulties   :: Map.Map Difficulty (DrumDifficulty t)
+  , mood           :: RTB.T t Mood
+  , toms           :: RTB.T t (ProColor, ProType)
+  , singleRoll     :: RTB.T t (Maybe LaneDifficulty)
+  , doubleRoll     :: RTB.T t (Maybe LaneDifficulty)
+  , overdrive      :: RTB.T t Bool -- ^ white notes to gain energy
+  , activation     :: RTB.T t Bool -- ^ drum fill to activate Overdrive, or BRE
+  , solo           :: RTB.T t Bool
+  , player1        :: RTB.T t Bool
+  , player2        :: RTB.T t Bool
+  , kick2x         :: RTB.T t () -- no accent support yet
+  , animation      :: RTB.T t Animation
+  , enableDynamics :: RTB.T t ()
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumTrack t)
 
 instance ChopTrack DrumTrack where
   chopTake t dt = DrumTrack
-    { drumDifficulties = chopTake t <$> dt.drumDifficulties
-    , drumMood         = U.trackTake   t dt.drumMood
-    , drumToms         = U.trackTake   t dt.drumToms -- TODO
-    , drumSingleRoll   = chopTakeMaybe t dt.drumSingleRoll
-    , drumDoubleRoll   = chopTakeMaybe t dt.drumDoubleRoll
-    , drumOverdrive    = chopTakeBool  t dt.drumOverdrive
-    , drumActivation   = chopTakeBool  t dt.drumActivation
-    , drumSolo         = chopTakeBool  t dt.drumSolo
-    , drumPlayer1      = chopTakeBool  t dt.drumPlayer1
-    , drumPlayer2      = chopTakeBool  t dt.drumPlayer2
-    , drumKick2x       = U.trackTake   t dt.drumKick2x
-    , drumAnimation    = U.trackTake   t dt.drumAnimation -- TODO
-    , drumEnableDynamics = U.trackTake t dt.drumEnableDynamics
+    { difficulties = chopTake t <$> dt.difficulties
+    , mood         = U.trackTake   t dt.mood
+    , toms         = U.trackTake   t dt.toms -- TODO
+    , singleRoll   = chopTakeMaybe t dt.singleRoll
+    , doubleRoll   = chopTakeMaybe t dt.doubleRoll
+    , overdrive    = chopTakeBool  t dt.overdrive
+    , activation   = chopTakeBool  t dt.activation
+    , solo         = chopTakeBool  t dt.solo
+    , player1      = chopTakeBool  t dt.player1
+    , player2      = chopTakeBool  t dt.player2
+    , kick2x       = U.trackTake   t dt.kick2x
+    , animation    = U.trackTake   t dt.animation -- TODO
+    , enableDynamics = U.trackTake t dt.enableDynamics
     }
   chopDrop t dt = DrumTrack
-    { drumDifficulties = chopDrop t <$> dt.drumDifficulties
-    , drumMood         = chopDropStatus t dt.drumMood
-    , drumToms         = U.trackDrop    t dt.drumToms -- TODO
-    , drumSingleRoll   = chopDropMaybe  t dt.drumSingleRoll
-    , drumDoubleRoll   = chopDropMaybe  t dt.drumDoubleRoll
-    , drumOverdrive    = chopDropBool   t dt.drumOverdrive
-    , drumActivation   = chopDropBool   t dt.drumActivation
-    , drumSolo         = chopDropBool   t dt.drumSolo
-    , drumPlayer1      = chopDropBool   t dt.drumPlayer1
-    , drumPlayer2      = chopDropBool   t dt.drumPlayer2
-    , drumKick2x       = U.trackDrop    t dt.drumKick2x
-    , drumAnimation    = U.trackDrop    t dt.drumAnimation -- TODO
-    , drumEnableDynamics = U.trackDrop  t dt.drumEnableDynamics
+    { difficulties = chopDrop t <$> dt.difficulties
+    , mood         = chopDropStatus t dt.mood
+    , toms         = U.trackDrop    t dt.toms -- TODO
+    , singleRoll   = chopDropMaybe  t dt.singleRoll
+    , doubleRoll   = chopDropMaybe  t dt.doubleRoll
+    , overdrive    = chopDropBool   t dt.overdrive
+    , activation   = chopDropBool   t dt.activation
+    , solo         = chopDropBool   t dt.solo
+    , player1      = chopDropBool   t dt.player1
+    , player2      = chopDropBool   t dt.player2
+    , kick2x       = U.trackDrop    t dt.kick2x
+    , animation    = U.trackDrop    t dt.animation -- TODO
+    , enableDynamics = U.trackDrop  t dt.enableDynamics
     }
 
 nullDrums :: DrumTrack t -> Bool
-nullDrums = all (RTB.null . (.drumGems)) . toList . (.drumDifficulties)
+nullDrums = all (RTB.null . (.gems)) . toList . (.difficulties)
 
 instance TraverseTrack DrumTrack where
   traverseTrack fn (DrumTrack a b c d e f g h i j k l m) = DrumTrack
@@ -173,9 +173,9 @@ data DrumVelocity
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DrumDifficulty t = DrumDifficulty
-  { drumMix         :: RTB.T t (Audio, Disco)
-  , drumPSModifiers :: RTB.T t (PSGem, Bool)
-  , drumGems        :: RTB.T t (Gem (), DrumVelocity)
+  { mix         :: RTB.T t (Audio, Disco)
+  , psModifiers :: RTB.T t (PSGem, Bool)
+  , gems        :: RTB.T t (Gem (), DrumVelocity)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (DrumDifficulty t)
 
@@ -186,9 +186,9 @@ instance TraverseTrack DrumDifficulty where
 instance ChopTrack DrumDifficulty where
   chopTake t = mapTrack $ U.trackTake t
   chopDrop t dd = DrumDifficulty
-    { drumMix         = chopDropStatus t dd.drumMix
-    , drumPSModifiers = chopDropStatus t dd.drumPSModifiers
-    , drumGems        = U.trackDrop    t dd.drumGems
+    { mix         = chopDropStatus t dd.mix
+    , psModifiers = chopDropStatus t dd.psModifiers
+    , gems        = U.trackDrop    t dd.gems
     }
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
@@ -233,19 +233,19 @@ parseDrumAnimation = fatBlips (1/8) $ condenseMap_ $ eachKey each \case
 
 instance ParseTrack DrumTrack where
   parseTrack = do
-    drumMood <- (.drumMood) =. command
-    drumToms <- (=.) (.drumToms) $ condenseMap $ eachKey each $ parseProType . \case
+    mood <- (.mood) =. command
+    toms <- (=.) (.toms) $ condenseMap $ eachKey each $ parseProType . \case
       Yellow -> 110
       Blue   -> 111
       Green  -> 112
-    drumSingleRoll <- (.drumSingleRoll) =. edgesLanes 126
-    drumDoubleRoll <- (.drumDoubleRoll) =. edgesLanes 127
-    drumOverdrive <- (.drumOverdrive) =. edges 116
-    drumActivation <- (.drumActivation) =. edgesBRE [120 .. 124]
-    drumSolo <- (.drumSolo) =. edges 103
-    drumPlayer1 <- (.drumPlayer1) =. edges 105
-    drumPlayer2 <- (.drumPlayer2) =. edges 106
-    drumDifficulties <- (=.) (.drumDifficulties) $ eachKey each \diff -> fatBlips (1/8) do
+    singleRoll <- (.singleRoll) =. edgesLanes 126
+    doubleRoll <- (.doubleRoll) =. edgesLanes 127
+    overdrive <- (.overdrive) =. edges 116
+    activation <- (.activation) =. edgesBRE [120 .. 124]
+    solo <- (.solo) =. edges 103
+    player1 <- (.player1) =. edges 105
+    player2 <- (.player2) =. edges 106
+    difficulties <- (=.) (.difficulties) $ eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -265,7 +265,7 @@ instance ParseTrack DrumTrack where
             in (drum, (0, v))
           allDrums = [Kick, Red, Pro Yellow (), Pro Blue (), Pro Green (), Orange]
       chordSnap [base - 1 .. base + 5]
-      drumGems <- (.drumGems) =. do
+      gems <- (.gems) =. do
         dimap (fmap encodeCV) (fmap decodeCV) $ condenseMap $ eachKey allDrums \drum -> do
           blipCV $ base + case drum of
             Kick          -> 0
@@ -274,20 +274,20 @@ instance ParseTrack DrumTrack where
             Pro Blue   () -> 3
             Pro Green  () -> 4
             Orange        -> 5
-      drumMix <- (.drumMix) =. let
+      mix <- (.mix) =. let
         parse = toCommand >=> \(diff', aud, dsc) -> guard (diff == diff') >> Just (aud, dsc)
         unparse (aud, dsc) = fromCommand (diff :: Difficulty, aud :: Audio, dsc :: Disco)
         in commandMatch' parse unparse
-      drumPSModifiers <- (=.) (.drumPSModifiers) $ condenseMap $ eachKey each $ sysexPS diff . \case
+      psModifiers <- (=.) (.psModifiers) $ condenseMap $ eachKey each $ sysexPS diff . \case
         Rimshot  -> PS.SnareRimshot
         HHOpen   -> PS.HihatOpen
         HHSizzle -> PS.HihatSizzle
         HHPedal  -> PS.HihatPedal
       return DrumDifficulty{..}
-    drumKick2x <- (.drumKick2x) =. fatBlips (1/8) (blip 95)
+    kick2x <- (.kick2x) =. fatBlips (1/8) (blip 95)
     -- TODO 2x kicks should be blip-grouped with expert track
-    drumAnimation <- (.drumAnimation) =. parseDrumAnimation
-    drumEnableDynamics <- (.drumEnableDynamics) =. Codec
+    animation <- (.animation) =. parseDrumAnimation
+    enableDynamics <- (.enableDynamics) =. Codec
       -- support text event both with and without brackets
       -- (the no-brackets version gets turned into a lyric by preprocessing)
       { codecIn = slurpTrack \mt -> let
@@ -321,16 +321,16 @@ fiveToPro fallback = let
 
 getDrumDifficulty :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem (), DrumVelocity)
 getDrumDifficulty diff trk = let
-  base = (fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.drumDifficulties).drumGems
+  base = (fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.difficulties).gems
   in case diff of
-    Nothing -> RTB.merge base $ fmap (\() -> (Kick, VelocityNormal)) trk.drumKick2x
+    Nothing -> RTB.merge base $ fmap (\() -> (Kick, VelocityNormal)) trk.kick2x
     _       -> base
 
 computePro :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ProType, DrumVelocity)
 computePro diff trk = let
-  toms = fmap (fmap \case Tom -> True; Cymbal -> False) trk.drumToms
-  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
-  disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) this.drumMix
+  toms = fmap (fmap \case Tom -> True; Cymbal -> False) trk.toms
+  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.difficulties
+  disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) this.mix
   applied = applyStatus disco $ applyStatus toms $ getDrumDifficulty diff trk
   in flip fmap applied \case
     (instantDisco, (instantToms, (gem, vel))) -> let
@@ -350,8 +350,8 @@ type RealDrum = Either PSGem (Gem ProType)
 computePSReal :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (RealDrum, DrumVelocity)
 computePSReal diff trk = let
   pro = computePro diff trk
-  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.drumDifficulties
-  applied = applyStatus this.drumPSModifiers pro
+  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.difficulties
+  applied = applyStatus this.psModifiers pro
   in flip fmap applied \(mods, (gem, vel)) -> let
     gem' = case gem of
       Red
@@ -388,20 +388,20 @@ encodePSReal blipTime diff real = let
       Right rb -> void rb
     in (gem', vel)
   in mempty
-    { drumToms = toms
-    , drumDifficulties = Map.singleton diff DrumDifficulty
-      { drumMix = RNil
-      , drumPSModifiers = psmods
-      , drumGems = gems
+    { toms = toms
+    , difficulties = Map.singleton diff DrumDifficulty
+      { mix = RNil
+      , psModifiers = psmods
+      , gems = gems
       }
     }
 
 psRealToPro :: (NNC.C t) => DrumTrack t -> DrumTrack t
 psRealToPro trk = trk
-  { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties \diff this -> this
+  { difficulties = flip Map.mapWithKey trk.difficulties \diff this -> this
     -- this will fail if you use discobeat on the real track, so don't do that
-    { drumPSModifiers = RTB.empty
-    , drumGems = flip RTB.mapMaybe (computePSReal (Just diff) trk) \case
+    { psModifiers = RTB.empty
+    , gems = flip RTB.mapMaybe (computePSReal (Just diff) trk) \case
       (Left Rimshot, vel) -> Just (Red, vel)
       (Left HHPedal, _)   -> Nothing
       (Left _, vel)       -> Just (Pro Yellow (), vel)
@@ -466,8 +466,8 @@ fillDrumAnimation closeTime tmap trk = let
     $ fmap fst
     $ U.applyTempoTrack tmap
     $ computePro (Just Expert) trk
-  in if RTB.null trk.drumAnimation
-    then trk { drumAnimation = autoAnims }
+  in if RTB.null trk.animation
+    then trk { animation = autoAnims }
     else trk
 
 autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
@@ -539,11 +539,11 @@ autoDrumHands closeTime pads = let
 expertWith2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
 expertWith2x dt = let
   add2x = flip Map.adjust Expert \dd -> dd
-    { drumGems = RTB.merge dd.drumGems $ (Kick, VelocityNormal) <$ dt.drumKick2x
+    { gems = RTB.merge dd.gems $ (Kick, VelocityNormal) <$ dt.kick2x
     }
   in dt
-    { drumDifficulties = add2x dt.drumDifficulties
-    , drumKick2x = RTB.empty
+    { difficulties = add2x dt.difficulties
+    , kick2x = RTB.empty
     }
 
 -- | Changes all existing drum mix events to use the given config (not changing
@@ -552,27 +552,27 @@ expertWith2x dt = let
 setDrumMix :: (NNC.C t) => Audio -> DrumTrack t -> DrumTrack t
 setDrumMix audio trk = let
   f dd = dd
-    { drumMix = let
-      mixSet = fmap (\(_, disco) -> (audio, disco)) dd.drumMix
-      alreadyMixed = case (RTB.viewL dd.drumMix, RTB.viewL dd.drumGems) of
+    { mix = let
+      mixSet = fmap (\(_, disco) -> (audio, disco)) dd.mix
+      alreadyMixed = case (RTB.viewL dd.mix, RTB.viewL dd.gems) of
         (Just ((tmix, _), _), Just ((tnote, _), _)) -> tmix <= tnote
         _                                           -> False
       in if alreadyMixed then mixSet else RTB.cons NNC.zero (audio, NoDisco) mixSet
     }
-  in trk { drumDifficulties = fmap f trk.drumDifficulties }
+  in trk { difficulties = fmap f trk.difficulties }
 
 -- Extends tom markers to a minimum length, or up to the next marker of that
 -- color, or the next note (any note on any difficulty).
 extendShortTomMarkers :: (NNC.C t, Num t) => t -> DrumTrack t -> DrumTrack t
 extendShortTomMarkers minLength trk = let
   notes = Set.fromList do
-    diff <- Map.elems trk.drumDifficulties
-    ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero diff.drumGems
+    diff <- Map.elems trk.difficulties
+    ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero diff.gems
   markers
     = RTB.toAbsoluteEventList NNC.zero
     $ joinEdgesSimple
     $ fmap (\case (color, Tom) -> EdgeOn () color; (color, Cymbal) -> EdgeOff color)
-    $ trk.drumToms
+    $ trk.toms
   newMarkers color = let
     oldMarkers = ATB.mapMaybe (\((), color', len) -> guard (color == color') >> Just len) markers
     in output color $ extend oldMarkers
@@ -596,5 +596,5 @@ extendShortTomMarkers minLength trk = let
     $ RTB.fromAbsoluteEventList
     $ fmap (\len -> ((), color, len)) atb
   in trk
-    { drumToms = RTB.merge (newMarkers Yellow) $ RTB.merge (newMarkers Blue) (newMarkers Green)
+    { toms = RTB.merge (newMarkers Yellow) $ RTB.merge (newMarkers Blue) (newMarkers Green)
     }

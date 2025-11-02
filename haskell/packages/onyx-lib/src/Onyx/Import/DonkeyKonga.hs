@@ -273,8 +273,8 @@ importDKSong chartName isMidi chartFile dsp level = do
           $ zip roundRobin
           $ RTB.toPairList
           $ RTB.collectCoincident
-          $ (.drumGems)
-          $ fromMaybe mempty $ Map.lookup Expert converted.drumDifficulties
+          $ (.gems)
+          $ fromMaybe mempty $ Map.lookup Expert converted.difficulties
         }
 
   audio <- case level of
@@ -378,11 +378,11 @@ convertDKDrums dk = let
     DKNote _ -> RNil
 
   in mempty
-    { drumDifficulties = Map.singleton Expert mempty
-      { drumGems = RTB.merge normalNotes laneNotes
+    { difficulties = Map.singleton Expert mempty
+      { gems = RTB.merge normalNotes laneNotes
       }
-    , drumSingleRoll = singleLanes
-    , drumDoubleRoll = doubleLanes
+    , singleRoll = singleLanes
+    , doubleRoll = doubleLanes
     }
 
 -- Returns (high bongo, low bongo, clap)

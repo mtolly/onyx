@@ -74,13 +74,13 @@ paraToTrue tmap diff rlrr = let
   flams = RTB.mapMaybe (guard . hasDupe) $ RTB.collectCoincident $ RTB.filter (\(gem, _) -> gem /= Kick RH) gems
   hasDupe xs = nubOrdOn fst xs /= xs
   in mempty
-    { tdDifficulties = Map.singleton diff EliteDrumDifficulty
-      { tdGems             = blipEdgesRBNice
+    { difficulties = Map.singleton diff EliteDrumDifficulty
+      { gems             = blipEdgesRBNice
         $ U.unapplyTempoTrack tmap
         $ fmap (\(gem, vel) -> (vel, (gem, TBDefault), Nothing)) gemsNoDupe
-      , tdFlam             = U.unapplyTempoTrack tmap flams
-      , tdHihatIndifferent = RTB.empty
-      , tdDisco            = RTB.empty
+      , flam             = U.unapplyTempoTrack tmap flams
+      , hihatIndifferent = RTB.empty
+      , disco            = RTB.empty
       }
     }
 

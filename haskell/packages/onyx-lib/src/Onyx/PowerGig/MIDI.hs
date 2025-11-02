@@ -130,7 +130,7 @@ instance ParseTrack VocalDifficulty where
   parseTrack = do
     vocalNotes             <- (.vocalNotes)             =. condenseMap (eachKey each $ edges . (+ 36) . fromEnum)
     vocalTalkies           <- (.vocalTalkies)           =. edges 0
-    vocalLyrics            <- (.vocalLyrics)            =. lyrics
+    vocalLyrics            <- (.vocalLyrics)            =. lyricEvents
     vocalPhraseEnd         <- (.vocalPhraseEnd)         =. powerGigText "\\r"
     vocalUnknownBackslashN <- (.vocalUnknownBackslashN) =. powerGigText "\\n"
     vocalFreestyle         <- (.vocalFreestyle)         =. controllerBool 64 -- "hold pedal"

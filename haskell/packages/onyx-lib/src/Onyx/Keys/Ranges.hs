@@ -42,14 +42,14 @@ completeFile fin fout = do
 
 -- | Adds ranges if there are none.
 completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
-completeRanges trk = if RTB.null trk.pkLanes
+completeRanges trk = if RTB.null trk.lanes
   then let
-    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlips_ minSustainLengthRB trk.pkNotes)
+    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlips_ minSustainLengthRB trk.notes)
       \(p, mlen) -> RTB.fromPairList
         [ (0                   , (True , p))
         , (fromMaybe (1/4) mlen, (False, p)) -- give all blips a 16th note of room
         ]
-    in trk { pkLanes = pullBackRanges held $ createRanges held }
+    in trk { lanes = pullBackRanges held $ createRanges held }
   else trk
 
 heldNotes :: (NNC.C t) => RTB.T t (Bool, Pitch) -> RTB.T t (Set.Set Pitch)
@@ -162,9 +162,9 @@ closeShiftsFile song = T.unlines do
 
 closeShifts :: U.Seconds -> ProKeysTrack U.Seconds -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
 closeShifts threshold trk = let
-  lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 trk.pkLanes
+  lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 trk.lanes
   shifts = zip lanes $ drop 1 lanes
-  notes = flip RTB.mapMaybe trk.pkNotes \case
+  notes = flip RTB.mapMaybe trk.notes \case
     EdgeOn () pitch -> Just pitch
     EdgeOff _       -> Nothing
   closeNotes ((_, rng1), (t, rng2)) = do

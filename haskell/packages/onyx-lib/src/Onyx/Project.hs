@@ -1763,4 +1763,4 @@ evalPreviewTime leadin getEvents song padding prepadded = \case
             fmap (fst . fst)
               $ RTB.viewL
               $ RTB.filter ((== sectDisplay) . makeDisplaySection)
-                (f song.tracks).eventsSections
+                (f song.tracks).sections

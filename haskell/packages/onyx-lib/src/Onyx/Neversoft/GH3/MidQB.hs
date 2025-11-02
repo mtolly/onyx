@@ -351,15 +351,15 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       ]
   getPart :: GH3Part -> Five.FiveTrack U.Beats
   getPart part = mempty
-    { Five.fiveDifficulties = Map.fromList
+    { Five.difficulties = Map.fromList
       [ (Expert, getTrack part.gh3Expert)
       , (Hard  , getTrack part.gh3Hard  )
       , (Medium, getTrack part.gh3Medium)
       , (Easy  , getTrack part.gh3Easy  )
       ]
-    , Five.fiveOverdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) part.gh3Expert.gh3StarPower
-    , Five.fivePlayer1 = makeSpan gh3.gh3P1FaceOff
-    , Five.fivePlayer2 = makeSpan gh3.gh3P2FaceOff
+    , Five.overdrive = makeSpan $ fmap (\(time, len, _notecount) -> (time, len)) part.gh3Expert.gh3StarPower
+    , Five.player1 = makeSpan gh3.gh3P1FaceOff
+    , Five.player2 = makeSpan gh3.gh3P2FaceOff
     }
   makeSpan spans = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
     (time, len) <- spans
@@ -367,7 +367,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   trackLead = getPart if coopTracks then gh3.gh3CoopGuitar else gh3.gh3Guitar
   trackCoop = getPart if coopTracks then gh3.gh3CoopRhythm else gh3.gh3Rhythm
   events = mempty
-    { eventsSections = fromPairs do
+    { sections = fromPairs do
       (t, marker) <- gh3.gh3Markers
       let str = case marker of
             Right s -> s
@@ -437,14 +437,14 @@ gh3DrumsToElite toBeats notes = let
     (_time, Kick _) -> False
     _               -> True
   in mempty
-    { tdSticking = RTB.empty -- TODO
-    , tdDifficulties = Map.singleton Expert mempty
+    { sticking = RTB.empty -- TODO
+    , difficulties = Map.singleton Expert mempty
       -- TODO use makeEliteDifficulty so hihats are indifferent
-      { tdGems
+      { gems
         = blipEdgesRBNice
         $ fmap (\fgem -> (D.VelocityNormal, (fgem, TBDefault), Nothing))
         $ RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ fromPairs allGemPairs
-      , tdFlam = flip RTB.mapMaybe hands \case
+      , flam = flip RTB.mapMaybe hands \case
         [x, y] | x == y -> Just ()
         _               -> Nothing
       }

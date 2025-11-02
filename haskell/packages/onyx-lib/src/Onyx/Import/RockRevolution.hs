@@ -177,8 +177,8 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
               rr <- F.parseTrackReport mid.tracks
               return (diff, (rr, importRRGuitarBass rr))
           return mempty
-            { Five.fiveDifficulties = fmap snd $ Map.fromList fiveDiffs
-            , Five.fiveSolo = maybe RTB.empty ((.rrfSolo) . fst) $ lookup Expert fiveDiffs
+            { Five.difficulties = fmap snd $ Map.fromList fiveDiffs
+            , Five.solo = maybe RTB.empty ((.rrfSolo) . fst) $ lookup Expert fiveDiffs
             }
       loadDrums = case level of
         ImportQuick -> return mempty
@@ -192,11 +192,11 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
           return
             ( importRRDrums rrDiffs
             , mempty
-              { ED.tdDifficulties = fmap importRREliteDrums rrDiffs
-              , ED.tdLanes = maybe RTB.empty importRREliteLanes $ Map.lookup Expert rrDiffs
-              , ED.tdSolo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert rrDiffs
+              { ED.difficulties = fmap importRREliteDrums rrDiffs
+              , ED.lanes = maybe RTB.empty importRREliteLanes $ Map.lookup Expert rrDiffs
+              , ED.solo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert rrDiffs
               }
-            , mempty { ED.tdDifficulties = fmap importRRHiddenDrums rrDiffs }
+            , mempty { ED.difficulties = fmap importRRHiddenDrums rrDiffs }
             )
       diffs = [("02", Easy), ("03", Medium), ("04", Hard), ("05", Expert)]
   guitar <- loadGuitarBass "guitar"
@@ -236,9 +236,8 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
                 })
               ]
             , F.onyxEvents = mempty
-              { eventsSections = maybe RTB.empty (fmap simpleSection . importRRSections strings . (.rrcSections)) control
-              , eventsEnd = maybe RTB.empty (.rrcEnd) control
-              }
+              & #sections .~ maybe RTB.empty (fmap simpleSection . importRRSections strings . (.rrcSections)) control
+              & #end .~ maybe RTB.empty (.rrcEnd) control
             }
           }
         ImportQuick -> emptyChart

@@ -475,7 +475,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
       -- TODO guitarify' is called by makeGH3TrackNotes but should we remove ext sustains before noOpenNotes?
       $ fromMaybe RTB.empty
       $ Map.lookup diff result.notes
-    starPower = makeGH3Spans song.tempos result.other.fiveOverdrive sht
+    starPower = makeGH3Spans song.tempos result.other.overdrive sht
     in GH3Track
       { gh3Notes       = makeGH3TrackNotes song.tempos timeSigs beats sht
       , gh3StarPower   = starPower
@@ -490,7 +490,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     $ ATB.toPairList
     $ RTB.toAbsoluteEventList 0
     $ U.applyTempoTrack song.tempos
-    $ (F.getEventsTrack song.tracks).eventsSections
+    $ (F.getEventsTrack song.tracks).sections
   (leadTrack, leadPart  ) = makeGH3Part partLead
   (_        , rhythmPart) = makeGH3Part partRhythm
   -- Not sure if there's a real way to extend the end of the song past the last note.
@@ -509,14 +509,14 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
   makeFaceoff playerSpans
     = map (\(pos, len, _count) -> (pos, len))
     $ makeGH3Spans song.tempos playerSpans
-    $ maybe RTB.empty (.fiveGems)
-    $ Map.lookup Expert leadTrack.fiveDifficulties
+    $ maybe RTB.empty (.gems)
+    $ Map.lookup Expert leadTrack.difficulties
   drumAnims = case getPart partDrummer songYaml >>= (.drums) of
     Nothing -> []
     Just pd -> let
       rbAnims = buildDrumAnimation pd song.tempos $ F.getFlexPart partDrummer song.tracks
       mapping = map swap gh3DrumMapping
-      notes = RTB.mapMaybe (\(tdn, hand) -> lookup (tdn.tdn_gem, hand) mapping) $ animationToEliteDrums rbAnims
+      notes = RTB.mapMaybe (\(edn, hand) -> lookup (edn.gem, hand) mapping) $ animationToEliteDrums rbAnims
       in map (\(secs, pitch) -> [floor $ secs * 1000, pitch, 96]) -- third number is probably original midi velocity
         $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack song.tempos notes
   in (emptyMidQB
@@ -525,8 +525,8 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     , gh3TimeSignatures  = timeSigs
     , gh3FretBars        = beats
     , gh3Markers         = sections
-    , gh3P1FaceOff       = makeFaceoff leadTrack.fivePlayer1
-    , gh3P2FaceOff       = makeFaceoff leadTrack.fivePlayer2
+    , gh3P1FaceOff       = makeFaceoff leadTrack.player1
+    , gh3P2FaceOff       = makeFaceoff leadTrack.player2
     , gh3BackgroundNotes = (GH3Background [] [] [] [] [] [] [] [])
       { gh3Drums = drumAnims
       }

@@ -2,18 +2,19 @@
 Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 (Does not support storing lower dynamic difficulty levels.)
 -}
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.MIDI.Track.Rocksmith
 ( RocksmithTrack(..)
 , ToneLetter(..)
@@ -898,11 +899,11 @@ data VocalEvent
 buildRSVocals :: U.TempoMap -> VocalTrack U.Beats -> Vocals
 buildRSVocals tmap vox = Vocals $ V.fromList let
   tubes = vocalTubes vox
-  pitches = fmap fst $ RTB.filter snd vox.vocalNotes
+  pitches = fmap fst $ RTB.filter snd vox.notes
   tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) \case
     (p, Just lyric) -> VocalNote lyric $ 36 + fromEnum p
     (_, Nothing   ) -> VocalNoteEnd
-  phraseEnds = RTB.filter not $ RTB.merge vox.vocalPhrase1 vox.vocalPhrase2
+  phraseEnds = RTB.filter not $ RTB.merge vox.phrase1 vox.phrase2
   evts = U.applyTempoTrack tmap $ RTB.normalize $
     RTB.merge tubeEvents $ fmap (const VocalPhraseEnd) phraseEnds
   go = \case
@@ -1201,11 +1202,11 @@ convertRStoPG tmap rs = let
     $ extendedNotesShapes
 
   resultDefaultSlides = mempty
-    { pgNotes = convertedNotes
-    , pgForce = convertedForces
-    , pgArpeggio = convertedArpeggio
-    , pgSlide = NormalSlide <$ desiredSlides
-    , pgChordName = RTB.filter isJust convertedChordNames
+    { notes = convertedNotes
+    , force = convertedForces
+    , arpeggio = convertedArpeggio
+    , slide = NormalSlide <$ desiredSlides
+    , chordName = RTB.filter isJust convertedChordNames
     }
 
   defaultSlideDirections :: RTB.T U.Beats Slide
@@ -1224,13 +1225,13 @@ convertRStoPG tmap rs = let
     $ RTB.merge (Left <$> desiredSlides) (Right <$> defaultSlideDirections)
 
   resultFixedSlides = resultDefaultSlides
-    { pgSlide = fixedSlideMarkers
+    { slide = fixedSlideMarkers
     }
 
   in mempty
-    { pgDifficulties = Map.singleton Expert resultFixedSlides
-    , pgNoChordNames = hiddenChordNames
-    , pgTremolo = U.trackJoin
+    { difficulties = Map.singleton Expert resultFixedSlides
+    , noChordNames = hiddenChordNames
+    , tremolo = U.trackJoin
       $ fmap (\len -> RTB.fromPairList [(0, Just LaneExpert), (len, Nothing)])
       $ tremolo
     }

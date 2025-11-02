@@ -176,8 +176,8 @@ encorePart fp = do
   let mania = encoreToMania fd
   guard $ not $ RTB.null mania
   return (name, ManiaTrack
-    { maniaNotes     = mania
-    , maniaOverdrive = fp.overdrive
+    { notes     = mania
+    , overdrive = fp.overdrive
     })
 
 encoreToMania :: EncoreDifficulty U.Beats -> RTB.T U.Beats (Edge () (Int, NoteType))

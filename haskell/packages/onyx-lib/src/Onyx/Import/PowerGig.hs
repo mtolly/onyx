@@ -209,9 +209,9 @@ importPowerGigSong key song folder level = do
             $ RTB.merge (getController 80 trk) (getController 81 trk)
           phraselessTrack = putLyricNotes lyricNotes
           finalTrack = phraselessTrack
-            { vocalPhrase1 = U.trackJoin $ flip fmap phrases
+            { phrase1 = U.trackJoin $ flip fmap phrases
               \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-            , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
+            , overdrive = U.trackJoin $ flip fmap phrases \case
               (_  , False) -> RNil
               (len, True ) -> Wait 0 True $ Wait len False RNil
             }
@@ -243,9 +243,9 @@ importPowerGigSong key song folder level = do
           $ RTB.merge pg.vocalMojoGuitarist pg.vocalMojoDrummer
         phraselessTrack = putLyricNotes lyricNotes
         finalTrack = phraselessTrack
-          { vocalPhrase1 = U.trackJoin $ flip fmap phrases
+          { phrase1 = U.trackJoin $ flip fmap phrases
             \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-          , vocalOverdrive = U.trackJoin $ flip fmap phrases \case
+          , overdrive = U.trackJoin $ flip fmap phrases \case
             (_  , False) -> RNil
             (len, True ) -> Wait 0 True $ Wait len False RNil
           }
@@ -257,13 +257,13 @@ importPowerGigSong key song folder level = do
         { F.onyxParts = Map.fromList
           [ (F.PartGuitar, mempty
             { F.onyxPartGuitar = mempty
-              { Five.fiveDifficulties = Map.fromList
+              { Five.difficulties = Map.fromList
                 [ (Easy  , if isJust maybeGEV then getGuitarGEV "guitar_1_easy"   else getGuitarMIDI (.pd_easy  ) (.pgGuitarEasy  ))
                 , (Medium, if isJust maybeGEV then getGuitarGEV "guitar_1_medium" else getGuitarMIDI (.pd_medium) (.pgGuitarMedium))
                 , (Hard  , if isJust maybeGEV then getGuitarGEV "guitar_1_hard"   else getGuitarMIDI (.pd_hard  ) (.pgGuitarHard  ))
                 , (Expert, if isJust maybeGEV then getGuitarGEV "guitar_1_expert" else getGuitarMIDI (.pd_expert) (.pgGuitarExpert))
                 ]
-              , Five.fiveOverdrive = case Map.lookup "guitar_1_expert" gevTracks of
+              , Five.overdrive = case Map.lookup "guitar_1_expert" gevTracks of
                 Nothing  -> RTB.merge
                   mid.tracks.pgGuitarExpert.guitarMojoDrummer
                   mid.tracks.pgGuitarExpert.guitarMojoVocalist
@@ -272,13 +272,13 @@ importPowerGigSong key song folder level = do
             })
           , (F.PartDrums, mempty
             { F.onyxPartDrums = mempty
-              { D.drumDifficulties = Map.fromList
+              { D.difficulties = Map.fromList
                 [ (Easy  , if isJust maybeGEV then getDrumsGEV "drums_1_easy"   else getDrumsMIDI (.pgDrumsEasy  ))
                 , (Medium, if isJust maybeGEV then getDrumsGEV "drums_1_medium" else getDrumsMIDI (.pgDrumsMedium))
                 , (Hard  , if isJust maybeGEV then getDrumsGEV "drums_1_hard"   else getDrumsMIDI (.pgDrumsHard  ))
                 , (Expert, if isJust maybeGEV then getDrumsGEV "drums_1_expert" else getDrumsMIDI (.pgDrumsExpert))
                 ]
-              , D.drumOverdrive = case Map.lookup "drums_1_expert" gevTracks of
+              , D.overdrive = case Map.lookup "drums_1_expert" gevTracks of
                 Nothing  -> RTB.merge
                   mid.tracks.pgDrumsExpert.drumMojoGuitarist
                   mid.tracks.pgDrumsExpert.drumMojoVocalist
@@ -310,7 +310,7 @@ importPowerGigSong key song folder level = do
               ]
             return (time, (drum, D.VelocityNormal))
           in mempty
-            { D.drumGems = notes
+            { D.gems = notes
             }
       getGuitarGEV trackName = emitGuitar5 case Map.lookup trackName gevTracks of
         Nothing  -> RTB.empty
@@ -342,7 +342,7 @@ importPowerGigSong key song folder level = do
         pg = f mid.tracks
         in mempty
           -- TODO handle lanes
-          { D.drumGems = flip RTB.mapMaybe pg.drumGems \case
+          { D.gems = flip RTB.mapMaybe pg.drumGems \case
             EdgeOn () gem -> Just (gem, D.VelocityNormal)
             EdgeOff _     -> Nothing
           }

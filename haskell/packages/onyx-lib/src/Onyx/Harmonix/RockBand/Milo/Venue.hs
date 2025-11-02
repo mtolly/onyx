@@ -207,7 +207,7 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
   camera name = do
     cam <- getCommands name
     return $ unbuildCamera 1 $ mempty
-      { venueCameraRB3 = cam
+      { cameraRB3 = cam
       }
   -- various redundant events seen in pulseofthemaggots postproc track;
   -- cleaning up so it converts to venuegen better
@@ -285,29 +285,29 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
 
     return mempty
       { F.onyxVenue = mempty
-        { venueSingGuitar   = sing2
-        , venueSingDrums    = sing4
-        , venueSingBass     = sing3
-        , venueSpotKeys     = spotKeys
-        , venueSpotVocal    = spotVocal
-        , venueSpotGuitar   = spotGuitar
-        , venueSpotDrums    = spotDrums
-        , venueSpotBass     = spotBass
-        , venueLightingMode = lightingMode
-        , venueFog          = fog
+        { singGuitar   = sing2
+        , singDrums    = sing4
+        , singBass     = sing3
+        , spotlightKeys     = spotKeys
+        , spotlightVocal    = spotVocal
+        , spotlightGuitar   = spotGuitar
+        , spotlightDrums    = spotDrums
+        , spotlightBass     = spotBass
+        , lightingMode = lightingMode
+        , fog          = fog
         }
       , F.onyxLighting = unbuildLighting 1 mempty
-        { venuePostProcessRB3 = postProc
-        , venueLighting = lighting
-        , venueLightingCommands = lightingCommands
-        , venueBonusFX = bonusFX
+        { postProcessRB3 = postProc
+        , lighting = lighting
+        , lightingCommands = lightingCommands
+        , bonusFX = bonusFX
         }
       , F.onyxCamera = camera5
       , F.onyxCameraBG = cameraBG
       , F.onyxCameraBK = cameraBK
       , F.onyxCameraGK = cameraGK
       , F.onyxEvents = mempty
-        { eventsCrowd = crowd
+        { crowd = crowd
         }
       {-
       -- not including as these seem to be in midis still, but off by 1 quarter note?
@@ -315,27 +315,27 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
       , F.onyxParts = Map.fromList
         [ (F.PartGuitar, mempty
           { F.onyxPartGuitar = mempty
-            { Five.fiveMood = getCommands "guitar_intensity"
+            { Five.mood = getCommands "guitar_intensity"
             }
           })
         , (F.PartBass, mempty
           { F.onyxPartGuitar = mempty
-            { Five.fiveMood = getCommands "bass_intensity"
+            { Five.mood = getCommands "bass_intensity"
             }
           })
         , (F.PartKeys, mempty
           { F.onyxPartKeys = mempty
-            { Five.fiveMood = getCommands "keyboard_intensity"
+            { Five.mood = getCommands "keyboard_intensity"
             }
           })
         , (F.PartDrums, mempty
           { F.onyxPartDrums = mempty
-            { Drums.drumMood = getCommands "drum_intensity"
+            { Drums.mood = getCommands "drum_intensity"
             }
           })
         , (F.PartVocal, mempty
           { F.onyxPartVocals = mempty
-            { Vocal.vocalMood = getCommands "mic_intensity"
+            { Vocal.mood = getCommands "mic_intensity"
             }
           })
         ]

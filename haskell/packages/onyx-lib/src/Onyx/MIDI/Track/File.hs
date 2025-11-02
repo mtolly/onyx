@@ -1,17 +1,19 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE DerivingStrategies  #-}
-{-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE DerivingStrategies    #-}
+{-# LANGUAGE DerivingVia           #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.MIDI.Track.File where
 
 import           Control.Monad                     (forM, forM_, guard, unless,
@@ -25,6 +27,7 @@ import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
 import qualified Data.ByteString                   as B
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
+import           Data.Function                     ((&))
 import           Data.Functor                      (void)
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
@@ -76,6 +79,7 @@ import           Onyx.Util.Handle                  (Readable (..), fileReadable,
                                                     handleToByteString,
                                                     useHandle)
 import           Onyx.Util.Text.Decode             (decodeGeneral, encodeLatin1)
+import           Optics                            (mapped, (%), (%~), (.~))
 import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
@@ -544,7 +548,7 @@ data Song t = Song
   { tempos   :: U.TempoMap
   , timesigs :: U.MeasureMap
   , tracks   :: t
-  } deriving (Eq, Show, Functor, Foldable, Traversable)
+  } deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
 
 {- |
 This is a hack because Moonscraper and thus Clone Hero currently don't
@@ -778,11 +782,11 @@ padFixedFile seconds song@(Song _ _ ff) = let
 
 wiiNoFills :: (NNC.C t) => Song (FixedFile t) -> Song (FixedFile t)
 wiiNoFills (Song temps sigs ff) = let
-  f drums = case RTB.viewL ff.fixedEvents.eventsCoda of
+  f drums = case RTB.viewL ff.fixedEvents.coda of
     Nothing           -> drums
-      { drumActivation = RTB.empty }
+      { activation = RTB.empty }
     Just ((dt, _), _) -> drums
-      { drumActivation = RTB.delay dt $ U.trackDrop dt drums.drumActivation }
+      { activation = RTB.delay dt $ U.trackDrop dt drums.activation }
   in Song temps sigs ff
     { fixedPartDrums       = f ff.fixedPartDrums
     , fixedPartDrums2x     = f ff.fixedPartDrums2x
@@ -802,37 +806,32 @@ wiiMustang22 (Song temps sigs ff) = let
 
 -- | Unmutes protar notes with a velocity above 22.
 wiiUnmute22 :: (NNC.C t) => Song (FixedFile t) -> Song (FixedFile t)
-wiiUnmute22 (Song temps sigs ff) = let
-  unmuteTrack pg = pg
-    { pgDifficulties = fmap unmuteDiff pg.pgDifficulties
-    }
-  unmuteDiff diff = diff
-    { pgNotes
-      = splitEdgesSimple
-      $ fmap (\case
+wiiUnmute22 = let
+  unmuteTrack :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
+  unmuteTrack = #difficulties % mapped % #notes
+    %~ splitEdgesSimple
+    . fmap (\case
         (fret, (str, Muted), len) | fret > 22 -> (fret, (str, NormalNote), len)
         x                                     -> x
       )
-      $ joinEdgesSimple diff.pgNotes
-    }
-  in Song temps sigs ff
-    { fixedPartRealGuitar   = unmuteTrack ff.fixedPartRealGuitar
-    , fixedPartRealGuitar22 = unmuteTrack ff.fixedPartRealGuitar22
-    , fixedPartRealBass     = unmuteTrack ff.fixedPartRealBass
-    , fixedPartRealBass22   = unmuteTrack ff.fixedPartRealBass22
-    }
+    . joinEdgesSimple
+  in #tracks %~ \trks -> trks
+    & #fixedPartRealGuitar   %~ unmuteTrack
+    & #fixedPartRealGuitar22 %~ unmuteTrack
+    & #fixedPartRealBass     %~ unmuteTrack
+    & #fixedPartRealBass22   %~ unmuteTrack
 
 convertToVenueGen :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
 convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
   { onyxLighting = trks.onyxLighting <> unbuildLighting 1 trks.onyxVenue
   , onyxCamera   = trks.onyxCamera   <> unbuildCamera   1 trks.onyxVenue
   , onyxVenue = trks.onyxVenue
-    { venueCameraRB3        = RTB.empty
-    , venuePostProcessRB3   = RTB.empty
-    , venueLighting         = RTB.empty
-    , venueLightingCommands = RTB.empty
-    , venueBonusFX          = RTB.empty
-    , venueBonusFXOptional  = RTB.empty
+    { cameraRB3        = RTB.empty
+    , postProcessRB3   = RTB.empty
+    , lighting         = RTB.empty
+    , lightingCommands = RTB.empty
+    , bonusFX          = RTB.empty
+    , bonusFXOptional  = RTB.empty
     }
   }
 
@@ -1028,8 +1027,8 @@ fixedToOnyx f = OnyxFile
       { onyxPartMania = danceToMania f.fixedPartDance
       })
     ]
-  , onyxEvents   = if RTB.null f.fixedEvents.eventsSections
-    then f.fixedEvents { eventsSections = convertEncoreSections f.fixedSection }
+  , onyxEvents   = if RTB.null f.fixedEvents.sections
+    then f.fixedEvents { sections = convertEncoreSections f.fixedSection }
     else f.fixedEvents
   , onyxBeat     = f.fixedBeat
   , onyxVenue    = f.fixedVenue
@@ -1043,7 +1042,7 @@ fixedToOnyx f = OnyxFile
   }
 
 songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
-songLengthBeats s = case RTB.getTimes (getEventsTrack s.tracks).eventsEnd of
+songLengthBeats s = case RTB.getTimes (getEventsTrack s.tracks).end of
   [bts] -> bts
   _     -> 0 -- eh
 
@@ -1062,50 +1061,50 @@ shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 hasSolo :: (NNC.C t) => RB3Instrument -> Song (FixedFile t) -> Bool
 hasSolo Guitar song = any (not . null)
-  [ song.tracks.fixedPartGuitar.fiveSolo
-  , song.tracks.fixedPartRealGuitar.pgSolo
-  , song.tracks.fixedPartRealGuitar22.pgSolo
+  [ song.tracks.fixedPartGuitar.solo
+  , song.tracks.fixedPartRealGuitar.solo
+  , song.tracks.fixedPartRealGuitar22.solo
   ]
 hasSolo Bass song = any (not . null)
-  [ song.tracks.fixedPartBass.fiveSolo
-  , song.tracks.fixedPartRealBass.pgSolo
-  , song.tracks.fixedPartRealBass22.pgSolo
+  [ song.tracks.fixedPartBass.solo
+  , song.tracks.fixedPartRealBass.solo
+  , song.tracks.fixedPartRealBass22.solo
   ]
 hasSolo Drums song = any (not . null)
-  [ song.tracks.fixedPartDrums.drumSolo
+  [ song.tracks.fixedPartDrums.solo
   ]
 hasSolo Keys song = any (not . null)
-  [ song.tracks.fixedPartKeys.fiveSolo
-  , song.tracks.fixedPartRealKeysX.pkSolo
+  [ song.tracks.fixedPartKeys.solo
+  , song.tracks.fixedPartRealKeysX.solo
   ]
 hasSolo Vocal song = any (not . null)
-  [ song.tracks.fixedPartVocals.vocalPerc
-  , song.tracks.fixedHarm1.vocalPerc
+  [ song.tracks.fixedPartVocals.percussion
+  , song.tracks.fixedHarm1.percussion
   ]
 
 fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixFreeformDrums trk = trk
-  { drumSingleRoll = fixFreeform' gems trk.drumSingleRoll
-  , drumDoubleRoll = fixFreeform' gems trk.drumDoubleRoll
-  } where gems = maybe RTB.empty (void . (.drumGems)) $ Map.lookup Expert trk.drumDifficulties
+  & #singleRoll %~ fixFreeform' gems
+  & #doubleRoll %~ fixFreeform' gems
+  where gems = maybe RTB.empty (void . (.gems)) $ Map.lookup Expert trk.difficulties
 
 fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFreeformFive trk = trk
-  { fiveTremolo = fixFreeform' gems trk.fiveTremolo
-  , fiveTrill   = fixFreeform' gems trk.fiveTrill
-  } where gems = maybe RTB.empty (void . (.fiveGems)) $ Map.lookup Expert trk.fiveDifficulties
+  & #tremolo %~ fixFreeform' gems
+  & #trill   %~ fixFreeform' gems
+  where gems = maybe RTB.empty (void . (.gems)) $ Map.lookup Expert trk.difficulties
 
 fixFreeformPK :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
 fixFreeformPK trk = trk
-  { pkGlissando = fixFreeform gems trk.pkGlissando
-  , pkTrill     = fixFreeform gems trk.pkTrill
-  } where gems = void trk.pkNotes
+  & #glissando %~ fixFreeform gems
+  & #trill     %~ fixFreeform gems
+  where gems = void trk.notes
 
 fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 fixFreeformPG trk = trk
-  { pgTremolo = fixFreeform' gems trk.pgTremolo
-  , pgTrill   = fixFreeform' gems trk.pgTrill
-  } where gems = maybe RTB.empty (void . (.pgNotes)) $ Map.lookup Expert trk.pgDifficulties
+  & #tremolo %~ fixFreeform' gems
+  & #trill   %~ fixFreeform' gems
+  where gems = maybe RTB.empty (void . (.notes)) $ Map.lookup Expert trk.difficulties
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
@@ -1135,60 +1134,55 @@ getPercType song = listToMaybe do
     , song.tracks.fixedHarm2
     , song.tracks.fixedHarm3
     ]
-  (perc, _) <- RTB.getBodies trk.vocalPercAnimation
+  (perc, _) <- RTB.getBodies trk.percussionAnimation
   return perc
 
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
-  { fiveDifficulties = flip fmap pg.pgDifficulties \pgd -> mempty
-    { fiveGems
-      = blipEdgesRB_
-      $ fmap head
-      $ RTB.collectCoincident
-      $ noExtendedSustains' standardBlipThreshold standardSustainGap
-      $ fmap (\(_, _, len) -> (Just Five.Green, len))
-      $ edgeBlips minSustainLengthRB pgd.pgNotes
-    }
-  , fiveOverdrive    = pg.pgOverdrive
-  , fiveBRE          = fmap snd pg.pgBRE
-  , fiveSolo         = pg.pgSolo
-  }
+  & #difficulties .~ do
+    flip fmap pg.difficulties \pgd -> mempty & #gems .~ do
+      blipEdgesRB_
+        $ fmap head
+        $ RTB.collectCoincident
+        $ noExtendedSustains' standardBlipThreshold standardSustainGap
+        $ fmap (\(_, _, len) -> (Just Five.Green, len))
+        $ edgeBlips minSustainLengthRB pgd.notes
+  & #overdrive .~ pg.overdrive
+  & #bre       .~ fmap snd pg.bre
+  & #solo      .~ pg.solo
 
 -- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
 expertProKeysToKeys :: ProKeysTrack U.Beats -> FiveTrack U.Beats
 expertProKeysToKeys pk = mempty
-  { fiveDifficulties = let
-    fd = mempty
-      { fiveGems
-        = blipEdgesRB_
-        $ fmap head
-        $ RTB.collectCoincident
-        $ noExtendedSustains' standardBlipThreshold standardSustainGap
-        $ fmap (\(_, len) -> (Just Five.Green, len))
-        $ edgeBlips_ minSustainLengthRB pk.pkNotes
-      }
-    in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
-  , fiveOverdrive    = pk.pkOverdrive
-  , fiveBRE          = pk.pkBRE
-  , fiveSolo         = pk.pkSolo
-  }
+  & #difficulties .~ do
+    let fd = mempty & #gems .~ do
+          blipEdgesRB_
+            $ fmap head
+            $ RTB.collectCoincident
+            $ noExtendedSustains' standardBlipThreshold standardSustainGap
+            $ fmap (\(_, len) -> (Just Five.Green, len))
+            $ edgeBlips_ minSustainLengthRB pk.notes
+    Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
+  & #overdrive .~ pk.overdrive
+  & #bre       .~ pk.bre
+  & #solo      .~ pk.solo
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
 keysToProKeys :: (NNC.C t) => Difficulty -> FiveTrack t -> ProKeysTrack t
 keysToProKeys d ft = ProKeysTrack
-  { pkLanes     = RTB.singleton NNC.zero RangeA
-  , pkTrainer   = RTB.empty
-  , pkMood      = RTB.empty
-  , pkSolo      = if d == Expert then ft.fiveSolo else RTB.empty
-  , pkGlissando = RTB.empty
-  , pkTrill     = case d of
-    Expert -> isJust <$> ft.fiveTrill
+  { lanes     = RTB.singleton NNC.zero RangeA
+  , trainer   = RTB.empty
+  , mood      = RTB.empty
+  , solo      = if d == Expert then ft.solo else RTB.empty
+  , glissando = RTB.empty
+  , trill     = case d of
+    Expert -> isJust <$> ft.trill
     -- TODO add Hard trills
     _      -> RTB.empty
-  , pkOverdrive = if d == Expert then ft.fiveOverdrive else RTB.empty
-  , pkBRE       = if d == Expert then ft.fiveBRE else RTB.empty
-  , pkNotes     = case Map.lookup d ft.fiveDifficulties of
+  , overdrive = if d == Expert then ft.overdrive else RTB.empty
+  , bre       = if d == Expert then ft.bre else RTB.empty
+  , notes     = case Map.lookup d ft.difficulties of
     Nothing -> RTB.empty
     Just fd -> let
       colorToKey = \case
@@ -1198,7 +1192,7 @@ keysToProKeys d ft = ProKeysTrack
         Just Five.Yellow -> BlueGreen E
         Just Five.Blue   -> BlueGreen F
         Just Five.Orange -> BlueGreen G
-      in fmap colorToKey <$> fd.fiveGems
+      in fmap colorToKey <$> fd.gems
   }
 
 newtype SamplesTrack t = SamplesTrack

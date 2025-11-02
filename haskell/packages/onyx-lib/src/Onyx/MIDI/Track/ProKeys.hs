@@ -29,43 +29,43 @@ data Pitch = RedYellow Key | BlueGreen Key | OrangeC
   deriving (Enum, Bounded) via GenericFullEnum Pitch
 
 data ProKeysTrack t = ProKeysTrack
-  { pkLanes     :: RTB.T t LaneRange
-  , pkTrainer   :: RTB.T t Trainer
-  , pkMood      :: RTB.T t Mood
-  , pkSolo      :: RTB.T t Bool
-  , pkGlissando :: RTB.T t Bool
-  , pkTrill     :: RTB.T t Bool
-  , pkOverdrive :: RTB.T t Bool
-  , pkBRE       :: RTB.T t Bool
-  , pkNotes     :: RTB.T t (Edge () Pitch)
+  { lanes     :: RTB.T t LaneRange
+  , trainer   :: RTB.T t Trainer
+  , mood      :: RTB.T t Mood
+  , solo      :: RTB.T t Bool
+  , glissando :: RTB.T t Bool
+  , trill     :: RTB.T t Bool
+  , overdrive :: RTB.T t Bool
+  , bre       :: RTB.T t Bool
+  , notes     :: RTB.T t (Edge () Pitch)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (ProKeysTrack t)
 
 nullPK :: ProKeysTrack t -> Bool
-nullPK = RTB.null . (.pkNotes)
+nullPK = RTB.null . (.notes)
 
 instance ChopTrack ProKeysTrack where
   chopTake t pk = ProKeysTrack
-    { pkLanes     = U.trackTake  t pk.pkLanes
-    , pkTrainer   = U.trackTake  t pk.pkTrainer
-    , pkMood      = U.trackTake  t pk.pkMood
-    , pkSolo      = chopTakeBool t pk.pkSolo
-    , pkGlissando = chopTakeBool t pk.pkGlissando
-    , pkTrill     = chopTakeBool t pk.pkTrill
-    , pkOverdrive = chopTakeBool t pk.pkOverdrive
-    , pkBRE       = chopTakeBool t pk.pkBRE
-    , pkNotes     = chopTakeEdge t pk.pkNotes
+    { lanes     = U.trackTake  t pk.lanes
+    , trainer   = U.trackTake  t pk.trainer
+    , mood      = U.trackTake  t pk.mood
+    , solo      = chopTakeBool t pk.solo
+    , glissando = chopTakeBool t pk.glissando
+    , trill     = chopTakeBool t pk.trill
+    , overdrive = chopTakeBool t pk.overdrive
+    , bre       = chopTakeBool t pk.bre
+    , notes     = chopTakeEdge t pk.notes
     }
   chopDrop t pk = ProKeysTrack
-    { pkLanes     = chopDropStatus t pk.pkLanes
-    , pkTrainer   = U.trackDrop    t pk.pkTrainer
-    , pkMood      = chopDropStatus t pk.pkMood
-    , pkSolo      = chopDropBool   t pk.pkSolo
-    , pkGlissando = chopDropBool   t pk.pkGlissando
-    , pkTrill     = chopDropBool   t pk.pkTrill
-    , pkOverdrive = chopDropBool   t pk.pkOverdrive
-    , pkBRE       = chopDropBool   t pk.pkBRE
-    , pkNotes     = chopDropEdge   t pk.pkNotes
+    { lanes     = chopDropStatus t pk.lanes
+    , trainer   = U.trackDrop    t pk.trainer
+    , mood      = chopDropStatus t pk.mood
+    , solo      = chopDropBool   t pk.solo
+    , glissando = chopDropBool   t pk.glissando
+    , trill     = chopDropBool   t pk.trill
+    , overdrive = chopDropBool   t pk.overdrive
+    , bre       = chopDropBool   t pk.bre
+    , notes     = chopDropEdge   t pk.notes
     }
 
 instance TraverseTrack ProKeysTrack where
@@ -75,21 +75,21 @@ instance TraverseTrack ProKeysTrack where
 
 instance ParseTrack ProKeysTrack where
   parseTrack = do
-    pkTrainer   <- (.pkTrainer  ) =. let
+    trainer   <- (.trainer  ) =. let
       parse = toCommand >=> \case (t, k) | k == T.pack "key" -> Just t; _ -> Nothing
       unparse :: Trainer -> [T.Text]
       unparse t = fromCommand (t, T.pack "key")
       in commandMatch' parse unparse
-    pkMood      <- (.pkMood     ) =. command
-    pkGlissando <- (.pkGlissando) =. edges 126
-    pkTrill     <- (.pkTrill    ) =. edges 127
-    pkOverdrive <- (.pkOverdrive) =. edges 116
-    pkSolo      <- (.pkSolo     ) =. edges 115
-    pkBRE       <- (.pkBRE      ) =. edges 120
+    mood      <- (.mood     ) =. command
+    glissando <- (.glissando) =. edges 126
+    trill     <- (.trill    ) =. edges 127
+    overdrive <- (.overdrive) =. edges 116
+    solo      <- (.solo     ) =. edges 115
+    bre       <- (.bre      ) =. edges 120
     chordSnap [48 .. 72]
-    pkNotes     <- ((.pkNotes   ) =.) $ fatBlips (1/8) $ translateEdges
+    notes     <- ((.notes   ) =.) $ fatBlips (1/8) $ translateEdges
       $ condenseMap $ eachKey each \k -> edges $ fromEnum k + 48
-    pkLanes     <- ((.pkLanes   ) =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
+    lanes     <- ((.lanes   ) =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
       RangeC -> 0
       RangeD -> 2
       RangeE -> 4
@@ -107,4 +107,4 @@ fixPSRange trk = let
         RTB.cons NNC.zero range1 $ RTB.cons (NNC.add t1 t2) range2 ranges''
       Nothing -> RTB.singleton NNC.zero range1
     Nothing -> RTB.empty
-  in trk { pkLanes = fix trk.pkLanes }
+  in trk { lanes = fix trk.lanes }

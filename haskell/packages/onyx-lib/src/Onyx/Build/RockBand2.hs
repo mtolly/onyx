@@ -1,13 +1,16 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Build.RockBand2 (convertMidiRB2, stripMidiMagmaV1, dryVoxAudio) where
 
 import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Function                    ((&))
 import           Data.List                        (inits, tails)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
@@ -27,6 +30,7 @@ import           Onyx.MIDI.Track.Vocal
 import           Onyx.Overdrive                   (fixPartialUnisons)
 import           Onyx.StackTrace
 import           Onyx.Vocal.DryVox                (sineDryVox)
+import           Optics                           ((%~), (.~))
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
@@ -40,14 +44,14 @@ convertMidiRB2 mid = fixUnisons mid
       pd = mid.tracks.fixedPartDrums
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
-        { drumKick2x = RTB.empty
-        , drumDifficulties = flip fmap pd.drumDifficulties \dd -> dd
-          { drumMix = flip fmap dd.drumMix \case
+        { kick2x = RTB.empty
+        , difficulties = flip fmap pd.difficulties \dd -> dd
+          { mix = flip fmap dd.mix \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
             x                  -> x
           }
-        , drumAnimation = let
-          anims = flip fmap pd.drumAnimation \case
+        , animation = let
+          anims = flip fmap pd.animation \case
             -- these were added in RB3
             Snare SoftHit hand -> Snare HardHit hand
             Ride LH            -> Hihat LH
@@ -57,13 +61,14 @@ convertMidiRB2 mid = fixUnisons mid
           -- we do nub for when a song, inexplicably,
           -- has simultaneous "soft snare LH" and "hard snare LH"
         }
-    , F.fixedPartGuitar = fixFiveColors $ fixGB True  mid.tracks.fixedPartGuitar
-    , F.fixedPartBass   = fixFiveColors $ fixGB False mid.tracks.fixedPartBass
+    , F.fixedPartGuitar = fixFiveColors mid.tracks.fixedPartGuitar
+    , F.fixedPartBass   = fixFiveColors
+      $ mid.tracks.fixedPartBass & #solo .~ RTB.empty
     , F.fixedPartVocals = mid.tracks.fixedPartVocals
-      { vocalLyricShift = RTB.empty
-      , vocalRangeShift = RTB.empty
+      { lyricShift = RTB.empty
+      , rangeShift = RTB.empty
       }
-    , F.fixedEvents = mid.tracks.fixedEvents { eventsSections = RTB.empty }
+    , F.fixedEvents = mid.tracks.fixedEvents { sections = RTB.empty }
     , F.fixedBeat = mid.tracks.fixedBeat
     -- We now compile venue for RB2 already in Onyx.Build.RB3CH
     , F.fixedVenue = mid.tracks.fixedVenue
@@ -73,9 +78,6 @@ convertMidiRB2 mid = fixUnisons mid
     , F.fixedHarm3 = mid.tracks.fixedHarm3
     }
   } where
-    fixGB hasSolos t = t
-      { fiveSolo = if hasSolos then t.fiveSolo else RTB.empty
-      }
     fixUnisons :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
     fixUnisons song = let
       gtr  = song.tracks.fixedPartGuitar
@@ -97,30 +99,29 @@ stripMidiMagmaV1 mid = mid
     , F.fixedHarm3      = mempty
     , F.fixedVenue      = mid.tracks.fixedVenue
       -- Magma v2 is ok with these but not v1
-      { venueFog = RTB.empty
+      { fog = RTB.empty
       }
     }
   } where
     noDrumLanes dt = dt
-      { drumSingleRoll = RTB.empty
-      , drumDoubleRoll = RTB.empty
+      { singleRoll = RTB.empty
+      , doubleRoll = RTB.empty
       }
     noFiveLanes ft = ft
-      { fiveTrill   = RTB.empty
-      , fiveTremolo = RTB.empty
+      { trill   = RTB.empty
+      , tremolo = RTB.empty
       }
 
 fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFiveColors trk = let
-  expert = maybe RTB.empty (.fiveGems) $ Map.lookup Expert trk.fiveDifficulties
+  expert = maybe RTB.empty (.gems) $ Map.lookup Expert trk.difficulties
   usedColors = Set.fromList $ flip mapMaybe (RTB.getBodies expert) \case
     EdgeOn _ color -> Just color
     EdgeOff _      -> Nothing
-  in trk
-    { fiveDifficulties = flip Map.mapWithKey trk.fiveDifficulties \diff fd -> case diff of
+  in trk & #difficulties .~ do
+    flip Map.mapWithKey trk.difficulties \diff fd -> case diff of
       Expert -> fd
-      _      -> fd { fiveGems = useColorsFive usedColors fd.fiveGems }
-    }
+      _      -> fd & #gems %~ useColorsFive usedColors
 
 useColorsFive :: (Ord color) => Set.Set color -> RTB.T U.Beats (Edge () color) -> RTB.T U.Beats (Edge () color)
 useColorsFive cols rtb = let
@@ -153,13 +154,12 @@ useColorFive newColor rtb = do
 
 fixDrumColors :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixDrumColors trk = let
-  expert = fmap fst $ maybe RTB.empty (.drumGems) $ Map.lookup Expert trk.drumDifficulties
+  expert = fmap fst $ maybe RTB.empty (.gems) $ Map.lookup Expert trk.difficulties
   usedColors = Set.fromList $ RTB.getBodies expert
-  in trk
-    { drumDifficulties = flip Map.mapWithKey trk.drumDifficulties \diff dd -> case diff of
+  in trk & #difficulties .~ do
+    flip Map.mapWithKey trk.difficulties \diff dd -> case diff of
       Expert -> dd
-      _      -> dd { drumGems = fmap (, VelocityNormal) $ useColorsDrums usedColors expert $ fmap fst dd.drumGems }
-    }
+      _      -> dd & #gems %~ fmap (, VelocityNormal) . useColorsDrums usedColors expert . fmap fst
 
 useColorsDrums :: Set.Set (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ())
 useColorsDrums cols expert rtb = let

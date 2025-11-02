@@ -72,11 +72,11 @@ importRRGuitarBass rr = let
     . RTB.collectCoincident
     . fmap (\case EdgeOn{} -> True; EdgeOff{} -> False)
   in Five.FiveDifficulty
-    { Five.fiveForceStrum = forceEdges rr.rrfStrums
-    , Five.fiveForceHOPO = forceEdges rr.rrfHOPOs
-    , Five.fiveTap = RTB.empty
-    , Five.fiveOpen = RTB.empty
-    , Five.fiveGems = fmap (fmap Just) $ RTB.merge rr.rrfStrums rr.rrfHOPOs
+    { Five.forceStrum = forceEdges rr.rrfStrums
+    , Five.forceHOPO = forceEdges rr.rrfHOPOs
+    , Five.tap = RTB.empty
+    , Five.open = RTB.empty
+    , Five.gems = fmap (fmap Just) $ RTB.merge rr.rrfStrums rr.rrfHOPOs
     }
 
 -- drums
@@ -220,10 +220,10 @@ instance ParseTrack RRDrumDifficulty where
 
 importRRDrums :: Map.Map Difficulty (RRDrumDifficulty U.Beats) -> D.DrumTrack U.Beats
 importRRDrums diffs = mempty
-  { D.drumDifficulties = flip fmap diffs \rr -> D.DrumDifficulty
-    { D.drumMix         = RTB.empty
-    , D.drumPSModifiers = RTB.empty
-    , D.drumGems
+  { D.difficulties = flip fmap diffs \rr -> D.DrumDifficulty
+    { D.mix         = RTB.empty
+    , D.psModifiers = RTB.empty
+    , D.gems
       -- pretty sure both toms or both crashes at the same time just translates to one 4-lane pad
       = RTB.flatten
       $ fmap nubOrd
@@ -232,12 +232,12 @@ importRRDrums diffs = mempty
       $ RTB.mapMaybe (rrChannel4Lane . snd)
       $ rr.rrdGems
     }
-  , D.drumToms = let
+  , D.toms = let
     expert = maybe mempty (RTB.mapMaybe (rrChannel4Lane . snd) . (.rrdGems)) $ Map.lookup Expert diffs
     in U.trackJoin $ flip fmap expert \case
       D.Pro color D.Tom -> RTB.cons 0 (color, D.Tom) $ RTB.cons (1/32) (color, D.Cymbal) RTB.empty
       _                 -> RTB.empty
-  , D.drumSolo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert diffs
+  , D.solo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert diffs
   }
 
 importRREliteDrums :: RRDrumDifficulty U.Beats -> ED.EliteDrumDifficulty U.Beats
