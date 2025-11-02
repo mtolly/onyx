@@ -180,8 +180,8 @@ readRBAFiles r = getRBAFiles r <$> readRBAHeader r
 -- album art is .bmp in .rba, but .png_xbox in .rbs
 isReadableBMP :: Readable -> IO Bool
 isReadableBMP r = do
-  magic <- useHandle r \h -> B.hGet h 3
-  return $ magic == "BM6"
+  magic <- useHandle r \h -> B.hGet h 2
+  return $ magic == "BM"
 
 handleSHA1 :: IO.Handle -> IO B.ByteString
 handleSHA1 h = go hashInit where

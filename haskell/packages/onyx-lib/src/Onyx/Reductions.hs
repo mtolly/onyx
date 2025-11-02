@@ -533,6 +533,8 @@ drumsReduce diff   mmap od sections trk = let
       in foldr f keptAll sectionBounds
   in ensureODNotes od trk $ RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
 
+-- TODO this should be fixed to not write everything as a new onyx midi,
+-- but only modify the appropriate tracks and don't touch anything else
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin

@@ -1338,6 +1338,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               sink $ EventOnyx $ startTasks [("Build web preview", task)]
           _ -> return ()
       return ()
+    -- TODO this needs to somehow start from a pre-import midi file if present
+    -- so we don't mess up things like encore pad tracks
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Produce MIDI with automatic reductions"
       taskColor >>= FL.setColor btn
