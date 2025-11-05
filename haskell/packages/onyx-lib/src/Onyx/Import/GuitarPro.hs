@@ -46,7 +46,7 @@ rhythmLength r = do
     "128th"   -> return (1/32)
     _         -> Nothing
   let dots = maybe 0 (.count) r.augmentationDot
-      dotRatio = 2 - 2 ^^ (negate dots)
+      dotRatio = 2 - 2 ^^ negate dots
       tupleRatio = maybe 1 (\tup -> fromIntegral tup.den / fromIntegral tup.num) r.primaryTuplet
   return $ base * dotRatio * tupleRatio
 

@@ -4,7 +4,6 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DeriveTraversable          #-}
-{-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE FlexibleContexts           #-}
@@ -30,6 +29,7 @@ import           Data.Bits
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (find, toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.Map.Strict.Internal         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -565,7 +565,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
     mClosestTime' = mClosestTime >>= \ct -> do
       guard $ abs (ct - t) < halfWindow
       return ct
-    hit = flip fmap mpad \pad -> let
+    hit = mpad <&> \pad -> let
       hitNote = mClosestTime' >>= \closestTime -> do
         guard case Map.lookup closestTime dps.track of
           Nothing -> False
@@ -619,7 +619,7 @@ applyDrumEvent tNew mpadNew halfWindow dps = let
       _             -> (t, (EventResult{..}, newState)) : evts
   in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind \(t, (res, _)) ->
+      eventsToRewind' = eventsToRewind <&> \(t, (res, _)) ->
         (t, fmap fst res.hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
       in dps & #events .~ newEvents
@@ -827,7 +827,7 @@ applyEliteDrumEvent tNew mpadNew halfWindow dps = let
     in (t, (maybeInput, newState)) : evts
   in case span ((> tNew) . fst) dps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind \(t, (hit, _)) -> (t, hit)
+      eventsToRewind' = eventsToRewind <&> \(t, (hit, _)) -> (t, hit)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, mpadNew)]
       in dps & #events .~ newEvents
 
@@ -1062,6 +1062,6 @@ applyGuitarEvent tNew minputNew halfWindow gps = let
 
   in case span ((> tNew) . fst) gps.events of
     (eventsToRewind, rest) -> let
-      eventsToRewind' = flip map eventsToRewind \(t, (input, _)) -> (t, input)
+      eventsToRewind' = eventsToRewind <&> \(t, (input, _)) -> (t, input)
       newEvents = foldr applyNoRewind rest $ eventsToRewind' ++ [(tNew, minputNew)]
       in gps & #events .~ newEvents

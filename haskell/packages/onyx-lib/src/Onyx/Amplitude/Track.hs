@@ -1,8 +1,7 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments  #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DerivingVia     #-}
+{-# LANGUAGE RecordWildCards #-}
 module Onyx.Amplitude.Track where
 
 import           Control.Monad.Codec

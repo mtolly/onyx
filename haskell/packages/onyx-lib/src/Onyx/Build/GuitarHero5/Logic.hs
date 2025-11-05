@@ -18,6 +18,7 @@ import           Data.Char                        (toLower, toUpper)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
@@ -152,7 +153,7 @@ makeDrumFill :: RTB.T U.Seconds gem -> U.Seconds -> [(U.Seconds, U.Seconds)]
 makeDrumFill notes end = let
   notePosns = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident notes
   gaps = zip (0 : notePosns) (notePosns <> [end])
-  potentialFills = flip map gaps \(gapStart, gapEnd) ->
+  potentialFills = gaps <&> \(gapStart, gapEnd) ->
     ( if gapStart == 0 then 0 else gapStart + 0.15 -- NS actually appear to use a gap of "32nd note and then 100ms" but this should work
     , if gapEnd == end then end else gapEnd -| 0.1
     )
@@ -220,7 +221,7 @@ pullBackTapEnds = go . RTB.normalize where
 pullBackTapEnds' :: (NNC.C t, Fractional t) => RTB.T t (note, Maybe t) -> RTB.T t Bool -> RTB.T t Bool
 pullBackTapEnds' notes taps = let
   result = pullBackTapEnds $ RTB.merge
-    (U.trackJoin $ flip fmap notes \case
+    (U.trackJoin $ notes <&> \case
       (_, Just len) -> Wait 0 NoteOn $ Wait len NoteOff RNil
       (_, Nothing ) -> Wait 0 NoteBlip RNil
     )
@@ -243,7 +244,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
   beatsToMS :: U.Beats -> Word32
   beatsToMS = secondsToMS . U.applyTempoMap tmap
   makeStarPower od = do
-    (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap od \case
+    (t, ((), (), len)) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ od <&> \case
       True  -> EdgeOn () ()
       False -> EdgeOff ()
     let start = beatsToMS t
@@ -294,7 +295,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
       , gb_tapping = makeStarPower taps
       , gb_starpower = makeStarPower result.other.overdrive
       }
-  drumResult = flip fmap (getPart target.drums songYaml >>= anyDrums) \builder ->
+  drumResult = (getPart target.drums songYaml >>= anyDrums) <&> \builder ->
     builder DrumTargetGH ModeInput
       { tempo  = tmap
       , events = F.getEventsTrack ofile
@@ -372,7 +373,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
           Expert -> Right withGhost
           _      -> Left $ map (.xdNote) withGhost
         , drums_starpower = makeStarPower trk.overdrive
-        , drums_drumfill = flip map fills \(gapStart, gapEnd) ->
+        , drums_drumfill = fills <&> \(gapStart, gapEnd) ->
           Single (secondsToMS gapStart) (secondsToMS gapEnd)
         }
     Nothing -> Drums (case diff of Expert -> Right []; _ -> Left []) [] []
@@ -448,7 +449,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
             , tsNumerator = fromIntegral num
             , tsDenominator = 4
             }
-        sections = flip fmap ofile.onyxEvents.sections \section -> let
+        sections = ofile.onyxEvents.sections <&> \section -> let
           sectionPrint = sectionBody $ makeDisplaySection section
           sectionGH = "\\u[m]" <> sectionPrint
           in (qsKey sectionGH, sectionGH)

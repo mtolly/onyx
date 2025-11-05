@@ -7,7 +7,6 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ViewPatterns          #-}
 module Onyx.CommandLine
@@ -41,6 +40,7 @@ import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Absolute.TimeBody     as ATB
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor                         ((<&>))
 import           Data.Functor.Identity                (Identity (..))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (find, isPrefixOf,
@@ -300,7 +300,8 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
               [0xAF, 0xDE, 0xBE, 0xCB] -> FileType FileMilo fp
               [0xAF, 0xDE, 0xBE, 0xCC] -> FileType FileMilo fp
               [0xAF, 0xDE, 0xBE, 0xCD] -> FileType FileMilo fp
-              [0x7F, 0x50, 0x4B, 0x47] -> FileType FilePKG fp
+              [0x7F, 0x50, 0x4B, 0x47] -> FileType FilePKGPS3 fp
+              [0x7F, 0x43, 0x4E, 0x54] -> FileType FilePKGPS4 fp
               [0x55, 0xAA, 0x38, 0x2D] -> FileType FileU8 fp
               _                        -> FileUnrecognized
   False -> Dir.doesDirectoryExist fp >>= \case
@@ -344,7 +345,8 @@ data FileType
   | FileZip
   | FilePSARC
   | FileMilo
-  | FilePKG
+  | FilePKGPS3
+  | FilePKGPS4
   | FileHdrE2
   | FileISO
   | FileFSB
@@ -1017,12 +1019,21 @@ commands =
         out <- outputFile opts $ return $ milo ++ "_extract"
         unpackMilo milo out
         return out
-      (FilePKG, pkg) -> do
+      (FilePKGPS3, pkg) -> do
         out <- outputFile opts $ return $ pkg <> "_extract"
         stackIO $ Dir.createDirectoryIfMissing False out
         folder <- stackIO (loadPKG pkg) >>= tryDecryptEDATs . (.pkgFolder)
         stackIO $ saveHandleFolder (first TE.decodeLatin1 folder) out
         return out
+      (FilePKGPS4, _pkg) -> do
+        fatal "PS4 .pkg not supported yet"
+        {-
+        out <- outputFile opts $ return $ pkg <> "_extract"
+        stackIO $ Dir.createDirectoryIfMissing False out
+        folder <- stackIO $ loadPkgFolder $ fileReadable pkg
+        stackIO $ saveHandleFolder folder out
+        return out
+        -}
       (FileHdrE2, hdrE2) -> do
         let base = takeWhile (/= '.') $ takeFileName hdrE2
         out <- outputFile opts $ return $ takeDirectory hdrE2 </> (base <> "_extract")
@@ -1365,7 +1376,7 @@ commands =
         stackIO $ yamlEncodeFile (dir </> "song.yml") $ toJSON (SongYaml
           { metadata = def
           , global   = def
-          , audio    = HM.fromList $ flip map (zip [1..] pairs) \(i, (md5, len)) -> let
+          , audio    = HM.fromList $ zip [1..] pairs <&> \(i, (md5, len)) -> let
             ainfo = AudioFile AudioInfo
               { md5      = Just $ T.pack md5
               , frames   = Just len

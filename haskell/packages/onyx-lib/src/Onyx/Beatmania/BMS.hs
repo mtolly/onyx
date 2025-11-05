@@ -7,6 +7,7 @@
 module Onyx.Beatmania.BMS where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map                         as Map
 import           Data.Maybe
@@ -136,5 +137,5 @@ readBMSLines lns = BMS
       (col, key) <- bmeMapping
       let chan = getChannel $ T.pack [c, col]
           edges = zip (cycle [True, False]) $ RTB.toPairList chan
-      return $ RTB.fromPairList $ flip fmap edges
+      return $ RTB.fromPairList $ edges <&>
         \(edge, (dt, chip)) -> (dt, (key, chip, edge))

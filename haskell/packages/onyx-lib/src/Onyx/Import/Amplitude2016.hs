@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE StrictData            #-}
-{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.Amplitude2016 where
 
 import           Control.Monad.Extra                   (forM, guard)

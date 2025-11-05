@@ -1,9 +1,8 @@
-{-# LANGUAGE BlockArguments     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE BlockArguments  #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE DerivingVia     #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
 module Onyx.MIDI.Track.Beat where
 
 import           Control.Monad.Codec

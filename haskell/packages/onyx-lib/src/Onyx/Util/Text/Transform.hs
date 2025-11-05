@@ -1,5 +1,4 @@
 {-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Util.Text.Transform where
 

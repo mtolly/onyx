@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -8,7 +7,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE StrictData          #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.FiveFret where
 
 import           Control.Monad                    (void, when)
@@ -17,6 +15,7 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
@@ -183,7 +182,7 @@ instance ParseTrack FiveTrack where
       { codecIn = lift $ modify \mt -> let
         p104 = fromMaybe RTB.empty $ Map.lookup (V.toPitch 104) mt.midiNotes
         in if RTB.null p104 then mt else let
-          newPS = flip fmap p104 $ PS.PSMessage Nothing PS.TapNotes . \case
+          newPS = p104 <&> PS.PSMessage Nothing PS.TapNotes . \case
             EdgeOn {} -> True
             EdgeOff{} -> False
           in mt

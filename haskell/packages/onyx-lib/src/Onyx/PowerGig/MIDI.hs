@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -13,6 +12,7 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
@@ -45,34 +45,38 @@ data GuitarDifficulty t = GuitarDifficulty
 instance ParseTrack GuitarDifficulty where
   parseTrack = do
     let allGems = Nothing : map Just each
-    guitarGems <- ((.guitarGems) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing          -> 60
-      Just Five.Green  -> 62
-      Just Five.Red    -> 64
-      Just Five.Yellow -> 65
-      Just Five.Blue   -> 67
-      Just Five.Orange -> 69
-    guitarPowerChordsGRYBO <- ((.guitarPowerChordsGRYBO) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing          -> 96
-      Just Five.Green  -> 98
-      Just Five.Red    -> 100
-      Just Five.Yellow -> 101
-      Just Five.Blue   -> 103
-      Just Five.Orange -> 105
-    guitarPowerChordsE <- ((.guitarPowerChordsE) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing          -> 108
-      Just Five.Green  -> 109
-      Just Five.Red    -> 110
-      Just Five.Yellow -> 111
-      Just Five.Blue   -> 112
-      Just Five.Orange -> 113
-    guitarPowerChordsA <- ((.guitarPowerChordsA) =.) $ translateEdges $ condenseMap $ eachKey allGems $ edges . \case
-      Nothing          -> 114
-      Just Five.Green  -> 115
-      Just Five.Red    -> 116
-      Just Five.Yellow -> 117
-      Just Five.Blue   -> 118
-      Just Five.Orange -> 119
+    guitarGems <- (.guitarGems) =. do
+      translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+        Nothing          -> 60
+        Just Five.Green  -> 62
+        Just Five.Red    -> 64
+        Just Five.Yellow -> 65
+        Just Five.Blue   -> 67
+        Just Five.Orange -> 69
+    guitarPowerChordsGRYBO <- (.guitarPowerChordsGRYBO) =. do
+      translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+        Nothing          -> 96
+        Just Five.Green  -> 98
+        Just Five.Red    -> 100
+        Just Five.Yellow -> 101
+        Just Five.Blue   -> 103
+        Just Five.Orange -> 105
+    guitarPowerChordsE <- (.guitarPowerChordsE) =. do
+      translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+        Nothing          -> 108
+        Just Five.Green  -> 109
+        Just Five.Red    -> 110
+        Just Five.Yellow -> 111
+        Just Five.Blue   -> 112
+        Just Five.Orange -> 113
+    guitarPowerChordsA <- (.guitarPowerChordsA) =. do
+      translateEdges $ condenseMap $ eachKey allGems $ edges . \case
+        Nothing          -> 114
+        Just Five.Green  -> 115
+        Just Five.Red    -> 116
+        Just Five.Yellow -> 117
+        Just Five.Blue   -> 118
+        Just Five.Orange -> 119
     guitarHOPO           <- (.guitarHOPO)           =. controllerBool 68 -- "legato pedal"
     guitarPowerChordMode <- (.guitarPowerChordMode) =. controllerBool 86
     guitarMojoDrummer    <- (.guitarMojoDrummer)    =. controllerBool 81
@@ -94,20 +98,22 @@ data DrumDifficulty t = DrumDifficulty
 instance ParseTrack DrumDifficulty where
   parseTrack = do
     let allDrums = [D.Kick, D.Red, D.Pro D.Yellow (), D.Pro D.Blue (), D.Pro D.Green ()]
-    drumGems <- ((.drumGems) =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
-      D.Pro D.Green  () -> 62
-      D.Red             -> 64
-      D.Pro D.Yellow () -> 65
-      D.Pro D.Blue   () -> 67
-      D.Kick            -> 69
-      D.Orange          -> error "panic! orange case in powergig drums"
-    drumFreeGems <- ((.drumFreeGems) =.) $ translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
-      D.Pro D.Green  () -> 86
-      D.Red             -> 88
-      D.Pro D.Yellow () -> 89
-      D.Pro D.Blue   () -> 91
-      D.Kick            -> 93
-      D.Orange          -> error "panic! orange case in powergig drums"
+    drumGems <- (.drumGems) =. do
+      translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
+        D.Pro D.Green  () -> 62
+        D.Red             -> 64
+        D.Pro D.Yellow () -> 65
+        D.Pro D.Blue   () -> 67
+        D.Kick            -> 69
+        D.Orange          -> error "panic! orange case in powergig drums"
+    drumFreeGems <- (.drumFreeGems) =. do
+      translateEdges $ condenseMap $ eachKey allDrums $ edges . \case
+        D.Pro D.Green  () -> 86
+        D.Red             -> 88
+        D.Pro D.Yellow () -> 89
+        D.Pro D.Blue   () -> 91
+        D.Kick            -> 93
+        D.Orange          -> error "panic! orange case in powergig drums"
     drumMojoGuitarist <- (.drumMojoGuitarist) =. controllerBool 80
     drumMojoVocalist  <- (.drumMojoVocalist)  =. controllerBool 82
     drumFreestyle     <- (.drumFreestyle)     =. controllerBool 64
@@ -214,7 +220,7 @@ instance F.ParseFile PGFile where
 
 -- This is needed for Cherub Rock and maybe others
 fixLateTrackNames :: F.T s -> F.T s
-fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks \trk -> case U.trackName trk of
+fixLateTrackNames (F.Cons typ dvn trks) = F.Cons typ dvn $ trks <&> \trk -> case U.trackName trk of
   Just _  -> trk
   Nothing -> case RTB.partitionMaybe U.readTrackName trk of
     (names, rest) -> foldr (Wait 0 . U.showTrackName) rest names

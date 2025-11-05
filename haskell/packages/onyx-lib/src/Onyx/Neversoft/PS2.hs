@@ -18,6 +18,7 @@ import qualified Data.ByteString       as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (find, toList)
+import           Data.Functor          ((<&>))
 import qualified Data.HashMap.Strict   as HM
 import           Data.Int
 import qualified Data.List.NonEmpty    as NE
@@ -247,9 +248,9 @@ getNeoHeader = do
 splitNeoStreams :: NeoHeader -> BL.ByteString -> [(NeoStream, [BL.ByteString])]
 splitNeoStreams hdr bs = let
   blocks = splitEvery (fromIntegral hdr.totalBlockSize) $ BL.drop 0x10000 bs
-  in flip map hdr.streams \stream -> let
+  in hdr.streams <&> \stream -> let
     blockTake = fromIntegral stream.channelBlockSize
-    chans = flip map [0 .. stream.channels - 1] \i -> let
+    chans = [0 .. stream.channels - 1] <&> \i -> let
       blockDrop = fromIntegral (stream.firstBlockOffset - 0x10000)
         + fromIntegral i * blockTake
       in BL.concat $ map

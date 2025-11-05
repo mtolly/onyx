@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -126,8 +125,8 @@ instance TraverseTrack AnimTrack where
 
 instance ParseTrack AnimTrack where
   parseTrack = do
-    animFretPosition <- ((.animFretPosition) =.) $ condenseMap $ eachKey each
-      \posn -> edges $ fromEnum posn + 40
+    animFretPosition <- (.animFretPosition) =. do
+      condenseMap $ eachKey each \posn -> edges $ fromEnum posn + 40
     animHandMap <- (.animHandMap) =. simpleText ""
     return AnimTrack{..}
 

@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Build.GuitarHero5 (gh5Rules, onyxGH5PackageTitle, hashGH5) where
 
 import           Control.Monad.Extra               (allM)

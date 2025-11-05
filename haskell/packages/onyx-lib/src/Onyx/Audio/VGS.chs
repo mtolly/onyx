@@ -18,14 +18,15 @@ import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (($$++))
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as CA
+import           Data.Functor                 ((<&>))
 import           Data.List.Extra              (minimumOn, elemIndex)
-import           Onyx.Util.Handle            (Readable (..), fileReadable,
-                                               useHandle)
-import System.FilePath ((</>))
-import System.IO.Temp (withSystemTempDirectory)
 import qualified Data.Vector.Storable         as V
-import           Foreign hiding (void)
+import           Foreign                      hiding (void)
+import           Onyx.Util.Handle             (Readable (..), fileReadable,
+                                               useHandle)
+import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
+import           System.IO.Temp               (withSystemTempDirectory)
 import           System.IO.Unsafe             (unsafePerformIO)
 
 #include "encode_vag.h"
@@ -98,7 +99,7 @@ writeVGSMultiRate fp srcs = let
     if secondsWritten nextInput < maxSeconds
       then do
         (newSealed, newInput) <- vgsSealedInput nextInput $$++ writeBlock h nextInput
-        let inputStates' = flip map (zip [0..] inputStates) \(i, st) ->
+        let inputStates' = zip [0..] inputStates <&> \(i, st) ->
               if i == (nextIndex :: Int) then newInput { vgsSealedInput = newSealed } else st
         writeBlocks h inputStates'
       else return inputStates
@@ -183,7 +184,7 @@ readVGSReadable r = do
   header <- useHandle r \h -> BL.hGet h 0x80
   let chans = readVGSHeader header
       totalBlocks = sum $ map snd chans
-  return $ flip map (zip [0..] chans) \(i, (rate, blocks)) -> let
+  return $ zip [0..] chans <&> \(i, (rate, blocks)) -> let
     src = C.bracketP (rOpen r) IO.hClose \h -> do
       _ <- liftIO $ BL.hGet h 0x80
       let go _    0          = return ()

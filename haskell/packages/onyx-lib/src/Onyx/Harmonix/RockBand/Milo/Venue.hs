@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.Harmonix.RockBand.Milo.Venue where
 
 import           Control.Monad                    (forM_, guard, replicateM)

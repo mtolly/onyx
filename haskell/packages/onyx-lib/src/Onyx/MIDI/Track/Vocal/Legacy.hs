@@ -3,7 +3,6 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE PatternSynonyms     #-}
 module Onyx.MIDI.Track.Vocal.Legacy
 ( Percussion(..), Pitch(..)
 , Event(..)

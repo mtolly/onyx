@@ -624,7 +624,7 @@ convertMidiEvent strings w = let
       type_ = tc `shiftR` 4
       note = fromIntegral $ (w .&. 0xFF00) `shiftR` 8
       velocity = fromIntegral $ w .&. 0xFF
-      in (E.MIDIEvent . C.Cons channel . C.Voice) <$> case type_ of
+      in E.MIDIEvent . C.Cons channel . C.Voice <$> case type_ of
         8  -> Just $ V.NoteOff (V.toPitch note) $ V.toVelocity velocity
         9  -> Just $ V.NoteOn (V.toPitch note) $ V.toVelocity velocity
         11 -> Just $ V.Control (V.toController note) velocity

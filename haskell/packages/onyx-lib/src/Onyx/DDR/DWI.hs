@@ -13,6 +13,7 @@ import           Data.Char                        (isSpace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe, mapMaybe)
@@ -158,7 +159,7 @@ getDWIArrows = RTB.filter (not . null) . go Set.empty where
   go held (Wait dt note rest) = let
     arrows = charArrows note.dwi_Note
     holds = maybe [] charArrows note.dwi_Hold
-    this = flip map arrows \arrow -> if elem arrow holds
+    this = arrows <&> \arrow -> if elem arrow holds
       then (arrow, '2') -- start hold
       else if Set.member arrow held
         then (arrow, '3') -- end hold

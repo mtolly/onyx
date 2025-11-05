@@ -17,6 +17,7 @@ import           Control.Monad                             (forM, guard, join,
 import           Data.Bifunctor                            (first)
 import           Data.Binary.Put                           (runPut)
 import qualified Data.ByteString.Lazy                      as BL
+import           Data.Functor                              ((<&>))
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
@@ -677,7 +678,7 @@ miscPageCONtoPKG sink rect tab startTasks = do
   FL.setResizable tab $ Just group
   let callback isRB3 = sink $ EventIO do
         inputs <- map stfsPath <$> readMVar loadedFiles
-        sink $ EventOnyx $ startTasks $ flip map inputs \input -> let
+        sink $ EventOnyx $ startTasks $ inputs <&> \input -> let
           pkg = input <> ".pkg"
           task = do
             conToPkg isRB3 input pkg

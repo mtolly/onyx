@@ -2,6 +2,7 @@
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -21,6 +22,7 @@ import           Control.Arrow                         (first, second)
 import           Control.Monad                         (guard)
 import           Data.Char                             (toLower)
 import           Data.Fixed                            (Milli)
+import           Data.Functor                          ((<&>))
 import           Data.List                             (intercalate, sort,
                                                         sortBy)
 import           Data.Maybe                            (catMaybes, fromMaybe,
@@ -106,7 +108,7 @@ toStandardMIDI (F.Cons F.Parallel (F.Ticks res) trks) = let
       "Tracks without names (0 is tempo track): " ++ show unnamedIndexes
 toStandardMIDI (F.Cons F.Mixed (F.Ticks res) [trk]) = let
   trk' = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral res) trk
-  (tempos, noTempos) = flip RTB.partition trk' \e -> case e of
+  (tempos, noTempos) = flip RTB.partition trk' \case
     E.MetaEvent M.SetTempo{} -> True
     E.MetaEvent M.TimeSig{}  -> True
     _                        -> False
@@ -115,7 +117,7 @@ toStandardMIDI _ = Left "Unsupported MIDI format: must be ticks-based, and must 
 
 fromStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> (F.T T.Text, Maybe String)
 fromStandardMIDI opts sm = let
-  withNames = flip map sm.namedTracks \(s, rtb) ->
+  withNames = sm.namedTracks <&> \(s, rtb) ->
     RTB.cons 0 (E.MetaEvent (M.TrackName s)) rtb
   allBeats = sm.tempoTrack : withNames
   denoms = flip concatMap allBeats $
@@ -126,7 +128,7 @@ fromStandardMIDI opts sm = let
     then Nothing
     else Just $
       "Chosen resolution (" ++ show res ++ ") results in rounding; accurate resolution must be a multiple of " ++ show minRes
-  allTicks = flip map allBeats $
+  allTicks = allBeats <&>
     RTB.discretize . RTB.mapTime (\dt -> dt * fromIntegral res)
   in (F.Cons F.Parallel (F.Ticks $ fromIntegral res) allTicks, resWarn)
 
@@ -204,7 +206,7 @@ showStandardMIDI :: Options -> StandardMIDI (E.T T.Text) -> String
 showStandardMIDI opts m = let
   msrLengths = makeMeasures m.tempoTrack
   msrStarts = scanl (+) 0 msrLengths
-  lastEventPosn = foldr max 0 $ flip map stdTracks \(_, t) -> if null t
+  lastEventPosn = foldr max 0 $ stdTracks <&> \(_, t) -> if null t
     then 0
     else last $ map fst t
   msrMap :: Map.Map NN.Rational Int

@@ -93,7 +93,7 @@ randomQuickplay :: (MonadRandom m) => m Quickplay
 randomQuickplay = Quickplay
   <$> (Left <$> uniform each)
   <*> (Left <$> uniform each)
-  <*> (pure Nothing)
+  <*> pure Nothing
   <*> (Left <$> uniform each)
 
 data BandMember

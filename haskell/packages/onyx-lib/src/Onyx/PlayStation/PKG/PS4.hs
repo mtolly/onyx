@@ -32,6 +32,7 @@ import qualified Data.ByteString.Lazy     as BL
 import           Data.Foldable            (toList)
 import           Data.Int
 import           Data.IORef
+import qualified Data.Text                as T
 import           Data.Word
 import           Onyx.Rocksmith.Sng2014   (nullTerm)
 import           Onyx.Util.Binary         (runGetM)
@@ -534,6 +535,11 @@ xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS
         _ -> [firstSector .. lastSector]
       return $ BL.toStrict $ BL.take (fromIntegral n) $ BL.drop (fromIntegral firstPosn) $ BL.fromChunks sectors
     }
+
+--------------------------------------------------------------------------------
+
+loadPkgFolder :: Readable -> IO (Folder T.Text Readable)
+loadPkgFolder = undefined -- TODO
 
 --------------------------------------------------------------------------------
 

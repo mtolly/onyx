@@ -22,6 +22,7 @@ import           Data.Bits
 import qualified Data.ByteString           as B
 import qualified Data.ByteString.Char8     as B8
 import qualified Data.ByteString.Lazy      as BL
+import           Data.Functor              ((<&>))
 import           Data.Int
 import           Data.List.Extra           (chunksOf, foldl', nubOrd)
 import qualified Data.Map                  as Map
@@ -126,7 +127,7 @@ putTxtBin tb = runPut do
 -- Discards source and line number info
 txtBinToDTA :: TxtBin -> D.DTA B.ByteString
 txtBinToDTA tb = let
-  encodeNode (Node _ _ vals) = flip map vals \case
+  encodeNode (Node _ _ vals) = vals <&> \case
     I int  -> D.Int int
     S str  -> if B8.elem ' ' str || B8.elem '\'' str || B8.elem '\n' str
       then D.String str
@@ -144,7 +145,7 @@ txtBinToTracedDTA tb = let
       [ D.Int $ fromIntegral x
       , D.Int $ fromIntegral y
       ]
-    in (traceNumbers :) $ flip map vals \case
+    in (traceNumbers :) $ vals <&> \case
       I int  -> D.Int int
       S str  -> if B8.elem ' ' str || B8.elem '\'' str || B8.elem '\n' str
         then D.String str

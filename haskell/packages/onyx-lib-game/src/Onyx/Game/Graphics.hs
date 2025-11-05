@@ -28,6 +28,7 @@ import qualified Data.ByteString              as B
 import           Data.Fixed                   (Fixed (..), Milli)
 import           Data.Foldable                (toList, traverse_)
 import           Data.Function                ((&))
+import           Data.Functor                 ((<&>))
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef                   (IORef, newIORef, readIORef,
                                                writeIORef)
@@ -1700,7 +1701,7 @@ compileShader shaderType source = do
         errLen <- fillPtr $ glGetShaderiv shader GL_INFO_LOG_LENGTH
         allocaArray (fromIntegral errLen) \infoLog -> do
           glGetShaderInfoLog shader errLen nullPtr infoLog
-          peekCString infoLog >>= return . Left
+          peekCString infoLog <&> Left
       _ -> return $ Right shader
 
 compileProgram :: [GLuint] -> IO (Either String GLuint)
@@ -1713,7 +1714,7 @@ compileProgram shaders = do
       errLen <- fillPtr $ glGetProgramiv program GL_INFO_LOG_LENGTH
       allocaArray (fromIntegral errLen) \infoLog -> do
         glGetProgramInfoLog program errLen nullPtr infoLog
-        peekCString infoLog >>= return . Left
+        peekCString infoLog <&> Left
     _ -> return $ Right program
 
 withArrayBytes :: (Storable a, Num len) => [a] -> (len -> Ptr a -> IO b) -> IO b
@@ -3233,7 +3234,7 @@ checkGL :: (MonadIO m) => String -> m a -> m a
 checkGL s f = do
   void glGetError
   x <- f
-  desc <- glGetError >>= return . \case
+  desc <- glGetError <&> \case
     GL_NO_ERROR          -> Nothing
     GL_INVALID_ENUM      -> Just "Invalid enum"
     GL_INVALID_VALUE     -> Just "Invalid value"

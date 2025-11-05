@@ -4,7 +4,6 @@
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -14,7 +13,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE StrictData          #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Drums where
 
 import           Control.Monad                    (guard, void, (>=>))
@@ -22,6 +20,7 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import           Data.Profunctor                  (dimap)
@@ -245,7 +244,7 @@ instance ParseTrack DrumTrack where
     solo <- (.solo) =. edges 103
     player1 <- (.player1) =. edges 105
     player2 <- (.player2) =. edges 106
-    difficulties <- (=.) (.difficulties) $ eachKey each \diff -> fatBlips (1/8) do
+    difficulties <- (.difficulties) =. eachKey each \diff -> fatBlips (1/8) do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -305,7 +304,7 @@ instance ParseTrack DrumTrack where
 
 fiveToPro :: (NNC.C t) => ProColor -> RTB.T t (Gem (), DrumVelocity) -> RTB.T t (Gem ProType, DrumVelocity)
 fiveToPro fallback = let
-  eachInstant instant = flip map instant \case
+  eachInstant instant = instant <&> \case
     (Kick         , vel) -> (Kick             , vel)
     (Red          , vel) -> (Red              , vel)
     (Pro Yellow (), vel) -> (Pro Yellow Cymbal, vel)
@@ -332,7 +331,7 @@ computePro diff trk = let
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.difficulties
   disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) this.mix
   applied = applyStatus disco $ applyStatus toms $ getDrumDifficulty diff trk
-  in flip fmap applied \case
+  in applied <&> \case
     (instantDisco, (instantToms, (gem, vel))) -> let
       isDisco = not $ null instantDisco
       gem' = case gem of
@@ -352,7 +351,7 @@ computePSReal diff trk = let
   pro = computePro diff trk
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) trk.difficulties
   applied = applyStatus this.psModifiers pro
-  in flip fmap applied \(mods, (gem, vel)) -> let
+  in applied <&> \(mods, (gem, vel)) -> let
     gem' = case gem of
       Red
         | elem Rimshot mods -> Left Rimshot
@@ -370,7 +369,7 @@ encodePSReal blipTime diff real = let
     thisBlipTime = case rest of
       Wait dt2 _ _ -> min blipTime dt2
       RNil         -> blipTime
-    events = flip map xs \case
+    events = xs <&> \case
       (Left ps, _)               -> Wait NNC.zero (Left (ps, True)) $ Wait thisBlipTime (Left (ps, False)) RNil
       (Right (Pro color Tom), _) -> Wait NNC.zero (Right (color, Tom)) $ Wait thisBlipTime (Right (color, Cymbal)) RNil
       _                          -> RNil
@@ -378,7 +377,7 @@ encodePSReal blipTime diff real = let
   go RNil = RNil
   psmods = RTB.mapMaybe (\case Left x -> Just x; _ -> Nothing) modifiers
   toms = RTB.mapMaybe (\case Right x -> Just x; _ -> Nothing) modifiers
-  gems = flip fmap real \(gem, vel) -> let
+  gems = real <&> \(gem, vel) -> let
     gem' = case gem of
       Left ps -> case ps of
         Rimshot  -> Red
@@ -472,7 +471,7 @@ fillDrumAnimation closeTime tmap trk = let
 
 autoDrumAnimation :: (NNC.C t) => t -> RTB.T t (Gem ProType) -> RTB.T t Animation
 autoDrumAnimation closeTime pro = let
-  hands = RTB.flatten $ flip fmap (RTB.collectCoincident pro) \inst -> if
+  hands = RTB.flatten $ RTB.collectCoincident pro <&> \inst -> if
     | all (`elem` inst) [Pro Yellow Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Pro Blue Cymbal, Pro Green Cymbal] -> [AnimCrash1, AnimCrash2]
     | all (`elem` inst) [Pro Yellow Cymbal, Orange] -> [AnimCrash1, AnimCrash2]
@@ -518,7 +517,7 @@ autoDrumHands closeTime pads = let
       (phrase, afterPhrase) = getPhrase rest
       in ((dt, x) : phrase, afterPhrase)
     afterPhrase -> ([], afterPhrase)
-  makeAnimations rtb = RTB.flatten $ flip fmap rtb \case
+  makeAnimations rtb = RTB.flatten $ rtb <&> \case
     Right (x, y)   -> [makeSingle x LH, makeSingle y RH]
     Left (x, hand) -> [makeSingle x hand]
   makeSingle :: AnimInput -> Hand -> Animation

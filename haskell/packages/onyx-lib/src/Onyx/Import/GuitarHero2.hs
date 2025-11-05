@@ -29,6 +29,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Int
 import           Data.List.Extra                  (firstJust, (\\))
@@ -87,7 +88,7 @@ importGH2 :: (SendMessage m, MonadResource m) => FilePath -> Folder T.Text Reada
 importGH2 displayPath gen = do
   (hdr, arks) <- stackIO $ loadGEN gen
   folder <- loadArkFolder hdr arks
-  getSongList gen >>= return . concatMap \(_, pkg) ->
+  getSongList gen <&> concatMap \(_, pkg) ->
     importGH2Song ImportSolo pkg.song pkg displayPath folder
     : case pkg.songCoop of
       Nothing   -> []
@@ -97,7 +98,7 @@ importGH2MIDI :: ImportMode -> Song -> F.Song (GH2File U.Beats) -> F.Song (F.Ony
 importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
   convertPart :: PartTrack U.Beats -> RB.FiveTrack U.Beats
   convertPart part = RB.FiveTrack
-    { RB.difficulties = flip fmap part.partDifficulties \diff -> mempty
+    { RB.difficulties = part.partDifficulties <&> \diff -> mempty
       { RB.gems       = fmap (fmap Just) diff.partGems
       -- stuff that we may have written for future gh2dx support
       , RB.forceHOPO  = diff.partForceHOPO
@@ -105,13 +106,13 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
       , RB.tap        = diff.partForceTap
       }
     , RB.mood         = RTB.empty -- TODO
-    , RB.handMap      = flip fmap part.partHandMap \case
+    , RB.handMap      = part.partHandMap <&> \case
       HandMap_Default   -> RB.HandMap_Default
       HandMap_DropD2    -> RB.HandMap_DropD2
       HandMap_Solo      -> RB.HandMap_Solo
       HandMap_NoChords  -> RB.HandMap_NoChords
       HandMap_AllChords -> RB.HandMap_AllChords
-    , RB.strumMap     = flip fmap part.partStrumMap \case
+    , RB.strumMap     = part.partStrumMap <&> \case
       StrumMap_SlapBass -> RB.StrumMap_SlapBass
     , RB.fretPosition = part.partFretPosition
     , RB.tremolo      = RTB.empty
@@ -156,7 +157,7 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
         drums = gh2.gh2PartDrum
         expert = fromMaybe mempty $ Map.lookup Expert drums.gh2drumDifficulties
         in Drums.DrumTrack
-          { difficulties = flip fmap drums.gh2drumDifficulties \diff -> Drums.DrumDifficulty
+          { difficulties = drums.gh2drumDifficulties <&> \diff -> Drums.DrumDifficulty
             { Drums.mix = RTB.empty
             , Drums.psModifiers = RTB.empty
             , Drums.gems = (, Drums.VelocityNormal) <$> diff.gh2drumGems

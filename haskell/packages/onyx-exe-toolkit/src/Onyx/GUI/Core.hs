@@ -27,6 +27,7 @@ import qualified Data.ByteString                           as B
 import           Data.Default.Class                        (Default, def)
 import           Data.Foldable                             (toList)
 import           Data.Function                             ((&))
+import           Data.Functor                              ((<&>))
 import qualified Data.HashMap.Strict                       as HM
 import           Data.IORef                                (newIORef, readIORef,
                                                             writeIORef)
@@ -869,7 +870,7 @@ partSelectors rect proj slots = let
 
 mixDownStems :: SongYaml f -> SongYaml f
 mixDownStems song = song
-  { plans = flip fmap song.plans \case
+  { plans = song.plans <&> \case
     StandardPlan info -> StandardPlan info
       { parts = Parts HM.empty
       , song = let

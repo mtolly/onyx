@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -87,15 +86,16 @@ instance ParseTrack ProKeysTrack where
     solo      <- (.solo     ) =. edges 115
     bre       <- (.bre      ) =. edges 120
     chordSnap [48 .. 72]
-    notes     <- ((.notes   ) =.) $ fatBlips (1/8) $ translateEdges
-      $ condenseMap $ eachKey each \k -> edges $ fromEnum k + 48
-    lanes     <- ((.lanes   ) =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
-      RangeC -> 0
-      RangeD -> 2
-      RangeE -> 4
-      RangeF -> 5
-      RangeG -> 7
-      RangeA -> 9
+    notes     <- (.notes    ) =. do
+      fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each \k -> edges $ fromEnum k + 48
+    lanes     <- (.lanes    ) =. do
+      statusBlips $ condenseMap_ $ eachKey each $ blip . \case
+        RangeC -> 0
+        RangeD -> 2
+        RangeE -> 4
+        RangeF -> 5
+        RangeG -> 7
+        RangeA -> 9
     return ProKeysTrack{..}
 
 -- | Moves the first range event to time zero, to work around a Phase Shift bug.

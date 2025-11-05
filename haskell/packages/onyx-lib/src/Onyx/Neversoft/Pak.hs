@@ -253,8 +253,7 @@ worMetadataString = noSortCrash . noBrackets . fancyQuotes where
   fancyQuotes t
     = T.concat
     $ concat
-    $ map (\(x, y) -> [x, y])
-    $ zip ("" : cycle ["“", "”"]) (T.splitOn "\"" t)
+    $ zipWith (\x y -> [x, y]) ("" : cycle ["“", "”"]) (T.splitOn "\"" t)
   -- These aren't in the fonts used for title/artist
   noBrackets = T.replace "[" "(" . T.replace "]" ")"
   -- The first character (after ignored words) of title/artist must be ASCII.

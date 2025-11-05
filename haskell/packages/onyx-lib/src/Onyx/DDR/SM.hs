@@ -46,7 +46,7 @@ parse :: [Token] -> [(T.Text, [T.Text])]
 parse toks = case break (== Hash) toks of
   (_, Hash : toks') -> let
     (line, after) = break (== Semicolon) toks'
-    in case map T.pack [ s | Atom s <- line ] of
+    in case [ T.pack s | Atom s <- line ] of
       []           -> parse after
       atom : atoms -> (T.strip atom, map T.strip atoms) : parse after
   _ -> []
@@ -171,5 +171,5 @@ readSMNotes = \case
 
 splitNoEmpty :: T.Text -> T.Text -> [T.Text]
 splitNoEmpty x y = case T.splitOn x y of
-  [v] -> if T.all isSpace v then [] else [v]
+  [v] -> [v | not $ T.all isSpace v]
   vs  -> vs

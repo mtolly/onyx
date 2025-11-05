@@ -66,7 +66,7 @@ buildSMTempo sm = let
         b' = realToFrac b :: U.Beats
         in guard (srcBeatStart <= b' && b' < srcBeatEnd) >> Just (b', realToFrac s)
       )
-      (sm.sm_STOPS)
+      sm.sm_STOPS
     makeChunks pos = if pos >= srcBeatEnd
       then []
       else let

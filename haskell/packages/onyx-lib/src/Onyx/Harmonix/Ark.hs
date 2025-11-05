@@ -17,6 +17,7 @@ import           Data.Bits
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
 import qualified Data.ByteString.Lazy   as BL
+import           Data.Functor           ((<&>))
 import           Data.Int
 import           Data.List.HT           (partitionMaybe)
 import qualified Data.List.NonEmpty     as NE
@@ -222,10 +223,10 @@ decryptHdr enc = let
     return $ BL.packZipWith xor (BL.drop 4 enc) cryptStream
 
 entryFolder :: Hdr -> Folder B.ByteString (FileEntry B.ByteString)
-entryFolder entries = fromFiles $ flip map entries.files \entry -> let
+entryFolder entries = fromFiles $ entries.files <&> \entry -> let
   path = case entry.folder >>= NE.nonEmpty . B8.split '/' of
-    Just dir -> dir <> return (entry.name)
-    Nothing  -> return (entry.name)
+    Just dir -> dir <> return entry.name
+    Nothing  -> return entry.name
   in (path, entry)
 
 selectArk :: (MonadFail m) => Hdr -> Integer -> m (Int, Integer)
@@ -242,7 +243,7 @@ selectArk hdr offset = case hdr.arks of
 
 readFileEntry :: (MonadFail m) => Hdr -> [Readable] -> FileEntry B.ByteString -> m Readable
 readFileEntry hdr arks entry = do
-  let path = maybe id (\dir f -> dir <> "/" <> f) entry.folder (entry.name)
+  let path = maybe id (\dir f -> dir <> "/" <> f) entry.folder entry.name
   (arkIndex, offset) <- selectArk hdr $ fromIntegral entry.offset
   ark <- case drop arkIndex arks of
     []      -> fail $ "Couldn't find .ARK index " <> show arkIndex

@@ -17,7 +17,7 @@ import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.Functor                     (($>))
+import           Data.Functor                     (($>), (<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort, sortOn)
 import qualified Data.Map.Strict                  as Map
@@ -122,7 +122,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
   drumDiffPairs = (Nothing, "X+") : [ (Just diff, letter) | (diff, letter) <- diffPairs ]
 
   makeLanes colors lanes = let
-    gemToggle gem = U.trackJoin $ flip fmap lanes \(gem', t) -> if gem == gem'
+    gemToggle gem = U.trackJoin $ lanes <&> \(gem', t) -> if gem == gem'
       then Wait 0 True $ Wait t False RNil
       else RNil
     gemSingletons = do
@@ -198,8 +198,8 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
     drumPro = let
       ddiff = D.getDrumDifficulty diff thisSrc
       in case pdrums.mode of
-        Drums4     -> (\(gem, vel) -> (gem $> D.Tom, vel)) <$> ddiff
-        Drums5     -> flip fmap ddiff \(gem, vel) -> let
+        Drums4     -> ddiff <&> \(gem, vel) -> (gem $> D.Tom, vel)
+        Drums5     -> ddiff <&> \(gem, vel) -> let
           gem' = case gem of
             D.Kick            -> D.Kick
             D.Red             -> D.Red
@@ -471,7 +471,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
                   else Strum
               fret = note.n_fret
               ntype = PG.NormalNote -- TODO
-              sust = flip fmap note.n_sustain \len -> let
+              sust = note.n_sustain <&> \len -> let
                 slide = case note.n_slideTo <|> note.n_slideUnpitchTo of
                   Nothing -> Nothing
                   Just slideToFret -> case compare fret slideToFret of

@@ -114,8 +114,9 @@ parseEvent elt@(Element etype eparams blk) = inside ("RPP line: " <> show elt) d
           Just tks' -> case blk of
             Nothing -> warn "X event has no indented block" >> return Nothing
             Just xdata -> do
-              let bytes = B.concat $ map (B64.decodeLenient . TE.encodeUtf8)
-                    [ b64 | Element b64 [] Nothing <- xdata ]
+              let bytes = B.concat do
+                    Element b64 [] Nothing <- xdata
+                    return $ B64.decodeLenient $ TE.encodeUtf8 b64
                   text = B.drop 2 bytes
               mevt <- case B.unpack bytes of
                 0xFF : 0x01 : _ -> return $ Just $ E.MetaEvent $ Meta.TextEvent      text

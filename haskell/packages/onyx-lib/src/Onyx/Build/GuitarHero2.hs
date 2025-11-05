@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 module Onyx.Build.GuitarHero2 (gh2Rules) where
 
@@ -21,6 +20,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import           Data.Functor.Identity            (Identity (..))
 import           Data.Hashable                    (Hashable, hash)
 import qualified Data.HashMap.Strict              as HM
@@ -169,7 +169,7 @@ gh2Rules buildInfo dir gh2 = do
             Just part -> applyVolsMono [0] <$> getPartSource buildInfo [(-1, 0), (1, 0)] planName plan part 1
           return (foldr1 merge srcs, False)
       pad <- shk $ read <$> readFile' (dir </> "gh2/pad.txt")
-      rate <- case speed of
+      sampleRate <- case speed of
         60 -> return 19875
         75 -> return 16125
         90 -> return 13500
@@ -181,7 +181,7 @@ gh2Rules buildInfo dir gh2 = do
       stackIO $ runResourceT $ writeVGS out
         $ (if dupe then remapChannels [Just 0, Just 0] else id)
         $ mapSamples integralSample
-        $ resampleTo rate SincMediumQuality
+        $ resampleTo sampleRate SincMediumQuality
         $ stretchFull 1 (100 / fromIntegral speed)
         $ padAudio pad
         $ applyTargetAudio gh2.common mid src
@@ -270,7 +270,7 @@ gh2Rules buildInfo dir gh2 = do
       [ D.Parens $ D.Tree 0 $ catMaybes
         [ Just $ D.Sym key
         -- include author for gh2dx
-        , flip fmap (guard gh2.gh2Deluxe >> songYaml.metadata.author) \author -> D.Braces $ D.Tree 0
+        , (guard gh2.gh2Deluxe >> songYaml.metadata.author) <&> \author -> D.Braces $ D.Tree 0
           [ D.Sym "set"
           , D.Var "author"
           , D.String author

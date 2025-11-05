@@ -24,6 +24,7 @@ import           Data.Conduit.Audio.Sndfile       (sourceSnd)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Pico)
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (groupOn, nubOrd)
 import qualified Data.Map                         as Map
@@ -269,8 +270,8 @@ getObjects lns = let
     else Nothing
   in foldr (Map.unionWith $ HM.unionWith (++)) Map.empty
     $ flip mapMaybe lns
-    $ \(k, v) -> flip fmap (isObjects k)
-      $ \(bar, chan) -> Map.singleton bar $ HM.singleton chan [v]
+    $ \(k, v) -> isObjects k <&> \(bar, chan) ->
+      Map.singleton bar $ HM.singleton chan [v]
 
 getChannelGeneral
   :: Channel

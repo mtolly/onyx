@@ -27,6 +27,7 @@ import           Data.Char                               (isAlpha, toLower,
 import qualified Data.EventList.Absolute.TimeBody        as ATB
 import qualified Data.EventList.Relative.TimeBody        as RTB
 import           Data.Foldable                           (toList)
+import           Data.Functor                            ((<&>))
 import qualified Data.HashMap.Strict                     as HM
 import           Data.List.Extra                         (foldl', nubOrd, sort,
                                                           (\\))
@@ -268,7 +269,7 @@ lipsyncFromStates ms = let
     , lipsyncVisemes = Set.toList visemes
     , lipsyncKeyframes = do
       frame <- redundantZero $ changes Map.empty ms
-      return $ Keyframe $ sort $ flip map frame \(bs, w) -> VisemeEvent
+      return $ Keyframe $ sort $ frame <&> \(bs, w) -> VisemeEvent
         { visemeKey = Set.findIndex bs visemes
         , visemeWeight = w
         , visemeGraph = ()
@@ -535,7 +536,7 @@ englishSyllables syllables = let
   word = B8.pack $ T.unpack $ T.toUpper $ T.concat $ map filterLyric syllables
   in case filter ((== numSyllables) . length) $ map splitSyllables $ fromMaybe [] $ HM.lookup word cmuDict of
     match : _ -> match
-    []        -> const (justVowel CMU_AH) <$> syllables -- TODO better default syllables
+    []        -> justVowel CMU_AH <$ syllables -- TODO better default syllables
 
 runTranscribe :: RTB.T t (Maybe (Transcribe, T.Text)) -> RTB.T t (Maybe CMUSyllable)
 runTranscribe = let
@@ -901,7 +902,7 @@ lipLyricsStates vmap lip = let
     , notes  = lip.lipNotes
     }
   withLang = applyStatus1 LyricEnglish lip.lipLanguage tubes
-  transcribed = runTranscribe $ flip fmap withLang \(lang, mtext) -> let
+  transcribed = runTranscribe $ withLang <&> \(lang, mtext) -> let
     trans = case lang of
       LyricEnglish -> englishSyllables
       LyricGerman  -> germanVowels
@@ -961,7 +962,7 @@ testConvertLipsync fmid fvocs fout = do
     Left err  -> error $ show err
     Right mid -> return mid
   trks <- forM fvocs \fvoc -> do
-    trk <- BL.readFile fvoc >>= return . case takeExtension fvoc of
+    trk <- BL.readFile fvoc <&> case takeExtension fvoc of
       ".voc" -> vocToMIDITrack     . runGet parseVocFile
       _      -> lipsyncToMIDITrack . runGet parseLipsync
     return $ mapTrack (U.unapplyTempoTrack mid.tempos) trk
@@ -982,7 +983,7 @@ testConvertLipsync fmid fvocs fout = do
 -- RB3 requires them to be specific casing.
 standardVisemeCase :: Lipsync -> Lipsync
 standardVisemeCase lip = lip
-  { lipsyncVisemes = flip map lip.lipsyncVisemes \vis ->
+  { lipsyncVisemes = lip.lipsyncVisemes <&> \vis ->
     if "singalong" `B.isSuffixOf` vis
       -- bass_singalong etc. are all lower
       then B8.map toLower vis
@@ -1156,14 +1157,13 @@ vocToMIDITrack :: VocFile -> LipsyncTrack U.Seconds
 vocToMIDITrack voc
   = LipsyncTrack RTB.empty RTB.empty RTB.empty
   $ foldr RTB.merge RTB.empty
-  $ flip map voc.vocVisemes
-  $ \vis -> let
+  $ voc.vocVisemes <&> \vis -> let
     name = TE.decodeLatin1 vis.vvName
     in RTB.fromAbsoluteEventList
       $ ATB.fromPairList
-      $ flip map vis.vvEvents \evt -> let
+      $ vis.vvEvents <&> \evt -> let
         -- arterialblack.voc has a veTime of -2.3666643e-2 so we clamp to 0
-        time = realToFrac if evt.veTime < 0 then 0 else evt.veTime
+        time = realToFrac $ max evt.veTime 0
         -- TODO extend lipsync track to support the full range
         weight
           | evt.veWeight < 0 = 0
@@ -1186,7 +1186,7 @@ visemesToVoc visemes = VocFile
   , vocMystery8 = 0
   , vocFileSize = 0xDEADBEEF -- calculated later
   , vocMystery9 = 0
-  , vocVisemes = flip map (nubOrd $ map fst $ concat $ RTB.getBodies visemes) \vis -> VocViseme
+  , vocVisemes = nubOrd (map fst $ concat $ RTB.getBodies visemes) <&> \vis -> VocViseme
     { vvMystery1 = 0
     , vvMystery2 = 0
     , vvMystery3 = 0

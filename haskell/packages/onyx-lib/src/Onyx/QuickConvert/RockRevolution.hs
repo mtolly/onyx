@@ -22,6 +22,7 @@ import qualified Data.ByteString           as B
 import qualified Data.ByteString.Lazy      as BL
 import           Data.Char                 (isDigit, toLower)
 import           Data.Foldable             (toList)
+import           Data.Functor              ((<&>))
 import           Data.Maybe                (catMaybes)
 import qualified Data.Text                 as T
 import qualified Data.Text.Encoding        as TE
@@ -85,7 +86,7 @@ loadRRSongs :: (MonadIO m, SendMessage m) => [FilePath] -> StackTraceT m [(FileP
 loadRRSongs fs = fmap catMaybes $ forM fs \f -> do
   songs <- case map toLower $ takeExtension f of
     ".pkg" -> loadRRPS3 $ fileReadable f
-    _      -> errorToEither (stackIO $ loadRRXbox $ fileReadable f) >>= return . \case
+    _      -> errorToEither (stackIO $ loadRRXbox $ fileReadable f) <&> \case
       Left  _     -> []
       Right songs -> songs
   return $ guard (not $ null songs) >> Just (f, songs)

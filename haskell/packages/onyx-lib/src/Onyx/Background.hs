@@ -10,6 +10,7 @@ import           Control.Monad                    (forM, guard)
 import qualified Control.Monad.Random.Class       as R
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -79,7 +80,7 @@ getMoods tmap endTime opart = let
 
 makeMoodsFromNotes :: (NNC.C t) => t -> t -> RTB.T t (LongNote s a) -> RTB.T t Mood
 makeMoodsFromNotes buffer gap rtb = let
-  edges = RTB.collectCoincident $ U.trackJoin $ flip fmap rtb \case
+  edges = RTB.collectCoincident $ U.trackJoin $ rtb <&> \case
     Blip{}    -> Wait NNC.zero True  $ Wait buffer False RNil
     NoteOn{}  -> Wait NNC.zero True  RNil
     NoteOff{} -> Wait buffer   False RNil
@@ -141,7 +142,7 @@ autoCamera
   -> F.Song (F.OnyxFile U.Beats)
   -> m (RTB.T U.Beats Camera3)
 autoCamera partMap tmap endTime ofile = do
-  let moodMap = flip fmap partMap \fpart -> let
+  let moodMap = partMap <&> \fpart -> let
         moods = getMoods tmap endTime $ fromMaybe mempty $ Map.lookup fpart ofile.tracks.onyxParts
         in Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 moods
       endSeconds = U.applyTempoMap tmap endTime

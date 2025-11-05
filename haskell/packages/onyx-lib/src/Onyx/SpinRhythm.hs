@@ -1,7 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -15,6 +14,7 @@ import           Control.Monad.Codec
 import qualified Data.Aeson                       as A
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import qualified Data.Vector                      as V
@@ -340,17 +340,18 @@ instance ParseTrack SRTrack where
         dimapColorMSize = dimap
           (fmap \(color, size) -> (case color of Blue -> 0; Red -> 1, 100 + size))
           (fmap \(c, v) -> (case c of 0 -> Blue; _ -> Red, v - 100))
-    srTap <- ((.srTap) =.) $ condenseMap $ eachKey each \col ->
-      dimapColor $ blipCV $ 100 - 5 * fromEnum col
-    srMatch <- ((.srMatch) =.) $ condenseMap $ eachKey each \col ->
-      dimapColor $ blipCV $ 100 - 5 * fromEnum col - 1
-    srSlideStart <- ((.srSlideStart) =.) $ condenseMap $ eachKey each \col ->
-      dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 2
-    srSlideContinue <- ((.srSlideContinue) =.) $ condenseMap $ eachKey each \col ->
-      dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 3
-    srSpin <- ((.srSpin) =.) $ condenseMap_ $ eachKey each $ blip . \case
-      LH -> 55
-      RH -> 54
+    srTap <- (.srTap) =. do
+      condenseMap $ eachKey each \col -> dimapColor $ blipCV $ 100 - 5 * fromEnum col
+    srMatch <- (.srMatch) =. do
+      condenseMap $ eachKey each \col -> dimapColor $ blipCV $ 100 - 5 * fromEnum col - 1
+    srSlideStart <- (.srSlideStart) =. do
+      condenseMap $ eachKey each \col -> dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 2
+    srSlideContinue <- (.srSlideContinue) =. do
+      condenseMap $ eachKey each \col -> dimapColorMSize $ blipCV $ 100 - 5 * fromEnum col - 3
+    srSpin <- (.srSpin) =. do
+      condenseMap_ $ eachKey each $ blip . \case
+        LH -> 55
+        RH -> 54
     srBeat <- (.srBeat) =. blip 52
     return SRTrack{..}
 
@@ -361,42 +362,42 @@ srTrackToJSON :: (NNC.C t, Num t) => SRTrack t -> [Note t]
 srTrackToJSON sr = let
   columnNumber col = 4 - fromEnum col
   rtb = foldr RTB.merge RTB.empty
-    [ flip fmap sr.srTap \(col, color) -> Note
+    [ sr.srTap <&> \(col, color) -> Note
       { note_time       = ()
       , note_type       = 8
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap sr.srMatch \(col, color) -> Note
+    , sr.srMatch <&> \(col, color) -> Note
       { note_time       = ()
       , note_type       = 0
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = 0
       }
-    , flip fmap sr.srBeat \() -> Note
+    , sr.srBeat <&> \() -> Note
       { note_time       = ()
       , note_type       = 1
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap sr.srSpin \dir -> Note
+    , sr.srSpin <&> \dir -> Note
       { note_time       = ()
       , note_type       = case dir of RH -> 2; LH -> 3
       , note_colorIndex = 0
       , note_column     = 0
       , note_m_size     = 0
       }
-    , flip fmap sr.srSlideStart \(col, (color, size)) -> Note
+    , sr.srSlideStart <&> \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 4
       , note_colorIndex = fromEnum color
       , note_column     = columnNumber col
       , note_m_size     = size
       }
-    , flip fmap sr.srSlideContinue \(col, (color, size)) -> Note
+    , sr.srSlideContinue <&> \(col, (color, size)) -> Note
       { note_time       = ()
       , note_type       = 5
       , note_colorIndex = fromEnum color

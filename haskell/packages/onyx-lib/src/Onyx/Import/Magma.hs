@@ -256,7 +256,7 @@ importMagma fin level = do
           guard $ isJust drums
           let mode = DrumsPro -- TODO set to Drums4 for magma v1?
               kicks = if is2x then Kicks2x else Kicks1x
-          Just $ (emptyPartDrums mode kicks)
+          Just $ emptyPartDrums mode kicks
             & do set #difficulty $ Tier rbproj.gamedata.rankDrum
             &    set #kit do
               case fmap (.drumKitSFX) c3 of

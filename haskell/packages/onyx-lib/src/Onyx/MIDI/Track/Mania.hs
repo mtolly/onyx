@@ -1,13 +1,11 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Mania where
 
 import           Control.Monad                    (guard)
@@ -15,6 +13,7 @@ import           Control.Monad.Codec
 import           Data.Bifunctor
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import qualified Data.Text                        as T
@@ -41,7 +40,7 @@ instance ParseTrack ManiaTrack where
     overdrive <- (.overdrive) =. edges 116
     notes     <- (.notes    ) =. fatBlips (1/8) Codec
       { codecIn = slurpTrack \mt -> let
-        applyPitchEdges (pitch, thisEdges) = flip fmap thisEdges $ bimap
+        applyPitchEdges (pitch, thisEdges) = thisEdges <&> bimap
           (const ())
           (\chan -> (V.fromPitch pitch, fromMaybe NoteNormal $ lookup (C.fromChannel chan) channelMap))
         notes

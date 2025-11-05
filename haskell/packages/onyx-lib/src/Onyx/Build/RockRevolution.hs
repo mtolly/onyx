@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE TupleSections         #-}
 module Onyx.Build.RockRevolution (rrRules, intToRRSongID) where
 
 import           Control.Monad.Codec
@@ -24,6 +23,7 @@ import qualified Data.Conduit.Audio                as CA
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
+import           Data.Functor                      ((<&>))
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (hash)
 import           Data.Int                          (Int16)
@@ -184,11 +184,11 @@ rrRules buildInfo dir rr = do
           , events = mid.tracks.onyxEvents
           , part   = F.getFlexPart partName mid.tracks
           }
-        guitar = flip fmap rrPartGuitar \builder ->
+        guitar = rrPartGuitar <&> \builder ->
           completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.guitar
-        bass   = flip fmap rrPartBass \builder ->
+        bass   = rrPartBass <&> \builder ->
           completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
-        drums  = flip fmap rrPartDrums \builder ->
+        drums  = rrPartDrums <&> \builder ->
           completeDrumResult mid.timesigs mid.tracks.onyxEvents.sections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x
 
@@ -304,7 +304,7 @@ rrRules buildInfo dir rr = do
 
     stackIO $ Save.toFile control $ F.showMixedMIDI $ adjustMidiTiming mid
       { F.tracks = showRRControl RRControl
-        { rrcAnimDrummer   = flip fmap (moodFor rr.drums) \case
+        { rrcAnimDrummer   = moodFor rr.drums <&> \case
           -- obviously not great, need to instead translate from drum animations
           Mood_idle          -> 109 -- Drummer_NoPlay
           Mood_idle_realtime -> 109
@@ -313,7 +313,7 @@ rrRules buildInfo dir rr = do
           Mood_mellow        -> 52
           Mood_intense       -> 52
           Mood_play_solo     -> 52
-        , rrcAnimGuitarist = flip fmap (moodFor rr.guitar) \case
+        , rrcAnimGuitarist = moodFor rr.guitar <&> \case
           Mood_idle          -> 0 -- Guitar_NoPlay
           Mood_idle_realtime -> 0
           Mood_idle_intense  -> 0
@@ -321,7 +321,7 @@ rrRules buildInfo dir rr = do
           Mood_play          -> 2 -- Guitar_TempoB_Rock
           Mood_intense       -> 3 -- Guitar_TempoB_Metal
           Mood_play_solo     -> 3
-        , rrcAnimBassist   = flip fmap (moodFor rr.guitar) \case
+        , rrcAnimBassist   = moodFor rr.guitar <&> \case
           Mood_idle          -> 0 -- Bass_NoPlay
           Mood_idle_realtime -> 0
           Mood_idle_intense  -> 0
@@ -613,7 +613,7 @@ makeRRFiveControl result gems = let
 
 removeGemsUnderFreestyle :: (NNC.C t) => RRDrumDifficulty t -> RRDrumDifficulty t
 removeGemsUnderFreestyle rrd = let
-  laneBools = flip fmap rrd.rrdFreestyle \case
+  laneBools = rrd.rrdFreestyle <&> \case
     EdgeOn _ (_, rrc) -> (rrc, True )
     EdgeOff  (_, rrc) -> (rrc, False)
   in rrd
@@ -648,7 +648,7 @@ data RRDrumInput t = RRDrumInput
 
 makeRRDrumDifficulty :: (NNC.C t) => RRDrumInput t -> RRDrumDifficulty t
 makeRRDrumDifficulty input = removeGemsUnderFreestyle RRDrumDifficulty
-  { rrdGems = RTB.flatten $ flip fmap (RTB.collectCoincident input.notes) \gems -> concat
+  { rrdGems = RTB.flatten $ RTB.collectCoincident input.notes <&> \gems -> concat
     [ [ (RR_Kick     , RRC_Kick   ) | elem (E.Kick ()) gems ]
     , [ (RR_Snare    , RRC_Snare  ) | elem E.Snare     gems ]
     , [ (RR_HihatOpen, RRC_Hihat  ) | elem E.Hihat     gems ]
@@ -942,7 +942,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
       , waveforms = []
       }
     in catMaybes
-      [ flip fmap timeGuitar \playtime -> blankDef
+      [ timeGuitar <&> \playtime -> blankDef
         { name = "s" <> songID <> "_guitar"
         , waveforms =
           [ Waveform
@@ -955,7 +955,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeBass \playtime -> blankDef
+      , timeBass <&> \playtime -> blankDef
         { name = "s" <> songID <> "_bass"
         , waveforms =
           [ Waveform
@@ -968,7 +968,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeDrums \playtime -> blankDef
+      , timeDrums <&> \playtime -> blankDef
         { name = "s" <> songID <> "_drums"
         , waveforms =
           [ Waveform
@@ -981,7 +981,7 @@ makeMainFEV songID timeGuitar timeBass timeDrums timeBacking = FEV
             }
           ]
         }
-      , flip fmap timeBacking \playtime -> blankDef
+      , timeBacking <&> \playtime -> blankDef
         { name = "s" <> songID <> "_MixMinus"
         , waveforms =
           [ Waveform

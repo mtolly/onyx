@@ -24,6 +24,7 @@ import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit.Audio           (Duration (..), secondsToFrames)
 import qualified Data.Conduit.Audio           as CA
+import           Data.Functor                 ((<&>))
 import           Data.Functor.Identity        (Identity (..), runIdentity)
 import           Data.Hashable                (Hashable, hash)
 import           Data.Int
@@ -245,7 +246,7 @@ songHeaderSize song = 64 + 8 + case song.fsbExtra of
 
 fixFSB3 :: FSB3Header -> FSB3Header
 fixFSB3 FSB3Header{..} = let
-  songs = flip map fsb3Songs \song -> song
+  songs = fsb3Songs <&> \song -> song
     { fsbSongHeaderSize = songHeaderSize song
     }
   in FSB3Header
@@ -280,7 +281,7 @@ parseFSB = runGetM do
 
 fixFSB :: FSB -> FSB
 fixFSB fsb = let
-  fixSongs songs = flip map (zip songs fsb.fsbSongData) \(song, sdata) -> song
+  fixSongs songs = zip songs fsb.fsbSongData <&> \(song, sdata) -> song
     { fsbSongHeaderSize = songHeaderSize song
     , fsbSongDataSize   = fromIntegral $ BL.length sdata
     }
@@ -361,7 +362,7 @@ writeXMA1Packets pkts = runPut $ forM_ pkts \pkt -> do
         =   (pkt.xma1SequenceNumber    `shiftL` 28)
         .|. (pkt.xma1Unk               `shiftL` 26)
         .|. (pkt.xma1FrameOffsetInBits `shiftL` 11)
-        .|. (pkt.xma1PacketSkipCount              )
+        .|.  pkt.xma1PacketSkipCount
   putWord32be packetInfo
   putByteString pkt.xma1PacketData
 
@@ -451,7 +452,7 @@ splitFSBStreams fsb = do
       case song.fsbExtra of
         Left _xma -> do
           marked <- markXMA2PacketStreams <$> splitXMA2Packets sdata
-          return $ flip map [0 .. stereoCount + monoCount - 1] \i -> FSB_XMA2 $ XMA2Contents
+          return $ [0 .. stereoCount + monoCount - 1] <&> \i -> FSB_XMA2 $ XMA2Contents
             { xma2Channels        = if i == stereoCount then 1 else 2
             , xma2Rate            = fromIntegral song.fsbSongSampleRate
             , xma2Samples         = fromIntegral song.fsbSongSamples
@@ -558,7 +559,7 @@ interleaveMP3 mp3s = do
   eachFrameCount <- case quotRem minLength frameSize of
     (count, 0) -> return $ fromIntegral count
     _          -> fail "MP3 to interleave has a length not divisible by frame size"
-  return $ BL.concat $ concat $ transpose $ flip map mp3s \mp3 -> do
+  return $ BL.concat $ concat $ transpose $ mp3s <&> \mp3 -> do
     posn <- take eachFrameCount [0, frameSize ..]
     return $ BL.take frameSize $ BL.drop posn mp3
 

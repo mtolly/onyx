@@ -13,7 +13,7 @@ import           Control.Monad.Codec
 import           Data.Char                        (isAlphaNum, isDigit)
 import           Data.Either                      (rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Functor                     (void)
+import           Data.Functor                     (void, (<&>))
 import           Data.List.Extra                  (elemIndex, nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
@@ -49,18 +49,20 @@ data RRFiveDifficulty t = RRFiveDifficulty
 
 instance ParseTrack RRFiveDifficulty where
   parseTrack = fatBlips (1/8) do
-    rrfStrums <- ((.rrfStrums) =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-      Five.Green  -> 48
-      Five.Red    -> 49
-      Five.Yellow -> 50
-      Five.Blue   -> 51
-      Five.Orange -> 52
-    rrfHOPOs <- ((.rrfHOPOs) =.) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-      Five.Green  -> 60
-      Five.Red    -> 61
-      Five.Yellow -> 62
-      Five.Blue   -> 63
-      Five.Orange -> 64
+    rrfStrums <- (.rrfStrums) =. do
+      translateEdges $ condenseMap $ eachKey each $ edges . \case
+        Five.Green  -> 48
+        Five.Red    -> 49
+        Five.Yellow -> 50
+        Five.Blue   -> 51
+        Five.Orange -> 52
+    rrfHOPOs <- (.rrfHOPOs) =. do
+      translateEdges $ condenseMap $ eachKey each $ edges . \case
+        Five.Green  -> 60
+        Five.Red    -> 61
+        Five.Yellow -> 62
+        Five.Blue   -> 63
+        Five.Orange -> 64
     rrfSolo <- (.rrfSolo) =. edges 127
     return RRFiveDifficulty{..}
 
@@ -199,8 +201,10 @@ data RRDrumDifficulty t = RRDrumDifficulty
 
 instance ParseTrack RRDrumDifficulty where
   parseTrack = do
-    rrdGems      <- ((.rrdGems)      =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 48
-    rrdHidden    <- ((.rrdHidden)    =.) $ fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 72
+    rrdGems      <- (.rrdGems     ) =. do
+      fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 48
+    rrdHidden    <- (.rrdHidden   ) =. do
+      fatBlips (1/8) $ condenseMap $ eachKey each \drum -> channelBlip_ $ fromEnum drum + 72
     rrdFreestyle <- (.rrdFreestyle) =. let
       decodeEdge :: (RRDrum, (Int, Maybe Int)) -> Edge () (RRDrum, RRChannel)
       decodeEdge (drum, (chan, mv)) = let
@@ -215,12 +219,12 @@ instance ParseTrack RRDrumDifficulty where
       in dimap (fmap encodeEdge) (fmap decodeEdge) $
         condenseMap $ eachKey each \drum ->
           edgesCV $ fromEnum drum
-    rrdSolo      <- (.rrdSolo) =. edges 127
+    rrdSolo      <- (.rrdSolo     ) =. edges 127
     return RRDrumDifficulty{..}
 
 importRRDrums :: Map.Map Difficulty (RRDrumDifficulty U.Beats) -> D.DrumTrack U.Beats
 importRRDrums diffs = mempty
-  { D.difficulties = flip fmap diffs \rr -> D.DrumDifficulty
+  { D.difficulties = diffs <&> \rr -> D.DrumDifficulty
     { D.mix         = RTB.empty
     , D.psModifiers = RTB.empty
     , D.gems
@@ -234,7 +238,7 @@ importRRDrums diffs = mempty
     }
   , D.toms = let
     expert = maybe mempty (RTB.mapMaybe (rrChannel4Lane . snd) . (.rrdGems)) $ Map.lookup Expert diffs
-    in U.trackJoin $ flip fmap expert \case
+    in U.trackJoin $ expert <&> \case
       D.Pro color D.Tom -> RTB.cons 0 (color, D.Tom) $ RTB.cons (1/32) (color, D.Cymbal) RTB.empty
       _                 -> RTB.empty
   , D.solo = maybe RTB.empty (.rrdSolo) $ Map.lookup Expert diffs
@@ -297,7 +301,7 @@ makeRRSections sects = let
   isNumberLetter t = case T.unsnoc t of
     Just (digits, lastChar) -> T.all isDigit digits && isAlphaNum lastChar
     Nothing                 -> False -- shouldn't happen
-  decideCustom = flip fmap sects \s -> let
+  decideCustom = sects <&> \s -> let
     normal = stripNumberLetter (makeDisplaySection s).name
     in case T.toLower $ T.filter isAlphaNum normal of
       "intro"       -> Left SectionIntro
@@ -313,7 +317,7 @@ makeRRSections sects = let
   customList = case splitAt maxCustomSections $ nubOrd $ rights $ RTB.getBodies decideCustom of
     (list, []   ) -> list
     (list, _ : _) -> init list <> ["Section"]
-  markers = flip fmap decideCustom \case
+  markers = decideCustom <&> \case
     Left  s      -> s
     Right custom -> SectionCustom $ fromMaybe (maxCustomSections - 1) $ elemIndex custom customList
   in (addSectionNumbers markers, customList)
@@ -410,10 +414,10 @@ showRRControl rrc = foldr RTB.merge RTB.empty
   , showBlips 2 rrc.rrcAnimBassist
   , showBlips 3 rrc.rrcAnimVocalist
   , showBlips 11 $ fmap (\rrd -> fromEnum rrd + 72) rrc.rrcGemsDrums
-  , flip fmap rrc.rrcGemsGuitar \case
+  , rrc.rrcGemsGuitar <&> \case
     EdgeOn () color -> makeEdgeCPV 12 (fromEnum color + 72) (Just 96)
     EdgeOff   color -> makeEdgeCPV 12 (fromEnum color + 72) Nothing
-  , flip fmap rrc.rrcGemsBass \case
+  , rrc.rrcGemsBass <&> \case
     EdgeOn () color -> makeEdgeCPV 13 (fromEnum color + 72) (Just 96)
     EdgeOff   color -> makeEdgeCPV 13 (fromEnum color + 72) Nothing
   , showBlips 14 $ RTB.merge rrc.rrcVenue (126 <$ rrc.rrcEnd)

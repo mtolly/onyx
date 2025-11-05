@@ -13,6 +13,7 @@ import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
+import           Data.Functor                     ((<&>))
 import           Data.List                        (sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
@@ -32,7 +33,7 @@ completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 completeFile fin fout = do
   F.Song tempos mmap trks <- F.loadMIDI fin
   liftIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap trks
-    { F.onyxParts = flip fmap trks.onyxParts \part -> part
+    { F.onyxParts = trks.onyxParts <&> \part -> part
       { F.onyxPartRealKeysE = completeRanges part.onyxPartRealKeysE
       , F.onyxPartRealKeysM = completeRanges part.onyxPartRealKeysM
       , F.onyxPartRealKeysH = completeRanges part.onyxPartRealKeysH
@@ -44,8 +45,8 @@ completeFile fin fout = do
 completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
 completeRanges trk = if RTB.null trk.lanes
   then let
-    held = heldNotes $ U.trackJoin $ flip fmap (edgeBlips_ minSustainLengthRB trk.notes)
-      \(p, mlen) -> RTB.fromPairList
+    held = heldNotes $ U.trackJoin $ edgeBlips_ minSustainLengthRB trk.notes
+      <&> \(p, mlen) -> RTB.fromPairList
         [ (0                   , (True , p))
         , (fromMaybe (1/4) mlen, (False, p)) -- give all blips a 16th note of room
         ]

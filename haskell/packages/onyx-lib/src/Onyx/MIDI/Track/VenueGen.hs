@@ -4,7 +4,6 @@ Alternate implementation of kueller's venuegen system:
 -}
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DerivingVia           #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -19,6 +18,7 @@ import           Control.Monad                    (guard)
 import           Control.Monad.Codec
 import           Control.Monad.Random             (MonadRandom, fromListMay)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import           Data.List                        (partition)
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
@@ -129,7 +129,7 @@ instance ParseTrack LightingTrack where
       Lighting_bre              -> 13
     lightingStrobe <- (.lightingStrobe) =. let
       fs = fmap \mspeed -> (1, fmap strobeSpeedVelocity mspeed)
-      fp = fmap \(_, vel) -> flip fmap vel $ fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
+      fp = fmap \(_, vel) -> vel <&> fromMaybe Strobe16 . reverseLookup each strobeSpeedVelocity
       in dimap fs fp $ edgesCV 8
     lightingCommands <- (.lightingCommands) =. do
       fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
@@ -439,7 +439,7 @@ buildCamera hasInsts ct = do
           RTB.cons dt theseCuts <$> go this rtb'
   cuts <- go [] $ RTB.collectCoincident $ RTB.merge
     (Just <$> joined)
-    (const Nothing <$> ct.cameraRandom)
+    (Nothing <$ ct.cameraRandom)
   return mempty { cameraRB3 = U.trackJoin cuts }
 
 unbuildCamera :: (NNC.C t) => t -> VenueTrack t -> CameraTrack t
@@ -448,7 +448,7 @@ unbuildCamera lastLen vt = CameraTrack
     -- each set of cuts, just make it a note that extends to the next set of cuts
     pairs = RTB.toPairList $ RTB.collectCoincident vt.cameraRB3
     lens = drop 1 (map fst pairs) ++ [lastLen]
-    in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) \((dt, cuts), len) ->
+    in U.trackJoin $ RTB.fromPairList $ zip pairs lens <&> \((dt, cuts), len) ->
       (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])
     -- TODO this makes repeated directed cuts look weird, should fix
   , cameraRandom = RTB.empty

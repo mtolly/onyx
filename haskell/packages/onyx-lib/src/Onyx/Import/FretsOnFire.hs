@@ -21,6 +21,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (intercalate)
 import           Data.List.NonEmpty               (NonEmpty (..))
@@ -147,13 +148,13 @@ redoSwells (F.Song tmap mmap ps) = let
       $ \(t, len) -> let
         thisLaneNotes = U.trackTake len $ U.trackDrop t notes
         in all (all (/= Drums.Red)) thisLaneNotes
-    singleRollsEditBools = splitEdgesBool $ snd <$> singleRollsEdit
+    singleRollsEditBools  = splitEdgesBool $ snd <$> singleRollsEdit
     singleRollsLeaveBools = splitEdgesBool $ snd <$> singleRollsLeave
 
     notesWithLanes = fmap (first $ not . null)
       $ flip applyStatus notes $ RTB.merge
         (('s',)          <$> singleRollsEditBools)
-        (('d',) . isJust <$> trk.doubleRoll  )
+        (('d',) . isJust <$> trk.doubleRoll      )
     (lanes1, lanes2) = generateSwells
       $ U.applyTempoTrack tmap notesWithLanes
     in trk
@@ -408,7 +409,7 @@ importFoF src dir level = do
         else trks
       swapFiveLaneTrack trk = trk { difficulties = fmap swapFiveLaneDiff trk.difficulties }
       swapFiveLaneDiff dd = dd
-        { gems = flip fmap dd.gems \case
+        { gems = dd.gems <&> \case
           (Drums.Orange            , vel) -> (Drums.Pro Drums.Green (), vel)
           (Drums.Pro Drums.Green (), vel) -> (Drums.Orange            , vel)
           x                               -> x
@@ -439,7 +440,7 @@ importFoF src dir level = do
       $ listToMaybe
       $ filter ((== "video") . map toLower . dropExtension . T.unpack . fst)
       $ folderFiles dir
-  let videoInfo = flip fmap maybeVideo \(name, rVideo) -> VideoInfo
+  let videoInfo = maybeVideo <&> \(name, rVideo) -> VideoInfo
         { fileVideo = SoftFile ("video" <.> takeExtension (T.unpack name)) $ SoftReadable rVideo
         , videoStartTime = song.videoStartTime
         , videoEndTime = song.videoEndTime
@@ -532,7 +533,7 @@ importFoF src dir level = do
       , fileMidi = midi
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ flip map audioFilesWithChannels \(pair@(template, _srcPath), chans) ->
+    , audio = HM.fromList $ audioFilesWithChannels <&> \(pair@(template, _srcPath), chans) ->
       (T.pack template, AudioFile AudioInfo
         { md5 = Nothing
         , frames = Nothing
@@ -699,7 +700,7 @@ importFoF src dir level = do
           }
         })
       , ( F.PartVocal, (emptyPart :: Part SoftFile)
-        { vocal = flip fmap vocalMode \vc -> ModeVocal
+        { vocal = vocalMode <&> \vc -> ModeVocal
           { difficulty = toTier song.diffVocals
           , count = vc
           , gender = Nothing
@@ -833,7 +834,7 @@ loadFoFMIDI ini r = do
   mid <- F.loadRawMIDIReadable r
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "T1 GEMS"]
       midGH = case mid of
-        MIDI.Cons typ dvn trks -> MIDI.Cons typ dvn $ flip map trks \trk -> if isGtrTrack trk
+        MIDI.Cons typ dvn trks -> MIDI.Cons typ dvn $ trks <&> \trk -> if isGtrTrack trk
           then flip RTB.mapMaybe trk \e -> case isNoteEdgeCPV e of
             Just (c, 103, v) -> Just $ makeEdgeCPV c 116 v
             Just (_, 116, _) -> Nothing

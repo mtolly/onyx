@@ -13,6 +13,7 @@ module Onyx.Harmonix.RockBand.Score where
 import           Control.Monad                    (guard, void)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
@@ -235,7 +236,7 @@ tracksToStars trks = let
     3 -> 1.52
     _ -> 1.8
   sumOfBases :: Stars Float
-  sumOfBases = foldr (liftA2 (+)) (pure 0) $ flip map trks \(scoreTrack, _, (base, solo)) -> liftA2 (+)
+  sumOfBases = foldr (liftA2 (+)) (pure 0) $ trks <&> \(scoreTrack, _, (base, solo)) -> liftA2 (+)
     (((fromIntegral base * new_num_instruments_multiplier) *) <$> new_instrument_thresholds scoreTrack)
     ((fromIntegral solo *) <$> new_bonus_thresholds)
   allCutoffs = Just . (floor :: Float -> Int) <$> sumOfBases

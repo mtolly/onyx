@@ -14,6 +14,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort, sortOn)
 import qualified Data.Map                         as Map
@@ -241,7 +242,7 @@ ragnarockToDrums info maps = let
     , F.tracks = mempty
       { F.onyxParts = Map.singleton F.PartDrums mempty
         { F.onyxPartDrums = mempty
-          { difficulties = Map.fromList $ flip map maps' $ fmap \(_, beatmap) -> mempty
+          { difficulties = Map.fromList $ maps' <&> fmap \(_, beatmap) -> mempty
             { gems = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
               note <- beatmap.notes
               let t = realToFrac note.time :: U.Beats

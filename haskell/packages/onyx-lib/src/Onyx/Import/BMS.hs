@@ -13,6 +13,7 @@ import           Data.Bifunctor                   (first)
 import           Data.Char                        (isDigit, toLower)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
 import qualified Data.Map                         as Map
@@ -43,7 +44,7 @@ processLongObj :: (NNC.C t) =>
   Maybe Chip -> RTB.T t (BMKey, Chip) -> RTB.T t (BMKey, Chip, Maybe t)
 processLongObj Nothing      chips = (\(key, chip) -> (key, chip, Nothing)) <$> chips
 processLongObj (Just lnobj) chips = let
-  eachKey = flip map [minBound .. maxBound] \key -> let
+  eachKey = [minBound .. maxBound] <&> \key -> let
     go = \case
       Wait t1 (_, c1) after1@(Wait t2 (_, c2) rest) -> if c2 == lnobj
         then Wait t1 (key, c1, Just t2) $ RTB.delay t2 $ go rest
@@ -93,7 +94,7 @@ importBMS bmsPath level = do
         $ takeDirectory bmsPath
         </> map (\case '¥' -> '/'; '\\' -> '/'; c -> c) fp
         -- ¥ is the backslash when Shift-JIS decoded
-      return $ flip fmap msrc \src -> let
+      return $ msrc <&> \src -> let
         -- could be smarter about this (apply volume later) but this works
         adjustVolume = case fromMaybe 100 $ HM.lookup chip bms.bms_VOLWAV of
           100 -> id
@@ -129,10 +130,10 @@ importBMS bmsPath level = do
       audioExpr name = Input $ Named name
 
       loadManiaTrack chips chipsLong = let
-        short = flip fmap (processLongObj bms.bms_LNOBJ chips)
-          \(key, _, mlen) -> (key, mlen)
-        long = flip fmap (joinLongNotes chipsLong)
-          \(key, _, len) -> (key, Just len)
+        short = processLongObj bms.bms_LNOBJ chips
+          <&> \(key, _, mlen) -> (key, mlen)
+        long = joinLongNotes chipsLong
+          <&> \(key, _, len) -> (key, Just len)
         in RTB.merge short long
 
       player1, player2 :: RTB.T U.Beats (BMKey, Maybe U.Beats)
@@ -230,7 +231,7 @@ importBMS bmsPath level = do
   return SongYaml
     { metadata = def'
       -- may need to adjust these title suffixes, sometimes there is SUBTITLE but it's same across difficulties
-      { title        = flip fmap bms.bms_TITLE \title -> title <> case bms.bms_SUBTITLE of
+      { title        = bms.bms_TITLE <&> \title -> title <> case bms.bms_SUBTITLE of
         Just sub -> " " <> sub
         Nothing -> case bms.bms_PLAYLEVEL of
           Nothing  -> ""

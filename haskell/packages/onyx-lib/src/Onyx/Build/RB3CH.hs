@@ -29,6 +29,7 @@ import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Function                     ((&))
+import           Data.Functor                      ((<&>))
 import           Data.List.Extra                   (nubOrd)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe, isNothing)
@@ -223,7 +224,7 @@ basicTiming shouldLog input@(F.Song tempos mmap trks) getAudioLength = do
 
 makeMoods' :: (NNC.C t) => t -> t -> RTB.T t (LongNote s a) -> RTB.T t Mood
 makeMoods' buffer gap rtb = let
-  edges = RTB.collectCoincident $ U.trackJoin $ flip fmap rtb \case
+  edges = RTB.collectCoincident $ U.trackJoin $ rtb <&> \case
     Blip{}    -> Wait NNC.zero True  $ Wait buffer False RNil
     NoteOn{}  -> Wait NNC.zero True  RNil
     NoteOff{} -> Wait buffer   False RNil
@@ -492,7 +493,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         , sections   = eventsInput.sections
         , backing    = if RTB.null eventsInput.backing && not (nullDrums drumsTrack)
           then let
-            makeBacking evts = nubOrd $ flip map evts \(gem, _vel) -> case gem of
+            makeBacking evts = nubOrd $ evts <&> \(gem, _vel) -> case gem of
               Drums.Kick               -> BackingKick
               Drums.Red                -> BackingSnare
               Drums.Pro _ Drums.Cymbal -> BackingHihat
@@ -509,7 +510,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         Nothing        -> (mempty, Nothing)
         Just (dt, mtd) -> let
           -- remove nonstandardized parts of true drums spec
-          mtd' = flip fmap mtd \td -> td
+          mtd' = mtd <&> \td -> td
             { ED.sticking     = RTB.empty
             , ED.chipOverride = RTB.empty
             , ED.footing      = RTB.empty
@@ -722,7 +723,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         then RBVox.harm1ToPartVocals trkHarm1
         else trkPV
       autoVoxMood :: VocalTrack U.Beats -> RTB.T U.Beats Mood
-      autoVoxMood vox = makeMoods tempos timing $ flip fmap vox.notes \case
+      autoVoxMood vox = makeMoods tempos timing $ vox.notes <&> \case
         (_, True)  -> NoteOn () ()
         (_, False) -> NoteOff ()
       trkVox' = trkVox & #mood %~ \mood ->

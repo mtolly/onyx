@@ -3,12 +3,10 @@ TRIGGERS
 -}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 module Onyx.Harmonix.GH2.Triggers where
 
@@ -35,10 +33,11 @@ instance TraverseTrack TriggersTrack where
 
 instance ParseTrack TriggersTrack where
   parseTrack = do
-    triggersBacking <- ((.triggersBacking) =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
-      BackingKick  -> 24
-      BackingSnare -> 25
-      BackingHihat -> 26
+    triggersBacking   <- (.triggersBacking  ) =. do
+      fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
+        BackingKick  -> 24
+        BackingSnare -> 25
+        BackingHihat -> 26
     triggersUnknown48 <- (.triggersUnknown48) =. blip 48
     triggersUnknown49 <- (.triggersUnknown49) =. blip 49
     triggersUnknown50 <- (.triggersUnknown50) =. blip 50

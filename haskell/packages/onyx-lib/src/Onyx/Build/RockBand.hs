@@ -21,6 +21,7 @@ import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Foldable                         (toList)
 import           Data.Function                         ((&))
+import           Data.Functor                          ((<&>))
 import           Data.Hashable                         (Hashable)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (sortOn)
@@ -1388,9 +1389,9 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.songTonality   = (.songTonality) <$> metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
-    , D.realGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) \pg ->
+    , D.realGuitarTuning = (getPart rb3.guitar songYaml >>= (.proGuitar)) <&> \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeGuitar
-    , D.realBassTuning = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) \pg ->
+    , D.realBassTuning = (getPart rb3.bass songYaml >>= (.proGuitar)) <&> \pg ->
       map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just case rb3.encoding of
@@ -1439,13 +1440,13 @@ makeC3 songYaml plan rb3 midi pkg (pstart, _) = do
     , C3.convert = metadata.convert
     , C3.expertOnly = metadata.expertOnly
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proBassTuning4 = flip fmap (getPart rb3.bass songYaml >>= (.proGuitar)) \pg -> T.concat
+    , C3.proBassTuning4 = (getPart rb3.bass songYaml >>= (.proGuitar)) <&> \pg -> T.concat
       [ "(real_bass_tuning ("
       , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeBass
       , "))"
       ]
     , C3.proGuitarDiff = case rb3ProGuitarRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proGuitarTuning = flip fmap (getPart rb3.guitar songYaml >>= (.proGuitar)) \pg -> T.concat
+    , C3.proGuitarTuning = (getPart rb3.guitar songYaml >>= (.proGuitar)) <&> \pg -> T.concat
       [ "(real_guitar_tuning ("
       , T.unwords $ map (T.pack . show) $ encodeTuningOffsets pg.tuning TypeGuitar
       , "))"

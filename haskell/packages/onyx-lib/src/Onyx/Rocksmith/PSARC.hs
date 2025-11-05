@@ -18,6 +18,7 @@ import           Control.Monad                   (replicateM)
 import           Control.Monad.ST.Lazy           (runST)
 import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Lazy            as BL
+import           Data.Functor                    ((<&>))
 import           Data.Maybe                      (fromMaybe)
 import qualified Data.Text                       as T
 import qualified Data.Text.Encoding              as TE
@@ -102,7 +103,7 @@ readPSARCFolder readable = do
           False -> liftA2 (:) getWord16be getZLengths
     zlengths <- getZLengths
     return (toc, zlengths)
-  let entryReaders = flip map toc \entry -> SH.useHandle readable \h -> do
+  let entryReaders = toc <&> \entry -> SH.useHandle readable \h -> do
         hSeek h AbsoluteSeek $ fromIntegral entry.toc_offset
         let readEntry' []       _   = return BL.empty
             readEntry' (z : zs) len = if len == entry.toc_length

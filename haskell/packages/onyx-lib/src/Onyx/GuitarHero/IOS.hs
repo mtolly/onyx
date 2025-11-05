@@ -11,6 +11,7 @@ import           Data.Binary.Get
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Char8      as B8
 import qualified Data.ByteString.Lazy       as BL
+import           Data.Functor               ((<&>))
 import           Data.Word
 import           System.Directory           (createDirectoryIfMissing)
 import           System.FilePath            (dropExtension, takeDirectory,
@@ -76,7 +77,7 @@ loadIGA f = do
         $ B.drop (fromIntegral header.igaFilenameDirectoryOffset) bs
       nameOffsets = runGet (replicateM (fromIntegral header.igaFileCount) getWord32le)
         $ BL.fromStrict namesSection
-      names = flip map nameOffsets \offset ->
+      names = nameOffsets <&> \offset ->
         B.takeWhile (/= 0) $ B.drop (fromIntegral offset) namesSection
       sliceFile name (offset, len, compression) = if compression == -1
         then return (name, BL.fromStrict $ B.take (fromIntegral len) $ B.drop (fromIntegral offset) bs)

@@ -16,6 +16,7 @@ import           Control.Monad.Trans.State.Strict (State, StateT, execState,
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import           Data.Functor.Identity            (Identity (..))
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
@@ -129,11 +130,11 @@ getMIDITrack = let
 
 putMIDITrack :: (Functor f) => (f (E.T T.Text) -> f (E.T T.Text) -> f (E.T T.Text)) -> MIDITrack f -> f (E.T T.Text)
 putMIDITrack merge mt = foldr merge mt.midiUnknown let
-  notes = flip map (Map.toList mt.midiNotes) \(p, lane) -> let
+  notes = Map.toList mt.midiNotes <&> \(p, lane) -> let
     f (EdgeOff  c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) Nothing
     f (EdgeOn v c) = makeEdgeCPV (C.fromChannel c) (V.fromPitch p) (Just $ V.fromVelocity v)
     in f <$> lane
-  controllers = flip fmap (Map.toList mt.midiControllers) \(cont, lane) -> let
+  controllers = Map.toList mt.midiControllers <&> \(cont, lane) -> let
     f (chan, v) = E.MIDIEvent (C.Cons chan (C.Voice (V.Control cont v)))
     in f <$> lane
   in notes ++ controllers ++
@@ -274,7 +275,7 @@ edgesBRE ps = Codec
     getLeavePitch p = fmap snd $ RTB.filter (\(p', _) -> p == p') leave'
     mt' = mt
       { midiNotes = Map.union
-        (Map.fromList $ flip map ps $ (\p -> (p, getLeavePitch p)) . V.toPitch)
+        (Map.fromList $ ps <&> (\p -> (p, getLeavePitch p)) . V.toPitch)
         mt.midiNotes
       }
     in if RTB.null slurp' then (RTB.empty, mt) else (slurp', mt')
@@ -286,7 +287,7 @@ edgesCV p = Codec
   { codecIn = slurpTrack \mt -> case Map.lookup (V.toPitch p) mt.midiNotes of
     Nothing -> (RTB.empty, mt)
     Just noteEdges -> let
-      cvs = flip fmap noteEdges \case
+      cvs = noteEdges <&> \case
         EdgeOn v c -> (C.fromChannel c, Just $ V.fromVelocity v)
         EdgeOff c  -> (C.fromChannel c, Nothing)
       mt' = mt { midiNotes = Map.delete (V.toPitch p) mt.midiNotes }
@@ -496,7 +497,7 @@ sysexPS diff pid = Codec
       Just (b, otherDiffs)
     in case RTB.partitionMaybe matcher mt.midiPhaseShift of
       (matches, rest) -> let
-        leftover = RTB.flatten $ flip fmap matches \(b, diffs) ->
+        leftover = RTB.flatten $ matches <&> \(b, diffs) ->
           map (\diff' -> PS.PSMessage (Just diff') pid b) diffs
         in (fmap fst matches, mt { midiPhaseShift = RTB.merge leftover rest })
   , codecOut = makeTrackBuilder $ fmap $ PS.unparsePSSysEx . PS.PSMessage (Just diff) pid
@@ -583,7 +584,7 @@ controller cont = Codec
   { codecIn = slurpTrack \mt -> case Map.lookup (V.toController cont) mt.midiControllers of
     Nothing -> (RTB.empty, mt)
     Just events -> let
-      cvs = flip fmap events \(chan, v) -> (C.fromChannel chan, v)
+      cvs = events <&> \(chan, v) -> (C.fromChannel chan, v)
       mt' = mt { midiControllers = Map.delete (V.toController cont) mt.midiControllers }
       in (cvs, mt')
   , codecOut = makeTrackBuilder $ fmap

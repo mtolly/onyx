@@ -17,6 +17,7 @@ import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
+import           Data.Functor                      ((<&>))
 import           Data.Hashable                     (Hashable, hash)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromMaybe)
@@ -377,12 +378,12 @@ fromSeconds secs = floor $ secs * 1000
 
 makeGH3Spans :: U.TempoMap -> RTB.T U.Beats Bool -> RTB.T U.Beats gem -> [(Word32, Word32, Word32)]
 makeGH3Spans tmap spans gems = let
-  spans' = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ flip fmap spans \case
+  spans' = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ spans <&> \case
     False -> EdgeOff ()
     True  -> EdgeOn  () ()
   collectedGems = RTB.collectCoincident gems
   fromBeats bts = fromSeconds $ U.applyTempoMap tmap bts
-  in flip fmap spans' \(pos, ((), (), len)) -> let
+  in spans' <&> \(pos, ((), (), len)) -> let
     msStart = fromBeats pos
     msEnd   = fromBeats $ pos + len
     count   = fromIntegral $ length $ U.trackTake len $ U.trackDrop pos collectedGems

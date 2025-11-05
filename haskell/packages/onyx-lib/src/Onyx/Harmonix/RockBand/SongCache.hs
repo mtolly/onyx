@@ -10,6 +10,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class               (MonadIO (..))
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as BL
+import           Data.Functor                         ((<&>))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (elemIndex, nubOrd, sort)
 import           Data.List.NonEmpty                   (NonEmpty ((:|)))
@@ -325,7 +326,7 @@ applyDTA single entry = let
       maybe [] (map fromIntegral) (D.realGuitarTuning pkg) ++ repeat 0
     , se_BassTuning       = take 4 $
       maybe [] (map fromIntegral) (D.realBassTuning pkg) ++ repeat 0
-    , se_Solo             = flip map (fromMaybe [] $ D.solo pkg) \case
+    , se_Solo             = fromMaybe [] (D.solo pkg) <&> \case
       "vocal_percussion" -> "vocals"
       inst               -> inst
     }
@@ -371,11 +372,11 @@ fixSongCache path = do
               else do
                 lg $ T.unpack name <> ": updated song ID from " <> show cid <> " to " <> show nid
                 checkSongID name nid single cache
-                  { sc_Files = flip map cache.sc_Files \fe ->
+                  { sc_Files = cache.sc_Files <&> \fe ->
                     -- replace the existing numeric ID with a new one
                     if fe.fe_Name == name
                       then fe
-                        { fe_SongIDs = flip map (zip [0..] fe.fe_SongIDs) \(j, origID) ->
+                        { fe_SongIDs = zip [0..] fe.fe_SongIDs <&> \(j, origID) ->
                           if i == j then nid else origID
                         }
                       else fe
@@ -470,7 +471,7 @@ hardcodeSongCacheIDs pathCache pathCONs = do
                       lg $ "  * " <> fileForID cid <> " (" <> show cid <> ")"
                     return single
         when (songs /= songs') let
-          songsUTF8 = flip map songs' \single -> single
+          songsUTF8 = songs' <&> \single -> single
             { dtaSongPackage = single.dtaSongPackage { D.encoding = Just "utf8" }
             }
           newDTABytes = TE.encodeUtf8 $ T.unlines $ map writeDTASingle songsUTF8

@@ -1,9 +1,9 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Build (shakeBuildFiles, shakeBuild, targetTitle, validFileName, validFileNamePiece, NameRule(..), hashRB3) where
 
 import           Codec.Picture
@@ -29,7 +29,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (intercalate, nubOrd, sort)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Maybe                       (fromMaybe, isJust, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Time                        (defaultTimeLocale,
@@ -182,7 +182,7 @@ dtxRules buildInfo dir dtx = do
               }
             result = buildFive FiveTypeGuitarExt input
             noteGroups = guitarify' $ fromMaybe RTB.empty $ Map.lookup Expert result.notes
-            dtxNotes = (\(gems, _len) -> (sort $ catMaybes $ map fst gems, emptyChip)) <$> noteGroups
+            dtxNotes = (\(gems, _len) -> (sort $ mapMaybe fst gems, emptyChip)) <$> noteGroups
             dtxLongs = U.trackJoin $ RTB.mapMaybe
               (\(_, mlen) -> (\len -> RTB.fromPairList [(0, ()), (len, ())]) <$> mlen)
               noteGroups

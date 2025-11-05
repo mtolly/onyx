@@ -14,6 +14,7 @@ import           Control.Monad.Trans.Resource
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
@@ -149,7 +150,7 @@ psRules buildInfo dir ps = do
           , charter          = metadata.author
           , year             = T.pack . show <$> metadata.year
           , genre            = Just (fullGenre metadata).fofGenre
-          , proDrums         = flip fmap dmode \case
+          , proDrums         = dmode <&> \case
             DrumsPro   -> True
             DrumsReal  -> True
             DrumsElite -> True

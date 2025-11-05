@@ -56,6 +56,7 @@ import           Data.Char                                 (isSpace, toLower,
 import           Data.Conduit.Audio                        (integralSample,
                                                             mapSamples)
 import           Data.Function                             ((&))
+import           Data.Functor                              ((<&>))
 import           Optics                                    (mapped, (%), (%~),
                                                             (.~))
 -- import qualified Data.Connection                           as Conn
@@ -1443,7 +1444,7 @@ makePS3PackPresetDropdown _sink rect = do
     (FL.MenuItemFlags [])
   void $ FL.add menu labelCustomInitial Nothing
     ((Just \_ -> do
-      defValue <- flip fmap (readIORef ref) \case
+      defValue <- readIORef ref <&> \case
         QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
         _                 -> Nothing
       FL.flInput customPrompt defValue >>= \case
@@ -2039,7 +2040,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       -- TODO this is a hack to avoid stale references after editing them.
       -- should come up with a better solution!
       stackIO clearFiles
-      startTasks $ flip map files \qinput -> let
+      startTasks $ files <&> \qinput -> let
         fin = qinput.quickInputPath
         qsongs = qinput.quickInputSongs
         task = do
@@ -2101,7 +2102,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           songTransform <- stackIO getSongTransform
           decryptMOGGs <- stackIO getDecryptMOGGs
           newPreferences <- readPreferences
-          startTasks $ flip map files \qinput -> let
+          startTasks $ files <&> \qinput -> let
             fin = qinput.quickInputPath
             qsongs = qinput.quickInputSongs
             task = do
@@ -2142,7 +2143,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       sink $ EventOnyx do
         defDir <- getDefaultPS3Dir
         stackIO $ askFolder defDir \dout -> do
-          sink $ EventOnyx $ startTasks $ flip map files \qinput -> let
+          sink $ EventOnyx $ startTasks $ files <&> \qinput -> let
             fin = qinput.quickInputPath
             qsongs = qinput.quickInputSongs
             task = do
@@ -2205,7 +2206,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
             QCOutputLoosePS3 -> do
               defDir <- getDefaultPS3Dir
               stackIO $ askFolder defDir \dout -> do
-                sink $ EventOnyx $ startTasks $ flip map (zip [1..] packs) \(i, qsongs) -> let
+                sink $ EventOnyx $ startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
                   task = do
                     mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM songTransform qsongs
@@ -2235,7 +2236,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                       _           -> userPath <> packNumber n
                     in sink $ EventOnyx do
                       newPreferences <- readPreferences
-                      startTasks $ flip map (zip [1..] packs) \(i, qsongs) -> let
+                      startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
                         fout = getOutputPath i
                         task = do
                           mapM_ (lg . T.unpack . artistTitle) qsongs
@@ -2246,7 +2247,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                                 else Just Latin1
                               qsongsReencode = case maybeEncoding of
                                 Nothing          -> qsongs'
-                                Just newEncoding -> flip map qsongs' \qsong -> qsong
+                                Just newEncoding -> qsongs' <&> \qsong -> qsong
                                   { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
                                   }
                               ps3Folder' = case ps3Folder of
@@ -2301,7 +2302,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
             let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
             sink $ EventOnyx do
               newPreferences <- readPreferences
-              startTasks $ flip map inputSongs \(qinput, qsong) -> let
+              startTasks $ inputSongs <&> \(qinput, qsong) -> let
                 ext = case fmt of
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
@@ -2340,7 +2341,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         defDir <- getDefaultPS3Dir
         stackIO $ askFolder defDir \dout -> do
           let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
-          sink $ EventOnyx $ startTasks $ flip map inputSongs \(_qinput, qsong) -> let
+          sink $ EventOnyx $ startTasks $ inputSongs <&> \(_qinput, qsong) -> let
             isRB3 = qsong.quickSongDTA.qdtaRB3
             task = do
               qsong' <- songTransform qsong
@@ -2571,7 +2572,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
           -- TODO this is a hack to avoid stale .sng references after editing them.
           -- should come up with a better solution!
           stackIO clearFiles
-          startTasks $ flip map qfofs \orig -> let
+          startTasks $ qfofs <&> \orig -> let
             loc = orig.location
             task = do
               qfof <- transform orig
@@ -2630,7 +2631,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         tasks <- computeTasks qfofs "" template deleteOriginals
         promptTasks tasks $ sink $ EventOnyx do
           stackIO clearFiles -- hack as mentioned above
-          startTasks $ flip map tasks \(orig, _, taskType, fout) -> let
+          startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
               stackIO $ saveQuickFoFFolder fout qfof
@@ -2655,7 +2656,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         tasks <- computeTasks qfofs "sng" template deleteOriginals
         promptTasks tasks $ sink $ EventOnyx do
           stackIO clearFiles -- hack as mentioned above
-          startTasks $ flip map tasks \(orig, _, taskType, fout) -> let
+          startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
               stackIO $ fillRequiredMetadata qfof >>= saveQuickFoFSNG fout
@@ -3621,7 +3622,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRB3 sink rect tab \qcPossible settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        let go = startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        let go = startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
               let (targets, yaml) = settings proj
               proj' <- stackIO $ filterParts yaml >>= saveProject proj
               fmap concat $ forM targets \(target, creator) -> do
@@ -3649,7 +3650,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRB2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let (targets, yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           fmap concat $ forM targets \(target, creator) -> do
@@ -3671,7 +3672,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       batchPagePS sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
         newPreferences <- readPreferences
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let (target, creator) = settings proj
               target' = (target :: TargetPS FilePath)
                 & #audioFormat .~ case newPreferences.prefCHAudioFormat of
@@ -3696,7 +3697,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH1 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let (target, creator) = settings proj
           proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           case creator of
@@ -3711,7 +3712,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let (target, creator) = settings proj
           proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           case creator of
@@ -3733,7 +3734,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGH3 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let (target, creator) = settings proj
           proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           results <- case creator of
@@ -3755,7 +3756,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageGHWOR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           let warnWoR = warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
@@ -3778,7 +3779,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
           let warnRR = warn "All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use \"Quick Convert > RR renumber\" to reassign IDs."
@@ -3798,7 +3799,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPagePreview sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip (map (.impPath) files) $ flip map files \f -> doImport f \proj -> do
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let dout = settings proj
           proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
           tmp <- buildPlayer Nothing proj'

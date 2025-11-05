@@ -11,6 +11,7 @@ import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import           Data.List                        (inits, tails)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
@@ -45,13 +46,13 @@ convertMidiRB2 mid = fixUnisons mid
       in pd
         -- note: we don't have to remove tom markers, Magma v1 is fine with them
         { kick2x = RTB.empty
-        , difficulties = flip fmap pd.difficulties \dd -> dd
-          { mix = flip fmap dd.mix \case
+        , difficulties = pd.difficulties <&> \dd -> dd
+          { mix = dd.mix <&> \case
             (aud, DiscoNoFlip) -> (aud, NoDisco)
             x                  -> x
           }
         , animation = let
-          anims = flip fmap pd.animation \case
+          anims = pd.animation <&> \case
             -- these were added in RB3
             Snare SoftHit hand -> Snare HardHit hand
             Ride LH            -> Hihat LH

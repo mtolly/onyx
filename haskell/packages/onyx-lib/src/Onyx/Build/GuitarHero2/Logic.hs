@@ -14,6 +14,7 @@ import           Control.Monad.Random                 (evalRand, mkStdGen)
 import           Data.Bifunctor                       (bimap)
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor                         ((<&>))
 import           Data.Hashable                        (hash)
 import qualified Data.Map                             as Map
 import           Data.Maybe                           (catMaybes, fromMaybe,
@@ -215,7 +216,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
         moods = if RTB.null origMoods
           then RB3.makeMoods tmap timing gems
           else origMoods
-        bools = flip fmap moods \case
+        bools = moods <&> \case
           Mood_idle_realtime -> False
           Mood_idle          -> False
           Mood_idle_intense  -> False
@@ -223,7 +224,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           Mood_mellow        -> True
           Mood_intense       -> True
           Mood_play_solo     -> True
-        in (const () <$> RTB.filter not bools, const () <$> RTB.filter id bools) -- (idle, play)
+        in (void $ RTB.filter not bools, void $ RTB.filter id bools) -- (idle, play)
       makeGRYBO fpart = case completeFiveResult False mmap <$> getFive' fpart of
         Nothing -> return mempty
         Just result -> do
@@ -259,7 +260,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
             , partFretPosition = result.other.fretPosition
             , partIdle         = idle
             , partPlay         = play
-            , partHandMap      = flip fmap result.other.handMap \case
+            , partHandMap      = result.other.handMap <&> \case
               RB.HandMap_Default   -> HandMap_Default
               RB.HandMap_NoChords  -> HandMap_NoChords
               RB.HandMap_AllChords -> HandMap_AllChords
@@ -285,7 +286,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
               , part   = F.getFlexPart fpart onyx
               }
           in GH2DrumTrack
-            { gh2drumDifficulties = flip fmap trackOrig.difficulties \diff -> GH2DrumDifficulty
+            { gh2drumDifficulties = trackOrig.difficulties <&> \diff -> GH2DrumDifficulty
               { gh2drumStarPower = trackOrig.overdrive
               , gh2drumPlayer1   = trackOrig.player1
               , gh2drumPlayer2   = trackOrig.player2
@@ -457,7 +458,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
         GH2Silent       -> [0]
       , D.vols          = audio.audioSections >>= \case
         GH2PartStereo _ -> [0, 0]
-        GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+        GH2PartMono   _ -> [20 * logBase 10 2] -- compensate for half volume later
         GH2Band         -> [0, 0]
         GH2Silent       -> [0]
       , D.cores         = audio.audioSections >>= \case
@@ -502,7 +503,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
         GH2Silent       -> [0]
       , D.vols          = audio.audioSections >>= \case
         GH2PartStereo _ -> [0, 0]
-        GH2PartMono   _ -> [20 * (log 2 / log 10)] -- compensate for half volume later
+        GH2PartMono   _ -> [20 * logBase 10 2] -- compensate for half volume later
         GH2Band         -> [0, 0]
         GH2Silent       -> [0]
       , D.cores         = audio.audioSections >>= \case

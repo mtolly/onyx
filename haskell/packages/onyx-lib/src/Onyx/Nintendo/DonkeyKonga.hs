@@ -11,6 +11,7 @@ module Onyx.Nintendo.DonkeyKonga where
 import           Data.Binary.Get
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import           Data.List                        (sort)
 import           Data.Maybe
 import           Data.Scientific                  (Scientific)
@@ -78,7 +79,7 @@ binToMidi bin = let
     time-correct) note positions. if we wanted, we could instead insert new
     bars or beats in the gaps.
   -}
-  barResults = cutoffBars $ flip map bin.bars \bar -> let
+  barResults = cutoffBars $ bin.bars <&> \bar -> let
     -- magic numbers found by guesswork, may need further adjustment
     barLength = fromIntegral bar.unk3 / 60 -- U.Seconds
     barStart = fromIntegral bar.unk1 / 98.44 + barLength
@@ -157,7 +158,7 @@ interpretDK1 dk = let
 readTrackDK2 :: (NNC.C t) => RTB.T t (E.T s) -> RTB.T t (DKEvent t)
 readTrackDK2 mid = let
   notes = joinEdgesSimple $ flip RTB.mapMaybe mid \e ->
-    flip fmap (isNoteEdge e) \(p, b) ->
+    isNoteEdge e <&> \(p, b) ->
       (if b then EdgeOn () else EdgeOff) p
   noPurple = flip RTB.mapMaybe notes \case
     ((), 39, len) -> Just $ noteOrRoll DKClap   len

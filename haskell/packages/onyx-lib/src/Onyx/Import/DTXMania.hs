@@ -17,6 +17,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
 import           Data.List.NonEmpty               (NonEmpty (..))
@@ -99,11 +100,11 @@ dtxConvertGB getter getLong setter dtx (F.Song tmap mmap fixed) = let
       (drop 1 pairs)
   guitarToFive notes = mempty
     { difficulties = Map.singleton Expert $ emitGuitar5 let
-      noSustains = RTB.flatten $ flip fmap notes \case
+      noSustains = RTB.flatten $ notes <&> \case
         [] -> [((Nothing, Strum), Nothing)]
         xs -> [((Just x , Strum), Nothing) | x <- xs ]
       merged = RTB.merge (Left <$> longLengths) (Right <$> noSustains)
-      in RTB.flatten $ flip fmap (RTB.collectCoincident merged) \instant ->
+      in RTB.flatten $ RTB.collectCoincident merged <&> \instant ->
         case lefts instant of
           sustain : _ -> [ (note, Just sustain) | (note, _) <- rights instant ]
           []          -> rights instant
@@ -117,7 +118,7 @@ dtxAddChipAudio :: (SendMessage m, MonadIO m) => DTX -> FilePath -> StackTraceT 
 dtxAddChipAudio dtx fin = do
   audio <- fmap catMaybes $ forM (HM.toList dtx.dtx_WAV) \(chip, fp) -> do
     msrc <- dtxAudioSource $ takeDirectory fin </> fp -- already fixed backslashes and yens in readDTXLines
-    return $ flip fmap msrc \src -> let
+    return $ msrc <&> \src -> let
       -- could be smarter about this (apply volume later) but this works
       adjustVolume = case fromMaybe 100 $ HM.lookup chip dtx.dtx_VOLUME of
         100 -> id
@@ -204,9 +205,9 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
     { sampleGroup = "HH"
     , sampleAudio = "hihat-silencer"
     }
-  cymbalTrack' = flip fmap cymbalTrack $ fmap \trk -> trk
+  cymbalTrack' = cymbalTrack <&> fmap \trk -> trk
     { F.sampleTriggers = RTB.merge trk.sampleTriggers $
-      RTB.flatten $ flip fmap (RTB.collectCoincident dtx.dtx_Drums) \instant ->
+      RTB.flatten $ RTB.collectCoincident dtx.dtx_Drums <&> \instant ->
         if any (\(lane, _) -> elem lane [LeftPedal, HihatClose]) instant
           then case length $ filter (\(lane, _) -> elem lane [HihatClose, HihatOpen]) instant of
             0 -> [hihatSilencerTrigger, hihatSilencerTrigger]
@@ -214,7 +215,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
             _ -> []
           else []
     }
-  extraResults = flip map (HM.toList dtx.dtx_BGMExtra) \(chan, chips) ->
+  extraResults = HM.toList dtx.dtx_BGMExtra <&> \(chan, chips) ->
     audioForChipGroups 1 ("audio-extra-" <> chan) [("", chips)]
   audioExpr name = Input $ Named name
   audiosExpr names = Mix $ fmap (Input . Named) names
@@ -223,15 +224,15 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
       $ [songAudio, guitarAudio, bassAudio, kickAudio, snareAudio, cymbalAudio, tomAudio, hihatSilencer]
       <> map fst extraResults
     , plans = HM.singleton "dtx" $ StandardPlan StandardPlanInfo
-      { song        = flip fmap songAudio \(name, _) -> audioExpr name
+      { song        = songAudio <&> \(name, _) -> audioExpr name
       , parts       = Parts $ HM.fromList $ concat
-        [ toList $ flip fmap guitarAudio \(name, _) -> (F.PartGuitar, PartSingle $ audioExpr name)
-        , toList $ flip fmap bassAudio \(name, _) -> (F.PartBass, PartSingle $ audioExpr name)
+        [ toList $ guitarAudio <&> \(name, _) -> (F.PartGuitar, PartSingle $ audioExpr name)
+        , toList $ bassAudio <&> \(name, _) -> (F.PartBass, PartSingle $ audioExpr name)
         , toList $ (F.PartDrums ,) <$> case cymbalAudio of
           Just (name, _) -> Just PartDrumKit
-            { kick  = flip fmap kickAudio \(n, _) -> audioExpr n
-            , snare = flip fmap snareAudio \(n, _) -> audioExpr n
-            , toms  = flip fmap tomAudio \(n, _) -> audioExpr n
+            { kick  = kickAudio <&> \(n, _) -> audioExpr n
+            , snare = snareAudio <&> \(n, _) -> audioExpr n
+            , toms  = tomAudio <&> \(n, _) -> audioExpr n
             , kit   = audioExpr name
             }
           Nothing -> do
@@ -239,8 +240,8 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
             Just $ PartSingle case xs of
               (name, _) :| [] -> audioExpr name
               _               -> audiosExpr $ fmap fst xs
-        , flip mapMaybe extraResults \(extraAudio, _) -> flip fmap extraAudio
-          \(name, _) -> (F.PartName name, PartSingle $ audioExpr name)
+        , flip mapMaybe extraResults \(extraAudio, _) -> extraAudio
+          <&> \(name, _) -> (F.PartName name, PartSingle $ audioExpr name)
         ]
       , crowd       = Nothing
       , comments    = []
@@ -388,18 +389,18 @@ importSetDef setDefPath song level = do
         , plans = HM.empty
         , targets = HM.empty
         , parts = Parts $ HM.fromList $ catMaybes
-          [ flip fmap topDrumDiff \diff -> (F.PartDrums, emptyPart & #drums .~ Just let
+          [ topDrumDiff <&> \diff -> (F.PartDrums, emptyPart & #drums .~ Just let
             kicks = if any ((== LeftBass) . fst) diff.dtx_Drums
               then KicksBoth
               else Kicks1x
             in (emptyPartDrums DrumsElite kicks :: ModeDrums SoftFile)
               & #difficulty .~ translateDifficulty diff.dtx_DLEVEL diff.dtx_DLVDEC
             )
-          , flip fmap topGuitarDiff \diff -> (F.PartGuitar, emptyPart & #grybo .~ Just do
+          , topGuitarDiff <&> \diff -> (F.PartGuitar, emptyPart & #grybo .~ Just do
             (def :: ModeFive)
               & #difficulty .~ translateDifficulty diff.dtx_GLEVEL diff.dtx_GLVDEC
             )
-          , flip fmap topBassDiff \diff -> (F.PartBass, emptyPart & #grybo .~ Just do
+          , topBassDiff <&> \diff -> (F.PartBass, emptyPart & #grybo .~ Just do
             (def :: ModeFive)
               & #difficulty .~ translateDifficulty diff.dtx_BLEVEL diff.dtx_BLVDEC
             )

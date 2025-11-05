@@ -29,6 +29,7 @@ import qualified Data.Conduit.Audio                   as CA
 import           Data.Default.Class                   (def)
 import           Data.Foldable                        (toList)
 import           Data.Function                        ((&))
+import           Data.Functor                         ((<&>))
 import qualified Data.HashMap.Strict                  as HM
 import           Data.List.Extra                      (elemIndex, nubOrd, (\\))
 import           Data.List.NonEmpty                   (NonEmpty (..))
@@ -151,7 +152,7 @@ importSTFSFolder src folder = do
         midiPath = "songs" :| [baseX, baseY <> ".mid"]
 
     let mogg = SoftReadable <$> findFileCI moggPath folder
-        bink = flip fmap (findFileCI binkPath folder) \r -> SoftReadable
+        bink = findFileCI binkPath folder <&> \r -> SoftReadable
           $ makeHandle "decrypted bink" $ decryptBink r >>= byteStringSimpleHandle . BL.fromStrict
         pss = case findFileCI pssPath folder of
           Nothing -> Nothing
@@ -178,7 +179,7 @@ importSTFSFolder src folder = do
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
       then return $ Just do
-        Dir.doesFileExist missingArt >>= return . \case
+        Dir.doesFileExist missingArt <&> \case
           -- if True, old rb1 song with album art on rb3 disc
           True -> Right $ SoftFile "cover.png_xbox" $ SoftReadable $ fileReadable missingArt
           False -> let
@@ -192,7 +193,7 @@ importSTFSFolder src folder = do
       else return Nothing
     update <- if maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
       then return $ Just do
-        Dir.doesFileExist updateMid >>= return . \case
+        Dir.doesFileExist updateMid <&> \case
           True  -> Right $ fileReadable updateMid
           False -> Left $ "Expected to find disc update MIDI but it's not installed: " <> updateMid
       else return Nothing
@@ -603,7 +604,7 @@ importRB rbi level = do
       , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyxWithAnim
       -- disabled now that we're importing it to midi
       , fileSongAnim        = Nothing -- fst <$> songAnim
-      , backgroundVideo     = flip fmap video \videoFile -> VideoInfo
+      , backgroundVideo     = video <&> \videoFile -> VideoInfo
         { fileVideo      = videoFile
         , videoStartTime = Just $ rockBandPS2PreSongTime pkg
         , videoEndTime   = Nothing
@@ -775,7 +776,7 @@ importRB rbi level = do
           }
         })
       , ( F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ do
-        flip fmap vocalMode \vc -> ModeVocal
+        vocalMode <&> \vc -> ModeVocal
           { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , count = vc
           , gender = D.vocalGender pkg

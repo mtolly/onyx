@@ -1,13 +1,11 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Events where
 
 import           Control.Monad.Codec
@@ -81,13 +79,15 @@ instance ParseTrack EventsTrack where
     coda       <- (.coda      ) =. commandMatch ["coda"]
     codaResume <- (.codaResume) =. commandMatch ["coda_resume"]
     crowd      <- (.crowd     ) =. command
-    crowdClap  <- ((.crowdClap) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
-      False -> ["crowd_noclap"]
-      True  -> ["crowd_clap"]
+    crowdClap  <- (.crowdClap ) =. do
+      condenseMap_ $ eachKey each $ commandMatch . \case
+        False -> ["crowd_noclap"]
+        True  -> ["crowd_clap"]
     sections   <- (.sections  ) =. commandMatch' parseSection (pure . emitSection)
-    backing    <- ((.backing  ) =.) $ condenseMap_ $ eachKey each $ blip . \case
-      BackingKick  -> 24
-      BackingSnare -> 25
-      BackingHihat -> 26
+    backing    <- (.backing   ) =. do
+      condenseMap_ $ eachKey each $ blip . \case
+        BackingKick  -> 24
+        BackingSnare -> 25
+        BackingHihat -> 26
     preview    <- (.preview   ) =. commandMatch ["preview"]
     return EventsTrack{..}

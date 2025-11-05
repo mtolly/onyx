@@ -4,7 +4,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.Neversoft.GH3.MidQB where
 
 import           Control.Monad                    (forM)
@@ -13,6 +12,7 @@ import           Data.Bits                        (bit, testBit, (.|.))
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import           Data.List.Extra                  (nubOrd)
@@ -275,8 +275,7 @@ makeMidQB file dlc GH3MidQB{..} = execWriter do
   makeTriples "_timesig" gh3TimeSignatures
   makeSection "_fretbars" $ QBArrayOfInteger gh3FretBars
   makeSection "_markers" $ QBArrayOfStruct do
-    (time, marker) <- gh3Markers
-    return
+    gh3Markers <&> \(time, marker) ->
       [ QBStructHeader
       , QBStructItemInteger810000 "time" time
       , case marker of
@@ -287,12 +286,11 @@ makeMidQB file dlc GH3MidQB{..} = execWriter do
   makeBackground "_notes" gh3BackgroundNotes \str notes -> makeSection str $
     QBArrayOfArray $ map QBArrayOfInteger notes
   makeBackground "" gh3Background \str evts -> makeSection str $ QBArrayOfStruct do
-    GH3AnimEvent{..} <- evts
-    return
+    evts <&> \evt ->
       [ QBStructHeader
-      , QBStructItemInteger810000 "time" gh3AnimTime
-      , QBStructItemQbKey8D0000 "scr" gh3AnimScr
-      , QBStructItemStruct8A0000 "params" $ QBStructHeader : gh3AnimParams
+      , QBStructItemInteger810000 "time" evt.gh3AnimTime
+      , QBStructItemQbKey8D0000 "scr" evt.gh3AnimScr
+      , QBStructItemStruct8A0000 "params" $ QBStructHeader : evt.gh3AnimParams
       ]
 
 toSeconds :: Word32 -> U.Seconds
@@ -430,8 +428,8 @@ gh3DrumsToElite :: (Word32 -> U.Beats) -> [[Word32]] -> EliteDrumTrack U.Beats
 gh3DrumsToElite toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   allGemPairs = flip mapMaybe notes \case
-    time : pitch : _ -> flip fmap (lookup pitch gh3DrumMapping)
-      \(gem, hand) -> (toBeats time, hand <$ gem)
+    time : pitch : _ -> lookup pitch gh3DrumMapping
+      <&> \(gem, hand) -> (toBeats time, hand <$ gem)
     _                -> Nothing
   hands = RTB.collectCoincident $ fromPairs $ flip filter allGemPairs \case
     (_time, Kick _) -> False
@@ -482,7 +480,7 @@ makeGH3TrackNotes tmap newSigs newFretbars notes = let
     lenMS = case len of
       Nothing      -> 1
       Just sustain -> toMilli (pos + sustain) - posMS + sustainTrim
-    bits = foldr (.|.) 0 $ flip map gems \(gem, force) -> let
+    bits = foldr (.|.) 0 $ gems <&> \(gem, force) -> let
       force' = force && null (drop 1 gems) -- can't force chords (though gh3LegalHOPOs should force strum)
       in (if force' then bit 5 else 0) .|. case gem of
         Five.Green  -> bit 0

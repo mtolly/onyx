@@ -18,6 +18,7 @@ import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Function                     ((&))
+import           Data.Functor                      ((<&>))
 import qualified Data.HashMap.Strict               as HM
 import           Data.List.NonEmpty                (NonEmpty (..), nonEmpty)
 import qualified Data.Map                          as Map
@@ -209,9 +210,9 @@ importPowerGigSong key song folder level = do
             $ RTB.merge (getController 80 trk) (getController 81 trk)
           phraselessTrack = putLyricNotes lyricNotes
           finalTrack = phraselessTrack
-            { phrase1 = U.trackJoin $ flip fmap phrases
+            { phrase1 = U.trackJoin $ phrases <&>
               \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-            , overdrive = U.trackJoin $ flip fmap phrases \case
+            , overdrive = U.trackJoin $ phrases <&> \case
               (_  , False) -> RNil
               (len, True ) -> Wait 0 True $ Wait len False RNil
             }
@@ -233,7 +234,7 @@ importPowerGigSong key song folder level = do
           $ RTB.filter (not . fst)
           $ applyStatus1 False pg.vocalFreestyle
           $ RTB.merge notesPitched notesTalky
-        lyrics = glueLyrics pg.vocalGlue $ flip fmap pg.vocalLyrics \str ->
+        lyrics = glueLyrics pg.vocalGlue $ pg.vocalLyrics <&> \str ->
           case T.strip str of -- lyrics have a space after them for some reason
             "*" -> Nothing
             s   -> Just s
@@ -243,9 +244,9 @@ importPowerGigSong key song folder level = do
           $ RTB.merge pg.vocalMojoGuitarist pg.vocalMojoDrummer
         phraselessTrack = putLyricNotes lyricNotes
         finalTrack = phraselessTrack
-          { phrase1 = U.trackJoin $ flip fmap phrases
+          { phrase1 = U.trackJoin $ phrases <&>
             \(len, _mojo) -> Wait 0 True $ Wait len False RNil
-          , overdrive = U.trackJoin $ flip fmap phrases \case
+          , overdrive = U.trackJoin $ phrases <&> \case
             (_  , False) -> RNil
             (len, True ) -> Wait 0 True $ Wait len False RNil
           }
@@ -378,7 +379,7 @@ importPowerGigSong key song folder level = do
         (\i -> if endsWithMono && i >= streamCount - 1 then 1 else 2)
         [0 .. streamCount - 1]
       useXboxAudio rate samples packetsPerBlock xmas = do
-        xmaBytes <- stackIO $ makeXMA2s $ flip map (zip channelCounts xmas) \(channels, xma) -> XMA2Contents
+        xmaBytes <- stackIO $ makeXMA2s $ zip channelCounts xmas <&> \(channels, xma) -> XMA2Contents
           { xma2Channels        = channels
           , xma2Rate            = rate
           , xma2Samples         = samples
@@ -386,7 +387,7 @@ importPowerGigSong key song folder level = do
           , xma2SeekTable       = Nothing
           , xma2Data            = writeXMA2Packets xma
           }
-        return $ flip map (zip [0..] $ zip channelCounts xmaBytes) \(i, (channels, bs)) -> let
+        return $ zip3 [0..] channelCounts xmaBytes <&> \(i, channels, bs) -> let
           name = "stream-" <> show (i :: Int)
           filename = name <> ".xma"
           afile = AudioFile AudioInfo

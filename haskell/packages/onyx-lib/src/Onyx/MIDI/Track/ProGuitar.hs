@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DerivingVia           #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -24,6 +23,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import           Data.List.Extra                  (sort, unsnoc)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -482,7 +482,7 @@ computeChordNames diff tuning flatDefault pg = let
     $ edgeBlips minSustainLengthRB pgd.notes
 
   chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
-  chords = flip fmap notes \(root, (mods, chord)) -> case sort chord of
+  chords = notes <&> \(root, (mods, chord)) -> case sort chord of
     low : rest@(_ : _) -> Just ChordData
       { frets = Map.fromList [ (str, fret) | (str, (_, fret, _)) <- chord ]
       , name = if elem ModNoName mods then "" else let
@@ -586,7 +586,7 @@ autoHandPosition pg = if RTB.null pg.handPosition
       return $ flip RTB.mapMaybe pgd.notes \case
         EdgeOn fret _ -> Just fret
         EdgeOff _     -> Nothing
-    posns = flip fmap (RTB.collectCoincident frets) \fs ->
+    posns = RTB.collectCoincident frets <&> \fs ->
       case filter (/= 0) fs of
         []     -> 0
         f : ft -> foldr min f ft
@@ -663,7 +663,7 @@ computeSlides
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe (U.Beats, Maybe Slide))
 computeSlides slideMarkers hopo = let
   marked = RTB.collectCoincident $ RTB.merge (Left <$> hopo) (Right <$> slideMarkers)
-  marked' = RTB.flatten $ flip fmap marked \xs -> let
+  marked' = RTB.flatten $ marked <&> \xs -> let
     notes = lefts xs
     slides = rights xs
     in map (, listToMaybe slides) notes
@@ -742,7 +742,7 @@ fretLimit maxFret pg = let
 -- | Shifts notes between strings to shrink a 7/8-string part to 6 strings.
 moveStrings :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
 moveStrings pg = let
-  mappers = flip fmap pg.onyxString \setting -> let
+  mappers = pg.onyxString <&> \setting -> let
     strs = case unsnoc setting of
       Nothing      -> [S6 .. S1]
       Just (xs, x) -> xs ++ [x ..]

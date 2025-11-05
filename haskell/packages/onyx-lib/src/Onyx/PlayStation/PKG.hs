@@ -42,6 +42,7 @@ import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Char8   as B8
 import qualified Data.ByteString.Lazy    as BL
 import           Data.Char               (toUpper)
+import           Data.Functor            ((<&>))
 import           Data.List               (inits)
 import qualified Data.List.NonEmpty      as NE
 import           Data.Maybe              (isJust)
@@ -144,10 +145,10 @@ instance Bin PKGMetadata where
       len <- getWord32be
       metaBytes <- getByteString $ fromIntegral len
       return PKGMetadata{..}
-    , codecOut = fmapArg \PKGMetadata{..} -> do
-      putWord32be metaID
-      putWord32be $ fromIntegral $ B.length metaBytes
-      putByteString metaBytes
+    , codecOut = fmapArg \meta -> do
+      putWord32be meta.metaID
+      putWord32be $ fromIntegral $ B.length meta.metaBytes
+      putByteString meta.metaBytes
     }
 
 data PKGItemRecord = PKGItemRecord
@@ -201,7 +202,7 @@ nonFinalizedCrypt isArcade startIndex keySource bs = let
     , B.replicate 0x18 if isArcade then 0xA0 else 0
     ]
   indexStream = [startIndex ..] <> [0 ..]
-  keyStream = BB.toLazyByteString $ mconcat $ flip map indexStream \i -> let
+  keyStream = BB.toLazyByteString $ mconcat $ indexStream <&> \i -> let
     key = runPut $ putWord64be i
     sha1 = SHA1.finalize $ SHA1.update shaInit $ BL.toStrict key
     in BB.byteString $ B.take 16 sha1

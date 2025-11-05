@@ -30,6 +30,7 @@ import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Char8           as B8
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Foldable                   (toList)
+import           Data.Functor                    ((<&>))
 import qualified Data.HashMap.Strict             as HM
 import           Data.Int                        (Int32)
 import           Data.List.Extra                 (nubOrd, sortOn)
@@ -136,15 +137,15 @@ readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
         _                                                      -> []
       eggCombinations :: [T.Text] -> [(T.Text, [D.Chunk T.Text])]
       eggCombinations eggs = do
-        combo <- sequence $ map (\egg -> [(egg, False), (egg, True)]) eggs
+        combo <- mapM (\egg -> [(egg, False), (egg, True)]) eggs
         let comboName = T.concat [ "_" <> egg | (egg, True) <- combo ]
-            comboSets = flip map combo \(egg, b) -> D.Braces $ D.Tree 0
+            comboSets = combo <&> \(egg, b) -> D.Braces $ D.Tree 0
               [ D.Sym "set"
               , D.Var egg
               , D.Int if b then 1 else 0
               ]
         return (comboName, comboSets)
-  fmap concat $ forM preproc \chunk -> case chunk of
+  fmap concat $ forM preproc \case
     D.Parens (D.Tree _ (D.Sym shortName : rest)) -> if any isIgnore rest
       then return []
       else do

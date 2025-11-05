@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Controller.ProGuitar where
 
 import           Control.Monad                    (guard)
@@ -123,8 +124,8 @@ sendCommand (cont, msg) = let
 
 receiveCommand :: [Word8] -> Maybe Command
 receiveCommand = magic where
-  magic (8 : 64 : 10 : xs) = fmap ((,) Mustang) $ msg xs
-  magic (8 : 64 : 8  : xs) = fmap ((,) Squier ) $ msg xs
+  magic (8 : 64 : 10 : xs) = (Mustang,) <$> msg xs
+  magic (8 : 64 : 8  : xs) = (Squier ,) <$> msg xs
   magic _                  = Nothing
   msg [1, nstr, pitch] = do
     str <- reverseLookup each strNumber nstr

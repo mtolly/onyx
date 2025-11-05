@@ -17,6 +17,7 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import           Data.Int
 import qualified Data.Map                         as Map
 import qualified Data.Vector                      as V
@@ -340,7 +341,7 @@ getMIDITempos gev
   = U.makeTempoMap
   $ RTB.fromAbsoluteEventList
   $ ATB.fromPairList
-  $ flip map (V.toList gev.gevTMPO.tmpoEvents) \e -> let
+  $ V.toList gev.gevTMPO.tmpoEvents <&> \e -> let
     posn = fromIntegral e.tmpoEventTicks / fromIntegral gev.gevTMPO.tmpoResolution
     event = E.MetaEvent $ Meta.SetTempo $ fromIntegral e.tmpoEventUSPQN
     in (posn, event)
@@ -361,7 +362,7 @@ makeStringBank = go BL.empty [] Map.empty where
       }
     in (strh, strs, mapping)
   go bank byteOffsets mapping (x : xs) = let
-    nulls = BL.replicate (if rem (B.length x) 2 == 0 then 2 else 1) 0
+    nulls = BL.replicate (if even $ B.length x then 2 else 1) 0
     bank' = bank <> BL.fromStrict x <> nulls
     byteOffsets' = fromIntegral (BL.length bank) : byteOffsets
     mapping' = Map.insert x (fromIntegral $ length byteOffsets) mapping

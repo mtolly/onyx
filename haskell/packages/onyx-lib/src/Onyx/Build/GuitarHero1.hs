@@ -17,6 +17,7 @@ import           Data.Conduit.Audio
 import           Data.Default.Class                   (def)
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor                         ((<&>))
 import           Data.Hashable                        (Hashable, hash)
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.Map                             as Map
@@ -125,7 +126,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
         moods = if RTB.null origMoods
           then makeMoods tmap timing gems
           else origMoods
-        in flip fmap moods \case
+        in moods <&> \case
           Mood_idle_realtime -> False
           Mood_idle          -> False
           Mood_idle_intense  -> False
@@ -186,7 +187,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
       }
     , gh1Anim     = AnimTrack
       { animFretPosition = first FretPosition <$> guitarResult.other.fretPosition
-      , animHandMap = flip fmap guitarResult.other.handMap \case
+      , animHandMap = guitarResult.other.handMap <&> \case
         RB.HandMap_Default   -> HandMap_Default
         RB.HandMap_NoChords  -> HandMap_NoChords
         RB.HandMap_AllChords -> HandMap_AllChords

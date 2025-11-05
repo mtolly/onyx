@@ -6,7 +6,6 @@ Pre-RB3 venue format information from:
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -18,6 +17,7 @@ module Onyx.MIDI.Track.Venue where
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import           Data.List.Extra                  (nubOrd, sortBy)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
@@ -466,7 +466,7 @@ instance ParseTrack VenueTrack where
 compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
 compileVenueRB3 vt = vt
   { cameraRB3 = let
-    directed = flip fmap vt.directedRB2 \docut -> let
+    directed = vt.directedRB2 <&> \docut -> let
       cut = case docut of
         DoDirectedCut c -> c
         DoOptionalCut c -> c
@@ -570,9 +570,8 @@ compileVenueRB3 vt = vt
   , directedRB2 = RTB.empty
   , postProcessRB3
     = RTB.merge vt.postProcessRB3
-    $ flip fmap vt.postProcessRB2
-    -- TODO do we need to remove redundant events to prevent blending from an RB2 source
-    $ \case
+    $ vt.postProcessRB2 <&> \case
+      -- TODO do we need to remove redundant events to prevent blending from an RB2 source
       V2_video_trails     -> V3_video_trails
       V2_video_security   -> V3_video_security
       V2_video_bw         -> V3_video_bw
@@ -596,7 +595,7 @@ compileVenueRB3 vt = vt
     -- RB3 just replaces it with [lighting (verse)]/[lighting (chorus)].
     withMode = applyStatus1 ModeVerse vt.lightingMode vt.lighting
     noBlend = if RTB.null vt.lightingMode then id else noRedundantStatus
-    in noBlend $ flip fmap withMode \case
+    in noBlend $ withMode <&> \case
       (ModeVerse , Lighting_) -> Lighting_verse
       (ModeChorus, Lighting_) -> Lighting_chorus
       (_         , light    ) -> light
@@ -614,7 +613,7 @@ compileVenueRB2 vt = let
   far = cut [NoBehind, OnlyFar, NoClose]
   near = cut [NoBehind, NoClose]
   directed x = [Right $ DoDirectedCut x]
-  camera = RTB.flatten $ flip fmap (RTB.collectCoincident vt.cameraRB3) \cams -> case sortBy (flip compare) cams of
+  camera = RTB.flatten $ RTB.collectCoincident vt.cameraRB3 <&> \cams -> case sortBy (flip compare) cams of
     [] -> [] -- shouldn't happen
     x : _ -> case x of
       -- generic 4 camera shots
@@ -714,8 +713,7 @@ compileVenueRB2 vt = let
     , postProcessRB3 = RTB.empty
     , postProcessRB2
       = RTB.merge vt.postProcessRB2
-      $ flip fmap vt.postProcessRB3
-      $ \case
+      $ vt.postProcessRB3 <&> \case
         V3_ProFilm_a                    -> V2_Default
         V3_ProFilm_b                    -> V2_Default
         V3_video_a                      -> V2_video_a
@@ -757,7 +755,7 @@ compileVenueRB2 vt = let
       -- have to have [verse] at the start
     } where
       lightingWithMode = applyStatus1 ModeVerse vt.lightingMode vt.lighting
-      lightingWithMode' = flip fmap lightingWithMode \case
+      lightingWithMode' = lightingWithMode <&> \case
         (_   , Lighting_verse        ) -> (ModeVerse , Lighting_                )
         (_   , Lighting_chorus       ) -> (ModeChorus, Lighting_                )
         (mode, Lighting_intro        ) -> (mode      , Lighting_                )

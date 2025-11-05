@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DerivingVia           #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -28,7 +27,7 @@ import qualified Data.ByteString                   as B
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Function                     ((&))
-import           Data.Functor                      (void)
+import           Data.Functor                      (void, (<&>))
 import           Data.Functor.Identity             (Identity)
 import           Data.Hashable                     (Hashable (..))
 import           Data.List.Extra                   (nubOrd, nubSort, partition,
@@ -539,7 +538,7 @@ instance ParseFile RawFile where
     , codecOut = fmapArg $ tell . (.rawTracks)
     }
 
-newtype RawTrack a t = RawTrack { rawTrack :: (RTB.T t a) }
+newtype RawTrack a t = RawTrack { rawTrack :: RTB.T t a }
 
 instance TraverseTrack (RawTrack a) where
   traverseTrack f (RawTrack trk) = RawTrack <$> f trk
@@ -648,7 +647,7 @@ showMixedMIDI s = let
 
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t (E.T T.Text) -> RTB.T t (E.T T.Text)
-stripTrack = RTB.filter \e -> case e of
+stripTrack = RTB.filter \case
   E.MetaEvent (Meta.TextEvent (T.uncons -> Just ('#', _))) -> False
   E.MetaEvent (Meta.TrackName _                          ) -> False
   _                                                        -> True
@@ -659,7 +658,7 @@ data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
 -- | Copies tracks from the second file into the first, repositioning events by timestamp.
 mergeCharts :: TrackOffset -> Song (RawFile U.Beats) -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
 mergeCharts offset base new = let
-  newTracks = flip map new.tracks.rawTracks \trk -> let
+  newTracks = new.tracks.rawTracks <&> \trk -> let
     name = U.trackName trk
     applyOffset = case offset of
       TrackPad  t -> RTB.delay t
@@ -676,7 +675,7 @@ mergeCharts offset base new = let
 parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats (E.T T.Text)] -> T.Text -> StackTraceT m (trk U.Beats)
 parseTracks trks name = do
   (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack $ pure name) \f -> do
-    flip fmap (runStateT f trks) \case
+    runStateT f trks <&> \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
   return file
@@ -687,7 +686,7 @@ interpretMIDIFile
   -> StackTraceT m (Song (f U.Beats))
 interpretMIDIFile (Song tempos mmap trks) = do
   (file, unrec) <- flip mapStackTraceT (codecIn parseFile) \f -> do
-    flip fmap (runStateT f trks) \case
+    runStateT f trks <&> \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
   let mnames = map U.trackName unrec
@@ -1141,7 +1140,7 @@ getPercType song = listToMaybe do
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
   & #difficulties .~ do
-    flip fmap pg.difficulties \pgd -> mempty & #gems .~ do
+    pg.difficulties <&> \pgd -> mempty & #gems .~ do
       blipEdgesRB_
         $ fmap head
         $ RTB.collectCoincident

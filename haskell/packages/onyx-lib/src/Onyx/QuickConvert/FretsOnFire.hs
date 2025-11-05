@@ -7,7 +7,6 @@
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StrictData            #-}
 {-# LANGUAGE TupleSections         #-}
 module Onyx.QuickConvert.FretsOnFire where
@@ -27,6 +26,7 @@ import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import           Data.Functor.Identity            (Identity, runIdentity)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.HashSet                     as HS
@@ -256,7 +256,7 @@ psTapFormat = (runIdentity .) $ modifyFiveFretTracks \_dvn trk -> return let
       _           -> Nothing
   in if RTB.null notes
     then trk -- nothing to do
-    else RTB.merge trk2 $ flip fmap (G.applyStatus events events) \(active, _) ->
+    else RTB.merge trk2 $ G.applyStatus events events <&> \(active, _) ->
       -- only emit all difficulties sysex
       unparsePSSysEx PSMessage
         { psDifficulty = Nothing
@@ -386,7 +386,7 @@ fillEliteFromPSReal q = case lookup "notes.mid" q.files of
           }
 
 getFoFReadables :: QuickFoF -> [(T.Text, Readable)]
-getFoFReadables q = flip map q.files \(name, file) -> let
+getFoFReadables q = q.files <&> \(name, file) -> let
   r = case file of
     FoFReadable x -> x
     FoFMIDI     m -> makeHandle (T.unpack name) $ byteStringSimpleHandle $ Save.toByteString m
@@ -488,7 +488,7 @@ convertEncoreFoF f info = do
       , ("album",) <$> toList info.album
       , ("loading_phrase",) <$> toList info.loading_phrase
       , [("multiplier_note", "116")]
-      , flip map (toList info.length_) \secs -> ("song_length", T.pack $ show $ secs * 1000) -- seconds in encore, milliseconds in fof
+      , toList info.length_ <&> \secs -> ("song_length", T.pack $ show $ secs * 1000) -- seconds in encore, milliseconds in fof
       , ("preview_start_time",) . T.pack . show <$> toList info.preview_start_time -- milliseconds in both
       , [("charter", T.intercalate ", " info.charters) | not $ null info.charters]
       , ("year",) <$> toList info.release_year

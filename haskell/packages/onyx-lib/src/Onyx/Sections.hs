@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE TupleSections       #-}
 module Onyx.Sections
 ( SectionType(..), Section(..)
 , simpleSection
@@ -147,7 +146,7 @@ addSectionNumbers :: (Eq a) => RTB.T t a -> RTB.T t (a, Maybe Int)
 addSectionNumbers = let
   go _    RNil            = RNil
   go prev (Wait t x rest) = let
-    num = case (length $ filter (== x) prev, any (== x) rest) of
+    num = case (length $ filter (== x) prev, elem x rest) of
       (0, False) -> Nothing
       (n, _    ) -> Just $ n + 1
     in Wait t (x, num) $ go (x : prev) rest

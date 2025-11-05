@@ -1,8 +1,8 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Build.PowerGig (pgRules) where
 
 import           Control.Monad.IO.Class
@@ -14,6 +14,7 @@ import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     ((<&>))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
 import qualified Data.Text                        as T
@@ -140,7 +141,7 @@ pgRules buildInfo dir pg = do
             , pcmcMIDI = B.concat ["songs:", TE.encodeUtf8 key, "\\", TE.encodeUtf8 key, ".mid"]
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
-            [ flip fmap (getPart pg.guitar songYaml >>= anyFiveFret) \builder -> let
+            [ (getPart pg.guitar songYaml >>= anyFiveFret) <&> \builder -> let
               result = completeFiveResult False mid.timesigs $ builder FiveTypeGuitar ModeInput
                 { tempo = mid.tempos
                 , events = mid.tracks.onyxEvents

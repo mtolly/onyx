@@ -25,6 +25,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -84,7 +85,7 @@ importNeversoftGH src folder = let
   testGHWoR name = "cmanifest" `T.isPrefixOf` name && pakSuffix name
   pakSuffix name = ".pak.xen" `T.isSuffixOf` name || ".pak.ps3" `T.isSuffixOf` name
   allNames = map (T.toLower . fst) $ folderFiles folder
-  in fmap concat $ sequence
+  in concat <$> sequence
     [ if any testGH3                                   allNames then importGH3DLC src folder else return []
     , if any testGHWT                                  allNames then importGH4DLC src folder else return []
     , if any (\name -> testGH5 name || testGHWoR name) allNames then importGH5WoR src folder else return []
@@ -108,7 +109,7 @@ importWoRDisc src folder = do
 importGH5WoR :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importGH5WoR src folder = do
   let texts = [ r | (name, r) <- folderFiles folder, "_text.pak" `T.isInfixOf` T.toLower name ]
-  qbSections <- fmap concat $ forM texts \r -> do
+  qbSections <- concat <$> forM texts \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readTextPakQB bs Nothing Nothing) >>= \case
       Nothing       -> return []
@@ -120,11 +121,11 @@ importGH5WoRSongStructs
   => Bool -> FilePath -> Folder T.Text Readable -> [TextPakSongStruct] -> StackTraceT m [Import m]
 importGH5WoRSongStructs isDisc src folder qbSections = do
   let findFolded path = findFileCI (pure path) folder
-  songInfo <- fmap concat $ forM qbSections \song -> do
+  songInfo <- concat <$> forM qbSections \song -> do
     case parseSongInfoStruct song.songData of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap catMaybes $ forM songInfo \info -> do
+  catMaybes <$> forM songInfo \info -> do
     let songPakName platform = (if isDisc then "" else "b") <> TE.decodeUtf8 info.songName <> "_song.pak." <> platform
     case findFolded (songPakName "xen") <|> findFolded (songPakName "ps3") of
       Nothing      -> return Nothing -- song which is listed in the database, but not actually in this package
@@ -200,7 +201,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               { title = Just $ snd info.songTitle
               , artist = Just $ snd info.songArtist
               , year = Just info.songYear
-              , album = fmap snd info.songAlbumTitle
+              , album = snd <$> info.songAlbumTitle
               , fileAlbumArt = Nothing
               , genre = displayWoRGenre <$> info.songGenre
               , cover = not info.songOriginalArtist
@@ -304,11 +305,11 @@ importGH4Disc src folder = do
   let (textSections, textAllNodes) = case pakResults of
         Nothing       -> ([], [])
         Just contents -> (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM textSections \(_key, items) -> do
+  songInfo <- concat <$> forM textSections \(_key, items) -> do
     case parseSongInfoGH4 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap catMaybes $ forM songInfo \info -> do
+  catMaybes <$> forM songInfo \info -> do
     let pathName = TE.decodeUtf8 info.gh4Name
         songPath = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
     case findFileCI songPath folder of
@@ -346,16 +347,16 @@ importGH4DLC src folder = do
         -- most files use _t.pak.xen, but Death Magnetic uses _text.pak.xen.
         -- also we make sure to start with "a" to ignore the GH3 DM files
         return r
-  (textSections, textAllNodes) <- fmap mconcat $ forM texts \r -> do
+  (textSections, textAllNodes) <- mconcat <$> forM texts \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readGH3TextPakQBDLC bs) >>= \case
       Nothing       -> return ([], [])
       Just contents -> return (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM textSections \(_key, items) -> do
+  songInfo <- concat <$> forM textSections \(_key, items) -> do
     case parseSongInfoGH4 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap catMaybes $ forM songInfo \info -> do
+  catMaybes <$> forM songInfo \info -> do
     let pathName   = "a" <> TE.decodeUtf8 info.gh4Name
         songPaths  =
           [ pathName <> platform "_s.pak"    -- most songs
@@ -399,11 +400,11 @@ importGH4DiscPS2 src folder = do
   let (qbSections, allNodes) = case pakResults of
         Nothing       -> ([], [])
         Just contents -> (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM qbSections \(_key, items) -> do
+  songInfo <- concat <$> forM qbSections \(_key, items) -> do
     case parseSongInfoGH4 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap catMaybes $ forM songInfo \info -> do
+  catMaybes <$> forM songInfo \info -> do
     let songPath  = "songs" :| [TE.decodeUtf8 info.gh4Name <> ".pak.ps2"]
         hashSolo = T.pack $ qb8Hex $ qbKeyCRC info.gh4Name
         audioPath = "MUSIC" :| [T.take 1 hashSolo, hashSolo <> ".IMF"]
@@ -447,7 +448,7 @@ importGH4Song ghi level = do
               textBank = qsBank markerNodes <> worldTourDiscMarkers -- has section names
           -- .mid.qb has a qb key, then a separate .qb links that to a qs,
           -- then a .qs has the actual string
-          textSectionMap <- fmap (HM.fromList . concat) do
+          textSectionMap <- HM.fromList . concat <$> do
             forM [ txt | (node, txt) <- markerNodes, matchQB node ] \txt -> do
               qb <- runGetM parseQB txt
               return $ qb >>= \case
@@ -642,11 +643,11 @@ importGH3DiscPS2 src folder = do
   (qbSections, allNodes) <- errorToWarning (let ?endian = LittleEndian in readGH3TextPakQBDisc pak pab) >>= \case
     Nothing       -> return ([], [])
     Just contents -> return (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM qbSections \(_key, items) -> do
+  songInfo <- concat <$> forM qbSections \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap concat $ forM songInfo \info -> do
+  concat <$> forM songInfo \info -> do
     let songPath  = "songs" :| [TE.decodeUtf8 info.gh3Name <> ".pak.ps2"]
         hashSolo = T.pack $ qb8Hex $ qbKeyCRC   info.gh3Name
         hashCoop = T.pack $ qb8Hex $ qbKeyCRC $ info.gh3Name <> "_coop"
@@ -677,11 +678,11 @@ importGH3Disc src folder = do
   (qbSections, allNodes) <- errorToWarning (let ?endian = BigEndian in readGH3TextPakQBDisc pak pab) >>= \case
     Nothing       -> return ([], [])
     Just contents -> return (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM qbSections \(_key, items) -> do
+  songInfo <- concat <$> forM qbSections \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap concat $ forM songInfo \info -> do
+  concat <$> forM songInfo \info -> do
     let pathName  = TE.decodeUtf8 info.gh3Name
         songPath  = "DATA" :| ["COMPRESSED", "SONGS", pathName <> "_song.pak.xen"]
         audioPath = "DATA" :| ["MUSIC", pathName <> ".fsb.xen"]
@@ -713,16 +714,16 @@ importGH3DLC src folder = do
         guard $ "dl" `T.isPrefixOf` name' && platform "_text.pak" `T.isSuffixOf` name'
         return r
       findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-  (qbSections, allNodes) <- fmap mconcat $ forM texts \r -> do
+  (qbSections, allNodes) <- mconcat <$> forM texts \r -> do
     bs <- stackIO $ useHandle r handleToByteString
     errorToWarning (readGH3TextPakQBDLC bs) >>= \case
       Nothing       -> return ([], [])
       Just contents -> return (contents.gh3TextPakSongStructs, contents.gh3OtherNodes)
-  songInfo <- fmap concat $ forM qbSections \(_key, items) -> do
+  songInfo <- concat <$> forM qbSections \(_key, items) -> do
     case parseSongInfoGH3 items of
       Left  err  -> warn err >> return []
       Right info -> return [info]
-  fmap concat $ forM songInfo \info -> do
+  concat <$> forM songInfo \info -> do
     let pathName  = TE.decodeUtf8 info.gh3Name
         songPath  = pathName <> platform "_song.pak"
         audioPath = pathName <> platform ".fsb"
@@ -764,7 +765,7 @@ importGH3Song ghi = let
   importModes = if info.gh3UseCoopNotetracks
     then [ImportSolo, ImportCoop]
     else [ImportSolo]
-  in flip map importModes \mode level -> do
+  in importModes <&> \mode level -> do
     when (level == ImportFull) do
       lg $ "Importing GH3 song " <> show info.gh3Name <> " from: " <> ghi.source
     -- Dragonforce DLC has rhythm tracks in coop, but hidden bass tracks in non-coop. (use coop notetracks = true)
@@ -834,7 +835,7 @@ importGH3Song ghi = let
           let applyNames names r = do
                 bs <- stackIO $ useHandle r handleToByteString
                 vgs <- fmap (chunksOf 2) $ mapM convertChannelToVGS $ splitChannels bs
-                return $ flip map (zip names vgs) \(name, chans) -> let
+                return $ zip names vgs <&> \(name, chans) -> let
                   crc = qbKeyCRC $ info.gh3Name <> "_" <> name
                   makeChannel i chan = (TE.decodeLatin1 name <> "." <> T.pack (show (i :: Int)) <> ".vgs", chan)
                   in (crc, NE.fromList $ zipWith makeChannel [0..] chans)
@@ -889,14 +890,14 @@ importGH3Song ghi = let
           then "coop_song"
           else "song"
         toExpr ((f, _) :| []) = Input $ Named f
-        toExpr xs             = Merge $ fmap (Input . Named . fst) xs
+        toExpr xs             = Merge $ Input . Named . fst <$> xs
         in HM.singleton "gh" $ StandardPlan StandardPlanInfo
-          { song = flip fmap (lookup (qbKeyCRC nameBand) audio) \group ->
+          { song = lookup (qbKeyCRC nameBand) audio <&> \group ->
             PansVols [-1, 1] bandVol $ toExpr group
           , parts = Parts $ HM.fromList $ catMaybes
-            [ flip fmap (lookup (qbKeyCRC nameLead  ) audio) \group ->
+            [ lookup (qbKeyCRC nameLead  ) audio <&> \group ->
               (F.PartGuitar, PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
-            , flip fmap (lookup (qbKeyCRC nameRhythm) audio) \group ->
+            , lookup (qbKeyCRC nameRhythm) audio <&> \group ->
               (coopPart    , PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)
             ]
           , crowd = Nothing
@@ -925,12 +926,12 @@ importGH3SGHFolder src folder = case findFileCI (pure "songs.info") folder of
       >>= runGetM parseSGHStruct . BL.fromStrict
     let platform = (<> ".xen")
         findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
-    songInfo <- fmap concat $ forM songs \case
+    songInfo <- concat <$> forM songs \case
       QBStructItemStruct8A0000 _ items -> case parseSongInfoGH3 $ map (first UnknownQS) items of
         Left  err  -> warn err >> return []
         Right info -> return [info]
       _ -> return []
-    fmap concat $ forM songInfo \info -> do
+    concat <$> forM songInfo \info -> do
       let pathName  = TE.decodeUtf8 info.gh3Name
           songPath  = pathName <> platform "_song.pak"
           audioPath = pathName <> platform ".fsb"

@@ -44,7 +44,7 @@ data Token s
 scanEither :: T.Text -> Either String [(AlexPosn, Token T.Text)]
 scanEither t = first showError $ evalState parseAllTokens (alexStartPos, t)
   where showError (AlexPn _ line column, s) = concat
-          [ "DTA token error at line " ++ (show line) ++ ", column " ++ (show column) ++ ": "
+          [ "DTA token error at line " <> show line <> ", column " <> show column <> ": "
           , s
           ]
 

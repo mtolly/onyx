@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (isAlpha, isDigit, toLower)
 import           Data.Function                ((&))
-import           Data.Functor                 (void)
+import           Data.Functor                 (void, (<&>))
 import           Data.Functor.Identity
 import           Data.Hashable                (hash)
 import qualified Data.HashMap.Strict          as HM
@@ -251,6 +251,16 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         case mpsarc of
           Nothing    -> fatal "Couldn't decrypt .psarc.edat"
           Just psarc -> importRS psarc >>= foundImports "Rocksmith" edat
+      foundPKG loc = do
+        magic <- stackIO $ useHandle (fileReadable loc) \h -> B.hGet h 4
+        case magic of
+          "\x7F\&PKG" -> foundPS3 loc
+          "\x7F\&CNT" -> do
+            warn "PS4 .pkg not supported yet"
+            return ([], [])
+          _ -> do
+            warn $ "Unrecognized start to .pkg file: " <> show magic
+            return ([], [])
       foundPS3 loc = do
         usrdir <- stackIO ((.pkgFolder) <$> loadPKG loc) >>= getDecryptedUSRDIR
         rbgh <- fmap mconcat $ forM (map snd $ folderSubfolders usrdir) \folderBS -> let
@@ -369,7 +379,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
       foundImports' isRB fmt path imports = do
         isDir <- stackIO $ Dir.doesDirectoryExist path
         scanned <- flip concatMapM imports \imp -> do
-          errorToWarning (imp ImportQuick) >>= return . \case
+          errorToWarning (imp ImportQuick) <&> \case
             Nothing    -> []
             Just quick -> [(imp, quick)]
         let single = null $ drop 1 scanned
@@ -467,7 +477,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         ".psarc" -> foundRS fp
         ".edat" | map toLower (takeExtension $ dropExtension fp) == ".psarc"
           -> foundRSPS3 fp
-        ".pkg" -> foundPS3 fp
+        ".pkg" -> foundPKG fp
         ".wad" -> foundWAD fp
         ".gp" -> foundGP fp
         ".gpx" -> foundGPX fp
@@ -523,7 +533,7 @@ openProject i fp = do
         $ ("Found more than 1 song at location: " <> fp) : do
           (j, imp) <- zip [0 :: Int ..] imps
           let f = maybe "?" T.unpack
-          return $ show j <> ": " <> f (imp.impTitle) <> " (" <> f (imp.impArtist) <> ")"
+          return $ show j <> ": " <> f imp.impTitle <> " (" <> f imp.impArtist <> ")"
     Just j  -> case drop j imps of
       imp : _ -> imp.impProject
       []      -> fatal $ "Couldn't find song #" <> show j <> " at location: " <> fp

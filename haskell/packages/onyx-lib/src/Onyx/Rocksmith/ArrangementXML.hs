@@ -13,6 +13,7 @@ import           Control.Monad.Trans.Reader
 import qualified Data.ByteString            as B
 import           Data.Char                  (isSpace)
 import           Data.Fixed                 (Milli)
+import           Data.Functor               ((<&>))
 import           Data.Functor.Identity      (Identity)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
@@ -533,11 +534,11 @@ addPadding pad = \case
       eachLevel lvl = lvl
         { lvl_notes   = fmap (\x -> x { n_time  = x.n_time  + pad }) lvl.lvl_notes
         , lvl_anchors = fmap (\x -> x { an_time = x.an_time + pad }) lvl.lvl_anchors
-        , lvl_chords = flip fmap lvl.lvl_chords \chd -> chd
+        , lvl_chords = lvl.lvl_chords <&> \chd -> chd
           { chd_time       = chd.chd_time + pad
           , chd_chordNotes = fmap (\x -> x { n_time = x.n_time + pad }) chd.chd_chordNotes
           }
-        , lvl_handShapes = flip fmap lvl.lvl_handShapes \hs -> hs
+        , lvl_handShapes = lvl.lvl_handShapes <&> \hs -> hs
           { hs_startTime = hs.hs_startTime + pad
           , hs_endTime   = hs.hs_endTime + pad
           }

@@ -17,6 +17,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
@@ -71,7 +72,7 @@ importOsu separateSongs f = do
       -- arbitrarily pick one .osu to use for metadata and timing
       o : _ -> return [(o, filteredOsus)]
 
-  return $ flip map osuSets \(primary, osus) level -> do
+  return $ osuSets <&> \(primary, osus) level -> do
 
     let timingMid = getOsuTiming primary
 
@@ -201,7 +202,7 @@ importOsu separateSongs f = do
         }
       , jammit = HM.empty
       , audio = HM.fromList let
-        audioFiles = flip map (toList audio <> taikoSamples) \(key, fileName, r) ->
+        audioFiles = (toList audio <> taikoSamples) <&> \(key, fileName, r) ->
           (key, AudioFile AudioInfo
             { md5 = Nothing
             , frames = Nothing
@@ -219,7 +220,7 @@ importOsu separateSongs f = do
             })
         in audioFiles <> audioSamples
       , plans = HM.singleton "osu-audio" $ StandardPlan StandardPlanInfo
-        { song = flip fmap audio \(key, fileName, _) -> let
+        { song = audio <&> \(key, fileName, _) -> let
           -- We now skip initial decoder delay when decoding mp3s via ffmpeg.
           -- But for some reason osu charts seem to expect that .ogg also
           -- is going to get this amount skipped? Very weird
@@ -311,7 +312,7 @@ taikoToTrack tmap osu = let
 
   laneSpeed = 0.080 :: U.Seconds -- 80 ms for consistent combo
   -- make lanes into single notes if they're too short to have 2 notes
-  events' = flip fmap events \case
+  events' = events <&> \case
     TaikoRoll      t | t <= laneSpeed -> TaikoSingle TaikoCenter
     TaikoRollLarge t | t <= laneSpeed -> TaikoSingle TaikoCenterLarge
     TaikoDenden    t | t <= laneSpeed -> TaikoSingle TaikoCenter
@@ -322,13 +323,13 @@ taikoToTrack tmap osu = let
     _             -> Nothing
 
   makeLane len = Wait 0 (Just LaneExpert) $ Wait len Nothing RNil
-  doubleLanes = U.trackJoin $ flip fmap events' \case
+  doubleLanes = U.trackJoin $ events' <&> \case
     TaikoRoll      len -> makeLane len
     TaikoRollLarge len -> makeLane len
     TaikoDenden    len -> makeLane len
     _                  -> RNil
 
-  laneNotes = U.trackJoin $ flip fmap events' \case
+  laneNotes = U.trackJoin $ events' <&> \case
     TaikoRoll      len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
     TaikoRollLarge len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ repeat TaikoCenter
     TaikoDenden    len -> U.trackTake len $ RTB.fromPairList $ zip (0 : repeat laneSpeed) $ cycle [TaikoCenter, TaikoRim]

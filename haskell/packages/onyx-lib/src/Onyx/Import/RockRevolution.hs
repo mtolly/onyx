@@ -4,8 +4,6 @@
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE TupleSections         #-}
 module Onyx.Import.RockRevolution where
 
 import           Control.Concurrent.Async         (forConcurrently)
@@ -20,6 +18,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, nubSort, (!?))
 import qualified Data.Map                         as Map
@@ -258,9 +257,9 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
     , plans = HM.singleton "rr" $ StandardPlan StandardPlanInfo
       { song = (\(s, _, _) -> Input $ Named s) <$> backingStream
       , parts = Parts $ HM.fromList $ catMaybes
-        [ flip fmap guitarStream \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
-        , flip fmap bassStream   \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
-        , flip fmap drumsStream  \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
+        [ guitarStream <&> \(s, _, _) -> (F.PartGuitar, PartSingle $ Input $ Named s)
+        , bassStream   <&> \(s, _, _) -> (F.PartBass  , PartSingle $ Input $ Named s)
+        , drumsStream  <&> \(s, _, _) -> (F.PartDrums , PartSingle $ Input $ Named s)
         ]
       , crowd = Nothing
       , comments = []

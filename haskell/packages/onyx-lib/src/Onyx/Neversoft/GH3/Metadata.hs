@@ -19,6 +19,7 @@ import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (toLower)
 import           Data.Either                  (lefts, rights)
+import           Data.Functor                 ((<&>))
 import           Data.List.Extra              (nubOrd, nubOrdOn)
 import           Data.Maybe                   (catMaybes, fromMaybe,
                                                listToMaybe, mapMaybe)
@@ -128,7 +129,7 @@ readGH3TextSetDLC folder = let
         nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
         let filenameKey = qbKeyCRC $ "1ni76fm\\" <> B8.pack (T.unpack dlName) <> ".qb"
         fmap mconcat $ forM nodes \(node, bs) -> if node.nodeFilenameKey == filenameKey && node.nodeFileType == ".qb"
-          then errorToWarning (runGetM parseQB bs) >>= return . \case
+          then errorToWarning (runGetM parseQB bs) <&> \case
             Nothing -> mempty
             Just qb -> case [ v | QBSectionInteger "dlc_script_version" _ v <- qb ] of
               []          -> mempty
@@ -232,7 +233,7 @@ buildGH3TextSet prefs dlName lang paks = let
       }
     , BL.replicate 4 0xAB
     )
-  songsLog = flip map allSongData \(k, items) -> case parseSongInfoGH3 items of
+  songsLog = allSongData <&> \(k, items) -> case parseSongInfoGH3 items of
     Left  _    -> "[" <> T.pack (show k) <> "] (couldn't recognize metadata keys)"
     Right song -> T.pack (show song.gh3Title) <> " (" <> song.gh3Artist <> ")"
   in (buildPak $ otherNodes <> [metadataQB, end], songsLog)
@@ -362,17 +363,17 @@ readGH3TextPakQB nodes = let
       , "gh3_songlist_props" -- GH3 DEMO BUILD
       ]
     songs
-  sortedNodes = flip map nodes \pair@(node, bs) -> if node.nodeFileType == ".qb"
+  sortedNodes = nodes <&> \pair@(node, bs) -> if node.nodeFileType == ".qb"
     -- this will just be an empty list if we can't parse the qb,
     -- such as some parts of gh3 disc .pak we don't care about
     then Right (pair, fromMaybe [] $ map (lookupQS mappingQS) <$> runGetM parseQB bs)
     else Left pair
-  sortedNodes' = flip map sortedNodes \case
+  sortedNodes' = sortedNodes <&> \case
     Left pair        -> Left pair
     Right (pair, qb) -> case getSonglistProps qb of
       []    -> Left pair
       songs -> Right songs
-  structs = concat $ flip map (concat $ rights sortedNodes') \case
+  structs = concat $ concat (rights sortedNodes') <&> \case
     QBStructItemStruct8A0000 k struct -> [(k, struct)] -- gh3
     QBStructItemStruct       k struct -> [(k, struct)] -- ghwt
     _                                 -> []

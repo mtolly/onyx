@@ -16,6 +16,7 @@ import           Data.Conduit                     (yield)
 import qualified Data.Conduit.Audio               as CA
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.NonEmpty               (NonEmpty (..))
 import qualified Data.Map                         as Map
@@ -345,11 +346,11 @@ convertDKDrums dk = let
 
   laneSpeed = 0.080 :: U.Seconds -- 80 ms for consistent combo
   -- make lanes into single notes if they're too short to have 2 notes
-  dk' = flip fmap dk \case
+  dk' = dk <&> \case
     DKRoll drum t | t <= laneSpeed -> DKNote drum
     event                          -> event
 
-  normalNotes = RTB.flatten $ flip fmap dk' \case
+  normalNotes = RTB.flatten $ dk' <&> \case
     DKNote drum -> case drum of
       DKYellow -> [yellow]
       DKRed    -> [blue]
@@ -358,16 +359,16 @@ convertDKDrums dk = let
     DKRoll{} -> []
 
   makeLane len = Wait 0 (Just LaneExpert) $ Wait len Nothing RNil
-  singleLanes = U.trackJoin $ flip fmap dk' \case
+  singleLanes = U.trackJoin $ dk' <&> \case
     DKRoll DKYellow len -> makeLane len
     DKRoll DKRed    len -> makeLane len
     _                   -> RNil
-  doubleLanes = U.trackJoin $ flip fmap dk' \case
+  doubleLanes = U.trackJoin $ dk' <&> \case
     DKRoll DKPurple len -> makeLane len
     DKRoll DKClap   len -> makeLane len
     _                   -> RNil
 
-  laneNotes = U.trackJoin $ flip fmap dk' \case
+  laneNotes = U.trackJoin $ dk' <&> \case
     DKRoll drum len -> let
       pattern = case drum of
         DKYellow -> [yellow]

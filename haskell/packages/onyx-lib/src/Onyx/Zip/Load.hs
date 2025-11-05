@@ -71,7 +71,7 @@ zipFileReadable path filePath reader = makeHandle (path <> " | " <> filePath) $ 
 
 readZipFile :: ZipFile -> IO BL.ByteString
 readZipFile zf = allocaBytes smallChunkSize \buf -> let
-  loop !builder = zip_fread zf buf (fromIntegral smallChunkSize) >>= \n -> case n of
+  loop !builder = zip_fread zf buf (fromIntegral smallChunkSize) >>= \case
     0         -> return $ BB.toLazyByteString builder
     bytesRead -> do
       chunk <- B.packCStringLen (castPtr buf, fromIntegral bytesRead)

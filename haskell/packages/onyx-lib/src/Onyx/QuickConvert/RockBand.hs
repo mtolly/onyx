@@ -8,7 +8,6 @@ Process for extracting and repacking already-valid Rock Band songs without a who
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -39,6 +38,7 @@ import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Absolute.TimeBody     as ATB
 import qualified Data.EventList.Relative.TimeBody     as RTB
 import           Data.Foldable                        (toList)
+import           Data.Functor                         ((<&>))
 import           Data.Functor.Identity                (Identity)
 import           Data.Hashable                        (hash)
 import           Data.Int                             (Int16, Int32)
@@ -924,7 +924,7 @@ noOverdrive (F.Cons typ dvn trks) = F.Cons typ dvn let
     , "PART REAL_BASS"
     , "PART REAL_BASS_22"
     ]
-  in flip map trks \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
+  in trks <&> \trk -> if maybe False (`elem` instrumentTracks) $ U.trackName trk
     then removePitch 116 trk
     else trk
 
@@ -945,7 +945,7 @@ noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn let
     , "PART REAL_KEYS_H"
     , "PART REAL_KEYS_X"
     ]
-  in flip map trks \trk -> let
+  in trks <&> \trk -> let
     name = U.trackName trk
     in case (maybe False (`elem` noLaneTracks) name, maybe False (`elem` noTrillTracks) name) of
       (True, _   ) -> removePitch 116 $ removePitch 117 trk
@@ -953,7 +953,7 @@ noLanesGBK (F.Cons typ dvn trks) = F.Cons typ dvn let
       _            -> trk
 
 noLanesDrums :: F.T B.ByteString -> F.T B.ByteString
-noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ flip map trks \trk ->
+noLanesDrums (F.Cons typ dvn trks) = F.Cons typ dvn $ trks <&> \trk ->
   case U.trackName trk of
     Just "PART DRUMS" -> removePitch 116 $ removePitch 117 trk
     _                 -> trk
@@ -975,7 +975,7 @@ noDrumFills (F.Cons typ dvn trks) = F.Cons typ dvn let
       then maybe False (t >=) maybeCoda -- keep note-on if equal since it's the BRE start
       else maybe False (t > ) maybeCoda
     _ -> True
-  in flip map trks \trk -> case U.trackName trk of
+  in trks <&> \trk -> case U.trackName trk of
     Just "PART DRUMS" -> RTB.fromAbsoluteEventList $ ATB.fromPairList
       $ filter keepDrumEvent $ ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
     _ -> trk
@@ -1009,7 +1009,7 @@ unmuteOver22 (F.Cons typ dvn trks) = F.Cons typ dvn let
     , "PART REAL_BASS"
     , "PART REAL_BASS_22"
     ]
-  in flip map trks \trk -> if maybe False (`elem` protarTracks) $ U.trackName trk
+  in trks <&> \trk -> if maybe False (`elem` protarTracks) $ U.trackName trk
     then processProtar trk
     else trk
 

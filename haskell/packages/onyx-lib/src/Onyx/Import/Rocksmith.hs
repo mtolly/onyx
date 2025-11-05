@@ -27,6 +27,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (find, sort)
 import           Data.List.Extra                  (nubOrd)
@@ -494,8 +495,7 @@ importRSSong folder song level = do
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map sng.sng_PhraseIterations
-                    $ \iter -> let
+                    $ sng.sng_PhraseIterations <&> \iter -> let
                       t = toSeconds iter.pi_StartTime
                       phrase = sng.sng_Phrases !! fromIntegral iter.pi_PhraseId
                       name = TE.decodeUtf8With lenientDecode phrase.phrase_Name
@@ -504,8 +504,7 @@ importRSSong folder song level = do
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map sng.sng_Sections
-                    $ \sect -> let
+                    $ sng.sng_Sections <&> \sect -> let
                       t = toSeconds sect.sect_StartTime
                       name = TE.decodeUtf8With lenientDecode sect.sect_Name
                       in (t, name)
@@ -520,8 +519,7 @@ importRSSong folder song level = do
                     $ RTB.fromAbsoluteEventList
                     $ ATB.fromPairList
                     $ sort
-                    $ flip map sng.sng_Tones
-                    $ \tid -> let
+                    $ sng.sng_Tones <&> \tid -> let
                       t = toSeconds tid.tid_Time
                       tone = case tid.tid_ID of
                         0 -> ToneA
@@ -657,7 +655,7 @@ importRSSong folder song level = do
                     }
                 , tuningRSBass = Nothing
                 , fixFreeform = True -- setting this for cleaner tremolo if we translate to RB protar
-                , tones = flip fmap tones $ fmap \tone -> let
+                , tones = tones <&> fmap \tone -> let
                   file = T.unpack tone.t14_Key <.> "tone2014.xml"
                   in SoftFile file $ SoftReadable $ makeHandle file $
                     byteStringSimpleHandle $ BL.fromStrict $ toneBytes tone

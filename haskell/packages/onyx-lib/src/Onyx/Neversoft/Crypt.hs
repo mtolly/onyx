@@ -24,6 +24,7 @@ import           Data.Bits
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit.Audio           as CA
+import           Data.Functor                 ((<&>))
 import           Data.Maybe                   (fromMaybe)
 import           Data.STRef
 import qualified Data.Text                    as T
@@ -366,13 +367,13 @@ convertAudio fin fout = do
   audioIO Nothing src fout
 
 reverseMapping :: B.ByteString
-reverseMapping = B.pack $ flip map [0 .. 0xFF] \i -> foldr (.|.) 0
+reverseMapping = B.pack $ [0 .. 0xFF] <&> \i -> foldr (.|.) 0
   -- i is a Word8 so shiftR fills with zeroes, matching the Java >>>
   [  i `shiftR` 7
   , (i `shiftR` 5) .&. 0x02
   , (i `shiftR` 3) .&. 0x04
   , (i `shiftR` 1) .&. 0x08
-  , (i `shiftL` 7)
+  ,  i `shiftL` 7
   , (i `shiftL` 5) .&. 0x40
   , (i `shiftL` 3) .&. 0x20
   , (i `shiftL` 1) .&. 0x10

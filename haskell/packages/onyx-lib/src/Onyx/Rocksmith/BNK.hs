@@ -18,6 +18,7 @@ import           Control.Monad        (replicateM)
 import           Data.Binary.Get
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.Functor         ((<&>))
 import qualified Data.Text            as T
 import           Data.Word
 import           GHC.ByteOrder        (ByteOrder (..))
@@ -60,7 +61,7 @@ extractRSOgg bnk audioDir = makeHandle "converted .wem audio" do
     Just ogg -> byteStringSimpleHandle $ BL.fromStrict ogg
 
 parseBNK :: (?endian :: ByteOrder) => BL.ByteString -> [Chunk]
-parseBNK bs = flip map (splitChunks bs) \(magic, chunk) -> case magic of
+parseBNK bs = splitChunks bs <&> \(magic, chunk) -> case magic of
   "BKHD" -> ChunkBKHD $ runGet getBKHD chunk
   "DIDX" -> ChunkDIDX $ runGet getDIDX chunk
   "DATA" -> ChunkDATA $ runGet getDATA chunk

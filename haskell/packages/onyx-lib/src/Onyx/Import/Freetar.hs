@@ -15,6 +15,7 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.List.NonEmpty               as NE
@@ -161,7 +162,7 @@ importFreetar sng level = do
         ImportQuick -> emptyChart
       , fileSongAnim = Nothing
       }
-    , audio = HM.fromList $ toList $ flip fmap props.musicFileName \f -> let
+    , audio = HM.fromList $ toList $ props.musicFileName <&> \f -> let
       f' = takeDirectory sng </> T.unpack f
       audio = AudioFile AudioInfo
         { md5 = Nothing
@@ -172,7 +173,7 @@ importFreetar sng level = do
         , channels = 2 -- just assuming
         }
       in ("song", audio)
-    , plans = HM.fromList $ toList $ flip fmap props.musicFileName \_ -> let
+    , plans = HM.fromList $ toList $ props.musicFileName <&> \_ -> let
       plan = StandardPlan StandardPlanInfo
         { song = Just $ Input $ Named "song"
         , parts = Parts HM.empty

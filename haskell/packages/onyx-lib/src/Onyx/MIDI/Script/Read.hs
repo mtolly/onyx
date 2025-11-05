@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns   #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP            #-}
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE ViewPatterns   #-}
 module Onyx.MIDI.Script.Read
 ( readStandardFile
@@ -301,13 +302,12 @@ evalNumber msrs tmps = go where
 flattenTrack :: Track -> [(Number, Event')]
 flattenTrack trk = go (trackChannel trk) (trackEvents trk) where
   go :: Maybe Number -> [(Number, [Event])] -> [(Number, Event')]
-  go c = concatMap \(n, xs) ->
-    flip concatMap xs \x -> case x of
-      Subtrack t -> go (trackChannel t <|> c)
-        $ map (first (+ n)) $ trackEvents t
-      Event e -> case e of
-        MIDI Nothing m -> [(n, MIDI c m)]
-        _              -> [(n, e       )]
+  go c = concatMap \(n, xs) -> xs >>= \case
+    Subtrack t -> go (trackChannel t <|> c)
+      $ map (first (+ n)) $ trackEvents t
+    Event e -> case e of
+      MIDI Nothing m -> [(n, MIDI c m)]
+      _              -> [(n, e       )]
 
 log2 :: Int -> Int
 log2 target = go 0 1 where

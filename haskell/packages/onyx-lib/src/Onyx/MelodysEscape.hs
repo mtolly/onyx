@@ -1,6 +1,5 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE DerivingVia         #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
@@ -47,21 +46,23 @@ data Direction = U | R | L | D
 
 instance ParseTrack MelodyTrack where
   parseTrack = do
-    melodyNotes <- ((.melodyNotes) =.) $ fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
-      Obstacle D -> 60
-      Obstacle L -> 61
-      Obstacle R -> 62
-      Obstacle U -> 63
-      Cutscene   -> 64
-      Color D    -> 72
-      Color L    -> 73
-      Color R    -> 74
-      Color U    -> 75
-    melodyIntensity <- ((.melodyIntensity) =.) $ condenseMap $ eachKey each $ edges . \case
-      Low       -> 84
-      Neutral   -> 85
-      High      -> 86
-      ExtraHigh -> 87
+    melodyNotes <- (.melodyNotes) =. do
+      fatBlips (1/8) $ translateEdges $ condenseMap $ eachKey each $ edges . \case
+        Obstacle D -> 60
+        Obstacle L -> 61
+        Obstacle R -> 62
+        Obstacle U -> 63
+        Cutscene   -> 64
+        Color D    -> 72
+        Color L    -> 73
+        Color R    -> 74
+        Color U    -> 75
+    melodyIntensity <- (.melodyIntensity) =. do
+      condenseMap $ eachKey each $ edges . \case
+        Low       -> 84
+        Neutral   -> 85
+        High      -> 86
+        ExtraHigh -> 87
     return MelodyTrack{..}
 
 secondsToTicks :: U.Seconds -> Int

@@ -3,7 +3,6 @@
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RecordWildCards     #-}
 module Onyx.Audio.Search
 ( AudioLibrary
 , newAudioLibrary
@@ -22,6 +21,7 @@ import qualified Data.ByteString.Lazy    as BL
 import           Data.Char               (toLower)
 import           Data.Conduit.Audio
 import qualified Data.Digest.Pure.MD5    as MD5
+import           Data.Functor            ((<&>))
 import           Data.Hashable           (Hashable)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.HashSet            as HS
@@ -143,8 +143,8 @@ verifyFile info f = do
     Nothing   -> return ()
     Just frms -> verify "Audio length" (Just frms) audioLength
   case info.rate of
-    Nothing   -> return ()
-    Just rate -> verify "Audio rate" (Just rate) audioRate
+    Nothing -> return ()
+    Just r  -> verify "Audio rate" (Just r) audioRate
   verify "Audio channels" (Just info.channels) audioChannels
 
 stackIO' :: (MonadIO m) => IO a -> StackTraceT m (Maybe a)
@@ -235,7 +235,7 @@ searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
       Nothing  -> fatal "No file-path or md5 specified for audio file"
       Just md5 -> searchFile alib md5 >>= finishFile
     Just f -> do
-      p <- getCurrentDir >>= \cwd -> resolveFile cwd f
+      p <- getCurrentDir >>= \currentDir -> resolveFile currentDir f
       doesFileExist p >>= \case
         True -> return ()
         False -> case info.commands of
@@ -249,7 +249,7 @@ searchInfo dir alib@(AudioLibrary libVar) buildDependency info = let
               -- TODO figure out better approach to quoting?
               return ("AUDIO(" <> var <> ")", T.pack $ "\"" <> built <> "\"")
             let replaceVar (from, to) c = T.intercalate to $ T.splitOn from c
-                newCommands = flip map info.commands \c -> foldr replaceVar c variableMapping
+                newCommands = info.commands <&> \c -> foldr replaceVar c variableMapping
             -- take the mvar as a hack so we never run multiple commands
             -- (or copies of the same command) at the same time
             lib <- stackIO $ takeMVar libVar

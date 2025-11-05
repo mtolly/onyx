@@ -82,6 +82,7 @@ import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import           Data.Int                         (Int16)
 import           Data.List.Extra                  (elemIndex, nubOrd, sortOn)
 import           Data.List.NonEmpty               (NonEmpty ((:|)))
@@ -352,7 +353,7 @@ fadeStart dur src@(AudioSource s r c l) = let
     Seconds secs -> secondsToFrames secs r
   go i
     | i > fadeFrames = awaitForever yield
-    | otherwise      = await >>= \mx -> case mx of
+    | otherwise      = await >>= \case
       Nothing -> return ()
       Just v  -> let
         fader = V.generate (V.length v) \j ->
@@ -367,7 +368,7 @@ fadeEnd dur src@(AudioSource s r c l) = let
   fadeFrames = case dur of
     Frames  fms  -> fms
     Seconds secs -> secondsToFrames secs r
-  go i = await >>= \mx -> case mx of
+  go i = await >>= \case
     Nothing -> return ()
     Just v  -> if i + vectorFrames v c > l - fadeFrames
       then let
@@ -388,7 +389,7 @@ data MaskSections
 seamsToSections :: [T.Text] -> [Seam Frames] -> MaskSections
 seamsToSections tags seams = let
   seams1 :: [(Frames, Frames, Bool)]
-  seams1 = flip map (sortOn (.seamCenter) seams) \seam ->
+  seams1 = sortOn (.seamCenter) seams <&> \seam ->
     ( seam.seamCenter - (seam.seamFade `quot` 2) -- seam start
     , seam.seamFade -- seam length
     , seam.seamTag `elem` tags -- is audio active after seam
@@ -403,7 +404,7 @@ seamsToSections tags seams = let
 
 renderMask :: (Monad m) => [T.Text] -> [Seam Duration] -> AudioSource m Float -> AudioSource m Float
 renderMask tags seams (AudioSource s r c l) = let
-  sections = seamsToSections tags $ flip map seams $ fmap \case
+  sections = seamsToSections tags $ seams <&> fmap \case
     Seconds secs -> secondsToFrames secs r
     Frames  fms  -> fms
   masker   (MaskEnd  b) = when b $ CL.map id
@@ -589,7 +590,7 @@ buildSource' aud = case aud of
         else return s
       return (sample, src)
     let stdRate = 44100
-        secondsTimes = flip map samps $ first \case
+        secondsTimes = samps <&> first \case
           Seconds s -> s
           Frames  f -> framesToSeconds f stdRate
         (past, future) = break ((>= 0) . fst) secondsTimes
@@ -857,7 +858,7 @@ decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
     then twoL / oneL
     else twoR / oneR
   -- volRatio = 10 ** (volDB / 20)
-  result = (log volRatio / log 10) * 20
+  result = logBase 10 volRatio * 20
   -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
   in if isInfinite result && result < 0 then -9999 else result
 
@@ -1048,7 +1049,7 @@ makeFSB4' wav fsb = do
   wav' <- windowsPath wav
   xma' <- windowsPath xma
   let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-  inside ("converting WAV to FSB4 (XMA)") do
+  inside "converting WAV to FSB4 (XMA)" do
     str <- stackProcess createProc
     when (any (not . isSpace) str) $ lg str
     madeFSB <- stackIO (BL.readFile xma) >>= parseXMA2 >>= ghBandXMAtoFSB4

@@ -57,6 +57,7 @@ import qualified Data.ByteString           as B
 import qualified Data.ByteString.Lazy      as BL
 import           Data.Either               (lefts, rights)
 import           Data.Foldable             (toList)
+import           Data.Functor              ((<&>))
 import           Data.IORef                (newIORef, readIORef, writeIORef)
 import           Data.List.Extra           (nubOrd, partition)
 import qualified Data.Map                  as Map
@@ -676,7 +677,7 @@ getFileHandle fe stfs readable = Readable
       else getBlockSequence fe.fe_Size (FileBlock fe.fe_FirstBlock) BlockUsed
     posn <- newIORef 0
     -- TODO include the whole directory in the new label, not just fe_FileName
-    openSimpleHandle (handleLabel h <> " | " <> T.unpack (fe.fe_FileName)) SimpleHandle
+    openSimpleHandle (handleLabel h <> " | " <> T.unpack fe.fe_FileName) SimpleHandle
       { shSize  = fromIntegral fe.fe_Size
       , shSeek  = writeIORef posn
       , shTell  = readIORef posn
@@ -1440,7 +1441,7 @@ saveCreateOptions copts = Folder
       , ("package-description", Y.toJSON copts.createDescriptions)
       , ("title-id", Y.toJSON copts.createTitleID) -- TODO maybe replace with hex
       , ("title-name", Y.toJSON copts.createTitleName)
-      , ("licenses", Y.toJSON $ flip map (copts.createLicenses) \license -> Y.object
+      , ("licenses", Y.toJSON $ copts.createLicenses <&> \license -> Y.object
         [ ("id", Y.toJSON license.le_LicenseID)
         , ("bits", Y.toJSON license.le_LicenseBits)
         , ("flags", Y.toJSON license.le_LicenseFlags)

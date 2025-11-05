@@ -4,7 +4,7 @@ module Text.Fluent.Syntax where
 
 import           Control.Monad   (guard, replicateM)
 import           Data.Foldable   (toList)
-import           Data.Functor    (void)
+import           Data.Functor    (void, (<&>))
 import           Data.Maybe      (fromMaybe, isJust, mapMaybe)
 import           Data.Scientific (Scientific)
 import           Data.String     (IsString (..))
@@ -151,7 +151,7 @@ pattern = do
       dropSpaces = case spaceLengths of
         n : ns -> T.drop $ foldr min n ns
         []     -> id
-  return $ flip map els $ \case
+  return $ els <&> \case
     BlockText      s   -> BlockText      (dropSpaces s)
     BlockPlaceable s x -> BlockPlaceable (dropSpaces s) x
     inline             -> inline

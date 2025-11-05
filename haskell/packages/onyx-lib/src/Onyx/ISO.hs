@@ -22,6 +22,7 @@ import           Data.Binary.Get
 import           Data.Bits            (testBit)
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
+import           Data.Functor         ((<&>))
 import           Data.List.NonEmpty   (NonEmpty (..))
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as Map
@@ -142,7 +143,7 @@ getFileTree h ptrs = do
   fmap concat $ forM realPTRs \ptr -> do
     let parents = ptrToParents ptr
     recs <- getFolderFiles h ptr
-    return $ flip map recs \rec -> let
+    return $ recs <&> \rec -> let
       path = NE.reverse $ rec.fileIdentifier :| parents
       in (path, rec)
 

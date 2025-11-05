@@ -17,6 +17,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as Map
@@ -57,7 +58,7 @@ importEncore dir level = do
         e <- Dir.doesFileExist p'
         return $ guard e >> Just p'
       audioFor :: T.Text -> IO (Maybe (Audio t (FilePath, Readable)))
-      audioFor key = mapM existingPaths (HM.lookup key info.stems) >>= return . \case
+      audioFor key = mapM existingPaths (HM.lookup key info.stems) <&> \case
         Just [x]    -> Just $ Input (T.unpack key <.> takeExtension x, fileReadable x)
         Just (x : xs) -> Just $ Mix $ NE.zipWith
           (\i y -> Input ((T.unpack key <> "-" <> show i) <.> takeExtension y, fileReadable y))
@@ -104,7 +105,7 @@ importEncore dir level = do
         xs -> Just $ T.intercalate ", " xs
       , subgenre      = Nothing
       , year          = info.release_year >>= readMaybe . T.unpack
-      , fileAlbumArt  = flip fmap art \f ->
+      , fileAlbumArt  = art <&> \f ->
         SoftFile ("album" <.> takeExtension f) $ SoftReadable $ fileReadable f
       , trackNumber   = Nothing
       , comments      = []
@@ -195,7 +196,7 @@ encoreToOnyxMIDI = fmap \encore -> mempty
 importPadMania :: P.Difficulty -> EncorePart U.Beats -> Maybe ModeMania
 importPadMania tier part = do
   convertedDiffs <- NE.nonEmpty $ encorePart part
-  return $ ModeMania $ flip fmap convertedDiffs \(name, _) -> ManiaChart
+  return $ ModeMania $ convertedDiffs <&> \(name, _) -> ManiaChart
     { name = name
     , keys = if name == "expert" then 5 else 4
     , style = ManiaEncore

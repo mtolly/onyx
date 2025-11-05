@@ -5,7 +5,6 @@ Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DerivingVia           #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -14,7 +13,6 @@ Onyx-designed MIDI track format for storing a Rocksmith arrangement.
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE TupleSections         #-}
 module Onyx.MIDI.Track.Rocksmith
 ( RocksmithTrack(..)
 , ToneLetter(..)
@@ -45,6 +43,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
 import           Data.List.Extra                  (elemIndex, nubOrd, partition,
                                                    sort)
 import           Data.List.NonEmpty               (NonEmpty (..))
@@ -283,7 +282,7 @@ parseChord = evalStateT do
   ciNop <- get >>= \case
     "nop" : xs -> put xs >> return True
     _          -> return False
-  ciName <- get >>= return . \case
+  ciName <- get <&> \case
     [] -> Nothing
     xs -> Just $ T.unwords xs
   return ChordInfo{..}
@@ -316,24 +315,25 @@ instance ParseTrack RocksmithTrack where
             (str, (_, Just v))  -> EdgeOn (v - 100) str
             (str, (_, Nothing)) -> EdgeOff str
           in dimap (fmap fs) (fmap fp) $ condenseMap $ eachKey each \str -> edgesCV $ root + getStringIndex 6 str
-    rsNotes      <- (.rsNotes) =. parseNotes 96
-    rsModifiers  <- (.rsModifiers) =. commandMatch' parseModifiers unparseModifiers
+    rsNotes      <- (.rsNotes     ) =. parseNotes 96
+    rsModifiers  <- (.rsModifiers ) =. commandMatch' parseModifiers unparseModifiers
     let fretNumber n = let
           fs fret = (0, fret + 100)
           fp (_c, v) = v - 100
           in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV n
-    rsTones      <- ((.rsTones) =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
-      ToneA -> ["tone", "a"]
-      ToneB -> ["tone", "b"]
-      ToneC -> ["tone", "c"]
-      ToneD -> ["tone", "d"]
+    rsTones      <- (.rsTones     ) =. do
+      condenseMap_ $ eachKey each $ commandMatch . \case
+        ToneA -> ["tone", "a"]
+        ToneB -> ["tone", "b"]
+        ToneC -> ["tone", "c"]
+        ToneD -> ["tone", "d"]
     rsBends      <- (.rsBends     ) =. commandMatch' parseBend unparseBend
     -- short notation for phrase/section combinations
     Codec
       { codecIn = lift $ modify \mt -> mt
         { midiCommands = let
           f = \case
-            "riff" : xs -> [["section", "riff"], ("phrase" : xs)]
+            "riff" : xs -> [["section", "riff"], "phrase" : xs]
             ["ng"     ] -> [["section", "noguitar"], ["phrase", "NG"]]
             ["start"  ] -> [["phrase", "default"]]
             ["end"    ] -> [["section", "noguitar"], ["phrase", "END"]]
@@ -590,11 +590,11 @@ applyLinks = \case
 getNotesWithModifiers :: (NNC.C t) => RocksmithTrack t -> RTB.T t (Edge (GtrFret, [RSModifier]) GtrString)
 getNotesWithModifiers trk = let
   merged = RTB.collectCoincident $ RTB.merge (Left <$> trk.rsModifiers) (Right <$> trk.rsNotes)
-  in RTB.flatten $ flip fmap merged \instant -> let
+  in RTB.flatten $ merged <&> \instant -> let
     modsNow = [ x | Left x <- instant ]
     modsForString str = concat [ mods | (strs, mods) <- modsNow, null strs || elem str strs ]
     edgesNow = [ x | Right x <- instant ]
-    in flip map edgesNow \case
+    in edgesNow <&> \case
       EdgeOn fret str -> EdgeOn (fret, modsForString str) str
       EdgeOff     str -> EdgeOff str
 
@@ -673,7 +673,7 @@ buildRS tmap capo trk = do
           , n_bend           = case bends of
             [] -> Nothing
             _  -> Just $ maximum $ map snd bends
-          , n_bendValues     = V.fromList $ flip map bends \(bendTime, bend) -> BendValue
+          , n_bendValues     = V.fromList $ bends <&> \(bendTime, bend) -> BendValue
             { bv_time = bendTime
             , bv_step = Just bend
             }
@@ -861,7 +861,7 @@ buildRS tmap capo trk = do
           Just (_, anchor) -> addPhraseAnchors (Map.insert t anchor m) ts
         anchorMap' = addPhraseAnchors anchorMap $ ATB.getTimes
           $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap phrases
-        in V.fromList $ flip map (Map.toList anchorMap') \(t, (low, high)) -> Anchor
+        in V.fromList $ Map.toList anchorMap' <&> \(t, (low, high)) -> Anchor
           { an_time  = t
           , an_fret  = low
           , an_width = max 1 $ high - low + 1
@@ -870,7 +870,7 @@ buildRS tmap capo trk = do
     , rso_tones = U.applyTempoTrack tmap trk.rsTones
     , rso_sections = V.fromList $ numberSections Map.empty
       $ ATB.toPairList $ RTB.toAbsoluteEventList 0 trk.rsSections
-    , rso_phrases = V.fromList $ flip map uniquePhrases \phrase -> Phrase
+    , rso_phrases = V.fromList $ uniquePhrases <&> \phrase -> Phrase
       { ph_maxDifficulty = 0
       , ph_name          = phrase
       , ph_disparity     = Nothing
@@ -900,7 +900,7 @@ buildRSVocals :: U.TempoMap -> VocalTrack U.Beats -> Vocals
 buildRSVocals tmap vox = Vocals $ V.fromList let
   tubes = vocalTubes vox
   pitches = fmap fst $ RTB.filter snd vox.notes
-  tubeEvents = flip fmap (applyStatus1 (Octave60 C) pitches tubes) \case
+  tubeEvents = applyStatus1 (Octave60 C) pitches tubes <&> \case
     (p, Just lyric) -> VocalNote lyric $ 36 + fromEnum p
     (_, Nothing   ) -> VocalNoteEnd
   phraseEnds = RTB.filter not $ RTB.merge vox.phrase1 vox.phrase2

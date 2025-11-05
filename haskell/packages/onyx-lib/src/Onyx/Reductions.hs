@@ -11,6 +11,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
 import           Data.List.Extra                  (nubOrd, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
@@ -119,7 +120,7 @@ gryboReduce diff   isKeys mmap od diffNotes = let
       -> (t1, GuitarNote cols Strum $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
   -- Step: simplify 3-note (or more) chords and GO chords (or GB and RO chords on medium)
-  gnotes3 = flip fmap gnotes2 \(GuitarNote cols ntype len) -> let
+  gnotes3 = gnotes2 <&> \(GuitarNote cols ntype len) -> let
     cols' = case diff of
       Hard   -> case cols of
         _ : _ : _ : _ -> case (minimum cols, maximum cols) of
@@ -179,7 +180,7 @@ gryboReduce diff   isKeys mmap od diffNotes = let
   -- Step: for hard, only hopo chords and sustained notes
   -- for easy/medium, all strum
   gnotes5 = case diff of
-    Hard -> flip fmap gnotes4 \case
+    Hard -> gnotes4 <&> \case
       GuitarNote [col] HOPO Nothing -> GuitarNote [col] Strum Nothing
       gnote                         -> gnote
     _ -> (\(GuitarNote cols _ len) -> GuitarNote cols Strum len) <$> gnotes4
@@ -243,7 +244,7 @@ readGuitarNotes
   . noOpenNotes True -- doesn't really matter if we do mute-strums detection
 
 showGuitarNotes :: RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
-showGuitarNotes trk = RTB.flatten $ flip fmap trk \case
+showGuitarNotes trk = RTB.flatten $ trk <&> \case
   GuitarNote colors sht mlen -> map (\color -> ((Just color, sht), mlen)) colors
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
@@ -283,7 +284,7 @@ pkReduce diff   mmap od diffEvents = let
       -> (t1, PKNote ps $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
   -- Step: simplify chords
-  pknotes3 = flip fmap pknotes2 \(PKNote ps len) -> let
+  pknotes3 = pknotes2 <&> \(PKNote ps len) -> let
     ps' = case diff of
       Hard   -> case ps of
         [x] -> [x]
@@ -340,9 +341,9 @@ pkReduce diff   mmap od diffEvents = let
   -- Step: fix quick jumps (TODO) and out-of-range notes on easy/medium
   pknotes5 = if elem diff [Expert, Hard]
     then pknotes4
-    else flip fmap pknotes4 \(PKNote ps len) -> let
+    else pknotes4 <&> \(PKNote ps len) -> let
       -- we'll use range F-A for easy/medium
-      ps' = nubOrd $ flip map ps \case
+      ps' = nubOrd $ ps <&> \case
         PK.RedYellow k -> if k < F
           then PK.BlueGreen k
           else PK.RedYellow k
@@ -540,7 +541,7 @@ simpleReduce fin fout = do
   F.Song tempos mmap onyx <- loadMIDIOrChart fin
   let sections = onyx.onyxEvents.sections
   stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
-    { F.onyxParts = flip fmap onyx.onyxParts \trks -> let
+    { F.onyxParts = onyx.onyxParts <&> \trks -> let
       pkX = trks.onyxPartRealKeysX
       pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
       pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH

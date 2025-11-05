@@ -32,6 +32,7 @@ import qualified Data.ByteString.Char8               as B8
 import qualified Data.ByteString.Lazy                as BL
 import           Data.Char                           (toLower)
 import qualified Data.EventList.Relative.TimeBody    as RTB
+import           Data.Functor                        ((<&>))
 import           Data.Int
 import           Data.Maybe                          (listToMaybe)
 import           Data.Word
@@ -456,7 +457,7 @@ getRBSongVenue beatTrack top = let
     , animMystery3   = 0
     , animEnd        = 0
     , animMystery4   = 0
-    , animTracks     = flip map tracks \(name, events) -> AnimTrack
+    , animTracks     = tracks <&> \(name, events) -> AnimTrack
       { trackVersion    = 6 -- just setting these as such so eventExtra is always expected to be Nothing
       , trackSubversion = 6
       , trackDomain     = "BandDirector"
@@ -465,7 +466,7 @@ getRBSongVenue beatTrack top = let
       , trackMystery2   = 0
       , trackName2      = ""
       , trackMystery3   = B.replicate 5 0
-      , trackEvents     = flip map events \(time, event) -> AnimEvent
+      , trackEvents     = events <&> \(time, event) -> AnimEvent
         { eventExtra = Nothing
         , eventName  = event
         , eventTime  = if time < 0
