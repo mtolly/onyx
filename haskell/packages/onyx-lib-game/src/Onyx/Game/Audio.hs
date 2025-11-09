@@ -1,15 +1,20 @@
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE DeriveFoldable      #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE DeriveTraversable   #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeApplications      #-}
 module Onyx.Game.Audio
 ( projectAudio, withAL, AudioHandle(..)
 , playSource
+, ProjectAudio(..), GainLevels(..)
 ) where
 
 import           Control.Concurrent           (threadDelay)
@@ -27,6 +32,7 @@ import           Data.Conduit.Audio.Sndfile   (sourceSndFrom)
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef
+import           Data.List.Extra              (nubOrd)
 import qualified Data.List.NonEmpty           as NE
 import           Data.List.Split              (splitPlaces)
 import qualified Data.Set                     as Set
@@ -43,6 +49,7 @@ import           Onyx.Audio.Search
 import           Onyx.FFMPEG                  (ffSourceBinkFrom, ffSourceFrom)
 import           Onyx.Harmonix.MOGG
 import           Onyx.Import
+import           Onyx.MIDI.Track.File         (displayPartName)
 import           Onyx.Project
 import           Onyx.StackTrace              (QueueLog, StackTraceT,
                                                errorToWarning, fatal)
@@ -209,8 +216,13 @@ foreign import ccall unsafe
 
 data AudioHandle = AudioHandle
   { audioStop     :: IO ()
-  , audioSetGain  :: Float -> IO ()
+  , audioSetGain  :: GainLevels -> IO ()
   , audioWaveform :: IO (V.Vector Float) -- ^ Get recent waveform data (mono, normalized -1 to 1)
+  }
+
+data GainLevels = GainLevels
+  { global :: Float
+  , parts  :: [(T.Text, Float)]
   }
 
 data AssignedSource
@@ -227,34 +239,35 @@ assignSources (p : ps) (v : vs)
 assignSources _ _ = []
 
 playSources
-  :: Float
-  -> [([Float], [Float], CA.AudioSource (ResourceT IO) Int16)]
+  :: GainLevels
+  -> [([Float], [Float], CA.AudioSource (ResourceT IO) Int16, T.Text)]
   -> IO AudioHandle
 playSources initGain inputs = do
   globalWaveform <- newWaveformBuffer
-  readies <- forConcurrently inputs \(pans, vols, ca) -> do
-    readySourceWithWaveform pans vols initGain ca globalWaveform
-  mapConcurrently_ sourceWait readies
-  doAL "playSources play" $ AL.play $ concatMap sourceAL readies
-  let handles = map sourceHandle readies
+  readies <- forConcurrently inputs \(pans, vols, ca, name) -> do
+    readySourceWithWaveform pans vols initGain ca globalWaveform name
+  mapConcurrently_ (.sourceWait) readies
+  doAL "playSources play" $ AL.play $ concatMap (.sourceAL) readies
+  let handles = map (.sourceHandle) readies
   return AudioHandle
-    { audioStop     = mapConcurrently_ audioStop handles
-    , audioSetGain  = \g -> mapConcurrently_ (\h -> audioSetGain h g) handles
+    { audioStop     = mapConcurrently_ (.audioStop) handles
+    , audioSetGain  = \g -> mapConcurrently_ (\h -> h.audioSetGain g) handles
     , audioWaveform = getWaveformData globalWaveform
     }
 
 playSource
   :: [Float] -- ^ channel pans, -1 (L) to 1 (R)
   -> [Float] -- ^ channel volumes, in decibels
-  -> Float -- ^ initial gain, 0 to 1
+  -> GainLevels -- ^ initial gain
+  -> T.Text
   -> CA.AudioSource (ResourceT IO) Int16
   -> IO AudioHandle
-playSource pans vols initGain ca = do
+playSource pans vols initGain name ca = do
   localWaveform <- newWaveformBuffer
-  ready <- readySourceWithWaveform pans vols initGain ca localWaveform
-  sourceWait ready
-  doAL "playSource play" $ AL.play $ sourceAL ready
-  return $ sourceHandle ready
+  ready <- readySourceWithWaveform pans vols initGain ca localWaveform name
+  ready.sourceWait
+  doAL "playSource play" $ AL.play ready.sourceAL
+  return ready.sourceHandle
 
 {-
 readySource
@@ -271,11 +284,12 @@ readySource pans vols initGain ca = do
 readySourceWithWaveform
   :: [Float] -- ^ channel pans, -1 (L) to 1 (R)
   -> [Float] -- ^ channel volumes, in decibels
-  -> Float -- ^ initial gain, 0 to 1
+  -> GainLevels -- ^ initial gain
   -> CA.AudioSource (ResourceT IO) Int16
   -> IORef (V.Vector Float, Int) -- ^ waveform buffer to update
+  -> T.Text -- ^ name for adjusting specific gain
   -> IO ReadySource
-readySourceWithWaveform pans vols initGain ca waveformBuf = do
+readySourceWithWaveform pans vols initGain ca waveformBuf name = do
   let assigned = assignSources pans vols
       srcCount = length assigned
       floatRate = realToFrac $ CA.rate ca
@@ -293,8 +307,9 @@ readySourceWithWaveform pans vols initGain ca waveformBuf = do
         volDB = case srcAssigned of
           AssignedMono _ vol -> vol
           AssignedStereo vol -> vol
+        gain = maybe g.global (g.global *) $ lookup name g.parts
         in doAL "playSource setting sourceGain" do
-          AL.sourceGain src $= CFloat (g * (10 ** (volDB / 20)))
+          AL.sourceGain src $= CFloat (gain * (10 ** (volDB / 20)))
   setGain initGain
   firstFull <- newEmptyMVar
   stopper <- newIORef False
@@ -433,6 +448,7 @@ data PlanAudio t a = PlanAudio
   { expr :: Audio t a
   , pans :: [Double]
   , vols :: [Double]
+  , name :: T.Text
   } deriving (Functor, Foldable, Traversable)
 
 splitPlanSources
@@ -440,7 +456,7 @@ splitPlanSources
   => T.Text
   -> Project
   -> AudioLibrary
-  -> [Audio CA.Duration AudioInput]
+  -> [(T.Text, Audio CA.Duration AudioInput)]
   -> StackTraceT (QueueLog m) [PlanAudio CA.Duration FilePath]
 splitPlanSources planName proj lib audios = let
   evalAudioInput = \case
@@ -462,7 +478,7 @@ splitPlanSources planName proj lib audios = let
           (Named name)
     JammitSelect{} -> fatal "Jammit audio not supported in preview yet" -- TODO
     Mogg{} -> fatal "MOGG channel audio not supported in preview yet" -- TODO
-  in fmap concat $ forM audios \audio -> do
+  in fmap concat $ forM audios \(name, audio) -> do
     let chans = computeChannelsPlan proj.projectSongYaml audio
         pans = case chans of
           1 -> [0]
@@ -476,37 +492,65 @@ splitPlanSources planName proj lib audios = let
     case evaled of
       -- mix: same pans and vols for each input
       -- TODO this appears to not work if mixing mono and stereo together
-      Mix parts -> return [PlanAudio (join $ fmap snd partExpr) pans vols | partExpr <- NE.toList parts]
+      Mix parts -> return [ PlanAudio
+        { expr = join $ fmap snd partExpr
+        , pans = pans
+        , vols = vols
+        , name = name
+        } | partExpr <- NE.toList parts ]
       -- merge: split pans and vols to go with the appropriate input
       Merge parts -> do
         let partChannels = map (computeChannelsPlan proj.projectSongYaml . fmap fst) $ NE.toList parts
         return $ zipWith3
-          (\x p v -> PlanAudio (join $ fmap snd x) p v)
+          (\x p v -> PlanAudio
+            { expr = join $ fmap snd x
+            , pans = p
+            , vols = v
+            , name = name
+            })
           (NE.toList parts)
           (splitPlaces partChannels pans)
           (splitPlaces partChannels vols)
-      expr -> return [PlanAudio (join $ fmap snd expr) pans vols]
+      expr -> return [PlanAudio
+        { expr = join $ fmap snd expr
+        , pans = pans
+        , vols = vols
+        , name = name
+        }]
 
-projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe (Double -> Maybe Double -> Float -> IO AudioHandle))
+data ProjectAudio = ProjectAudio
+  { parts :: [T.Text]
+  , play  :: Double -> Maybe Double -> GainLevels -> IO AudioHandle
+  }
+
+projectAudio :: (MonadIO m) => T.Text -> Project -> StackTraceT (QueueLog m) (Maybe ProjectAudio)
 projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
-  Just (MoggPlan x) -> errorToWarning case x.fileMOGG of
-    Just path | takeExtension path == ".bik" -> let
-      bik = takeDirectory proj.projectLocation </> path
-      in return \t speed gain -> do
-        src <- bikSecsSpeed t speed $ fileReadable bik
-        playSource (map realToFrac x.pans) (map realToFrac x.vols) gain src
-    Just path | takeExtension path /= ".mogg" -> let
-      audio = takeDirectory proj.projectLocation </> path
-      in return \t speed gain -> do
-        src <- ffSecsSpeed t speed $ fileReadable audio
-        playSource (map realToFrac x.pans) (map realToFrac x.vols) gain src
-    _ -> do
-      -- TODO maybe silence crowd channels
-      mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
-      let ogg = moggToOgg $ fileReadable mogg
-      return \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain
+  Just (MoggPlan x) -> errorToWarning do
+    play <- case x.fileMOGG of
+      Just path | takeExtension path == ".bik" -> let
+        bik = takeDirectory proj.projectLocation </> path
+        in return \t speed gain -> do
+          src <- bikSecsSpeed t speed $ fileReadable bik
+          playSource (map realToFrac x.pans) (map realToFrac x.vols) gain "TODO" src
+      Just path | takeExtension path /= ".mogg" -> let
+        audio = takeDirectory proj.projectLocation </> path
+        in return \t speed gain -> do
+          src <- ffSecsSpeed t speed $ fileReadable audio
+          playSource (map realToFrac x.pans) (map realToFrac x.vols) gain "TODO" src
+      _ -> do
+        -- TODO maybe silence crowd channels
+        mogg <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/audio.mogg"
+        let ogg = moggToOgg $ fileReadable mogg
+        return \t speed gain -> oggSecsSpeed t speed ogg >>= playSource (map realToFrac x.pans) (map realToFrac x.vols) gain "TODO"
+    return ProjectAudio
+      { parts = [] -- TODO
+      , play = play
+      }
   Just (StandardPlan x) -> errorToWarning do
-    let audios = toList x.song ++ (toList x.parts >>= toList) -- :: [PlanAudio Duration AudioInput]
+    let audios = (("Backing",) <$> toList x.song) <> do
+          (partName, partAudio) <- HM.toList x.parts.getParts
+          partSingle <- toList partAudio
+          return (displayPartName partName, partSingle)
     lib <- newAudioLibrary
     audioDirs <- getAudioDirs proj
     forM_ audioDirs \dir -> do
@@ -515,17 +559,21 @@ projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
     planAudios <- splitPlanSources k proj lib audios
     case NE.nonEmpty planAudios of
       Nothing -> fatal "No audio in plan"
-      Just ne -> return \t mspeed gain -> do
-        inputs <- forM ne \paudio -> do
-          src <- buildSource' $ Drop Start (CA.Seconds t) paudio.expr
-          let src' = CA.mapSamples CA.integralSample
-                $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
-          return
-            ( map realToFrac paudio.pans
-            , map realToFrac paudio.vols
-            , src'
-            )
-        playSources gain $ NE.toList inputs
+      Just ne -> return ProjectAudio
+        { parts = nubOrd $ (.name) <$> NE.toList ne
+        , play = \t mspeed gain -> do
+          inputs <- forM ne \paudio -> do
+            src <- buildSource' $ Drop Start (CA.Seconds t) paudio.expr
+            let src' = CA.mapSamples CA.integralSample
+                  $ maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed src
+            return
+              ( map realToFrac paudio.pans
+              , map realToFrac paudio.vols
+              , src'
+              , paudio.name
+              )
+          playSources gain $ NE.toList inputs
+        }
   {-
   Just _ -> errorToWarning do
     wav <- shakeBuild1 proj [] $ "gen/plan/" <> T.unpack k <> "/everything.wav"

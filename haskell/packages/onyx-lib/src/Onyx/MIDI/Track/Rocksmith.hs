@@ -272,7 +272,7 @@ parseChord = evalStateT do
   ciFingers <- get >>= \case
     "_" : xs -> put xs >> return []
     x   : xs -> do
-      fingers <- lift $ mapM lookupFinger $ map T.singleton $ T.unpack x
+      fingers <- lift $ mapM (lookupFinger . T.singleton) $ T.unpack x
       put xs
       return fingers
     []       -> lift Nothing

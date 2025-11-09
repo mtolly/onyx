@@ -3,6 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -57,6 +58,7 @@ import           Data.Conduit.Audio                        (integralSample,
                                                             mapSamples)
 import           Data.Function                             ((&))
 import           Data.Functor                              ((<&>))
+import qualified Data.Set                                  as Set
 import           Optics                                    (mapped, (%), (%~),
                                                             (.~))
 -- import qualified Data.Connection                           as Conn
@@ -117,6 +119,8 @@ import           Onyx.CommandLine                          (recursiveChartToMidi
 import           Onyx.FeedBack.Load                        (loadMIDIOrChart,
                                                             loadRawMIDIOrChart)
 import           Onyx.Game.Audio                           (AudioHandle (..),
+                                                            GainLevels (..),
+                                                            ProjectAudio (..),
                                                             projectAudio,
                                                             withAL)
 import qualified Onyx.Game.Graphics                        as RGGraphics
@@ -409,12 +413,12 @@ data SongState = SongState
   }
 
 currentSongTime :: SystemTime -> SongState -> Double
-currentSongTime stime ss = case songPlaying ss of
-  Nothing -> songTime ss
-  Just p  -> songTime ss + let
+currentSongTime stime ss = case ss.songPlaying of
+  Nothing -> ss.songTime
+  Just p  -> ss.songTime + let
     -- this might lose precision?
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
-    in (timeToDouble stime - timeToDouble (playStarted p)) * playSpeed p
+    in (timeToDouble stime - timeToDouble p.playStarted) * p.playSpeed
 
 launchWindow
   :: (?preferences :: Preferences)
@@ -422,7 +426,7 @@ launchWindow
   -> (Width -> Bool -> IO Int)
   -> Project
   -> PreviewSong
-  -> Maybe (Double -> Maybe Double -> Float -> IO AudioHandle)
+  -> Maybe ProjectAudio
   -> FilePath
   -> Bool -- True if this song could be loaded by Quick Convert
   -> IO ()
@@ -792,18 +796,25 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         (trimClock 8 5 8 0 -> volSliderArea, trimClock 5 0 5 5 -> playButtonArea) = chopRight 50 volPlayButtonArea
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 5 -> speedArea) = chopRight 150 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
+    enabledAudioParts <- newIORef $ Set.fromList $ maybe [] (.parts) maybeAudio
     volSlider <- FL.horNiceSliderNew volSliderArea Nothing
     homeTabColor >>= FL.setColor volSlider
     FL.setMinimum volSlider 0
     FL.setMaximum volSlider 1
     void $ FL.setValue volSlider 1
-    FL.setCallback volSlider \_ -> do
-      ss <- readIORef varTime
-      case songPlaying ss of
-        Nothing -> return ()
-        Just p -> do
-          v <- FL.getValue volSlider
-          audioSetGain (playAudioHandle p) (realToFrac v)
+    let updateVolume = do
+          ss <- readIORef varTime
+          case ss.songPlaying of
+            Nothing -> return ()
+            Just p -> do
+              v <- FL.getValue volSlider
+              currentEnabledAudio <- readIORef enabledAudioParts
+              p.playAudioHandle.audioSetGain GainLevels
+                { global = realToFrac v
+                , parts = maybe [] (.parts) maybeAudio <&> \name ->
+                  (name, if elem name currentEnabledAudio then 1 else 0)
+                }
+    FL.setCallback volSlider \_ -> updateVolume
     playButton <- FL.buttonCustom playButtonArea (Just "@>") Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just \ref e -> case e of
         -- support play/pause with space even if button is not focused
@@ -866,11 +877,11 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               -- stop if playing, set position
               secs <- updateTime
               ss <- takeState
-              case songPlaying ss of
+              case ss.songPlaying of
                 Nothing -> writeIORef scrubberDragResume $ Just False
                 Just ps -> do
                   writeIORef scrubberDragResume $ Just True
-                  void $ stopPlaying (songTime ss) ps
+                  void $ stopPlaying ss.songTime ps
               putState $ SongState secs Nothing
               redrawGL
               FLTK.setFocus ref
@@ -924,7 +935,13 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       (return song)
       (currentSongTime <$> getTimeMonotonic <*> readIORef varTime)
       getSpeed
-      ((\state -> playAudioHandle <$> songPlaying state) <$> readIORef varTime)
+      ((\state -> (.playAudioHandle) <$> state.songPlaying) <$> readIORef varTime)
+      (maybe [] (.parts) maybeAudio)
+      (readIORef enabledAudioParts)
+      (\new -> do
+        writeIORef enabledAudioParts new
+        updateVolume
+      )
     FL.setResizable tab $ Just groupGL
     let takeState = takeMVar varState
         putState ss = do
@@ -933,8 +950,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         stopPlaying :: Double -> Playing -> IO Double
         stopPlaying t ps = do
           stime <- getTimeMonotonic
-          playStopAnimation ps
-          audioStop $ playAudioHandle ps
+          ps.playStopAnimation
+          ps.playAudioHandle.audioStop
           return $ currentSongTime stime $ SongState t $ Just ps
         startPlaying :: Double -> IO SongState
         startPlaying t = do
@@ -945,10 +962,15 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 , audioWaveform = return VS.empty
                 }
           handle <- case maybeAudio of
-            Just f  -> do
+            Just audio -> do
               gain <- FL.getValue volSlider
+              currentEnabledAudio <- readIORef enabledAudioParts
               Exc.catch @Exc.IOException
-                (f t (guard (speed /= 1) >> Just speed) (realToFrac gain))
+                (audio.play t (guard (speed /= 1) >> Just speed) GainLevels
+                  { global = realToFrac gain
+                  , parts = maybe [] (.parts) maybeAudio <&> \name ->
+                    (name, if elem name currentEnabledAudio then 1 else 0)
+                  })
                 (\_ -> return dummyHandle)
             Nothing -> return dummyHandle
           curTime <- getTimeMonotonic
@@ -962,7 +984,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             -- then check if time is past song end, and stop if so
             when (t' >= songLength) do
               ss <- takeState
-              ss' <- case songPlaying ss of
+              ss' <- case ss.songPlaying of
                 Nothing -> return ss -- probably shouldn't happen?
                 Just ps -> do
                   _ <- stopPlaying songLength ps
@@ -980,10 +1002,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       -- we no longer fire the callback for mouse events, so this is just for keyboard arrows
       secs <- FL.getValue scrubber
       ss <- takeState
-      ss' <- case songPlaying ss of
+      ss' <- case ss.songPlaying of
         Nothing -> return ss { songTime = secs }
         Just ps -> do
-          _ <- stopPlaying (songTime ss) ps
+          _ <- stopPlaying ss.songTime ps
           startPlaying secs
       putState ss'
       redrawGL
@@ -991,30 +1013,30 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           Just _  -> return () -- we are dragging the scrubber, ignore this space press
           Nothing -> do
             ss <- takeState
-            ss' <- case songPlaying ss of
+            ss' <- case ss.songPlaying of
               Nothing -> do
                 -- should probably rework this, since the square label is not
                 -- applied until after we start playing. really we should have
                 -- a "loading" label in between
                 sink $ EventIO $ FL.setLabel playButton "@square"
-                startPlaying $ songTime ss
+                startPlaying ss.songTime
               Just ps -> do
                 sink $ EventIO $ FL.setLabel playButton "@>"
-                t <- stopPlaying (songTime ss) ps
+                t <- stopPlaying ss.songTime ps
                 return $ SongState t Nothing
             putState ss'
     FL.setCallback playButton \_ -> togglePlay
     FL.setCallback counter \_ -> do
       ss <- takeState
-      ss' <- case songPlaying ss of
+      ss' <- case ss.songPlaying of
         Nothing -> redrawGL >> return ss
-        Just ps -> stopPlaying (songTime ss) ps >>= startPlaying
+        Just ps -> stopPlaying ss.songTime ps >>= startPlaying
       putState ss'
     let cleanup = do
           ss <- takeState
-          case songPlaying ss of
+          case ss.songPlaying of
             Nothing -> return ()
-            Just ps -> void $ stopPlaying (songTime ss) ps
+            Just ps -> void $ stopPlaying ss.songTime ps
           deleteGL -- TODO remove this when we delete the whole song window instead
     return (tab, cleanup)
     {-
@@ -2681,12 +2703,12 @@ miscPageMOGG sink rect tab startTasks = mdo
       [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
       [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
       isSingleOgg = \case
-        [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
+        [aud] | aud.audioFormat == "Ogg Vorbis" -> Just aud
         _                                       -> Nothing
       modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
       modifyAudio f = do
         newAudio <- modifyMVar loadedAudio \auds -> (\x -> (x, x)) <$> f auds
-        let chans = sum $ map audioChannels newAudio
+        let chans = sum $ map (.audioChannels) newAudio
         sink $ EventIO do
           FL.setLabel btnMogg let
             op = case isSingleOgg newAudio of
@@ -2712,18 +2734,18 @@ miscPageMOGG sink rect tab startTasks = mdo
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     \info -> let
-      entry = T.pack $ audioPath info
+      entry = T.pack info.audioPath
       sublines =
-        [ audioFormat info <> ", " <> T.pack (show $ audioChannels info)
-          <> case audioChannels info of 1 -> " channel"; _ -> " channels"
+        [ info.audioFormat <> ", " <> T.pack (show info.audioChannels)
+          <> case info.audioChannels of 1 -> " channel"; _ -> " channels"
         , let
-          time = realToFrac (audioFrames info) / audioRate info
+          time = realToFrac info.audioFrames / info.audioRate
           mins = floor $ time / 60 :: Int
           secs = realToFrac $ time - realToFrac mins * 60 :: Milli
           zero = if secs < 10 then "0" else ""
           stamp = T.pack $ show mins <> ":" <> zero <> show secs
           -- `time` package can do this once 1.9 is used in GHC 8.8
-          in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
+          in stamp <> " (" <> T.pack (show info.audioFrames) <> " frames @ " <> T.pack (show info.audioRate) <> "Hz)"
         ]
       in (entry, sublines)
 
@@ -2735,11 +2757,11 @@ miscPageMOGG sink rect tab startTasks = mdo
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save MOGG file"
     case audio of
-      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory aud.audioPath
       _     -> return ()
     FL.setFilter picker "*.mogg"
     FL.setPresetFile picker case audio of
-      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "mogg"
+      [aud] -> T.pack $ takeFileName aud.audioPath -<.> "mogg"
       _     -> "out.mogg"
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -2750,16 +2772,16 @@ miscPageMOGG sink rect tab startTasks = mdo
             then f
             else f <.> "mogg"
           in sink $ EventOnyx $ startTasks case isSingleOgg audio of
-            Just aud -> [("Ogg to MOGG", oggToMoggFiles (audioPath aud) f' >> return [f'])]
+            Just aud -> [("Ogg to MOGG", oggToMoggFiles aud.audioPath f' >> return [f'])]
             Nothing  -> let
               task = tempDir "makemogg" \tmp -> do
                 let ogg = tmp </> "temp.ogg"
-                case map audioRate audio of
+                case map (.audioRate) audio of
                   []             -> return () -- shouldn't happen
                   rates@(r : rs) -> unless (all (== r) rs) do
                     fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
                 ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
-                src <- buildSource' $ Merge $ fmap (Input . audioPath) ne
+                src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) ne
                 runAudio src ogg
                 oggToMoggFiles ogg f'
                 return [f']
@@ -2774,11 +2796,11 @@ miscPageMOGG sink rect tab startTasks = mdo
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save VGS file"
     case audio of
-      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory aud.audioPath
       _     -> return ()
     FL.setFilter picker "*.vgs"
     FL.setPresetFile picker case audio of
-      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "vgs"
+      [aud] -> T.pack $ takeFileName aud.audioPath -<.> "vgs"
       _     -> "out.vgs"
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -2790,7 +2812,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             else f <.> "vgs"
           in sink $ EventOnyx $ startTasks let
             task = do
-              srcs <- mapM (buildSource' . Input . audioPath) audio
+              srcs <- mapM (buildSource' . Input . (.audioPath)) audio
               stackIO $ runResourceT $ writeVGSMultiRate f' $ map (mapSamples integralSample) srcs
               return [f']
             in [("VGS file creation", task)]
@@ -2804,11 +2826,11 @@ miscPageMOGG sink rect tab startTasks = mdo
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save FSB3 file"
     case audio of
-      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory aud.audioPath
       _     -> return ()
     FL.setFilter picker "*.fsb"
     FL.setPresetFile picker case audio of
-      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "fsb"
+      [aud] -> T.pack $ takeFileName aud.audioPath -<.> "fsb"
       _     -> "out.fsb"
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -2821,7 +2843,7 @@ miscPageMOGG sink rect tab startTasks = mdo
           in sink $ EventOnyx $ startTasks let
             task = tempDir "makefsb3" \tmp -> do
               wavs <- forM (zip [0..] audio) \(i, aud) -> do
-                src <- buildSource' $ Input $ audioPath aud
+                src <- buildSource' $ Input aud.audioPath
                 let wav = tmp </> show (i :: Int) <.> "wav"
                 runAudio src wav
                 return wav
@@ -2838,11 +2860,11 @@ miscPageMOGG sink rect tab startTasks = mdo
     picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
     FL.setTitle picker "Save FSB4 file"
     case audio of
-      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory aud.audioPath
       _     -> return ()
     FL.setFilter picker "*.fsb"
     FL.setPresetFile picker case audio of
-      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "fsb"
+      [aud] -> T.pack $ takeFileName aud.audioPath -<.> "fsb"
       _     -> "out.fsb"
     FL.showWidget picker >>= \case
       FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
@@ -2856,7 +2878,7 @@ miscPageMOGG sink rect tab startTasks = mdo
             task = tempDir "makefsb4" \tmp -> do
               let wav = tmp </> "audio.wav"
               audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
-              src <- buildSource' $ Merge $ fmap (Input . audioPath) audio'
+              src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) audio'
               runAudio src wav
               fsb <- makeXMAPieces (Right wav) >>= ghBandXMAtoFSB4
               stackIO $ BL.writeFile f' $ emitFSB fsb
@@ -3322,21 +3344,25 @@ previewGroup
   -> IO Double
   -> IO Double
   -> IO (Maybe AudioHandle)  -- ^ Get current audio handle
+  -> [T.Text]
+  -> IO (Set.Set T.Text)
+  -> (Set.Set T.Text -> IO ())
   -> IO (FL.Ref FL.Group, IO (), IO ())
-previewGroup sink rect getSong getTime getSpeed getAudioHandle = do
+previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAudio setAudio = do
   let (glArea, bottomControlsArea) = chopBottom 40 rect
-      [partSelectHalf, bgSelectHalf] = splitHorizN 2 bottomControlsArea
-      partSelectArea = trimClock 6 7 6 14 partSelectHalf
-      bgSelectArea   = trimClock 6 14 6 7 bgSelectHalf
+      [ trimClock 6 7 6 14 -> partSelectArea,
+        trimClock 6 7 6 7 -> audioSelectArea,
+        trimClock 6 14 6 7 -> bgSelectArea ] = splitHorizN 3 bottomControlsArea
 
   wholeGroup <- FL.groupNew rect Nothing
 
   bottomControlsGroup <- FL.groupNew bottomControlsArea Nothing
   bottomSizeRef <- FL.boxNew bottomControlsArea Nothing
-  trackMenu <- FL.menuButtonNew partSelectArea $ Just "Select Tracks"
+  trackMenu <- FL.menuButtonNew partSelectArea $ Just "View Tracks"
   currentParts <- newIORef []
-  let selectedNames = do
-        items <- FL.getMenu trackMenu
+  let selectedNames :: FL.Ref FL.MenuButton -> IO [T.Text]
+      selectedNames menu = do
+        items <- FL.getMenu menu
         fmap catMaybes $ forM items \case
           Nothing -> return Nothing
           Just item -> FL.getFlags item >>= \case
@@ -3348,7 +3374,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle = do
         when (cur /= names) do
           selected <- case cur of
             [] -> return $ names >>= take 1
-            _  -> selectedNames
+            _  -> selectedNames trackMenu
           FL.clear trackMenu
           forM_ (concat names) \t -> do
             let flags = FL.MenuItemToggle : [FL.MenuItemValue | elem t selected]
@@ -3362,6 +3388,18 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle = do
   FL.setCallback trackMenu \_ -> do
     sink $ EventIO FLTK.redraw
     sink $ EventIO $ void $ FL.popup trackMenu -- reopen menu (TODO find a way to not close it at all)
+  audioMenu <- FL.menuButtonNew audioSelectArea $ Just "Audio"
+  initialAudio <- getAudio
+  forM_ audioParts \t -> do
+    FL.add audioMenu t Nothing
+      ((Just \_ -> do
+        currentAudio <- getAudio
+        setAudio if Set.member t currentAudio
+          then Set.delete t currentAudio
+          else Set.insert t currentAudio
+        sink $ EventIO $ void $ FL.popup audioMenu -- reopen menu (TODO find a way to not close it at all)
+      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
+      (FL.MenuItemFlags $ FL.MenuItemToggle : [FL.MenuItemValue | Set.member t initialAudio])
   bgMenu <- FL.menuButtonNew bgSelectArea $ Just "Background"
   let bgs = [(t, Just bg) | (t, bg) <- previewBG initSong]
       emptyBG = ("None", Nothing)
@@ -3394,7 +3432,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle = do
           trks <- fmap previewTracks getSong
           bg <- readIORef currentBG
           updateParts True $ map (map fst) trks -- TODO does this need to be done in a sink event
-          selected <- selectedNames
+          selected <- selectedNames trackMenu
           w <- FL.pixelW wind
           h <- FL.pixelH wind
           let flatTrks = concat trks

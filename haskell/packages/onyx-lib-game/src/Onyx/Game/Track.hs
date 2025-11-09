@@ -506,7 +506,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         `PNF.zipStateMaps` Map.empty -- TODO area :: Maybe PG.StrumArea
         `PNF.zipStateMaps` Map.empty -- TODO chords :: PNF T.Text T.Text
         `PNF.zipStateMaps` Map.empty -- TODO arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
-    in (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
+    in (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
       pgStates
         `PNF.zipStateMaps` Map.empty
         `PNF.zipStateMaps` Map.empty
@@ -586,7 +586,7 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
         `PNF.zipStateMaps` Map.empty -- TODO arpeggio :: PNF (Map.Map PG.GtrString PG.GtrFret) ()
     in do
       guard $ not $ RTB.null thisDiff.notes
-      Just $ (\(((((a, b), c), d), e)) -> PNF.CommonState a b c d e) <$> do
+      Just $ (\((((a, b), c), d), e) -> PNF.CommonState a b c d e) <$> do
         pgStates
           `PNF.zipStateMaps` toggle src.overdrive
           `PNF.zipStateMaps` toggle (snd <$> src.bre)

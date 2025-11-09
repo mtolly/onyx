@@ -205,6 +205,43 @@ makeToggleBounds t1 t2 m = let
   simplify (x : xs) = x : simplify xs
   in simplify zipped
 
+drawRailings :: GLStuff -> Float -> Float -> Float -> Float -> IO ()
+drawRailings gl notesLeft notesRight nearZ farZ = do
+  let rail = gl.gfxConfig.track.railings
+  drawObject gl Box
+    (ObjectStretch
+      (V3
+        (notesLeft - rail.x_width)
+        rail.y_top
+        nearZ
+      )
+      (V3
+        notesLeft
+        rail.y_bottom
+        farZ
+      )
+    )
+    (CSColor rail.color) 1 (LightGlobal gl.gfxConfig.track.light)
+  drawObject gl Box
+    (ObjectStretch
+      (V3
+        notesRight
+        rail.y_top
+        nearZ
+      )
+      (V3
+        (notesRight + rail.x_width)
+        rail.y_bottom
+        farZ
+      )
+    )
+    (CSColor rail.color) 1 (LightGlobal gl.gfxConfig.track.light)
+
+drawRailingsDefault :: GLStuff -> Float -> Float -> IO ()
+drawRailingsDefault gl = drawRailings gl
+  gl.gfxConfig.track.note_area.x_left
+  gl.gfxConfig.track.note_area.x_right
+
 drawDrums :: GLStuff -> Double -> Double -> DrumMode -> Map.Map Double (CommonState (DrumState (D.Gem D.ProType, D.DrumVelocity) (D.Gem D.ProType))) -> IO ()
 drawDrums gl nowTime speed mode trk = drawDrumPlay gl nowTime speed mode DrumPlayState
   { events = do
@@ -455,35 +492,7 @@ drawEliteDrumPlay gl nowTime speed layout tdps = do
       globalLight
   glDepthFunc GL_LESS
   -- draw railings
-  let rail = gl.gfxConfig.track.railings
-  draw Box
-    (ObjectStretch
-      (V3
-        (adjustedLeft - rail.x_width)
-        rail.y_top
-        nearZ
-      )
-      (V3
-        adjustedLeft
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
-  draw Box
-    (ObjectStretch
-      (V3
-        adjustedRight
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (adjustedRight + rail.x_width)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
+  drawRailings gl adjustedLeft adjustedRight nearZ farZ
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -738,36 +747,7 @@ drawDrumPlay gl nowTime speed mode dps = do
       1
       globalLight
   -- draw railings
-  let rail = gl.gfxConfig.track.railings
-      noteArea = gl.gfxConfig.track.note_area
-  draw Box
-    (ObjectStretch
-      (V3
-        (noteArea.x_left - rail.x_width)
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_left)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
-  draw Box
-    (ObjectStretch
-      (V3
-        noteArea.x_right
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_right + rail.x_width)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
+  drawRailingsDefault gl nearZ farZ
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -777,7 +757,7 @@ drawDrumPlay gl nowTime speed mode dps = do
           Drums5 -> case pad of
             D.Red            -> if gl.leftyFlip then 4 else 0
             D.Pro D.Yellow _ -> if gl.leftyFlip then 3 else 1
-            D.Pro D.Blue   _ -> if gl.leftyFlip then 2 else 2
+            D.Pro D.Blue   _ ->                             2
             D.Orange         -> if gl.leftyFlip then 1 else 3
             D.Pro D.Green  _ -> if gl.leftyFlip then 0 else 4
             _                -> 0
@@ -1051,36 +1031,7 @@ drawFivePlay gl nowTime speed gps = do
       1
       globalLight
   -- draw railings
-  let rail = gl.gfxConfig.track.railings
-      noteArea = gl.gfxConfig.track.note_area
-  draw Box
-    (ObjectStretch
-      (V3
-        (noteArea.x_left - rail.x_width)
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_left)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
-  draw Box
-    (ObjectStretch
-      (V3
-        noteArea.x_right
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_right + rail.x_width)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
+  drawRailingsDefault gl nearZ farZ
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -1118,7 +1069,7 @@ drawFivePlay gl nowTime speed gps = do
         forM_ trill \(color, tog) -> when (elem tog [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
           drawLane thisTime nextTime color
         when (elem bre [ToggleStart (), ToggleRestart () (), ToggleOn ()]) do
-          mapM_ (drawLane thisTime nextTime) $ map Just each
+          mapM_ (drawLane thisTime nextTime . Just) each
         -- draw past lanes if rest is empty
         when (null rest) do
           forM_ tremolo \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
@@ -1126,14 +1077,14 @@ drawFivePlay gl nowTime speed gps = do
           forM_ trill \(color, tog) -> when (elem tog [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
             drawLane nearTime thisTime color
           when (elem bre [ToggleEnd (), ToggleRestart () (), ToggleOn ()]) do
-            mapM_ (drawLane nearTime thisTime) $ map Just each
+            mapM_ (drawLane nearTime thisTime . Just) each
         drawLanes thisTime rest
   drawLanes farTime $ Map.toDescList zoomed
   -- draw target
   let targets =
         [ (if gl.leftyFlip then 4 else 0, Five.Green , TextureTargetGreen , TextureTargetGreenLight )
         , (if gl.leftyFlip then 3 else 1, Five.Red   , TextureTargetRed   , TextureTargetRedLight   )
-        , (if gl.leftyFlip then 2 else 2, Five.Yellow, TextureTargetYellow, TextureTargetYellowLight)
+        , (                            2, Five.Yellow, TextureTargetYellow, TextureTargetYellowLight)
         , (if gl.leftyFlip then 1 else 3, Five.Blue  , TextureTargetBlue  , TextureTargetBlueLight  )
         , (if gl.leftyFlip then 0 else 4, Five.Orange, TextureTargetOrange, TextureTargetOrangeLight)
         ]
@@ -1297,36 +1248,7 @@ drawPG gl nowTime speed tuning trk = do
       1
       globalLight
   -- draw railings
-  let rail = gl.gfxConfig.track.railings
-      noteArea = gl.gfxConfig.track.note_area
-  draw Box
-    (ObjectStretch
-      (V3
-        (noteArea.x_left - rail.x_width)
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_left)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
-  draw Box
-    (ObjectStretch
-      (V3
-        noteArea.x_right
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_right + rail.x_width)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
+  drawRailingsDefault gl nearZ farZ
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -1517,36 +1439,7 @@ drawMania gl nowTime speed mchart trk = do
       1
       globalLight
   -- draw railings
-  let rail = gl.gfxConfig.track.railings
-      noteArea = gl.gfxConfig.track.note_area
-  draw Box
-    (ObjectStretch
-      (V3
-        (noteArea.x_left - rail.x_width)
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_left)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
-  draw Box
-    (ObjectStretch
-      (V3
-        noteArea.x_right
-        rail.y_top
-        nearZ
-      )
-      (V3
-        (noteArea.x_right + rail.x_width)
-        rail.y_bottom
-        farZ
-      )
-    )
-    (CSColor rail.color) 1 globalLight
+  drawRailingsDefault gl nearZ farZ
   -- draw beat lines
   glDepthFunc GL_ALWAYS
   void $ Map.traverseWithKey drawBeat zoomed
@@ -3070,7 +2963,7 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
   glDepthFunc GL_ALWAYS -- turn off z to draw backgrounds + time box
 
   let waveform = when gl.waveform $ forM_ mAudioHandle \audioHandle -> checkGL "draw waveform" do
-        waveformData <- audioWaveform audioHandle
+        waveformData <- audioHandle.audioWaveform
         unless (VS.null waveformData) do
           drawWaveform gl dims waveformData
 
