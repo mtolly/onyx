@@ -796,7 +796,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         (trimClock 8 5 8 0 -> volSliderArea, trimClock 5 0 5 5 -> playButtonArea) = chopRight 50 volPlayButtonArea
         (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 5 -> speedArea) = chopRight 150 topControlsArea2
     topControls <- FL.groupNew topControlsArea1 Nothing
-    enabledAudioParts <- newIORef $ Set.fromList $ maybe [] (.parts) maybeAudio
+    enabledAudioParts <- newIORef
+      $ Set.fromList
+      $ filter (/= "Crowd") -- silent by default
+      $ maybe [] (.parts) maybeAudio
     volSlider <- FL.horNiceSliderNew volSliderArea Nothing
     homeTabColor >>= FL.setColor volSlider
     FL.setMinimum volSlider 0
