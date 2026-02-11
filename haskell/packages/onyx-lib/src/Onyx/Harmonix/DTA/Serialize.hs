@@ -133,14 +133,17 @@ instance StackChunk T.Text where
   stackChunk = chunkString
 instance StackChunks T.Text
 
-chunksMaybe :: (Monad m) => ChunksCodec m a -> ChunksCodec m (Maybe a)
+chunksMaybe :: (SendMessage m) => ChunksCodec m a -> ChunksCodec m (Maybe a)
 chunksMaybe cf = Codec
   { codecOut = makeOut \case
     Nothing -> []
     Just x  -> makeValue' cf x
   , codecIn = lift ask >>= \case
-    [] -> return Nothing
-    _  -> Just <$> codecIn cf
+    []         -> return Nothing
+    [Braces _] -> do
+      warn "Ignoring a call to an unrecognized function (DTA curly braces)"
+      return Nothing
+    _          -> Just <$> codecIn cf
   }
 
 instance (StackChunks a) => StackChunks (Maybe a) where

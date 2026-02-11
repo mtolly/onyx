@@ -46,6 +46,7 @@ parts:
   drums:
     drums:
       mode: elite
+      kicks: 1
 targets:
   rb3:
     game: rb3

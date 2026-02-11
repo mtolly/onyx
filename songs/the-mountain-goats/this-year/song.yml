@@ -1,0 +1,50 @@
+metadata:
+  title: This Year
+  artist: The Mountain Goats
+  album: The Sunset Tree
+  year: 2005
+  author: Onyxite
+  track-number: 3
+parts:
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+audio:
+  album-track:
+    frames: 10270596
+    md5: 427a275ee83a7aa196f70f8d75b11525
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.033, album-track]
+  dev:
+    song:
+      pad: [3.033, album-track]
+    parts:
+      bass:
+        pad: [3.033, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.033, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.033, channels: [[4, 5], stems]]
+      other:
+        pad: [3.033, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album
