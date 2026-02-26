@@ -20,6 +20,7 @@ import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (toUpper)
 import qualified Data.Conduit.Audio                as CA
+import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
@@ -38,8 +39,7 @@ import           Data.Word                         (Word32)
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import qualified Numeric.NonNegative.Class         as NNC
-import           Onyx.Audio                        (clampIfSilent,
-                                                    sinkMP3PadWithHandle)
+import           Onyx.Audio                        (clampIfSilent)
 import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
 import           Onyx.Background
@@ -81,7 +81,7 @@ import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
 import           Onyx.Util.Files                   (shortWindowsPath)
-import           Onyx.Util.Handle                  (singleFolder)
+import           Onyx.Util.Handle                  (fileReadable, singleFolder)
 import           Onyx.Util.Text.Decode             (encodeLatin1)
 import           Onyx.Util.Text.Transform          (replaceCharsRB)
 import           Onyx.WebPlayer                    (findTremolos, findTrills,
@@ -201,10 +201,7 @@ rrRules buildInfo dir rr = do
           n : ns -> U.applyTempoMap mid.tempos $ foldr min n ns
           []     -> 10 -- shouldn't happen
         padSeconds = max 0 $ ceiling $ 3 - (realToFrac firstNoteSeconds :: Rational)
-        adjustMidiTiming
-          -- decrease tempo at start of midi to account for weird delay in our encoded mp3s
-          = (\m -> m { F.tempos = applyMIDIOffsetMS rrMP3HackAmountMS m.tempos })
-          . F.padRawTrackFile padSeconds
+        adjustMidiTiming = F.padRawTrackFile padSeconds
     stackIO $ B.writeFile pathPad $ B8.pack $ show (padSeconds :: Int)
 
     let toTrackMidi :: (ParseTrack f) => f U.Beats -> F.Song (RTB.T U.Beats (Event.T B.ByteString))
@@ -446,9 +443,6 @@ rrRules buildInfo dir rr = do
           , ""
           , "Quantise = QuantiseLevel.kNone"
           , ""
-          -- put this in so we can reimport later and undo the midi sync hack
-          , rrMP3HackString <> T.pack (show rrMP3HackAmountMS)
-          , ""
           ]
 
     stackIO $ B.writeFile out $ TE.encodeUtf8 lua
@@ -462,26 +456,30 @@ rrRules buildInfo dir rr = do
       setup lame = liftIO do
         L.check $ L.setBrate lame 128
         L.check $ L.setQuality lame 5
-        L.check $ L.setOutSamplerate lame 44100 -- TODO should we use 48k? maybe avoid the weird sync problems
+        L.check $ L.setOutSamplerate lame 48000
+
+        -- PS3 Rock Revolution does not have Info frames (unlike GH3),
+        -- it may mess up sync if you do have them
+        L.check $ L.setBWriteVbrTag lame False
 
   pathGuitar %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.guitar, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathBass %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.bass, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathDrums %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
       [(rr.drums, 1)]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathSong %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan
@@ -490,12 +488,12 @@ rrRules buildInfo dir rr = do
       , (rr.drums , 1)
       ]
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
   pathFE %> \out -> do
     mid <- loadOnyxMidi
     s <- sourceBacking buildInfo rr.common mid 0 planName plan []
     pad <- readPad
-    stackIO $ runResourceT $ sinkMP3PadWithHandle out setup $ padAudio pad $ clampIfSilent s
+    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
 
   let songFev = file $ "s" <> str <> ".fev" -- makeMainFEV
       songFsb = file $ "s" <> str <> ".fsb"
@@ -508,7 +506,7 @@ rrRules buildInfo dir rr = do
         False -> return Nothing
         True  -> Just <$> do
           bs <- stackIO $ BL.readFile path
-          src <- stackIO $ ffSource $ Right path
+          src <- stackIO $ ffSource $ fileReadable path
           let _ = src :: CA.AudioSource (ResourceT IO) Int16
               size = round $ CA.framesToSeconds (CA.frames src) (CA.rate src) * 1000
           return (bs, size)

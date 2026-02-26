@@ -164,7 +164,8 @@ import           Onyx.Util.Files                           (commonDir,
                                                             copyDirRecursive,
                                                             osOpenFile,
                                                             osShowFolder)
-import           Onyx.Util.Handle                          (saveHandleFolder)
+import           Onyx.Util.Handle                          (fileReadable,
+                                                            saveHandleFolder)
 import qualified Onyx.Xbox.STFS                            as STFS
 import           Paths_onyx_exe_toolkit                    (version)
 import qualified Sound.File.Sndfile                        as Snd
@@ -2883,7 +2884,7 @@ miscPageMOGG sink rect tab startTasks = mdo
               audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
               src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) audio'
               runAudio src wav
-              fsb <- makeXMAPieces (Right wav) >>= ghBandXMAtoFSB4
+              fsb <- makeXMAPieces (fileReadable wav) >>= ghBandXMAtoFSB4
               stackIO $ BL.writeFile f' $ emitFSB fsb
               return [f']
             in [("FSB4 file creation", task)]

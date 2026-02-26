@@ -438,13 +438,13 @@ oggSecsSpeed pos mspeed ogg = do
 
 bikSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> Readable -> IO (CA.AudioSource m Int16)
 bikSecsSpeed pos mspeed bik = do
-  src <- ffSourceBinkFrom (CA.Seconds pos) $ Left bik
+  src <- ffSourceBinkFrom (CA.Seconds pos) bik
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
 ffSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> Readable -> IO (CA.AudioSource m Int16)
 ffSecsSpeed pos mspeed audio = do
-  src <- ffSourceFrom (CA.Seconds pos) $ Left audio
+  src <- ffSourceFrom (CA.Seconds pos) audio
   let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
   return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 

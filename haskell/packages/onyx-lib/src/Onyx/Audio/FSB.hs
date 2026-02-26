@@ -332,7 +332,7 @@ readGH3FSB3 bs = do
           , fsbSongData = [sdata]
           }
         readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle bsnew
-    src <- ffSource $ Left readable
+    src <- ffSource readable
     return (song.fsbSongName, src)
 
 data XMA1Packet = XMA1Packet
@@ -407,7 +407,7 @@ splitFSBStreamsToDir f dir = do
       return $ show (i :: Int) <> "_" <> dropExtension (B8.unpack name)
     Right fsb4 -> case fsb4.fsb4Songs of
       [song] -> return [ dropExtension (B8.unpack song.fsbSongName) <> "_" <> show (i :: Int) | i <- [0..] ]
-      _      -> fail "Not exactly 1 stream in FSB4" -- shouldn't happen, caught by splitFSBStreams
+      songs  -> return [ dropExtension (B8.unpack song.fsbSongName) | song <- songs ] -- PS3 Rock Revolution
   forM_ (zip streams streamNames) \(stream, streamName) -> do
     case stream of
       FSB_MP3  bs   -> BL.writeFile (dir </> streamName <.> "mp3") bs
@@ -898,7 +898,7 @@ mp3sToFSB3 :: (MonadIO m, MonadFail m) => [(B.ByteString, BL.ByteString)] -> m F
 mp3sToFSB3 mp3s = do
 
   songs <- forM mp3s \(name, mp3) -> do
-    src <- liftIO $ ffSource $ Left $ makeHandle "mp3" $ byteStringSimpleHandle mp3
+    src <- liftIO $ ffSource $ makeHandle "mp3" $ byteStringSimpleHandle mp3
     let _ = src :: CA.AudioSource (ResourceT IO) Int16
         numFrames = fromIntegral $ CA.frames src
         song = FSBSong
@@ -1049,7 +1049,7 @@ ghBandXMAtoFSB4 xma = xmasToFSB4 [("multichannel sound", xma)]
 ghBandMP3sToFSB4 :: (MonadFail m, MonadIO m) => [BL.ByteString] -> m FSB
 ghBandMP3sToFSB4 mp3s = do
 
-  srcs <- liftIO $ mapM (ffSource . Left . makeHandle "mp3" . byteStringSimpleHandle) mp3s
+  srcs <- liftIO $ mapM (ffSource . makeHandle "mp3" . byteStringSimpleHandle) mp3s
   let _ = srcs :: [CA.AudioSource (ResourceT IO) Int16]
 
   let song = FSBSong

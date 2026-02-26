@@ -476,9 +476,3 @@ applyMIDIOffsetMS ms tmap = let
 
 anchorBeats :: U.Beats
 anchorBeats = 2
-
-rrMP3HackAmountMS :: Int
-rrMP3HackAmountMS = 60
-
-rrMP3HackString :: T.Text
-rrMP3HackString = "-- OnyxSyncHack "

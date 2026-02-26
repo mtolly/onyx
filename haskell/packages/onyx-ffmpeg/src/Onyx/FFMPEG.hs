@@ -43,7 +43,8 @@ import           GHC.Records                  (HasField (..))
 import qualified Language.C.Inline            as C
 import qualified Language.C.Inline.Context    as C
 import qualified Language.C.Types             as C
-import           Onyx.Util.Handle             (Readable, rOpen)
+import           Onyx.MP3                     (MP3GaplessInfo (..), stripMP3)
+import           Onyx.Util.Handle             (Readable, fileReadable, rOpen)
 import           System.IO                    (Handle, SeekMode (..), hClose,
                                                hFileSize, hGetBuf, hIsWritable,
                                                hPutBuf, hSeek, hTell)
@@ -876,10 +877,10 @@ withStream
   :: (MonadIO m)
   => Bracket m
   -> AVMediaType
-  -> Either Readable FilePath
+  -> Readable
   -> (AVFormatContext -> AVCodecContext -> AVStream -> m a)
   -> m a
-withStream brkt mediaType input fn = do
+withStream brkt mediaType r fn = do
   -- avformat_open_input for some reason says
   -- "Note that a user-supplied AVFormatContext will be freed on failure."
   -- so we need to not call avformat_close_input in that case
@@ -891,17 +892,11 @@ withStream brkt mediaType input fn = do
     handleOpenInputResult res = do
       when (res /= 0) $ writeIORef openInputError True
       ffCheck "avformat_open_input" (== 0) $ return res
-    openInput = case input of
-      Right f -> do
-        liftIO $ with fmt_ctx $ \pctx -> do
-          withCString f $ \s -> do
-            avformat_open_input pctx s nullPtr nullPtr >>= handleOpenInputResult
-        afterOpenInput
-      Left r -> runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
-        liftIO $ setAVFormatContextPB fmt_ctx avio
-        liftIO $ with fmt_ctx $ \pctx -> do
-          avformat_open_input pctx nullPtr nullPtr nullPtr >>= handleOpenInputResult
-        afterOpenInput
+    openInput = runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
+      liftIO $ setAVFormatContextPB fmt_ctx avio
+      liftIO $ with fmt_ctx $ \pctx -> do
+        avformat_open_input pctx nullPtr nullPtr nullPtr >>= handleOpenInputResult
+      afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
       (streamIndex, dec) <- liftIO $ alloca $ \pdec -> do
@@ -920,22 +915,16 @@ withAllStreams
   :: (MonadIO m)
   => Bracket m
   -> AVMediaType
-  -> Either Readable FilePath
+  -> Readable
   -> (AVFormatContext -> [(AVCodecContext, AVStream)] -> m a)
   -> m a
-withAllStreams brkt mediaType input fn = do
+withAllStreams brkt mediaType r fn = do
   runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> let
-    openInput = case input of
-      Right f -> do
-        liftIO $ with fmt_ctx $ \pctx -> do
-          withCString f $ \s -> do
-            ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx s nullPtr nullPtr
-        afterOpenInput
-      Left r -> runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
-        liftIO $ setAVFormatContextPB fmt_ctx avio
-        liftIO $ with fmt_ctx $ \pctx -> do
-          ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
-        afterOpenInput
+    openInput = runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
+      liftIO $ setAVFormatContextPB fmt_ctx avio
+      liftIO $ with fmt_ctx $ \pctx -> do
+        ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
+      afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
       numStreams <- liftIO fmt_ctx.nb_streams
@@ -967,14 +956,14 @@ instance FFSourceSample Int16 where
 instance FFSourceSample Float where
   ffSourceSampleFormat _ = AV_SAMPLE_FMT_FLT
 
-ffSource :: (MonadResource m, FFSourceSample a) => Either Readable FilePath -> IO (CA.AudioSource m a)
+ffSource :: (MonadResource m, FFSourceSample a) => Readable -> IO (CA.AudioSource m a)
 ffSource = ffSourceFrom $ CA.Frames 0
 
 ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
-  CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
+  CA.Duration -> Readable -> IO (CA.AudioSource m a)
 ffSourceFrom dur input = do
 
-  (rate, channels, frames, skipPadding) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+  (rate, channels, framesOrig, isMP3) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
     -- some of this metadata appeared to be set elsewhere in ffmpeg 5.0,
     -- but with 6.1 everything seems fine?
     rate <- dec_ctx.sample_rate
@@ -1001,74 +990,46 @@ ffSourceFrom dur input = do
             return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
       else do
         return frames
-    -- need to skip mp3 initial decoder delay, also not sure why extra length adjustment is needed
     isMP3 <- (\codecID -> AVCodecID codecID == AV_CODEC_ID_MP3) <$> dec_ctx.codec_id
-    let frames = if isMP3
-          then framesOrig - 1152
-          else framesOrig
-        skipPadding = if isMP3
-          then 1105
-          else 0
-    return (rate, channels, frames, skipPadding)
+    return (rate, channels, framesOrig, isMP3)
 
-  let startFrame = skipPadding + case dur of
+  (inputStripped, skipStart, frames) <- if isMP3
+    then do
+      (stripped, gapless) <- stripMP3 input
+      framesRaw <- withStream unliftBracket AVMEDIA_TYPE_AUDIO stripped
+        $ \_fmt_ctx _dec_ctx stream -> stream.nb_frames
+      let skipStart = case gapless of
+            -- the "+ 528 + 1" comes from FFMPEG mp3dec.c mp3_parse_info_tag
+            Just info -> fromIntegral info.startDelay + 528 + 1
+            Nothing   -> 576 + 528 + 1 -- default assumption
+          -- not sure of the reasoning here
+          skipStartEnd = skipStart + (1152 - 1105)
+          frames = case gapless of
+            Just info -> case info.originalSamples of
+              Just orig -> fromIntegral orig
+              Nothing   -> fromIntegral framesRaw - skipStartEnd
+            Nothing -> fromIntegral framesRaw - skipStartEnd
+      return (stripped, skipStart, frames)
+    else return (input, 0, fromIntegral framesOrig)
+
+  let startFrame = skipStart + case dur of
         CA.Frames  f -> f
         CA.Seconds s -> floor $ s * fromIntegral rate
+      startSecs :: Double
+      startSecs = fromIntegral startFrame / fromIntegral rate
 
   return CA.AudioSource
-    { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+    { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO inputStripped $ \fmt_ctx dec_ctx stream -> do
 
       bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
       bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
 
       audio_stream_index <- liftIO stream.index
 
-      -- some (not all) mp3s have a weird behavior where the pts values of
-      -- the packets don't properly account for the 1105 samples of decoder
-      -- delay in the first frame. so it goes
-      --   packet 0, pts = 0     ; frame 0, nb_samples = 47
-      --   packet 1, pts = 368640; frame 1, nb_samples = 1152
-      --   packet 2, pts = 737280; frame 2, nb_samples = 1152
-      -- in order to seek correctly we need to account for this, so we check the
-      -- first frame's nb_samples and compare to the codec's stated frame_size
-      codecFrameSize <- liftIO dec_ctx.frame_size
-      firstFrameMissingSamples <- if codecFrameSize == 0
-        then return 0 -- unset in many other formats
-        else liftIO $ let
-          loopCheckFirstFrame = do
-            codePacket <- av_read_frame fmt_ctx packet
-            if codePacket < 0
-              then return 0 -- empty file probably
-              else do
-                packetIndex <- packet.stream_index
-                if packetIndex /= audio_stream_index
-                  then do
-                    av_packet_unref packet
-                    loopCheckFirstFrame
-                  else do
-                    codeSendPacket <- avcodec_send_packet dec_ctx packet
-                    av_packet_unref packet
-                    if codeSendPacket >= 0
-                      then do
-                        codeFrame <- avcodec_receive_frame dec_ctx frame
-                        if codeFrame < 0
-                          then loopCheckFirstFrame
-                          else do
-                            countSamples <- frame.nb_samples
-                            return $ codecFrameSize - countSamples
-                      else return 0
-          in loopCheckFirstFrame
-
-      let firstFrameSize = codecFrameSize - firstFrameMissingSamples
-          adjustedStartSecs :: Double
-          adjustedStartSecs = if startFrame >= fromIntegral firstFrameSize
-            then fromIntegral (startFrame + fromIntegral firstFrameMissingSamples) / fromIntegral rate
-            else fromIntegral startFrame / fromIntegral rate
-
-      -- always seek (even to pts 0) since we may have read a frame above
+      -- may not need to seek if we want pts 0 anymore, but good to be safe
       streamRes <- liftIO $ (\(num, den) -> realToFrac num / realToFrac den) <$> stream.time_base
       codecRes <- liftIO $ (\(num, den) -> realToFrac num / realToFrac den) <$> dec_ctx.time_base
-      let wantPTS = floor $ adjustedStartSecs / streamRes
+      let wantPTS = floor $ startSecs / streamRes
       _code <- liftIO $ av_seek_frame
         fmt_ctx
         audio_stream_index
@@ -1164,7 +1125,7 @@ ffSourceFrom dur input = do
 
 -- this is all hacks!! probably should use filtergraph to do the merging
 ffSourceBinkFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
-  CA.Duration -> Either Readable FilePath -> IO (CA.AudioSource m a)
+  CA.Duration -> Readable -> IO (CA.AudioSource m a)
 ffSourceBinkFrom dur input = do
 
   (rate, channels, frames) <- withAllStreams unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx decStreams -> do
@@ -1402,7 +1363,7 @@ tryGetGraphOutput buffersink_ctx withFrame = bracket av_frame_alloc (\p -> with 
 audioIntegratedVolume :: FilePath -> IO (Maybe Float)
 audioIntegratedVolume f = do
 
-  withStream unliftBracket AVMEDIA_TYPE_AUDIO (Right f) $ \fmt_ctx dec_ctx stream -> do
+  withStream unliftBracket AVMEDIA_TYPE_AUDIO (fileReadable f) $ \fmt_ctx dec_ctx stream -> do
 
   bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) $ \graph -> do
 

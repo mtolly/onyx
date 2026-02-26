@@ -539,7 +539,7 @@ loadMixedAudio qfof = let
   in case NE.nonEmpty fileList of
     Nothing -> return $ CA.silent (CA.Seconds 0) 44100 2
     Just files -> do
-      src NE.:| srcs <- mapM (ffSource . Left) files
+      src NE.:| srcs <- mapM ffSource files
       let mixed = foldl (\a b -> uncurry CA.mix $ sameChannels (a, b)) src srcs
       -- TODO apply offset/delay
       return mixed

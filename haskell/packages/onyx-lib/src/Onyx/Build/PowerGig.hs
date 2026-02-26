@@ -443,7 +443,7 @@ pgRules buildInfo dir pg = do
   objAudio %> \out -> do
     let wav = planDir </> "everything.wav"
     shk $ need [wav]
-    xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ Left $ fileReadable wav
+    xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ fileReadable wav
     stackIO $ writeXMA2 out xma
   objAudioE2 %> \out -> do
     shk $ need [objAudio]

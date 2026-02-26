@@ -335,7 +335,7 @@ readFSBXMA dec = let
     , BL.drop 0x63 dec
     ]
   readable = makeHandle "decoded FSB audio" $ byteStringSimpleHandle dec'
-  in ffSource $ Left readable
+  in ffSource readable
 
 readFSB :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Float)
 readFSB dec = do
@@ -347,7 +347,7 @@ readFSB dec = do
       let numStreams = case quotRem (fromIntegral song.fsbSongChannels) 2 of
             (x, y) -> x + y
       mp3s <- splitInterleavedMP3 numStreams $ head fsb.fsbSongData
-      srcs <- forM mp3s \mp3 -> ffSource $ Left $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
+      srcs <- forM mp3s \mp3 -> ffSource $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
       return $ foldl1 CA.merge srcs
 
 decryptFSB' :: FilePath -> B.ByteString -> Maybe BL.ByteString
@@ -439,7 +439,7 @@ ghwtKey str = runST do
 ghwtKeyFromFile :: FilePath -> B.ByteString
 ghwtKeyFromFile f = ghwtKey let
   s1 = T.toLower $ T.pack $ takeFileName f
-  s2 = fromMaybe s1 $ T.stripSuffix ".xen" s1
+  s2 = fromMaybe s1 $ T.stripSuffix ".xen" s1 <|> T.stripSuffix ".ps3" s1
   s3 = fromMaybe s2 $ T.stripSuffix ".fsb" s2
   s4 = case T.stripPrefix "adlc" s3 of
     Nothing -> s3

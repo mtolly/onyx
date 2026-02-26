@@ -23,7 +23,6 @@ module Onyx.Audio
 , buildAudio
 , runAudio
 , audioIO
-, sinkMP3Pad, sinkMP3PadWithHandle
 , loadAudioInput
 , clampFloat
 , audioMD5
@@ -101,8 +100,7 @@ import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
 import           Onyx.Audio.SndfileExtra
 import           Onyx.Audio.VGS                   (readSingleRateVGS, readVGS)
-import           Onyx.FFMPEG                      (FFSourceSample, ffSource,
-                                                   ffSourceBinkFrom,
+import           Onyx.FFMPEG                      (ffSource, ffSourceBinkFrom,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
 import           Onyx.Harmonix.MOGG               (sourceVorbis)
@@ -489,7 +487,7 @@ sourceXMA2CorrectLength
 sourceXMA2CorrectLength r = do
   -- TODO don't read the whole file, just get the one thing from the header
   n <- fmap (.xma2Samples) $ liftIO (useHandle r handleToByteString) >>= parseXMA2
-  src <- liftIO $ ffSourceFrom (Frames 0) (Left r)
+  src <- liftIO $ ffSourceFrom (Frames 0) r
   return src
     { frames = n
     }
@@ -509,9 +507,9 @@ loadAudioInput fin = case takeExtension fin of
   -- need to actually figure out what's going on!
   -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
   ".wav" -> sourceSnd fin
-  ".xma" -> sourceXMA2CorrectLength $ fileReadable fin
-  ".bik" -> ffSourceBinkFrom (Frames 0) (Left $ fileReadable fin)
-  _      -> ffSourceFixPath (Frames 0) fin
+  ".xma" -> sourceXMA2CorrectLength     $ fileReadable fin
+  ".bik" -> ffSourceBinkFrom (Frames 0) $ fileReadable fin
+  _      -> ffSourceFrom     (Frames 0) $ fileReadable fin
 
 buildSource' :: (MonadResource m, MonadIO f, MonadFail f) =>
   Audio Duration FilePath -> f (AudioSource m Float)
@@ -536,8 +534,8 @@ buildSource' aud = case aud of
       bs <- BL.fromStrict <$> B.readFile fin
       (choppedXMA, restFrames) <- seekXMA bs t
       dropStart (Frames restFrames) <$> sourceXMA2CorrectLength choppedXMA
-    ".bik" -> ffSourceBinkFrom t (Left $ fileReadable fin)
-    _      -> ffSourceFixPath t fin
+    ".bik" -> ffSourceBinkFrom t $ fileReadable fin
+    _      -> ffSourceFrom     t $ fileReadable fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   Drop Start t (Merge xs) -> buildSource' $ Merge $ fmap (Drop Start t) xs
   Drop Start t (Mix   xs) -> buildSource' $ Mix   $ fmap (Drop Start t) xs
@@ -662,21 +660,8 @@ audioIO oggQuality src out = let
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
     ".opus" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatOpus Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    -- not sure why we need to add "decoder delay" explicitly
-    ".mp3" -> runResourceT $ sinkMP3Pad out src'
+    ".mp3" -> runResourceT $ sinkMP3 out src'
     ext -> error $ "audioIO: unknown audio output file extension " ++ ext
-
--- for some reason we need to add approximately "decoder delay" value to mp3 explicitly,
--- not sure if this is an error in our lame setup or something
-
-mp3EncodeHackAmount :: Duration
-mp3EncodeHackAmount = Frames $ 1105 - 90 -- ???
-
-sinkMP3Pad :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-sinkMP3Pad out src = sinkMP3 out $ padStart mp3EncodeHackAmount src
-
-sinkMP3PadWithHandle :: (MonadResource m) => FilePath -> (L.LAME -> m ()) -> AudioSource m Float -> m ()
-sinkMP3PadWithHandle out setup src = sinkMP3WithHandle out setup $ padStart mp3EncodeHackAmount src
 
 runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = do
@@ -731,14 +716,8 @@ audioMD5 f = liftIO case takeExtension f of
 -- but short paths are not guaranteed to exist, and they usually don't on non-system drive letters.
 -- so now we use a Readable on the Haskell side so ffmpeg doesn't have to see the path.
 
-ffSourceFixPath :: (MonadResource m, FFSourceSample a) => Duration -> FilePath -> IO (AudioSource m a)
-ffSourceFixPath dur = ffSourceFrom dur . Left . fileReadable
-
-ffSourceSimple :: FilePath -> IO (AudioSource (ResourceT IO) Int16)
-ffSourceSimple = ffSourceFixPath $ Frames 0
-
-ffSourceSimpleReadable :: Readable -> IO (AudioSource (ResourceT IO) Int16)
-ffSourceSimpleReadable = ffSourceFrom (Frames 0) . Left
+ffSourceSimple :: Readable -> IO (AudioSource (ResourceT IO) Int16)
+ffSourceSimple = ffSourceFrom (Frames 0)
 
 supportedFFExt :: FilePath -> Bool
 supportedFFExt f = map toLower (takeExtension f) `elem`
@@ -760,15 +739,15 @@ audioLengthReadable f r = case map toLower $ takeExtension f of
     size <- liftIO $ useHandle r IO.hFileSize
     if size < 2048 -- I get 869 bytes from onyx+libsndfile; 137 bytes from ffmpeg
       then return $ Just 0
-      else liftIO $ Just . fromIntegral . frames <$> ffSourceSimpleReadable r
+      else liftIO $ Just . fromIntegral . frames <$> ffSourceSimple r
   _      -> if supportedFFExt f
-    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimpleReadable r
+    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple r
     else return Nothing
   -- TODO does this not work for .xma
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if supportedFFExt f
-  then liftIO $ Just . channels <$> ffSourceSimple f
+  then liftIO $ Just . channels <$> ffSourceSimple (fileReadable f)
   else case takeExtension f of
     ".vgs" -> do
       chans <- liftIO (readVGS f :: IO [AudioSource (ResourceT IO) Int16])
@@ -778,7 +757,7 @@ audioChannels f = if supportedFFExt f
 -- Assumes the file is FFMPEG readable
 audioChannelsReadable :: (MonadIO m) => Readable -> m Int
 audioChannelsReadable r = do
-  src <- liftIO $ ffSourceFrom (Frames 0) $ Left r
+  src <- liftIO $ ffSourceFrom (Frames 0) r
   let _ = src :: AudioSource (ResourceT IO) Int16
   return $ channels src
 
@@ -787,7 +766,7 @@ audioRate f = audioRateReadable f $ fileReadable f
 
 audioRateReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Int)
 audioRateReadable f r = if supportedFFExt f
-  then liftIO $ Just . round . rate <$> ffSourceSimpleReadable r
+  then liftIO $ Just . round . rate <$> ffSourceSimple r
   else return Nothing
 
 audioSeconds :: (MonadIO m, MonadFail m) => FilePath -> m U.Seconds
@@ -880,7 +859,7 @@ applyVolsMono vols src = AudioSource
       in sum $ map wire vx
 
 decentMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-decentMP3 out = sinkMP3PadWithHandle out \lame -> liftIO do
+decentMP3 out = sinkMP3WithHandle out \lame -> liftIO do
   L.check $ L.setVBR lame L.VbrDefault
   L.check $ L.setVBRQ lame 6 -- 0 (hq) to 9 (lq)
 
@@ -1083,7 +1062,7 @@ concatenateXMA xmas = (head xmas)
 
 -- Encode an XMA file, possibly splitting the input up into pieces to avoid xma2encode's memory limit.
 -- The seams between pieces will have very small audio gaps.
-makeXMAPieces :: (MonadResource m, SendMessage m) => Either Readable FilePath -> StackTraceT m XMA2Contents
+makeXMAPieces :: (MonadResource m, SendMessage m) => Readable -> StackTraceT m XMA2Contents
 makeXMAPieces input = do
   -- TODO fix the ffSource/ffSourceFrom here to use the windows path fix versions
   -- (maybe not crucial because this is only called on temp folder inputs)

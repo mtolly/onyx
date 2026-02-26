@@ -333,6 +333,11 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         | isJust $ findFileCI (pure "Data.hdr.e.2") dir
           = foundPowerGig loc dir "Data.hdr.e.2"
         | otherwise = warn "Unrecognized Xbox 360 game" >> return ([], [])
+      foundPS3Game loc dir
+        | isJust $ findFileCI ("DATA" :| ["FRONTEND", "FE_CONFIG.LUA"]) dir = let
+          songsDir = fromMaybe mempty $ findFolder ["DATA", "SONGS"] dir
+          in foundImports "Rock Revolution (PS3)" loc $ importRR songsDir
+        | otherwise = warn "Unrecognized PS3 game" >> return ([], [])
       foundHED loc contents hed = do
         entries <- stackIO (useHandle hed handleToByteString) >>= runGetM parseHed
         case identifyHedFormat entries of
@@ -455,6 +460,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
         , ("main_xbox.hdr", foundHDR)
         -- Needed so we don't also pick up game-specific files like a Harmonix GEN folder or Power Gig Data.hdr.e.2
         , ("default.xex", \xex -> let dir = takeDirectory xex in stackIO (crawlFolder dir) >>= found360Game xex)
+        , ("eboot.bin", \bin -> let dir = takeDirectory bin in stackIO (crawlFolder dir) >>= foundPS3Game bin)
         -- Already-extracted .sgh (decrypted zip contents with password)
         , ("songs.info", foundSGHFolder)
         ]
@@ -509,6 +515,9 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "main.hdr" -> foundHDR fp
           "main_ps3.hdr" -> foundHDR fp
           "main_xbox.hdr" -> foundHDR fp
+          "eboot.bin" -> do
+            let dir = takeDirectory fp
+            stackIO (crawlFolder dir) >>= foundPS3Game fp
           "datap.hed" -> do
             let dir = takeDirectory fp
             contents <- stackIO $ crawlFolder dir

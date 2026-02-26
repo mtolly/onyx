@@ -6,7 +6,6 @@ packages:
 - packages/onyx-handle
 extra-deps:
 - conduit-audio-0.2.0.3
-- conduit-audio-lame-0.1.2.1
 - conduit-audio-samplerate-0.1.0.3
 - conduit-audio-sndfile-0.1.2.2
 - jammittools-0.5.5.2
@@ -60,6 +59,10 @@ extra-deps:
   commit: 5ed6b59099013be261764a8ac2ff158c0f3e0066
 - git: https://github.com/mtolly/hsndfile # unreleased upstream past 0.8.0 (switches to pkg-config), also add opus to enum
   commit: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
+- git: https://github.com/mtolly/conduit-audio
+  commit: 9102bf0ba460bb0d74fde8da42800fea48ed666e
+  subdirs:
+  - conduit-audio-lame
 resolver: lts-22.34
 flags:
   fltkhs:

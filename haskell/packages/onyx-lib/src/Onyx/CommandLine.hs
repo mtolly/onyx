@@ -33,6 +33,7 @@ import           Data.Char                            (isAlphaNum, isAscii,
                                                        isDigit, isUpper,
                                                        toLower)
 import qualified Data.Conduit.Audio                   as CA
+import           Data.Conduit.Audio.LAME              (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding      as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Default.Class                   (def)
@@ -60,8 +61,7 @@ import           Onyx.Amplitude.PS2.TxtBin            (TxtBin (..), dtaToTxtBin,
 import           Onyx.Audio                           (Audio (..), audioLength,
                                                        audioMD5, buildSource',
                                                        makeFSB4, makeFSB4',
-                                                       makeXMAFSB3, runAudio,
-                                                       sinkMP3PadWithHandle)
+                                                       makeXMAFSB3, runAudio)
 import           Onyx.Audio.FSB                       (FSBExtraMP3 (..),
                                                        FSBExtraXMA (..),
                                                        emitFSB, fsb3Songs,
@@ -407,7 +407,9 @@ buildTarget yamlPath fout opts = do
           _      -> targetFolder </> "ps"
         GH2   {} -> targetFolder </> "gh2.zip"
         GH1   {} -> undefined -- TODO
-        GH3   {} -> undefined -- TODO
+        GH3   {} -> case map toLower $ takeExtension fout of
+          ".pkg" -> targetFolder </> "ps3.pkg"
+          _      -> targetFolder </> "gh3live"
         GH5   {} -> case map toLower $ takeExtension fout of
           ".pkg" -> targetFolder </> "ps3.pkg"
           _      -> targetFolder </> "ghworlive"
@@ -751,7 +753,7 @@ commands =
                     L.check $ L.setOutSamplerate lame 48000
               src <- buildSource' $ Input fin
               let resampled = resampleTo 48000 SincMediumQuality src
-              stackIO $ runResourceT $ sinkMP3PadWithHandle tmpWav setup resampled
+              stackIO $ runResourceT $ sinkMP3WithHandle tmpWav setup resampled
               stackIO $ BL.fromStrict <$> B.readFile tmpWav
             _ -> fatal $ "Expected mp3 or wav file extension for audio: " <> show fin
           stackIO $ ghBandMP3sToFSB4 mp3s >>= BL.writeFile fout . emitFSB

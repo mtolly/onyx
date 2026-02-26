@@ -70,12 +70,6 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
 
   let luaLines = T.lines lua
 
-      syncHackMS :: Maybe Int
-      syncHackMS = listToMaybe do
-        ln <- luaLines
-        sfx <- toList $ T.stripPrefix rrMP3HackString ln
-        toList $ readMaybe $ T.unpack sfx
-
       year :: Maybe Int
       year = listToMaybe
         $ mapMaybe (\case ["Year", "=", n] -> readMaybe $ T.unpack n; _ -> Nothing)
@@ -149,7 +143,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
       drumsStream   = drumsDef   >>= getStream
       backingStream = backingDef >>= getStream
 
-  (controlMidPreHack, control) <- case level of
+  (controlMid, control) <- case level of
     ImportQuick -> return (emptyChart, Nothing)
     ImportFull  -> do
       let midName = "s" <> key <> "_control.mid"
@@ -158,13 +152,6 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
         let (parsedControl, unrec) = readRRControl mid.tracks
         forM_ (nubSort $ RTB.getBodies unrec) \e -> warn $ "Unrecognized MIDI event: " <> show e
         return (mid, Just parsedControl)
-  -- undo the sync hack if we did that on exporting a custom song,
-  -- by increasing tempo at start of midi to account for mp3 delay
-  let controlMid = case syncHackMS of
-        Just ms | ms /= 0 -> controlMidPreHack
-          { F.tempos = applyMIDIOffsetMS (negate ms) controlMidPreHack.tempos
-          }
-        _ -> controlMidPreHack
 
   let loadGuitarBass inst = case level of
         ImportQuick -> return mempty
