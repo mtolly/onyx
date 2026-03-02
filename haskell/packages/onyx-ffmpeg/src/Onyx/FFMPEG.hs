@@ -963,41 +963,45 @@ ffSourceFrom :: forall m a. (MonadResource m, FFSourceSample a) =>
   CA.Duration -> Readable -> IO (CA.AudioSource m a)
 ffSourceFrom dur input = do
 
-  (rate, channels, framesOrig, isMP3) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
-    -- some of this metadata appeared to be set elsewhere in ffmpeg 5.0,
-    -- but with 6.1 everything seems fine?
-    rate <- dec_ctx.sample_rate
-    channels <- dec_ctx.channels
-    -- trying to handle festival's m4a-opus files right, they have weird low nb_frames
-    isM4A <- fmt_ctx.iformat >>= \fmt -> if coerce fmt == nullPtr
-      then return False
-      else fmt.name >>= \s -> if s == nullPtr
-        then return False
-        else do
-          str <- peekCString s
-          return $ elem "m4a" $ splitOn "," str
-    framesOrig <- stream.nb_frames >>= \frames -> if frames == 0 || isM4A
-      then do
-        -- nb_frames appears to be 0 in ogg and bik files? so we do this as backup.
-        streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream.time_base
-        streamDur <- stream.duration
-        if streamDur < 0
-          then do -- .bik files
-            secs <- durationSeconds fmt_ctx
-            return $ round $ secs * fromIntegral rate
+  let getStreamInfo :: AVFormatContext -> AVCodecContext -> AVStream -> IO (CInt, CInt, Int64)
+      getStreamInfo fmt_ctx dec_ctx stream = do
+        -- some of this metadata appeared to be set elsewhere in ffmpeg 5.0,
+        -- but with 6.1 everything seems fine?
+        rate <- dec_ctx.sample_rate
+        channels <- dec_ctx.channels
+        -- trying to handle festival's m4a-opus files right, they have weird low nb_frames
+        isM4A <- fmt_ctx.iformat >>= \fmt -> if coerce fmt == nullPtr
+          then return False
+          else fmt.name >>= \s -> if s == nullPtr
+            then return False
+            else do
+              str <- peekCString s
+              return $ elem "m4a" $ splitOn "," str
+        framesOrig <- stream.nb_frames >>= \frames -> if frames == 0 || isM4A
+          then do
+            -- nb_frames appears to be 0 in ogg and bik files? so we do this as backup.
+            streamRes <- (\(num, den) -> realToFrac num / realToFrac den) <$> stream.time_base
+            streamDur <- stream.duration
+            if streamDur < 0
+              then do -- .bik files
+                secs <- durationSeconds fmt_ctx
+                return $ round $ secs * fromIntegral rate
+              else do
+                -- streamRes might be 1 / rate? but better to be sure
+                return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
           else do
-            -- streamRes might be 1 / rate? but better to be sure
-            return $ round ((fromIntegral streamDur * streamRes) * fromIntegral rate :: Double)
-      else do
-        return frames
+            return frames
+        return (rate, channels, framesOrig)
+
+  (rate, channels, framesOrig, isMP3) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+    (rate, channels, frames) <- getStreamInfo fmt_ctx dec_ctx stream
     isMP3 <- (\codecID -> AVCodecID codecID == AV_CODEC_ID_MP3) <$> dec_ctx.codec_id
-    return (rate, channels, framesOrig, isMP3)
+    return (rate, channels, frames, isMP3)
 
   (inputStripped, skipStart, frames) <- if isMP3
     then do
       (stripped, gapless) <- stripMP3 input
-      framesRaw <- withStream unliftBracket AVMEDIA_TYPE_AUDIO stripped
-        $ \_fmt_ctx _dec_ctx stream -> stream.nb_frames
+      (_, _, framesRaw) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO stripped getStreamInfo
       let skipStart = case gapless of
             -- the "+ 528 + 1" comes from FFMPEG mp3dec.c mp3_parse_info_tag
             Just info -> fromIntegral info.startDelay + 528 + 1
