@@ -295,7 +295,11 @@ dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pk
 
 -- Time in seconds that the video/audio should start before the midi begins.
 rockBandPS2PreSongTime :: (Fractional a) => D.SongPackage -> a
-rockBandPS2PreSongTime pkg = if D.video pkg then 5 else 3
+rockBandPS2PreSongTime pkg = case D.video pkg of
+  Nothing           -> 3
+  Just (Left False) -> 3
+  Just (Left True ) -> 5 -- rb2 ps2 songs with extra music video opening time
+  Just (Right _   ) -> 3 -- ps2 track packs
 
 loadFlatMilo :: (SendMessage m, MonadIO m) => ImportLevel -> Readable -> StackTraceT m [(B.ByteString, BL.ByteString)]
 loadFlatMilo level milo = do
@@ -967,7 +971,7 @@ importRB4 fdta level = do
           1 -> Just Male
           2 -> Just Female
           _ -> Nothing
-        , D.version           = fromIntegral dta.version
+        , D.version           = Just $ fromIntegral dta.version
         , D.songFormat        = 10 -- we'll call it rb3 format for now
         , D.albumArt          = Just $ isJust art
         , D.yearReleased      = Just $ fromIntegral dta.albumYear
@@ -1008,7 +1012,7 @@ importRB4 fdta level = do
         , D.dateRecorded      = Nothing
         , D.author            = Nothing
         , D.loadingPhrase     = Nothing
-        , D.video             = False
+        , D.video             = Nothing
         }
 
   importRB RBImport

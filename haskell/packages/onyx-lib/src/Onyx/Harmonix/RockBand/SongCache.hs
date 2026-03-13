@@ -266,7 +266,7 @@ applyDTA single entry = let
     _             -> orig
   in entry
     { se_SongID           = songID entry.se_SongID
-    , se_Version          = fromIntegral $ D.version pkg
+    , se_Version          = maybe 0 fromIntegral $ D.version pkg
     , se_SongID2          = songID entry.se_SongID2
     , se_GameOrigin       = fromMaybe entry.se_GameOrigin $ D.gameOrigin pkg
     , se_PreviewStart     = fromIntegral $ fst $ D.preview pkg

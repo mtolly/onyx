@@ -900,7 +900,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                         | 2010 <= y && y < 2020 -> "the10s"
                         | otherwise -> "the10s"
                     , D.vocalGender = D.vocalGender rb3DTA
-                    , D.version = 0
+                    , D.version = Just 0
                     -- if version is not 0, you get a message
                     -- "can't play this song until all players in your session purchase it!"
                     , D.fake = Nothing
@@ -948,7 +948,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.guidePitchVolume = Nothing
                     , D.extraAuthoring = Nothing
                     , D.alternatePath = Nothing
-                    , D.video = False
+                    , D.video = Nothing
                     }
               liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments songYaml.metadata plan rb3
         rb2DTA %> writeRB2DTA False
@@ -1365,7 +1365,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
         ]
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
-    , D.version = 30 -- necessary for rbn2 venues to work with rb3dx custom sources
+    , D.version = Just 30 -- necessary for rbn2 venues to work with rb3dx custom sources
     , D.fake = Nothing
     , D.gameOrigin = Just if rb3.harmonix then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
@@ -1408,7 +1408,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.dateRecorded = Nothing
     , D.author = author
     , D.loadingPhrase = loadingPhrase
-    , D.video = False
+    , D.video = Nothing
     }
 
 makeC3 :: (Monad m) => SongYaml f -> Plan f -> TargetRB3 f -> F.Song (F.FixedFile U.Beats) -> T.Text -> (Int, Int) -> StackTraceT m C3.C3

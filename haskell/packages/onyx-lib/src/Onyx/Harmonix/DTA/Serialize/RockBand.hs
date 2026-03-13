@@ -104,7 +104,7 @@ data SongPackage = SongPackage
   , rank              :: HM.HashMap T.Text Integer -- TODO this should be a DictList so it stays in a sensible order
   , genre             :: Maybe T.Text -- absent in beatles
   , vocalGender       :: Maybe Gender
-  , version           :: Integer
+  , version           :: Maybe Integer -- missing in RB PS2 track packs
   , songFormat        :: Integer
   , albumArt          :: Maybe Bool
   , yearReleased      :: Maybe Integer -- absent in beatles (has date_released)
@@ -139,7 +139,9 @@ data SongPackage = SongPackage
   , videoVenues       :: Maybe [T.Text] -- lego
   , dateReleased      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
   , dateRecorded      :: Maybe T.Text -- beatles, "YYYY-MM-DD" format
-  , video             :: Bool -- rb2 ps2, 1 if bg video should get an extra 2 seconds (5 instead of 3) leadin for music video countdown
+  -- video is bool for rb2 ps2, 1 if bg video should get an extra 2 seconds (5 instead of 3) leadin for music video countdown
+  -- video is symbol like 'videos/holidayincambodia' for ps2 track packs, leadin seems to always be 3
+  , video             :: Maybe (Either Bool T.Text)
   -- rb2dx:
   , author            :: Maybe T.Text
   , loadingPhrase     :: Maybe T.Text
@@ -160,7 +162,7 @@ instance StackChunks SongPackage where
     rank              <- (.rank             ) =. req         "rank"                (chunksDict chunkSym stackChunks)
     genre             <- (.genre            ) =. opt Nothing "genre"               (chunksMaybe $ single chunkSym)
     vocalGender       <- (.vocalGender      ) =. opt Nothing "vocal_gender"        stackChunks
-    version           <- (.version          ) =. req         "version"             stackChunks
+    version           <- (.version          ) =. opt Nothing "version"             stackChunks
     songFormat        <- (.songFormat       ) =. req         "format"              stackChunks
     albumArt          <- (.albumArt         ) =. opt Nothing "album_art"           stackChunks
     yearReleased      <- (.yearReleased     ) =. opt Nothing "year_released"       stackChunks
@@ -198,5 +200,5 @@ instance StackChunks SongPackage where
     dateRecorded      <- (.dateRecorded     ) =. opt Nothing "date_recorded"       (chunksMaybe $ single chunkString)
     author            <- (.author           ) =. opt Nothing "author"              (chunksMaybe $ single chunkString)
     loadingPhrase     <- (.loadingPhrase    ) =. opt Nothing "loading_phrase"      (chunksMaybe $ single chunkString)
-    video             <- (.video            ) =. opt False   "video"               stackChunks
+    video             <- (.video            ) =. opt Nothing "video"               (chunksMaybe $ eitherCodec stackChunks $ single chunkSym)
     return SongPackage{..}
