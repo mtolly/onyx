@@ -18,8 +18,8 @@ import           Codec.Picture.Types                  (dropTransparency,
 import           Control.Applicative                  ((<|>))
 import           Control.Arrow                        (second)
 import           Control.Concurrent.Async             (forConcurrently)
-import           Control.Monad                        (forM, forM_, guard,
-                                                       unless, void, when)
+import           Control.Monad                        (forM, forM_, guard, void,
+                                                       when)
 import           Control.Monad.IO.Class               (MonadIO)
 import           Data.Bifunctor                       (bimap)
 import qualified Data.ByteString                      as B
@@ -43,13 +43,13 @@ import           Data.Text.Encoding                   (decodeLatin1,
 import qualified Data.Text.Encoding                   as TE
 import           Data.Text.Encoding.Error             (lenientDecode)
 import           Onyx.Audio                           (Audio (..), Edge (..))
-import           Onyx.Audio.VGS                       (splitOutVGSChannels,
+import           Onyx.Audio.VGS                       (decryptVGS,
+                                                       splitOutVGSChannels,
                                                        vgsChannelCount)
 import           Onyx.Codec.Binary                    (bin, codecIn, codecOut,
                                                        runPut, (=.))
 import           Onyx.Codec.Common                    (req)
 import           Onyx.Difficulty
-import           Onyx.Harmonix.Ark.ArkTool            (ark_DecryptVgs)
 import qualified Onyx.Harmonix.DTA                    as D
 import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        DTASingle (..),
@@ -108,7 +108,6 @@ import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
 import qualified System.Directory                     as Dir
 import           System.FilePath                      ((-<.>), (<.>), (</>))
-import           System.IO.Temp                       (withSystemTempDirectory)
 import           Text.Read                            (readMaybe)
 
 data RBImport = RBImport
@@ -163,15 +162,11 @@ importSTFSFolder src folder = do
               vgs <- extractVGSStream   0xBD packets h
               return (vid, vgs)
             let rVideo = SoftReadable $ makeHandle "video.m2v" $ byteStringSimpleHandle bsVideo
-            chans <- withSystemTempDirectory "decrypt-vgs" \temp -> do
-              let enc = temp </> "enc.vgs"
-                  dec = temp </> "dec.vgs"
-                  rVGS = fileReadable dec
-              BL.writeFile enc bsVGS
-              ark_DecryptVgs dec enc >>= \b -> unless b $ fail "Couldn't decrypt VGS file"
-              numChannels <- vgsChannelCount rVGS
-              forConcurrently [0 .. numChannels - 1] \i -> do
-                splitOutVGSChannels [i] rVGS
+            vgsDec <- decryptVGS bsVGS
+            let rVGS = makeHandle "decrypted.vgs" $ byteStringSimpleHandle vgsDec
+            numChannels <- vgsChannelCount rVGS
+            chans <- forConcurrently [0 .. numChannels - 1] \i -> do
+              splitOutVGSChannels [i] rVGS
             return (SoftFile "video.m2v" rVideo, chans)
 
     midi <- need midiPath
