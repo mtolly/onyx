@@ -1,6 +1,7 @@
 -- | Functions dealing with the DXT texture formats used for album art by RB games.
-{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE BinaryLiterals    #-}
+{-# LANGUAGE BlockArguments    #-}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,21 +19,14 @@ import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
 import           Data.Maybe                 (fromMaybe)
+import qualified Data.Vector.Storable       as V
 import           Foreign
 import           Foreign.C
-import           System.IO.Unsafe           (unsafePerformIO)
-import qualified Data.Vector.Storable       as V
 import           Onyx.Util.Binary           (runGetM)
+import           System.IO.Unsafe           (unsafePerformIO)
 
-#include "stb_dxt.h"
-
-{#fun stb_compress_dxt_block
-  { id `Ptr CUChar'
-  , id `Ptr CUChar'
-  , `CInt'
-  , `CInt'
-  } -> `()'
-#}
+foreign import ccall unsafe "stb_compress_dxt_block"
+  stb_compress_dxt_block :: Ptr CUChar -> Ptr CUChar -> CInt -> CInt -> IO ()
 
 compressDXTBlock :: Image PixelRGB8 -> B.ByteString
 compressDXTBlock img = unsafePerformIO do
@@ -99,8 +93,8 @@ readDXTChunk fmt isDXT1 = do
   rows <- replicateM 4 getWord8
   let gen x y = let
         x' = case fmt of
-          PNGWii  -> 3 - x -- wii blocks flipped horizontally
-          _       -> x
+          PNGWii -> 3 - x -- wii blocks flipped horizontally
+          _      -> x
         y' = case fmt of
           PNGXbox -> y `complementBit` 0 -- xbox rows swapped in pairs
           _       -> y

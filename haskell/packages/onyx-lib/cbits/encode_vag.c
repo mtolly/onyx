@@ -1,5 +1,5 @@
 /*
-Taken from Guitar Wizard 0.22 by Jim Halliday <malictus@malictus.net>
+Translated from Guitar Wizard 0.22 by Jim Halliday <malictus@malictus.net>
 http://www.scorehero.com/forum/viewtopic.php?t=17309
 */
 

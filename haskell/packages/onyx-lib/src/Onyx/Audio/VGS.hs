@@ -1,4 +1,5 @@
 {-# LANGUAGE BlockArguments           #-}
+{-# LANGUAGE CPP                      #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NoFieldSelectors         #-}
 {-# LANGUAGE NondecreasingIndentation #-}
@@ -51,18 +52,16 @@ import qualified System.IO                    as IO
 import           System.IO.Temp               (withSystemTempDirectory)
 import           System.IO.Unsafe             (unsafePerformIO)
 
-#include "encode_vag.h"
-
-{#fun encodeVAGBlock
-  { castPtr `Ptr Int16'
-  , castPtr `Ptr Word8'
-  , `Word8'
-  , castPtr `Ptr Double'
-  , castPtr `Ptr Double'
-  , castPtr `Ptr Double'
-  , castPtr `Ptr Double'
-  } -> `()'
-#}
+foreign import ccall unsafe "encodeVAGBlock"
+  encodeVAGBlock
+    :: Ptr Int16
+    -> Ptr Word8
+    -> Word8
+    -> Ptr Double
+    -> Ptr Double
+    -> Ptr Double
+    -> Ptr Double
+    -> IO ()
 
 xaBlockSamples :: Int
 xaBlockSamples = 28
