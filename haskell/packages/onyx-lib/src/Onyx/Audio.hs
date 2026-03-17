@@ -99,7 +99,8 @@ import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
 import           Onyx.Audio.SndfileExtra
-import           Onyx.Audio.VGS                   (readSingleRateVGS, readVGS)
+import           Onyx.Audio.VGS                   (decryptReadVGS,
+                                                   readSingleRateVGS, readVGS)
 import           Onyx.FFMPEG                      (ffSource, ffSourceBinkFrom,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
@@ -526,7 +527,9 @@ buildSource' aud = case aud of
   Drop Start t (Input fin) -> liftIO case takeExtension fin of
     ".ogg" -> sourceVorbis t (fileReadable fin)
     -- only supports VGS with consistent sample rate
-    ".vgs" -> standardRate . mapSamples fractionalSample <$> readSingleRateVGS t (fileReadable fin)
+    ".vgs" -> do
+      vgs <- decryptReadVGS $ fileReadable fin
+      standardRate . mapSamples fractionalSample <$> readSingleRateVGS t vgs
     -- FFMPEG appears to not seek XMA correctly, so instead we hack together a
     -- new XMA with blocks chopped off (using the seek table) and then skip the
     -- remaining frames ourselves

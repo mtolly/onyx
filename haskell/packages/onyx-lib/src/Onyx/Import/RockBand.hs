@@ -43,9 +43,9 @@ import           Data.Text.Encoding                   (decodeLatin1,
 import qualified Data.Text.Encoding                   as TE
 import           Data.Text.Encoding.Error             (lenientDecode)
 import           Onyx.Audio                           (Audio (..), Edge (..))
-import           Onyx.Audio.VGS                       (decryptVGS,
-                                                       splitOutVGSChannels,
-                                                       vgsChannelCount)
+import           Onyx.Audio.VGS                       (VGS (..), VGSHeader (..),
+                                                       decryptReadVGS,
+                                                       splitOutVGSChannels)
 import           Onyx.Codec.Binary                    (bin, codecIn, codecOut,
                                                        runPut, (=.))
 import           Onyx.Codec.Common                    (req)
@@ -162,11 +162,9 @@ importSTFSFolder src folder = do
               vgs <- extractVGSStream   0xBD packets h
               return (vid, vgs)
             let rVideo = SoftReadable $ makeHandle "video.m2v" $ byteStringSimpleHandle bsVideo
-            vgsDec <- decryptVGS bsVGS
-            let rVGS = makeHandle "decrypted.vgs" $ byteStringSimpleHandle vgsDec
-            numChannels <- vgsChannelCount rVGS
-            chans <- forConcurrently [0 .. numChannels - 1] \i -> do
-              splitOutVGSChannels [i] rVGS
+            vgs <- decryptReadVGS $ makeHandle "encrypted.vgs" $ byteStringSimpleHandle bsVGS
+            chans <- forConcurrently [0 .. length vgs.header.channels - 1] \i -> do
+              splitOutVGSChannels [i] vgs
             return (SoftFile "video.m2v" rVideo, chans)
 
     midi <- need midiPath

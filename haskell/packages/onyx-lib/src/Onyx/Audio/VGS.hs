@@ -7,16 +7,15 @@
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE RecordWildCards          #-}
 module Onyx.Audio.VGS
-( writeVGS
-, writeVGSMultiRate
+( VGS(..), VGSHeader(..)
+, decryptReadVGS
 , readVGS
 , readVGSReadable
 , readSingleRateVGS
 , splitOutVGSChannels
-, vgsChannelCount
 , readVGSHeader
-, decryptVGS
-, VGSHeader(..)
+, writeVGS
+, writeVGSMultiRate
 ) where
 
 import           Control.Monad                (forM, forM_, liftM4, replicateM_,
@@ -45,8 +44,11 @@ import           Data.Word                    (Word32, Word64, Word8)
 import           Foreign                      (Ptr, allocaBytes, castPtr, peek,
                                                with)
 import           Onyx.Util.Binary             (runGetM)
-import           Onyx.Util.Handle             (Readable (..), fileReadable,
-                                               useHandle)
+import           Onyx.Util.Handle             (Readable (..), SimpleHandle (..),
+                                               appendSimpleHandle,
+                                               byteStringSimpleHandle,
+                                               fileReadable, makeHandle,
+                                               subHandleInternal, useHandle)
 import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
 import           System.IO.Temp               (withSystemTempDirectory)
@@ -187,6 +189,11 @@ data VGSHeader = VGSHeader
   , channels :: [(Word32, Word32)]
   } deriving (Show)
 
+data VGS = VGS
+  { header    :: VGSHeader
+  , decrypted :: Readable
+  }
+
 readVGSHeader :: Get VGSHeader
 readVGSHeader = let
   start = do
@@ -204,18 +211,12 @@ readVGSHeader = let
         else ((rate, blocks) :) <$> readChannels
   in start
 
-vgsChannelCount :: Readable -> IO Int
-vgsChannelCount r = do
-  header <- useHandle r (\h -> BL.hGet h 0x80) >>= runGetM readVGSHeader
-  return $ length header.channels
-
-readVGSReadable :: (MonadResource m) => Readable -> IO [CA.AudioSource m Int16]
-readVGSReadable r = do
-  header <- useHandle r (\h -> BL.hGet h 0x80) >>= runGetM readVGSHeader
-  let totalBlocks = sum $ map snd header.channels
-  return $ zip [0..] header.channels <&> \(i, (rate, blocks)) -> let
-    src = C.bracketP (rOpen r) IO.hClose \h -> do
-      _ <- liftIO $ BL.hGet h 0x80
+readVGSReadable :: (MonadResource m) => VGS -> IO [CA.AudioSource m Int16]
+readVGSReadable vgs = do
+  let totalBlocks = sum $ map snd vgs.header.channels
+  return $ zip [0..] vgs.header.channels <&> \(i, (rate, blocks)) -> let
+    src = C.bracketP (rOpen vgs.decrypted) IO.hClose \h -> do
+      liftIO $ IO.hSeek h IO.AbsoluteSeek 0x80
       let go _    0          = return ()
           go dbls blocksLeft = do
             chunk <- liftIO $ BL.hGet h 16
@@ -228,18 +229,17 @@ readVGSReadable r = do
     in CA.AudioSource src (realToFrac rate) 1 $ fromIntegral blocks * xaBlockSamples
 
 readVGS :: (MonadResource m) => FilePath -> IO [CA.AudioSource m Int16]
-readVGS = readVGSReadable . fileReadable
+readVGS f = decryptReadVGS (fileReadable f) >>= readVGSReadable
 
 -- Allows seeking. Only supports VGS where all channels are the same sample rate.
-readSingleRateVGS :: (MonadResource m) => CA.Duration -> Readable -> IO (CA.AudioSource m Int16)
-readSingleRateVGS dur r = do
-  header <- useHandle r (\h -> BL.hGet h 0x80) >>= runGetM readVGSHeader
-  let numChans = length header.channels
-      totalBlocks = sum $ map snd header.channels
-  (rate, blockSets) <- case header.channels of
+readSingleRateVGS :: (MonadResource m) => CA.Duration -> VGS -> IO (CA.AudioSource m Int16)
+readSingleRateVGS dur vgs = do
+  let numChans = length vgs.header.channels
+      totalBlocks = sum $ map snd vgs.header.channels
+  (rate, blockSets) <- case vgs.header.channels of
     pair@(rate, _) : rest -> if all ((== rate) . fst) rest
       then return pair
-      else fail $ "readSingleRateVGS: VGS does not have consistent sample rate, channel rates are: " <> show (map fst header.channels)
+      else fail $ "readSingleRateVGS: VGS does not have consistent sample rate, channel rates are: " <> show (map fst vgs.header.channels)
     [] -> fail "readSingleRateVGS: VGS has no channels"
   let startFrame = case dur of
         CA.Frames  f -> f
@@ -247,7 +247,7 @@ readSingleRateVGS dur r = do
       startBlockSet = quot startFrame xaBlockSamples
       initialSkip = startFrame - startBlockSet * xaBlockSamples
   return $ CA.dropStart (CA.Frames initialSkip) let
-    src = C.bracketP (rOpen r) IO.hClose \h -> do
+    src = C.bracketP (rOpen vgs.decrypted) IO.hClose \h -> do
       liftIO $ IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ 0x80 + startBlockSet * 0x10 * numChans
       let go _      0             = return ()
           go states blockSetsLeft = do
@@ -260,31 +260,31 @@ readSingleRateVGS dur r = do
       go (replicate numChans (0, 0)) $ fromIntegral blockSets - startBlockSet
     in CA.AudioSource src (realToFrac rate) numChans $ fromIntegral totalBlocks * xaBlockSamples - startFrame
 
-splitOutVGSChannels :: [Int] -> Readable -> IO BL.ByteString
-splitOutVGSChannels wantChannels r = useHandle r \hin -> do
+splitOutVGSChannels :: [Int] -> VGS -> IO BL.ByteString
+splitOutVGSChannels wantChannels vgs = do
   withSystemTempDirectory "onyx-vgs-split" \dout -> do
     let fout = dout </> "out.vgs"
     IO.withBinaryFile fout IO.WriteMode \hout -> do
-      header <- BL.hGet hin 0x80 >>= runGetM readVGSHeader
-      let totalBlocks = sum $ map snd header.channels
-      -- first, write out new header
-      BL.hPut hout $ runPut do
-        putByteString "VgS!"
-        putWord32le header.version
-        forM_ wantChannels \i -> do
-          let (rate, blocks) = header.channels !! i
-          putWord32le rate
-          putWord32le blocks
-        putByteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
-      -- then, filter the vag blocks by channel and change their index
-      replicateM_ (fromIntegral totalBlocks) do
-        byte0 <- B.hGet hin 1
-        channelByte <- B.head <$> B.hGet hin 1
-        case elemIndex (fromIntegral $ channelByte .&. 0xF) wantChannels of
-          Nothing -> void $ B.hGet hin 14 -- skip this block (hSeek seems to be much worse performance?)
-          Just newIndex -> do
-            block <- B.hGet hin 14
-            mapM_ (B.hPut hout) [byte0, B.singleton $ fromIntegral newIndex, block]
+      useHandle vgs.decrypted \hin -> do
+        let totalBlocks = sum $ map snd vgs.header.channels
+        -- first, write out new header
+        BL.hPut hout $ runPut do
+          putByteString "VgS!"
+          putWord32le 2
+          forM_ wantChannels \i -> do
+            let (rate, blocks) = vgs.header.channels !! i
+            putWord32le rate
+            putWord32le blocks
+          putByteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
+        -- then, filter the vag blocks by channel and change their index
+        replicateM_ (fromIntegral totalBlocks) do
+          byte0 <- B.hGet hin 1
+          channelByte <- B.head <$> B.hGet hin 1
+          case elemIndex (fromIntegral $ channelByte .&. 0xF) wantChannels of
+            Nothing -> void $ B.hGet hin 14 -- skip this block (hSeek seems to be much worse performance?)
+            Just newIndex -> do
+              block <- B.hGet hin 14
+              mapM_ (B.hPut hout) [byte0, B.singleton $ fromIntegral newIndex, block]
     BL.fromStrict <$> B.readFile fout
 
 -------------------------------------
@@ -314,34 +314,47 @@ transform64Bits input table = let
 -- infinite lazy bytestring for xoring
 vgsCryptStream :: (Word64, Word64) -> BL.ByteString
 vgsCryptStream keys = BB.toLazyByteString let
-  go (data0, data1) = mconcat
-    [ BB.word64LE $ transform64Bits data0 ps2CryptTable
-    , BB.word64LE $ transform64Bits data1 ps2CryptTable
-    , go (data0 + 1, data1 + 1)
+  go (key0, key1) = mconcat
+    [ BB.word64LE $ transform64Bits key0 ps2CryptTable
+    , BB.word64LE $ transform64Bits key1 ps2CryptTable
+    , go (key0 + 1, key1 + 1)
     ]
   in go keys
 
-decryptV4Data :: (Word64, Word64) -> BL.ByteString -> BL.ByteString
-decryptV4Data = BL.packZipWith xor . vgsCryptStream
+decryptV4Handle :: (Word64, Word64) -> SimpleHandle -> SimpleHandle
+decryptV4Handle (key0, key1) sh = sh
+  { shRead = \len -> do
+    posn <- shTell sh
+    enc <- shRead sh len
+    let (keyOffset, extraBytes) = quotRem posn 16
+        stream = BL.drop (fromIntegral extraBytes)
+          $ vgsCryptStream (key0 + fromIntegral keyOffset, key1 + fromIntegral keyOffset)
+    return
+      $ B.packZipWith xor enc
+      $ B.toStrict $ BL.take (fromIntegral $ B.length enc) stream
+  }
 
-decryptVGS :: (MonadFail m) => BL.ByteString -> m (BL.ByteString)
-decryptVGS input = do
-  header <- runGetM readVGSHeader $ BL.take 0x80 input
-  case header.version of
-    1 -> return input -- already unencrypted
-    2 -> return input -- already unencrypted
+decryptReadVGS :: Readable -> IO VGS
+decryptReadVGS input = do
+  header <- useHandle input \h -> BL.hGet h 0x80 >>= runGetM readVGSHeader
+  decrypted <- case header.version of
+    1 -> return input -- unknown? assuming unencrypted
+    2 -> return input -- unencrypted
     -- 3 apparently AES like mogg? don't know where these are seen, not in ps2 rb games.
     -- leaving undone for now
     4 -> do
-      let restBytes = BL.drop 0x80 input
-      keys <- runGetM (liftA2 (,) getWord64le getWord64le) restBytes
-      let decryptedData = decryptV4Data keys $ BL.drop 16 restBytes
-          -- Create new header with version 2 (unencrypted)
-          newHeaderBytes = runPut do
-            putByteString "VgS!"
-            putWord32le 2
-            mapM_ (\(rate, blocks) -> putWord32le rate >> putWord32le blocks) header.channels
-            let paddingSize = 0x80 - 8 - (length header.channels * 8)
-            putByteString (B.replicate paddingSize 0)
-      return $ newHeaderBytes <> decryptedData
-    n -> fail $ "Unsupported VGS version " ++ show n ++ " (only versions 1, 2, 4 supported)"
+      keys <- useHandle input \h -> do
+        IO.hSeek h IO.AbsoluteSeek 0x80
+        BL.hGet h 0x10 >>= runGetM (liftA2 (,) getWord64le getWord64le)
+      return $ makeHandle "(decrypted vgs)" $ do
+        h <- rOpen input
+        newHeader <- byteStringSimpleHandle $ runPut do
+          putByteString "VgS!"
+          putWord32le 2
+          mapM_ (\(rate, blocks) -> putWord32le rate >> putWord32le blocks) header.channels
+          let paddingSize = 0x80 - 8 - (length header.channels * 8)
+          putByteString (B.replicate paddingSize 0)
+        encrypted <- subHandleInternal 0x90 Nothing h IO.hClose
+        appendSimpleHandle newHeader $ decryptV4Handle keys encrypted
+    n -> fail $ "Unsupported VGS version " <> show n <> " (only versions 1, 2, 4 supported)"
+  return VGS{..}
