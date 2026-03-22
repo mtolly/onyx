@@ -10,6 +10,8 @@ import           Control.Monad                    (forM)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bits                        (bit, testBit, (.|.))
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     ((<&>))
@@ -308,7 +310,8 @@ readGH3TempoMap sigs bars = let
   in U.tempoMapFromBPS $ RTB.fromPairList
     $ zip (0 : map snd temposGaps) (map fst temposGaps)
 
-gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap QBKey T.Text -> GH3MidQB -> F.Song (F.OnyxFile U.Beats)
+gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap QBKey T.Text -> GH3MidQB
+  -> (F.Song (F.OnyxFile U.Beats), [(T.Text, FilePath)])
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   tempos = readGH3TempoMap gh3.gh3TimeSignatures gh3.gh3FretBars
   toBeats :: Word32 -> U.Beats
@@ -375,6 +378,10 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       return (toBeats t, simpleSection str)
     }
   drums = gh3DrumsToElite toBeats gh3.gh3BackgroundNotes.gh3Drums
+  countin = gh3DrumsToCountin toBeats gh3.gh3BackgroundNotes.gh3Drums
+  usedCountinAudio = case songInfo.gh3Countoff >>= \c -> lookup (B8.map toLower c) gh3CountinMapping of
+    Nothing   -> []
+    Just path -> [("count", path)]
   fixed = mempty
     { F.onyxParts = Map.fromList
       [ ( F.PartGuitar
@@ -388,8 +395,9 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
         )
       ]
     , F.onyxEvents = events
+    , F.onyxSamples = Map.singleton "countin" countin
     }
-  in F.Song
+  in (F.Song
     { F.tempos = tempos
     , F.timesigs = U.measureMapFromTimeSigs U.Truncate $ RTB.fromAbsoluteEventList $ ATB.fromPairList do
       (time, num, den) <- gh3.gh3TimeSignatures
@@ -397,7 +405,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
     , F.tracks = fixed
-    }
+    }, usedCountinAudio)
 
 gh3DrumMapping :: [(Word32, (EliteGem (), D.Hand))]
 gh3DrumMapping =
@@ -447,6 +455,29 @@ gh3DrumsToElite toBeats notes = let
         _               -> Nothing
       }
     }
+
+-- countoff audio process:
+-- * song metadata sets "countoff" to e.g. "hihat01" (case can differ)
+-- * qb.pak.xen has a qb with struct "Countoff_SFX_HiHat01_Hard_container"
+-- * this references "HiHatClosed01" (also random pitch/volume adjustments)
+-- * global_sfx.pak.xen has the "HihatClosed01" xma wav
+gh3CountinMapping :: [(B.ByteString, FilePath)]
+gh3CountinMapping =
+  [ ("hihat01"      , "gh3/hihatclosed01.wav"  )
+  , ("hihat02"      , "gh3/hihatopen02.wav"    ) -- maybe we should lower the volume of this one
+  , ("hihat03"      , "gh3/hihatpedal02.wav"   )
+  , ("sticks_tiny"  , "gh3/stickclicksmall.wav")
+  , ("sticks_normal", "gh3/stickclickmed.wav"  )
+  , ("sticks_huge"  , "gh3/stickclicklarge.wav")
+  ]
+
+gh3DrumsToCountin :: (Word32 -> U.Beats) -> [[Word32]] -> F.SamplesTrack U.Beats
+gh3DrumsToCountin toBeats notes = let
+  fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
+  allCountinPairs = flip mapMaybe notes \case
+    time : 70 : _ -> Just (toBeats time, F.SampleTrigger "" "count")
+    _             -> Nothing
+  in F.SamplesTrack $ fromPairs allCountinPairs
 
 makeGH3TrackNotes
   :: U.TempoMap

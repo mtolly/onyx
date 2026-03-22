@@ -281,7 +281,7 @@ searchGEN gen = do
       findHDR (name : names) = case findFileCI (pure name) gen of
         Nothing -> findHDR names
         Just r  -> Just (name, r)
-  case findHDR ["main.hdr", "main_xbox.hdr", "main_ps3.hdr"] of
+  case findHDR ["main.hdr", "main_xbox.hdr", "main_ps3.hdr", "main_wii.hdr"] of
     Nothing        -> return Nothing
     Just (name, r) -> do
       hdr <- useHandle r handleToByteString >>= readHdr

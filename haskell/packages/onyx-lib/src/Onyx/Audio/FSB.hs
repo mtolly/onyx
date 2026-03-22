@@ -434,8 +434,8 @@ splitFSBStreams :: FSB -> IO [FSBStream]
 splitFSBStreams fsb = do
   case fsb.fsbHeader of
     Left fsb3 -> forM (zip fsb3.fsb3Songs fsb.fsbSongData) \(song, sdata) -> do
-      unless (song.fsbSongChannels == 2) $ fail $
-        "Expected stereo audio but found " <> show song.fsbSongChannels <> " channels"
+      unless (elem song.fsbSongChannels [1, 2]) $ fail $
+        "Expected stereo/mono audio but found " <> show song.fsbSongChannels <> " channels"
       case song.fsbExtra of
         Left xma -> do
           return $ FSB_XMA1 XMA1Contents

@@ -274,51 +274,54 @@ readRBImageMaybe isPS3 bs = let
       let high = (i `shiftR` 4) .&. 0xF
           low  = i              .&. 0xF
       return [palette !! fromIntegral low, palette !! fromIntegral high]
+  -- Amplitude (PS2)
+  format0 = do
+    bitsPerPixel  <- getWord8
+    format        <- getWord8
+    _mipmaps      <- getWord8 -- usually 0 but not in arenas/constructo/gen/tall_building01_05.bmp.gz
+    width         <- fromIntegral <$> getWord16le
+    height        <- fromIntegral <$> getWord16le
+    _bytesPerLine <- getWord16le -- assuming this is like later format
+    zeroes        <- getByteString 6
+    guard $ B.all (== 0) zeroes
+    case (bitsPerPixel, format) of
+      -- 8-bit palette
+      (0x08, 0x03) -> palette8bit width height
+      -- 4-bit palette
+      (0x04, 0x03) -> palette4bit width height
+      -- non-paletted simple bitmap, see metagame/image/gen/turret_arm.bmp.gz
+      (0x20, 0x03) -> fmap (Image width height . V.fromList . concat) $ replicateM (width * height) readRGBA
+      _ -> fail "Unrecognized HMX image format"
+  -- GH1 and onward
+  format1 = do
+    bitsPerPixel  <- getWord8
+    format        <- getWord32le
+    _mipmaps      <- getWord8
+    width         <- fromIntegral <$> getWord16le
+    height        <- fromIntegral <$> getWord16le
+    _bytesPerLine <- getWord16le
+    zeroes        <- getByteString 19
+    guard $ B.all (== 0) zeroes
+    let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
+    case (bitsPerPixel, format) of
+      -- Xbox DXT1
+      (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
+      -- Xbox DXT3
+      (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
+      -- Wii DXT1
+      (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
+        $ replicateM (quot (width * height) 64) readWiiChunk
+      -- PS2 BMP, 8-bit indices; typical color images
+      (0x08, 0x03) -> palette8bit width height
+      -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2
+      (0x04, 0x03) -> palette4bit width height
+      _ -> fail "Unrecognized HMX image format"
   parseImage = getWord8 >>= \case
-    0 -> do
-      -- Amplitude (PS2)
-      bitsPerPixel  <- getWord8
-      format        <- getWord8
-      _mipmaps      <- getWord8 -- usually 0 but not in arenas/constructo/gen/tall_building01_05.bmp.gz
-      width         <- fromIntegral <$> getWord16le
-      height        <- fromIntegral <$> getWord16le
-      _bytesPerLine <- getWord16le -- assuming this is like later format
-      zeroes        <- getByteString 6
-      guard $ B.all (== 0) zeroes
-      case (bitsPerPixel, format) of
-        -- 8-bit palette
-        (0x08, 0x03) -> palette8bit width height
-        -- 4-bit palette
-        (0x04, 0x03) -> palette4bit width height
-        -- non-paletted simple bitmap, see metagame/image/gen/turret_arm.bmp.gz
-        (0x20, 0x03) -> fmap (Image width height . V.fromList . concat) $ replicateM (width * height) readRGBA
-        _ -> fail "Unrecognized HMX image format"
-    1 -> do
-      -- GH1 and onward
-      bitsPerPixel  <- getWord8
-      format        <- getWord32le
-      _mipmaps      <- getWord8
-      width         <- fromIntegral <$> getWord16le
-      height        <- fromIntegral <$> getWord16le
-      _bytesPerLine <- getWord16le
-      zeroes        <- getByteString 19
-      guard $ B.all (== 0) zeroes
-      let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
-      case (bitsPerPixel, format) of
-        -- Xbox DXT1
-        (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
-          $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
-        -- Xbox DXT3
-        (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
-          $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
-        -- Wii DXT1
-        (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
-          $ replicateM (quot (width * height) 64) readWiiChunk
-        -- PS2 BMP, 8-bit indices; typical color images
-        (0x08, 0x03) -> palette8bit width height
-        -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2
-        (0x04, 0x03) -> palette4bit width height
-        _ -> fail "Unrecognized HMX image format"
+    0 -> format0
+    1 -> format1
+    2 -> format1 -- seen in some .png_wii?
     _ -> fail "Unrecognized HMX image format"
   in runGetM parseImage bs
 

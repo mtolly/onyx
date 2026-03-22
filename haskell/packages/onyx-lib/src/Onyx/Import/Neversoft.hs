@@ -68,11 +68,13 @@ import           Onyx.Neversoft.QB                (QBSection (..),
                                                    QSResult (..), parseQB,
                                                    parseSGHStruct)
 import           Onyx.Project
+import           Onyx.Resources                   (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  ((<.>), (</>))
 import           Text.Read                        (readMaybe)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
@@ -774,7 +776,7 @@ importGH3Song ghi = let
     let thisRhythmTrack = info.gh3RhythmTrack && hasRealCoop
         hasRealCoop     = mode == ImportCoop || not info.gh3UseCoopNotetracks
         coopPart        = if thisRhythmTrack then F.PartName "rhythm" else F.PartBass
-    midiOnyx <- case level of
+    (midiOnyx, countinAudio) <- case level of
       ImportFull -> do
         let ?endian = case ghi.audio of
               GH3Audio360{} -> BigEndian
@@ -805,7 +807,7 @@ importGH3Song ghi = let
               thisRhythmTrack
               markerBank
               midQB
-      ImportQuick -> return emptyChart
+      ImportQuick -> return (emptyChart, [])
     -- don't mark that we have a coop part if it has no notes (like many customs)
     let hasCoopGems = maybe False (not . nullFive . (.onyxPartGuitar))
           $ Map.lookup coopPart midiOnyx.tracks.onyxParts
@@ -813,6 +815,7 @@ importGH3Song ghi = let
           = maybe mempty (.onyxPartEliteDrums)
           $ Map.lookup F.PartDrums
           $ midiOnyx.tracks.onyxParts
+    countinFolder <- stackIO $ getResourcesPath "sfx/countin"
     audio <- case level of
       ImportQuick -> return []
       ImportFull -> case ghi.audio of
@@ -863,21 +866,38 @@ importGH3Song ghi = let
         , backgroundVideo = Nothing
         , fileBackgroundImage = Nothing
         }
-      , audio = HM.fromList do
-        (_, group) <- audio
-        (name, bs) <- NE.toList group
-        let str = T.unpack name
-        return (name, AudioFile AudioInfo
-          { md5 = Nothing
-          , frames = Nothing
-          , filePath = Just $ SoftFile str $ SoftReadable
-            $ makeHandle str $ byteStringSimpleHandle bs
-          , commands = []
-          , rate = Nothing
-          , channels = case ghi.audio of
-            GH3Audio360{} -> 2
-            GH3AudioPS2{} -> 1 -- since we split up to mono vgs
+      , audio = HM.fromList let
+        stems = do
+          (_, group) <- audio
+          (name, bs) <- NE.toList group
+          let str = T.unpack name
+          return (name, AudioFile AudioInfo
+            { md5 = Nothing
+            , frames = Nothing
+            , filePath = Just $ SoftFile str $ SoftReadable
+              $ makeHandle str $ byteStringSimpleHandle bs
+            , commands = []
+            , rate = Nothing
+            , channels = case ghi.audio of
+              GH3Audio360{} -> 2
+              GH3AudioPS2{} -> 1 -- since we split up to mono vgs
+            })
+        countinTrack = ("countin", AudioSamples SamplesInfo
+          { groupPolyphony = Nothing
+          , groupCrossfade = 0
           })
+        countinFiles = do
+          (name, path) <- countinAudio
+          return (name, AudioFile AudioInfo
+            { md5 = Nothing
+            , frames = Nothing
+            , filePath = Just $ SoftFile (T.unpack name <.> "wav")
+              $ SoftReadable $ fileReadable $ countinFolder </> path
+            , commands = []
+            , rate = Nothing
+            , channels = 2
+            })
+        in [countinTrack] <> countinFiles <> stems
       , jammit = HM.empty
       , plans = let
         nameLead = info.gh3Name <> "_" <> if mode == ImportCoop && info.gh3UseCoopNotetracks
@@ -892,8 +912,13 @@ importGH3Song ghi = let
         toExpr ((f, _) :| []) = Input $ Named f
         toExpr xs             = Merge $ Input . Named . fst <$> xs
         in HM.singleton "gh" $ StandardPlan StandardPlanInfo
-          { song = lookup (qbKeyCRC nameBand) audio <&> \group ->
-            PansVols [-1, 1] bandVol $ toExpr group
+          { song = let
+            songBase = lookup (qbKeyCRC nameBand) audio <&> \group ->
+              PansVols [-1, 1] bandVol $ toExpr group
+            countin = do
+              guard $ not $ null countinAudio
+              Just $ Input $ Named "countin"
+            in Mix <$> NE.nonEmpty (catMaybes [songBase, countin])
           , parts = Parts $ HM.fromList $ catMaybes
             [ lookup (qbKeyCRC nameLead  ) audio <&> \group ->
               (F.PartGuitar, PartSingle $ PansVols [-1, 1] guitarVol $ toExpr group)

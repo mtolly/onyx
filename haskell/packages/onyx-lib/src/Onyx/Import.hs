@@ -515,6 +515,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           "main.hdr" -> foundHDR fp
           "main_ps3.hdr" -> foundHDR fp
           "main_xbox.hdr" -> foundHDR fp
+          "main_wii.hdr" -> foundHDR fp
           "eboot.bin" -> do
             let dir = takeDirectory fp
             stackIO (crawlFolder dir) >>= foundPS3Game fp

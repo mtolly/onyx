@@ -416,6 +416,7 @@ data SongInfoGH3 = SongInfoGH3
   , gh3UseCoopNotetracks    :: Bool
   , gh3HammerOnMeasureScale :: Maybe Float
   , gh3OriginalArtist       :: Bool
+  , gh3Countoff             :: Maybe B.ByteString
   -- lots of other fields ignored
   } deriving (Show)
 
@@ -459,6 +460,7 @@ parseSongInfoGH3 songEntries = do
       gh3OriginalArtist = case [ n | QBStructItemInteger810000 "original_artist" n <- songEntries ] of
         b : _ -> b /= 0
         []    -> True
+      gh3Countoff = listToMaybe [ s | QBStructItemString830000 "countoff" s <- songEntries ]
   gh3RhythmTrack <- case [ n | QBStructItemInteger810000 "rhythm_track" n <- songEntries ] of
     0 : _ -> Right False
     1 : _ -> Right True
