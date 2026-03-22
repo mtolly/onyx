@@ -28,8 +28,9 @@ import           Data.Maybe                           (catMaybes)
 import qualified Data.Text                            as T
 import           Onyx.Audio                           (Audio (..),
                                                        decibelDifferenceInPanRatios)
-import           Onyx.Audio.VGS                       (splitOutVGSChannels,
-                                                       vgsChannelCount)
+import           Onyx.Audio.VGS                       (VGS (..), VGSHeader (..),
+                                                       decryptReadVGS,
+                                                       splitOutVGSChannels)
 import           Onyx.Harmonix.Ark
 import           Onyx.Harmonix.Ark.GH2                (readSongListGH1)
 import qualified Onyx.Harmonix.DTA                    as D
@@ -150,7 +151,7 @@ importGH1Song pkg path folder level = do
         Just r  -> return r
         Nothing -> fatal $ "Required file not found: " <> B8.unpack (B8.intercalate "/" $ toList p)
   midi <- split pkg.midiFile >>= need . fmap encLatin1
-  vgs <- split (pkg.song.songName <> ".vgs") >>= need . fmap encLatin1
+  vgsData <- split (pkg.song.songName <> ".vgs") >>= need . fmap encLatin1
   F.Song tmap mmap gh1 <- case level of
     ImportFull  -> F.loadMIDIReadable midi
     ImportQuick -> return (emptyChart :: F.Song (GH1File U.Beats))
@@ -182,8 +183,8 @@ importGH1Song pkg path folder level = do
           }
         }
       diffs = gh1.gh1T1Gems.gemsDifficulties
-  numChannels <- stackIO $ vgsChannelCount vgs
-  namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] \i -> do
+  vgs <- stackIO $ decryptReadVGS vgsData
+  namedChans <- stackIO $ forConcurrently [0 .. length vgs.header.channels - 1] \i -> do
     bs <- case level of
       ImportFull  -> splitOutVGSChannels [i] vgs
       ImportQuick -> return BL.empty

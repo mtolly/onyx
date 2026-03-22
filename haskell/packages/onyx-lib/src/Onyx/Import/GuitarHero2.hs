@@ -40,8 +40,9 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (decodeLatin1)
 import           Onyx.Audio                       (Audio (..))
-import           Onyx.Audio.VGS                   (splitOutVGSChannels,
-                                                   vgsChannelCount)
+import           Onyx.Audio.VGS                   (VGS (..), VGSHeader (..),
+                                                   decryptReadVGS,
+                                                   splitOutVGSChannels)
 import           Onyx.Harmonix.Ark
 import           Onyx.Harmonix.Ark.GH2            (GH2DXExtra (..),
                                                    readSongListGH2,
@@ -256,9 +257,9 @@ importGH2Song mode songChunk pkg displayPath folder level = do
     pathVGS  <- fmap (fmap encLatin1) $ split $ songChunk.songName <> ".vgs"
     pathMogg <- fmap (fmap encLatin1) $ split $ songChunk.songName <> ".mogg"
     case (findFile pathVGS folder, findFile pathMogg folder) of
-      (Just vgs, _) -> do
-        numChannels <- stackIO $ vgsChannelCount vgs
-        namedChans <- stackIO $ forConcurrently [0 .. numChannels - 1] \i -> do
+      (Just vgsData, _) -> do
+        vgs <- stackIO $ decryptReadVGS vgsData
+        namedChans <- stackIO $ forConcurrently [0 .. length vgs.header.channels - 1] \i -> do
           bs <- case level of
             ImportFull  -> splitOutVGSChannels [i] vgs
             ImportQuick -> return BL.empty
