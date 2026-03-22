@@ -1,0 +1,56 @@
+metadata:
+  title: Dang
+  artist: Rainbow Kitten Surprise
+  album: bones
+  year: 2025
+  author: Onyxite
+  # genre:
+  # subgenre:
+  track-number: 6
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: elite
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
+audio:
+  album-track:
+    frames: 8934519
+    md5: 40b086b1ad4f2f92cfad5c3a6f7e4ffc
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.240, album-track]
+  dev:
+    song:
+      pad: [3.240, album-track]
+    parts:
+      bass:
+        pad: [3.240, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.240, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.240, channels: [[4, 5], stems]]
+      other:
+        pad: [3.240, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

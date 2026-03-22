@@ -10,6 +10,7 @@ parts:
     pro-guitar:
       tuning:
         base: bass-4
+      picked-bass: true
 audio:
   album-track:
     frames: 10270596

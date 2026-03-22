@@ -1,0 +1,62 @@
+metadata:
+  title: Hard to See
+  artist: Dead Original
+  album: Bought and Sold
+  year: 2023
+  author: Onyxite
+  genre: grunge
+  subgenre: grunge
+  track-number: 2
+parts:
+  drums:
+    drums:
+      kicks: both
+      mode: elite
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-5
+        offsets: [-2, 0, 0, 0, 0] # drop A
+      picked-bass: true
+audio:
+  album-track:
+    frames: 9524660
+    md5: b310c3a4f64a7a664388406cb810f4b9
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.324, album-track]
+  dev:
+    song:
+      pad: [3.324, album-track]
+    parts:
+      bass:
+        pad: [3.324, channels: [[0, 1], stems]]
+      drums:
+        pad: [3.324, channels: [[2, 3], stems]]
+      vocal:
+        pad: [3.324, channels: [[4, 5], stems]]
+      other:
+        pad: [3.324, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  rb3-2x:
+    game: rb3
+    plan: album
+    2x-bass-pedal: true
+  ps:
+    game: ps
+    plan: album
