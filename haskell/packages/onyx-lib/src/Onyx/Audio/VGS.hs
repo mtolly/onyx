@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE BlockArguments           #-}
 {-# LANGUAGE CPP                      #-}
 {-# LANGUAGE LambdaCase               #-}
@@ -19,8 +20,7 @@ module Onyx.Audio.VGS
 , vgsInMemory
 ) where
 
-import           Control.Monad                (forM, forM_, liftM4, replicateM_,
-                                               void)
+import           Control.Monad                (forM, forM_, liftM4, replicateM_)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource
@@ -51,9 +51,7 @@ import           Onyx.Util.Handle             (Readable (..), SimpleHandle (..),
                                                fileReadable, makeHandle,
                                                readableToMemory,
                                                subHandleInternal, useHandle)
-import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
-import           System.IO.Temp               (withSystemTempDirectory)
 import           System.IO.Unsafe             (unsafePerformIO)
 
 foreign import ccall unsafe "encodeVAGBlock"
@@ -263,31 +261,28 @@ readSingleRateVGS dur vgs = do
     in CA.AudioSource src (realToFrac rate) numChans $ fromIntegral totalBlocks * xaBlockSamples - startFrame
 
 splitOutVGSChannels :: [Int] -> VGS -> IO BL.ByteString
-splitOutVGSChannels wantChannels vgs = do
-  withSystemTempDirectory "onyx-vgs-split" \dout -> do
-    let fout = dout </> "out.vgs"
-    IO.withBinaryFile fout IO.WriteMode \hout -> do
-      useHandle vgs.decrypted \hin -> do
-        let totalBlocks = sum $ map snd vgs.header.channels
-        -- first, write out new header
-        BL.hPut hout $ runPut do
-          putByteString "VgS!"
-          putWord32le 2
-          forM_ wantChannels \i -> do
-            let (rate, blocks) = vgs.header.channels !! i
-            putWord32le rate
-            putWord32le blocks
-          putByteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
-        -- then, filter the vag blocks by channel and change their index
-        replicateM_ (fromIntegral totalBlocks) do
-          byte0 <- B.hGet hin 1
-          channelByte <- B.head <$> B.hGet hin 1
-          case elemIndex (fromIntegral $ channelByte .&. 0xF) wantChannels of
-            Nothing -> void $ B.hGet hin 14 -- skip this block (hSeek seems to be much worse performance?)
-            Just newIndex -> do
-              block <- B.hGet hin 14
-              mapM_ (B.hPut hout) [byte0, B.singleton $ fromIntegral newIndex, block]
-    BL.fromStrict <$> B.readFile fout
+splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
+  newHeader = mconcat
+    [ "VgS!"
+    , BB.word32LE 2
+    , mconcat $ wantChannels <&> \i -> let
+      (rate, blocks) = vgs.header.channels !! i
+      in BB.word32LE rate <> BB.word32LE blocks
+    , BB.byteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
+    ]
+  -- filter vag blocks by channel and change their index
+  go !bb !blocksLeft = if blocksLeft > 0
+    then do
+      block <- B.hGet hin 16
+      let bb' = case elemIndex (fromIntegral $ B.index block 1 .&. 0xF) wantChannels of
+            Nothing       -> bb
+            Just newIndex -> bb
+              <> BB.word8 (B.index block 0)
+              <> BB.word8 (fromIntegral newIndex)
+              <> BB.byteString (B.drop 2 block)
+      go bb' $ blocksLeft - 1
+    else return $ BB.toLazyByteString bb
+  in go newHeader $ sum $ map snd vgs.header.channels
 
 -------------------------------------
 -- decrypt translated from arktool --
