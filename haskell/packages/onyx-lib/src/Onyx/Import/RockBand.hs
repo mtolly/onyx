@@ -45,7 +45,8 @@ import           Data.Text.Encoding.Error             (lenientDecode)
 import           Onyx.Audio                           (Audio (..), Edge (..))
 import           Onyx.Audio.VGS                       (VGS (..), VGSHeader (..),
                                                        decryptReadVGS,
-                                                       splitOutVGSChannels)
+                                                       splitOutVGSChannels,
+                                                       vgsInMemory)
 import           Onyx.Codec.Binary                    (bin, codecIn, codecOut,
                                                        runPut, (=.))
 import           Onyx.Codec.Common                    (req)
@@ -162,7 +163,7 @@ importSTFSFolder src folder = do
               vgs <- extractVGSStream   0xBD packets h
               return (vid, vgs)
             let rVideo = SoftReadable $ makeHandle "video.m2v" $ byteStringSimpleHandle bsVideo
-            vgs <- decryptReadVGS $ makeHandle "encrypted.vgs" $ byteStringSimpleHandle bsVGS
+            vgs <- decryptReadVGS (makeHandle "encrypted.vgs" $ byteStringSimpleHandle bsVGS) >>= vgsInMemory
             chans <- forConcurrently [0 .. length vgs.header.channels - 1] \i -> do
               splitOutVGSChannels [i] vgs
             return (SoftFile "video.m2v" rVideo, chans)

@@ -362,5 +362,17 @@ generateCachedReadable generate = do
       rOpen r
     }
 
+readableToMemory :: Readable -> IO Readable
+readableToMemory r = do
+  v <- newMVar Nothing
+  return Readable
+    { rFilePath = Nothing
+    , rOpen = do
+      bs <- modifyMVar v $ \mbs -> do
+        bs <- maybe (useHandle r handleToByteString) return mbs
+        return (Just bs, bs)
+      byteStringSimpleHandle bs >>= openSimpleHandle "(memory-saved handle)"
+    }
+
 singleFolder :: t -> Folder t a -> Folder t a
 singleFolder name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }

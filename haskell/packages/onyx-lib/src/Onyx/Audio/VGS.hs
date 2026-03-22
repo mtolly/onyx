@@ -16,6 +16,7 @@ module Onyx.Audio.VGS
 , readVGSHeader
 , writeVGS
 , writeVGSMultiRate
+, vgsInMemory
 ) where
 
 import           Control.Monad                (forM, forM_, liftM4, replicateM_,
@@ -48,6 +49,7 @@ import           Onyx.Util.Handle             (Readable (..), SimpleHandle (..),
                                                appendSimpleHandle,
                                                byteStringSimpleHandle,
                                                fileReadable, makeHandle,
+                                               readableToMemory,
                                                subHandleInternal, useHandle)
 import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
@@ -358,3 +360,8 @@ decryptReadVGS input = do
         appendSimpleHandle newHeader $ decryptV4Handle keys encrypted
     n -> fail $ "Unsupported VGS version " <> show n <> " (only versions 1, 2, 4 supported)"
   return VGS{..}
+
+vgsInMemory :: VGS -> IO VGS
+vgsInMemory vgs = do
+  mem <- readableToMemory vgs.decrypted
+  return vgs { decrypted = mem }
