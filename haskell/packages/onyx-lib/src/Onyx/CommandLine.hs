@@ -1098,7 +1098,9 @@ commands =
         return out
       (FileHdrOrArk, fin) -> do
         out <- outputFile opts $ return $ fin <> "_extract"
-        hdr <- stackIO (B.readFile fin) >>= Ark.readHdr . BL.fromStrict
+        hdr <- case map toLower $ takeExtension fin of
+          ".ark" -> stackIO $ Ark.readLoneArk $ fileReadable fin
+          _      -> stackIO (B.readFile fin) >>= Ark.readHdr . BL.fromStrict
         arks <- mapM fixFileCase do
           ark <- Ark.getFileArks hdr $ T.pack $ takeFileName fin
           return $ takeDirectory fin </> T.unpack ark

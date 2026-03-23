@@ -12,7 +12,8 @@ import           Control.Monad          (forM, replicateM, replicateM_, when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Bifunctor         (first)
 import           Data.Binary.Get        (getByteString, getInt32le, getInt64le,
-                                         getWord32le, getWord64le, skip)
+                                         getWord16le, getWord32le, getWord64le,
+                                         skip)
 import           Data.Bits
 import qualified Data.ByteString        as B
 import qualified Data.ByteString.Char8  as B8
@@ -24,9 +25,11 @@ import qualified Data.List.NonEmpty     as NE
 import qualified Data.Text              as T
 import qualified Data.Vector            as V
 import           Data.Word              (Word32)
+import qualified GHC.IO.Handle          as H
 import           Onyx.Util.Binary       (runGetM)
 import           Onyx.Util.Handle
 import           System.FilePath        (dropExtension, takeFileName, (-<.>))
+import           System.IO              (SeekMode (..), hGetPosn, hSeek)
 
 data FileEntry a = FileEntry
   { offset  :: Integer
@@ -46,7 +49,79 @@ data Hdr = Hdr
   , files :: [FileEntry B.ByteString]
   } deriving (Eq, Show)
 
--- Read a .hdr, or an .ark for old games with no .hdr
+readLoneArk :: Readable -> IO Hdr
+readLoneArk ark = useHandle ark \h -> do
+  BL.hGet h 4 >>= \case
+
+    -- Frequency
+    "ARK\0" -> do
+
+      hSeek h AbsoluteSeek 0
+      headerStart <- BL.hGet h 0x28
+      fileTableOffset   <- runGetM getWord32le $ BL.drop 0x08 headerStart
+      numFiles          <- runGetM getWord32le $ BL.drop 0x0C headerStart
+      dirTableOffset    <- runGetM getWord32le $ BL.drop 0x10 headerStart
+      numDirs           <- runGetM getWord32le $ BL.drop 0x14 headerStart
+      stringTableOffset <- runGetM getWord32le $ BL.drop 0x18 headerStart
+      _numStrings       <- runGetM getWord32le $ BL.drop 0x1C headerStart
+      afterStrings      <- runGetM getWord32le $ BL.drop 0x20 headerStart
+      blockSize         <- runGetM getWord32le $ BL.drop 0x24 headerStart
+
+      hSeek h AbsoluteSeek $ fromIntegral fileTableOffset
+      fileTableBytes <- BL.hGet h $ fromIntegral $ dirTableOffset - fileTableOffset
+
+      hSeek h AbsoluteSeek $ fromIntegral dirTableOffset
+      dirTableBytes <- BL.hGet h $ fromIntegral $ stringTableOffset - dirTableOffset
+
+      hSeek h AbsoluteSeek $ fromIntegral stringTableOffset
+      stringTableBytes <- B.hGet h $ fromIntegral $ afterStrings - stringTableOffset
+      let getString offset = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offset - stringTableOffset) stringTableBytes
+
+      dirNames <- flip runGetM dirTableBytes $ replicateM (fromIntegral numDirs) do
+        skip 4
+        getString <$> getWord32le
+
+      files <- flip runGetM fileTableBytes $ replicateM (fromIntegral numFiles) do
+        _              <- getWord32le -- ?
+        fileName       <- getString <$> getWord32le
+        dir            <- getWord16le
+        blockOffset    <- getWord16le
+        block          <- getWord32le
+        compressedSize <- getWord32le
+        fullSize       <- getWord32le -- assuming
+        return FileEntry
+          { offset  = fromIntegral (block * blockSize) + fromIntegral blockOffset
+          , name    = fileName
+          , folder  = Just $ dirNames !! fromIntegral dir
+          , size    = fullSize
+          , inflate = compressedSize
+          }
+
+      return Hdr { arks = Nothing, files = files }
+
+    -- Amplitude (PS2)
+    "\x02\0\0\0" -> do
+
+      -- could just assume first file offset is end of header, but we'll be smart
+
+      hSeek h AbsoluteSeek 4
+      numEntries <- BL.hGet h 4 >>= runGetM getWord32le
+
+      hSeek h RelativeSeek $ fromIntegral $ numEntries * 20
+      stringSize <- BL.hGet h 4 >>= runGetM getWord32le
+
+      hSeek h RelativeSeek $ fromIntegral stringSize
+      offsetCount <- BL.hGet h 4 >>= runGetM getWord32le
+
+      hSeek h RelativeSeek $ fromIntegral $ offsetCount * 4
+
+      H.HandlePosn _ headerLength <- hGetPosn h
+      hSeek h AbsoluteSeek 0
+      BL.hGet h (fromIntegral headerLength) >>= readHdr
+
+    magic -> fail $ "Unrecognized lone .ARK format: " <> show magic
+
+-- Read a .hdr (or an Amplitude PS2 .ark)
 readHdr :: (MonadFail m) => BL.ByteString -> m Hdr
 readHdr bs = do
   testType <- runGetM getWord32le bs
