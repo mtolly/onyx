@@ -58,6 +58,7 @@ import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common
+import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import qualified Onyx.MIDI.Track.File             as F
@@ -658,15 +659,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         sampleTimes %> \out -> do
           input <- F.shakeMIDI midraw
           let _ = input :: F.Song (F.OnyxFile U.Beats)
-              output :: [(T.Text, [(Double, T.Text, T.Text)])]
+              output :: [(T.Text, [(Double, F.SampleTrigger (Maybe Double))])]
               output = map (second getSampleList) $ Map.toList input.tracks.onyxSamples
-              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . (.sampleTriggers)
-              makeSampleTriple :: (U.Beats, F.SampleTrigger) -> (Double, T.Text, T.Text)
-              makeSampleTriple (bts, trigger) =
-                ( realToFrac $ U.applyTempoMap input.tempos bts
-                , trigger.sampleGroup
-                , trigger.sampleAudio
-                )
+              getSampleList = map triggerDouble . ATB.toPairList . RTB.toAbsoluteEventList 0 . F.linkDurations . mapTrack (U.applyTempoTrack input.tempos)
+              triggerDouble :: (U.Seconds, F.SampleTrigger (Maybe U.Seconds)) -> (Double, F.SampleTrigger (Maybe Double))
+              triggerDouble (posn, trigger) = (realToFrac posn, fmap realToFrac <$> trigger)
           stackIO $ writeFile out $ show output
 
         display %> \out -> do

@@ -357,7 +357,12 @@ searchGEN gen = do
         Nothing -> findHDR names
         Just r  -> Just (name, r)
   case findHDR ["main.hdr", "main_xbox.hdr", "main_ps3.hdr", "main_wii.hdr"] of
-    Nothing        -> return Nothing
+    Nothing        -> case findFileCI (pure "main.ark") gen of
+      Nothing -> return Nothing
+      Just r  -> do
+        -- amplitude (ps2)
+        hdr <- readLoneArk r
+        return $ Just (hdr, [r])
     Just (name, r) -> do
       hdr <- useHandle r handleToByteString >>= readHdr
       let arkPaths = getFileArks hdr name

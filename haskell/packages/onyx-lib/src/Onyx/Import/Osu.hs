@@ -129,17 +129,21 @@ importOsu separateSongs f = do
           case track of
             Left drums -> let
               sampleTrack = F.SamplesTrack
-                $ RTB.flatten
+                { F.sampleTriggers = sampleTriggers
+                , F.sampleNotes    = RTB.empty
+                }
+              sampleTriggers
+                = RTB.flatten
                 $ fmap (\instant -> let
                   gems   = map fst instant
                   center = any (`elem` gems) [Pro Yellow (), Pro Blue  ()]
                   rim    = any (`elem` gems) [Red          , Pro Green ()]
                   double = not $ null $ drop 1 instant
                   in concat
-                    [ [F.SampleTrigger "" keyNormal  | center          ]
-                    , [F.SampleTrigger "" keyClap    | rim             ]
-                    , [F.SampleTrigger "" keyFinish  | center && double]
-                    , [F.SampleTrigger "" keyWhistle | rim    && double]
+                    [ [F.simpleTrigger keyNormal  | center          ]
+                    , [F.simpleTrigger keyClap    | rim             ]
+                    , [F.simpleTrigger keyFinish  | center && double]
+                    , [F.simpleTrigger keyWhistle | rim    && double]
                     ]
                   )
                 $ RTB.collectCoincident

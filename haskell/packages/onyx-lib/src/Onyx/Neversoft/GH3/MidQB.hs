@@ -475,9 +475,12 @@ gh3DrumsToCountin :: (Word32 -> U.Beats) -> [[Word32]] -> F.SamplesTrack U.Beats
 gh3DrumsToCountin toBeats notes = let
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   allCountinPairs = flip mapMaybe notes \case
-    time : 70 : _ -> Just (toBeats time, F.SampleTrigger "" "count")
+    time : 70 : _ -> Just (toBeats time, F.simpleTrigger "count")
     _             -> Nothing
-  in F.SamplesTrack $ fromPairs allCountinPairs
+  in F.SamplesTrack
+    { F.sampleTriggers = fromPairs allCountinPairs
+    , F.sampleNotes    = RTB.empty
+    }
 
 makeGH3TrackNotes
   :: U.TempoMap

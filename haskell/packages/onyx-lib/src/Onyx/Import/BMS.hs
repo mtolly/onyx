@@ -122,9 +122,12 @@ importBMS bmsPath level = do
             }
           audios = [(name, AudioSamples poly)]
           track = Just $ F.SamplesTrack
-            $ fmap (\chip -> F.SampleTrigger chip chip)
-            -- don't include sample if we didn't find its audio, or if it's the long note end
-            $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms.bms_LNOBJ) chips
+            { F.sampleTriggers
+              = fmap (\chip -> (F.simpleTrigger chip) { F.group = chip })
+              -- don't include sample if we didn't find its audio, or if it's the long note end
+              $ RTB.filter (\chip -> HS.member chip foundChips && Just chip /= bms.bms_LNOBJ) chips
+            , F.sampleNotes = RTB.empty
+            }
           in (audios, track)
 
       audioExpr name = Input $ Named name

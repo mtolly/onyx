@@ -204,12 +204,25 @@ mapTime f aud = case aud of
   PansVols ps vs  x  -> PansVols ps vs $ mapTime f x
   Samples poly samps -> Samples poly $ map (bimap f $ second $ mapTime f) samps
 
+stretchSimple :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchSimple ratio = let
+  maxManual = 2 ** (1 / 24) -- half a semitone
+  minManual = 1 / maxManual
+  in if minManual <= ratio && ratio <= maxManual
+    then stretchManual ratio
+    else stretchRate   ratio
+
+stretchRate :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchRate ratio src
+  = resampleTo src.rate SincMediumQuality
+  $ reorganize chunkSize src { rate = src.rate / ratio }
+
 {- |
 Simple linear interpolation of an audio stream.
 This is intended to make very small duration adjustments.
 -}
-stretchSimple :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
-stretchSimple ratio src = AudioSource
+stretchManual :: (Monad m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchManual ratio src = AudioSource
   { rate     = rate src
   , frames   = ceiling $ fromIntegral (frames src) * ratio
   , channels = channels src

@@ -203,7 +203,7 @@ readSongListGH1 dta = let
 
 -- ArkTool stuff
 
-data GameGH = GameGH1 | GameGH2 | GameGH2DX2 | GameRB
+data GameGH = GameGH1 | GameGH2 | GameGH2DX2 | GameRB | GameAmp
   deriving (Show)
 
 -- TODO: find better way to do this.
@@ -234,7 +234,9 @@ detectGameGH gen = do
         lookup "gh2_version.dtb" $ folderFiles configGen
   case findFile ("songs" :| ["gen", "songs.dtb"]) folder of
     Just _  -> return $ Just GameRB
-    Nothing -> firstJustM checkEntry mids
+    Nothing -> case findFile ("gen" :| ["freq2_config.txt.bin"]) folder of
+      Just _  -> return $ Just GameAmp
+      Nothing -> firstJustM checkEntry mids
 
 data GH2InstallLocation
   = GH2Replace B.ByteString
