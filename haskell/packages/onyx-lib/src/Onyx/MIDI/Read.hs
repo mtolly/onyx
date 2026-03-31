@@ -579,22 +579,22 @@ channelBlip_
 channelBlip_ = dimap (fmap (, 100)) (fmap fst) . channelBlip
 
 -- (channel, value)
-controller :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Int)
+controller :: (Monad m, NNC.C t) => Int -> TrackEvent m t (C.Channel, Int)
 controller cont = Codec
   { codecIn = slurpTrack \mt -> case Map.lookup (V.toController cont) mt.midiControllers of
     Nothing -> (RTB.empty, mt)
     Just events -> let
-      cvs = events <&> \(chan, v) -> (C.fromChannel chan, v)
+      cvs = events <&> \(chan, v) -> (chan, v)
       mt' = mt { midiControllers = Map.delete (V.toController cont) mt.midiControllers }
       in (cvs, mt')
   , codecOut = makeTrackBuilder $ fmap
-    (\(chan, v) -> E.MIDIEvent (C.Cons (C.toChannel chan) (C.Voice (V.Control (V.toController cont) v))))
+    (\(chan, v) -> E.MIDIEvent (C.Cons chan (C.Voice (V.Control (V.toController cont) v))))
   }
 
 -- Only value
 controller_ :: (Monad m, NNC.C t) => Int -> TrackEvent m t Int
 controller_ = let
-  fs v      = (0, v)
+  fs v      = (C.toChannel 0, v)
   fp (_, v) = v
   in dimap (fmap fs) (fmap fp) . controller
 

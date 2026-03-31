@@ -1,6 +1,13 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Onyx.Amplitude.PS2.Bnk where
+module Onyx.Amplitude.PS2.Bnk
+( bnkChunks
+, SAMPEntry(..)
+, SDESEntry(..)
+, INSTEntry(..)
+, BANKEntry(..)
+, Chunk(..)
+) where
 
 import           Control.Monad   (replicateM)
 import           Data.Binary.Get
