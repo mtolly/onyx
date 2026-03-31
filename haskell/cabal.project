@@ -1,0 +1,96 @@
+-- Cabal project file for Onyx
+-- Uses Stackage LTS-22.34 constraints via cabal.project.freeze
+
+with-compiler: ghc-9.6.6
+
+-- Local packages (from stack.yaml packages: + extra-deps local folders)
+packages:
+  packages/onyx-lib
+  packages/onyx-lib-game
+  packages/onyx-exe-toolkit
+  packages/onyx-ffmpeg
+  packages/onyx-handle
+  packages/onyx-arktool
+  packages/onyx-kakasi
+  packages/onyx-gamecube-dsp
+  packages/onyx-wwise
+  packages/onyx-npdata
+  packages/onyx-moggcrypt
+  packages/onyx-autochart
+
+-- Equivalent to stack's allow-newer: true
+allow-newer: all:all
+
+-- Package flags
+package fltkhs
+  flags: +bundled +opengl
+
+-- Git repository dependencies
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/midi
+  tag: 67c595a8f0c3b2fa193c088374de5bf544234ff0
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/conduit-audio
+  tag: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
+  subdir: conduit-audio-mpg123
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/fltkhs
+  tag: 993a8edb42849c517c1ee86afdfd255ec4a2ba16
+  subdir: fltkhs
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/midi-util
+  tag: 36f80fcbc57a9ee0c9e3175cc5890afe7da3abf2
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/OpenAL
+  tag: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/codec
+  tag: a6b98bbc1e37a7835b6c59a4425aa57600cf386e
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/mpg123-haskell-binding
+  tag: 4790b92549b7db51801a67cf1055259e3abcf60e
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/shake
+  tag: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/tcp-streams
+  tag: 0269618e5e73e11026b45bd9e59a677dc89b1c23
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/onyx-libzip
+  tag: 3af4544b752ab552b16dd1ccdd6d4cd02def2988
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/utf8proc-hs
+  tag: 5ed6b59099013be261764a8ac2ff158c0f3e0066
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/hsndfile
+  tag: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
+
+source-repository-package
+  type: git
+  location: https://github.com/mtolly/conduit-audio
+  tag: 9102bf0ba460bb0d74fde8da42800fea48ed666e
+  subdir: conduit-audio-lame

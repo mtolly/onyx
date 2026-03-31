@@ -1,0 +1,8 @@
+#!/bin/bash
+BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
+
+env PKG_CONFIG_PATH="$BUILD_DIR"/dependencies/root/lib/pkgconfig \
+  LD_LIBRARY_PATH="$BUILD_DIR"/dependencies/root/lib \
+  cabal --project-file="$BUILD_DIR"/cabal.project "$@" \
+  --extra-lib-dirs="$BUILD_DIR"/dependencies/root/lib \
+  --extra-include-dirs="$BUILD_DIR"/dependencies/root/include
