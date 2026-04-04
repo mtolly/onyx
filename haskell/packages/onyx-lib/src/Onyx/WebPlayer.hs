@@ -36,7 +36,7 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
-import qualified Onyx.Amplitude.File              as Amp
+import           Onyx.Amplitude.PS2.MIDI          (AmpInstrument)
 import qualified Onyx.Amplitude.Track             as Amp
 import           Onyx.Guitar
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
@@ -623,7 +623,7 @@ processVocal tmap h1 h2 h3 tonic = let
 
 data Amplitude t = Amplitude
   { ampNotes      :: RTB.T t Amp.Gem
-  , ampInstrument :: Amp.Instrument
+  , ampInstrument :: AmpInstrument
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Amplitude U.Seconds) where
@@ -632,7 +632,8 @@ instance A.ToJSON (Amplitude U.Seconds) where
       Amp.L -> A.Number 1
       Amp.M -> A.Number 2
       Amp.R -> A.Number 3
-    , (,) "instrument" $ A.toJSON $ show x.ampInstrument
+    -- hack drop "Amp" from constructor name
+    , (,) "instrument" $ A.toJSON $ drop 3 $ show x.ampInstrument
     ]
 
 data Dance t = Dance

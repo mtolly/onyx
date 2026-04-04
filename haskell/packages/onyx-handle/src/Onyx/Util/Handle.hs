@@ -1,13 +1,15 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Util.Handle where
 
 import           Control.Concurrent.MVar       (modifyMVar, newMVar)
-import           Control.Exception             (bracket, throwIO)
+import           Control.Exception             (bracket, evaluate, throwIO)
 import           Control.Monad                 (forM, forM_, guard, unless)
 import           Control.Monad.Trans.Resource  (MonadResource, allocate,
                                                 release)
@@ -364,15 +366,33 @@ generateCachedReadable generate = do
 
 readableToMemory :: Readable -> IO Readable
 readableToMemory r = do
-  v <- newMVar Nothing
+  getPair <- cache $ useHandle r \h -> do
+    let label = handleLabel h
+    _ <- evaluate $ T.pack label
+    bs <- handleToByteString h
+    return (label, bs)
   return Readable
     { rFilePath = Nothing
     , rOpen = do
-      bs <- modifyMVar v $ \mbs -> do
-        bs <- maybe (useHandle r handleToByteString) return mbs
-        return (Just bs, bs)
-      byteStringSimpleHandle bs >>= openSimpleHandle "(memory-saved handle)"
+      (label, bs) <- getPair
+      byteStringSimpleHandle bs >>= openSimpleHandle (label <> " | memory-saved")
     }
 
 singleFolder :: t -> Folder t a -> Folder t a
 singleFolder name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+
+-- ensures that only the first thread will do the evaluation,
+-- and threads that request the result after evaluation is done
+-- will only have to read IORef and not take a lock on an MVar
+cache :: IO a -> IO (IO a)
+cache make = mdo
+  mvar <- newMVar Nothing
+  ref <- newIORef $ Left $ modifyMVar mvar \case
+    Nothing -> do
+      x <- make
+      writeIORef ref $ Right x
+      return (Just x, x)
+    Just x -> return (Just x, x)
+  return $ readIORef ref >>= \case
+    Left makeOrWait -> makeOrWait
+    Right x -> return x

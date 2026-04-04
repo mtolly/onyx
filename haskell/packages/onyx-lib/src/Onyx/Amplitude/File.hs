@@ -14,6 +14,7 @@ import           Data.Char                        (isDigit)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe)
 import qualified Data.Text                        as T
+import           Onyx.Amplitude.PS2.MIDI          (AmpInstrument (..))
 import           Onyx.Amplitude.Track
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.File             (ParseFile (..), fileTrack)
@@ -26,7 +27,7 @@ data AmplitudeFile t = AmplitudeFile
   } deriving (Eq, Show)
 
 data AmplitudeTrack t
-  = Catch Instrument T.Text (CatchTrack t)
+  = Catch AmpInstrument T.Text (CatchTrack t)
   | Freestyle (FreestyleTrack t)
   deriving (Eq, Show)
 
@@ -43,14 +44,6 @@ instance TraverseTrack FreestyleTrack where
 
 instance ParseTrack FreestyleTrack where
   parseTrack = return FreestyleTrack
-
-data Instrument
-  = Drums
-  | Bass
-  | Synth
-  | Vocal
-  | Guitar
-  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance TraverseTrack AmplitudeFile where
   traverseTrack fn (AmplitudeFile trks) = AmplitudeFile <$> traverse (traverseTrack fn) trks
@@ -73,11 +66,11 @@ instance ParseFile AmplitudeFile where
               , do
                 _ <- P.string " CATCH:"
                 inst <- P.choice
-                  [ P.char 'D' >> return Drums
-                  , P.char 'B' >> return Bass
-                  , P.char 'S' >> return Synth
-                  , P.char 'V' >> return Vocal
-                  , P.char 'G' >> return Guitar
+                  [ P.char 'D' >> return AmpDrums
+                  , P.char 'B' >> return AmpBass
+                  , P.char 'S' >> return AmpSynth
+                  , P.char 'V' >> return AmpVocal
+                  , P.char 'G' >> return AmpGuitar
                   ]
                 _ <- P.char ':'
                 name <- T.pack <$> P.munch (const True)

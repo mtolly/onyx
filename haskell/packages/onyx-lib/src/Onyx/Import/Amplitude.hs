@@ -26,8 +26,8 @@ import           Onyx.Amplitude.PS2.TxtBin (Node (..), NodeContents (..),
                                             TxtBin (..), getTxtBin)
 import           Onyx.Audio.VGS            (VGSHeader (..), makeVGSHeader)
 import           Onyx.Import.Base
-import           Onyx.MIDI.Track.File      (RawFile (..), Song (..),
-                                            loadMIDIReadable)
+import           Onyx.MIDI.Track.File      (PartName (..), RawFile (..),
+                                            Song (..), loadMIDIReadable)
 import           Onyx.Project
 import           Onyx.StackTrace
 import           Onyx.Util.Binary          (runGetM)
@@ -45,9 +45,9 @@ sampToVGS samp nse = makeHandle "nse -> vgs" do
   unless (B.all (== 0) row0) $ fail "SAMP data doesn't start with zero row"
   let go !blocks = do
         row <- B.hGet h 16
-        if B.index row 1 /= 0
-          then return blocks
-          else go $ blocks + 1
+        case B.indexMaybe row 1 of
+          Just 0 -> go $ blocks + 1
+          _      -> return blocks
   blocks <- go 0
 
   header <- byteStringSimpleHandle $ BB.toLazyByteString $ makeVGSHeader VGSHeader
@@ -108,11 +108,13 @@ importAmpPS2Ark _src folder = do
       base <- case T.stripSuffix ".bnk" path of
         Nothing   -> fatal $ "Bank path not ending in .bnk? " <> show path
         Just base -> return base
-      nse <- getFile $ "songs" NE.:| [shortName, TE.encodeUtf8 base <> ".nse"]
+      -- load each nse into memory only once so we don't exhaust file handles
+      nse <- getFile ("songs" NE.:| [shortName, TE.encodeUtf8 base <> ".nse"])
+        >>= stackIO . readableToMemory
       let samp = concat [ xs | SAMP xs <- bnk ]
           sanm = concat [ xs | SANM xs <- bnk ]
       forM (zip samp sanm) \(entry, name) -> do
-        let audioName = base <> "-" <> TE.decodeUtf8 name
+        let audioName = T.replace " " "-" $ base <> "-" <> TE.decodeUtf8 name
             vgsPath = T.unpack base </> B8.unpack name <.> "vgs"
             vgs = sampToVGS entry nse
         return (audioName, AudioFile AudioInfo
@@ -141,5 +143,17 @@ importAmpPS2Ark _src folder = do
       , jammit = HM.empty
       , plans = HM.empty -- TODO
       , targets = HM.empty
-      , parts = Parts HM.empty -- TODO
+      , parts = Parts $ HM.fromList do
+        Catch n inst name _ <- mid.tracks
+        let fullName = "T" <> T.pack (show n) <> "-" <> name
+        return (PartName fullName, emptyPart
+          { mania = Just $ ModeMania do
+            diff <- "mellow" NE.:| ["normal", "brutal", "insane"]
+            return ManiaChart
+              { name = diff
+              , keys = 3
+              , style = ManiaAmplitude inst
+              , difficulty = Tier 1
+              }
+          })
       }

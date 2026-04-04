@@ -44,7 +44,7 @@ import qualified Data.Text                            as T
 import qualified Data.Vector                          as V
 import           GHC.Generics                         (Generic (..))
 import qualified Numeric.NonNegative.Class            as NNC
-import qualified Onyx.Amplitude.File                  as Amp
+import           Onyx.Amplitude.PS2.MIDI              (AmpInstrument (..))
 import           Onyx.Audio                           hiding (fadeEnd,
                                                        fadeStart)
 import           Onyx.Codec.Common
@@ -848,22 +848,23 @@ data ManiaStyle
   = ManiaDefault
   | ManiaArrows
   | ManiaTurntable
-  | ManiaAmplitude Amp.Instrument
+  | ManiaAmplitude AmpInstrument
   | ManiaEncore
   deriving (Eq, Ord, Show, Generic)
   deriving (Enum, Bounded) via GenericFullEnum ManiaStyle
 
 instance StackJSON ManiaStyle where
   stackJSON = enumCodecFull "mania chart style" \case
-    ManiaDefault              -> is A.Null |?> is "default"
-    ManiaArrows               -> is "arrows"
-    ManiaTurntable            -> is "turntable"
-    ManiaAmplitude Amp.Drums  -> is "amp-drums"
-    ManiaAmplitude Amp.Bass   -> is "amp-bass"
-    ManiaAmplitude Amp.Synth  -> is "amp-synth"
-    ManiaAmplitude Amp.Vocal  -> is "amp-vocal"
-    ManiaAmplitude Amp.Guitar -> is "amp-guitar"
-    ManiaEncore               -> is "encore"
+    ManiaDefault             -> is A.Null |?> is "default"
+    ManiaArrows              -> is "arrows"
+    ManiaTurntable           -> is "turntable"
+    ManiaAmplitude AmpDrums  -> is "amp-drums"
+    ManiaAmplitude AmpBass   -> is "amp-bass"
+    ManiaAmplitude AmpSynth  -> is "amp-synth"
+    ManiaAmplitude AmpVocal  -> is "amp-vocal"
+    ManiaAmplitude AmpGuitar -> is "amp-guitar"
+    ManiaAmplitude AmpFX     -> is "amp-fx"
+    ManiaEncore              -> is "encore"
 
 data Part f = Part
   { grybo     :: Maybe ModeFive

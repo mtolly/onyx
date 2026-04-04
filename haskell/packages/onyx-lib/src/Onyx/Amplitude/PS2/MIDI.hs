@@ -46,6 +46,7 @@ data AmpInstrument
   | AmpVocal
   | AmpGuitar
   | AmpFX
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 data AmpCatchTrack t = AmpCatchTrack
   { catch   :: CatchTrack t
