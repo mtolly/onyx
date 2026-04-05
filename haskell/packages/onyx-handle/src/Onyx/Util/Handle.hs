@@ -395,4 +395,4 @@ cache make = mdo
     Just x -> return (Just x, x)
   return $ readIORef ref >>= \case
     Left makeOrWait -> makeOrWait
-    Right x -> return x
+    Right x         -> return x

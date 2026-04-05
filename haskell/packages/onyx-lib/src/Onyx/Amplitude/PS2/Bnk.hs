@@ -15,7 +15,7 @@ import qualified Data.ByteString as B
 import           Data.Word
 
 data SAMPEntry = SAMPEntry
-  { sampChannels     :: Int -- guessing
+  { sampChannels     :: Int -- always 1, just a guess
   , sampRate         :: Int
   , sampFilePosition :: Int
   } deriving (Eq, Show)

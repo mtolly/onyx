@@ -784,6 +784,7 @@ audioRateReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Int)
 audioRateReadable f r = if supportedFFExt f
   then liftIO $ Just . round . rate <$> ffSourceSimple r
   else return Nothing
+  -- TODO maybe add .vgs support
 
 audioSeconds :: (MonadIO m, MonadFail m) => FilePath -> m U.Seconds
 audioSeconds f = do

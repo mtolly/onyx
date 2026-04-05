@@ -1,39 +1,63 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.Import.Amplitude where
 
-import           Control.Monad.Extra       (forM, mapMaybeM, unless)
-import           Control.Monad.IO.Class    (MonadIO)
-import           Data.Bifunctor            (first)
-import qualified Data.ByteString           as B
-import qualified Data.ByteString.Builder   as BB
-import qualified Data.ByteString.Char8     as B8
-import           Data.Char                 (toLower)
-import           Data.Foldable             (toList)
-import           Data.Functor              ((<&>))
-import qualified Data.HashMap.Strict       as HM
-import           Data.List.Extra           (nubOrd)
-import qualified Data.List.NonEmpty        as NE
-import qualified Data.Text                 as T
-import qualified Data.Text.Encoding        as TE
+import           Control.Monad.Extra              (forM, guard, mapMaybeM,
+                                                   unless)
+import           Control.Monad.IO.Class           (MonadIO)
+import           Data.Bifunctor                   (first)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Builder          as BB
+import qualified Data.ByteString.Char8            as B8
+import           Data.Char                        (toLower)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
+import           Data.Functor                     ((<&>))
+import qualified Data.HashMap.Strict              as HM
+import           Data.List.Extra                  (nubOrd)
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Map                         as Map
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
 import           Onyx.Amplitude.PS2.Bnk
-import           Onyx.Amplitude.PS2.MIDI   (AmpTrack (..), BankTrack (..),
-                                            parseAmpTrack)
-import           Onyx.Amplitude.PS2.TxtBin (Node (..), NodeContents (..),
-                                            TxtBin (..), getTxtBin)
-import           Onyx.Audio.VGS            (VGSHeader (..), makeVGSHeader)
+import           Onyx.Amplitude.PS2.MIDI          (AmpCatchTrack (..),
+                                                   AmpSampleTrack (..),
+                                                   AmpTrack (..),
+                                                   BankTrack (..),
+                                                   parseAmpTrack)
+import           Onyx.Amplitude.PS2.TxtBin        (Node (..), NodeContents (..),
+                                                   TxtBin (..), getTxtBin)
+import           Onyx.Amplitude.Track             (CatchDifficulty (..),
+                                                   CatchTrack (..))
+import           Onyx.Audio                       (Audio (Input))
+import           Onyx.Audio.VGS                   (VGSHeader (..),
+                                                   makeVGSHeader)
+import           Onyx.Guitar                      (applyStatus1)
 import           Onyx.Import.Base
-import           Onyx.MIDI.Track.File      (PartName (..), RawFile (..),
-                                            Song (..), loadMIDIReadable)
+import           Onyx.MIDI.Common                 (Difficulty (..),
+                                                   blipEdgesRB_,
+                                                   joinEdgesSimple,
+                                                   splitEdgesSimple)
+import           Onyx.MIDI.Track.File             (OnyxFile (..), OnyxPart (..),
+                                                   PartName (..), RawFile (..),
+                                                   SampleTrigger (..),
+                                                   SamplesTrack (..), Song (..),
+                                                   loadMIDIReadable)
+import           Onyx.MIDI.Track.Mania
+import           Onyx.PhaseShift.Dance            (NoteType (NoteNormal))
 import           Onyx.Project
 import           Onyx.StackTrace
-import           Onyx.Util.Binary          (runGetM)
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
-import           System.FilePath           ((<.>), (</>))
-import           System.IO                 (SeekMode (..), hClose, hSeek)
+import qualified Sound.MIDI.Message.Channel.Voice as V
+import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  ((<.>), (</>))
+import           System.IO                        (SeekMode (..), hClose, hSeek)
 
 sampToVGS :: SAMPEntry -> Readable -> Readable
 sampToVGS samp nse = makeHandle "nse -> vgs" do
@@ -104,7 +128,7 @@ importAmpPS2Ark _src folder = do
       r <- getFile $ "songs" NE.:| [shortName, TE.encodeUtf8 path]
       bnk <- stackIO (useHandle r handleToByteString) >>= runGetM bnkChunks
       return (path, bnk)
-    sampleAudio <- fmap (HM.fromList . concat) $ forM bnks \(path, bnk) -> do
+    bnkResults <- forM bnks \(path, bnk) -> do
       base <- case T.stripSuffix ".bnk" path of
         Nothing   -> fatal $ "Bank path not ending in .bnk? " <> show path
         Just base -> return base
@@ -113,7 +137,12 @@ importAmpPS2Ark _src folder = do
         >>= stackIO . readableToMemory
       let samp = concat [ xs | SAMP xs <- bnk ]
           sanm = concat [ xs | SANM xs <- bnk ]
-      forM (zip samp sanm) \(entry, name) -> do
+          inst = concat [ xs | INST xs <- bnk ]
+          sdes = concat [ xs | SDES xs <- bnk ]
+      bank <- case [ x | BANK x <- bnk ] of
+        [x] -> return x
+        _   -> fail "Not exactly 1 BANK chunk in .bnk"
+      samples <- forM (zip samp sanm) \(entry, name) -> do
         let audioName = T.replace " " "-" $ base <> "-" <> TE.decodeUtf8 name
             vgsPath = T.unpack base </> B8.unpack name <.> "vgs"
             vgs = sampToVGS entry nse
@@ -122,9 +151,101 @@ importAmpPS2Ark _src folder = do
           , frames   = Nothing
           , filePath = Just $ SoftFile vgsPath $ SoftReadable vgs
           , commands = []
-          , rate     = Just entry.sampRate
+          , rate     = Nothing
           , channels = entry.sampChannels
           })
+      return (samples, (bank, inst, sdes))
+
+    let sampleAudio = HM.fromList $ bnkResults >>= fst
+
+        sampleTracks = HM.fromList do
+          (PartName name, _, _) <- catchTracks
+          return ("catch-" <> name, AudioSamples SamplesInfo
+            { groupPolyphony = Nothing
+            , groupCrossfade = 0
+            })
+
+        lookupBankProgPitch :: Int -> Int -> Int -> [(SDESEntry, T.Text)]
+        lookupBankProgPitch b p pitch = do
+          (samples, (bank, insts, sdeses)) <- bnkResults
+          guard $ bank.bankNumber == b
+          let addCounts :: Int -> [INSTEntry] -> [(INSTEntry, Int)]
+              addCounts _ []       = []
+              addCounts n (i : is) = (i, n) : addCounts (n + i.instSDESCount) is
+          (inst, prevCounts) <- addCounts 0 insts
+          guard $ inst.instProgNumber == p
+          sdes <- take inst.instSDESCount $ drop prevCounts sdeses
+          guard $ sdes.sdesMinPitch <= pitch && pitch <= sdes.sdesMaxPitch
+          (sampleName, _) <- take 1 $ drop sdes.sdesSAMPNumber samples
+          return (sdes, sampleName)
+
+        importSampleTrack :: AmpSampleTrack U.Beats -> SamplesTrack U.Beats
+        importSampleTrack trk = let
+          processed
+            = applyStatus1 Nothing (Just . snd <$> trk.bank   )
+            $ applyStatus1 Nothing (Just . snd <$> trk.program)
+            $ joinEdgesSimple trk.notes
+          results = RTB.catMaybes $ processed <&> \case
+            (Just bank, (Just program, (vel, (_chan, V.fromPitch -> pitch), len))) ->
+              case lookupBankProgPitch bank program pitch of
+                []      -> Nothing
+                matches -> let
+                  triggers = matches <&> \(sdes, sample) -> SampleTrigger
+                    { group     = ""
+                    , audio     = sample
+                    , pan       = case compare sdes.sdesPan 0x40 of
+                      LT -> (fromIntegral sdes.sdesPan / 0x40) - 1
+                      EQ -> 0
+                      GT -> fromIntegral (sdes.sdesPan - 0x40) / 0x3F
+                    , volume    = 0 -- TODO (vel / 0x7F) from ratio to dB -- :: Double
+                    , transpose = fromIntegral $ (pitch - sdes.sdesBasePitch) + sdes.sdesTranspose
+                    , link      = Just pitch
+                    }
+                  in Just (triggers, ((), pitch, len))
+            _ -> Nothing
+          in SamplesTrack
+            { sampleTriggers = RTB.flatten $ fst <$> results
+            , sampleNotes = splitEdgesSimple $ snd <$> results
+            }
+
+        diffNames = "mellow" NE.:| ["normal", "brutal", "insane"]
+
+        catchTracks = do
+          Catch n inst name trk <- mid.tracks
+          let newName = PartName $ "T" <> T.pack (show n) <> "-" <> name
+              part = emptyPart
+                { mania = Just $ ModeMania do
+                  diff <- diffNames
+                  return ManiaChart
+                    { name = diff
+                    , keys = 3
+                    , style = ManiaAmplitude inst
+                    , difficulty = Tier 1
+                    }
+                }
+          return (newName, part, trk)
+
+        newMidi = Song
+          { tempos = mid.tempos
+          , timesigs = mid.timesigs
+          , tracks = mempty
+            { onyxParts = Map.fromList do
+              (name, _, trk) <- catchTracks
+              return (name, mempty
+                { onyxPartMania = Map.fromList do
+                  let trackDiffs = trk.catch.catchDifficulties
+                  (diffName, rbDiff) <- zip (NE.toList diffNames) [Easy, Medium, Hard, Expert]
+                  catchDiff <- toList $ Map.lookup rbDiff trackDiffs
+                  return (diffName, ManiaTrack
+                    { notes     = blipEdgesRB_ $ (\gem -> ((fromEnum gem, NoteNormal), Nothing)) <$> catchDiff.catchGems
+                    , overdrive = RTB.empty
+                    })
+                })
+            , onyxSamples = Map.fromList do
+              (PartName name, _, trk) <- catchTracks
+              return ("catch-" <> name, importSampleTrack trk.samples)
+            }
+          }
 
     return SongYaml
       { metadata = def'
@@ -137,23 +258,22 @@ importAmpPS2Ark _src folder = do
         { backgroundVideo = Nothing
         , fileBackgroundImage = Nothing
         , fileSongAnim = Nothing
-        , fileMidi = SoftFile "notes.mid" $ SoftChart emptyChart
+        , fileMidi = SoftFile "notes.mid" $ SoftChart newMidi
         }
-      , audio = sampleAudio
+      , audio = sampleAudio <> sampleTracks
       , jammit = HM.empty
-      , plans = HM.empty -- TODO
+      , plans = HM.singleton "amp" $ StandardPlan StandardPlanInfo
+        { song        = Nothing -- TODO
+        , parts       = Parts $ HM.fromList do
+          (name@(PartName baseName), _, _) <- catchTracks
+          return (name, PartSingle $ Input $ Named $ "catch-" <> baseName)
+        , crowd       = Nothing
+        , comments    = []
+        , tuningCents = 0
+        , fileTempo   = Nothing
+        }
       , targets = HM.empty
       , parts = Parts $ HM.fromList do
-        Catch n inst name _ <- mid.tracks
-        let fullName = "T" <> T.pack (show n) <> "-" <> name
-        return (PartName fullName, emptyPart
-          { mania = Just $ ModeMania do
-            diff <- "mellow" NE.:| ["normal", "brutal", "insane"]
-            return ManiaChart
-              { name = diff
-              , keys = 3
-              , style = ManiaAmplitude inst
-              , difficulty = Tier 1
-              }
-          })
+        (name, part, _) <- catchTracks
+        return (name, part)
       }
