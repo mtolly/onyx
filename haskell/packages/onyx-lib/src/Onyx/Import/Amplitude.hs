@@ -8,7 +8,7 @@
 module Onyx.Import.Amplitude where
 
 import           Control.Monad.Extra              (forM, guard, mapMaybeM,
-                                                   unless)
+                                                   unless, when)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Data.Bifunctor                   (first)
 import qualified Data.ByteString                  as B
@@ -34,7 +34,8 @@ import           Onyx.Amplitude.PS2.TxtBin        (Node (..), NodeContents (..),
                                                    TxtBin (..), getTxtBin)
 import           Onyx.Amplitude.Track             (CatchDifficulty (..),
                                                    CatchTrack (..))
-import           Onyx.Audio                       (Audio (Input))
+import           Onyx.Audio                       (Audio (Input),
+                                                   gainRatioToDecibels)
 import           Onyx.Audio.VGS                   (VGSHeader (..),
                                                    makeVGSHeader)
 import           Onyx.Guitar                      (applyStatus1)
@@ -65,8 +66,8 @@ sampToVGS samp nse = makeHandle "nse -> vgs" do
   h <- rOpen nse
 
   hSeek h AbsoluteSeek $ fromIntegral samp.sampFilePosition
-  row0 <- B.hGet h 16
-  unless (B.all (== 0) row0) $ fail "SAMP data doesn't start with zero row"
+  -- TODO most (but not all) samp areas start with an all-zero row;
+  -- should we skip that?
   let go !blocks = do
         row <- B.hGet h 16
         case B.indexMaybe row 1 of
@@ -78,14 +79,14 @@ sampToVGS samp nse = makeHandle "nse -> vgs" do
     { version = 2
     , channels = [(fromIntegral samp.sampRate, blocks)]
     }
-  let startPosn = fromIntegral $ samp.sampFilePosition + 16
+  let startPosn = fromIntegral samp.sampFilePosition
       dataLength = fromIntegral $ blocks * 16
   sub <- subHandleInternal startPosn (Just dataLength) h hClose
 
   appendSimpleHandle header sub
 
 importAmpPS2Ark :: (SendMessage m, MonadIO m) => FilePath -> Folder B.ByteString Readable -> StackTraceT m [Import m]
-importAmpPS2Ark _src folder = do
+importAmpPS2Ark src folder = do
   let folderDowncase = first (B8.map toLower) folder
       getFile path = case findFile (B8.map toLower <$> path) folderDowncase of
         Nothing -> fatal $ "File not found: " <> show path
@@ -107,6 +108,9 @@ importAmpPS2Ark _src folder = do
       N Node { contents = [S key, S value] } <- bin.node.contents
       return (key, value)
   return $ songPairs <&> \(shortName, song) lvl -> do
+
+    when (lvl == ImportFull) do
+      lg $ "Importing Amplitude (PS2) song [" <> B8.unpack shortName <> "] from: " <> src
 
     let configMap = HM.fromList do
           N Node { contents = S key : rest } <- song
@@ -156,16 +160,7 @@ importAmpPS2Ark _src folder = do
           })
       return (samples, (bank, inst, sdes))
 
-    let sampleAudio = HM.fromList $ bnkResults >>= fst
-
-        sampleTracks = HM.fromList do
-          (PartName name, _, _) <- catchTracks
-          return ("catch-" <> name, AudioSamples SamplesInfo
-            { groupPolyphony = Nothing
-            , groupCrossfade = 0
-            })
-
-        lookupBankProgPitch :: Int -> Int -> Int -> [(SDESEntry, T.Text)]
+    let lookupBankProgPitch :: Int -> Int -> Int -> [(SDESEntry, T.Text)]
         lookupBankProgPitch b p pitch = do
           (samples, (bank, insts, sdeses)) <- bnkResults
           guard $ bank.bankNumber == b
@@ -197,7 +192,7 @@ importAmpPS2Ark _src folder = do
                       LT -> (fromIntegral sdes.sdesPan / 0x40) - 1
                       EQ -> 0
                       GT -> fromIntegral (sdes.sdesPan - 0x40) / 0x3F
-                    , volume    = 0 -- TODO (vel / 0x7F) from ratio to dB -- :: Double
+                    , volume    = realToFrac $ gainRatioToDecibels $ fromIntegral (V.fromVelocity vel) / 0x7F
                     , transpose = fromIntegral $ (pitch - sdes.sdesBasePitch) + sdes.sdesTranspose
                     , link      = Just pitch
                     }
@@ -225,6 +220,22 @@ importAmpPS2Ark _src folder = do
                 }
           return (newName, part, trk)
 
+        sampleAudio = HM.fromList $ bnkResults >>= fst
+
+        sampleTracks = HM.fromList do
+          name <- [ name | (PartName name, _, _) <- catchTracks ] <> map fst extra
+          return ("samples-" <> name, AudioSamples SamplesInfo
+            { groupPolyphony = Nothing
+            , groupCrossfade = 0
+            })
+
+        extra = do
+          (i, (name, trk)) <- zip [0..] $ mid.tracks >>= \case
+            BG name trk -> return (name   , trk)
+            Intro   trk -> return ("INTRO", trk)
+            _           -> []
+          return ("backing-" <> T.pack (show (i :: Int)) <> "-" <> T.replace " " "-" name, trk)
+
         newMidi = Song
           { tempos = mid.tempos
           , timesigs = mid.timesigs
@@ -242,8 +253,8 @@ importAmpPS2Ark _src folder = do
                     })
                 })
             , onyxSamples = Map.fromList do
-              (PartName name, _, trk) <- catchTracks
-              return ("catch-" <> name, importSampleTrack trk.samples)
+              (name, trk) <- [ (name, trk.samples) | (PartName name, _, trk) <- catchTracks ] <> extra
+              return ("samples-" <> name, importSampleTrack trk)
             }
           }
 
@@ -265,8 +276,8 @@ importAmpPS2Ark _src folder = do
       , plans = HM.singleton "amp" $ StandardPlan StandardPlanInfo
         { song        = Nothing -- TODO
         , parts       = Parts $ HM.fromList do
-          (name@(PartName baseName), _, _) <- catchTracks
-          return (name, PartSingle $ Input $ Named $ "catch-" <> baseName)
+          name <- [ name | (PartName name, _, _) <- catchTracks] <> map fst extra
+          return (PartName name, PartSingle $ Input $ Named $ "samples-" <> name)
         , crowd       = Nothing
         , comments    = []
         , tuningCents = 0

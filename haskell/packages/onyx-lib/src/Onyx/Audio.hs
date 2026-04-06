@@ -41,7 +41,7 @@ module Onyx.Audio
 , fadeStart, fadeEnd
 , mixMany, mixMany'
 , clampIfSilent
-, stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
+, stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios, gainRatioToDecibels
 , emptyChannels
 , remapChannels
 , makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
@@ -602,7 +602,11 @@ buildSource' aud = case aud of
       src <- buildSource' sample >>= \s -> if framesToSeconds (frames s) (rate s) < 10
         then liftIO $ cacheAudio s
         else return s
-      return (sample, src)
+      -- fix any center mono sources left mono by manualLeaf
+      let stereo = if src.channels == 1
+            then applyPansVols [0] [0] src
+            else src
+      return (sample, stereo)
     let stdRate = 44100
         secondsTimes = samps <&> first \case
           Seconds s -> s
@@ -845,6 +849,13 @@ fromStereoPanRatios (ratioL, ratioR) = let
   -- This becomes null in song.yml and breaks audio generation later
   in if isNaN result then 0 else result
 
+-- volRatio = 10 ** (volDB / 20)
+gainRatioToDecibels :: Float -> Float
+gainRatioToDecibels ratio = let
+  db = logBase 10 ratio * 20
+  -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
+  in if isInfinite db && db < 0 then -9999 else db
+
 -- Used for PowerGig import, also GH1 import
 -- Gets the RB-style vol given the "raw" L/R ratios and the desired ones.
 decibelDifferenceInPanRatios :: (Float, Float) -> (Float, Float) -> Float
@@ -853,10 +864,7 @@ decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
   volRatio = if oneL > oneR
     then twoL / oneL
     else twoR / oneR
-  -- volRatio = 10 ** (volDB / 20)
-  result = logBase 10 volRatio * 20
-  -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
-  in if isInfinite result && result < 0 then -9999 else result
+  in gainRatioToDecibels volRatio
 
 -- | Like 'applyPansVols', but mixes into mono instead of stereo.
 applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float

@@ -142,9 +142,10 @@ manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.l
         audio <- HM.lookup trigger.audio sampleToAudio
         let tweak = tweakPanVol . tweakTranspose . tweakDuration
             tweakPanVol = case (trigger.pan, trigger.volume) of
+              -- note, this leaves center mono sources as mono. will stereofy later
               (0  , 0    ) -> id
               (0  , volDB) -> Gain $ 10 ** (volDB / 20)
-              (pan, volDB) -> PansVols (repeat $ realToFrac pan) (repeat $ realToFrac volDB)
+              (pan, volDB) -> PansVols [realToFrac pan] [realToFrac volDB]
             tweakTranspose = case trigger.transpose of
               0 -> id
               _ -> StretchSimple $ 1 / (2 ** (trigger.transpose / 12))

@@ -33,7 +33,7 @@ import           Data.Conduit.Audio.Sndfile   (sourceSndFrom)
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef
-import           Data.List.Extra              (nubOrd)
+import           Data.List.Extra              (nubOrd, sort)
 import qualified Data.List.NonEmpty           as NE
 import           Data.List.Split              (splitPlaces)
 import qualified Data.Set                     as Set
@@ -561,7 +561,7 @@ projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
       { parts = concat
         [ ["Backing"]
         , do
-          (name, indexes) <- HM.toList x.parts.getParts
+          (name, indexes) <- sort $ HM.toList x.parts.getParts
           guard $ not $ null $ concat $ toList indexes
           return $ displayPartName name
         , ["Crowd" | not $ null x.crowd]
@@ -572,7 +572,7 @@ projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
     let audios = concat
           [ ("Backing",) <$> toList x.song
           , do
-            (partName, partAudio) <- HM.toList x.parts.getParts
+            (partName, partAudio) <- sort $ HM.toList x.parts.getParts
             partSingle <- toList partAudio
             return (displayPartName partName, partSingle)
           , ("Crowd",) <$> toList x.crowd
