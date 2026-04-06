@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
@@ -81,7 +82,7 @@ runExpressionValue args x fluent = case x of
         fullArgs = case termArgs of
           Nothing -> args
           Just newArgs -> let
-            newArgs' = HM.fromList $ flip mapMaybe newArgs $ \case
+            newArgs' = HM.fromList $ flip mapMaybe newArgs \case
               NamedArgument name arg -> Just (name, arg)
               InlineArgument _       -> Nothing -- parses but nonsensical
             -- union prefers left if both have a key

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Kakasi where
 
 import           Control.Monad   (void)
@@ -18,8 +19,8 @@ foreign import ccall "kakasi_free"
   kakasi_free :: CString -> IO CInt
 
 kakasiArgs :: [String] -> IO CInt
-kakasiArgs args = withMany withCString args $ \ps -> do
-  withArrayLen ps $ \len p -> do
+kakasiArgs args = withMany withCString args \ps -> do
+  withArrayLen ps \len p -> do
     kakasi_getopt_argv (fromIntegral len) p
 
 kakasiDo :: B.ByteString -> IO B.ByteString

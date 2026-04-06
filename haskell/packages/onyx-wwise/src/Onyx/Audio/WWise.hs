@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase     #-}
 module Onyx.Audio.WWise (WW2OggConfig(..), ww2ogg) where
 
 import qualified Data.ByteString        as B
@@ -13,16 +14,16 @@ data WW2OggConfig = WW2OggConfig
 
 ww2ogg :: WW2OggConfig -> B.ByteString -> IO (Maybe B.ByteString)
 ww2ogg cfg inBytes = do
-  BU.unsafeUseAsCStringLen inBytes $ \(p, len) -> do
-    alloca $ \pStream -> do
-      alloca $ \pOutLen -> do
-        withCString (wwCodebook cfg) $ \cbook -> do
+  BU.unsafeUseAsCStringLen inBytes \(p, len) -> do
+    alloca \pStream -> do
+      alloca \pOutLen -> do
+        withCString (wwCodebook cfg) \cbook -> do
           n <- hs_ww2ogg p (fromIntegral len) pStream pOutLen cbook
           if n == 0
             then do
               stream <- peek pStream
               outLen <- peek pOutLen
-              bs <- allocaBytes (fromIntegral outLen) $ \pout -> do
+              bs <- allocaBytes (fromIntegral outLen) \pout -> do
                 hs_fill_stream stream pout
                 hs_delete_stream stream
                 B.packCStringLen (pout, fromIntegral outLen)
@@ -30,9 +31,9 @@ ww2ogg cfg inBytes = do
             else return Nothing
 
 revorb :: B.ByteString -> IO (Maybe B.ByteString)
-revorb bs = BU.unsafeUseAsCStringLen bs $ \(p, inlen) -> do
-  alloca $ \ppout -> do
-    alloca $ \plen -> do
+revorb bs = BU.unsafeUseAsCStringLen bs \(p, inlen) -> do
+  alloca \ppout -> do
+    alloca \plen -> do
       res <- hs_revorb (castPtr p) (fromIntegral inlen) ppout plen
       if res == 0
         then do

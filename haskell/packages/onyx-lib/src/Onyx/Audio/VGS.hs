@@ -347,7 +347,7 @@ decryptReadVGS input = do
       keys <- useHandle input \h -> do
         IO.hSeek h IO.AbsoluteSeek 0x80
         BL.hGet h 0x10 >>= runGetM (liftA2 (,) getWord64le getWord64le)
-      return $ makeHandle "(decrypted vgs)" $ do
+      return $ makeHandle "(decrypted vgs)" do
         h <- rOpen input
         newHeader <- byteStringSimpleHandle $ runPut do
           putByteString "VgS!"

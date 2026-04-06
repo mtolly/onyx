@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -7,10 +8,11 @@
 module Onyx.Harmonix.MOGG.Crypt where
 
 import           Control.Exception        (bracket, onException)
-import           Control.Monad            (when)
+import           Control.Monad            (guard)
 import qualified Data.ByteString          as B
 import           Data.ByteString.Internal (fromForeignPtr0)
 import qualified Data.ByteString.Lazy     as BL
+import           Data.Functor             ((<&>))
 import           Foreign
 import           Foreign.C
 import qualified GHC.IO.Handle            as H
@@ -75,8 +77,8 @@ ovCallbacksDelete :: OVCallbacks -> IO ()
 ovCallbacksDelete (OVCallbacks cb) =
   [C.block| void { delete $(ov_callbacks* cb); } |]
 
-vorbisReaderOpen :: Ptr a -> OVCallbacks -> IO VorbisReader
-vorbisReaderOpen (castPtr -> src) (OVCallbacks cb) = VorbisReader <$>
+vorbisReaderOpen :: Ptr a -> OVCallbacks -> IO (Maybe VorbisReader)
+vorbisReaderOpen (castPtr -> src) (OVCallbacks cb) =
   [C.block| VorbisReader* {
     VorbisReader* vr = new VorbisReader();
     if (vr->Open($(void* src), *$(ov_callbacks* cb))) {
@@ -85,7 +87,7 @@ vorbisReaderOpen (castPtr -> src) (OVCallbacks cb) = VorbisReader <$>
     } else {
       return vr;
     }
-  } |]
+  } |] <&> \p -> guard (p /= nullPtr) >> Just (VorbisReader p)
 
 vorbisReaderDelete :: VorbisReader -> IO ()
 vorbisReaderDelete (VorbisReader vr) =
@@ -163,10 +165,11 @@ handleOVCallbacks h = do
 moggToOggHandles :: Handle -> IO SimpleHandle
 moggToOggHandles h = do
   (cb, cleanup) <- handleOVCallbacks h
-  vr@(VorbisReader p) <- vorbisReaderOpen nullPtr cb
-  when (p == nullPtr) $ do
-    cleanup
-    fail "Failed to decrypt .mogg file"
+  vr <- vorbisReaderOpen nullPtr cb >>= \case
+    Just vr -> return vr
+    Nothing -> do
+      cleanup
+      fail "Failed to decrypt .mogg file"
   size <- vorbisReaderSizeRaw vr
   return SimpleHandle
     { shSize  = fromIntegral size
@@ -184,7 +187,7 @@ moggToOggHandles h = do
     }
 
 moggToOgg :: Readable -> Readable
-moggToOgg r = makeHandle "decrypted mogg" $ do
+moggToOgg r = makeHandle "decrypted mogg" do
   h <- rOpen r
   moggToOggHandles h `onException` hClose h
 

@@ -137,7 +137,7 @@ sourceXA f = do
     , source   = C.bracketP
       (openBinaryFile f ReadMode)
       hClose
-      $ \h -> liftIO (hSeek h AbsoluteSeek $ fromIntegral headerSizeXA) >> let
+      \h -> liftIO (hSeek h AbsoluteSeek $ fromIntegral headerSizeXA) >> let
         numBlocks = xa.dataLength `quot` xa.blockSize
         go blocksLeft samplesLeft
           | blocksLeft  <= 0 = return ()

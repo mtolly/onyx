@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.PlayStation.NPData
 ( packNPData
@@ -180,17 +181,17 @@ rockRevolutionEdatConfig pkgLabel = NPDataConfig
 
 packNPData :: NPDataConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
 packNPData cfg fin fout hashName = do
-  withCString fin $ \pin -> do
-    withCString fout $ \pout -> do
+  withCString fin \pin -> do
+    withCString fout \pout -> do
       -- must be null-terminated
-      B.useAsCString hashName $ \pname -> do
+      B.useAsCString hashName \pname -> do
         -- content ID must be padded to 0x30 bytes with zeroes at end
-        BU.unsafeUseAsCString (npdContentID cfg <> B.replicate 0x30 0) $ \pcid -> do
+        BU.unsafeUseAsCString (npdContentID cfg <> B.replicate 0x30 0) \pcid -> do
           -- klic, RAP, and RIF are all 0x10 bytes
-          BU.unsafeUseAsCString (npdKLIC cfg <> B.replicate 0x10 0) $ \pklic -> do
-            withArray (replicate 0x10 0) $ \prif -> do
-              forM_ (npdRAP cfg) $ \rap -> do
-                BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) $ \prap -> do
+          BU.unsafeUseAsCString (npdKLIC cfg <> B.replicate 0x10 0) \pklic -> do
+            withArray (replicate 0x10 0) \prif -> do
+              forM_ (npdRAP cfg) \rap -> do
+                BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) \prap -> do
                   c_get_rif_key (castPtr prap) (castPtr prif)
               err <- c_pack_data_from_paths
                 pin
@@ -216,15 +217,15 @@ data NPDecryptConfig = NPDecryptConfig
 
 decryptNPData :: NPDecryptConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
 decryptNPData cfg fin fout hashName = do
-  withCString fin $ \pin -> do
-    withCString fout $ \pout -> do
+  withCString fin \pin -> do
+    withCString fout \pout -> do
       -- must be null-terminated
-      B.useAsCString hashName $ \pname -> do
+      B.useAsCString hashName \pname -> do
         -- klic, RAP, and RIF are all 0x10 bytes
-        BU.unsafeUseAsCString (decKLIC cfg <> B.replicate 0x10 0) $ \pklic -> do
-          withArray (replicate 0x10 0) $ \prif -> do
-            forM_ (decRAP cfg) $ \rap -> do
-              BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) $ \prap -> do
+        BU.unsafeUseAsCString (decKLIC cfg <> B.replicate 0x10 0) \pklic -> do
+          withArray (replicate 0x10 0) \prif -> do
+            forM_ (decRAP cfg) \rap -> do
+              BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) \prap -> do
                 c_get_rif_key (castPtr prap) (castPtr prif)
             err <- c_extract_data_from_paths
               pin

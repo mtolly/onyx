@@ -145,7 +145,7 @@ redoSwells (F.Song tmap mmap ps) = let
       $ ATB.toPairList
       $ RTB.toAbsoluteEventList 0 allSingleRolls
     (singleRollsEdit, singleRollsLeave) = flip RTB.partition allSingleRollsWithAbsTime
-      $ \(t, len) -> let
+      \(t, len) -> let
         thisLaneNotes = U.trackTake len $ U.trackDrop t notes
         in all (all (/= Drums.Red)) thisLaneNotes
     singleRollsEditBools  = splitEdgesBool $ snd <$> singleRollsEdit

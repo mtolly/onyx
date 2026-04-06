@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Amplitude.PS2.Bnk
@@ -73,7 +74,7 @@ sizedArea g = do
       ]
 
 getSAMPEntry :: Get SAMPEntry
-getSAMPEntry = sizedArea $ \_ -> do
+getSAMPEntry = sizedArea \_ -> do
   chans <- getWord32le -- guessing this is channels, all 1 in files i've seen
   rate <- getWord32le
   0 <- getWord32le -- dunno what this space is for
@@ -82,7 +83,7 @@ getSAMPEntry = sizedArea $ \_ -> do
   return $ SAMPEntry (fromIntegral chans) (fromIntegral rate) (fromIntegral posn)
 
 getSDESEntry :: Get SDESEntry
-getSDESEntry = sizedArea $ \bs -> do
+getSDESEntry = sizedArea \bs -> do
   endbytes <- getWord32le -- size of some unknown variable field at end
   minPitch <- getWord8
   maxPitch <- getWord8
@@ -103,7 +104,7 @@ getSDESEntry = sizedArea $ \bs -> do
     bs
 
 getINSTEntry :: Get INSTEntry
-getINSTEntry = sizedArea $ \bs -> do
+getINSTEntry = sizedArea \bs -> do
   _ <- getWord32le -- observed 1
   prog <- getWord16le
   _ <- getWord16le -- unknown

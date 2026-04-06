@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Frequency.HD where
@@ -19,9 +20,9 @@ data HD = HD
 
 getHD :: Get HD
 getHD = do
-  (locProg, locSset, locSmpl, locVagi) <- lookAhead $ do
-    getSCEI "Vers" $ \_size -> return ()
-    getSCEI "Head" $ \_size -> do
+  (locProg, locSset, locSmpl, locVagi) <- lookAhead do
+    getSCEI "Vers" \_size -> return ()
+    getSCEI "Head" \_size -> do
       _ <- getByteString 12
       _sizeHD <- getWord32le
       _sizeBD <- getWord32le
@@ -40,24 +41,24 @@ matchByteString x' = do
 
 getSCEI :: B.ByteString -> (Int -> Get a) -> Get a
 getSCEI typ g = do
-  size <- lookAhead $ do
+  size <- lookAhead do
     matchByteString "SCEI"
     matchByteString typ
     fromIntegral <$> getWord32le
-  isolate size $ do
+  isolate size do
     x <- lookAhead $ g size
     _ <- getByteString size
     return x
 
 getSCEIList :: B.ByteString -> Get a -> Get [Maybe a]
-getSCEIList typ g = getSCEI typ $ \_size -> do
-  posns <- lookAhead $ do
+getSCEIList typ g = getSCEI typ \_size -> do
+  posns <- lookAhead do
     _ <- getByteString 12
     count <- (+ 1) <$> getWord32le
     replicateM (fromIntegral count) getWord32le
-  forM posns $ \case
+  forM posns \case
     0xFFFFFFFF -> return Nothing
-    posn       -> fmap Just $ lookAhead $ do
+    posn       -> fmap Just $ lookAhead do
       _ <- getByteString $ fromIntegral posn
       g
 
