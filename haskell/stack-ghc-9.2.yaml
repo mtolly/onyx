@@ -29,10 +29,6 @@ extra-deps:
 # git repos
 - git: https://github.com/mtolly/midi
   commit: 67c595a8f0c3b2fa193c088374de5bf544234ff0 # string-param branch
-- git: https://github.com/mtolly/conduit-audio
-  commit: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
-  subdirs:
-  - conduit-audio-mpg123
 - git: https://github.com/mtolly/fltkhs
   # from TheGreatConsolidation upstream branch with several edits:
   # - updated fltk due to file picker bug in macos monterey

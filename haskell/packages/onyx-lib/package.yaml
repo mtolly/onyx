@@ -94,7 +94,6 @@ library:
   - conduit-audio-sndfile
   - conduit-audio-samplerate
   - conduit-audio-lame
-  - conduit-audio-mpg123
   - rubberband
   - JuicyPixels-stbir
   - onyx-arktool
