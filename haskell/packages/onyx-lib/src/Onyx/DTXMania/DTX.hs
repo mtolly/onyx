@@ -409,24 +409,30 @@ readDTXLines fmt lns = DTX
       (chan, frets) <- mapping
       return $ (frets,) <$> getChannel chan
 
+findDTXAudio :: FilePath -> IO (Maybe FilePath)
+findDTXAudio fp' = do
+  fp <- fixFileCase fp'
+  Dir.doesFileExist fp >>= \case
+    True  -> return $ Just fp
+    False -> case map toLower $ takeExtension fp of
+      ".ogg" -> return Nothing
+      _      -> findDTXAudio $ fp -<.> "ogg"
+
+loadDTXAudio :: (MonadResource m) => Readable -> IO (AudioSource m Float)
+loadDTXAudio r = do
+  magic <- useHandle r \h -> B.hGet h 4
+  case magic of
+    "KWD1" -> mapSamples fractionalSample <$> sourceXA r
+    "RIFF" -> sourceCompressedWAV r
+    _      -> ffSource r -- mp3, ogg, etc.
+
 dtxAudioSource :: (MonadResource m, MonadIO f, SendMessage f) =>
   FilePath -> StackTraceT f (Maybe (AudioSource m Float))
-dtxAudioSource fp' = do
-  fp <- fixFileCase fp'
-  stackIO (Dir.doesFileExist fp) >>= \case
-    True -> stackIO $ Just <$> case map toLower $ takeExtension fp of
-      ".mp3" -> ffSource $ fileReadable fp
-      ".xa"  -> mapSamples fractionalSample <$> sourceXA fp
-      ".wav" -> sourceCompressedWAV $ fileReadable fp
-      _      -> ffSource $ fileReadable fp
-    False -> do
-      tryOgg <- case map toLower $ takeExtension fp of
-        ".ogg" -> return Nothing
-        _      -> dtxAudioSource $ fp -<.> "ogg"
-      case tryOgg of
-        Nothing -> warn $ "Couldn't find audio file at: " <> fp
-        Just _  -> return ()
-      return tryOgg
+dtxAudioSource f = stackIO (findDTXAudio f) >>= \case
+  Nothing    -> do
+    warn $ "Couldn't find audio file at: " <> f
+    return Nothing
+  Just found -> stackIO $ Just <$> loadDTXAudio (fileReadable found)
 
 findOggS :: Handle -> IO (Maybe Integer)
 findOggS h = do
@@ -436,6 +442,7 @@ findOggS h = do
     (x, y) = B.breakSubstring "OggS" bs
     in guard (not $ B.null y) >> Just (fromIntegral $ B.length x)
 
+-- Older DTX simfiles sometimes have these strange "wav" with mp3 or ogg data inside
 sourceCompressedWAV :: (MonadIO f, MonadResource m) => Readable -> f (AudioSource m Float)
 sourceCompressedWAV r = liftIO do
   maybeCompressedStart <- useHandle r \h -> do
