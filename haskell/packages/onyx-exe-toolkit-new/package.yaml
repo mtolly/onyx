@@ -1,0 +1,51 @@
+name: onyx-exe-toolkit-new
+version: '20251011'
+github: mtolly/onyx
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../../LICENSE.txt
+
+extra-source-files:
+- ../../icon/icon.*
+
+ghc-options: -Wall
+
+executables:
+
+  onyx-new:
+    source-dirs: src
+    main: Main.hs
+
+    extra-libraries:
+    - stdc++
+    - fltk
+    - fltk_gl
+    - fltk_images
+    - fltk_jpeg
+    # TODO get the right libs, these are just hacked for linux
+    - X11
+    - Xfixes
+    - Xrender
+    - Xft
+    - Xext
+    - Xinerama
+    - Xcursor
+    - fontconfig
+    
+    cxx-options: -std=c++11
+
+    dependencies:
+    - base
+    - inline-c-cpp
+
+    ghc-options: -threaded -O -with-rtsopts=-N
+
+    when:
+    - condition: os(mingw32)
+      cpp-options: -DWINDOWS
+      ld-options: ../../icon/icon.o -mwindows
+    - condition: os(darwin)
+      cpp-options: -DMACOSX
+      # copied from fltkhs-hello-world, also unwind is to avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
+      ghc-options: "-optl-Wl,-lfltkc -optl-Wl,-keep_dwarf_unwind"

@@ -49,11 +49,9 @@ rubberband:
 	./make-pkg-config extra/rubberband.pc.in $(current_dir)/root
 
 fltk:
-	# TODO this needs to be matched with a working fltkhs version
-	cd libs/fltk && autoconf
-	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
-	cd libs/fltk && make
-	cd libs/fltk && make install
+	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root
+	cd libs/fltk && cmake --build build
+	cd libs/fltk && cmake --install build
 
 openal:
 	# does not build on ubuntu 16.04
