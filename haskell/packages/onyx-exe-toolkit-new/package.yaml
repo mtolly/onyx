@@ -24,6 +24,54 @@ executables:
   onyx-new:
     source-dirs: src
     main: Main.hs
+    c-sources:
+    - cbits/time_monotonic.c
+
+    dependencies:
+    - base
+    - inline-c
+    - inline-c-cpp
+    - directory
+    - aeson
+    - text
+    - bytestring
+    - unordered-containers
+    - filepath
+    - yaml
+    - process
+    - resourcet
+    - hsndfile
+    - transformers
+    - data-default-class
+    - stm
+    - req
+    - fltkhs
+    - midi
+    - event-list
+    - containers
+    - time
+    - non-negative
+    - binary
+    - random
+    # - tcp-streams
+    # - io-streams
+    - fsnotify
+    - gl
+    - async
+    - network
+    - exceptions
+    - extra
+    - JuicyPixels
+    - hashable
+    - optics
+    - vector
+    # my libraries
+    - midi-util
+    - conduit-audio
+    # local
+    - onyx-lib
+    - onyx-lib-game
+    - onyx-handle
 
     extra-libraries:
     - stdc++
@@ -31,17 +79,19 @@ executables:
     
     cxx-options: -std=c++11
 
-    dependencies:
-    - base
-    - inline-c
-    - inline-c-cpp
-
     ghc-options: -threaded -O -with-rtsopts=-N
 
     when:
     - condition: os(mingw32)
-      cpp-options: -DWINDOWS
-      ld-options: ../../icon/icon.o -mwindows
+      then:
+        cpp-options: -DWINDOWS
+        ld-options: ../../icon/icon.o -mwindows
+        dependencies: Win32
+        cxx-sources:
+        - cbits/win_open_folder.cpp
+        cxx-options: -std=c++11
+      else:
+        dependencies: mountpoints
     - condition: os(darwin)
       cpp-options: -DMACOSX
       # copied from fltkhs-hello-world, also unwind is to avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
