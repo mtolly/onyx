@@ -5,11 +5,19 @@ author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
 license: GPL-3
 license-file: ../../LICENSE.txt
+build-type: Custom
 
 extra-source-files:
 - ../../icon/icon.*
 
 ghc-options: -Wall
+
+custom-setup:
+  dependencies:
+  - Cabal
+  - base
+  - process
+  - filepath
 
 executables:
 
@@ -19,24 +27,13 @@ executables:
 
     extra-libraries:
     - stdc++
-    - fltk
-    - fltk_gl
-    - fltk_images
-    - fltk_jpeg
-    # TODO get the right libs, these are just hacked for linux
-    - X11
-    - Xfixes
-    - Xrender
-    - Xft
-    - Xext
-    - Xinerama
-    - Xcursor
-    - fontconfig
+    # everything for fltk is added via Setup.hs running fltk-config
     
     cxx-options: -std=c++11
 
     dependencies:
     - base
+    - inline-c
     - inline-c-cpp
 
     ghc-options: -threaded -O -with-rtsopts=-N
