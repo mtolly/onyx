@@ -73,6 +73,11 @@ Your OS-specific package should be created.
 
 # Command line installation
 
+## Linux
 Follow normal build instructions, but instead of `./package`,
 run `./install-cli <DIR>` to install `onyx` and `onyx-files` into `<DIR>`.
 Default installation folder is `~/.local/bin`.
+
+## Windows
+
+Run `./package-cli` and a new folder will be created that starts with `onyx-command-line`

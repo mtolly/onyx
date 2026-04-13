@@ -180,6 +180,7 @@ import qualified System.Directory                     as Dir
 import           System.FilePath                      (dropExtension,
                                                        dropTrailingPathSeparator,
                                                        splitExtension,
+                                                       takeBaseName,
                                                        takeDirectory,
                                                        takeExtension,
                                                        takeFileName, (-<.>),
@@ -1468,6 +1469,83 @@ commands =
       _ -> fatal "Expected 2 arguments: song-base song-new"
     }
 
+  , Command
+    { commandWord = "scoring"
+    , commandDesc = "Show score/star cutoff info for a MIDI file."
+    , commandUsage = T.unlines
+      [ "onyx scoring in.mid [--game rb3|gh2] [--base-only]"
+      , ""
+      , "Options:"
+      , "  --game rb3    Show only Rock Band 3 data"
+      , "  --game gh2    Show only Guitar Hero 1/2 data"
+      , "  --base-only   Show base scores only (no star cutoffs)"
+      , ""
+      , "By default, both RB3 and GH1/2 data are shown with full star cutoffs."
+      ]
+    , commandList = True
+    , commandRun = \args opts -> case args of
+      fin : _ -> do
+        mid <- do
+          -- I don't want warnings to show. Assumes MIDI is set up correctly.
+          -- Fatal errors will still show. (AM)
+          (result, _) <- stackIO $ runPureLogT $ runStackTraceT
+            (F.loadMIDI fin :: StackTraceT (PureLog IO) (F.Song (F.FixedFile U.Beats)))
+          either throwError return result
+        let fixed          = mid.tracks :: F.FixedFile U.Beats
+            foundTracksRB3 = getScoreTracks    fixed
+            foundTracksGH2 = getScoreTracksGH2 fixed
+            gameFilter     = listToMaybe [ g | OptGame g <- opts ]
+            baseOnly       = OptBaseOnly `elem` opts
+            showRB3        = gameFilter `notElem` [Just GameGH2]
+            showGH2        = gameFilter `notElem` [Just GameRB3]
+        stackIO $ do
+          putStrLn $ takeBaseName fin <> " Cutoffs"
+          -- RB3
+          when showRB3 $ do
+            putStrLn "=== Rock Band 3 ==="
+            forM_ foundTracksRB3 $ \(strack, diff, (base, solo)) -> do
+              if baseOnly
+                then putStrLn $ unwords [ show strack, show diff, "base=" <> show base ]
+                else do
+                  let stars = tracksToStars [(strack, diff, (base, solo))]
+                      showStar lbl ms = maybe [] (\n -> [lbl <> "=" <> show n]) ms
+                  putStrLn $ unwords $
+                    [ show strack, show diff, "base=" <> show base, "solo=" <> show solo ] ++
+                    showStar "1*" (stars1 stars) ++ showStar "2*" (stars2 stars) ++
+                    showStar "3*" (stars3 stars) ++ showStar "4*" (stars4 stars) ++
+                    showStar "5*" (stars5 stars) ++ showStar "G*" (starsGold stars)
+          -- GH2
+          when showGH2 $ do
+            putStrLn "=== Guitar Hero 1/2 ==="
+            forM_ [minBound .. maxBound] $ \diff -> do
+              let guitarBase = listToMaybe [ base | (ScoreGH2Guitar, d, base) <- foundTracksGH2, d == diff ]
+                  coopBases  = [ base | (strack, d, base) <- foundTracksGH2
+                                      , d == diff, strack `elem` [ScoreGH2Bass, ScoreGH2Rhythm] ]
+              forM_ guitarBase $ \base -> do
+                if baseOnly
+                  then putStrLn $ unwords [ show diff, "Lead:", "base=" <> show base ]
+                  else do
+                    let mult n = floor (toRational base * n) :: Int
+                    putStrLn $ unwords [ show diff, "Lead:", "base=" <> show base
+                                       , "4*=" <> show (mult 2)
+                                       , "5*(GH2)=" <> show (mult 2.8)
+                                       , "5*(GH1)=" <> show (mult 3) ]
+              case coopBases of
+                [] -> return ()
+                _  -> do
+                  let p2Base   = sum coopBases
+                      coopBase = maybe p2Base (+ p2Base) guitarBase
+                      mult n   = floor (toRational coopBase * n) :: Int
+                  if baseOnly
+                    then putStrLn $ unwords [ show diff, "Coop:", "rhythm-base=" <> show p2Base
+                                           , "coop-base=" <> show coopBase ]
+                    else putStrLn $ unwords [ show diff, "Coop:", "rhythm-base=" <> show p2Base
+                                           , "coop-base=" <> show coopBase
+                                           , "5*=" <> show (mult 2) ]
+        return []
+      _ -> fatal "Expected 1 argument (input midi)"
+    }
+
   ]
 
 _oldCommands :: [Command]
@@ -1908,6 +1986,7 @@ optDescrs =
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   , Option []   ["crypt"          ] (NoArg  OptCrypt                          ) ""
   , Option []   ["bin-sources"    ] (NoArg  OptBinSources                     ) ""
+  , Option []   ["base-only"      ] (NoArg  OptBaseOnly                        ) ""
   ] where
     readGame = \case
       "rb3"   -> GameRB3
@@ -1939,6 +2018,7 @@ data OnyxOption
   | OptHelp
   | OptCrypt
   | OptBinSources
+  | OptBaseOnly
   deriving (Eq, Ord, Show)
 
 applyMidiFunction
