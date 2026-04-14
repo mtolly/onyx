@@ -372,7 +372,7 @@ launchGUI initSongs = withAL \hasAudio -> do
               $(Fl_Menu_Bar* menu)->box(FL_ENGRAVED_BOX);
               $(Fl_Menu_Bar* menu)->down_color(fl_rgb_color(0x32, 0x30, 0x30));
             } |]
-        return 30 -- TODO
+        return menuHeight
   menuHeight <- makeMenuBar consoleWidth macOS
   cbGithub <- makeCallback \_ _ ->
     osOpenFile "https://github.com/mtolly/onyx/releases"
@@ -417,40 +417,35 @@ launchGUI initSongs = withAL \hasAudio -> do
       [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
       [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
 
-      Rectangle (Position (X areaOpenX) (Y areaOpenY)) (Size (Width areaOpenW) (Height areaOpenH)) = areaOpen
-      Rectangle (Position (X areaBatchX) (Y areaBatchY)) (Size (Width areaBatchW) (Height areaBatchH)) = areaBatch
-      Rectangle (Position (X areaQuickX) (Y areaQuickY)) (Size (Width areaQuickW) (Height areaQuickH)) = areaQuick
-      Rectangle (Position (X areaMiscX) (Y areaMiscY)) (Size (Width areaMiscW) (Height areaMiscH)) = areaMisc
-
   -- TODO drag and drop support for open/batch buttons
 
   cbButtonOpen <- makeCallback \_ _ -> return () -- TODO: promptLoad sink makeMenuBar hasAudio
-  [C.block| void {
-    Fl_Button* buttonOpen = new Fl_Button($(int areaOpenX), $(int areaOpenY), $(int areaOpenW), $(int areaOpenH), "Load a song");
+  withRect areaOpen \x y w h -> [C.block| void {
+    Fl_Button* buttonOpen = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Load a song");
     buttonOpen->color($(Fl_Color loadSongColor));
     buttonOpen->callback($(Fl_Callback cbButtonOpen));
     buttonOpen->labelsize(13);
   } |]
 
   cbButtonBatch <- makeCallback \_ _ -> return () -- TODO: launchBatch' sink makeMenuBar []
-  [C.block| void {
-    Fl_Button* buttonBatch = new Fl_Button($(int areaBatchX), $(int areaBatchY), $(int areaBatchW), $(int areaBatchH), "Batch recompile");
+  withRect areaBatch \x y w h -> [C.block| void {
+    Fl_Button* buttonBatch = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Batch recompile");
     buttonBatch->color($(Fl_Color batchProcessColor));
     buttonBatch->callback($(Fl_Callback cbButtonBatch));
     buttonBatch->labelsize(13);
   } |]
 
   cbButtonQuick <- makeCallback \_ _ -> return () -- TODO: launchQuickConvert' sink makeMenuBar
-  [C.block| void {
-    Fl_Button* buttonQuick = new Fl_Button($(int areaQuickX), $(int areaQuickY), $(int areaQuickW), $(int areaQuickH), "Quick convert/pack");
+  withRect areaQuick \x y w h -> [C.block| void {
+    Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Quick convert/pack");
     buttonQuick->color($(Fl_Color quickConvertColor));
     buttonQuick->callback($(Fl_Callback cbButtonQuick));
     buttonQuick->labelsize(13);
   } |]
 
   cbButtonMisc <- makeCallback \_ _ -> return () -- TODO: launchMiscConvert' sink makeMenuBar
-  [C.block| void {
-    Fl_Button* buttonMisc = new Fl_Button($(int areaMiscX), $(int areaMiscY), $(int areaMiscW), $(int areaMiscH), "Other tools");
+  withRect areaMisc \x y w h -> [C.block| void {
+    Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Other tools");
     buttonMisc->color($(Fl_Color miscColor));
     buttonMisc->callback($(Fl_Callback cbButtonMisc));
     buttonMisc->labelsize(13);

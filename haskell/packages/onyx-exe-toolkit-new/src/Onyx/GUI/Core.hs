@@ -97,6 +97,9 @@ fl_rgb_color r g b =
     fl_rgb_color($(unsigned char r), $(unsigned char g), $(unsigned char b))
   } |]
 
+withRect :: Rectangle -> (CInt -> CInt -> CInt -> CInt -> a) -> a
+withRect (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) f = f x y w h
+
 --------------------------------------------------------------------------------
 
 type Onyx = StackTraceT OnyxInner
