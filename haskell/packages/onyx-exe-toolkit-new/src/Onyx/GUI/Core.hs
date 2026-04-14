@@ -47,6 +47,7 @@ import qualified Data.Text.Encoding               as TE
 -- import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Foreign                          (Ptr)
 import           Foreign.C                        (CInt, CUChar)
+import           Control.Monad                    (when)
 import qualified Language.C.Inline.Cpp            as C
 import           Numeric                          (readHex)
 import           Onyx.Audio                       (Audio (..))
@@ -55,7 +56,8 @@ import           Onyx.Build                       (NameRule (..), hashRB3,
                                                    validFileNamePiece)
 import           Onyx.Build.Common                (getTargetMetadata)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                    (askFolder)
+import           Onyx.GUI.Util                    (askFolder, withUTF8,
+                                                   peekUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.MIDI.Track.File             (PartName (..))
@@ -81,6 +83,16 @@ C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Group.H"
+C.include "FL/Fl_Box.H"
+C.include "FL/Fl_Button.H"
+C.include "FL/Fl_Check_Button.H"
+C.include "FL/Fl_Round_Button.H"
+C.include "FL/Fl_Input.H"
+C.include "FL/Fl_Counter.H"
+C.include "FL/Fl_Choice.H"
+C.include "FL/Fl_Menu_Button.H"
+C.include "FL/Fl_Pack.H"
+C.include "FL/Fl_Native_File_Chooser.H"
 C.include "FL/fl_ask.H"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
@@ -408,7 +420,231 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
 
--- TODO many things
+padded
+  :: (MonadIO m)
+  => CInt -> CInt -> CInt -> CInt
+  -> Size
+  -> (Rectangle -> m a)
+  -> m a
+padded t r b l size@(Size (Width w) (Height h)) fn = do
+  group <- liftIO do
+    let gw = w + fromIntegral l + fromIntegral r
+        gh = h + fromIntegral t + fromIntegral b
+    [C.exp| Fl_Group* { new Fl_Group(0, 0, $(int gw), $(int gh)) } |]
+  let rect = Rectangle (Position (X $ fromIntegral l) (Y $ fromIntegral t)) size
+  box <- liftIO $ withRect rect \bx by bw bh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  liftIO [C.block| void {
+    $(Fl_Group* group)->resizable($(Fl_Box* box));
+  } |]
+  x <- fn rect
+  liftIO [C.block| void { $(Fl_Group* group)->end(); } |]
+  return x
+
+-- TODO: centerFixed needs custom resize handler (C++ subclass), stub for now
+
+makeTab :: Rectangle -> T.Text -> (Rectangle -> Ptr Fl_Group -> IO a) -> IO a
+makeTab rect name fn = do
+  let tabHeight = 25
+      (_, innerRect) = chopTop tabHeight rect
+  group <- withRect innerRect \gx gy gw gh ->
+    withUTF8 (T.unpack name) \cname ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh), $(char* cname)) } |]
+  res <- fn innerRect group
+  [C.block| void { $(Fl_Group* group)->end(); } |]
+  return res
+
+horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio' _    _  []   = error "horizRadio: empty option list"
+horizRadio' rect cb opts = do
+  let rects = splitHorizN (fromIntegral $ length opts) rect
+  btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
+    btn <- withRect rectButton \bx by bw bh ->
+      withUTF8 (T.unpack label) \clabel ->
+        [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh), $(char* clabel)) } |]
+    let bval = if b then 1 else 0 :: CInt
+    [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
+    return btn
+  forM_ btns \opt -> do
+    cbOpt <- makeCallback \_ _ -> do
+      forM_ btns \opt' -> do
+        let v = if opt == opt' then 1 else 0 :: CInt
+        [C.block| void { $(Fl_Round_Button* opt')->value($(int v)); } |]
+      sequence_ cb
+    [C.block| void { $(Fl_Round_Button* opt)->callback($(Fl_Callback cbOpt)); } |]
+  return do
+    bools <- forM btns \btn -> do
+      v <- [C.exp| int { $(Fl_Round_Button* btn)->value() } |]
+      return (v /= 0)
+    return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
+
+horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio rect = horizRadio' rect Nothing
+
+speedPercent' :: Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
+speedPercent' isConverter rect = do
+  let lbl = if isConverter then "Speed (%)" else ""
+  speed <- withRect rect \sx sy sw sh ->
+    withUTF8 lbl \clabel ->
+      [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh), $(char* clabel)) } |]
+  [C.block| void {
+    Fl_Counter* s = $(Fl_Counter* speed);
+    s->labelsize(13);
+    s->align(FL_ALIGN_LEFT);
+    s->step(1);
+    s->lstep(5);
+    s->minimum(1);
+    s->value(100);
+  } |]
+  when isConverter $ withUTF8 "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio." \tip ->
+    [C.block| void { $(Fl_Counter* speed)->tooltip($(char* tip)); } |]
+  let getSpeed = do
+        v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
+        return (realToFrac v / 100 :: Double)
+  return (getSpeed, speed)
+
+speedPercent :: Bool -> Rectangle -> IO (IO Double)
+speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
+
+makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
+makePresetDropdown rect opts = do
+  let (initialLabel, initialOpt) = head opts
+  menu <- withRect rect \mx my mw mh ->
+    withUTF8 (T.unpack initialLabel) \clabel ->
+      [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), $(char* clabel)) } |]
+  ref <- newIORef initialOpt
+  forM_ opts \(label, opt) -> do
+    -- need to escape in menu items (but not button label) to not make submenus
+    let label' = T.unpack $ T.replace "/" "\\/" label
+    menuCb <- makeCallback \_ _ -> do
+      writeIORef ref opt
+      withUTF8 (T.unpack label) \newLabel ->
+        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 label' \clabel ->
+      [C.block| void {
+        $(Fl_Menu_Button* menu)->add($(char* clabel), 0, $(Fl_Callback menuCb));
+      } |]
+  return $ readIORef ref
+
+makeDropdown :: Rectangle -> NE.NonEmpty (T.Text, a, Bool) -> IO (IO a)
+makeDropdown rect opts = do
+  let (initialLabel, initialOpt, _) = case NE.filter (\(_, _, b) -> b) opts of
+        opt : _ -> opt
+        []      -> NE.head opts
+  menu <- withRect rect \mx my mw mh ->
+    withUTF8 (T.unpack initialLabel) \clabel ->
+      [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), $(char* clabel)) } |]
+  ref <- newIORef initialOpt
+  forM_ opts \(label, opt, _) -> do
+    let label' = T.unpack $ T.replace "/" "\\/" label
+    menuCb <- makeCallback \_ _ -> do
+      writeIORef ref opt
+      withUTF8 (T.unpack label) \newLabel ->
+        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 label' \clabel ->
+      [C.block| void {
+        $(Fl_Menu_Button* menu)->add($(char* clabel), 0, $(Fl_Callback menuCb));
+      } |]
+  return $ readIORef ref
+
+gh2DeluxeSelector
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO (IO (Maybe Bool)) -- Bool is True if 2x drums
+gh2DeluxeSelector _sink rect = do
+  let (checkArea, kicksArea) = chopRight 150 rect
+  check <- withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "GH2 Deluxe features") } |]
+  kicks <- withRect kicksArea \kx ky kw kh ->
+    [C.exp| Fl_Choice* { new Fl_Choice($(int kx), $(int ky), $(int kw), $(int kh)) } |]
+  [C.block| void {
+    $(Fl_Choice* kicks)->add("1x drums");
+    $(Fl_Choice* kicks)->add("2x drums");
+    $(Fl_Choice* kicks)->value(0);
+  } |]
+  let updateKicks = do
+        enabled <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        if enabled /= 0
+          then [C.block| void { $(Fl_Choice* kicks)->activate(); } |]
+          else [C.block| void { $(Fl_Choice* kicks)->deactivate(); } |]
+  cbCheck <- makeCallback \_ _ -> updateKicks
+  [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  updateKicks
+  [C.block| void { $(Fl_Check_Button* check)->value(0); } |]
+  return do
+    enableDeluxe <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    if enableDeluxe /= 0
+      then do
+        i <- [C.exp| int { $(Fl_Choice* kicks)->value() } |]
+        return $ Just $ i == 1
+      else return Nothing
+
+makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner sink buttonText defTemplate useTemplate = do
+  padded 5 10 10 10 (Size (Width 500) (Height 30)) \rect -> do
+    input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
+    withUTF8 (T.unpack $ T.unlines
+      [ "Template for where to create new files."
+      , "  %input_dir% - folder containing the input"
+      , "  %input_base% - input filename by itself, extension removed"
+      , "  %modifiers% - added distinguishing features e.g. speed modifier"
+      , "  %title% - title from song's metadata (including modifiers)"
+      , "  %artist% - artist from song's metadata"
+      , "  %album% - album from song's metadata"
+      , "  %author% - author from song's metadata"
+      , "  %song_id% - unique song ID"
+      ]) \tip ->
+      [C.block| void { $(Fl_Input* input)->tooltip($(char* tip)); } |]
+
+makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
+makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
+  let (buttonRect, notButton) = chopLeft 250 rect
+      (_, rectA) = chopLeft 80 notButton
+      (inputRect, rectB) = chopRight 100 rectA
+      (_, rectC) = chopRight 90 rectB
+      (browseRect, _) = chopLeft 40 rectC
+      (_, rectD) = chopRight 50 rectC
+      (_, resetRect) = chopRight 40 rectD
+  button <- withRect buttonRect \bx by bw bh ->
+    withUTF8 (T.unpack buttonText) \clabel ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), $(char* clabel)) } |]
+  [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
+  input <- withRect inputRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
+  [C.block| void {
+    $(Fl_Input* input)->labelsize(13);
+    $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+  } |]
+  withUTF8 (T.unpack defTemplate) \cdef ->
+    [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
+  cbButton <- makeCallback \_ _ -> do
+    val <- peekInputValue input
+    useTemplate val
+  [C.block| void { $(Fl_Button* button)->callback($(Fl_Callback cbButton)); } |]
+  browseButton <- withRect browseRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+  cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir -> do
+    val <- peekInputValue input
+    let newVal = dir </> takeFileName (T.unpack val)
+    withUTF8 newVal \cnewval ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cnewval)); } |]
+  [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
+  resetButton <- withRect resetRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
+  cbReset <- makeCallback \_ _ -> sink $ EventIO do
+    withUTF8 (T.unpack defTemplate) \cdef ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
+  [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
+  return input
+
+peekInputValue :: Ptr Fl_Input -> IO T.Text
+peekInputValue input = do
+  cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+  T.pack <$> peekUTF8 cstr
+
+-- TODO: fileLoadWindow needs FL.Tree with custom event handling, stub for now
+-- TODO: dragAndDrop needs custom event handling, stub for now
+-- TODO: customTitleSuffix, songIDBox, numberBox, partSelectors need more widget translation
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 

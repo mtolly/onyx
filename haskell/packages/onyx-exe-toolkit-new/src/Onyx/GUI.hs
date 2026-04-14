@@ -13,6 +13,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI (launchGUI) where
 
@@ -20,7 +21,6 @@ module Onyx.GUI (launchGUI) where
 import           Onyx.GUI.Core
 -- import           Onyx.GUI.Misc
 -- import           Onyx.GUI.Song
-
 import           Codec.Picture                     (readImage, savePngImage,
                                                     writePng)
 import           Control.Concurrent                (MVar, ThreadId, forkIO,
@@ -75,7 +75,7 @@ import           Data.Word                         (Word32)
 import           Foreign                           (Ptr, alloca,
                                                     freeHaskellFunPtr, peek,
                                                     toBool)
-import           Foreign.C                         (CString)
+import           Foreign.C                         (CInt, CString)
 -- import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 -- import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 -- import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
@@ -112,7 +112,8 @@ import           Onyx.Game.Track
 import           Onyx.Genre                        (FullGenre (..),
                                                     interpretGenre)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                     (askFolder, withUTF8)
+import           Onyx.GUI.Util                     (askFolder, withUTF8,
+                                                    peekUTF8)
 import           Onyx.Harmonix.Ark.GH2             (GH2InstallLocation (..))
 import qualified Onyx.Harmonix.DTA.Serialize.GH2   as D
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
@@ -196,6 +197,9 @@ C.include "FL/Fl_Box.H"
 C.include "FL/Fl_Terminal.H"
 C.include "FL/Fl_Menu_Bar.H"
 C.include "FL/Fl_Sys_Menu_Bar.H"
+C.include "FL/Fl_Tabs.H"
+C.include "FL/Fl_Native_File_Chooser.H"
+C.include "FL/fl_ask.H"
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
 windowCloser :: IO () -> Ptr Fl_Window -> IO ()
@@ -280,22 +284,22 @@ launchGUI initSongs = withAL \hasAudio -> do
             menuOptions =
               [ ( "File/Open Song"
                 , [C.pure| int { FL_COMMAND + 'o' } |]
-                , return () -- promptLoad sink makeMenuBar hasAudio
+                , promptLoad sink makeMenuBar hasAudio
                 , 0
                 )
               , ( "File/Batch Recompile"
                 , [C.pure| int { FL_COMMAND + 'b' } |]
-                , return () -- launchBatch' sink makeMenuBar []
+                , launchBatch' sink makeMenuBar []
                 , 0
                 )
               , ( "File/Quick Convert"
                 , [C.pure| int { FL_COMMAND + 'u' } |]
-                , return () -- launchQuickConvert' sink makeMenuBar
+                , launchQuickConvert' sink makeMenuBar
                 , 0
                 )
               , ( "File/Tools"
                 , [C.pure| int { FL_COMMAND + 't' } |]
-                , return () -- launchMisc sink makeMenuBar
+                , launchMisc sink makeMenuBar
                 , 0
                 )
               , ( "File/Close Window"
@@ -312,7 +316,7 @@ launchGUI initSongs = withAL \hasAudio -> do
                 )
               , ( "Edit/Preferences"
                 , 0 -- maybe Cmd+, on Mac
-                , return () -- sink $ EventOnyx $ launchPreferences sink makeMenuBar
+                , sink $ EventOnyx $ launchPreferences sink makeMenuBar
                 , 0
                 )
               , ( "Help/Readme"
@@ -419,7 +423,7 @@ launchGUI initSongs = withAL \hasAudio -> do
 
   -- TODO drag and drop support for open/batch buttons
 
-  cbButtonOpen <- makeCallback \_ _ -> return () -- TODO: promptLoad sink makeMenuBar hasAudio
+  cbButtonOpen <- makeCallback \_ _ -> promptLoad sink makeMenuBar hasAudio
   withRect areaOpen \x y w h -> [C.block| void {
     Fl_Button* buttonOpen = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Load a song");
     buttonOpen->color($(Fl_Color loadSongColor));
@@ -427,7 +431,7 @@ launchGUI initSongs = withAL \hasAudio -> do
     buttonOpen->labelsize(13);
   } |]
 
-  cbButtonBatch <- makeCallback \_ _ -> return () -- TODO: launchBatch' sink makeMenuBar []
+  cbButtonBatch <- makeCallback \_ _ -> launchBatch' sink makeMenuBar []
   withRect areaBatch \x y w h -> [C.block| void {
     Fl_Button* buttonBatch = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Batch recompile");
     buttonBatch->color($(Fl_Color batchProcessColor));
@@ -435,7 +439,7 @@ launchGUI initSongs = withAL \hasAudio -> do
     buttonBatch->labelsize(13);
   } |]
 
-  cbButtonQuick <- makeCallback \_ _ -> return () -- TODO: launchQuickConvert' sink makeMenuBar
+  cbButtonQuick <- makeCallback \_ _ -> launchQuickConvert' sink makeMenuBar
   withRect areaQuick \x y w h -> [C.block| void {
     Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Quick convert/pack");
     buttonQuick->color($(Fl_Color quickConvertColor));
@@ -443,7 +447,7 @@ launchGUI initSongs = withAL \hasAudio -> do
     buttonQuick->labelsize(13);
   } |]
 
-  cbButtonMisc <- makeCallback \_ _ -> return () -- TODO: launchMiscConvert' sink makeMenuBar
+  cbButtonMisc <- makeCallback \_ _ -> launchMisc sink makeMenuBar
   withRect areaMisc \x y w h -> [C.block| void {
     Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Other tools");
     buttonMisc->color($(Fl_Color miscColor));
@@ -495,7 +499,7 @@ launchGUI initSongs = withAL \hasAudio -> do
 
   case initSongs of
     [] -> return ()
-    _  -> sink $ EventOnyx $ return () -- TODO: startLoad makeMenuBar hasAudio initSongs
+    _  -> sink $ EventOnyx $ startLoad makeMenuBar hasAudio initSongs
 
   void $ runResourceT $ (`runReaderT` sink) $ logChan let
     -- when we have processed a max number of messages, we want to do a quick
@@ -523,3 +527,405 @@ launchGUI initSongs = withAL \hasAudio -> do
         "Couldn't open audio device"
       loop
   [C.block| void { Fl::flush(); } |] -- dunno if required
+
+promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
+promptLoad sink makeMenuBar hasAudio = do
+  picker <- [C.exp| Fl_Native_File_Chooser* {
+    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
+  } |]
+  [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Load song"); } |]
+  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+  when (result == 0) do
+    n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+    fs <- forM [0 .. n - 1] \i -> do
+      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+      peekUTF8 cstr
+    sink $ EventOnyx $ startLoad makeMenuBar hasAudio fs
+  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+
+startLoad :: (Width -> Bool -> IO CInt) -> Bool -> [FilePath] -> Onyx ()
+startLoad makeMenuBar hasAudio fs = do
+  sink <- getEventSink
+  void $ forkOnyx do
+    results <- mapM (errorToEither . findAllSongs) fs
+    liftIO
+      $ mapM_ (sink . EventFail)
+      $ concat [ msgs | Left (Messages msgs) <- results ]
+    case concat [ imps | Right imps <- results ] of
+      []    -> fatal "No songs found!"
+      [imp] -> continueImport makeMenuBar hasAudio imp
+      imps  -> stackIO $ sink $ EventIO $ multipleSongsWindow sink makeMenuBar hasAudio imps
+
+importWithPreferences :: Importable OnyxInner -> Onyx Project
+importWithPreferences imp = do
+  projInit <- imp.impProject
+  -- only edit yml and resave if it's a temp-imported project, not one of my song.yml
+  if isJust projInit.projectRelease
+    then do
+      prefs <- readPreferences
+      let applyBlackVenue, applyDecryptSilent, applyDetectMuted
+            :: SongYaml FilePath -> SongYaml FilePath
+          applyBlackVenue = if prefs.prefBlackVenue
+            then #global % #autogenTheme .~ Nothing
+            else id
+          applyDecryptSilent = #plans % mapped %~ \case
+            MoggPlan mogg -> MoggPlan mogg { decryptSilent = prefs.prefDecryptSilent }
+            plan          -> plan
+          applyDetectMuted
+            = #parts % mapped % #grybo % mapped % #detectMutedOpens
+            .~ prefs.prefDetectMuted
+      stackIO $ saveProject projInit $ applyDetectMuted $ applyBlackVenue $ applyDecryptSilent projInit.projectSongYaml
+    else return projInit
+
+continueImport
+  :: (Width -> Bool -> IO CInt)
+  -> Bool
+  -> Importable OnyxInner
+  -> Onyx ()
+continueImport makeMenuBar hasAudio imp = do
+  sink <- getEventSink
+  -- TODO this can potentially not clean up the temp folder if interrupted during import
+  proj <- importWithPreferences imp
+  albumArt <- shakeBuild1 proj [] "gen/cover.png"
+  -- quick hack to select an audio plan on my projects
+  let withPlan k = do
+        let planMidi = "gen/plan" </> T.unpack k </> "processed.mid"
+        planMidi' <- shakeBuild1 proj [] planMidi
+        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> planMidi'
+        void $ forkOnyx $ projectAudio k proj >>= withAudio song
+      withNoPlan = do
+        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> "notes.mid"
+        withAudio song Nothing
+      withAudio song maybeAudio = stackIO $ sink $ EventOnyx do
+        prefs <- readPreferences
+        let ?preferences = prefs
+        stackIO $ launchWindow sink makeMenuBar proj song maybeAudio albumArt imp.impFormatRB
+      selectPlan [] = withNoPlan
+      selectPlan [k] = withPlan k
+      selectPlan (k : ks) = stackIO $ sink $ EventIO do
+        -- TODO: implement plan selection dialog
+        -- For now, just pick the first plan
+        sink $ EventOnyx $ withPlan k
+  if hasAudio
+    then selectPlan $ HM.keys proj.projectSongYaml.plans
+    else withNoPlan
+
+multipleSongsWindow
+  :: (Event -> IO ())
+  -> (Width -> Bool -> IO CInt)
+  -> Bool
+  -> [Importable OnyxInner]
+  -> IO ()
+multipleSongsWindow sink makeMenuBar hasAudio imps = do
+  let windowWidth = Width 500
+      windowHeight = Height 400
+      windowSize = Size windowWidth windowHeight
+  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Select Songs") } |]
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+      (songsArea, trimClock 10 0 0 0 -> buttonsArea) =
+        chopBottom 40 $ trimClock 10 10 10 10 windowRect
+      [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
+
+  -- TODO: translate scrolled list of songs with checkbuttons
+  -- For now just show a simple message and open all songs
+  _ <- withRect songsArea \bx by bw bh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Multiple songs found. Click Open to load all.") } |]
+
+  selectButton <- withRect areaSelect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Close") } |]
+  cbClose <- makeCallback \_ _ -> [C.block| void { $(Fl_Window* window)->hide(); } |]
+  [C.block| void { $(Fl_Button* selectButton)->callback($(Fl_Callback cbClose)); } |]
+
+  openButton <- withRect areaOpen \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Open All") } |]
+  [C.block| void { $(Fl_Button* openButton)->color($(Fl_Color taskColor)); } |]
+  cbOpen <- makeCallback \_ _ -> do
+    forM_ imps \imp -> do
+      sink $ EventOnyx $ void $ forkOnyx do
+        continueImport makeMenuBar hasAudio imp
+    [C.block| void { $(Fl_Window* window)->hide(); } |]
+  [C.block| void { $(Fl_Button* openButton)->callback($(Fl_Callback cbOpen)); } |]
+
+  [C.block| void {
+    $(Fl_Window* window)->end();
+    $(Fl_Window* window)->size_range(500, 400);
+    $(Fl_Window* window)->show();
+  } |]
+
+foreign import ccall unsafe "hs_getTimeMonotonic"
+  hs_getTimeMonotonic :: Ptr Int64 -> Ptr Word32 -> IO ()
+
+getTimeMonotonic :: IO SystemTime
+getTimeMonotonic = alloca \psecs -> alloca \pnsecs -> do
+  hs_getTimeMonotonic psecs pnsecs
+  secs <- peek psecs
+  nsecs <- peek pnsecs
+  return MkSystemTime
+    { systemSeconds     = secs
+    , systemNanoseconds = nsecs
+    }
+
+data Playing = Playing
+  { playStarted       :: SystemTime
+  , playSpeed         :: Double
+  , playStopAnimation :: IO ()
+  , playAudioHandle   :: AudioHandle
+  }
+
+data SongState = SongState
+  { songTime    :: Double
+  , songPlaying :: Maybe Playing
+  }
+
+currentSongTime :: SystemTime -> SongState -> Double
+currentSongTime stime ss = case ss.songPlaying of
+  Nothing -> ss.songTime
+  Just p  -> ss.songTime + let
+    timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
+    in (timeToDouble stime - timeToDouble p.playStarted) * p.playSpeed
+
+launchWindow
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> (Width -> Bool -> IO CInt)
+  -> Project
+  -> PreviewSong
+  -> Maybe ProjectAudio
+  -> FilePath
+  -> Bool -- True if this song could be loaded by Quick Convert
+  -> IO ()
+launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt _isRB = do
+  let windowWidth = Width 800
+      windowHeight = Height 500
+      windowSize = Size windowWidth windowHeight
+      title = T.unpack $ T.replace "/" "_" $ fromMaybe "Song" proj.projectSongYaml.metadata.title
+  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    withUTF8 title \ctitle ->
+      [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), $(char* ctitle)) } |]
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  [C.block| void {
+    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
+    $(Fl_Window* window)->size_range(800, 500);
+  } |]
+
+  tabs <- withRect windowRect \tx ty tw th ->
+    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
+
+  -- TODO: Translate the full song editing window with all tabs
+  -- (Metadata, Instruments, Preview, Stars, RB3, RB2, CH/PS, GH1, GH2, GH3, GH:WoR, RR, Utilities, Task)
+  -- For now, just show a placeholder tab
+
+  _placeholderTab <- makeTab windowRect "Song" \rect tab -> do
+    setTabColor tab homeTabColor
+    _ <- withRect rect \bx by bw bh ->
+      [C.exp| Fl_Box* {
+        new Fl_Box($(int bx), $(int by), $(int bw), $(int bh),
+          "Song loaded. Full editing interface is not yet translated.")
+      } |]
+    return tab
+
+  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+
+  cbWindow <- makeCallback \_ _ -> windowCloser
+    (mapM_ release proj.projectRelease)
+    window
+  [C.block| void {
+    $(Fl_Window* window)->end();
+    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
+    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
+    $(Fl_Window* window)->show();
+  } |]
+
+saveProject :: Project -> SongYaml FilePath -> IO Project
+saveProject proj song = do
+  yamlEncodeFile proj.projectLocation $ toJSON song
+  return proj { projectSongYaml = song }
+
+updateTabsColor :: Ptr Fl_Tabs -> IO ()
+updateTabsColor tabs = do
+  -- Get the currently selected tab's color and apply to tabs widget
+  color <- [C.block| Fl_Color {
+    Fl_Widget* child = ((Fl_Tabs*)$(Fl_Tabs* tabs))->value();
+    if (child) {
+      return child->selection_color();
+    } else {
+      return FL_GRAY;
+    }
+  } |]
+  [C.block| void { $(Fl_Tabs* tabs)->selection_color($(Fl_Color color)); } |]
+
+replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
+replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . (.fromQueueLog)
+
+taskOutputPage
+  :: Rectangle
+  -> Ptr Fl_Group
+  -> (Event -> IO ()) -- event sink
+  -> IO () -- callback when starting a task
+  -> IO () -- callback when ending a task
+  -> IO
+    ( [(String, Onyx [FilePath])] -> Onyx () -- returns function to start a task
+    , IO () -- cancels a task if running
+    )
+taskOutputPage rect tab sink cbStart cbEnd = do
+  let (labelRect, belowLabel) = chopTop 40 rect
+      (termRect, buttonRect) = chopBottom 50 belowLabel
+      labelRect' = trimClock 10 10 5 10 labelRect
+      termRect' = trimClock 5 10 5 10 termRect
+      buttonRect' = trimClock 5 10 10 10 buttonRect
+  labelTask <- withRect labelRect' \lx ly lw lh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh), "\xe2\x80\xa6") } |]
+  termTask <- withRect termRect' \tx ty tw th ->
+    [C.block| Fl_Terminal* {
+      Fl_Terminal* t = new Fl_Terminal($(int tx), $(int ty), $(int tw), $(int th));
+      t->history_lines(-1);
+      t->ansi(true);
+      return t;
+    } |]
+  [C.block| void {
+    $(Fl_Group* tab)->resizable($(Fl_Terminal* termTask));
+  } |]
+  cancelButton <- withRect buttonRect' \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Cancel") } |]
+  showButton <- withRect buttonRect' \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Show created files") } |]
+  [C.block| void { $(Fl_Button* showButton)->hide(); } |]
+
+  -- functions
+  taskStatus <- newMVar (Left Nothing) :: IO (MVar (Either
+      (Maybe (FilePath, [FilePath])) -- finished, maybe have files to show the user
+      (Int, Int, [[FilePath]], Int, ThreadId) -- tasks in progress
+    ))
+  let taskMessage :: (MessageLevel, Message) -> IO ()
+      taskMessage = sink . EventIO . addTerm termTask . toTermMessage
+      cbStart' = do
+        cbStart
+        [C.block| void {
+          $(Fl_Button* cancelButton)->activate();
+          $(Fl_Button* cancelButton)->show();
+          $(Fl_Button* showButton)->hide();
+          Fl::redraw();
+        } |]
+      cbEnd' = do
+        cbEnd
+        [C.block| void {
+          $(Fl_Button* cancelButton)->deactivate();
+          Fl::redraw();
+        } |]
+      putFinalResults success = do
+        common <- commonDir $ concat success
+        putMVar taskStatus $ Left common
+        case common of
+          Just _  -> [C.block| void {
+            $(Fl_Button* showButton)->show();
+            $(Fl_Button* cancelButton)->hide();
+          } |]
+          Nothing -> return ()
+      cancelTasks = do
+        takeMVar taskStatus >>= \case
+          Right (_, _, success, _, tid) -> do
+            addTerm termTask $ TermLog "Cancelled tasks."
+            killThread tid
+            putFinalResults success
+          Left res -> putMVar taskStatus $ Left res
+        cbEnd'
+      updateStatus fn = takeMVar taskStatus >>= \case
+        Left res -> putMVar taskStatus $ Left res -- maybe task was cancelled
+        Right oldStatus -> do
+          let status@(done, total, success, failure, _) = fn oldStatus
+          withUTF8 (unwords
+            [ show done <> "/" <> show total
+            , "tasks complete:"
+            , show $ length success
+            , "succeeded,"
+            , show failure
+            , "failed"
+            ]) \cs -> [C.block| void { $(Fl_Box* labelTask)->copy_label($(char* cs)); } |]
+          if done >= total
+            then do
+              cbEnd'
+              putFinalResults success
+            else putMVar taskStatus $ Right status
+      startTasks :: [(String, Onyx [FilePath])] -> Onyx ()
+      startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
+        Right status -> liftIO $ putMVar taskStatus $ Right status -- shouldn't happen
+        Left _ -> do
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) \(i, (taskName, task)) -> do
+            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) taskName
+            errorToEither task >>= \case
+              Left e -> liftIO $ sink $ EventIO do
+                forM_ e.getMessages $ addTerm termTask . TermError
+                updateStatus \case
+                  (done, total, success, failure, tid') -> (done + 1, total, success, failure + 1, tid')
+              Right fs -> liftIO $ sink $ EventIO do
+                addTerm termTask $ TermSuccess case fs of
+                  [] -> ""
+                  _  -> unlines $ "Created files:" : map ("  " <>) fs
+                updateStatus \case
+                  (done, total, success, failure, tid') -> (done + 1, total, fs : success, failure, tid')
+          liftIO do
+            putMVar taskStatus $ Right (0, length tasks, [], 0, tid)
+            cbStart'
+            updateStatus id
+
+  cbCancel <- makeCallback \_ _ -> sink $ EventIO cancelTasks
+  [C.block| void { $(Fl_Button* cancelButton)->callback($(Fl_Callback cbCancel)); } |]
+  cbShow <- makeCallback \_ _ -> sink $ EventIO do
+    res <- takeMVar taskStatus
+    case res of
+      Left (Just (dir, files)) -> osShowFolder dir files
+      _                        -> return ()
+    putMVar taskStatus res
+  [C.block| void { $(Fl_Button* showButton)->callback($(Fl_Callback cbShow)); } |]
+
+  return (startTasks, cancelTasks)
+
+applyDownmix :: Preferences -> SongYaml f -> SongYaml f
+applyDownmix prefs song = if prefs.prefCHDownmix
+  then mixDownStems song
+  else song
+
+warnQuickConvert :: Int -> (Event -> IO ()) -> Onyx () -> Onyx ()
+warnQuickConvert count sink go = let
+  warningText = T.concat
+    [ "You appear to be converting "
+    , if count == 1 then "a Rock Band song" else "Rock Band songs"
+    , " to RB3 at 100% speed.\n"
+    , "If you don't want to change anything about the "
+    , if count == 1 then "song" else "songs"
+    , " except console platform,\n"
+    , "you should use Quick Convert to preserve the "
+    , if count == 1 then "song ID" else "song IDs"
+    , " for online compatibility."
+    ]
+  in stackIO do
+    withUTF8 (T.unpack warningText) \cmsg -> do
+      result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
+      when (result == 1) $ sink $ EventOnyx go
+
+launchPreferences :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Onyx ()
+launchPreferences _sink _makeMenuBar = do
+  -- TODO: translate preferences window
+  return ()
+
+launchBatch' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
+launchBatch' sink _makeMenuBar _startFiles = do
+  -- TODO: translate batch window
+  sink $ EventOnyx $ warn "Batch recompile window not yet translated"
+
+launchQuickConvert' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchQuickConvert' sink _makeMenuBar = do
+  -- TODO: translate quick convert window
+  sink $ EventOnyx $ warn "Quick convert window not yet translated"
+
+launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchMisc sink _makeMenuBar = do
+  -- TODO: translate misc tools window
+  sink $ EventOnyx $ warn "Other tools window not yet translated"

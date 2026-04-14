@@ -24,6 +24,14 @@ executables:
   onyx-new:
     source-dirs: src
     main: Main.hs
+    other-modules:
+    - Onyx.GUI
+    - Onyx.GUI.Batch
+    - Onyx.GUI.Binding
+    - Onyx.GUI.Core
+    - Onyx.GUI.Misc
+    - Onyx.GUI.Song
+    - Onyx.GUI.Util
     c-sources:
     - cbits/time_monotonic.c
 

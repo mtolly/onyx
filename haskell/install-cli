@@ -14,7 +14,7 @@ INSTALL_DIR="$BIN_DIR/onyx-files"
 
 rm -rf "$INSTALL_DIR"
 mkdir "$INSTALL_DIR"
-stack exec which onyx | xargs -I{} cp {} "$INSTALL_DIR/onyx"
+stack exec which onyx-new | xargs -I{} cp {} "$INSTALL_DIR/onyx"
 cp -R resources "$INSTALL_DIR/onyx-resources"
 cp -R resources-cli/* "$INSTALL_DIR/onyx-resources/"
 case $(uname) in
