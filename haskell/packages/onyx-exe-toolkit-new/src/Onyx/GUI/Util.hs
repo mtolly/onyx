@@ -3,7 +3,7 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Onyx.GUI.Util (askFolder) where
+module Onyx.GUI.Util (askFolder, withUTF8, peekUTF8) where
 
 import           Control.Exception     (bracket)
 import           Foreign               (nullPtr)

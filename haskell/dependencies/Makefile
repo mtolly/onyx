@@ -49,6 +49,7 @@ rubberband:
 	./make-pkg-config extra/rubberband.pc.in $(current_dir)/root
 
 fltk:
+	# TODO do we need to build libpng as a dependency
 	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root
 	cd libs/fltk && cmake --build build
 	cd libs/fltk && cmake --install build

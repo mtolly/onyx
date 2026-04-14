@@ -5,7 +5,9 @@
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecursiveDo           #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Core where
 
@@ -43,12 +45,16 @@ import qualified Data.Text.Encoding               as TE
 --                                                             Width (..), X (..),
 --                                                             Y (..))
 -- import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
+import           Foreign                          (Ptr)
+import           Foreign.C                        (CInt, CUChar)
+import qualified Language.C.Inline.Cpp            as C
 import           Numeric                          (readHex)
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Build                       (NameRule (..), hashRB3,
                                                    targetTitle, validFileName,
                                                    validFileNamePiece)
 import           Onyx.Build.Common                (getTargetMetadata)
+import           Onyx.GUI.Binding
 import           Onyx.GUI.Util                    (askFolder)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
@@ -70,6 +76,28 @@ import           System.FilePath                  (dropTrailingPathSeparator,
                                                    takeDirectory, takeFileName,
                                                    (</>))
 import           Text.Read                        (readMaybe)
+
+C.context flContext
+
+C.include "FL/Fl.H"
+C.include "FL/Fl_Group.H"
+C.include "FL/fl_ask.H"
+
+newtype X = X CInt deriving (Eq, Show, Ord)
+newtype Y = Y CInt deriving (Eq, Show, Ord)
+newtype Width = Width CInt deriving (Eq, Show, Ord)
+newtype Height = Height CInt deriving (Eq, Show, Ord)
+data Position = Position X Y deriving (Eq, Show, Ord)
+data Size = Size Width Height deriving (Eq, Show, Ord)
+data Rectangle = Rectangle { rectanglePosition :: Position , rectangleSize :: Size } deriving (Eq, Show, Ord)
+
+fl_rgb_color :: CUChar -> CUChar -> CUChar -> Fl_Color
+fl_rgb_color r g b =
+  [C.pure| Fl_Color {
+    fl_rgb_color($(unsigned char r), $(unsigned char g), $(unsigned char b))
+  } |]
+
+--------------------------------------------------------------------------------
 
 type Onyx = StackTraceT OnyxInner
 type OnyxInner = QueueLog (ReaderT (Event -> IO ()) (ResourceT IO))
@@ -180,6 +208,71 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
 
 -- TODO many things
 
+chopRight :: CInt -> Rectangle -> (Rectangle, Rectangle)
+chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
+  ( Rectangle (Position (X x) (Y y)) (Size (Width $ w - n) (Height h))
+  , Rectangle (Position (X $ x + w - n) (Y y)) (Size (Width n) (Height h))
+  )
+
+chopLeft :: CInt -> Rectangle -> (Rectangle, Rectangle)
+chopLeft n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
+  ( Rectangle (Position (X x) (Y y)) (Size (Width n) (Height h))
+  , Rectangle (Position (X $ x + n) (Y y)) (Size (Width $ w - n) (Height h))
+  )
+
+chopTop :: CInt -> Rectangle -> (Rectangle, Rectangle)
+chopTop n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
+  ( Rectangle (Position (X x) (Y y)) (Size (Width w) (Height n))
+  , Rectangle (Position (X x) (Y $ y + n)) (Size (Width w) (Height $ h - n))
+  )
+
+chopBottom :: CInt -> Rectangle -> (Rectangle, Rectangle)
+chopBottom n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
+  ( Rectangle (Position (X x) (Y y)) (Size (Width w) (Height $ h - n))
+  , Rectangle (Position (X x) (Y $ y + h - n)) (Size (Width w) (Height n))
+  )
+
+splitHorizN :: CInt -> Rectangle -> [Rectangle]
+splitHorizN 1 rect = [rect]
+splitHorizN n rect@(Rectangle _ (Size (Width w) _)) = let
+  (rectFirst, rectRest) = chopLeft (quot w n) rect
+  in rectFirst : splitHorizN (n - 1) rectRest
+
+splitVertN :: CInt -> Rectangle -> [Rectangle]
+splitVertN 1 rect = [rect]
+splitVertN n rect@(Rectangle _ (Size _ (Height h))) = let
+  (rectFirst, rectRest) = chopTop (quot h n) rect
+  in rectFirst : splitVertN (n - 1) rectRest
+
+trimClock :: CInt -> CInt -> CInt -> CInt -> Rectangle -> Rectangle
+trimClock t r b l rect = let
+  (_, rect1) = chopTop    t rect
+  (rect2, _) = chopRight  r rect1
+  (rect3, _) = chopBottom b rect2
+  (_, rect4) = chopLeft   l rect3
+  in rect4
+
+homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, quickConvertColor, defaultColor :: Fl_Color
+homeTabColor      = fl_rgb_color 209 177 224
+functionTabColor  = fl_rgb_color 224 210 177
+taskColor         = fl_rgb_color 179 221 187
+globalLogColor    = fl_rgb_color 114 74 124
+miscColor         = fl_rgb_color 177 173 244
+loadSongColor     = fl_rgb_color 186 229 181
+batchProcessColor = fl_rgb_color 237 173 193
+behindTabsColor   = fl_rgb_color 94 94 94
+quickConvertColor = fl_rgb_color 232 213 150
+defaultColor      = fl_rgb_color 192 192 192
+
+setTabColor :: Ptr Fl_Group -> Fl_Color -> IO ()
+setTabColor tab color =
+  [C.block| void {
+    $(Fl_Group* tab)->color($(Fl_Color color));
+    $(Fl_Group* tab)->selection_color($(Fl_Color color));
+  } |]
+
+-- TODO many things
+
 trimXbox
   :: Preferences
   -> FilePath
@@ -188,7 +281,36 @@ trimXbox prefs f = if prefs.prefTrimXbox
   then validFileName NameRuleXbox f
   else f
 
--- TODO many things
+warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
+warnCombineXboxGH2 sink go = sink $ EventOnyx do
+  prefs <- readPreferences
+  stackIO $ unless prefs.prefWarnedXboxGH2 do
+    [C.block| void {
+      fl_choice(
+        "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\").\n"
+        "Loading more than 16 packages will fail to load some songs, and will corrupt your save!",
+        "OK", nullptr, nullptr
+      );
+    } |]
+    savePreferences prefs { prefWarnedXboxGH2 = True }
+  stackIO go
+
+warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
+warnXboxGHWoR sink go = sink $ EventOnyx do
+  prefs <- readPreferences
+  stackIO $ unless prefs.prefWarnedXboxWoR do
+    [C.block| void {
+      fl_choice(
+        "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,\n"
+        "to produce the extra file needed to load your songs.\n"
+        "\n"
+        "IMPORTANT: There may be an issue with loading too many custom songs\n"
+        "into Guitar Hero: Warriors of Rock, that could corrupt your save.\n"
+        "Please back up any save data you care about before loading custom songs!",
+        "OK", nullptr, nullptr
+      );
+    } |]
+    savePreferences prefs { prefWarnedXboxWoR = True }
 
 data STFSSpec = STFSSpec
   { stfsPath :: FilePath
@@ -284,6 +406,8 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Nothing          -> return Nothing
 
 -- TODO many things
+
+type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
 mixDownStems :: SongYaml f -> SongYaml f
 mixDownStems song = song
