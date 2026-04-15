@@ -72,10 +72,13 @@ import           Data.Time.Clock.System            (SystemTime (..))
 import qualified Data.Vector.Storable              as VS
 import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
+import           Data.Bits                         ((.&.))
 import           Foreign                           (Ptr, alloca,
-                                                    freeHaskellFunPtr, peek,
-                                                    toBool)
+                                                    castFunPtrToPtr,
+                                                    freeHaskellFunPtr, nullPtr,
+                                                    peek, toBool)
 import           Foreign.C                         (CInt, CString)
+import qualified Foreign.C                         as C
 -- import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
 -- import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 -- import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
@@ -203,7 +206,14 @@ C.include "FL/Fl_Menu_Bar.H"
 C.include "FL/Fl_Sys_Menu_Bar.H"
 C.include "FL/Fl_Tabs.H"
 C.include "FL/Fl_Native_File_Chooser.H"
+C.include "FL/Fl_Gl_Window.H"
+C.include "FL/Fl_Hor_Nice_Slider.H"
+C.include "FL/Fl_Slider.H"
+C.include "FL/Fl_Menu_Button.H"
+C.include "FL/Fl_Counter.H"
 C.include "FL/fl_ask.H"
+C.include "FL/fl_draw.H"
+C.include "hs_gl_window.h"
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
 windowCloser :: IO () -> Ptr Fl_Window -> IO ()
@@ -692,6 +702,190 @@ currentSongTime stime ss = case ss.songPlaying of
     timeToDouble t = realToFrac (systemSeconds t) + realToFrac (systemNanoseconds t) / 1000000000
     in (timeToDouble stime - timeToDouble p.playStarted) * p.playSpeed
 
+-- | Calls an IO action at a regular interval using Fl::add_timeout.
+-- Returns an IO action that stops the animation.
+startAnimation :: Double -> IO () -> IO (IO ())
+startAnimation frameTime redraw = do
+  stopper <- newIORef False
+  let loop _userData = do
+        readIORef stopper >>= \case
+          True  -> return ()
+          False -> do
+            redraw
+            fpNext <- makeTimeoutCallback loop
+            let cft = realToFrac frameTime :: C.CDouble
+                pNext = castFunPtrToPtr fpNext
+            [C.block| void {
+              Fl::repeat_timeout($(double cft), (void(*)(void*))$(void* pNext), nullptr);
+            } |]
+  fp1 <- makeTimeoutCallback loop
+  let cft = realToFrac frameTime :: C.CDouble
+      p1 = castFunPtrToPtr fp1
+  [C.block| void {
+    Fl::add_timeout($(double cft), (void(*)(void*))$(void* p1), nullptr);
+  } |]
+  return $ writeIORef stopper True
+
+data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
+
+previewGroup
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> IO PreviewSong
+  -> IO Double
+  -> IO Double
+  -> IO (Maybe AudioHandle)
+  -> [T.Text]
+  -> IO (Set.Set T.Text)
+  -> (Set.Set T.Text -> IO ())
+  -> IO (Ptr Fl_Group, IO (), IO ())
+previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAudio setAudio = do
+  let (glArea, bottomControlsArea) = chopBottom 40 rect
+      [ trimClock 6 7 6 14 -> partSelectArea,
+        trimClock 6 7 6 7 -> audioSelectArea,
+        trimClock 6 14 6 7 -> bgSelectArea ] = splitHorizN 3 bottomControlsArea
+
+  wholeGroup <- withRect rect \gx gy gw gh ->
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+
+  bottomControlsGroup <- withRect bottomControlsArea \gx gy gw gh ->
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+  bottomSizeRef <- withRect bottomControlsArea \bx by bw bh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+
+  -- Track selection menu
+  trackMenu <- withRect partSelectArea \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), "View Tracks") } |]
+  currentParts <- newIORef ([] :: [[T.Text]])
+  let updateParts doRedraw names = sink $ EventIO do
+        cur <- readIORef currentParts
+        when (cur /= names) do
+          -- Get currently selected items before clearing
+          selected <- case cur of
+            [] -> return $ names >>= take 1
+            _  -> getSelectedMenuItems trackMenu
+          [C.block| void { $(Fl_Menu_Button* trackMenu)->clear(); } |]
+          forM_ (concat names) \t -> do
+            let isSelected = elem t selected
+                flags = if isSelected then 0x108 else 0x8 :: CInt -- FL_MENU_TOGGLE | FL_MENU_VALUE
+                -- 0x8 = FL_MENU_TOGGLE, 0x100 = FL_MENU_VALUE
+            withUTF8 (T.unpack t) \ct ->
+              [C.block| void {
+                $(Fl_Menu_Button* trackMenu)->add($(char* ct), 0, 0, 0, $(int flags));
+              } |]
+          writeIORef currentParts names
+          when doRedraw $ [C.block| void { Fl::redraw(); } |]
+
+  initSong <- getSong
+  updateParts False $ map (map fst) $ previewTracks initSong
+  cbTrackMenu <- makeCallback \_ _ -> do
+    [C.block| void { Fl::redraw(); } |]
+    -- Reopen menu so user can toggle multiple items
+    [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
+  [C.block| void { $(Fl_Menu_Button* trackMenu)->callback($(Fl_Callback cbTrackMenu)); } |]
+
+  -- Audio selection menu
+  audioMenu <- withRect audioSelectArea \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), "Audio") } |]
+  initialAudio <- getAudio
+  forM_ audioParts \t -> do
+    let isSelected = Set.member t initialAudio
+        flags = if isSelected then 0x108 else 0x8 :: CInt
+    cbAudio <- makeCallback \_ _ -> do
+      currentAudio <- getAudio
+      setAudio if Set.member t currentAudio
+        then Set.delete t currentAudio
+        else Set.insert t currentAudio
+      [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
+    withUTF8 (T.unpack t) \ct ->
+      [C.block| void {
+        $(Fl_Menu_Button* audioMenu)->add($(char* ct), 0, $(Fl_Callback cbAudio), 0, $(int flags));
+      } |]
+
+  -- Background selection menu
+  bgMenu <- withRect bgSelectArea \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), "Background") } |]
+  let bgs = [(t, Just bg) | (t, bg) <- previewBG initSong]
+      emptyBG = ("None", Nothing)
+      initialBG = fromMaybe emptyBG $ listToMaybe bgs
+      allBGs = emptyBG : bgs
+  currentBG <- newIORef $ snd initialBG
+  forM_ allBGs \(t, bg) -> do
+    let isSelected = t == fst initialBG
+        -- FL_MENU_RADIO = 8, FL_MENU_VALUE = 1
+        radioFlags = (if isSelected then 9 else 8) :: CInt
+    cbBG <- makeCallback \_ _ -> writeIORef currentBG bg
+    withUTF8 (T.unpack t) \ct ->
+      [C.block| void {
+        $(Fl_Menu_Button* bgMenu)->add($(char* ct), 0, $(Fl_Callback cbBG), 0, $(int radioFlags));
+      } |]
+
+  [C.block| void { $(Fl_Group* bottomControlsGroup)->end(); } |]
+  [C.block| void { $(Fl_Group* bottomControlsGroup)->resizable($(Fl_Box* bottomSizeRef)); } |]
+
+  -- GL window
+  varStuff <- newMVar GLPreload
+  glwindow <- withRect glArea \gx gy gw gh ->
+    [C.exp| HsGlWindow* { new HsGlWindow($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+  [C.block| void {
+    $(HsGlWindow* glwindow)->mode(FL_OPENGL3 | FL_DEPTH | FL_RGB8 | FL_ALPHA | FL_MULTISAMPLE);
+    $(HsGlWindow* glwindow)->end();
+  } |]
+  drawCb <- makeDrawCallback \_ -> do
+    mstuff <- modifyMVar varStuff \case
+      GLPreload -> do
+        scale <- [C.exp| float { $(HsGlWindow* glwindow)->pixels_per_unit_public() } |]
+        embedOnyx sink (RGGraphics.loadGLStuff (realToFrac scale) $ Just initSong) >>= \case
+          Nothing -> return (GLFailed, Nothing)
+          Just s  -> return (GLLoaded s, Just s)
+      loaded@(GLLoaded s) -> return (loaded, Just s)
+      GLFailed -> return (GLFailed, Nothing)
+    forM_ mstuff \stuff -> do
+      t <- getTime
+      speed <- getSpeed
+      trks <- fmap previewTracks getSong
+      bg <- readIORef currentBG
+      updateParts True $ map (map fst) trks
+      selected <- getSelectedMenuItems trackMenu
+      w <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_w_public() } |]
+      h <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_h_public() } |]
+      let flatTrks = concat trks
+      mAudioHandle <- getAudioHandle
+      RGGraphics.drawTracks stuff (RGGraphics.WindowDims (fromIntegral w) (fromIntegral h)) t speed bg ?preferences.prefEliteLayout
+        (flip mapMaybe selected \name -> (name,) <$> lookup name flatTrks)
+        mAudioHandle
+  let pDrawCb = castFunPtrToPtr drawCb
+  [C.block| void {
+    $(HsGlWindow* glwindow)->set_draw_callback((HsDrawCallback)$(void* pDrawCb), nullptr);
+  } |]
+
+  let deleteGL = do
+        withMVar varStuff \case
+          GLLoaded s -> RGGraphics.stopVideoLoaders s
+          _          -> return ()
+        -- TODO: delete glwindow widget
+      redrawGL = [C.block| void { $(HsGlWindow* glwindow)->redraw(); } |]
+
+  [C.block| void { $(Fl_Group* wholeGroup)->end(); } |]
+  [C.block| void { $(Fl_Group* wholeGroup)->resizable((Fl_Gl_Window*)$(HsGlWindow* glwindow)); } |]
+  return (wholeGroup, redrawGL, deleteGL)
+
+-- | Get selected (toggled) menu item labels from a menu button
+getSelectedMenuItems :: Ptr Fl_Menu_Button -> IO [T.Text]
+getSelectedMenuItems menu = do
+  n <- [C.exp| int { $(Fl_Menu_Button* menu)->size() } |]
+  fmap catMaybes $ forM [0 .. n - 1] \i -> do
+    flags <- [C.exp| int { $(Fl_Menu_Button* menu)->menu()[$(int i)].flags } |]
+    -- Check if FL_MENU_VALUE (1) is set
+    if flags .&. 1 /= 0
+      then do
+        cstr <- [C.exp| const char* { $(Fl_Menu_Button* menu)->menu()[$(int i)].label() } |]
+        if cstr == nullPtr
+          then return Nothing
+          else Just <$> (T.pack <$> peekUTF8 cstr)
+      else return Nothing
+
 launchWindow
   :: (?preferences :: Preferences)
   => (Event -> IO ())
@@ -702,7 +896,7 @@ launchWindow
   -> FilePath
   -> Bool -- True if this song could be loaded by Quick Convert
   -> IO ()
-launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt isRB = mdo
+launchWindow sink makeMenuBar proj song maybeAudio _albumArt isRB = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -725,8 +919,177 @@ launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt isRB = mdo
 
   -- TODO: Metadata tab (needs text inputs, album art, checkboxes)
   -- TODO: Instruments tab (needs tree widget)
-  -- TODO: Preview tab (needs OpenGL, audio playback)
   -- TODO: Stars tab (needs tier/rank widgets)
+
+  -- Preview tab
+  (_previewTab, cleanupGL) <- makeTab windowRect "Preview" \rect tab -> mdo
+    setTabColor tab homeTabColor
+    let (topControlsArea1, glArea) = chopTop 40 rect
+        (trimClock 0 5 0 5 -> volPlayButtonArea, topControlsArea2) = chopLeft 160 topControlsArea1
+        (trimClock 8 5 8 0 -> volSliderArea, trimClock 5 0 5 5 -> playButtonArea) = chopRight 50 volPlayButtonArea
+        (trimClock 8 5 8 5 -> scrubberArea, trimClock 5 5 5 5 -> speedArea) = chopRight 150 topControlsArea2
+    topControls <- withRect topControlsArea1 \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    enabledAudioParts <- newIORef
+      $ Set.fromList
+      $ filter (/= "Crowd")
+      $ maybe [] (.parts) maybeAudio
+    volSlider <- withRect volSliderArea \sx sy sw sh ->
+      [C.exp| Fl_Hor_Nice_Slider* { new Fl_Hor_Nice_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+    [C.block| void {
+      $(Fl_Hor_Nice_Slider* volSlider)->minimum(0);
+      $(Fl_Hor_Nice_Slider* volSlider)->maximum(1);
+      $(Fl_Hor_Nice_Slider* volSlider)->value(1);
+      $(Fl_Hor_Nice_Slider* volSlider)->color($(Fl_Color homeTabColor));
+    } |]
+    let updateVolume = do
+          ss <- readIORef varTime
+          case ss.songPlaying of
+            Nothing -> return ()
+            Just p -> do
+              v <- [C.exp| double { $(Fl_Hor_Nice_Slider* volSlider)->value() } |]
+              currentEnabledAudio <- readIORef enabledAudioParts
+              p.playAudioHandle.audioSetGain GainLevels
+                { global = realToFrac v
+                , parts = maybe [] (.parts) maybeAudio <&> \name ->
+                  (name, if elem name currentEnabledAudio then 1 else 0)
+                }
+    cbVolSlider <- makeCallback \_ _ -> updateVolume
+    [C.block| void { $(Fl_Hor_Nice_Slider* volSlider)->callback($(Fl_Callback cbVolSlider)); } |]
+    playButton <- withRect playButtonArea \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@>") } |]
+    [C.block| void { $(Fl_Button* playButton)->deactivate(); } |]
+    -- Scrubber: use a regular slider for now (custom draw needs C++ subclass)
+    scrubber <- withRect scrubberArea \sx sy sw sh ->
+      [C.exp| Fl_Slider* { new Fl_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+    [C.block| void {
+      $(Fl_Slider* scrubber)->type(FL_HOR_FILL_SLIDER);
+      $(Fl_Slider* scrubber)->color($(Fl_Color homeTabColor));
+      $(Fl_Slider* scrubber)->minimum(0);
+      $(Fl_Slider* scrubber)->maximum(100);
+      $(Fl_Slider* scrubber)->step(1);
+      $(Fl_Slider* scrubber)->value(0);
+      $(Fl_Slider* scrubber)->deactivate();
+    } |]
+    (getSpeed, _counter) <- speedPercent' False speedArea
+    [C.block| void { $(Fl_Group* topControls)->end(); } |]
+    [C.block| void { $(Fl_Group* topControls)->resizable($(Fl_Slider* scrubber)); } |]
+    -- Set up song length
+    let songLength :: Double
+        songLength = realToFrac $ U.applyTempoMap
+          song.previewTempo
+          song.previewTiming.timingEnd
+        csongLength = realToFrac songLength :: C.CDouble
+    [C.block| void {
+      $(Fl_Slider* scrubber)->maximum($(double csongLength));
+      $(Fl_Slider* scrubber)->activate();
+      $(Fl_Button* playButton)->activate();
+    } |]
+    let initState = SongState 0 Nothing
+    varState <- newMVar initState
+    varTime <- newIORef initState
+    (groupGL, redrawGL, deleteGL) <- previewGroup
+      sink
+      glArea
+      (return song)
+      (currentSongTime <$> getTimeMonotonic <*> readIORef varTime)
+      getSpeed
+      ((\state -> (.playAudioHandle) <$> state.songPlaying) <$> readIORef varTime)
+      (maybe [] (.parts) maybeAudio)
+      (readIORef enabledAudioParts)
+      (\new -> do
+        writeIORef enabledAudioParts new
+        updateVolume
+      )
+    [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* groupGL)); } |]
+    let takeState = takeMVar varState
+        putState ss = do
+          putMVar varState ss
+          writeIORef varTime ss
+        stopPlaying :: Double -> Playing -> IO Double
+        stopPlaying t ps = do
+          stime <- getTimeMonotonic
+          ps.playStopAnimation
+          ps.playAudioHandle.audioStop
+          return $ currentSongTime stime $ SongState t $ Just ps
+        startPlaying :: Double -> IO SongState
+        startPlaying t = do
+          speed <- getSpeed
+          let dummyHandle = AudioHandle
+                { audioStop = return ()
+                , audioSetGain = \_ -> return ()
+                , audioWaveform = return VS.empty
+                }
+          handle <- case maybeAudio of
+            Just audio -> do
+              gain <- [C.exp| double { $(Fl_Hor_Nice_Slider* volSlider)->value() } |]
+              currentEnabledAudio <- readIORef enabledAudioParts
+              Exc.catch @Exc.IOException
+                (audio.play t (guard (speed /= 1) >> Just speed) GainLevels
+                  { global = realToFrac gain
+                  , parts = maybe [] (.parts) maybeAudio <&> \name ->
+                    (name, if elem name currentEnabledAudio then 1 else 0)
+                  })
+                (\_ -> return dummyHandle)
+            Nothing -> return dummyHandle
+          curTime <- getTimeMonotonic
+          stopAnim <- startAnimation (recip $ realToFrac ?preferences.prefPreviewFPS) do
+            t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
+            [C.block| void { Fl::lock(); } |]
+            let ct' = realToFrac t' :: C.CDouble
+            [C.block| void { $(Fl_Slider* scrubber)->value($(double ct')); } |]
+            redrawGL
+            [C.block| void { Fl::unlock(); } |]
+            when (t' >= songLength) do
+              ss <- takeState
+              ss' <- case ss.songPlaying of
+                Nothing -> return ss
+                Just ps -> do
+                  _ <- stopPlaying songLength ps
+                  return $ SongState songLength Nothing
+              putState ss'
+              sink $ EventIO $ withUTF8 "@>" \clbl ->
+                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+          let ps = Playing
+                { playStarted = curTime
+                , playSpeed = speed
+                , playStopAnimation = stopAnim
+                , playAudioHandle = handle
+                }
+          return SongState { songTime = t, songPlaying = Just ps }
+    cbScrubber <- makeCallback \_ _ -> do
+      secs <- [C.exp| double { $(Fl_Slider* scrubber)->value() } |]
+      ss <- takeState
+      ss' <- case ss.songPlaying of
+        Nothing -> return ss { songTime = realToFrac secs }
+        Just ps -> do
+          _ <- stopPlaying ss.songTime ps
+          startPlaying $ realToFrac secs
+      putState ss'
+      redrawGL
+    [C.block| void { $(Fl_Slider* scrubber)->callback($(Fl_Callback cbScrubber)); } |]
+    let togglePlay = do
+          ss <- takeState
+          ss' <- case ss.songPlaying of
+            Nothing -> do
+              sink $ EventIO $ withUTF8 "@square" \clbl ->
+                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+              startPlaying ss.songTime
+            Just ps -> do
+              sink $ EventIO $ withUTF8 "@>" \clbl ->
+                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+              t <- stopPlaying ss.songTime ps
+              return $ SongState t Nothing
+          putState ss'
+    cbPlayButton <- makeCallback \_ _ -> togglePlay
+    [C.block| void { $(Fl_Button* playButton)->callback($(Fl_Callback cbPlayButton)); } |]
+    let cleanup = do
+          ss <- takeState
+          case ss.songPlaying of
+            Nothing -> return ()
+            Just ps -> void $ stopPlaying ss.songTime ps
+          deleteGL
+    return (tab, cleanup)
 
   -- For now, project modifications just save without metadata/instrument edits
   let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
@@ -943,7 +1306,7 @@ launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt isRB = mdo
   [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* rb3Tab)); } |]
 
   cbWindow <- makeCallback \_ _ -> windowCloser
-    (cancelTasks >> mapM_ release proj.projectRelease)
+    (cancelTasks >> cleanupGL >> mapM_ release proj.projectRelease)
     window
   [C.block| void {
     $(Fl_Window* window)->end();

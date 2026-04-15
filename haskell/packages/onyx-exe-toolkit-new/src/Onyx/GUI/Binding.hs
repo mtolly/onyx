@@ -30,8 +30,13 @@ newtype Fl_Hor_Nice_Slider = Fl_Hor_Nice_Slider (Ptr Fl_Hor_Nice_Slider)
 newtype Fl_PNG_Image = Fl_PNG_Image (Ptr Fl_PNG_Image)
 newtype Fl_Tree = Fl_Tree (Ptr Fl_Tree)
 newtype Fl_Tree_Item = Fl_Tree_Item (Ptr Fl_Tree_Item)
+newtype Fl_Gl_Window = Fl_Gl_Window (Ptr Fl_Gl_Window)
+newtype HsGlWindow = HsGlWindow (Ptr HsGlWindow)
+newtype Fl_Menu_Item = Fl_Menu_Item (Ptr Fl_Menu_Item)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
+type DrawCallback = Ptr () -> IO ()
+type TimeoutCallback = Ptr () -> IO ()
 
 newtype Fl_Color = Fl_Color CUInt
 
@@ -60,6 +65,9 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("Fl_PNG_Image", [t| Fl_PNG_Image |])
   , ("Fl_Tree", [t| Fl_Tree |])
   , ("Fl_Tree_Item", [t| Fl_Tree_Item |])
+  , ("Fl_Gl_Window", [t| Fl_Gl_Window |])
+  , ("HsGlWindow", [t| HsGlWindow |])
+  , ("Fl_Menu_Item", [t| Fl_Menu_Item |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]
@@ -68,3 +76,13 @@ foreign import ccall "wrapper"
   makeCallback
     ::            Callback
     -> IO (FunPtr Callback)
+
+foreign import ccall "wrapper"
+  makeDrawCallback
+    ::            DrawCallback
+    -> IO (FunPtr DrawCallback)
+
+foreign import ccall "wrapper"
+  makeTimeoutCallback
+    ::            TimeoutCallback
+    -> IO (FunPtr TimeoutCallback)

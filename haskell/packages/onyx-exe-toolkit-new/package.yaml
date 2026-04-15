@@ -34,6 +34,10 @@ executables:
     - Onyx.GUI.Util
     c-sources:
     - cbits/time_monotonic.c
+    cxx-sources:
+    - cbits/hs_gl_window.cpp
+    include-dirs:
+    - cbits
 
     dependencies:
     - base
