@@ -644,7 +644,170 @@ peekInputValue input = do
 
 -- TODO: fileLoadWindow needs FL.Tree with custom event handling, stub for now
 -- TODO: dragAndDrop needs custom event handling, stub for now
--- TODO: customTitleSuffix, songIDBox, numberBox, partSelectors need more widget translation
+
+customTitleSuffix
+  :: (Event -> IO ())
+  -> Rectangle
+  -> IO T.Text
+  -> (Maybe T.Text -> tgt -> tgt)
+  -> BuildYamlControl tgt (IO ())
+customTitleSuffix sink rect getSuffix setSuffix = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Custom Title Suffix") } |]
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+  let controlInput = do
+        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        if b /= 0
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
+          else do
+            sfx <- getSuffix
+            withUTF8 (T.unpack $ T.strip sfx) \csfx ->
+              [C.block| void { $(Fl_Input* input)->value($(char* csfx)); } |]
+            [C.block| void { $(Fl_Input* input)->deactivate(); } |]
+  liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
+  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
+  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  tell do
+    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    s <- peekInputValue input
+    return $ Endo $ setSuffix $ guard (b /= 0) >> Just (T.strip s)
+  return controlInput
+
+songIDBox
+  :: (?preferences :: Preferences)
+  => Rectangle
+  -> (RBSongID -> tgt -> tgt)
+  -> BuildYamlControl tgt ()
+songIDBox rect f = do
+  let (checkArea, inputArea) = chopLeft 200 rect
+  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Specific Song ID") } |]
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+  let controlInput = do
+        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        if b /= 0
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
+          else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
+  liftIO controlInput
+  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
+  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  tell do
+    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    s <- peekInputValue input
+    return $ Endo $ f if b /= 0 && s /= ""
+      then case readMaybe $ T.unpack s of
+        Nothing -> SongIDSymbol s
+        Just i  -> SongIDInt i
+      else if ?preferences.prefRBNumberID
+        then SongIDAutoInt
+        else SongIDAutoSymbol
+
+numberBox
+  :: (?preferences :: Preferences)
+  => Rectangle
+  -> T.Text
+  -> (Maybe Int -> tgt -> tgt)
+  -> BuildYamlControl tgt ()
+numberBox rect lbl f = do
+  let (checkArea, inputArea) = chopLeft 250 rect
+  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+    withUTF8 (T.unpack lbl) \clbl ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), $(char* clbl)) } |]
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+  let controlInput = do
+        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        if b /= 0
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
+          else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
+  liftIO controlInput
+  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
+  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  tell do
+    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    s <- peekInputValue input
+    return $ Endo $ f if b /= 0 && s /= ""
+      then readMaybe $ T.unpack s
+      else Nothing
+
+partSelectors
+  :: (Default tgt)
+  => Rectangle
+  -> Project
+  -> [(T.Text, tgt -> PartName, PartName -> tgt -> tgt, Part FilePath -> Bool)]
+  -> BuildYamlControl tgt (Bool -> IO ())
+partSelectors rect proj slots = let
+  rects = splitHorizN (fromIntegral $ length slots) rect
+  fparts = do
+    (fpart, part) <- HM.toList proj.projectSongYaml.parts.getParts
+    guard $ part /= emptyPart
+    return (fpart, T.toTitle $ F.getPartName fpart, part)
+  instSelector ((lbl, getter, setter, partFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
+    choice <- liftIO do
+      choice <- withRect r' \cx cy cw ch ->
+        withUTF8 (T.unpack lbl) \clbl ->
+          [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch), $(char* clbl)) } |]
+      [C.block| void { $(Fl_Choice* choice)->align(FL_ALIGN_TOP); } |]
+      withUTF8 "(none)" \cnone ->
+        [C.block| void { $(Fl_Choice* choice)->add($(char* cnone)); } |]
+      forM_ fparts' \(_, opt, _) ->
+        withUTF8 (T.unpack opt) \copt ->
+          [C.block| void { $(Fl_Choice* choice)->add($(char* copt)); } |]
+      let initVal = case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
+            Nothing -> 0 :: CInt -- (none)
+            Just i  -> fromIntegral i + 1
+      [C.block| void { $(Fl_Choice* choice)->value($(int initVal)); } |]
+      return choice
+    tell do
+      i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+      return $ Endo $ setter case drop (fromIntegral i - 1) fparts' of
+        (fpart, _, _) : _ | i /= 0 -> fpart
+        _                          -> PartName "undefined"
+    return \b -> if b
+      then [C.block| void { $(Fl_Choice* choice)->activate(); } |]
+      else [C.block| void { $(Fl_Choice* choice)->deactivate(); } |]
+  in do
+    controls <- mapM instSelector $ zip slots rects
+    return \b -> mapM_ ($ b) controls
+
+-- | Helper for save file chooser pattern used throughout song pages
+saveFileChooser :: T.Text -> T.Text -> Maybe T.Text -> (FilePath -> IO ()) -> IO ()
+saveFileChooser title preset mdir onPick = do
+  picker <- [C.exp| Fl_Native_File_Chooser* {
+    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
+  } |]
+  withUTF8 (T.unpack title) \ctitle ->
+    [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+  withUTF8 (T.unpack preset) \cpreset ->
+    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+  forM_ mdir \dir -> withUTF8 (T.unpack dir) \cdir ->
+    [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+  when (result == 0) do
+    cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+    f <- peekUTF8 cstr
+    when (not $ null f) $ onPick f
+  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+
+-- | Helper for browsing a single file
+browseFileChooser :: T.Text -> (FilePath -> IO ()) -> IO ()
+browseFileChooser title onPick = do
+  picker <- [C.exp| Fl_Native_File_Chooser* {
+    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
+  } |]
+  withUTF8 (T.unpack title) \ctitle ->
+    [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+  when (result == 0) do
+    cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+    f <- peekUTF8 cstr
+    when (not $ null f) $ onPick f
+  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
