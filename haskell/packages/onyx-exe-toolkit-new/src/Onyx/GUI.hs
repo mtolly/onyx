@@ -212,6 +212,10 @@ C.include "FL/Fl_Slider.H"
 C.include "FL/Fl_Menu_Button.H"
 C.include "FL/Fl_Counter.H"
 C.include "FL/Fl_Value_Slider.H"
+C.include "FL/Fl_Choice.H"
+C.include "FL/Fl_Tree.H"
+C.include "FL/Fl_Tree_Item.H"
+C.include "FL/Fl_PNG_Image.H"
 C.include "FL/fl_ask.H"
 C.include "FL/fl_draw.H"
 C.include "hs_gl_window.h"
@@ -898,7 +902,7 @@ launchWindow
   -> FilePath
   -> Bool -- True if this song could be loaded by Quick Convert
   -> IO ()
-launchWindow sink makeMenuBar proj song maybeAudio _albumArt isRB = mdo
+launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -919,8 +923,394 @@ launchWindow sink makeMenuBar proj song maybeAudio _albumArt isRB = mdo
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
 
-  -- TODO: Metadata tab (needs text inputs, album art, checkboxes)
-  -- TODO: Instruments tab (needs tree widget)
+  (modifyMeta, _metaTab) <- makeTab windowRect "Metadata" \rect tab -> do
+    setTabColor tab homeTabColor
+    let (rectSplit, rectRest) = chopTop 200 rect
+        (rectLeft, rectRight) = chopRight 200 rectSplit
+        (rectResize, _) = chopRight 200 rectRest
+    yamlModifier <- fmap (fmap appEndo) $ execWriterT do
+      pack <- liftIO $ withRect rectLeft \px py pw ph ->
+        [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+      let fullWidth = padded 5 10 5 100 (Size (Width 500) (Height 30))
+          simpleText :: T.Text -> CInt -> (Metadata FilePath -> Maybe T.Text) -> Rectangle -> IO (Ptr Fl_Input)
+          simpleText lbl inputType getter rect' = withRect rect' \ix iy iw ih -> do
+            input <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+            let ctype = inputType
+            withUTF8 (T.unpack lbl) \clabel ->
+              [C.block| void {
+                Fl_Input* inp = $(Fl_Input* input);
+                inp->copy_label($(char* clabel));
+                inp->labelsize(13);
+                inp->align(FL_ALIGN_LEFT);
+                inp->input_type($(int ctype));
+              } |]
+            let initVal = fromMaybe "" $ getter proj.projectSongYaml.metadata
+            withUTF8 (T.unpack initVal) \cval ->
+              [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
+            return input
+          flNormalInput = [C.pure| int { FL_NORMAL_INPUT } |]
+          flIntInput = [C.pure| int { FL_INT_INPUT } |]
+          applyToMetadata :: (Maybe T.Text -> Metadata FilePath -> Metadata FilePath) -> Ptr Fl_Input -> BuildYamlControl (SongYaml FilePath) ()
+          applyToMetadata setter input = tell do
+            val <- peekInputValue input
+            let val' = guard (val /= "") >> Just val
+            return $ Endo $ #metadata %~ setter val'
+          applyIntToMetadata :: (Maybe Int -> Metadata FilePath -> Metadata FilePath) -> Ptr Fl_Input -> BuildYamlControl (SongYaml FilePath) ()
+          applyIntToMetadata setter input = tell do
+            val <- peekInputValue input
+            let val' = readMaybe $ T.unpack val
+            return $ Endo $ #metadata %~ setter val'
+          simpleTextGet lbl getter setter rect' = do
+            input <- liftIO $ simpleText lbl flNormalInput getter rect'
+            applyToMetadata setter input
+          simpleTextGetInt lbl getter setter rect' = do
+            input <- liftIO $ simpleText lbl flIntInput (fmap (T.pack . show) . getter) rect'
+            applyIntToMetadata setter input
+          simpleCheck
+            :: T.Text
+            -> (Metadata FilePath -> Bool)
+            -> (Bool -> Metadata FilePath -> Metadata FilePath)
+            -> Rectangle
+            -> BuildYamlControl (SongYaml FilePath) ()
+          simpleCheck lbl getter setter rect' = do
+            input <- liftIO do
+              btn <- withRect rect' \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              withUTF8 (T.unpack lbl) \clabel ->
+                [C.block| void {
+                  $(Fl_Check_Button* btn)->copy_label($(char* clabel));
+                  $(Fl_Check_Button* btn)->labelsize(13);
+                } |]
+              let v = if getter proj.projectSongYaml.metadata then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            tell do
+              b <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* input)->value() } |]
+              return $ Endo $ #metadata %~ setter b
+      liftIO do
+        _ <- [C.exp| Fl_Box* { new Fl_Box(0, 0, 800, 5) } |]
+        return ()
+      fullWidth $ simpleTextGet "Title" (.title) (#title .~)
+      fullWidth \rect' -> do
+        let (artistArea, trimClock 0 0 0 50 -> yearArea) = chopRight 120 rect'
+        simpleTextGet "Artist" (.artist) (#artist .~) artistArea
+        simpleTextGetInt "Year" (.year) (#year .~) yearArea
+      fullWidth \rect' -> do
+        let (albumArea, trimClock 0 0 0 30 -> trackNumArea) = chopRight 120 rect'
+        simpleTextGet "Album" (.album) (#album .~) albumArea
+        simpleTextGetInt "#" (.trackNumber) (#trackNumber .~) trackNumArea
+      fullWidth $ simpleTextGet "Author" (.author) (#author .~)
+      (genreInput, subgenreInput) <- fullWidth \rect' -> let
+        [trimClock 0 50 0 0 -> genreArea, trimClock 0 0 0 50 -> subgenreArea] = splitHorizN 2 rect'
+        in do
+          genreInput    <- liftIO $ simpleText "Genre"    flNormalInput (.genre   ) genreArea
+          subgenreInput <- liftIO $ simpleText "Subgenre" flNormalInput (.subgenre) subgenreArea
+          applyToMetadata (#genre .~) genreInput
+          applyToMetadata (#subgenre .~) subgenreInput
+          return (genreInput, subgenreInput)
+      liftIO [C.block| void { $(Fl_Pack* pack)->end(); } |]
+      packRight <- liftIO $ withRect rectRight \px py pw ph ->
+        [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+      padded 10 10 0 0 (Size (Width 190) (Height 190)) \rect' -> mdo
+        cover <- liftIO $ withRect rect' \bx by bw bh ->
+          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+        -- TODO: dragAndDrop handler for cover art (needs C++ subclass)
+        let setPNG defaultImage f = do
+              png <- withUTF8 f \cpath ->
+                [C.exp| Fl_PNG_Image* { new Fl_PNG_Image($(char* cpath)) } |]
+              [C.block| void {
+                Fl_PNG_Image* img = $(Fl_PNG_Image* png);
+                img->scale(180, 180, 0, 1);
+                ((Fl_Button*)$(Fl_Button* cover))->image(img);
+              } |]
+              return (png, guard (not defaultImage) >> Just f)
+        currentImage <- liftIO
+          $ setPNG True (takeDirectory proj.projectLocation </> albumArt)
+          >>= newMVar
+        let swapImage f = sink $ EventOnyx $ void $ forkOnyx $ void $ errorToWarning do
+              inside ("Loading image: " <> f) do
+                let newPath = takeDirectory proj.projectLocation </> "new-cover.png"
+                if elem (takeExtension f) [".png_xbox", ".png_wii"]
+                  then stackIO (BL.readFile f) >>= maybe
+                    (fatal "Couldn't read RB image file")
+                    (stackIO . writePng newPath)
+                    . readRBImageMaybe False
+                  else stackIO (readImage f) >>= either fatal (stackIO . savePngImage newPath)
+                stackIO $ sink $ EventIO do
+                  oldImage <- modifyMVar currentImage \(oldImage, _) -> do
+                    newPair <- setPNG False newPath
+                    return (newPair, oldImage)
+                  [C.block| void { $(Fl_Button* cover)->redraw(); } |]
+                  [C.block| void { delete $(Fl_PNG_Image* oldImage); } |]
+        liftIO do
+          cbCover <- makeCallback \_ _ -> do
+            picker <- [C.exp| Fl_Native_File_Chooser* {
+              new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
+            } |]
+            [C.block| void {
+              $(Fl_Native_File_Chooser* picker)->title("Select album art");
+              $(Fl_Native_File_Chooser* picker)->filter("*.{png,jpg,jpeg,png_xbox,png_wii}");
+            } |]
+            result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+            when (result == 0) do
+              cpath <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+              path <- peekUTF8 cpath
+              swapImage path
+          [C.block| void { $(Fl_Button* cover)->callback($(Fl_Callback cbCover)); } |]
+        tell do
+          (_, mpath) <- readMVar currentImage
+          return $ Endo case mpath of
+            Nothing   -> id
+            Just path -> \yaml -> (yaml :: SongYaml FilePath)
+              & #metadata % #fileAlbumArt .~ Just path
+      liftIO [C.block| void { $(Fl_Pack* packRight)->end(); } |]
+      packBottom <- liftIO $ withRect rectRest \px py pw ph ->
+        [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+      padded 10 10 5 10 (Size (Width 500) (Height 30)) \rect' -> liftIO do
+        calcGenreBox <- withRect rect' \bx by bw bh ->
+          [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+        let calcGenre = do
+              g <- peekInputValue genreInput
+              s <- peekInputValue subgenreInput
+              let FullGenre{..} = interpretGenre
+                    (guard (g /= "") >> Just g)
+                    (guard (s /= "") >> Just s)
+              withUTF8 (T.unpack $ T.concat
+                [ "RB3: ", rbn2Genre, " (", rbn2Subgenre, "), "
+                , "RB2: ", rbn1Genre, " (", rbn1Subgenre, ")"
+                ]) \clabel ->
+                [C.block| void { $(Fl_Box* calcGenreBox)->copy_label($(char* clabel)); } |]
+        calcGenre
+        cbGenre <- makeCallback \_ _ -> calcGenre
+        [C.block| void {
+          $(Fl_Input* genreInput)->callback($(Fl_Callback cbGenre));
+          $(Fl_Input* genreInput)->when(FL_WHEN_CHANGED);
+          $(Fl_Input* subgenreInput)->callback($(Fl_Callback cbGenre));
+          $(Fl_Input* subgenreInput)->when(FL_WHEN_CHANGED);
+        } |]
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) \rect' -> do
+        let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
+        simpleCheck "Convert"     (.convert   ) (\b meta -> meta { convert    = b }) r1
+        simpleCheck "Rhythm Keys" (.rhythmKeys) (\b meta -> meta { rhythmKeys = b }) r2
+        simpleCheck "Rhythm Bass" (.rhythmBass) (\b meta -> meta { rhythmBass = b }) r3
+        simpleCheck "Auto EMH"    (.catEMH    ) (\b meta -> meta { catEMH     = b }) r4
+        simpleCheck "Expert Only" (.expertOnly) (\b meta -> meta { expertOnly = b }) r5
+        simpleCheck "Cover"       (.cover     ) (\b meta -> meta { cover      = b }) r6
+      padded 5 10 5 10 (Size (Width 500) (Height 30)) \rect' -> do
+        let [r1, r2, r3, r4, r5, r6] = splitHorizN 6 rect'
+            editLangs f meta = meta
+              { languages = f meta.languages
+              }
+            lang l = simpleCheck l
+              (elem l . (.languages))
+              (\b -> editLangs if b then (l :) else id)
+        lang "English" r1
+        lang "French" r2
+        lang "Italian" r3
+        lang "Spanish" r4
+        lang "German" r5
+        lang "Japanese" r6
+        -- language-clear function at the bottom; this makes it happen first
+        tell $ return $ Endo \yaml -> (yaml :: SongYaml FilePath)
+          & #metadata .~ editLangs (const []) yaml.metadata
+      liftIO [C.block| void { $(Fl_Pack* packBottom)->end(); } |]
+      resizeBox <- liftIO $ withRect rectResize \bx by bw bh ->
+        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+      liftIO [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Box* resizeBox)); } |]
+    return (yamlModifier, tab)
+
+  (modifyInsts, _instTab) <- makeTab windowRect "Instruments" \rect tab -> do
+    setTabColor tab homeTabColor
+    let instRect = trimClock 10 10 10 10 rect
+    tree <- withRect instRect \tx ty tw th ->
+      [C.exp| Fl_Tree* { new Fl_Tree($(int tx), $(int ty), $(int tw), $(int th)) } |]
+    [C.block| void {
+      Fl_Tree* t = $(Fl_Tree* tree);
+      t->end();
+      t->root_label("Instruments");
+      t->selectmode(FL_TREE_SELECT_NONE);
+      t->showcollapse(0);
+    } |]
+    root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
+    let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
+        makeDifficulty :: Ptr Fl_Tree_Item -> Difficulty -> IO (IO Difficulty)
+        makeDifficulty itemParent diff = do
+          itemGroup <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemParent), "") } |]
+          group <- withRect dummyRect \gx gy gw gh ->
+            [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+          let (choiceArea, textArea) = chopLeft 100 dummyRect
+          choice <- withRect choiceArea \cx cy cw ch ->
+            [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+          let tierCount = 7 :: CInt
+          forM_ [1 .. tierCount] \i -> do
+            let label = "Tier " <> show i
+            withUTF8 label \clabel ->
+              [C.block| void { $(Fl_Choice* choice)->add($(char* clabel)); } |]
+          [C.block| void { $(Fl_Choice* choice)->add("Rank"); } |]
+          input <- withRect textArea \ix iy iw ih ->
+            [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+          let flNormalInput = [C.pure| int { FL_NORMAL_INPUT } |]
+          [C.block| void { $(Fl_Input* input)->input_type($(int flNormalInput)); } |]
+          let setChoice i = [C.block| void { $(Fl_Choice* choice)->value($(int i)); } |]
+              controlRank = do
+                i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+                if i == tierCount
+                  then [C.block| void { $(Fl_Input* input)->activate(); } |]
+                  else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
+          case diff of
+            Tier i -> setChoice $ max 0 (min (tierCount - 1) (fromIntegral i - 1))
+            Rank r -> do
+              setChoice tierCount
+              withUTF8 (show r) \cval ->
+                [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
+          controlRank
+          cbChoice <- makeCallback \_ _ -> controlRank
+          [C.block| void { $(Fl_Choice* choice)->callback($(Fl_Callback cbChoice)); } |]
+          [C.block| void { $(Fl_Group* group)->end(); } |]
+          let groupAsWidget = [C.exp| Fl_Widget* { (Fl_Widget*)$(Fl_Group* group) } |]
+          groupWidget <- groupAsWidget
+          [C.block| void { $(Fl_Tree_Item* itemGroup)->widget($(Fl_Widget* groupWidget)); } |]
+          return do
+            i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+            if i == tierCount
+              then Rank . fromMaybe 0 . readMaybe . T.unpack <$> peekInputValue input
+              else return $ Tier $ fromIntegral i + 1
+    getBandDiff <- makeDifficulty root proj.projectSongYaml.metadata.difficulty
+    getNewParts <- fmap catMaybes $ forM (HM.toList proj.projectSongYaml.parts.getParts) \(fpart, part) ->
+      if part == emptyPart
+        then return Nothing
+        else do
+          let partName = T.toTitle $ F.getPartName fpart
+          itemInst <- withUTF8 (T.unpack partName) \cname ->
+            [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* root), $(char* cname)) } |]
+          let addType :: T.Text -> (Ptr Fl_Tree_Item -> IO (Bool -> Part FilePath -> IO (Part FilePath))) -> IO (Part FilePath -> IO (Part FilePath))
+              addType lbl extra = do
+                itemCheck <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemInst), "") } |]
+                check <- withRect dummyRect \bx by bw bh ->
+                  [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+                withUTF8 (T.unpack lbl) \clabel ->
+                  [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clabel)); } |]
+                [C.block| void { $(Fl_Check_Button* check)->value(1); } |]
+                let checkAsWidget = [C.exp| Fl_Widget* { (Fl_Widget*)$(Fl_Check_Button* check) } |]
+                checkWidget <- checkAsWidget
+                [C.block| void { $(Fl_Tree_Item* itemCheck)->widget($(Fl_Widget* checkWidget)); } |]
+                fn <- extra itemCheck
+                return \curPart -> do
+                  isChecked <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+                  fn isChecked curPart
+              makeChoiceFrom :: (Eq a) => [a] -> Ptr Fl_Tree_Item -> a -> (a -> T.Text) -> IO (IO a)
+              makeChoiceFrom opts itemParent cur getLabel = do
+                itemChoice <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemParent), "") } |]
+                choice <- withRect dummyRect \cx cy cw ch ->
+                  [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+                forM_ opts \opt -> withUTF8 (T.unpack $ getLabel opt) \clabel ->
+                  [C.block| void { $(Fl_Choice* choice)->add($(char* clabel)); } |]
+                let idx = fromMaybe 0 $ elemIndex cur opts :: Int
+                    cidx = fromIntegral idx :: CInt
+                [C.block| void { $(Fl_Choice* choice)->value($(int cidx)); } |]
+                let choiceAsWidget = [C.exp| Fl_Widget* { (Fl_Widget*)$(Fl_Choice* choice) } |]
+                choiceWidget <- choiceAsWidget
+                [C.block| void { $(Fl_Tree_Item* itemChoice)->widget($(Fl_Widget* choiceWidget)); } |]
+                return $ do
+                  i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+                  return $ opts !! fromIntegral i
+              makeChoice :: (Eq a, Enum a, Bounded a) => Ptr Fl_Tree_Item -> a -> (a -> T.Text) -> IO (IO a)
+              makeChoice = makeChoiceFrom [minBound .. maxBound]
+          mbGRYBO <- forM part.grybo \pg -> addType "5-Fret" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
+            return \isChecked curPart -> do
+              diff <- getDiff
+              return $ curPart & #grybo .~ do
+                guard isChecked
+                Just $ (pg :: ModeFive) & #difficulty .~ diff
+          mbGHL <- forM part.ghl \pg -> addType "6-Fret" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
+            return \isChecked curPart -> do
+              diff <- getDiff
+              return $ curPart & #ghl .~ do
+                guard isChecked
+                Just $ (pg :: ModeSix) & #difficulty .~ diff
+          mbProKeys <- forM part.proKeys \pk -> addType "Pro Keys" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pk.difficulty
+            return \isChecked curPart -> do
+              diff <- getDiff
+              return $ curPart & #proKeys .~ do
+                guard isChecked
+                Just $ (pk :: ModeProKeys) & #difficulty .~ diff
+          mbProGuitar <- forM part.proGuitar \pg -> addType "Pro Guitar" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pg.difficulty
+            return \isChecked curPart -> do
+              diff <- getDiff
+              return $ curPart & #proGuitar .~ do
+                guard isChecked
+                Just $ (pg :: ModeProGuitar FilePath) & #difficulty .~ diff
+          mbDrums <- forM part.drums \pd -> addType "Drums" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pd.difficulty
+            getMode <- makeChoice itemCheck pd.mode \case
+              Drums4     -> "4-Lane Drums"
+              Drums5     -> "5-Lane Drums"
+              DrumsPro   -> "Pro Drums"
+              DrumsReal  -> "Phase Shift Real Drums"
+              DrumsElite -> "Elite Drums"
+            getKicks <- makeChoice itemCheck pd.kicks \case
+              Kicks1x   -> "1x Bass Pedal"
+              Kicks2x   -> "2x Bass Pedal"
+              KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
+            getKit <- makeChoice itemCheck pd.kit \case
+              HardRockKit   -> "Hard Rock Kit"
+              ArenaKit      -> "Arena Kit"
+              VintageKit    -> "Vintage Kit"
+              TrashyKit     -> "Trashy Kit"
+              ElectronicKit -> "Electronic Kit"
+            return \isChecked curPart -> do
+              diff <- getDiff
+              mode <- getMode
+              kicks <- getKicks
+              kit <- getKit
+              return $ (curPart :: Part FilePath) & #drums .~ do
+                guard isChecked
+                Just $ pd
+                  & #difficulty .~ diff
+                  & #mode       .~ mode
+                  & #kicks      .~ kicks
+                  & #kit        .~ kit
+          mbVocal <- forM part.vocal \pv -> addType "Vocals" \itemCheck -> do
+            getDiff <- makeDifficulty itemCheck pv.difficulty
+            getCount <- makeChoice itemCheck pv.count \case
+              Vocal1 -> "Solo"
+              Vocal2 -> "Harmonies (2)"
+              Vocal3 -> "Harmonies (3)"
+            getGender <- makeChoiceFrom [Nothing, Just Male, Just Female] itemCheck pv.gender \case
+              Nothing     -> "Unspecified Gender"
+              Just Male   -> "Male"
+              Just Female -> "Female"
+            return \isChecked curPart -> do
+              diff   <- getDiff
+              count  <- getCount
+              gender <- getGender
+              return $ (curPart :: Part FilePath) & #vocal .~ do
+                guard isChecked
+                Just $ pv
+                  & #difficulty .~ diff
+                  & #count      .~ count
+                  & #gender     .~ gender
+          mbMania <- forM part.mania \pm -> addType "Mania" \_itemCheck -> do
+            return \isChecked curPart -> do
+              -- TODO difficulty
+              return curPart { mania = guard isChecked >> Just pm }
+          return $ Just do
+            let modifiers = catMaybes [mbGRYBO, mbGHL, mbProKeys, mbProGuitar, mbDrums, mbVocal, mbMania]
+            newPart <- foldl (>>=) (return part) modifiers
+            return (fpart, newPart)
+    let editParts = do
+          newParts <- sequence getNewParts
+          bandDiff <- getBandDiff
+          return \yaml -> yaml
+            & #parts                  .~ Parts (HM.fromList newParts)
+            & #metadata % #difficulty .~ bandDiff
+    [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Tree* tree)); } |]
+    return (editParts, tab)
+
   -- TODO: Stars tab (needs tier/rank widgets)
 
   -- Preview tab
@@ -1093,10 +1483,10 @@ launchWindow sink makeMenuBar proj song maybeAudio _albumArt isRB = mdo
           deleteGL
     return (tab, cleanup)
 
-  -- For now, project modifications just save without metadata/instrument edits
   let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
       fullProjModify extraMods p = do
-        let newYaml = foldr ($) p.projectSongYaml extraMods
+        modifiers <- sequence [modifyMeta, modifyInsts]
+        let newYaml = foldr ($) p.projectSongYaml $ modifiers <> extraMods
         saveProject p newYaml
 
   rb3Tab <- makeTab windowRect "RB3" \rect tab -> do
