@@ -196,6 +196,8 @@ C.include "FL/Fl_Group.H"
 C.include "FL/Fl_Button.H"
 C.include "FL/Fl_Check_Button.H"
 C.include "FL/Fl_Box.H"
+C.include "FL/Fl_Input.H"
+C.include "FL/Fl_Pack.H"
 C.include "FL/Fl_Terminal.H"
 C.include "FL/Fl_Menu_Bar.H"
 C.include "FL/Fl_Sys_Menu_Bar.H"
@@ -1437,10 +1439,1493 @@ launchBatch sink makeMenuBar startFiles = mdo
     $(Fl_Window* window)->show();
   } |]
 
+miscPageHardcodeSongCache
+  :: (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageHardcodeSongCache sink rect tab startTasks = do
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  pickedFolder <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- withRect inputRect \ix iy iw ih ->
+      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+    [C.block| void {
+      $(Fl_Input* input)->labelsize(13);
+      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+    } |]
+    withUTF8 "CON folder" \clbl ->
+      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    pick <- withRect pickRect \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+    cbPick <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \f ->
+      withUTF8 f \cf ->
+        [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
+    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
+    return do
+      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+      peekUTF8 cstr
+  pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- withRect inputRect \ix iy iw ih ->
+      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+    [C.block| void {
+      $(Fl_Input* input)->labelsize(13);
+      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+    } |]
+    withUTF8 "Song cache" \clbl ->
+      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    pick <- withRect pickRect \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+      picker <- [C.exp| Fl_Native_File_Chooser* {
+        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
+      } |]
+      [C.block| void {
+        $(Fl_Native_File_Chooser* picker)->title("Load RB3 song cache");
+        $(Fl_Native_File_Chooser* picker)->filter("songcache");
+      } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        withUTF8 f \cf ->
+          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
+      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
+    return do
+      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+      peekUTF8 cstr
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+    btn <- withRect rect' \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Apply numeric IDs from song cache") } |]
+    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    cb <- makeCallback \_ _ -> sink $ EventIO do
+      dir <- pickedFolder
+      cache <- pickedCache
+      let cache' = case cache of
+            "" -> dir </> "songcache"
+            _  -> cache
+      sink $ EventOnyx let
+        task = do
+          hardcodeSongCacheIDs cache' dir
+          return []
+        in startTasks [("Hardcode song cache: " <> dir, task)]
+    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+  [C.block| void {
+    $(Fl_Pack* pack)->end();
+    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
+  } |]
+
+miscPageMIDI
+  :: (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageMIDI sink rect tab startTasks = do
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+    let (_, rectA) = chopLeft 120 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- withRect inputRect \ix iy iw ih ->
+      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+    [C.block| void {
+      $(Fl_Input* input)->labelsize(13);
+      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+    } |]
+    withUTF8 "MIDI or .chart" \clbl ->
+      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    pick <- withRect pickRect \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+      picker <- [C.exp| Fl_Native_File_Chooser* {
+        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
+      } |]
+      [C.block| void {
+        $(Fl_Native_File_Chooser* picker)->title("Load MIDI or .chart file");
+        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi,chart}");
+      } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        withUTF8 f \cf ->
+          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
+        [C.block| void { $(Fl_Input* input)->do_callback(); } |]
+      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
+    return (input, do
+      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+      peekUTF8 cstr)
+
+  midiButtons <- sequence
+
+    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Fill in lower difficulties and drum animations") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cb <- makeCallback \_ _ -> sink $ EventIO do
+        input <- pickedFile
+        saveFileChooser "Save reduced MIDI file" "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
+          ext = map toLower $ takeExtension f
+          f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
+          in sink $ EventOnyx let
+            task = do
+              simpleReduce input f'
+              return [f']
+            in startTasks [("Reduce MIDI: " <> input, task)]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+      return btn
+
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Find hanging Pro Keys notes") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cb <- makeCallback \_ _ -> sink $ EventIO do
+        input <- pickedFile
+        sink $ EventOnyx let
+          task = do
+            mid <- loadMIDIOrChart input
+            lg $ T.unpack $ closeShiftsFile mid
+            return []
+          in startTasks [("Pro Keys range check: " <> input, task)]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+      return btn
+
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make REAPER project with RB template") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cb <- makeCallback \_ _ -> sink $ EventIO do
+        input <- pickedFile
+        saveFileChooser "Save REAPER project" "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
+          ext = map toUpper $ takeExtension f
+          f' = if ext == ".RPP" then f else f <.> "RPP"
+          in sink $ EventOnyx let
+            task = do
+              makeReaper (TuningInfo [] 0) input input [] f'
+              return [f']
+            in startTasks [("Make REAPER project: " <> input, task)]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+      return btn
+
+    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
+      let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
+      btn1 <- withRect rectLeft \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Clean convert .chart to MIDI") } |]
+      [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+      cb1 <- makeCallback \_ _ -> sink $ EventIO do
+        input <- pickedFile
+        saveFileChooser "Save MIDI file" "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
+          ext = map toLower $ takeExtension f
+          f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
+          in sink $ EventOnyx let
+            task = do
+              mid <- loadRawMIDIOrChart input
+              stackIO $ Save.toFile f' $ TE.encodeUtf8 <$> mid
+              return [f']
+            in startTasks [("Convert to MIDI: " <> input, task)]
+      [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
+
+      -- note, this button doesn't disable when path box is empty since it doesn't use it
+      btn2 <- withRect rectRight \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Batch") } |]
+      [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
+      cb2 <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir ->
+        sink $ EventOnyx let
+          task = do
+            results <- recursiveChartToMidi dir
+            when (null results) $ lg "No .chart files found."
+            return results
+          in startTasks [("Convert .chart to MIDI (batch): " <> dir, task)]
+      [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
+
+      return btn1
+
+    ]
+
+  -- disable midi buttons if the path box is empty
+  let updatePathInput = do
+        cstr <- [C.exp| const char* { $(Fl_Input* pathInput)->value() } |]
+        t <- peekUTF8 cstr
+        if any (not . isSpace) t
+          then forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->activate(); } |]
+          else forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->deactivate(); } |]
+  updatePathInput
+  cbPath <- makeCallback \_ _ -> sink $ EventIO updatePathInput
+  [C.block| void {
+    $(Fl_Input* pathInput)->callback($(Fl_Callback cbPath));
+    $(Fl_Input* pathInput)->when(FL_WHEN_CHANGED);
+  } |]
+
+  [C.block| void {
+    $(Fl_Pack* pack)->end();
+    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
+  } |]
+
+data AudioSpec = AudioSpec
+  { audioPath     :: FilePath
+  , audioFormat   :: T.Text
+  , audioFrames   :: Int
+  , audioRate     :: Double
+  , audioChannels :: Int
+  }
+
+getAudioSpec :: FilePath -> IO (Maybe AudioSpec)
+getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
+  Left e -> let
+    _ = e :: Snd.Exception
+    in return Nothing
+  Right info -> let
+    withFormat fmt = return $ Just AudioSpec
+      { audioPath = f
+      , audioFormat = fmt
+      , audioFrames = Snd.frames info
+      , audioRate = realToFrac $ Snd.samplerate info
+      , audioChannels = Snd.channels info
+      }
+    in case Snd.headerFormat $ Snd.format info of
+      Snd.HeaderFormatWav  -> withFormat "WAVE"
+      Snd.HeaderFormatOgg  -> withFormat "Ogg Vorbis"
+      Snd.HeaderFormatFlac -> withFormat "FLAC"
+      _                    -> return Nothing
+
+miscPageMOGG
+  :: (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageMOGG sink rect tab startTasks = mdo
+  loadedAudio <- newMVar []
+  let (filesRect, startRect) = chopBottom 95 rect
+      (startRect1, startRect2) = chopBottom 50 startRect
+      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
+      [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
+      isSingleOgg = \case
+        [aud] | aud.audioFormat == "Ogg Vorbis" -> Just aud
+        _                                       -> Nothing
+      modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
+      modifyAudio f = do
+        newAudio <- modifyMVar loadedAudio \auds -> (\x -> (x, x)) <$> f auds
+        let chans = sum $ map (.audioChannels) newAudio
+        sink $ EventIO do
+          let moggLabel = T.unpack $ let
+                op = case isSingleOgg newAudio of
+                  Just _  -> "Ogg to MOGG, no re-encode"
+                  Nothing -> "Combine into MOGG"
+                in op <> " (" <> T.pack (show chans) <> " channels)"
+              vgsLabel = T.unpack $ "Combine into VGS (" <> T.pack (show chans) <> " channels)"
+              fsb3Label = T.unpack $ T.concat
+                [ "Make FSB3-XMA1 ("
+                , T.pack $ show $ length newAudio
+                , " streams, "
+                , T.pack $ show chans
+                , " channels total)"
+                ]
+              fsb4Label = T.unpack $ T.concat
+                [ "Make FSB4-XMA2 ("
+                , T.pack $ show chans
+                , " channels)"
+                ]
+          withUTF8 moggLabel \cl -> [C.block| void { $(Fl_Button* btnMogg)->copy_label($(char* cl)); } |]
+          withUTF8 vgsLabel  \cl -> [C.block| void { $(Fl_Button* btnVgs)->copy_label($(char* cl)); } |]
+          withUTF8 fsb3Label \cl -> [C.block| void { $(Fl_Button* btnFsb3)->copy_label($(char* cl)); } |]
+          withUTF8 fsb4Label \cl -> [C.block| void { $(Fl_Button* btnFsb4)->copy_label($(char* cl)); } |]
+          if chans == 0
+            then forM_ [btnMogg, btnVgs, btnFsb3, btnFsb4] \b ->
+              [C.block| void { $(Fl_Button* b)->deactivate(); } |]
+            else forM_ [btnMogg, btnVgs, btnFsb3, btnFsb4] \b ->
+              [C.block| void { $(Fl_Button* b)->activate(); } |]
+  group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
+    (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
+    \info -> let
+      entry = T.pack info.audioPath
+      sublines =
+        [ info.audioFormat <> ", " <> T.pack (show info.audioChannels)
+          <> case info.audioChannels of 1 -> " channel"; _ -> " channels"
+        , let
+          time = realToFrac info.audioFrames / info.audioRate
+          mins = floor $ time / 60 :: Int
+          secs = realToFrac $ time - realToFrac mins * 60 :: Milli
+          zero = if secs < 10 then "0" else ""
+          stamp = T.pack $ show mins <> ":" <> zero <> show secs
+          in stamp <> " (" <> T.pack (show info.audioFrames) <> " frames @ " <> T.pack (show info.audioRate) <> "Hz)"
+        ]
+      in (entry, sublines)
+
+  let makeSaveAudioButton rect' filterStr defaultExt task' = do
+        btn <- withRect rect' \bx by bw bh ->
+          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+        [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+        cb <- makeCallback \_ _ -> sink $ EventIO do
+          audio <- readMVar loadedAudio
+          let title = "Save " <> T.unpack defaultExt <> " file"
+              preset = case audio of
+                [aud] -> Just $ T.pack $ takeFileName aud.audioPath -<.> T.unpack defaultExt
+                _     -> Just $ "out." <> defaultExt
+          saveFileChooser (T.pack title) (T.pack filterStr) preset \f -> let
+              ext = map toLower $ takeExtension f
+              f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
+              in sink $ EventOnyx $ task' audio f'
+        [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+        return btn
+
+  btnMogg <- makeSaveAudioButton moggRect "*.mogg" "mogg" \audio f' ->
+    startTasks case isSingleOgg audio of
+      Just aud -> [("Ogg to MOGG", oggToMoggFiles aud.audioPath f' >> return [f'])]
+      Nothing  -> let
+        task = tempDir "makemogg" \tmp -> do
+          let ogg = tmp </> "temp.ogg"
+          case map (.audioRate) audio of
+            []             -> return ()
+            rates@(r : rs) -> unless (all (== r) rs) do
+              fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
+          ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
+          src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) ne
+          runAudio src ogg
+          oggToMoggFiles ogg f'
+          return [f']
+        in [("MOGG file creation", task)]
+
+  btnVgs <- makeSaveAudioButton vgsRect "*.vgs" "vgs" \audio f' ->
+    startTasks let
+      task = do
+        srcs <- mapM (buildSource' . Input . (.audioPath)) audio
+        stackIO $ runResourceT $ writeVGSMultiRate f' $ map (mapSamples integralSample) srcs
+        return [f']
+      in [("VGS file creation", task)]
+
+  btnFsb3 <- makeSaveAudioButton fsb3Rect "*.fsb" "fsb" \audio f' ->
+    startTasks let
+      task = tempDir "makefsb3" \tmp -> do
+        wavs <- forM (zip [0..] audio) \(i, aud) -> do
+          src <- buildSource' $ Input aud.audioPath
+          let wav = tmp </> show (i :: Int) <.> "wav"
+          runAudio src wav
+          return wav
+        makeXMAFSB3 [ (B8.pack $ takeFileName wav, wav) | wav <- wavs ] f'
+        return [f']
+      in [("FSB3 file creation", task)]
+
+  btnFsb4 <- makeSaveAudioButton fsb4Rect "*.fsb" "fsb" \audio f' ->
+    startTasks let
+      task = tempDir "makefsb4" \tmp -> do
+        let wav = tmp </> "audio.wav"
+        audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
+        src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) audio'
+        runAudio src wav
+        fsb <- makeXMAPieces (fileReadable wav) >>= ghBandXMAtoFSB4
+        stackIO $ BL.writeFile f' $ emitFSB fsb
+        return [f']
+      in [("FSB4 file creation", task)]
+
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+
 launchQuickConvert' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchQuickConvert' sink _makeMenuBar = do
-  -- TODO: translate quick convert window
-  sink $ EventOnyx $ warn "Quick convert window not yet translated"
+launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
+  prefs <- readPreferences
+  let ?preferences = prefs
+  stackIO $ launchQuickConvert sink makeMenuBar
+
+launchQuickConvert :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchQuickConvert sink makeMenuBar = mdo
+  let windowWidth = Width 1000
+      windowHeight = Height 600
+      windowSize = Size windowWidth windowHeight
+  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Quick Convert") } |]
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  [C.block| void {
+    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
+    $(Fl_Window* window)->size_range(1000, 600);
+  } |]
+  tabs <- withRect windowRect \tx ty tw th ->
+    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  functionTabs <- sequence
+    [ makeTab windowRect "RB quick convert + pack creator" \rect tab -> do
+      setTabColor tab functionTabColor
+      pageQuickConvertRB sink rect tab startTasks
+      return tab
+    , makeTab windowRect "CH quick convert" \rect tab -> do
+      setTabColor tab functionTabColor
+      pageQuickConvertCH sink rect tab startTasks
+      return tab
+    , makeTab windowRect "RR renumber" \rect tab -> do
+      setTabColor tab functionTabColor
+      pageRenumberRR sink rect tab startTasks
+      return tab
+    , makeTab windowRect "GH2 pack creator" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPagePacks sink rect tab startTasks
+      return tab
+    , makeTab windowRect "RB legacy CON->PKG" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageCONtoPKG sink rect tab startTasks
+      return tab
+    ]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
+    setTabColor tab taskColor
+    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tab)->activate(); } |]
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
+          updateTabsColor tabs
+        cbEnd = do
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage rect tab sink cbStart cbEnd
+
+  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  updateTabsColor tabs
+  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
+  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  let firstTab = head functionTabs
+  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
+
+  cbWindow <- makeCallback \_ _ -> windowCloser cancelTasks window
+  [C.block| void {
+    $(Fl_Window* window)->end();
+    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
+    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
+    $(Fl_Window* window)->show();
+  } |]
+
+data Pack360Output
+  = PackCON
+  | PackLIVE
+  | PackExtracted
+
+data QuickConvertMode
+  = QCInPlace
+  | QCOneToOne
+  | QCMakePacks
+  | QCMakeSongs
+  | QCDolphin
+  deriving (Eq)
+
+data QuickFoFTask
+  = QFoFInPlace
+  | QFoFKeepOriginal
+  | QFoFDeleteOriginal
+  deriving (Eq)
+
+miscPagePacks
+  :: (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPagePacks sink rect tab startTasks = mdo
+  loadedSTFS <- newMVar []
+  let (filesRect, bottomRect) = chopBottom 140 rect
+      (metaRect, startRect) = chopBottom 50 bottomRect
+      (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
+      [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
+      [chopRight 5 -> (conRect, _), trimClock 0 5 0 5 -> liveRect, chopLeft 5 -> (_, rawRect)]
+        = splitHorizN 3 $ trimClock 5 10 10 10 startRect
+      modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
+      modifyButtons f = do
+        newSTFS <- modifyMVar loadedSTFS \stfs -> (\x -> (x, x)) <$> f stfs
+        sink $ EventIO do
+          if null newSTFS
+            then do
+              [C.block| void { $(Fl_Button* btnCON)->deactivate(); } |]
+              [C.block| void { $(Fl_Button* btnLIVE)->deactivate(); } |]
+              [C.block| void { $(Fl_Button* btnRaw)->deactivate(); } |]
+            else do
+              [C.block| void { $(Fl_Button* btnCON)->activate(); } |]
+              [C.block| void { $(Fl_Button* btnLIVE)->activate(); } |]
+              [C.block| void { $(Fl_Button* btnRaw)->activate(); } |]
+          let gameLabel = case newSTFS of
+                info : _ -> T.unlines
+                  [ "Game (from first in list):"
+                  , info.stfsMeta.md_TitleName
+                  , "(" <> T.toUpper (T.pack $ showHex info.stfsMeta.md_TitleID "") <> ")"
+                  ]
+                []       -> ""
+          withUTF8 (T.unpack gameLabel) \clbl ->
+            [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
+  group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
+    \info -> let
+      entry = T.pack $ stfsPath info
+      sublines = concat
+        [ take 1 info.stfsMeta.md_DisplayName
+        , return $ T.unwords
+          [ "Game:"
+          , info.stfsMeta.md_TitleName
+          , "(" <> T.toUpper (T.pack $ showHex info.stfsMeta.md_TitleID "") <> ")"
+          ]
+        ]
+      in (entry, sublines)
+
+  let doPrompt output = sink $ EventIO do
+        stfs <- readMVar loadedSTFS
+        picker <- [C.exp| Fl_Native_File_Chooser* {
+          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
+        } |]
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save STFS file"); } |]
+        case stfs of
+          f : _ -> withUTF8 (takeDirectory $ stfsPath f) \cdir ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+          _     -> return ()
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          sink $ EventOnyx $ startTasks let
+            task = do
+              packName <- stackIO $ peekInputValue nameInput
+              packDesc <- stackIO $ peekInputValue descInput
+              let makeSTFS isLIVE = let
+                    applyOpts o = o
+                      { STFS.createNames        = [packName]
+                      , STFS.createDescriptions = [packDesc]
+                      , STFS.createLIVE         = isLIVE
+                      }
+                    in STFS.makePack (map stfsPath stfs) applyOpts f
+              maybeArtDir <- case output of
+                PackCON       -> makeSTFS False
+                PackLIVE      -> makeSTFS True
+                PackExtracted -> do
+                  roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
+                  merged <- STFS.packCombineFolders roots
+                  stackIO $ saveHandleFolder merged f
+                  return Nothing
+              return $ f : toList maybeArtDir
+            taskLabel = case output of
+              PackExtracted -> "Save pack as extracted contents: " <> f
+              PackCON       -> "Save pack as CON: " <> f
+              PackLIVE      -> "Save pack as LIVE: " <> f
+            in [(taskLabel, task)]
+        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+
+  gameBox <- withRect gameRect \bx by bw bh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+
+  nameInput <- withRect nameRect \ix iy iw ih -> do
+    inp <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack name") } |]
+    return inp
+  descInput <- withRect descRect \ix iy iw ih -> do
+    inp <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack description") } |]
+    return inp
+
+  cbCON <- makeCallback \_ _ -> doPrompt PackCON
+  btnCON <- withRect conRect \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make CON pack (RB3/RB2)") } |]
+    [C.block| void {
+      $(Fl_Button* btn)->color($(Fl_Color taskColor));
+      $(Fl_Button* btn)->callback($(Fl_Callback cbCON));
+    } |]
+    return btn
+
+  cbLIVE <- makeCallback \_ _ -> doPrompt PackLIVE
+  btnLIVE <- withRect liveRect \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make LIVE pack (all other games)") } |]
+    [C.block| void {
+      $(Fl_Button* btn)->color($(Fl_Color taskColor));
+      $(Fl_Button* btn)->callback($(Fl_Callback cbLIVE));
+    } |]
+    return btn
+
+  cbRaw <- makeCallback \_ _ -> doPrompt PackExtracted
+  btnRaw <- withRect rawRect \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make extracted folder") } |]
+    [C.block| void {
+      $(Fl_Button* btn)->color($(Fl_Color taskColor));
+      $(Fl_Button* btn)->callback($(Fl_Callback cbRaw));
+    } |]
+    return btn
+
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+
+pageRenumberRR
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageRenumberRR sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
+      updateFiles = modifyMVar_ loadedFiles
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "RR song" "RR songs" updateFiles [] searchRockRevolution
+    \(path, songs) -> let
+      entry = T.pack path
+      subline = case length songs of
+        1 -> "1 song"
+        n -> T.pack $ show n <> " songs"
+      in (entry, [subline])
+
+  cbGo <- makeCallback \_ _ -> do
+    songsOld <- readMVar loadedFiles
+    sink $ EventOnyx do
+      stackIO clearFiles
+      startTasks $ return let
+        name = "Renumbering Rock Revolution song IDs"
+        task = do
+          songsNew <- stackIO $ RR.renumberFrom 2000 songsOld
+          forM songsNew \(f, songs) -> do
+            lg f
+            forM_ songs \song -> do
+              titleArtist <- stackIO $ RR.getTitleArtist song
+              lg $ T.unpack $ song.songID <> ": " <> case titleArtist of
+                Nothing              -> "(unknown)"
+                Just (title, artist) -> title <> " (" <> artist <> ")"
+            let tmp = f <> ".tmp"
+            case songs of
+              []       -> return ()
+              song : _ -> stackIO do
+                if song.ps3
+                  then RR.saveSongsPS3 tmp songs
+                  else RR.saveSongs360 tmp songs
+                Dir.renameFile tmp f
+            return f
+        in (name, task)
+  withRect bottomRect \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
+    [C.block| void {
+      $(Fl_Button* btn)->color($(Fl_Color taskColor));
+      $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
+    } |]
+
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
+
+pageQuickConvertCH
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageQuickConvertCH sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (mainRect, processorsRect) = chopRight 200 rect
+      (filesRect, trimClock 0 0 5 0 -> bottomRect) = chopBottom 131 mainRect
+      (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
+      [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
+      updateFiles = modifyMVar_ loadedFiles
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
+    \qfof -> let
+      entry = T.pack $ qfof.location
+      subline = case qfof.format of
+        FoFFormat FoFFolder -> "folder format"
+        FoFFormat FoFSNG    -> ".sng format"
+        FoFEncore           -> "Encore format"
+      in (entry, [subline])
+
+  -- right side: processors to transform midis and other files
+  packProcessors <- withRect (trimClock 5 5 5 0 processorsRect) \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 45))
+
+  (checkMIDI, processorMIDI) <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), ".chart to MIDI") } |]
+    withUTF8 "Converts all .chart files to .mid." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    cbCheck <- makeCallback \_ _ -> do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      when (checked == 0) $
+        [C.block| void { $(Fl_Check_Button* checkPSTapOpen)->value(0); } |]
+    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+    return (check, do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then convertMIDI else return
+      )
+
+  (checkPSTapOpen, processorPSTapOpen) <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "PS tap/open format") } |]
+    withUTF8 "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    cbCheck <- makeCallback \_ _ -> do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      when (checked /= 0) $
+        [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
+    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+    return (check, do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then psTapOpenFormats else return
+      )
+
+  (checkOgg, processorOgg) <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .ogg") } |]
+    withUTF8 "Reencode audio files as Ogg Vorbis if they are not already." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    cbCheck <- makeCallback \_ _ -> do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      when (checked /= 0) $
+        [C.block| void { $(Fl_Check_Button* checkOpus)->value(0); } |]
+    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+    return (check, do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then stackIO . convertOgg else return
+      )
+  (checkOpus, processorOpus) <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .opus") } |]
+    withUTF8 "Reencode audio file as Opus if they are not already." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    cbCheck <- makeCallback \_ _ -> do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      when (checked /= 0) $
+        [C.block| void { $(Fl_Check_Button* checkOgg)->value(0); } |]
+    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+    return (check, do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then stackIO . convertOpus else return
+      )
+
+  processorRealToElite <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Real Drums to Elite") } |]
+    withUTF8 "If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    return do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then fillEliteFromPSReal else return
+
+  let getTransform = do
+        procs <- sequence [processorMIDI, processorPSTapOpen, processorOgg, processorOpus, processorRealToElite]
+        return $ foldr (>=>) return procs
+  [C.block| void { $(Fl_Pack* packProcessors)->end(); } |]
+
+  -- row2: select mode
+  let withQCMode mode = sink $ EventIO do
+        if mode == Nothing        then [C.block| void { $(Fl_Group* inPlace)->show(); } |]   else [C.block| void { $(Fl_Group* inPlace)->hide(); } |]
+        if mode == Just FoFFolder then [C.block| void { $(Fl_Group* toFolders)->show(); } |] else [C.block| void { $(Fl_Group* toFolders)->hide(); } |]
+        if mode == Just FoFSNG    then [C.block| void { $(Fl_Group* toSNGs)->show(); } |]    else [C.block| void { $(Fl_Group* toSNGs)->hide(); } |]
+  makeModeDropdown row2
+    [ ("Transform in place: replace input files with new versions", Nothing       )
+    , ("To folders: save each song as a folder"                   , Just FoFFolder)
+    , ("To SNG: save each song as an .sng file"                   , Just FoFSNG   )
+    ] withQCMode
+
+  let quickTemplate :: FilePath -> T.Text -> T.Text -> Maybe QuickFoF -> FilePath
+      quickTemplate fin ext txt qfof = validFileName NameRulePCUnicode $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+        [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
+        , T.intercalate ext . T.splitOn "%ext%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ fofMetadata "name") . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePCUnicode $ fofMetadata "artist") . T.splitOn "%artist%"
+        ] where dropExt f = fromMaybe f $ T.stripSuffix ".sng" f
+                fofMetadata k = fromMaybe "" $ qfof >>= lookup k . (.metadata)
+
+  -- row3/row4: mode-specific stuff
+  let modeGroup :: IO () -> IO (Ptr Fl_Group)
+      modeGroup inner = do
+        grp <- withRect row34 \gx gy gw gh ->
+          [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+        inner
+        [C.block| void { $(Fl_Group* grp)->end(); } |]
+        return grp
+
+  -- Transform in place
+  inPlace <- modeGroup do
+    cbGo <- makeCallback \_ _ -> do
+      qfofs <- readMVar loadedFiles
+      transform <- getTransform
+      let warningText = T.unlines $ concat
+            [ ["This will modify the selected songs, and the old versions will be deleted."]
+            , do
+              guard $ any (\qfof -> qfof.format == FoFEncore) qfofs
+              [   ""
+                , "WARNING: This will convert Encore-format songs into CH-compatible ones, removing the original files."
+                , "Select a different mode if you want to keep them."
+                ]
+            ]
+      -- TODO: use fl_choice for confirmation dialog, for now just proceed
+      sink $ EventOnyx do
+        stackIO clearFiles
+        startTasks $ qfofs <&> \orig -> let
+          loc = orig.location
+          task = do
+            qfof <- transform orig
+            stackIO case qfof.format of
+              FoFFormat FoFFolder -> saveQuickFoFFolder loc qfof
+              FoFFormat FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
+              FoFEncore           -> saveQuickFoFFolder loc qfof
+            return [loc]
+          in (loc, task)
+    withRect row4 \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
+      } |]
+
+  let computeTasks qfofs ext template deleteOriginals = forM qfofs \qfof -> do
+        fin  <- Dir.canonicalizePath qfof.location
+        fout <- Dir.canonicalizePath $ quickTemplate qfof.location ext template $ Just qfof
+        let task = if fin == fout
+              then QFoFInPlace
+              else if deleteOriginals then QFoFDeleteOriginal else QFoFKeepOriginal
+        return (qfof, fin, task, fout)
+
+  -- new folders
+  toFolders <- modeGroup do
+    checkDeleteOriginals <- withRect row3 \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Delete original files") } |]
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Start"
+      "%input_dir%/%input_base%"
+      \template -> do
+        deleteOriginals <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* checkDeleteOriginals)->value() } |]
+        qfofs <- readMVar loadedFiles
+        transform <- getTransform
+        tasks <- computeTasks qfofs "" template deleteOriginals
+        -- TODO: promptTasks confirmation dialog
+        sink $ EventOnyx do
+          stackIO clearFiles
+          startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
+            task = do
+              qfof <- transform orig
+              stackIO $ saveQuickFoFFolder fout qfof
+              case taskType of
+                QFoFDeleteOriginal -> stackIO $ Dir.removePathForcibly orig.location
+                _                  -> return ()
+              return [fout]
+            in (fout, task)
+
+  -- new sng
+  toSNGs <- modeGroup do
+    checkDeleteOriginals <- withRect row3 \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Delete original files") } |]
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Start"
+      "%input_dir%/%input_base%.sng"
+      \template -> do
+        deleteOriginals <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* checkDeleteOriginals)->value() } |]
+        qfofs <- readMVar loadedFiles
+        transform <- getTransform
+        tasks <- computeTasks qfofs "sng" template deleteOriginals
+        -- TODO: promptTasks confirmation dialog
+        sink $ EventOnyx do
+          stackIO clearFiles
+          startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
+            task = do
+              qfof <- transform orig
+              stackIO $ fillRequiredMetadata qfof >>= saveQuickFoFSNG fout
+              case taskType of
+                QFoFDeleteOriginal -> stackIO $ Dir.removePathForcibly orig.location
+                _                  -> return ()
+              return [fout]
+            in (fout, task)
+
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
+
+pageQuickConvertRB
+  :: (?preferences :: Preferences)
+  => (Event -> IO ())
+  -> Rectangle
+  -> Ptr Fl_Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+pageQuickConvertRB sink rect tab startTasks = mdo
+  loadedFiles <- newMVar []
+  let (mainRect, processorsRect) = chopRight 200 rect
+      (filesRect, trimClock 0 0 5 0 -> bottomRect) = chopBottom 131 mainRect
+      (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
+      [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
+      computePacks = runMaybeT do
+        files <- lift $ readMVar loadedFiles
+        maxSizeInput <- MaybeT $ readIORef packMaxSizeRef
+        maxSizeMB <- MaybeT $ readMaybe . T.unpack <$> peekInputValue maxSizeInput
+        let maxSizeBytes = maxSizeMB * 1024 * 1024
+        return $ organizePacks maxSizeBytes $ concatMap (.quickInputSongs) files
+      updatePackGo = readIORef packGoRef >>= \case
+        Nothing -> return ()
+        Just go -> computePacks >>= \case
+          Nothing -> do
+            [C.block| void { $(Fl_Button* go)->copy_label("Invalid pack size"); } |]
+            [C.block| void { $(Fl_Button* go)->deactivate(); } |]
+          Just [] -> do
+            [C.block| void { $(Fl_Button* go)->copy_label("No songs added"); } |]
+            [C.block| void { $(Fl_Button* go)->deactivate(); } |]
+          Just packs -> do
+            let lbl = case length packs of
+                  1 -> "Make 1 pack"
+                  n -> "Make " <> show n <> " packs"
+            withUTF8 lbl \clbl ->
+              [C.block| void { $(Fl_Button* go)->copy_label($(char* clbl)); } |]
+            [C.block| void { $(Fl_Button* go)->activate(); } |]
+      updateInPlace = readIORef inPlaceGoRef >>= \case
+        Nothing -> return ()
+        Just go -> do
+          files <- readMVar loadedFiles
+          let isValidInPlace :: QuickInput -> Bool
+              isValidInPlace qinput = case qinput.quickInputFormat of
+                QCInputTwoWay _ -> True
+                _               -> False
+          if all isValidInPlace files
+            then do
+              [C.block| void { $(Fl_Button* go)->copy_label("Start"); } |]
+              [C.block| void { $(Fl_Button* go)->activate(); } |]
+            else do
+              withUTF8 "Unsupported format: transform in place supports CON/LIVE/PKG" \clbl ->
+                [C.block| void { $(Fl_Button* go)->copy_label($(char* clbl)); } |]
+              [C.block| void { $(Fl_Button* go)->deactivate(); } |]
+      updateFiles f = do
+        modifyMVar_ loadedFiles f
+        sink $ EventIO $ updatePackGo >> updateInPlace
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "Rock Band song" "Rock Band songs" updateFiles [] searchQuickSongs
+    \qinput -> let
+      entry = T.pack qinput.quickInputPath
+      subline = T.pack case length qinput.quickInputSongs of
+        1 -> "1 song"
+        n -> show n <> " songs"
+      in (entry, [subline])
+
+  -- right side: processors
+  packProcessors <- withRect (trimClock 5 5 5 0 processorsRect) \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 40))
+      procFolder f qsong = do
+        newFiles <- f qsong.quickSongFiles
+        return qsong { quickSongFiles = newFiles }
+      processors :: [(T.Text, T.Text, QuickSong -> Onyx QuickSong)]
+      processors =
+        [ (,,) "Black VENUE"
+          "Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format."
+          \qsong -> do
+            let isRB3 = qsong.quickSongDTA.qdtaRB3
+            procFolder (QRB.applyToMIDI $ return . blackVenue isRB3) qsong
+        , (,,) "No Overdrive"
+          "Removes overdrive phrases from all instruments."
+          $ procFolder $ QRB.applyToMIDI $ return . noOverdrive
+        , (,,) "No lanes (G/B/K)"
+          "Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys."
+          $ procFolder $ QRB.applyToMIDI $ return . noLanesGBK
+        , (,,) "No lanes (drums)"
+          "Removes one-pad and two-pad rolls/swells from Drums."
+          $ procFolder $ QRB.applyToMIDI $ return . noLanesDrums
+        , (,,) "No drum fills"
+          "Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos."
+          $ procFolder $ QRB.applyToMIDI $ return . noDrumFills
+        , (,,) "Force 22-fret protar"
+          "For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos."
+          $ procFolder $ QRB.applyToMIDI $ return . mustang22
+        , (,,) "Unmute >22-fret protar"
+          "Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input."
+          $ procFolder $ QRB.applyToMIDI $ return . unmuteOver22
+        , (,,) "Decompress .milo_*"
+          "Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion."
+          $ procFolder decompressMilos
+        , (,,) "Author to DTA tag"
+          "Copies author information from the C3 Magma comment format to the RB2/RB3 Deluxe game-readable format."
+          $ return . transferAuthorToTag
+        , (,,) "Strip title tags"
+          "Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc."
+          $ return . stripTitleTags
+        , (,,) "Note shuffle"
+          "Shuffles notes on 5-fret and drum parts."
+          \qsong -> do
+            shuffled <- noteShuffle qsong
+            seed <- randomIO
+            return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
+        ]
+  processorGetters <- forM processors \(label, tooltip, processor) -> do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    withUTF8 (T.unpack label) \clbl ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
+    withUTF8 (T.unpack tooltip) \ctip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* ctip)); } |]
+    return do
+      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return if checked /= 0 then processor else return
+  let getSongTransform = do
+        procs <- sequence processorGetters
+        return $ foldr (>=>) return procs
+  getDecryptMOGGs <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Decrypt MOGGs") } |]
+    withUTF8 "Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced." \tip ->
+      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    return do
+      v <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+      return $ v /= 0
+  [C.block| void { $(Fl_Pack* packProcessors)->end(); } |]
+
+  -- row2: select mode
+  let withQCMode mode = sink $ EventIO do
+        if mode == QCInPlace   then [C.block| void { $(Fl_Group* inPlace)->show(); } |]     else [C.block| void { $(Fl_Group* inPlace)->hide(); } |]
+        if mode == QCOneToOne  then [C.block| void { $(Fl_Group* oneToOne)->show(); } |]    else [C.block| void { $(Fl_Group* oneToOne)->hide(); } |]
+        if mode == QCMakePacks then [C.block| void { $(Fl_Group* makePacks)->show(); } |]   else [C.block| void { $(Fl_Group* makePacks)->hide(); } |]
+        if mode == QCMakeSongs then [C.block| void { $(Fl_Group* makeSongs)->show(); } |]   else [C.block| void { $(Fl_Group* makeSongs)->hide(); } |]
+        if mode == QCDolphin   then [C.block| void { $(Fl_Group* makeDolphin)->show(); } |] else [C.block| void { $(Fl_Group* makeDolphin)->hide(); } |]
+  makeModeDropdown row2
+    [ ("Transform in place: replace input files with new versions", QCInPlace  )
+    , ("One to one: each input file produces a new output file"   , QCOneToOne )
+    , ("Make packs: combine songs up to a maximum file size"      , QCMakePacks)
+    , ("Make songs: produce a single file for each song"          , QCMakeSongs)
+    , ("Make Dolphin (Wii) pack"                                  , QCDolphin  )
+    ] withQCMode
+
+  let quickTemplateRB :: Preferences -> QuickConvertFormat -> FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
+      quickTemplateRB prefs fmt fin ext txt qdta = fixXbox $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+        [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
+        , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
+        , T.intercalate ext . T.splitOn "%ext%"
+        , T.intercalate (validFileNamePiece NameRulePC $ maybe "" (.qdtaTitle) qdta) . T.splitOn "%title%"
+        , T.intercalate (validFileNamePiece NameRulePC $ fromMaybe "" $ qdta >>= (.qdtaArtist)) . T.splitOn "%artist%"
+        ] where dropExt f = fromMaybe f $ T.stripSuffix ".pkg" f
+                fixXbox = case fmt of
+                  QCFormatCON  -> trimXbox prefs
+                  QCFormatLIVE -> trimXbox prefs
+                  QCFormatPKG  -> id
+
+      artistTitle :: QuickSong -> T.Text
+      artistTitle qsong = T.intercalate " - " $ concat
+        [ toList qsong.quickSongDTA.qdtaArtist
+        , [qsong.quickSongDTA.qdtaTitle]
+        ]
+
+      defaultTitle qsongs = case qsongs of
+        [qsong]   -> artistTitle qsong
+        []        -> "(empty)"
+        qsong : _ -> T.pack (show $ length qsongs) <> " songs incl. " <> artistTitle qsong
+
+  -- row3/row4: mode-specific stuff
+  let (formatArea, trimClock 0 0 0 10 -> ps3OptionsArea) = chopLeft 150 row3
+      (ps3EncryptArea, ps3FolderArea) = chopLeft 225 ps3OptionsArea
+      makeCheckEncrypt = do
+        btn <- withRect ps3EncryptArea \cx cy cw ch ->
+          [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Encrypt .mid.edat") } |]
+        when ?preferences.prefPS3Encrypt $
+          [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
+        return do
+          v <- [C.exp| int { $(Fl_Check_Button* btn)->value() } |]
+          return $ v /= 0
+      makeFormatSelect :: IO () -> IO () -> IO () -> IO () -> IO (IO QuickConvertFormatOutput)
+      makeFormatSelect ps3On ps3Off foldersOn foldersOff = do
+        ref <- newIORef $ QCOutputTwoWay QCFormatCON
+        makeModeDropdown formatArea
+          [ ("CON (360)"    , QCOutputTwoWay QCFormatCON )
+          , ("LIVE (360)"   , QCOutputTwoWay QCFormatLIVE)
+          , ("PKG (PS3)"    , QCOutputTwoWay QCFormatPKG )
+          , ("Folders (PS3)", QCOutputLoosePS3           )
+          ] \x -> sink $ EventIO do
+            writeIORef ref x
+            case x of
+              QCOutputTwoWay QCFormatPKG -> ps3On
+              QCOutputLoosePS3           -> ps3On
+              _                          -> ps3Off
+            case x of
+              QCOutputLoosePS3 -> foldersOn
+              _                -> foldersOff
+        return $ readIORef ref
+      modeGroup :: IO () -> IO (Ptr Fl_Group)
+      modeGroup inner = do
+        grp <- withRect row34 \gx gy gw gh ->
+          [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+        inner
+        [C.block| void { $(Fl_Group* grp)->end(); } |]
+        return grp
+
+  -- Transform in place
+  inPlaceGoRef <- newIORef Nothing
+  inPlace <- modeGroup do
+    _ <- withRect formatArea \bx by bw bh ->
+      [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "For PS3 files:") } |]
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePresetDropdown ps3FolderArea
+      [ ("Keep original USRDIR subfolders", Nothing)
+      , ("Combine into one new USRDIR subfolder", Just QCOneFolder)
+      , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
+      ]
+    cbGo <- makeCallback \_ _ -> sink $ EventOnyx do
+      files <- stackIO $ readMVar loadedFiles
+      enc <- stackIO getEncrypt
+      ps3Folder <- stackIO getFolderSetting
+      songTransform <- stackIO getSongTransform
+      decryptMOGGs <- stackIO getDecryptMOGGs
+      stackIO clearFiles
+      startTasks $ files <&> \qinput -> let
+        fin = qinput.quickInputPath
+        qsongs = qinput.quickInputSongs
+        task = do
+          qsongs' <- mapM songTransform qsongs
+          let tmp = fin <> ".tmp"
+              isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+              ps3Settings = QuickPS3Settings
+                { qcPS3Folder      = ps3Folder
+                , qcPS3EncryptMIDI = enc
+                , qcPS3EncryptMOGG = not decryptMOGGs
+                , qcPS3RB3         = isRB3
+                }
+              xboxSettings live = stackIO $
+                (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                (maybe "Onyx Quick Convert" (T.concat . take 1 . (.md_DisplayName       )) qinput.quickInputXbox)
+                (maybe ""                   (T.concat . take 1 . (.md_DisplayDescription)) qinput.quickInputXbox)
+                live
+          case qinput.quickInputFormat of
+            QCInputTwoWay fmt -> case fmt of
+              QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
+              QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts tmp
+              QCFormatPKG  -> saveQuickSongsPKG  qsongs' ps3Settings tmp
+            fmt -> fatal $ "Unsupported format for transform mode (" <> show fmt <> ")"
+          stackIO $ Dir.renameFile tmp fin
+          return [fin]
+        in (fin, task)
+    btnGo <- withRect row4 \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
+      } |]
+      return btn
+    writeIORef inPlaceGoRef $ Just btnGo
+
+  -- One to one
+  oneToOne <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
+      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      ([C.block| void { $(Fl_Group* groupStartFile)->hide(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->show(); } |])
+      ([C.block| void { $(Fl_Group* groupStartFile)->show(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->hide(); } |])
+    ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePresetDropdown ps3FolderArea
+      [ ("Keep original USRDIR subfolders (if any)", Nothing)
+      , ("Combine into one new USRDIR subfolder per file", Just QCOneFolder)
+      , ("Each song gets a new USRDIR subfolder", Just QCSeparateFolders)
+      ]
+    [C.block| void { $(Fl_Group* ps3Options)->end(); } |]
+    groupStartFile <- withRect row4 \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Start"
+      "%input_dir%/%input_base%_convert%ext%"
+      \template -> sink $ EventOnyx $ stackIO getFormat >>= \case
+        QCOutputLoosePS3   -> return ()
+        QCOutputTwoWay fmt -> do
+          files <- stackIO $ readMVar loadedFiles
+          enc <- stackIO getEncrypt
+          ps3Folder <- stackIO getFolderSetting
+          songTransform <- stackIO getSongTransform
+          decryptMOGGs <- stackIO getDecryptMOGGs
+          newPreferences <- readPreferences
+          startTasks $ files <&> \qinput -> let
+            fin = qinput.quickInputPath
+            qsongs = qinput.quickInputSongs
+            task = do
+              qsongs' <- mapM songTransform qsongs
+              let ext = case fmt of
+                    QCFormatCON  -> ""
+                    QCFormatLIVE -> ""
+                    QCFormatPKG  -> ".pkg"
+                  fout = quickTemplateRB newPreferences fmt fin ext template Nothing
+                  isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = ps3Folder
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+                  xboxSettings live = stackIO $
+                    (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                    (maybe (defaultTitle qsongs') (T.concat . take 1 . (.md_DisplayName       )) qinput.quickInputXbox)
+                    (maybe ""                     (T.concat . take 1 . (.md_DisplayDescription)) qinput.quickInputXbox)
+                    live
+              case fmt of
+                QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+                QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongs' opts fout
+                QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+              return [fout]
+            in (fin, task)
+    [C.block| void { $(Fl_Group* groupStartFile)->end(); } |]
+    groupStartLoosePS3 <- withRect row4 \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    cbLoosePS3 <- makeCallback \_ _ -> do
+      files <- readMVar loadedFiles
+      enc <- getEncrypt
+      ps3Folder <- getFolderSetting
+      songTransform <- getSongTransform
+      decryptMOGGs <- getDecryptMOGGs
+      sink $ EventOnyx do
+        defDir <- getDefaultPS3Dir
+        stackIO $ askFolder defDir \dout -> do
+          sink $ EventOnyx $ startTasks $ files <&> \qinput -> let
+            fin = qinput.quickInputPath
+            qsongs = qinput.quickInputSongs
+            task = do
+              qsongs' <- mapM songTransform qsongs
+              let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                  ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = ps3Folder
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+              saveQuickSongsPS3Folder qsongs' ps3Settings dout
+            in (fin, task)
+    withRect row4 \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbLoosePS3));
+      } |]
+    [C.block| void { $(Fl_Group* groupStartLoosePS3)->end(); } |]
+
+  -- Make packs
+  packGoRef <- newIORef Nothing
+  packMaxSizeRef <- newIORef Nothing
+  makePacks <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
+      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      (return ())
+      (return ())
+    ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    getEncrypt <- makeCheckEncrypt
+    getFolderSetting <- makePS3PackPresetDropdown sink ps3FolderArea
+    [C.block| void { $(Fl_Group* ps3Options)->end(); } |]
+    let (trimClock 0 10 0 150 -> maxSizeArea, goArea) = chopLeft 300 row4
+    maxSizeInput <- withRect maxSizeArea \ix iy iw ih -> do
+      inp <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Max Pack Size (MiB)") } |]
+      [C.block| void {
+        $(Fl_Input* inp)->labelsize(13);
+        $(Fl_Input* inp)->align(FL_ALIGN_LEFT);
+        $(Fl_Input* inp)->value("4000");
+      } |]
+      return inp
+    cbMaxSize <- makeCallback \_ _ -> updatePackGo
+    [C.block| void {
+      $(Fl_Input* maxSizeInput)->callback($(Fl_Callback cbMaxSize));
+      $(Fl_Input* maxSizeInput)->when(FL_WHEN_CHANGED);
+    } |]
+    writeIORef packMaxSizeRef $ Just maxSizeInput
+    cbGo <- makeCallback \_ _ -> do
+      enc <- getEncrypt
+      ps3Folder <- getFolderSetting
+      songTransform <- getSongTransform
+      decryptMOGGs <- getDecryptMOGGs
+      computePacks >>= \case
+        Nothing    -> return ()
+        Just packs -> let
+          packNumber n = case packs of
+            [_] -> ""
+            _   -> "-" <> show n
+          packNumberUSRDIR n = case packs of
+            [_] -> ""
+            _   -> "-" <> B8.pack (show n)
+          in sink $ EventOnyx $ stackIO getFormat >>= \case
+            QCOutputLoosePS3 -> do
+              defDir <- getDefaultPS3Dir
+              stackIO $ askFolder defDir \dout -> do
+                sink $ EventOnyx $ startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
+                  task = do
+                    mapM_ (lg . T.unpack . artistTitle) qsongs
+                    qsongs' <- mapM songTransform qsongs
+                    let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                        ps3Folder' = case ps3Folder of
+                          QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                          _                 -> ps3Folder
+                        ps3Settings = QuickPS3Settings
+                          { qcPS3Folder      = Just ps3Folder'
+                          , qcPS3EncryptMIDI = enc
+                          , qcPS3EncryptMOGG = not decryptMOGGs
+                          , qcPS3RB3         = isRB3
+                          }
+                    saveQuickSongsPS3Folder qsongs' ps3Settings dout
+                  in ("Pack #" <> show (i :: Int), task)
+            QCOutputTwoWay fmt -> stackIO do
+              picker <- [C.exp| Fl_Native_File_Chooser* {
+                new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
+              } |]
+              let titleStr = case packs of
+                    [_] -> "Save pack file"
+                    _   -> "Select template for packs (a number will be added for each pack)"
+              withUTF8 titleStr \ctitle ->
+                [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+              result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+              when (result == 0) do
+                cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+                userPath <- peekUTF8 cstr
+                let getOutputPath n = case fmt of
+                      QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
+                      _           -> userPath <> packNumber n
+                sink $ EventOnyx do
+                  newPreferences <- readPreferences
+                  startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
+                    fout = getOutputPath i
+                    task = do
+                      mapM_ (lg . T.unpack . artistTitle) qsongs
+                      qsongs' <- mapM songTransform qsongs
+                      let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                          maybeEncoding = if isRB3
+                            then newPreferences.prefPackEncoding
+                            else Just Latin1
+                          qsongsReencode = case maybeEncoding of
+                            Nothing          -> qsongs'
+                            Just newEncoding -> qsongs' <&> \qsong -> qsong
+                              { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+                              }
+                          ps3Folder' = case ps3Folder of
+                            QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                            _                 -> ps3Folder
+                          ps3Settings = QuickPS3Settings
+                            { qcPS3Folder      = Just ps3Folder'
+                            , qcPS3EncryptMIDI = enc
+                            , qcPS3EncryptMOGG = not decryptMOGGs
+                            , qcPS3RB3         = isRB3
+                            }
+                          xboxSettings live = stackIO $
+                            (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                            (defaultTitle qsongsReencode)
+                            ""
+                            live
+                      case fmt of
+                        QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                        QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                        QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                      return [fout]
+                    in ("Pack #" <> show (i :: Int), task)
+              [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    btnGo <- withRect goArea \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Save pack as…") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
+      } |]
+      return btn
+    writeIORef packGoRef $ Just btnGo
+
+  -- Make songs
+  makeSongs <- modeGroup $ mdo
+    getFormat <- makeFormatSelect
+      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
+      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      ([C.block| void { $(Fl_Group* groupStartFile)->hide(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->show(); } |])
+      ([C.block| void { $(Fl_Group* groupStartFile)->show(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->hide(); } |])
+    ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    getEncrypt <- makeCheckEncrypt
+    [C.block| void { $(Fl_Group* ps3Options)->end(); } |]
+    groupStartFile <- withRect row4 \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    void $ makeTemplateRunner'
+      sink
+      row4
+      "Select folder…"
+      "%artist% - %title%%ext%"
+      \template -> sink $ EventIO $ getFormat >>= \case
+        QCOutputLoosePS3   -> return ()
+        QCOutputTwoWay fmt -> do
+          files <- readMVar loadedFiles
+          enc <- getEncrypt
+          songTransform <- getSongTransform
+          decryptMOGGs <- getDecryptMOGGs
+          askFolder (takeDirectory . (.quickInputPath) <$> listToMaybe files) \dout -> do
+            let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
+            sink $ EventOnyx do
+              newPreferences <- readPreferences
+              startTasks $ inputSongs <&> \(qinput, qsong) -> let
+                ext = case fmt of
+                  QCFormatCON  -> ""
+                  QCFormatLIVE -> ""
+                  QCFormatPKG  -> ".pkg"
+                fout = dout </> quickTemplateRB newPreferences fmt qinput.quickInputPath ext template (Just qsong.quickSongDTA)
+                isRB3 = qsong.quickSongDTA.qdtaRB3
+                task = do
+                  qsong' <- songTransform qsong
+                  let ps3Settings = QuickPS3Settings
+                        { qcPS3Folder      = Just QCSeparateFolders
+                        , qcPS3EncryptMIDI = enc
+                        , qcPS3EncryptMOGG = not decryptMOGGs
+                        , qcPS3RB3         = isRB3
+                        }
+                      xboxSettings live = stackIO $
+                        (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                        (artistTitle qsong)
+                        ""
+                        live
+                  case fmt of
+                    QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
+                    QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs [qsong'] opts fout
+                    QCFormatPKG  -> saveQuickSongsPKG [qsong'] ps3Settings fout
+                  return [fout]
+                in (T.unpack $ artistTitle qsong, task)
+    [C.block| void { $(Fl_Group* groupStartFile)->end(); } |]
+    groupStartLoosePS3 <- withRect row4 \gx gy gw gh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+    cbLoosePS3 <- makeCallback \_ _ -> do
+      files <- readMVar loadedFiles
+      enc <- getEncrypt
+      songTransform <- getSongTransform
+      decryptMOGGs <- getDecryptMOGGs
+      sink $ EventOnyx do
+        defDir <- getDefaultPS3Dir
+        stackIO $ askFolder defDir \dout -> do
+          let inputSongs = files >>= \f -> map (f,) f.quickInputSongs
+          sink $ EventOnyx $ startTasks $ inputSongs <&> \(_qinput, qsong) -> let
+            isRB3 = qsong.quickSongDTA.qdtaRB3
+            task = do
+              qsong' <- songTransform qsong
+              let ps3Settings = QuickPS3Settings
+                    { qcPS3Folder      = Just QCSeparateFolders
+                    , qcPS3EncryptMIDI = enc
+                    , qcPS3EncryptMOGG = not decryptMOGGs
+                    , qcPS3RB3         = isRB3
+                    }
+              saveQuickSongsPS3Folder [qsong'] ps3Settings dout
+            in (T.unpack $ artistTitle qsong, task)
+    withRect row4 \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbLoosePS3));
+      } |]
+    [C.block| void { $(Fl_Group* groupStartLoosePS3)->end(); } |]
+
+  -- Wii (Dolphin) pack
+  makeDolphin <- modeGroup $ mdo
+    boxPrev <- withRect row3 \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Try to generate preview audio") } |]
+    cbGo <- makeCallback \_ _ -> sink $ EventIO do
+      files <- readMVar loadedFiles
+      tryPreview <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* boxPrev)->value() } |]
+      songTransform <- getSongTransform
+      askFolder ?preferences.prefDirWii \dout -> sink $ EventOnyx $ startTasks let
+        settings = QuickDolphinSettings
+          { qcDolphinPreview = tryPreview
+          }
+        task = do
+          qsongs <- mapM songTransform $ concatMap (.quickInputSongs) files
+          saveQuickSongsDolphin qsongs settings dout
+        in [("Make Dolphin pack", task)]
+    withRect row4 \bx by bw bh -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Select folder…") } |]
+      [C.block| void {
+        $(Fl_Button* btn)->color($(Fl_Color taskColor));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
+      } |]
+
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchMisc sink makeMenuBar = mdo
@@ -1462,15 +2947,11 @@ launchMisc sink makeMenuBar = mdo
   functionTabs <- sequence
     [ makeTab windowRect "MIDI stuff" \rect tab -> do
       setTabColor tab functionTabColor
-      -- TODO: translate miscPageMIDI
-      _ <- withRect rect \bx by bw bh ->
-        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "MIDI tools not yet translated") } |]
+      miscPageMIDI sink rect tab startTasks
       return tab
     , makeTab windowRect "MOGG/VGS/FSB" \rect tab -> do
       setTabColor tab functionTabColor
-      -- TODO: translate miscPageMOGG
-      _ <- withRect rect \bx by bw bh ->
-        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "MOGG/VGS/FSB tools not yet translated") } |]
+      miscPageMOGG sink rect tab startTasks
       return tab
     , makeTab windowRect "Lipsync" \rect tab -> do
       setTabColor tab functionTabColor
@@ -1486,9 +2967,7 @@ launchMisc sink makeMenuBar = mdo
       return tab
     , makeTab windowRect "RB3 cache" \rect tab -> do
       setTabColor tab functionTabColor
-      -- TODO: translate miscPageHardcodeSongCache
-      _ <- withRect rect \bx by bw bh ->
-        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "RB3 cache tools not yet translated") } |]
+      miscPageHardcodeSongCache sink rect tab startTasks
       return tab
     , makeTab windowRect "GH3 cache" \rect tab -> do
       setTabColor tab functionTabColor

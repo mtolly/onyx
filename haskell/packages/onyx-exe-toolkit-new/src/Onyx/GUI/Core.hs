@@ -32,7 +32,8 @@ import           Data.IORef                       (newIORef, readIORef,
                                                    writeIORef)
 import           Data.List.Extra                  (findIndex)
 import qualified Data.List.NonEmpty               as NE
-import           Data.Maybe                       (catMaybes, listToMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                    listToMaybe)
 import           Data.Monoid                      (Endo (..))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -662,7 +663,21 @@ fileLoadWindow
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (Ptr Fl_Group)
-fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
+fileLoadWindow rect sink single plural modifyFiles startFiles step display
+  = fmap fst
+  $ fileLoadWindow' rect sink single plural modifyFiles startFiles step display
+
+fileLoadWindow'
+  :: Rectangle
+  -> (Event -> IO ())
+  -> T.Text -- ^ singular
+  -> T.Text -- ^ plural
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (Ptr Fl_Group, IO ())
+fileLoadWindow' rect sink single plural modifyFiles startFiles step display = mdo
   group <- withRect rect \gx gy gw gh ->
     [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   let (labelRect, belowLabel) = chopTop 40 rect
@@ -750,7 +765,63 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
         $(Fl_Button* btn)->callback($(Fl_Callback cbClear));
       } |]
   [C.block| void { $(Fl_Group* group)->end(); } |]
-  return group
+  return (group, void clearFiles)
+
+makeModeDropdown :: Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
+makeModeDropdown rect opts withOpt = do
+  let (initialLabel, initialOpt) = head opts
+  menu <- withRect rect \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 (T.unpack initialLabel) \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
+  forM_ opts \(label, opt) -> do
+    let label' = T.unpack $ T.replace "/" "\\/" label
+    menuCb <- makeCallback \_ _ -> do
+      withOpt opt
+      withUTF8 (T.unpack label) \newLabel ->
+        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 label' \clabel' ->
+      [C.block| void {
+        $(Fl_Menu_Button* menu)->add($(char* clabel'), 0, $(Fl_Callback menuCb));
+      } |]
+  withOpt initialOpt
+
+makePS3PackPresetDropdown :: (Event -> IO ()) -> Rectangle -> IO (IO QuickPS3Folder)
+makePS3PackPresetDropdown _sink rect = do
+  let labelOne = "Combine into one new USRDIR subfolder per pack"
+      labelSeparate = "Each song gets a new USRDIR subfolder"
+      labelCustomInitial = "Custom USRDIR subfolder..."
+      labelCustom txt = "Custom folder: " <> txt
+      _customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
+  menu <- withRect rect \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 (T.unpack labelOne) \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
+  ref <- newIORef QCOneFolder
+  let addItem label action = do
+        menuCb <- makeCallback \_ _ -> action
+        withUTF8 (T.unpack $ T.replace "/" "\\/" label) \clabel' ->
+          [C.block| void {
+            $(Fl_Menu_Button* menu)->add($(char* clabel'), 0, $(Fl_Callback menuCb));
+          } |]
+  addItem labelOne do
+    writeIORef ref QCOneFolder
+    withUTF8 (T.unpack labelOne) \newLabel ->
+      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+  addItem labelSeparate do
+    writeIORef ref QCSeparateFolders
+    withUTF8 (T.unpack labelSeparate) \newLabel ->
+      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+  addItem labelCustomInitial do
+    -- TODO: need fl_input dialog for custom folder name, stubbing for now
+    defValue <- readIORef ref <&> \case
+      QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
+      _                 -> Nothing
+    let txt = fromMaybe "CUSTOM" defValue
+    writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
+    withUTF8 (T.unpack $ labelCustom txt) \newLabel ->
+      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+  return $ readIORef ref
 
 customTitleSuffix
   :: (Event -> IO ())
