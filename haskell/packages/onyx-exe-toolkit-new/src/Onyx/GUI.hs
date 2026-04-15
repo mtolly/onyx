@@ -19,7 +19,7 @@ module Onyx.GUI (launchGUI) where
 
 import           Onyx.GUI.Batch
 import           Onyx.GUI.Core
--- import           Onyx.GUI.Misc
+import           Onyx.GUI.Misc
 import           Onyx.GUI.Song
 import           Codec.Picture                     (readImage, savePngImage,
                                                     writePng)
@@ -1443,6 +1443,89 @@ launchQuickConvert' sink _makeMenuBar = do
   sink $ EventOnyx $ warn "Quick convert window not yet translated"
 
 launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchMisc sink _makeMenuBar = do
-  -- TODO: translate misc tools window
-  sink $ EventOnyx $ warn "Other tools window not yet translated"
+launchMisc sink makeMenuBar = mdo
+  let windowWidth = Width 900
+      windowHeight = Height 600
+      windowSize = Size windowWidth windowHeight
+  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Tools") } |]
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  [C.block| void {
+    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
+    $(Fl_Window* window)->size_range(900, 600);
+  } |]
+  tabs <- withRect windowRect \tx ty tw th ->
+    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  functionTabs <- sequence
+    [ makeTab windowRect "MIDI stuff" \rect tab -> do
+      setTabColor tab functionTabColor
+      -- TODO: translate miscPageMIDI
+      _ <- withRect rect \bx by bw bh ->
+        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "MIDI tools not yet translated") } |]
+      return tab
+    , makeTab windowRect "MOGG/VGS/FSB" \rect tab -> do
+      setTabColor tab functionTabColor
+      -- TODO: translate miscPageMOGG
+      _ <- withRect rect \bx by bw bh ->
+        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "MOGG/VGS/FSB tools not yet translated") } |]
+      return tab
+    , makeTab windowRect "Lipsync" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageLipsync sink rect tab startTasks
+      return tab
+    , makeTab windowRect "Dry vox" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageDryVox sink rect tab startTasks
+      return tab
+    , makeTab windowRect ".milo" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageMilo sink rect tab startTasks
+      return tab
+    , makeTab windowRect "RB3 cache" \rect tab -> do
+      setTabColor tab functionTabColor
+      -- TODO: translate miscPageHardcodeSongCache
+      _ <- withRect rect \bx by bw bh ->
+        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "RB3 cache tools not yet translated") } |]
+      return tab
+    , makeTab windowRect "GH3 cache" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageGH3SongCache sink rect tab startTasks
+      return tab
+    , makeTab windowRect "GH:WoR cache" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageWoRSongCache sink rect tab startTasks
+      return tab
+    , makeTab windowRect "CON to PKG" \rect tab -> do
+      setTabColor tab functionTabColor
+      miscPageCONtoPKG sink rect tab startTasks
+      return tab
+    ]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
+    setTabColor tab taskColor
+    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tab)->activate(); } |]
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
+          updateTabsColor tabs
+        cbEnd = do
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage rect tab sink cbStart cbEnd
+
+  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  updateTabsColor tabs
+  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
+  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  let firstTab = head functionTabs
+  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
+
+  cbWindow <- makeCallback \_ _ -> windowCloser cancelTasks window
+  [C.block| void {
+    $(Fl_Window* window)->end();
+    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
+    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
+    $(Fl_Window* window)->show();
+  } |]
