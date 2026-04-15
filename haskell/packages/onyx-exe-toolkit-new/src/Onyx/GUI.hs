@@ -768,21 +768,21 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
           [C.block| void { $(Fl_Menu_Button* trackMenu)->clear(); } |]
           forM_ (concat names) \t -> do
             let isSelected = elem t selected
-                flags = if isSelected then 0x108 else 0x8 :: CInt -- FL_MENU_TOGGLE | FL_MENU_VALUE
-                -- 0x8 = FL_MENU_TOGGLE, 0x100 = FL_MENU_VALUE
+                flags = [C.pure| int { FL_MENU_TOGGLE } |]
+                  + if isSelected then [C.pure| int { FL_MENU_VALUE } |] else 0
             withUTF8 (T.unpack t) \ct ->
               [C.block| void {
                 $(Fl_Menu_Button* trackMenu)->add($(char* ct), 0, 0, 0, $(int flags));
               } |]
           writeIORef currentParts names
-          when doRedraw $ [C.block| void { Fl::redraw(); } |]
+          when doRedraw $ sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
 
   initSong <- getSong
   updateParts False $ map (map fst) $ previewTracks initSong
   cbTrackMenu <- makeCallback \_ _ -> do
-    [C.block| void { Fl::redraw(); } |]
+    sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
     -- Reopen menu so user can toggle multiple items
-    [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
+    sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
   [C.block| void { $(Fl_Menu_Button* trackMenu)->callback($(Fl_Callback cbTrackMenu)); } |]
 
   -- Audio selection menu
@@ -791,13 +791,14 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   initialAudio <- getAudio
   forM_ audioParts \t -> do
     let isSelected = Set.member t initialAudio
-        flags = if isSelected then 0x108 else 0x8 :: CInt
+        flags = [C.pure| int { FL_MENU_TOGGLE } |]
+          + (if isSelected then [C.pure| int { FL_MENU_VALUE } |] else 0)
     cbAudio <- makeCallback \_ _ -> do
       currentAudio <- getAudio
       setAudio if Set.member t currentAudio
         then Set.delete t currentAudio
         else Set.insert t currentAudio
-      [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
+      sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
     withUTF8 (T.unpack t) \ct ->
       [C.block| void {
         $(Fl_Menu_Button* audioMenu)->add($(char* ct), 0, $(Fl_Callback cbAudio), 0, $(int flags));
@@ -813,8 +814,8 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   currentBG <- newIORef $ snd initialBG
   forM_ allBGs \(t, bg) -> do
     let isSelected = t == fst initialBG
-        -- FL_MENU_RADIO = 8, FL_MENU_VALUE = 1
-        radioFlags = (if isSelected then 9 else 8) :: CInt
+        radioFlags = [C.pure| int { FL_MENU_RADIO } |]
+          + if isSelected then [C.pure| int { FL_MENU_VALUE } |] else 0
     cbBG <- makeCallback \_ _ -> writeIORef currentBG bg
     withUTF8 (T.unpack t) \ct ->
       [C.block| void {
@@ -877,8 +878,8 @@ getSelectedMenuItems menu = do
   n <- [C.exp| int { $(Fl_Menu_Button* menu)->size() } |]
   fmap catMaybes $ forM [0 .. n - 1] \i -> do
     flags <- [C.exp| int { $(Fl_Menu_Button* menu)->menu()[$(int i)].flags } |]
-    -- Check if FL_MENU_VALUE (1) is set
-    if flags .&. 1 /= 0
+    let flMenuValue = [C.pure| int { FL_MENU_VALUE } |]
+    if flags .&. flMenuValue /= 0
       then do
         cstr <- [C.exp| const char* { $(Fl_Menu_Button* menu)->menu()[$(int i)].label() } |]
         if cstr == nullPtr
