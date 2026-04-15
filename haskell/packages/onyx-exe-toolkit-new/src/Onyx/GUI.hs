@@ -211,6 +211,7 @@ C.include "FL/Fl_Hor_Nice_Slider.H"
 C.include "FL/Fl_Slider.H"
 C.include "FL/Fl_Menu_Button.H"
 C.include "FL/Fl_Counter.H"
+C.include "FL/Fl_Value_Slider.H"
 C.include "FL/fl_ask.H"
 C.include "FL/fl_draw.H"
 C.include "hs_gl_window.h"
@@ -1484,9 +1485,532 @@ warnQuickConvert count sink go = let
       when (result == 1) $ sink $ EventOnyx go
 
 launchPreferences :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Onyx ()
-launchPreferences _sink _makeMenuBar = do
-  -- TODO: translate preferences window
-  return ()
+launchPreferences sink makeMenuBar = do
+  loadedPrefs <- readPreferences
+  let windowWidth = Width 800
+      windowHeight = Height 500
+      windowSize = Size windowWidth windowHeight
+      leaveLeftLabelSpace = snd . chopLeft 180
+      lineBox :: (Rectangle -> IO a) -> IO a
+      lineBox = padded 5 10 5 10 (Size windowWidth (Height 40))
+      bottomHeight = 55
+      folderBox :: Rectangle -> T.Text -> T.Text -> IO (IO (Maybe FilePath))
+      folderBox rect label initValue = do
+        let rectA = leaveLeftLabelSpace rect
+            (inputRect, rectB) = chopRight 100 rectA
+            (_, rectC) = chopRight 90 rectB
+            (browseRect, _) = chopLeft 40 rectC
+            (_, rectD) = chopRight 50 rectC
+            (_, resetRect) = chopRight 40 rectD
+        input <- withRect inputRect \ix iy iw ih ->
+          [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+        withUTF8 (T.unpack label) \clabel ->
+          [C.block| void {
+            Fl_Input* inp = $(Fl_Input* input);
+            inp->copy_label($(char* clabel));
+            inp->labelsize(13);
+            inp->align(FL_ALIGN_LEFT);
+          } |]
+        withUTF8 (T.unpack initValue) \cval ->
+          [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
+        browseButton <- withRect browseRect \bx by bw bh ->
+          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+        cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir ->
+          withUTF8 dir \cdir ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cdir)); } |]
+        [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
+        resetButton <- withRect resetRect \bx by bw bh ->
+          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
+        cbReset <- makeCallback \_ _ -> sink $ EventIO do
+          [C.block| void { $(Fl_Input* input)->value(""); } |]
+        [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
+        return do
+          val <- peekInputValue input
+          return $ case val of
+            "" -> Nothing
+            x  -> Just $ T.unpack x
+      combinePrefs :: [IO (a -> a)] -> IO (a -> a)
+      combinePrefs = fmap (foldr (.) id) . sequence
+  stackIO do
+    window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+      [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Onyx Preferences") } |]
+    [C.block| void { $(Fl_Window* window)->color($(Fl_Color behindTabsColor)); } |]
+    menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+    let (tabsRect, bottomRect) = chopBottom bottomHeight $ snd $ chopTop menuHeight $ Rectangle
+          (Position (X 0) (Y 0))
+          windowSize
+    let Width windowW = windowWidth
+        Height windowH = windowHeight
+    [C.block| void {
+      $(Fl_Window* window)->resizable($(Fl_Window* window));
+      $(Fl_Window* window)->size_range($(int windowW), $(int windowH));
+    } |]
+    tabs <- withRect tabsRect \tx ty tw th ->
+      [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
+    (tab1, pref1) <- makeTab tabsRect "General" \rect tab -> do
+      pack <- withRect rect \px py pw ph ->
+        [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+      fn <- combinePrefs <$> sequence
+        [ lineBox \box -> do
+          let [checkBox, _, counterBox, _] = splitHorizN 4 box
+          check <- withRect checkBox \cx cy cw ch ->
+            [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+          [C.block| void { $(Fl_Check_Button* check)->copy_label("Unlimited cores"); } |]
+          let checkVal = if isNothing loadedPrefs.prefThreads then 1 else 0 :: CInt
+          [C.block| void { $(Fl_Check_Button* check)->value($(int checkVal)); } |]
+          counter <- withRect counterBox \cx cy cw ch ->
+            [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+          let initCores = maybe 1 fromIntegral loadedPrefs.prefThreads :: C.CDouble
+          [C.block| void {
+            Fl_Counter* c = $(Fl_Counter* counter);
+            c->copy_label("Core limit");
+            c->labelsize(13);
+            c->align(FL_ALIGN_LEFT);
+            c->type(FL_SIMPLE_COUNTER);
+            c->step(1);
+            c->minimum(1);
+            c->maximum(16);
+            c->value($(double initCores));
+          } |]
+          let updateCounter = do
+                v <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+                if v /= 0
+                  then [C.block| void { $(Fl_Counter* counter)->deactivate(); } |]
+                  else [C.block| void { $(Fl_Counter* counter)->activate(); } |]
+          cbCheck <- makeCallback \_ _ -> updateCounter
+          [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+          updateCounter
+          return do
+            unlimited <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            cores <- [C.exp| double { $(Fl_Counter* counter)->value() } |]
+            return \prefs -> prefs { prefThreads = if unlimited then Nothing else Just $ round cores }
+        , do
+          check <- lineBox \box -> do
+            btn <- withRect box \bx by bw bh ->
+              [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+            [C.block| void { $(Fl_Check_Button* btn)->copy_label("For non-open-note games, convert \"muted strums\" to Harmonix style"); } |]
+            withUTF8 (T.unpack $ T.unwords
+              [ "When checked, sequences of the form \"chord, strummed open notes, strummed chord\" are assumed to represent muted strums."
+              , "Instead of always becoming green, these open notes will become the lowest note of the following chord,"
+              , "or of the preceding chord if it is closer to the open notes."
+              ]) \ctooltip ->
+              [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+            let v = if loadedPrefs.prefDetectMuted then 1 else 0 :: CInt
+            [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+            return btn
+          return $ (\b prefs -> prefs { prefDetectMuted = b }) . (/= 0) <$>
+            [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        ]
+      [C.block| void { $(Fl_Pack* pack)->end(); } |]
+      return (tab, fn)
+    restPrefs <- sequence
+      [ makeTab tabsRect "Rock Band" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            getMagma <- lineBox \box -> horizRadio box
+              [ ("Magma required" , MagmaRequire, loadedPrefs.prefMagma == MagmaRequire)
+              , ("Magma optional" , MagmaTry    , loadedPrefs.prefMagma == MagmaTry    )
+              , ("Don't use Magma", MagmaDisable, loadedPrefs.prefMagma == MagmaDisable)
+              ]
+            return $ maybe id (\v prefs -> prefs { prefMagma = v }) <$> getMagma
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Always export black VENUE track"); } |]
+              let v = if loadedPrefs.prefBlackVenue then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefBlackVenue = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Label 2x kick charts as (2x Bass Pedal) by default"); } |]
+              let v = if loadedPrefs.prefLabel2x then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefLabel2x = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Modify tempos in RB export to follow Magma rules"); } |]
+              withUTF8 (T.unpack $ T.unwords
+                [ "Magma requires MIDI files to use tempos in the range of 40 to 300 BPM."
+                , "This is a more restricted range than the games actually require."
+                ]) \ctooltip ->
+                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              let v = if loadedPrefs.prefLegalTempos then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefLegalTempos = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            getRB3Encoding <- lineBox \box -> do
+              let (boxA, boxB) = chopLeft 230 box
+              _ <- withRect boxA \bx by bw bh ->
+                [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "RB3 recompile .dta") } |]
+              horizRadio boxB
+                [ ("Latin-1", Latin1, loadedPrefs.prefRB3Encoding == Latin1)
+                , ("UTF-8"  , UTF8  , loadedPrefs.prefRB3Encoding == UTF8  )
+                ]
+            return $ maybe id (\v prefs -> prefs { prefRB3Encoding = v }) <$> getRB3Encoding
+          , do
+            getPackEncoding <- lineBox \box -> do
+              let (boxA, boxB) = chopLeft 230 box
+              _ <- withRect boxA \bx by bw bh ->
+                [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "RB3 pack .dta") } |]
+              horizRadio boxB
+                [ ("Latin-1", Just Latin1, loadedPrefs.prefPackEncoding == Just Latin1)
+                , ("UTF-8"  , Just UTF8  , loadedPrefs.prefPackEncoding == Just UTF8  )
+                , ("As is"  , Nothing    , loadedPrefs.prefPackEncoding == Nothing    )
+                ]
+            return $ maybe id (\v prefs -> prefs { prefPackEncoding = v }) <$> getPackEncoding
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "Guitar Hero" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ lineBox \box -> do
+            let [_, middleBox, _] = splitHorizN 3 box
+            gh2OffsetCounter <- withRect middleBox \cx cy cw ch ->
+              [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+            let initOffset = realToFrac $ loadedPrefs.prefGH2Offset * 1000 :: C.CDouble
+            withUTF8 (T.unpack $ T.unwords
+              [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
+              , "Positive values mean audio will be pulled earlier, to account for delay."
+              , "Negative values mean audio will be pushed later."
+              ]) \ctooltip ->
+              [C.block| void {
+                Fl_Counter* c = $(Fl_Counter* gh2OffsetCounter);
+                c->copy_label("GH2 Audio Offset (ms)");
+                c->labelsize(13);
+                c->align(FL_ALIGN_LEFT);
+                c->step(1);
+                c->lstep(10);
+                c->copy_tooltip($(char* ctooltip));
+                c->value($(double initOffset));
+              } |]
+            return $ (\ms prefs -> prefs { prefGH2Offset = realToFrac ms / 1000 }) <$>
+              [C.exp| double { $(Fl_Counter* gh2OffsetCounter)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Sort GH2 bonus songs when adding to .ARK"); } |]
+              let v = if loadedPrefs.prefSortGH2 then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefSortGH2 = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("For GH2 and GH3, sort by artist first (instead of title)"); } |]
+              withUTF8 (T.unpack $ T.unwords
+                [ "This affects GH2 .ARK bonus songs (when the above box is checked)"
+                , "and GH3 DLC (as sorted in the Song Cache file)."
+                ]) \ctooltip ->
+                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              let v = if loadedPrefs.prefArtistSort then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefArtistSort = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "Clone Hero" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox \box -> folderBox box "Default CH folder" $ T.pack $ fromMaybe "" loadedPrefs.prefDirCH
+            return $ (\mdir prefs -> prefs { prefDirCH = mdir }) <$> getDir
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Mix down stems in CH output"); } |]
+              let v = if loadedPrefs.prefCHDownmix then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefCHDownmix = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            audioFormat <- lineBox \box -> horizRadio box
+              [ ("Output Ogg Vorbis audio", CHAudioOggVorbis, loadedPrefs.prefCHAudioFormat == CHAudioOggVorbis)
+              , ("Output Opus audio"      , CHAudioOpus     , loadedPrefs.prefCHAudioFormat == CHAudioOpus     )
+              ]
+            return $ maybe id (\v prefs -> prefs { prefCHAudioFormat = v }) <$> audioFormat
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "360" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox \box -> folderBox box "Default CON/LIVE folder" $ T.pack $ fromMaybe "" loadedPrefs.prefDirRB
+            return $ (\mdir prefs -> prefs { prefDirRB = mdir }) <$> getDir
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Ensure valid filenames for Xbox 360 USB or HDD drives"); } |]
+              withUTF8 (T.unpack $ T.unwords
+                [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
+                , "max of 42 characters, and will also have plus and comma characters"
+                , "replaced (a restriction for files on a 360 hard drive, but not USB)."
+                ]) \ctooltip ->
+                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              let v = if loadedPrefs.prefTrimXbox then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefTrimXbox = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Use true number IDs instead of symbols on Xbox 360 RB files"); } |]
+              withUTF8 (T.unpack $ T.unwords
+                [ "When checked, Rock Band files will use a random integer for song_id."
+                , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
+                , "generate a random ID. A true integer is required for some contexts"
+                , "such as RGH online play and PS3 conversion, and also maintains scores"
+                , "even if the song cache is regenerated."
+                ]) \ctooltip ->
+                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              let v = if loadedPrefs.prefRBNumberID then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefRBNumberID = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "PS3" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Encrypt .mid.edat files for PS3"); } |]
+              withUTF8 (T.unpack $ T.unwords
+                [ "When checked, .mid.edat files for PS3 customs will be encrypted."
+                , "This is required for a real console, but optional (and can be less"
+                , "convenient) when playing on emulator."
+                ]) \ctooltip ->
+                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              let v = if loadedPrefs.prefPS3Encrypt then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefPS3Encrypt = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            getDir <- lineBox \box -> folderBox box "PS3/RPCS3 install folder" $ T.pack $ fromMaybe "" loadedPrefs.prefDirPS3
+            return $ (\mdir prefs -> prefs { prefDirPS3 = mdir }) <$> getDir
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "Wii" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            getDir <- lineBox \box -> folderBox box "Default Wii .app folder" $ T.pack $ fromMaybe "" loadedPrefs.prefDirWii
+            return $ (\mdir prefs -> prefs { prefDirWii = mdir }) <$> getDir
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "3D Preview" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            getMSAA <- lineBox \box -> horizRadio box
+              [ ("No MSAA" , Nothing, loadedPrefs.prefMSAA == Nothing)
+              , ("MSAA 2x" , Just 2 , loadedPrefs.prefMSAA == Just 2 )
+              , ("MSAA 4x" , Just 4 , loadedPrefs.prefMSAA == Just 4 )
+              , ("MSAA 8x" , Just 8 , loadedPrefs.prefMSAA == Just 8 )
+              , ("MSAA 16x", Just 16, loadedPrefs.prefMSAA == Just 16)
+              ]
+            return $ maybe id (\v prefs -> prefs { prefMSAA = v }) <$> getMSAA
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("FXAA"); } |]
+              let v = if loadedPrefs.prefFXAA then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefFXAA = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , lineBox \box -> do
+            let [_, middleBox, _] = splitHorizN 3 box
+            fpsCounter <- withRect middleBox \cx cy cw ch ->
+              [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+            let initFPS = fromIntegral loadedPrefs.prefPreviewFPS :: C.CDouble
+            [C.block| void {
+              Fl_Counter* c = $(Fl_Counter* fpsCounter);
+              c->copy_label("Frames per second");
+              c->labelsize(13);
+              c->align(FL_ALIGN_LEFT);
+              c->step(1);
+              c->lstep(10);
+              c->minimum(1);
+              c->value($(double initFPS));
+            } |]
+            return $ (\n prefs -> prefs { prefPreviewFPS = round n }) <$>
+              [C.exp| double { $(Fl_Counter* fpsCounter)->value() } |]
+          , lineBox \box -> do
+            let [trimClock 0 5 0 0 -> box1, trimClock 0 0 0 5 -> box2] = splitHorizN 2 box
+                layoutLeftOpenHand = listToMaybe $ flip mapMaybe loadedPrefs.prefEliteLayout \case
+                  EDLeftCrossHand -> Just False
+                  EDLeftOpenHand  -> Just True
+                  _               -> Nothing
+                layoutRightNearCrash = listToMaybe $ flip mapMaybe loadedPrefs.prefEliteLayout \case
+                  EDRightFarCrash  -> Just False
+                  EDRightNearCrash -> Just True
+                  _                -> Nothing
+            getLeftSide <- makeDropdown box1
+              $ ("Elite drums hihat side: default"   , Nothing   , layoutLeftOpenHand == Nothing   ) NE.:|
+              [ ("Elite drums hihat side: cross hand", Just False, layoutLeftOpenHand == Just False)
+              , ("Elite drums hihat side: open hand" , Just True , layoutLeftOpenHand == Just True )
+              ]
+            getRightSide <- makeDropdown box2
+              $ ("Elite drums ride side: default"   , Nothing   , layoutRightNearCrash == Nothing   ) NE.:|
+              [ ("Elite drums ride side: far crash" , Just False, layoutRightNearCrash == Just False)
+              , ("Elite drums ride side: near crash", Just True , layoutRightNearCrash == Just True )
+              ]
+            return do
+              leftSide  <- getLeftSide
+              rightSide <- getRightSide
+              return \prefs -> prefs
+                { prefEliteLayout = concat
+                  [ case leftSide of
+                    Nothing    -> []
+                    Just False -> [EDLeftCrossHand]
+                    Just True  -> [EDLeftOpenHand ]
+                  , case rightSide of
+                    Nothing    -> []
+                    Just False -> [EDRightFarCrash ]
+                    Just True  -> [EDRightNearCrash]
+                  ]
+                }
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Audio waveform"); } |]
+              let v = if loadedPrefs.prefWaveform then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefWaveform = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Lefty flip"); } |]
+              let v = if loadedPrefs.prefLeftyFlip then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefLeftyFlip = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      , makeTab tabsRect "Audio" \rect _tab -> do
+        pack <- withRect rect \px py pw ph ->
+          [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+        fn <- combinePrefs <$> sequence
+          [ do
+            sliderQuality <- lineBox \box -> do
+              let sliderRect = leaveLeftLabelSpace box
+              slider <- withRect sliderRect \sx sy sw sh ->
+                [C.exp| Fl_Value_Slider* { new Fl_Value_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+              let initQ = realToFrac $ loadedPrefs.prefOGGQuality * 10 :: C.CDouble
+              [C.block| void {
+                Fl_Value_Slider* s = $(Fl_Value_Slider* slider);
+                s->copy_label("OGG Vorbis quality");
+                s->labelsize(13);
+                s->align(FL_ALIGN_LEFT);
+                s->type(FL_HOR_NICE_SLIDER);
+                s->minimum(0);
+                s->maximum(10);
+                s->value($(double initQ));
+              } |]
+              return slider
+            return $ (\v prefs -> prefs { prefOGGQuality = realToFrac v / 10 }) <$>
+              [C.exp| double { $(Fl_Value_Slider* sliderQuality)->value() } |]
+          , do
+            check <- lineBox \box -> do
+              btn <- withRect box \bx by bw bh ->
+                [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Treat undecryptable MOGGs as silent instead of an error"); } |]
+              let v = if loadedPrefs.prefDecryptSilent then 1 else 0 :: CInt
+              [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+              return btn
+            return $ (\b prefs -> prefs { prefDecryptSilent = b }) . (/= 0) <$>
+              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          ]
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        return fn
+      ]
+    [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+    [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* tab1)); } |]
+    let (bottomLeft, bottomRight) = chopRight 300 bottomRect
+        [trimClock 8 4 8 8 -> rectButtonA, trimClock 8 8 8 4 -> rectButtonB] = splitHorizN 2 bottomRight
+    bottomArea <- withRect bottomRect \bx by bw bh ->
+      [C.exp| Fl_Group* { new Fl_Group($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    bottomLeftBox <- withRect bottomLeft \bx by bw bh ->
+      [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    [C.block| void { $(Fl_Group* bottomArea)->resizable($(Fl_Box* bottomLeftBox)); } |]
+    saveButton <- withRect rectButtonA \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    [C.block| void {
+      $(Fl_Button* saveButton)->copy_label("Save");
+      $(Fl_Button* saveButton)->color($(Fl_Color taskColor));
+    } |]
+    cbSave <- makeCallback \_ _ -> do
+      newPrefs <- ($ loadedPrefs) <$> combinePrefs (pref1 : restPrefs)
+      let magmaWarning = T.unlines
+            [ "Warning! Disabling Magma can result in Rock Band files that crash the game,"
+            , "as Onyx does not yet check all of the error cases that Magma does."
+            , "Please test any charts thoroughly before distributing to others!"
+            ]
+          continueSave = do
+            savePreferences newPrefs
+            [C.block| void { $(Fl_Window* window)->hide(); } |]
+      if loadedPrefs.prefMagma == MagmaRequire && newPrefs.prefMagma /= MagmaRequire
+        then withUTF8 (T.unpack magmaWarning) \cmsg -> do
+          result <- [C.exp| int { fl_choice("%s", "Cancel", "OK", nullptr, $(char* cmsg)) } |]
+          when (result == 1) continueSave
+        else continueSave
+    [C.block| void { $(Fl_Button* saveButton)->callback($(Fl_Callback cbSave)); } |]
+    cancelButton <- withRect rectButtonB \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Cancel") } |]
+    cbCancel <- makeCallback \_ _ ->
+      [C.block| void { $(Fl_Window* window)->hide(); } |]
+    [C.block| void { $(Fl_Button* cancelButton)->callback($(Fl_Callback cbCancel)); } |]
+    [C.block| void { $(Fl_Group* bottomArea)->end(); } |]
+    [C.block| void {
+      $(Fl_Window* window)->end();
+      $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
+      $(Fl_Window* window)->show();
+    } |]
 
 launchBatch' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
 launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx do
