@@ -20,7 +20,7 @@ module Onyx.GUI (launchGUI) where
 -- import           Onyx.GUI.Batch
 import           Onyx.GUI.Core
 -- import           Onyx.GUI.Misc
--- import           Onyx.GUI.Song
+import           Onyx.GUI.Song
 import           Codec.Picture                     (readImage, savePngImage,
                                                     writePng)
 import           Control.Concurrent                (MVar, ThreadId, forkIO,
@@ -698,7 +698,7 @@ launchWindow
   -> FilePath
   -> Bool -- True if this song could be loaded by Quick Convert
   -> IO ()
-launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt _isRB = do
+launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt isRB = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
@@ -718,23 +718,227 @@ launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt _isRB = do
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
 
-  -- TODO: Translate the full song editing window with all tabs
-  -- (Metadata, Instruments, Preview, Stars, RB3, RB2, CH/PS, GH1, GH2, GH3, GH:WoR, RR, Utilities, Task)
-  -- For now, just show a placeholder tab
+  -- TODO: Metadata tab (needs text inputs, album art, checkboxes)
+  -- TODO: Instruments tab (needs tree widget)
+  -- TODO: Preview tab (needs OpenGL, audio playback)
+  -- TODO: Stars tab (needs tier/rank widgets)
 
-  _placeholderTab <- makeTab windowRect "Song" \rect tab -> do
-    setTabColor tab homeTabColor
-    _ <- withRect rect \bx by bw bh ->
-      [C.exp| Fl_Box* {
-        new Fl_Box($(int bx), $(int by), $(int bw), $(int bh),
-          "Song loaded. Full editing interface is not yet translated.")
-      } |]
+  -- For now, project modifications just save without metadata/instrument edits
+  let fullProjModify :: [SongYaml FilePath -> SongYaml FilePath] -> Project -> IO Project
+      fullProjModify extraMods p = do
+        let newYaml = foldr ($) p.projectSongYaml extraMods
+        saveProject p newYaml
+
+  rb3Tab <- makeTab windowRect "RB3" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageRB3 sink rect tab proj \qcPossible tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            RB3CON      _ -> "Building RB3 CON (360)"
+            RB3PKG      _ -> "Building RB3 PKG (PS3)"
+            RB3Magma    _ -> "Building Magma project"
+            RB3LoosePS3 _ -> "Building RB3 PS3 folders"
+          task = case create of
+            RB3CON fout -> do
+              tmp <- buildRB3CON tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB3PKG fout -> do
+              tmp <- buildRB3PKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB3Magma dout -> do
+              tmp <- buildMagmaV2 tgt proj'
+              copyDirRecursive tmp dout
+              return [dout]
+            RB3LoosePS3 dout -> do
+              folder <- buildRB3LoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30463" (Just "pkg-contents/rb3") folder dout
+          go = startTasks [(name, task)]
+      sink $ EventOnyx if qcPossible && isRB
+        then warnQuickConvert 1 sink go
+        else go
     return tab
+  rb2Tab <- makeTab windowRect "RB2" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageRB2 sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            RB2CON      _ -> "Building RB2 CON (360)"
+            RB2PKG      _ -> "Building RB2 PKG (PS3)"
+            RB2LoosePS3 _ -> "Building RB2 PS3 folders"
+          task = case create of
+            RB2CON fout -> do
+              tmp <- buildRB2CON tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB2PKG fout -> do
+              tmp <- buildRB2PKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RB2LoosePS3 dout -> do
+              folder <- buildRB2LoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  psTab <- makeTab windowRect "CH/PS" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPagePS sink rect tab proj \tgt create -> sink $ EventOnyx do
+      newPreferences <- readPreferences
+      proj' <- stackIO $ fullProjModify [applyDownmix newPreferences] proj
+      let name = case create of
+            PSDir _ -> "Building CH/PS song folder"
+            PSZip _ -> "Building CH/PS zip file"
+            PSSng _ -> "Building CH/PS .sng file"
+          tgt' = (tgt :: TargetPS FilePath)
+            & #audioFormat .~ case newPreferences.prefCHAudioFormat of
+              CHAudioOggVorbis -> "ogg"
+              CHAudioOpus      -> "opus"
+          task = case create of
+            PSDir dout -> do
+              tmp <- buildPSDir tgt' proj'
+              copyDirRecursive tmp dout
+              return [dout]
+            PSZip fout -> do
+              tmp <- buildPSZip tgt' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            PSSng fout -> do
+              tmp <- buildPSSng tgt' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      startTasks [(name, task)]
+    return tab
+  gh1Tab <- makeTab windowRect "GH1" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageGH1 sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            GH1ARK{}    -> "Adding to GH1 ARK file"
+            GH1DIYPS2{} -> "Creating GH1 DIY folder (PS2)"
+          task = case create of
+            GH1ARK fout -> do
+              installGH1 tgt proj' fout
+              return [fout]
+            GH1DIYPS2 fout -> do
+              makeGH1DIY tgt proj' fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  gh2Tab <- makeTab windowRect "GH2" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageGH2 sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            GH2LIVE{}   -> "Building GH2 LIVE file"
+            GH2ARK{}    -> "Adding to GH2 ARK file"
+            GH2DIYPS2{} -> "Creating GH2 DIY folder (PS2)"
+          task = case create of
+            GH2LIVE fout    -> do
+              tmp <- buildGH2LIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you combine songs into packs before playing! Loading more than 16 package files will corrupt your GH2 save."
+              return [fout]
+            GH2ARK fout loc -> case loc of
+              GH2AddBonus -> do
+                installGH2 tgt proj' fout
+                return [fout]
+              _ -> fatal "TODO other GH2 destinations"
+            GH2DIYPS2 fout -> do
+              makeGH2DIY tgt proj' fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  gh3Tab <- makeTab windowRect "GH3" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageGH3 sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            GH3LIVE{}     -> "Building GH3 LIVE file"
+            GH3PKG{}      -> "Building GH3 PKG file"
+            GH3LoosePS3{} -> "Building GH3 PS3 folders"
+          warnCache = warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          task = case create of
+            GH3LIVE fout -> do
+              tmp <- buildGH3LIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnCache
+              return [fout]
+            GH3PKG fout -> do
+              tmp <- buildGH3PKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnCache
+              return [fout]
+            GH3LoosePS3 dout -> do
+              folder <- buildGH3LoosePS3 tgt proj'
+              results <- stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") folder dout
+              warnCache
+              return results
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  worTab <- makeTab windowRect "GH:WoR" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageGHWOR sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            GHWORLIVE{}     -> "Building GH:WoR LIVE file"
+            GHWORPKG{}      -> "Building GH:WoR PKG file"
+            GHWORLoosePS3{} -> "Building GH:WoR PS3 folders"
+          task = case create of
+            GHWORLIVE fout -> do
+              tmp <- buildGHWORLIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            GHWORPKG fout -> do
+              tmp <- buildGHWORPKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            GHWORLoosePS3 dout -> do
+              folder <- buildGHWORLoosePS3 tgt proj'
+              stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  rrTab <- makeTab windowRect "RR" \rect tab -> do
+    setTabColor tab functionTabColor
+    songPageRR sink rect tab proj \tgt create -> do
+      proj' <- fullProjModify [] proj
+      let name = case create of
+            RRLIVE{} -> "Building RR LIVE file"
+            RRPKG{}  -> "Building RR PKG file"
+          task = case create of
+            RRLIVE fout -> do
+              tmp <- buildRRLIVE tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            RRPKG fout -> do
+              tmp <- buildRRPKG tgt proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      sink $ EventOnyx $ startTasks [(name, task)]
+    return tab
+  -- TODO: Utilities tab (web preview, MIDI reductions, pro keys check)
+
+  let tabsToDisable = [rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, rrTab]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
+    setTabColor tab taskColor
+    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tab)->activate(); } |]
+          forM_ tabsToDisable \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
+          updateTabsColor tabs
+        cbEnd = do
+          forM_ tabsToDisable \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage rect tab sink cbStart cbEnd
 
   [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  updateTabsColor tabs
+  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
+  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* rb3Tab)); } |]
 
   cbWindow <- makeCallback \_ _ -> windowCloser
-    (mapM_ release proj.projectRelease)
+    (cancelTasks >> mapM_ release proj.projectRelease)
     window
   [C.block| void {
     $(Fl_Window* window)->end();
