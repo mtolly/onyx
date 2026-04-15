@@ -704,8 +704,9 @@ launchWindow sink makeMenuBar proj _song _maybeAudio _albumArt isRB = mdo
       windowSize = Size windowWidth windowHeight
       title = T.unpack $ T.replace "/" "_" $ fromMaybe "Song" proj.projectSongYaml.metadata.title
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    withUTF8 title \ctitle ->
-      [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), $(char* ctitle)) } |]
+    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h)) } |]
+  withUTF8 title \ctitle ->
+    [C.block| void { $(Fl_Window* window)->copy_label($(char* ctitle)); } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))

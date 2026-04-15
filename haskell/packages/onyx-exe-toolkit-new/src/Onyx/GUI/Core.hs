@@ -448,8 +448,9 @@ makeTab rect name fn = do
   let tabHeight = 25
       (_, innerRect) = chopTop tabHeight rect
   group <- withRect innerRect \gx gy gw gh ->
-    withUTF8 (T.unpack name) \cname ->
-      [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh), $(char* cname)) } |]
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+  withUTF8 (T.unpack name) \cname ->
+    [C.block| void { $(Fl_Group* group)->copy_label($(char* cname)); } |]
   res <- fn innerRect group
   [C.block| void { $(Fl_Group* group)->end(); } |]
   return res
@@ -460,8 +461,9 @@ horizRadio' rect cb opts = do
   let rects = splitHorizN (fromIntegral $ length opts) rect
   btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
     btn <- withRect rectButton \bx by bw bh ->
-      withUTF8 (T.unpack label) \clabel ->
-        [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh), $(char* clabel)) } |]
+      [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (T.unpack label) \clabel ->
+      [C.block| void { $(Fl_Round_Button* btn)->copy_label($(char* clabel)); } |]
     let bval = if b then 1 else 0 :: CInt
     [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
     return btn
@@ -485,8 +487,9 @@ speedPercent' :: Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
 speedPercent' isConverter rect = do
   let lbl = if isConverter then "Speed (%)" else ""
   speed <- withRect rect \sx sy sw sh ->
-    withUTF8 lbl \clabel ->
-      [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh), $(char* clabel)) } |]
+    [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+  withUTF8 lbl \clabel ->
+    [C.block| void { $(Fl_Counter* speed)->copy_label($(char* clabel)); } |]
   [C.block| void {
     Fl_Counter* s = $(Fl_Counter* speed);
     s->labelsize(13);
@@ -497,7 +500,7 @@ speedPercent' isConverter rect = do
     s->value(100);
   } |]
   when isConverter $ withUTF8 "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio." \tip ->
-    [C.block| void { $(Fl_Counter* speed)->tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Counter* speed)->copy_tooltip($(char* tip)); } |]
   let getSpeed = do
         v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
         return (realToFrac v / 100 :: Double)
@@ -510,8 +513,9 @@ makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
 makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
   menu <- withRect rect \mx my mw mh ->
-    withUTF8 (T.unpack initialLabel) \clabel ->
-      [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), $(char* clabel)) } |]
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 (T.unpack initialLabel) \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt) -> do
     -- need to escape in menu items (but not button label) to not make submenus
@@ -532,8 +536,9 @@ makeDropdown rect opts = do
         opt : _ -> opt
         []      -> NE.head opts
   menu <- withRect rect \mx my mw mh ->
-    withUTF8 (T.unpack initialLabel) \clabel ->
-      [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), $(char* clabel)) } |]
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 (T.unpack initialLabel) \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt, _) -> do
     let label' = T.unpack $ T.replace "/" "\\/" label
@@ -594,7 +599,7 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
       , "  %author% - author from song's metadata"
       , "  %song_id% - unique song ID"
       ]) \tip ->
-      [C.block| void { $(Fl_Input* input)->tooltip($(char* tip)); } |]
+      [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
 
 makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
 makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
@@ -606,8 +611,9 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
       (_, rectD) = chopRight 50 rectC
       (_, resetRect) = chopRight 40 rectD
   button <- withRect buttonRect \bx by bw bh ->
-    withUTF8 (T.unpack buttonText) \clabel ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), $(char* clabel)) } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  withUTF8 (T.unpack buttonText) \clabel ->
+    [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
   [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
   input <- withRect inputRect \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
@@ -713,9 +719,12 @@ numberBox
   -> BuildYamlControl tgt ()
 numberBox rect lbl f = do
   let (checkArea, inputArea) = chopLeft 250 rect
-  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+  check <- liftIO do
+    c <- withRect checkArea \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
     withUTF8 (T.unpack lbl) \clbl ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), $(char* clbl)) } |]
+      [C.block| void { $(Fl_Check_Button* c)->copy_label($(char* clbl)); } |]
+    return c
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
@@ -750,8 +759,9 @@ partSelectors rect proj slots = let
         fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
     choice <- liftIO do
       choice <- withRect r' \cx cy cw ch ->
-        withUTF8 (T.unpack lbl) \clbl ->
-          [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch), $(char* clbl)) } |]
+        [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+      withUTF8 (T.unpack lbl) \clbl ->
+        [C.block| void { $(Fl_Choice* choice)->copy_label($(char* clbl)); } |]
       [C.block| void { $(Fl_Choice* choice)->align(FL_ALIGN_TOP); } |]
       withUTF8 "(none)" \cnone ->
         [C.block| void { $(Fl_Choice* choice)->add($(char* cnone)); } |]
