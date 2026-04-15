@@ -92,6 +92,8 @@ C.include "FL/Fl_Counter.H"
 C.include "FL/Fl_Choice.H"
 C.include "FL/Fl_Menu_Button.H"
 C.include "FL/Fl_Pack.H"
+C.include "FL/Fl_Tree.H"
+C.include "FL/Fl_Tree_Item.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 C.include "FL/fl_ask.H"
 
@@ -648,8 +650,107 @@ peekInputValue input = do
   cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
   T.pack <$> peekUTF8 cstr
 
--- TODO: fileLoadWindow needs FL.Tree with custom event handling, stub for now
 -- TODO: dragAndDrop needs custom event handling, stub for now
+
+fileLoadWindow
+  :: Rectangle
+  -> (Event -> IO ())
+  -> T.Text -- ^ singular
+  -> T.Text -- ^ plural
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (Ptr Fl_Group)
+fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
+  group <- withRect rect \gx gy gw gh ->
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+  let (labelRect, belowLabel) = chopTop 40 rect
+      (treeRect, buttonsRect) = chopBottom 50 belowLabel
+      labelRect' = trimClock 10 10 5 10 labelRect
+      treeRect' = trimClock 5 10 5 10 treeRect
+      buttonsRect' = trimClock 5 10 10 10 buttonsRect
+      [btnRectA, btnRectB] = splitHorizN 2 buttonsRect'
+      (btnRectA', _) = chopRight 5 btnRectA
+      (_, btnRectB') = chopLeft 5 btnRectB
+  label <- withRect labelRect' \lx ly lw lh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh)) } |]
+  tree <- withRect treeRect' \tx ty tw th ->
+    [C.exp| Fl_Tree* { new Fl_Tree($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  [C.block| void {
+    $(Fl_Tree* tree)->end();
+    $(Fl_Group* group)->resizable($(Fl_Tree* tree));
+  } |]
+  let updateLabel fs = do
+        let msg = case length fs of
+              1 -> "1 file loaded."
+              n -> show n ++ " files loaded."
+        withUTF8 msg \cmsg ->
+          [C.block| void { $(Fl_Box* label)->copy_label($(char* cmsg)); } |]
+      clearFiles = modifyFiles \_ -> do
+        [C.block| void {
+          $(Fl_Tree* tree)->clear();
+          $(Fl_Tree* tree)->add("");
+        } |]
+        withUTF8 (T.unpack plural) \cplural ->
+          [C.block| void { $(Fl_Tree* tree)->root_label($(char* cplural)); } |]
+        updateLabel ([] :: [a])
+        [C.block| void { Fl::redraw(); } |]
+        return []
+      addFiles [] = return ()
+      addFiles gs = modifyFiles \fs -> do
+        root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
+        forM_ gs \imp -> do
+          let (entry, sublines) = display imp
+          withUTF8 (T.unpack entry) \centry -> do
+            item <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* root), $(char* centry)) } |]
+            forM_ sublines \subline ->
+              withUTF8 (T.unpack subline) \csub ->
+                [C.block| void { $(Fl_Tree* tree)->add($(Fl_Tree_Item* item), $(char* csub)); } |]
+            [C.block| void { $(Fl_Tree_Item* item)->close(); } |]
+        let fs' = fs ++ gs
+        updateLabel fs'
+        [C.block| void { Fl::redraw(); } |]
+        return fs'
+      searchSongs [] = return ()
+      searchSongs (loc : locs) = do
+        (children, imps) <- step loc
+        stackIO $ sink $ EventIO $ addFiles imps
+        searchSongs $ locs ++ children
+      forkSearch = void . forkOnyx . searchSongs
+  clearFiles
+  sink $ EventOnyx $ forkSearch startFiles
+  cbAdd <- makeCallback \_ _ -> sink $ EventIO do
+    picker <- [C.exp| Fl_Native_File_Chooser* {
+      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
+    } |]
+    withUTF8 ("Load " <> T.unpack single) \ctitle ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+      fs <- forM [0 .. n - 1] \i -> do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+        peekUTF8 cstr
+      sink $ EventOnyx $ forkSearch fs
+    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+  withRect btnRectA' \bx by bw bh -> do
+    withUTF8 ("Add " <> T.unpack single) \clbl -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+      [C.block| void {
+        $(Fl_Button* btn)->copy_label($(char* clbl));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbAdd));
+      } |]
+  cbClear <- makeCallback \_ _ -> sink $ EventIO $ void clearFiles
+  withRect btnRectB' \bx by bw bh -> do
+    withUTF8 ("Clear " <> T.unpack plural) \clbl -> do
+      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+      [C.block| void {
+        $(Fl_Button* btn)->copy_label($(char* clbl));
+        $(Fl_Button* btn)->callback($(Fl_Callback cbClear));
+      } |]
+  [C.block| void { $(Fl_Group* group)->end(); } |]
+  return group
 
 customTitleSuffix
   :: (Event -> IO ())

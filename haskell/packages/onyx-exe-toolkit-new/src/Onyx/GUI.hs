@@ -17,7 +17,7 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI (launchGUI) where
 
--- import           Onyx.GUI.Batch
+import           Onyx.GUI.Batch
 import           Onyx.GUI.Core
 -- import           Onyx.GUI.Misc
 import           Onyx.GUI.Song
@@ -192,7 +192,9 @@ C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Window.H"
+C.include "FL/Fl_Group.H"
 C.include "FL/Fl_Button.H"
+C.include "FL/Fl_Check_Button.H"
 C.include "FL/Fl_Box.H"
 C.include "FL/Fl_Terminal.H"
 C.include "FL/Fl_Menu_Bar.H"
@@ -1121,9 +1123,319 @@ launchPreferences _sink _makeMenuBar = do
   return ()
 
 launchBatch' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
-launchBatch' sink _makeMenuBar _startFiles = do
-  -- TODO: translate batch window
-  sink $ EventOnyx $ warn "Batch recompile window not yet translated"
+launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx do
+  prefs <- readPreferences
+  let ?preferences = prefs
+  stackIO $ launchBatch sink makeMenuBar startFiles
+
+launchBatch
+  :: (?preferences :: Preferences)
+  => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
+launchBatch sink makeMenuBar startFiles = mdo
+  loadedFiles <- newMVar []
+  let windowWidth = Width 800
+      windowHeight = Height 500
+      windowSize = Size windowWidth windowHeight
+  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Batch Recompile") } |]
+  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
+  let (_, windowRect) = chopTop menuHeight $ Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  [C.block| void {
+    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
+    $(Fl_Window* window)->size_range(800, 500);
+  } |]
+  tabs <- withRect windowRect \tx ty tw th ->
+    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
+
+  (tabSongs, filterParts) <- makeTab windowRect "Songs" \rect tab -> do
+    setTabColor tab homeTabColor
+    let (songsRect, importToggles) = chopBottom 40 rect
+    group <- fileLoadWindow songsRect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
+      entry = T.concat
+        [ fromMaybe "Untitled" imp.impTitle
+        , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
+        , if imp.imp2x then " (2x)" else ""
+        ]
+      sublines = concat
+        [ case imp.impAuthor of
+          Just author | T.any (not . isSpace) author -> ["Author: " <> author]
+          _                                          -> []
+        , ["Format: " <> imp.impFormat]
+        , ["Path: " <> T.pack imp.impPath <> index]
+        ]
+      index = case imp.impIndex of
+        Nothing -> ""
+        Just i  -> T.pack $ " (#" <> show i <> ")"
+      in (entry, sublines)
+    getter <- do
+      let subrects = splitHorizN 7 importToggles
+          insts =
+            [ ("Guitar", Just Guitar)
+            , ("Bass"  , Just Bass  )
+            , ("Drums" , Just Drums )
+            , ("Keys"  , Just Keys  )
+            , ("Vocals", Just Vocal )
+            , ("Other" , Nothing    )
+            ]
+      withRect (head subrects) \bx by bw bh ->
+        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Import:") } |]
+      getters <- forM (zip insts $ drop 1 subrects) \((txt, inst), subrect) -> do
+        btn <- withRect subrect \bx by bw bh ->
+          [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+        withUTF8 (T.unpack txt) \clbl ->
+          [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
+        [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
+        return do
+          b <- [C.exp| int { $(Fl_Check_Button* btn)->value() } |]
+          return $ guard (b /= 0) >> Just inst
+      return \songYaml -> do
+        active <- catMaybes <$> sequence getters
+        return $ (songYaml :: SongYaml FilePath) & #parts .~ do
+          Parts $ flip HM.filterWithKey songYaml.parts.getParts
+            \part _ -> case part of
+              F.PartGuitar -> elem (Just Guitar) active
+              F.PartBass   -> elem (Just Bass  ) active
+              F.PartDrums  -> elem (Just Drums ) active
+              F.PartKeys   -> elem (Just Keys  ) active
+              F.PartVocal  -> elem (Just Vocal ) active
+              _            -> elem Nothing       active
+    [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+    return (tab, getter)
+  -- keep track of release fns we should run when canceling batch process or closing the window.
+  -- otherwise these folders will not be released until onyx closes
+  cleanupOnCancel <- newMVar HM.empty
+  let doImport imp fn = do
+        proj <- importWithPreferences imp
+        stackIO $ forM_ proj.projectRelease \k -> do
+          modifyMVar_ cleanupOnCancel $ return . HM.insert proj.projectLocation k
+        res <- errorToEither $ fn proj
+        stackIO $ forM_ proj.projectRelease \k -> modifyMVar_ cleanupOnCancel \m -> do
+          release k
+          return $ HM.delete proj.projectLocation m
+        either throwNoContext return res
+  functionTabs <- sequence
+    [ makeTab windowRect "RB3" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageRB3 sink rect tab \qcPossible settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        let go = startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+              let (targets, yaml) = settings proj
+              proj' <- stackIO $ filterParts yaml >>= saveProject proj
+              fmap concat $ forM targets \(target, creator) -> do
+                case creator of
+                  RB3CON fout -> do
+                    tmp <- buildRB3CON target proj'
+                    stackIO $ Dir.copyFile tmp fout
+                    return [fout]
+                  RB3PKG fout -> do
+                    tmp <- buildRB3PKG target proj'
+                    stackIO $ Dir.copyFile tmp fout
+                    return [fout]
+                  RB3Magma dout -> do
+                    tmp <- buildMagmaV2 target proj'
+                    copyDirRecursive tmp dout
+                    return [dout]
+                  RB3LoosePS3 dout -> do
+                    folder <- buildRB3LoosePS3 target proj'
+                    stackIO $ installPS3Folder "BLUS30463" (Just "pkg-contents/rb3") folder dout
+        if qcPossible && all (.impFormatRB) files
+          then warnQuickConvert (length files) sink go
+          else go
+      return tab
+    , makeTab windowRect "RB2" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageRB2 sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let (targets, yaml) = settings proj
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          fmap concat $ forM targets \(target, creator) -> do
+            case creator of
+              RB2CON fout -> do
+                tmp <- buildRB2CON target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return [fout]
+              RB2PKG fout -> do
+                tmp <- buildRB2PKG target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return [fout]
+              RB2LoosePS3 dout -> do
+                folder <- buildRB2LoosePS3 target proj'
+                stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
+      return tab
+    , makeTab windowRect "Clone Hero" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPagePS sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        newPreferences <- readPreferences
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let (target, creator) = settings proj
+              target' = (target :: TargetPS FilePath)
+                & #audioFormat .~ case newPreferences.prefCHAudioFormat of
+                  CHAudioOggVorbis -> "ogg"
+                  CHAudioOpus      -> "opus"
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj . applyDownmix newPreferences
+          case creator of
+            PSDir dout -> do
+              tmp <- buildPSDir target' proj'
+              copyDirRecursive tmp dout
+              return [dout]
+            PSZip fout -> do
+              tmp <- buildPSZip target' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            PSSng fout -> do
+              tmp <- buildPSSng target' proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+      return tab
+    , makeTab windowRect "GH1" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageGH1 sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
+          case creator of
+            GH1ARK fout -> do
+              installGH1 target proj' fout
+              return [fout]
+            GH1DIYPS2 fout -> do
+              makeGH1DIY target proj' fout
+              return [fout]
+      return tab
+    , makeTab windowRect "GH2" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageGH2 sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
+          case creator of
+            GH2LIVE fout    -> do
+              tmp <- buildGH2LIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warn "Make sure you combine songs into packs (go to 'Other tools') before playing! Loading more than 16 package files will corrupt your GH2 save."
+              return [fout]
+            GH2ARK fout loc -> case loc of
+              GH2AddBonus -> do
+                installGH2 target proj' fout
+                return [fout]
+              _ -> fatal "TODO other GH2 destinations"
+            GH2DIYPS2 fout -> do
+              makeGH2DIY target proj' fout
+              return [fout]
+      return tab
+    , makeTab windowRect "GH3" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageGH3 sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let (target, creator) = settings proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
+          results <- case creator of
+            GH3LIVE fout -> do
+              tmp <- buildGH3LIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            GH3PKG fout -> do
+              tmp <- buildGH3PKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
+            GH3LoosePS3 dout -> do
+              folder <- buildGH3LoosePS3 target proj'
+              stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") folder dout
+          warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          return results
+      return tab
+    , makeTab windowRect "GH:WoR" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageGHWOR sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let ((target, creator), yaml) = settings proj
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          let warnWoR = warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          case creator of
+            GHWORLIVE fout -> do
+              tmp <- buildGHWORLIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnWoR
+              return [fout]
+            GHWORPKG fout -> do
+              tmp <- buildGHWORPKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnWoR
+              return [fout]
+            GHWORLoosePS3 dout -> do
+              folder <- buildGHWORLoosePS3 target proj'
+              stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
+      return tab
+    , makeTab windowRect "RR" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPageRR sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let ((target, creator), yaml) = settings proj
+          proj' <- stackIO $ filterParts yaml >>= saveProject proj
+          let warnRR = warn "All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use \"Quick Convert > RR renumber\" to reassign IDs."
+          case creator of
+            RRLIVE fout -> do
+              tmp <- buildRRLIVE target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnRR
+              return [fout]
+            RRPKG fout -> do
+              tmp <- buildRRPKG target proj'
+              stackIO $ Dir.copyFile tmp fout
+              warnRR
+              return [fout]
+      return tab
+    , makeTab windowRect "Preview" \rect tab -> do
+      setTabColor tab functionTabColor
+      batchPagePreview sink rect tab \settings -> sink $ EventOnyx do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
+          let dout = settings proj
+          proj' <- stackIO $ filterParts proj.projectSongYaml >>= saveProject proj
+          tmp <- buildPlayer Nothing proj'
+          copyDirRecursive tmp dout
+          return [dout]
+      return tab
+    ]
+  let nonTermTabs = tabSongs : functionTabs
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
+    setTabColor tab taskColor
+    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tab)->activate(); } |]
+          forM_ nonTermTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
+          updateTabsColor tabs
+        cbEnd = do
+          modifyMVar_ cleanupOnCancel \m -> do
+            mapM_ release $ HM.elems m
+            return HM.empty
+          forM_ nonTermTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage rect tab sink cbStart cbEnd
+
+  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  updateTabsColor tabs
+  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
+  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* tabSongs)); } |]
+
+  cbWindow <- makeCallback \_ _ -> windowCloser
+    (cancelTasks >> modifyMVar_ cleanupOnCancel \m -> mapM_ release (HM.elems m) >> return HM.empty)
+    window
+  [C.block| void {
+    $(Fl_Window* window)->end();
+    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
+    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
+    $(Fl_Window* window)->show();
+  } |]
 
 launchQuickConvert' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchQuickConvert' sink _makeMenuBar = do

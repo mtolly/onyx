@@ -28,6 +28,8 @@ newtype Fl_Tabs = Fl_Tabs (Ptr Fl_Tabs)
 newtype Fl_Slider = Fl_Slider (Ptr Fl_Slider)
 newtype Fl_Hor_Nice_Slider = Fl_Hor_Nice_Slider (Ptr Fl_Hor_Nice_Slider)
 newtype Fl_PNG_Image = Fl_PNG_Image (Ptr Fl_PNG_Image)
+newtype Fl_Tree = Fl_Tree (Ptr Fl_Tree)
+newtype Fl_Tree_Item = Fl_Tree_Item (Ptr Fl_Tree_Item)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 
@@ -56,6 +58,8 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("Fl_Slider", [t| Fl_Slider |])
   , ("Fl_Hor_Nice_Slider", [t| Fl_Hor_Nice_Slider |])
   , ("Fl_PNG_Image", [t| Fl_PNG_Image |])
+  , ("Fl_Tree", [t| Fl_Tree |])
+  , ("Fl_Tree_Item", [t| Fl_Tree_Item |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]
