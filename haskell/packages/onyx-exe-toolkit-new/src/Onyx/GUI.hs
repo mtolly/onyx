@@ -213,6 +213,7 @@ C.include "FL/Fl_Menu_Button.H"
 C.include "FL/Fl_Counter.H"
 C.include "FL/Fl_Value_Slider.H"
 C.include "FL/Fl_Choice.H"
+C.include "FL/Fl_Scroll.H"
 C.include "FL/Fl_Tree.H"
 C.include "FL/Fl_Tree_Item.H"
 C.include "FL/Fl_PNG_Image.H"
@@ -622,9 +623,13 @@ continueImport makeMenuBar hasAudio imp = do
       selectPlan [] = withNoPlan
       selectPlan [k] = withPlan k
       selectPlan (k : ks) = stackIO $ sink $ EventIO do
-        -- TODO: implement plan selection dialog
-        -- For now, just pick the first plan
-        sink $ EventOnyx $ withPlan k
+        let labelK = T.pack $ show k
+            labelKs = T.pack $ show ks
+        withUTF8 (T.unpack labelKs) \cks -> withUTF8 (T.unpack labelK) \ck -> do
+          n <- [C.exp| int { fl_choice("Select an audio plan", $(char* cks), $(char* ck), nullptr) } |]
+          sink $ EventOnyx case n of
+            1 -> withPlan k
+            _ -> selectPlan ks
   if hasAudio
     then selectPlan $ HM.keys proj.projectSongYaml.plans
     else withNoPlan
@@ -649,28 +654,83 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
         chopBottom 40 $ trimClock 10 10 10 10 windowRect
       [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
 
-  -- TODO: translate scrolled list of songs with checkbuttons
-  -- For now just show a simple message and open all songs
-  _ <- withRect songsArea \bx by bw bh ->
-    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Multiple songs found. Click Open to load all.") } |]
+  scroll <- withRect songsArea \sx sy sw sh ->
+    [C.exp| Fl_Scroll* { new Fl_Scroll($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+  let barSize = 15 :: CInt
+  -- NOTE: skipping custom resize handler for scrollbar width adjustment
+  [C.block| void {
+    Fl_Scroll* s = $(Fl_Scroll* scroll);
+    s->box(FL_ENGRAVED_BOX);
+    s->type(Fl_Scroll::VERTICAL_ALWAYS);
+    s->scrollbar_size($(int barSize));
+    s->color(fl_rgb_color(255, 255, 255));
+  } |]
+  let (songsInnerArea, _) = chopRight (fromIntegral barSize) songsArea
+  pack <- withRect songsInnerArea \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  checks <- forM imps \imp -> do
+    let entry = T.concat
+          [ fromMaybe "Untitled" imp.impTitle
+          , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
+          , if imp.imp2x then " (2x)" else ""
+          ]
+    check <- [C.exp| Fl_Check_Button* { new Fl_Check_Button(0, 0, 400, 25) } |]
+    withUTF8 (T.unpack entry) \clabel ->
+      [C.block| void {
+        $(Fl_Check_Button* check)->copy_label($(char* clabel));
+        $(Fl_Check_Button* check)->value(0);
+      } |]
+    return check
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Scroll* scroll)->end(); } |]
 
   selectButton <- withRect areaSelect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Close") } |]
-  cbClose <- makeCallback \_ _ -> [C.block| void { $(Fl_Window* window)->hide(); } |]
-  [C.block| void { $(Fl_Button* selectButton)->callback($(Fl_Callback cbClose)); } |]
-
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
   openButton <- withRect areaOpen \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Open All") } |]
-  [C.block| void { $(Fl_Button* openButton)->color($(Fl_Color taskColor)); } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  let updateButtons = do
+        bools <- forM checks \check ->
+          (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        let newValue = not $ and bools
+            checked = length $ filter id bools
+            selectLabel = if newValue then "Select all" else "Select none"
+            openLabel = case checked of
+              0 -> "Close"
+              1 -> "Open 1 song"
+              _ -> "Open " <> show checked <> " songs"
+        withUTF8 selectLabel \csel ->
+          [C.block| void { $(Fl_Button* selectButton)->copy_label($(char* csel)); } |]
+        withUTF8 openLabel \copen ->
+          [C.block| void { $(Fl_Button* openButton)->copy_label($(char* copen)); } |]
+        let color = if checked == 0 then defaultColor else taskColor
+        [C.block| void { $(Fl_Button* openButton)->color($(Fl_Color color)); } |]
+        [C.block| void { $(Fl_Button* openButton)->redraw(); } |]
+  updateButtons
+  cbSelect <- makeCallback \_ _ -> do
+    bools <- forM checks \check ->
+      (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    let newValue = if and bools then 0 else 1 :: CInt
+    forM_ checks \check ->
+      [C.block| void { $(Fl_Check_Button* check)->value($(int newValue)); } |]
+    updateButtons
+  [C.block| void { $(Fl_Button* selectButton)->callback($(Fl_Callback cbSelect)); } |]
   cbOpen <- makeCallback \_ _ -> do
-    forM_ imps \imp -> do
+    bools <- forM checks \check ->
+      (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    forM_ (zip bools imps) \(b, imp) -> when b do
       sink $ EventOnyx $ void $ forkOnyx do
         continueImport makeMenuBar hasAudio imp
     [C.block| void { $(Fl_Window* window)->hide(); } |]
   [C.block| void { $(Fl_Button* openButton)->callback($(Fl_Callback cbOpen)); } |]
+  forM_ checks \check -> do
+    cbCheck <- makeCallback \_ _ -> updateButtons
+    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
 
+  let scrollAsGroup = [C.exp| Fl_Group* { (Fl_Group*)$(Fl_Scroll* scroll) } |]
+  scrollGroup <- scrollAsGroup
   [C.block| void {
     $(Fl_Window* window)->end();
+    $(Fl_Window* window)->resizable($(Fl_Group* scrollGroup));
     $(Fl_Window* window)->size_range(500, 400);
     $(Fl_Window* window)->show();
   } |]
@@ -891,6 +951,45 @@ getSelectedMenuItems menu = do
           then return Nothing
           else Just <$> (T.pack <$> peekUTF8 cstr)
       else return Nothing
+
+starSelectors
+  :: (Eq track)
+  => Rectangle
+  -> [(track, RB.Difficulty, base)]
+  -> IO ()
+  -> (track -> T.Text)
+  -> [(T.Text, [track])]
+  -> IO (IO [(track, RB.Difficulty, base)])
+starSelectors rect foundTracks updateLabel trackToName slots = let
+  rects = splitHorizN (fromIntegral $ length slots) rect
+  instSelector ((lbl, trackFilter), r) = do
+    let r' = trimClock 20 5 5 5 r
+        matchTracks = [ t | t@(strack, _, _) <- foundTracks, elem strack trackFilter ]
+    choice <- withRect r' \cx cy cw ch ->
+      [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    withUTF8 (T.unpack lbl) \clabel ->
+      [C.block| void {
+        $(Fl_Choice* choice)->copy_label($(char* clabel));
+        $(Fl_Choice* choice)->align(FL_ALIGN_TOP);
+      } |]
+    [C.block| void { $(Fl_Choice* choice)->add("(none)"); } |]
+    forM_ matchTracks \(strack, diff, _) -> do
+      let itemLabel = trackToName strack <> " " <> case diff of
+            RB.Easy   -> "(E)"
+            RB.Medium -> "(M)"
+            RB.Hard   -> "(H)"
+            RB.Expert -> "(X)"
+      withUTF8 (T.unpack itemLabel) \citem ->
+        [C.block| void { $(Fl_Choice* choice)->add($(char* citem)); } |]
+    [C.block| void { $(Fl_Choice* choice)->value(0); } |]
+    cbChoice <- makeCallback \_ _ -> updateLabel
+    [C.block| void { $(Fl_Choice* choice)->callback($(Fl_Callback cbChoice)); } |]
+    return do
+      i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+      return case drop (fromIntegral i - 1) matchTracks of
+        t : _ | i /= 0 -> [t]
+        _               -> []
+  in mconcat $ map instSelector $ zip slots rects
 
 launchWindow
   :: (?preferences :: Preferences)
@@ -1311,7 +1410,95 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Tree* tree)); } |]
     return (editParts, tab)
 
-  -- TODO: Stars tab (needs tier/rank widgets)
+  _starsTab <- makeTab windowRect "Stars" \rect tab -> do
+    setTabColor tab homeTabColor
+    pack <- withRect rect \px py pw ph ->
+      [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+    [C.block| void { $(Fl_Pack* pack)->end(); } |]
+    sink $ EventOnyx $ void $ forkOnyx do
+      let input = takeDirectory proj.projectLocation </> "notes.mid"
+      mid <- F.loadMIDI input
+      let fixed = F.onyxToFixed mid.tracks
+          foundTracksRB3 = getScoreTracks    fixed
+          foundTracksGH2 = getScoreTracksGH2 fixed
+      -- TODO this is a hack to not hold onto the whole midi file in memory, should find a better way!
+      stackIO $ void $ Exc.evaluate $ length $ show (foundTracksRB3, foundTracksGH2)
+      stackIO $ sink $ EventIO $ mdo
+        [C.block| void { $(Fl_Pack* pack)->begin(); } |]
+
+        let commafy n = T.pack $ reverse $ go $ reverse $ show n
+            go (x : y : z : rest@(_ : _))
+              = [x, y, z, ','] ++ go rest
+            go xs = xs
+
+        -- RB3
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' ->
+          void $ withRect rect' \bx by bw bh ->
+            [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Rock Band 3 Star Cutoffs") } |]
+        getTracksRB3 <- padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' ->
+          starSelectors rect' foundTracksRB3 updateLabelRB3 scoreTrackName
+            [ ("Guitar", [ScoreGuitar, ScoreProGuitar])
+            , ("Bass"  , [ScoreBass  , ScoreProBass  ])
+            , ("Keys"  , [ScoreKeys  , ScoreProKeys  ])
+            , ("Drums" , [ScoreDrums , ScoreProDrums ])
+            , ("Vocal" , [ScoreVocals, ScoreHarmonies])
+            ]
+        [l1S, l2S, l3S, l4S, l5S, lGS] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) \bottomArea ->
+          forM (splitHorizN 6 bottomArea) \cell -> do
+            cutoffLabel <- withRect cell \bx by bw bh ->
+              [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+            [C.block| void { $(Fl_Box* cutoffLabel)->labelfont(FL_HELVETICA_BOLD); } |]
+            return cutoffLabel
+        let updateLabelRB3 = do
+              stars <- tracksToStars <$> getTracksRB3
+              let setLabel box txt = withUTF8 (T.unpack txt) \clabel ->
+                    [C.block| void { $(Fl_Box* box)->copy_label($(char* clabel)); } |]
+              setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) stars.stars1
+              setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) stars.stars2
+              setLabel l3S $ maybe "" (\n -> "3*: " <> commafy n) stars.stars3
+              setLabel l4S $ maybe "" (\n -> "4*: " <> commafy n) stars.stars4
+              setLabel l5S $ maybe "" (\n -> "5*: " <> commafy n) stars.stars5
+              setLabel lGS $ maybe "" (\n -> "G*: " <> commafy n) stars.starsGold
+        updateLabelRB3
+
+        -- GH2
+        padded 5 10 5 10 (Size (Width 800) (Height 50)) \rect' ->
+          void $ withRect rect' \bx by bw bh ->
+            [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Guitar Hero 1/2 Star Cutoffs") } |]
+        getTracksGH2 <- padded 5 150 5 150 (Size (Width 800) (Height 50)) \rect' ->
+          starSelectors rect' foundTracksGH2 updateLabelGH2 scoreTrackNameGH2
+            [ ("Lead", [ScoreGH2Guitar])
+            , ("Coop", [ScoreGH2Bass, ScoreGH2Rhythm])
+            ]
+        [ghBase, ghFour, gh2Five, gh1Five] <- padded 3 10 3 10 (Size (Width 800) (Height 40)) \bottomArea ->
+          forM (splitHorizN 4 bottomArea) \cell -> do
+            cutoffLabel <- withRect cell \bx by bw bh ->
+              [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+            [C.block| void { $(Fl_Box* cutoffLabel)->labelfont(FL_HELVETICA_BOLD); } |]
+            return cutoffLabel
+        let updateLabelGH2 = do
+              bases <- map (\(_, _, base) -> base) <$> getTracksGH2
+              let base = sum bases
+                  mult n = floor $ toRational base * n :: Int
+                  setLabel box txt = withUTF8 (T.unpack txt) \clabel ->
+                    [C.block| void { $(Fl_Box* box)->copy_label($(char* clabel)); } |]
+              if length bases <= 1
+                then do
+                  setLabel ghBase  $ "Base: "       <> commafy base
+                  setLabel ghFour  $ "4*: "         <> commafy (mult 2  )
+                  setLabel gh2Five $ "5* (GH2): "   <> commafy (mult 2.8)
+                  setLabel gh1Five $ "5* (GH1): "   <> commafy (mult 3  )
+                else do
+                  setLabel ghBase  $ "Base: " <> commafy base
+                  setLabel ghFour  ""
+                  setLabel gh2Five $ "5* (GH2): " <> commafy (mult 2)
+                  setLabel gh1Five ""
+        updateLabelGH2
+
+        [C.block| void { $(Fl_Pack* pack)->end(); } |]
+        [C.block| void { Fl::redraw(); } |]
+    [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
+    return tab
 
   -- Preview tab
   (_previewTab, cleanupGL) <- makeTab windowRect "Preview" \rect tab -> mdo
@@ -1676,9 +1863,65 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               return [fout]
       sink $ EventOnyx $ startTasks [(name, task)]
     return tab
-  -- TODO: Utilities tab (web preview, MIDI reductions, pro keys check)
+  utilsTab <- makeTab windowRect "Utilities" \rect tab -> do
+    setTabColor tab functionTabColor
+    pack <- withRect rect \px py pw ph ->
+      [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Build web preview") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cbBtn <- makeCallback \_ _ -> sink $ EventIO do
+        let presetName = T.pack $ proj.projectTemplate <> "_player"
+        saveFileChooser "Save web preview folder" presetName (T.pack <$> ?preferences.prefDirPreview) \f -> do
+          proj' <- fullProjModify [] proj
+          let task = do
+                tmp <- buildPlayer Nothing proj'
+                copyDirRecursive tmp f
+                return [f]
+          sink $ EventOnyx $ startTasks [("Build web preview", task)]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Produce MIDI with automatic reductions") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cbBtn <- makeCallback \_ _ -> sink $ EventIO do
+        picker <- [C.exp| Fl_Native_File_Chooser* {
+          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
+        } |]
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save MIDI file"); } |]
+        isDir <- Dir.doesDirectoryExist proj.projectSource
+        let dir = if isDir then proj.projectSource else takeDirectory proj.projectSource
+        withUTF8 dir \cdir ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->filter("*.mid");
+          $(Fl_Native_File_Chooser* picker)->preset_file("reduced.mid");
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          when (not $ null f) do
+            let ext = map toLower $ takeExtension f
+                f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
+            sink $ EventOnyx $ startTasks [(f', do
+              simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
+              return [f'])]
+        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
+      btn <- withRect rect' \bx by bw bh ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Find hanging Pro Keys notes") } |]
+      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+      cbBtn <- makeCallback \_ _ -> sink $ EventOnyx do
+        startTasks [("Pro Keys range check", proKeysHanging Nothing proj >> return [])]
+      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
+    [C.block| void { $(Fl_Pack* pack)->end(); } |]
+    [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
+    return tab
 
-  let tabsToDisable = [rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, rrTab]
+  let tabsToDisable = [rb3Tab, rb2Tab, psTab, gh1Tab, gh2Tab, gh3Tab, worTab, rrTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" \rect tab -> do
     setTabColor tab taskColor
     [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
@@ -3527,19 +3770,21 @@ pageQuickConvertCH sink rect tab startTasks = mdo
                 , "Select a different mode if you want to keep them."
                 ]
             ]
-      -- TODO: use fl_choice for confirmation dialog, for now just proceed
-      sink $ EventOnyx do
-        stackIO clearFiles
-        startTasks $ qfofs <&> \orig -> let
-          loc = orig.location
-          task = do
-            qfof <- transform orig
-            stackIO case qfof.format of
-              FoFFormat FoFFolder -> saveQuickFoFFolder loc qfof
-              FoFFormat FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
-              FoFEncore           -> saveQuickFoFFolder loc qfof
-            return [loc]
-          in (loc, task)
+      withUTF8 (T.unpack warningText) \cmsg -> do
+        result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
+        when (result == 1) do
+          sink $ EventOnyx do
+            stackIO clearFiles
+            startTasks $ qfofs <&> \orig -> let
+              loc = orig.location
+              task = do
+                qfof <- transform orig
+                stackIO case qfof.format of
+                  FoFFormat FoFFolder -> saveQuickFoFFolder loc qfof
+                  FoFFormat FoFSNG    -> fillRequiredMetadata qfof >>= saveQuickFoFSNG loc
+                  FoFEncore           -> saveQuickFoFFolder loc qfof
+                return [loc]
+              in (loc, task)
     withRect row4 \bx by bw bh -> do
       btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Start") } |]
       [C.block| void {
@@ -3554,6 +3799,30 @@ pageQuickConvertCH sink rect tab startTasks = mdo
               then QFoFInPlace
               else if deleteOriginals then QFoFDeleteOriginal else QFoFKeepOriginal
         return (qfof, fin, task, fout)
+      promptTasks :: [(QuickFoF, FilePath, QuickFoFTask, FilePath)] -> IO () -> IO ()
+      promptTasks tasks f = let
+        numInPlace        = length [ () | (_, _, QFoFInPlace       , _) <- tasks ]
+        numKeepOriginal   = length [ () | (_, _, QFoFKeepOriginal  , _) <- tasks ]
+        numDeleteOriginal = length [ () | (_, _, QFoFDeleteOriginal, _) <- tasks ]
+        numDeleteEncore   = length do
+          (qfof, _, taskType, _) <- tasks
+          guard $ qfof.format == FoFEncore
+          guard $ elem taskType [QFoFInPlace, QFoFDeleteOriginal]
+          return ()
+        numSongs 1 = "1 song"
+        numSongs n = T.pack (show n) <> " songs"
+        warningText = T.unlines $ concat
+          [ ["Based on the filename template, these operations will be performed:"]
+          , guard (numInPlace /= 0) >> ["- " <> numSongs numInPlace <> " will be overwritten with new versions"]
+          , guard (numKeepOriginal /= 0) >> ["- " <> numSongs numKeepOriginal <> " will be converted to new versions"]
+          , guard (numDeleteOriginal /= 0) >> ["- " <> numSongs numDeleteOriginal <> " will be converted to new versions, and the old versions will be deleted"]
+          , do
+            guard $ numDeleteEncore /= 0
+            ["", "WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones"]
+          ]
+        in withUTF8 (T.unpack warningText) \cmsg -> do
+          result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
+          when (result == 1) f
 
   -- new folders
   toFolders <- modeGroup do
@@ -3569,8 +3838,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "" template deleteOriginals
-        -- TODO: promptTasks confirmation dialog
-        sink $ EventOnyx do
+        promptTasks tasks $ sink $ EventOnyx do
           stackIO clearFiles
           startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do
@@ -3596,8 +3864,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "sng" template deleteOriginals
-        -- TODO: promptTasks confirmation dialog
-        sink $ EventOnyx do
+        promptTasks tasks $ sink $ EventOnyx do
           stackIO clearFiles
           startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do

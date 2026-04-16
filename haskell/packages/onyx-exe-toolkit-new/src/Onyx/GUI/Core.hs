@@ -46,7 +46,7 @@ import qualified Data.Text.Encoding               as TE
 --                                                             Width (..), X (..),
 --                                                             Y (..))
 -- import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
-import           Foreign                          (Ptr)
+import           Foreign                          (Ptr, nullPtr)
 import           Foreign.C                        (CInt, CUChar)
 import           Control.Monad                    (when)
 import qualified Language.C.Inline.Cpp            as C
@@ -792,7 +792,7 @@ makePS3PackPresetDropdown _sink rect = do
       labelSeparate = "Each song gets a new USRDIR subfolder"
       labelCustomInitial = "Custom USRDIR subfolder..."
       labelCustom txt = "Custom folder: " <> txt
-      _customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
+      customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
   menu <- withRect rect \mx my mw mh ->
     [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
   withUTF8 (T.unpack labelOne) \clabel ->
@@ -813,14 +813,24 @@ makePS3PackPresetDropdown _sink rect = do
     withUTF8 (T.unpack labelSeparate) \newLabel ->
       [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   addItem labelCustomInitial do
-    -- TODO: need fl_input dialog for custom folder name, stubbing for now
     defValue <- readIORef ref <&> \case
       QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
       _                 -> Nothing
-    let txt = fromMaybe "CUSTOM" defValue
-    writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
-    withUTF8 (T.unpack $ labelCustom txt) \newLabel ->
-      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 (T.unpack customPrompt) \cprompt -> do
+      result <- case defValue of
+        Nothing -> [C.exp| const char* { fl_input($(char* cprompt)) } |]
+        Just dv -> withUTF8 (T.unpack dv) \cdef ->
+          [C.exp| const char* { fl_input($(char* cprompt), $(char* cdef)) } |]
+      if result == nullPtr
+        then return () -- cancelled, leave as whatever it was
+        else do
+          txt <- T.pack <$> peekUTF8 result
+          if T.null txt
+            then return () -- ignore empty input
+            else do
+              writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
+              withUTF8 (T.unpack $ labelCustom txt) \newLabel ->
+                [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   return $ readIORef ref
 
 customTitleSuffix
