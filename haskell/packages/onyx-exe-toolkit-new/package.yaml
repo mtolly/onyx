@@ -32,10 +32,12 @@ executables:
     - Onyx.GUI.Misc
     - Onyx.GUI.Song
     - Onyx.GUI.Util
+    - Paths_onyx_exe_toolkit_new
     c-sources:
     - cbits/time_monotonic.c
     cxx-sources:
     - cbits/hs_gl_window.cpp
+    - cbits/Fl_Center.cpp
     include-dirs:
     - cbits
 

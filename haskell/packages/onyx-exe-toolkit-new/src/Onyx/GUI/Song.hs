@@ -71,10 +71,8 @@ songPageRB3 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      -- TODO: centerFixed needs C++ subclass; using rect directly for now
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \rb3 ->
         (rb3 :: TargetRB3 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -194,9 +192,8 @@ songPageRB2 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \rb2 ->
         (rb2 :: TargetRB2 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -299,9 +296,8 @@ songPageGHWOR sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \gh5 ->
         (gh5 :: TargetGH5 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -397,9 +393,8 @@ songPageRR sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \rr ->
         (rr :: TargetRR FilePath) & #common % #speed .~ Just speed
       return counter
@@ -485,9 +480,8 @@ songPagePS sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \ps ->
         (ps :: TargetPS FilePath) & #common % #speed .~ Just speed
       return counter
@@ -577,9 +571,8 @@ songPageGH3 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \gh3 ->
         (gh3 :: TargetGH3 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -697,9 +690,8 @@ songPageGH1 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \gh1 ->
         (gh1 :: TargetGH1 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -778,9 +770,8 @@ songPageGH2 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      let centerRect = trimClock 0 250 0 250 rect'
-      (getSpeed, counter) <- liftIO $
-        speedPercent' True centerRect
+      (getSpeed, counter) <- liftIO $ centerFixed rect' $
+        speedPercent' True (trimClock 0 250 0 250 rect')
       tell $ getSpeed >>= \speed -> return $ Endo \gh2 ->
         (gh2 :: TargetGH2 FilePath) & #common % #speed .~ Just speed
       return counter

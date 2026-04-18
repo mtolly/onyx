@@ -34,6 +34,7 @@ newtype Fl_Tree_Item = Fl_Tree_Item (Ptr Fl_Tree_Item)
 newtype Fl_Gl_Window = Fl_Gl_Window (Ptr Fl_Gl_Window)
 newtype HsGlWindow = HsGlWindow (Ptr HsGlWindow)
 newtype Fl_Menu_Item = Fl_Menu_Item (Ptr Fl_Menu_Item)
+newtype Fl_Center = Fl_Center (Ptr Fl_Center)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
@@ -70,6 +71,7 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("Fl_Gl_Window", [t| Fl_Gl_Window |])
   , ("HsGlWindow", [t| HsGlWindow |])
   , ("Fl_Menu_Item", [t| Fl_Menu_Item |])
+  , ("Fl_Center", [t| Fl_Center |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]

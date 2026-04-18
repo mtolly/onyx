@@ -97,6 +97,7 @@ C.include "FL/Fl_Tree.H"
 C.include "FL/Fl_Tree_Item.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 C.include "FL/fl_ask.H"
+C.include "Fl_Center.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -444,7 +445,13 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   liftIO [C.block| void { $(Fl_Group* group)->end(); } |]
   return x
 
--- TODO: centerFixed needs custom resize handler (C++ subclass), stub for now
+centerFixed :: Rectangle -> IO a -> IO a
+centerFixed rect makeChildren = do
+  center <- withRect rect \cx cy cw ch ->
+    [C.exp| Fl_Center* { new Fl_Center($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+  x <- makeChildren
+  [C.block| void { $(Fl_Center* center)->end(); } |]
+  return x
 
 makeTab :: Rectangle -> T.Text -> (Rectangle -> Ptr Fl_Group -> IO a) -> IO a
 makeTab rect name fn = do
@@ -589,7 +596,7 @@ gh2DeluxeSelector _sink rect = do
 
 makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
-  padded 5 10 10 10 (Size (Width 500) (Height 30)) \rect -> do
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
     input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
     withUTF8 (T.unpack $ T.unlines
       [ "Template for where to create new files."

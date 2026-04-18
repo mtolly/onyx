@@ -94,10 +94,8 @@ batchPageRB3
 batchPageRB3 sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    -- TODO: centerFixed needs C++ subclass; using rect directly for now
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     box <- withRect rect' \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Convert non-Pro Drums to all toms") } |]
@@ -193,9 +191,8 @@ batchPageGH1
 batchPageGH1 sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
@@ -251,9 +248,8 @@ batchPageGH3
 batchPageGH3 sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
@@ -321,9 +317,8 @@ batchPageGH2
 batchPageGH2 sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   (getPracticeAudio, getDeluxe) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     let [rectA, rectB] = splitHorizN 2 rect'
     boxA <- withRect rectA \cx cy cw ch ->
@@ -419,9 +414,8 @@ batchPageGHWOR
 batchPageGHWOR sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 5 lane", False, not ?preferences.prefGH4Lane)
@@ -490,9 +484,8 @@ batchPageRR
 batchPageRR sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 6 pad", False, False)
@@ -559,9 +552,8 @@ batchPageRB2
 batchPageRB2 sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB2
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
@@ -636,9 +628,8 @@ batchPagePS
 batchPagePS sink rect tab build = do
   pack <- withRect rect \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in speedPercent True centerRect
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsCH
   let getTargetSong usePath template = do

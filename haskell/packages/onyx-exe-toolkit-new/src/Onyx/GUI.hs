@@ -430,9 +430,10 @@ launchGUI initSongs = withAL \hasAudio -> do
       , 630
       , 345 - $(int menuHeight)
       );
-    term->history_lines(-1); // unlimited
+    // TODO Fl_Terminal doesn't seem to have an "unlimited" mode like Fl_Simple_Terminal did,
+    // just using a large number for now
+    term->history_lines(10000);
     term->ansi(true);
-    // stay at bottom? can't find
     return term;
   } |]
 
@@ -1992,7 +1993,9 @@ taskOutputPage rect tab sink cbStart cbEnd = do
   termTask <- withRect termRect' \tx ty tw th ->
     [C.block| Fl_Terminal* {
       Fl_Terminal* t = new Fl_Terminal($(int tx), $(int ty), $(int tw), $(int th));
-      t->history_lines(-1);
+      // TODO Fl_Terminal doesn't seem to have an "unlimited" mode like Fl_Simple_Terminal did,
+      // just using a large number for now
+      t->history_lines(10000);
       t->ansi(true);
       return t;
     } |]
