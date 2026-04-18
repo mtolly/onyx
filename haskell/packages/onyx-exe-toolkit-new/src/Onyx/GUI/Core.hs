@@ -225,7 +225,64 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
         _              -> T.pack $ show $ hashRB3 proj.projectSongYaml rb3
       _              -> ""
 
--- TODO many things
+makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner sink buttonText defTemplate useTemplate = do
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
+    input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
+    withUTF8 (T.unpack $ T.unlines
+      [ "Template for where to create new files."
+      , "  %input_dir% - folder containing the input"
+      , "  %input_base% - input filename by itself, extension removed"
+      , "  %modifiers% - added distinguishing features e.g. speed modifier"
+      , "  %title% - title from song's metadata (including modifiers)"
+      , "  %artist% - artist from song's metadata"
+      , "  %album% - album from song's metadata"
+      , "  %author% - author from song's metadata"
+      , "  %song_id% - unique song ID"
+      ]) \tip ->
+      [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
+
+makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
+makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
+  let (buttonRect, notButton) = chopLeft 250 rect
+      (_, rectA) = chopLeft 80 notButton
+      (inputRect, rectB) = chopRight 100 rectA
+      (_, rectC) = chopRight 90 rectB
+      (browseRect, _) = chopLeft 40 rectC
+      (_, rectD) = chopRight 50 rectC
+      (_, resetRect) = chopRight 40 rectD
+  button <- withRect buttonRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  withUTF8 (T.unpack buttonText) \clabel ->
+    [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
+  [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
+  input <- withRect inputRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
+  [C.block| void {
+    $(Fl_Input* input)->labelsize(13);
+    $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+  } |]
+  withUTF8 (T.unpack defTemplate) \cdef ->
+    [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
+  cbButton <- makeCallback \_ _ -> do
+    val <- peekInputValue input
+    useTemplate val
+  [C.block| void { $(Fl_Button* button)->callback($(Fl_Callback cbButton)); } |]
+  browseButton <- withRect browseRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+  cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir -> do
+    val <- peekInputValue input
+    let newVal = dir </> takeFileName (T.unpack val)
+    withUTF8 newVal \cnewval ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cnewval)); } |]
+  [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
+  resetButton <- withRect resetRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
+  cbReset <- makeCallback \_ _ -> sink $ EventIO do
+    withUTF8 (T.unpack defTemplate) \cdef ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
+  [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
+  return input
 
 chopRight :: CInt -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
@@ -289,140 +346,6 @@ setTabColor tab color =
     $(Fl_Group* tab)->color($(Fl_Color color));
     $(Fl_Group* tab)->selection_color($(Fl_Color color));
   } |]
-
--- TODO many things
-
-trimXbox
-  :: Preferences
-  -> FilePath
-  -> FilePath
-trimXbox prefs f = if prefs.prefTrimXbox
-  then validFileName NameRuleXbox f
-  else f
-
-warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
-warnCombineXboxGH2 sink go = sink $ EventOnyx do
-  prefs <- readPreferences
-  stackIO $ unless prefs.prefWarnedXboxGH2 do
-    [C.block| void {
-      fl_choice(
-        "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\").\n"
-        "Loading more than 16 packages will fail to load some songs, and will corrupt your save!",
-        "OK", nullptr, nullptr
-      );
-    } |]
-    savePreferences prefs { prefWarnedXboxGH2 = True }
-  stackIO go
-
-warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
-warnXboxGHWoR sink go = sink $ EventOnyx do
-  prefs <- readPreferences
-  stackIO $ unless prefs.prefWarnedXboxWoR do
-    [C.block| void {
-      fl_choice(
-        "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,\n"
-        "to produce the extra file needed to load your songs.\n"
-        "\n"
-        "IMPORTANT: There may be an issue with loading too many custom songs\n"
-        "into Guitar Hero: Warriors of Rock, that could corrupt your save.\n"
-        "Please back up any save data you care about before loading custom songs!",
-        "OK", nullptr, nullptr
-      );
-    } |]
-    savePreferences prefs { prefWarnedXboxWoR = True }
-
-data STFSSpec = STFSSpec
-  { stfsPath :: FilePath
-  , stfsMeta :: STFS.Metadata
-  }
-
-data PKGSpec = PKGSpec
-  { pkgPath      :: FilePath
-  , pkgContentID :: B.ByteString
-  }
-
-type PackageSpec = Either STFSSpec PKGSpec
-
-getSTFSSpec :: FilePath -> IO (Maybe STFSSpec)
-getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . (.stfsMetadata)) >>= \case
-  Left e -> let
-    _ = e :: Exc.IOException
-    in return Nothing
-  Right meta -> return $ Just STFSSpec
-    { stfsPath = f
-    , stfsMeta = meta
-    }
-
-getPKGSpec :: FilePath -> IO (Maybe PKGSpec)
-getPKGSpec f = Exc.try (PKG.loadPKG f) >>= \case
-  Left e -> let
-    _ = e :: Exc.IOException
-    in return Nothing
-  Right pkg -> return $ Just PKGSpec
-    { pkgPath      = f
-    , pkgContentID = pkg.pkgHeader.pkgContentID
-    }
-
-getPackageSpec :: FilePath -> IO (Maybe PackageSpec)
-getPackageSpec f = getSTFSSpec f >>= \case
-  Nothing   -> fmap Right <$> getPKGSpec f
-  Just stfs -> return $ Just $ Left stfs
-
-searchSTFS :: FilePath -> Onyx ([FilePath], [STFSSpec])
-searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
-  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
-
-searchWoRCachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
-searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
-  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
-
-searchGH3Cachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
-searchGH3Cachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
-  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> (\mspec -> ([], toList mspec)) <$> isGH3Cachable f
-
-searchQuickSongs :: FilePath -> Onyx ([FilePath], [QuickInput])
-searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
-  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> do
-    res <- loadQuickInput f
-    case res of
-      Nothing     -> return ([], [])
-      Just qinput -> return ([], [qinput])
-
-searchQuickFoF :: FilePath -> Onyx ([FilePath], [QuickFoF])
-searchQuickFoF f = stackIO (Dir.doesDirectoryExist f) >>= \case
-  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> do
-    res <- loadQuickFoF f
-    case res of
-      Nothing   -> return ([], [])
-      Just qfof -> return ([], [qfof])
-
-searchRockRevolution :: FilePath -> Onyx ([FilePath], [(FilePath, [RRSong])])
-searchRockRevolution f = stackIO (Dir.doesDirectoryExist f) >>= \case
-  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
-  False -> do
-    res <- loadRRSongs [f]
-    return ([], res)
-
-isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
-isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
-  then return $ Just (f, "") -- could read content ID from EDAT if we wanted
-  else getPackageSpec f >>= \case
-    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
-    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
-    Nothing          -> return Nothing
-
-isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
-isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
-  then return $ Just (f, "")
-  else getPackageSpec f >>= \case
-    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
-    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
-    Nothing          -> return Nothing
 
 padded
   :: (MonadIO m)
@@ -562,6 +485,14 @@ makeDropdown rect opts = do
       } |]
   return $ readIORef ref
 
+trimXbox
+  :: Preferences
+  -> FilePath
+  -> FilePath
+trimXbox prefs f = if prefs.prefTrimXbox
+  then validFileName NameRuleXbox f
+  else f
+
 gh2DeluxeSelector
   :: (Event -> IO ())
   -> Rectangle
@@ -594,71 +525,129 @@ gh2DeluxeSelector _sink rect = do
         return $ Just $ i == 1
       else return Nothing
 
-makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
-makeTemplateRunner sink buttonText defTemplate useTemplate = do
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
-    input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
-    withUTF8 (T.unpack $ T.unlines
-      [ "Template for where to create new files."
-      , "  %input_dir% - folder containing the input"
-      , "  %input_base% - input filename by itself, extension removed"
-      , "  %modifiers% - added distinguishing features e.g. speed modifier"
-      , "  %title% - title from song's metadata (including modifiers)"
-      , "  %artist% - artist from song's metadata"
-      , "  %album% - album from song's metadata"
-      , "  %author% - author from song's metadata"
-      , "  %song_id% - unique song ID"
-      ]) \tip ->
-      [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
+warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
+warnCombineXboxGH2 sink go = sink $ EventOnyx do
+  prefs <- readPreferences
+  stackIO $ unless prefs.prefWarnedXboxGH2 do
+    [C.block| void {
+      fl_choice(
+        "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\").\n"
+        "Loading more than 16 packages will fail to load some songs, and will corrupt your save!",
+        "OK", nullptr, nullptr
+      );
+    } |]
+    savePreferences prefs { prefWarnedXboxGH2 = True }
+  stackIO go
 
-makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
-makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
-  let (buttonRect, notButton) = chopLeft 250 rect
-      (_, rectA) = chopLeft 80 notButton
-      (inputRect, rectB) = chopRight 100 rectA
-      (_, rectC) = chopRight 90 rectB
-      (browseRect, _) = chopLeft 40 rectC
-      (_, rectD) = chopRight 50 rectC
-      (_, resetRect) = chopRight 40 rectD
-  button <- withRect buttonRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  withUTF8 (T.unpack buttonText) \clabel ->
-    [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
-  [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
-  input <- withRect inputRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
-  [C.block| void {
-    $(Fl_Input* input)->labelsize(13);
-    $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-  } |]
-  withUTF8 (T.unpack defTemplate) \cdef ->
-    [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
-  cbButton <- makeCallback \_ _ -> do
-    val <- peekInputValue input
-    useTemplate val
-  [C.block| void { $(Fl_Button* button)->callback($(Fl_Callback cbButton)); } |]
-  browseButton <- withRect browseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-  cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir -> do
-    val <- peekInputValue input
-    let newVal = dir </> takeFileName (T.unpack val)
-    withUTF8 newVal \cnewval ->
-      [C.block| void { $(Fl_Input* input)->value($(char* cnewval)); } |]
-  [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
-  resetButton <- withRect resetRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
-  cbReset <- makeCallback \_ _ -> sink $ EventIO do
-    withUTF8 (T.unpack defTemplate) \cdef ->
-      [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
-  [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
-  return input
+warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
+warnXboxGHWoR sink go = sink $ EventOnyx do
+  prefs <- readPreferences
+  stackIO $ unless prefs.prefWarnedXboxWoR do
+    [C.block| void {
+      fl_choice(
+        "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,\n"
+        "to produce the extra file needed to load your songs.\n"
+        "\n"
+        "IMPORTANT: There may be an issue with loading too many custom songs\n"
+        "into Guitar Hero: Warriors of Rock, that could corrupt your save.\n"
+        "Please back up any save data you care about before loading custom songs!",
+        "OK", nullptr, nullptr
+      );
+    } |]
+    savePreferences prefs { prefWarnedXboxWoR = True }
 
-peekInputValue :: Ptr Fl_Input -> IO T.Text
-peekInputValue input = do
-  cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-  T.pack <$> peekUTF8 cstr
+data STFSSpec = STFSSpec
+  { stfsPath :: FilePath
+  , stfsMeta :: STFS.Metadata
+  }
 
--- TODO: dragAndDrop needs custom event handling, stub for now
+data PKGSpec = PKGSpec
+  { pkgPath      :: FilePath
+  , pkgContentID :: B.ByteString
+  }
+
+type PackageSpec = Either STFSSpec PKGSpec
+
+getSTFSSpec :: FilePath -> IO (Maybe STFSSpec)
+getSTFSSpec f = Exc.try (STFS.withSTFSPackage f $ return . (.stfsMetadata)) >>= \case
+  Left e -> let
+    _ = e :: Exc.IOException
+    in return Nothing
+  Right meta -> return $ Just STFSSpec
+    { stfsPath = f
+    , stfsMeta = meta
+    }
+
+getPKGSpec :: FilePath -> IO (Maybe PKGSpec)
+getPKGSpec f = Exc.try (PKG.loadPKG f) >>= \case
+  Left e -> let
+    _ = e :: Exc.IOException
+    in return Nothing
+  Right pkg -> return $ Just PKGSpec
+    { pkgPath      = f
+    , pkgContentID = pkg.pkgHeader.pkgContentID
+    }
+
+getPackageSpec :: FilePath -> IO (Maybe PackageSpec)
+getPackageSpec f = getSTFSSpec f >>= \case
+  Nothing   -> fmap Right <$> getPKGSpec f
+  Just stfs -> return $ Just $ Left stfs
+
+searchSTFS :: FilePath -> Onyx ([FilePath], [STFSSpec])
+searchSTFS f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> getSTFSSpec f
+
+searchWoRCachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
+searchWoRCachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> isWoRCachable f
+
+searchGH3Cachable :: FilePath -> Onyx ([FilePath], [(FilePath, T.Text)])
+searchGH3Cachable f = stackIO $ Dir.doesDirectoryExist f >>= \case
+  True  -> (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> (\mspec -> ([], toList mspec)) <$> isGH3Cachable f
+
+searchQuickSongs :: FilePath -> Onyx ([FilePath], [QuickInput])
+searchQuickSongs f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> do
+    res <- loadQuickInput f
+    case res of
+      Nothing     -> return ([], [])
+      Just qinput -> return ([], [qinput])
+
+searchQuickFoF :: FilePath -> Onyx ([FilePath], [QuickFoF])
+searchQuickFoF f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> do
+    res <- loadQuickFoF f
+    case res of
+      Nothing   -> return ([], [])
+      Just qfof -> return ([], [qfof])
+
+searchRockRevolution :: FilePath -> Onyx ([FilePath], [(FilePath, [RRSong])])
+searchRockRevolution f = stackIO (Dir.doesDirectoryExist f) >>= \case
+  True  -> stackIO $ (\fs -> (map (f </>) fs, [])) <$> Dir.listDirectory f
+  False -> do
+    res <- loadRRSongs [f]
+    return ([], res)
+
+isWoRCachable :: FilePath -> IO (Maybe (FilePath, T.Text))
+isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
+  then return $ Just (f, "") -- could read content ID from EDAT if we wanted
+  else getPackageSpec f >>= \case
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Nothing          -> return Nothing
+
+isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
+isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
+  then return $ Just (f, "")
+  else getPackageSpec f >>= \case
+    Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Nothing          -> return Nothing
 
 fileLoadWindow
   :: Rectangle
@@ -774,71 +763,9 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
   [C.block| void { $(Fl_Group* group)->end(); } |]
   return (group, void clearFiles)
 
-makeModeDropdown :: Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
-makeModeDropdown rect opts withOpt = do
-  let (initialLabel, initialOpt) = head opts
-  menu <- withRect rect \mx my mw mh ->
-    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack initialLabel) \clabel ->
-    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
-  forM_ opts \(label, opt) -> do
-    let label' = T.unpack $ T.replace "/" "\\/" label
-    menuCb <- makeCallback \_ _ -> do
-      withOpt opt
-      withUTF8 (T.unpack label) \newLabel ->
-        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
-    withUTF8 label' \clabel' ->
-      [C.block| void {
-        $(Fl_Menu_Button* menu)->add($(char* clabel'), 0, $(Fl_Callback menuCb));
-      } |]
-  withOpt initialOpt
+-- TODO: dragAndDrop needs custom event handling, stub for now
 
-makePS3PackPresetDropdown :: (Event -> IO ()) -> Rectangle -> IO (IO QuickPS3Folder)
-makePS3PackPresetDropdown _sink rect = do
-  let labelOne = "Combine into one new USRDIR subfolder per pack"
-      labelSeparate = "Each song gets a new USRDIR subfolder"
-      labelCustomInitial = "Custom USRDIR subfolder..."
-      labelCustom txt = "Custom folder: " <> txt
-      customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
-  menu <- withRect rect \mx my mw mh ->
-    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack labelOne) \clabel ->
-    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
-  ref <- newIORef QCOneFolder
-  let addItem label action = do
-        menuCb <- makeCallback \_ _ -> action
-        withUTF8 (T.unpack $ T.replace "/" "\\/" label) \clabel' ->
-          [C.block| void {
-            $(Fl_Menu_Button* menu)->add($(char* clabel'), 0, $(Fl_Callback menuCb));
-          } |]
-  addItem labelOne do
-    writeIORef ref QCOneFolder
-    withUTF8 (T.unpack labelOne) \newLabel ->
-      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
-  addItem labelSeparate do
-    writeIORef ref QCSeparateFolders
-    withUTF8 (T.unpack labelSeparate) \newLabel ->
-      [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
-  addItem labelCustomInitial do
-    defValue <- readIORef ref <&> \case
-      QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
-      _                 -> Nothing
-    withUTF8 (T.unpack customPrompt) \cprompt -> do
-      result <- case defValue of
-        Nothing -> [C.exp| const char* { fl_input($(char* cprompt)) } |]
-        Just dv -> withUTF8 (T.unpack dv) \cdef ->
-          [C.exp| const char* { fl_input($(char* cprompt), $(char* cdef)) } |]
-      if result == nullPtr
-        then return () -- cancelled, leave as whatever it was
-        else do
-          txt <- T.pack <$> peekUTF8 result
-          if T.null txt
-            then return () -- ignore empty input
-            else do
-              writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
-              withUTF8 (T.unpack $ labelCustom txt) \newLabel ->
-                [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
-  return $ readIORef ref
+type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
 customTitleSuffix
   :: (Event -> IO ())
@@ -974,6 +901,28 @@ partSelectors rect proj slots = let
     controls <- mapM instSelector $ zip slots rects
     return \b -> mapM_ ($ b) controls
 
+mixDownStems :: SongYaml f -> SongYaml f
+mixDownStems song = song
+  { plans = song.plans <&> \case
+    StandardPlan info -> StandardPlan info
+      { parts = Parts HM.empty
+      , song = let
+        -- Shouldn't need to worry about mono/stereo due to Onyx.Audio.sameChannels
+        allAudio = toList info.song <> (toList info.parts >>= toList)
+        in case allAudio of
+          []     -> Nothing
+          [x]    -> Just x
+          x : xs -> Just $ Mix $ x NE.:| xs
+      , crowd = Nothing -- just drop? dunno what people would want
+      }
+    MoggPlan info -> MoggPlan $ info & #parts .~ Parts HM.empty
+  }
+
+peekInputValue :: Ptr Fl_Input -> IO T.Text
+peekInputValue input = do
+  cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+  T.pack <$> peekUTF8 cstr
+
 -- | Helper for save file chooser pattern used throughout song pages
 saveFileChooser :: T.Text -> T.Text -> Maybe T.Text -> (FilePath -> IO ()) -> IO ()
 saveFileChooser title preset mdir onPick = do
@@ -1007,22 +956,3 @@ browseFileChooser title onPick = do
     f <- peekUTF8 cstr
     when (not $ null f) $ onPick f
   [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-
-type BuildYamlControl a = WriterT (IO (Endo a)) IO
-
-mixDownStems :: SongYaml f -> SongYaml f
-mixDownStems song = song
-  { plans = song.plans <&> \case
-    StandardPlan info -> StandardPlan info
-      { parts = Parts HM.empty
-      , song = let
-        -- Shouldn't need to worry about mono/stereo due to Onyx.Audio.sameChannels
-        allAudio = toList info.song <> (toList info.parts >>= toList)
-        in case allAudio of
-          []     -> Nothing
-          [x]    -> Just x
-          x : xs -> Just $ Mix $ x NE.:| xs
-      , crowd = Nothing -- just drop? dunno what people would want
-      }
-    MoggPlan info -> MoggPlan $ info & #parts .~ Parts HM.empty
-  }
