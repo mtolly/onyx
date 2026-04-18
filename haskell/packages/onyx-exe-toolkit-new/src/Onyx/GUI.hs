@@ -3,6 +3,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
@@ -220,6 +221,7 @@ C.include "FL/Fl_PNG_Image.H"
 C.include "FL/fl_ask.H"
 C.include "FL/fl_draw.H"
 C.include "hs_gl_window.h"
+C.include "hs_scrubber.h"
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
 windowCloser :: IO () -> Ptr Fl_Window -> IO ()
@@ -286,15 +288,15 @@ launchGUI initSongs = withAL \hasAudio -> do
         [C.block| void { Fl::awake(); } |]
 
   -- terminal
-  let consoleWidth = Width 650
-      consoleHeight = Height 480
+  let consoleWidth = 650
+      consoleHeight = 480
   termWindow <- [C.exp| Fl_Window* {
-    new Fl_Window(650, 480, "Onyx Console")
+    new Fl_Window($(int consoleWidth), $(int consoleHeight), "Onyx Console")
   } |]
   [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
   -- TODO set icon
   [C.block| void {
-    $(Fl_Window* termWindow)->size_range(650, 480);
+    $(Fl_Window* termWindow)->size_range($(int consoleWidth), $(int consoleHeight));
     $(Fl_Window* termWindow)->color($(Fl_Color globalLogColor));
   } |]
   let makeMenuBar (Width menuWidth) includeConsole = do
@@ -397,7 +399,7 @@ launchGUI initSongs = withAL \hasAudio -> do
               $(Fl_Menu_Bar* menu)->down_color(fl_rgb_color(0x32, 0x30, 0x30));
             } |]
         return menuHeight
-  menuHeight <- makeMenuBar consoleWidth macOS
+  menuHeight <- makeMenuBar (Width consoleWidth) macOS
   cbGithub <- makeCallback \_ _ ->
     osOpenFile "https://github.com/mtolly/onyx/releases"
   [C.block| void {
@@ -432,6 +434,7 @@ launchGUI initSongs = withAL \hasAudio -> do
       );
     // TODO Fl_Terminal doesn't seem to have an "unlimited" mode like Fl_Simple_Terminal did,
     // just using a large number for now
+    // TODO seems to have some problems with resizing, need to always wrap at width
     term->history_lines(10000);
     term->ansi(true);
     return term;
@@ -500,7 +503,7 @@ launchGUI initSongs = withAL \hasAudio -> do
         (""    , _   ) -> s
         (spaces, rest) -> "\ESC[30m" <> ('.' <$ spaces) <> "\ESC[0m" <> rest
   mapM_ (addTerm term . TermLog . fixLeadingSpace)
-    [ "\ESC[45mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
+    [ "\ESC[35mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
     , "Select an option below to get started."
     , ""
     , "  \ESC[32mLoad a song\ESC[0m     | bring songs to a new game"
@@ -1539,30 +1542,77 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     playButton <- withRect playButtonArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@>") } |]
     [C.block| void { $(Fl_Button* playButton)->deactivate(); } |]
-    -- Scrubber: use a regular slider for now (custom draw needs C++ subclass)
+    scrubberDragResume <- newIORef Nothing
     scrubber <- withRect scrubberArea \sx sy sw sh ->
-      [C.exp| Fl_Slider* { new Fl_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+      [C.exp| HsScrubber* { new HsScrubber($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+    let Fl_Color filledColorVal = fl_rgb_color 13 131 216
+        Fl_Color emptyColorVal = fl_rgb_color 75 75 75
     [C.block| void {
-      $(Fl_Slider* scrubber)->type(FL_HOR_FILL_SLIDER);
-      $(Fl_Slider* scrubber)->color($(Fl_Color homeTabColor));
-      $(Fl_Slider* scrubber)->minimum(0);
-      $(Fl_Slider* scrubber)->maximum(100);
-      $(Fl_Slider* scrubber)->step(1);
-      $(Fl_Slider* scrubber)->value(0);
-      $(Fl_Slider* scrubber)->deactivate();
+      $(HsScrubber* scrubber)->minimum(0);
+      $(HsScrubber* scrubber)->maximum(100);
+      $(HsScrubber* scrubber)->step(1);
+      $(HsScrubber* scrubber)->value(0);
+      $(HsScrubber* scrubber)->deactivate();
     } |]
     (getSpeed, _counter) <- speedPercent' False speedArea
     [C.block| void { $(Fl_Group* topControls)->end(); } |]
-    [C.block| void { $(Fl_Group* topControls)->resizable($(Fl_Slider* scrubber)); } |]
+    [C.block| void { $(Fl_Group* topControls)->resizable($(HsScrubber* scrubber)); } |]
     -- Set up song length
     let songLength :: Double
         songLength = realToFrac $ U.applyTempoMap
           song.previewTempo
           song.previewTiming.timingEnd
         csongLength = realToFrac songLength :: C.CDouble
+    let sectionTimes = Map.keys $ previewSections song
+    -- Set up scrubber draw callback
+    fpScrubberDraw <- makeScrubberDrawCallback \_ cx cy cw ch cvalue cmaximum -> do
+      let x = fromIntegral cx :: Int
+          y = fromIntegral cy :: Int
+          w = fromIntegral cw :: Int
+          h = fromIntegral ch :: Int
+          v = realToFrac cvalue :: Double
+          vmax = realToFrac cmaximum :: Double
+      -- Draw empty background
+      [C.block| void {
+        fl_color($(unsigned int emptyColorVal));
+        fl_rectf($(int cx), $(int cy), $(int cw), $(int ch));
+        fl_color(FL_BLACK);
+        fl_rect($(int cx), $(int cy), $(int cw), $(int ch));
+      } |]
+      -- Draw progress bar
+      let progressWidth = floor $ fromIntegral w * (v / vmax) :: Int
+          cpw = fromIntegral progressWidth :: CInt
+      when (progressWidth >= 2) do
+        [C.block| void {
+          fl_color($(unsigned int filledColorVal));
+          fl_rectf($(int cx), $(int cy), $(int cpw), $(int ch));
+          fl_color(FL_BLACK);
+          fl_rect($(int cx), $(int cy), $(int cpw), $(int ch));
+        } |]
+      -- Draw section markers
+      case sectionTimes of
+        [] -> return ()
+        times -> do
+          [C.block| void {
+            fl_line_style(FL_SOLID, 1);
+            fl_color(FL_WHITE);
+          } |]
+          forM_ times \t -> do
+            let x' = x + floor (fromIntegral w * (t / songLength)) - 1
+            when (x' > x) do
+              let cx' = fromIntegral x' :: CInt
+                  cy1 = fromIntegral (y + 3) :: CInt
+                  cy2 = fromIntegral (y + h - 4) :: CInt
+              [C.block| void { fl_line($(int cx'), $(int cy1), $(int cx'), $(int cy2)); } |]
+          [C.block| void { fl_line_style(0); } |]
+    let pScrubberDraw = castFunPtrToPtr fpScrubberDraw
     [C.block| void {
-      $(Fl_Slider* scrubber)->maximum($(double csongLength));
-      $(Fl_Slider* scrubber)->activate();
+      $(HsScrubber* scrubber)->set_draw_callback(
+        (HsScrubberDrawCallback)$(void* pScrubberDraw), NULL);
+    } |]
+    [C.block| void {
+      $(HsScrubber* scrubber)->maximum($(double csongLength));
+      $(HsScrubber* scrubber)->activate();
       $(Fl_Button* playButton)->activate();
     } |]
     let initState = SongState 0 Nothing
@@ -1617,7 +1667,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
             [C.block| void { Fl::lock(); } |]
             let ct' = realToFrac t' :: C.CDouble
-            [C.block| void { $(Fl_Slider* scrubber)->value($(double ct')); } |]
+            [C.block| void { $(HsScrubber* scrubber)->value($(double ct')); } |]
             redrawGL
             [C.block| void { Fl::unlock(); } |]
             when (t' >= songLength) do
@@ -1637,32 +1687,78 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 , playAudioHandle = handle
                 }
           return SongState { songTime = t, songPlaying = Just ps }
-    cbScrubber <- makeCallback \_ _ -> do
-      secs <- [C.exp| double { $(Fl_Slider* scrubber)->value() } |]
-      ss <- takeState
-      ss' <- case ss.songPlaying of
-        Nothing -> return ss { songTime = realToFrac secs }
-        Just ps -> do
-          _ <- stopPlaying ss.songTime ps
-          startPlaying $ realToFrac secs
-      putState ss'
-      redrawGL
-    [C.block| void { $(Fl_Slider* scrubber)->callback($(Fl_Callback cbScrubber)); } |]
-    let togglePlay = do
-          ss <- takeState
-          ss' <- case ss.songPlaying of
-            Nothing -> do
-              sink $ EventIO $ withUTF8 "@square" \clbl ->
-                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
-              startPlaying ss.songTime
-            Just ps -> do
-              sink $ EventIO $ withUTF8 "@>" \clbl ->
-                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
-              t <- stopPlaying ss.songTime ps
-              return $ SongState t Nothing
-          putState ss'
+    -- Scrubber handle callback for push/drag/release
+    let updateScrubberTime = do
+          sx <- [C.exp| int { $(HsScrubber* scrubber)->x() } |]
+          sw <- [C.exp| int { $(HsScrubber* scrubber)->w() } |]
+          mouseX <- [C.exp| int { Fl::event_x() } |]
+          timeMin <- [C.exp| double { $(HsScrubber* scrubber)->minimum() } |]
+          timeMax <- [C.exp| double { $(HsScrubber* scrubber)->maximum() } |]
+          let newTime = max (realToFrac timeMin) $ min (realToFrac timeMax) $
+                realToFrac timeMin + (realToFrac timeMax - realToFrac timeMin)
+                * (fromIntegral (mouseX - sx) / fromIntegral sw) :: Double
+              cnewTime = realToFrac newTime :: C.CDouble
+          [C.block| void { $(HsScrubber* scrubber)->value($(double cnewTime)); } |]
+          return newTime
+    fpScrubberHandle <- makeScrubberHandleCallback \_ cevent _ _ _ _ -> do
+      let event = fromIntegral cevent :: Int
+          flPush    = [C.pure| int { FL_PUSH } |]
+          flDrag    = [C.pure| int { FL_DRAG } |]
+          flRelease = [C.pure| int { FL_RELEASE } |]
+      if | fromIntegral event == flPush -> do
+             secs <- updateScrubberTime
+             ss <- takeState
+             case ss.songPlaying of
+               Nothing -> writeIORef scrubberDragResume $ Just False
+               Just ps -> do
+                 writeIORef scrubberDragResume $ Just True
+                 void $ stopPlaying ss.songTime ps
+             putState $ SongState secs Nothing
+             redrawGL
+             [C.block| void { Fl::focus($(HsScrubber* scrubber)); } |]
+             return 1
+         | fromIntegral event == flDrag -> do
+             secs <- updateScrubberTime
+             ss <- takeState
+             putState ss { songTime = secs }
+             redrawGL
+             return 1
+         | fromIntegral event == flRelease -> do
+             secs <- updateScrubberTime
+             ss <- takeState
+             ss' <- readIORef scrubberDragResume >>= \case
+               Just True -> startPlaying secs
+               _         -> return ss { songTime = secs }
+             writeIORef scrubberDragResume Nothing
+             putState ss'
+             redrawGL
+             return 1
+         | otherwise -> return (-1) -- fall through to default handler
+    let pScrubberHandle = castFunPtrToPtr fpScrubberHandle
+    [C.block| void {
+      $(HsScrubber* scrubber)->set_handle_callback(
+        (HsScrubberHandleCallback)$(void* pScrubberHandle), NULL);
+    } |]
+    let togglePlay = readIORef scrubberDragResume >>= \case
+          Just _  -> return () -- we are dragging the scrubber, ignore
+          Nothing -> do
+            ss <- takeState
+            ss' <- case ss.songPlaying of
+              Nothing -> do
+                sink $ EventIO $ withUTF8 "@square" \clbl ->
+                  [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+                startPlaying ss.songTime
+              Just ps -> do
+                sink $ EventIO $ withUTF8 "@>" \clbl ->
+                  [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+                t <- stopPlaying ss.songTime ps
+                return $ SongState t Nothing
+            putState ss'
     cbPlayButton <- makeCallback \_ _ -> togglePlay
-    [C.block| void { $(Fl_Button* playButton)->callback($(Fl_Callback cbPlayButton)); } |]
+    [C.block| void {
+      $(Fl_Button* playButton)->callback($(Fl_Callback cbPlayButton));
+      $(Fl_Button* playButton)->shortcut(' ');
+    } |]
     let cleanup = do
           ss <- takeState
           case ss.songPlaying of

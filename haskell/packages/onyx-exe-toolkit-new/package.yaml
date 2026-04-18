@@ -38,6 +38,7 @@ executables:
     cxx-sources:
     - cbits/hs_gl_window.cpp
     - cbits/Fl_Center.cpp
+    - cbits/hs_scrubber.cpp
     include-dirs:
     - cbits
 

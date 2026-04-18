@@ -4,7 +4,7 @@
 module Onyx.GUI.Binding where
 
 import           Foreign
-import           Foreign.C             (CUInt)
+import           Foreign.C             (CDouble, CInt, CUInt)
 import qualified Language.C.Inline.Cpp as C
 
 newtype Fl_Widget = Fl_Widget (Ptr Fl_Widget)
@@ -35,10 +35,13 @@ newtype Fl_Gl_Window = Fl_Gl_Window (Ptr Fl_Gl_Window)
 newtype HsGlWindow = HsGlWindow (Ptr HsGlWindow)
 newtype Fl_Menu_Item = Fl_Menu_Item (Ptr Fl_Menu_Item)
 newtype Fl_Center = Fl_Center (Ptr Fl_Center)
+newtype HsScrubber = HsScrubber (Ptr HsScrubber)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
 type TimeoutCallback = Ptr () -> IO ()
+type ScrubberDrawCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CDouble -> CDouble -> IO ()
+type ScrubberHandleCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
 
 newtype Fl_Color = Fl_Color CUInt
 
@@ -72,6 +75,7 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("HsGlWindow", [t| HsGlWindow |])
   , ("Fl_Menu_Item", [t| Fl_Menu_Item |])
   , ("Fl_Center", [t| Fl_Center |])
+  , ("HsScrubber", [t| HsScrubber |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]
@@ -90,3 +94,13 @@ foreign import ccall "wrapper"
   makeTimeoutCallback
     ::            TimeoutCallback
     -> IO (FunPtr TimeoutCallback)
+
+foreign import ccall "wrapper"
+  makeScrubberDrawCallback
+    ::            ScrubberDrawCallback
+    -> IO (FunPtr ScrubberDrawCallback)
+
+foreign import ccall "wrapper"
+  makeScrubberHandleCallback
+    ::            ScrubberHandleCallback
+    -> IO (FunPtr ScrubberHandleCallback)
