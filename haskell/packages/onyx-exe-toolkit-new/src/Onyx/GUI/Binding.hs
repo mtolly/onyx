@@ -4,7 +4,7 @@
 module Onyx.GUI.Binding where
 
 import           Foreign
-import           Foreign.C             (CDouble, CInt, CUInt)
+import           Foreign.C             (CInt, CUInt)
 import qualified Language.C.Inline.Cpp as C
 
 newtype Fl_Widget = Fl_Widget (Ptr Fl_Widget)
@@ -40,7 +40,6 @@ newtype HsScrubber = HsScrubber (Ptr HsScrubber)
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
 type TimeoutCallback = Ptr () -> IO ()
-type ScrubberDrawCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CDouble -> CDouble -> IO ()
 type ScrubberHandleCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
 
 newtype Fl_Color = Fl_Color CUInt
@@ -94,11 +93,6 @@ foreign import ccall "wrapper"
   makeTimeoutCallback
     ::            TimeoutCallback
     -> IO (FunPtr TimeoutCallback)
-
-foreign import ccall "wrapper"
-  makeScrubberDrawCallback
-    ::            ScrubberDrawCallback
-    -> IO (FunPtr ScrubberDrawCallback)
 
 foreign import ccall "wrapper"
   makeScrubberHandleCallback

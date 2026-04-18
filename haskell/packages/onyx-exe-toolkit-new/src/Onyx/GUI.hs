@@ -77,7 +77,7 @@ import           Data.Bits                         ((.&.))
 import           Foreign                           (Ptr, alloca,
                                                     castFunPtrToPtr,
                                                     freeHaskellFunPtr, nullPtr,
-                                                    peek, toBool)
+                                                    peek, toBool, withArray)
 import           Foreign.C                         (CInt, CString)
 import qualified Foreign.C                         as C
 -- import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
@@ -196,6 +196,7 @@ C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Window.H"
+C.include "FL/Fl_Double_Window.H"
 C.include "FL/Fl_Group.H"
 C.include "FL/Fl_Button.H"
 C.include "FL/Fl_Check_Button.H"
@@ -291,7 +292,7 @@ launchGUI initSongs = withAL \hasAudio -> do
   let consoleWidth = 650
       consoleHeight = 480
   termWindow <- [C.exp| Fl_Window* {
-    new Fl_Window($(int consoleWidth), $(int consoleHeight), "Onyx Console")
+    new Fl_Double_Window($(int consoleWidth), $(int consoleHeight), "Onyx Console")
   } |]
   [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
   -- TODO set icon
@@ -649,7 +650,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Select Songs") } |]
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Select Songs") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -1011,7 +1012,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       windowSize = Size windowWidth windowHeight
       title = T.unpack $ T.replace "/" "_" $ fromMaybe "Song" proj.projectSongYaml.metadata.title
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h)) } |]
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h)) } |]
   withUTF8 title \ctitle ->
     [C.block| void { $(Fl_Window* window)->copy_label($(char* ctitle)); } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
@@ -1563,53 +1564,18 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           song.previewTempo
           song.previewTiming.timingEnd
         csongLength = realToFrac songLength :: C.CDouble
-    let sectionTimes = Map.keys $ previewSections song
-    -- Set up scrubber draw callback
-    fpScrubberDraw <- makeScrubberDrawCallback \_ cx cy cw ch cvalue cmaximum -> do
-      let x = fromIntegral cx :: Int
-          y = fromIntegral cy :: Int
-          w = fromIntegral cw :: Int
-          h = fromIntegral ch :: Int
-          v = realToFrac cvalue :: Double
-          vmax = realToFrac cmaximum :: Double
-      -- Draw empty background
-      [C.block| void {
-        fl_color($(unsigned int emptyColorVal));
-        fl_rectf($(int cx), $(int cy), $(int cw), $(int ch));
-        fl_color(FL_BLACK);
-        fl_rect($(int cx), $(int cy), $(int cw), $(int ch));
-      } |]
-      -- Draw progress bar
-      let progressWidth = floor $ fromIntegral w * (v / vmax) :: Int
-          cpw = fromIntegral progressWidth :: CInt
-      when (progressWidth >= 2) do
-        [C.block| void {
-          fl_color($(unsigned int filledColorVal));
-          fl_rectf($(int cx), $(int cy), $(int cpw), $(int ch));
-          fl_color(FL_BLACK);
-          fl_rect($(int cx), $(int cy), $(int cpw), $(int ch));
-        } |]
-      -- Draw section markers
-      case sectionTimes of
-        [] -> return ()
-        times -> do
-          [C.block| void {
-            fl_line_style(FL_SOLID, 1);
-            fl_color(FL_WHITE);
-          } |]
-          forM_ times \t -> do
-            let x' = x + floor (fromIntegral w * (t / songLength)) - 1
-            when (x' > x) do
-              let cx' = fromIntegral x' :: CInt
-                  cy1 = fromIntegral (y + 3) :: CInt
-                  cy2 = fromIntegral (y + h - 4) :: CInt
-              [C.block| void { fl_line($(int cx'), $(int cy1), $(int cx'), $(int cy2)); } |]
-          [C.block| void { fl_line_style(0); } |]
-    let pScrubberDraw = castFunPtrToPtr fpScrubberDraw
+    -- Set up scrubber colors and section markers (all drawing done in C++)
     [C.block| void {
-      $(HsScrubber* scrubber)->set_draw_callback(
-        (HsScrubberDrawCallback)$(void* pScrubberDraw), NULL);
+      $(HsScrubber* scrubber)->set_colors($(unsigned int filledColorVal), $(unsigned int emptyColorVal));
     } |]
+    let sectionTimes = Map.keys $ previewSections song
+    case sectionTimes of
+      [] -> return ()
+      times -> withArray (map realToFrac times :: [C.CDouble]) \pTimes -> do
+        let count = fromIntegral (length times) :: CInt
+        [C.block| void {
+          $(HsScrubber* scrubber)->set_sections($(double* pTimes), $(int count), $(double csongLength));
+        } |]
     [C.block| void {
       $(HsScrubber* scrubber)->maximum($(double csongLength));
       $(HsScrubber* scrubber)->activate();
@@ -2265,7 +2231,7 @@ launchPreferences sink makeMenuBar = do
       combinePrefs = fmap (foldr (.) id) . sequence
   stackIO do
     window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-      [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Onyx Preferences") } |]
+      [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Onyx Preferences") } |]
     [C.block| void { $(Fl_Window* window)->color($(Fl_Color behindTabsColor)); } |]
     menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
     let (tabsRect, bottomRect) = chopBottom bottomHeight $ snd $ chopTop menuHeight $ Rectangle
@@ -2759,7 +2725,7 @@ launchBatch sink makeMenuBar startFiles = mdo
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Batch Recompile") } |]
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Batch Recompile") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -3463,7 +3429,7 @@ launchQuickConvert sink makeMenuBar = mdo
       windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Quick Convert") } |]
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Quick Convert") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -4577,7 +4543,7 @@ launchMisc sink makeMenuBar = mdo
       windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
   window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
-    [C.exp| Fl_Window* { new Fl_Window($(int w), $(int h), "Tools") } |]
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Tools") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
