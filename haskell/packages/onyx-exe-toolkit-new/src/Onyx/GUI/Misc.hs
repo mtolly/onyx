@@ -11,54 +11,47 @@ module Onyx.GUI.Misc where
 
 import           Onyx.GUI.Core
 
-import           Control.Applicative                       ((<|>))
-import           Control.Concurrent                        (modifyMVar_,
-                                                            newMVar, readMVar)
-import           Control.Monad                             (forM, guard, join,
-                                                            void, when)
-import           Data.Bifunctor                            (first)
-import           Data.Binary.Put                           (runPut)
-import qualified Data.ByteString.Lazy                      as BL
-import           Data.Functor                              ((<&>))
-import           Data.Maybe                                (catMaybes,
-                                                            fromMaybe, isJust,
-                                                            listToMaybe)
-import qualified Data.Text                                 as T
-import qualified Data.Text.Encoding                        as TE
-import           Foreign                                   (Ptr)
-import           Foreign.C                                 (CInt)
-import qualified Language.C.Inline.Cpp                     as C
-import           Onyx.Audio                                (Audio (..),
-                                                            buildSource',
-                                                            runAudio)
-import           Onyx.Build.GuitarHero5.Logic              (getAllMetadata,
-                                                            makeMetadataLIVE,
-                                                            makeMetadataPKG,
-                                                            metadataPS3Folder)
+import           Control.Applicative          ((<|>))
+import           Control.Concurrent           (modifyMVar_, newMVar, readMVar)
+import           Control.Monad                (forM, guard, join, when)
+import           Data.Bifunctor               (first)
+import           Data.Binary.Put              (runPut)
+import qualified Data.ByteString              as B
+import qualified Data.ByteString.Lazy         as BL
+import           Data.Functor                 ((<&>))
+import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
+                                               listToMaybe)
+import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as TE
+import           Foreign                      (Ptr)
+import qualified Language.C.Inline.Cpp        as C
+import           Onyx.Audio                   (Audio (..), buildSource',
+                                               runAudio)
+import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
+                                               makeMetadataPKG,
+                                               metadataPS3Folder)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                             (askFolder, withUTF8,
-                                                            peekUTF8)
-import           Onyx.Harmonix.RockBand.Milo               as Milo
-import           Onyx.Import                               (installPS3Folder)
-import           Onyx.MIDI.Read                            (mapTrack)
-import qualified Onyx.MIDI.Track.File                      as F
+import           Onyx.GUI.Util                (askFolder, peekUTF8, withUTF8)
+import           Onyx.Harmonix.RockBand.Milo  as Milo
+import           Onyx.Import                  (installPS3Folder)
+import           Onyx.MIDI.Read               (mapTrack)
+import qualified Onyx.MIDI.Track.File         as F
 import           Onyx.MIDI.Track.Lipsync
-import           Onyx.MIDI.Track.Vocal                     (nullVox)
-import           Onyx.Neversoft.GH3.Metadata               (GH3Game (..),
-                                                            combineGH3SongCache360,
-                                                            combineGH3SongCachePS3,
-                                                            combineGH3SongCachePS3Folder)
+import           Onyx.MIDI.Track.Vocal        (nullVox)
+import           Onyx.Neversoft.GH3.Metadata  (GH3Game (..),
+                                               combineGH3SongCache360,
+                                               combineGH3SongCachePS3,
+                                               combineGH3SongCachePS3Folder)
 import           Onyx.Preferences
 import           Onyx.Project
 import           Onyx.QuickConvert.RockBand
 import           Onyx.StackTrace
 import           Onyx.Vocal.DryVox
-import qualified Onyx.Xbox.STFS                            as STFS
-import qualified Sound.MIDI.Util                           as U
-import qualified System.Directory                          as Dir
-import           System.FilePath                           (dropExtension,
-                                                            takeDirectory,
-                                                            (<.>), (</>))
+import qualified Onyx.Xbox.STFS               as STFS
+import qualified Sound.MIDI.Util              as U
+import qualified System.Directory             as Dir
+import           System.FilePath              (dropExtension, takeDirectory,
+                                               (<.>), (</>))
 
 C.context flContext
 
@@ -100,7 +93,7 @@ miscPageMilo sink rect tab startTasks = do
           new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
         } |]
         [C.block| void { $(Fl_Native_File_Chooser* picker2)->title("Create folder"); } |]
-        withUTF8 (fin ++ "-extract") \cpreset ->
+        withUTF8 (fin <> "-extract") \cpreset ->
           [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
         result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
         when (result2 == 0) do
@@ -121,8 +114,8 @@ miscPageMilo sink rect tab startTasks = do
     cb <- makeCallback \_ _ -> askFolder Nothing \din -> do
       let dinText = T.pack din
           presetFile = case T.stripSuffix "-extract" dinText of
-            Just stripped -> T.unpack stripped
-            Nothing       -> din ++ ".milo"
+            Just stripped -> stripped
+            Nothing       -> dinText <> ".milo"
       miloPicker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
       } |]
@@ -167,8 +160,7 @@ miscPageLipsync sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "MIDI file" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("MIDI file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO do
@@ -183,7 +175,7 @@ miscPageLipsync sink rect tab startTasks = do
       when (result == 0) do
         cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
         f <- peekUTF8 cstr
-        withUTF8 f \cf ->
+        withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
     [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
@@ -206,8 +198,7 @@ miscPageLipsync sink rect tab startTasks = do
       $(Fl_Counter* counter)->lstep(5);
       $(Fl_Counter* counter)->minimum(0);
     } |]
-    withUTF8 "Transition (ms)" \clbl ->
-      [C.block| void { $(Fl_Counter* counter)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Counter* counter)->label("Transition (ms)"); } |]
     let defVal = realToFrac (round (defaultTransition * 1000) :: Integer) :: C.CDouble
     [C.block| void { $(Fl_Counter* counter)->value($(double defVal)); } |]
     return
@@ -304,8 +295,9 @@ miscPageLipsync sink rect tab startTasks = do
     makeButton <- withRect makeArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make RB3 .milo_*") } |]
     [C.block| void { $(Fl_Button* makeButton)->color($(Fl_Color taskColor)); } |]
-    withUTF8 "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS." \ctt ->
-      [C.block| void { $(Fl_Button* makeButton)->copy_tooltip($(char* ctt)); } |]
+    [C.block| void { $(Fl_Button* makeButton)->tooltip(
+      "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS."
+    ); } |]
     cbMake <- makeCallback \_ _ -> sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
@@ -350,8 +342,9 @@ miscPageLipsync sink rect tab startTasks = do
     updateButton <- withRect updateArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Update RB3/TBRB .milo_*") } |]
     [C.block| void { $(Fl_Button* updateButton)->color($(Fl_Color taskColor)); } |]
-    withUTF8 "Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks." \ctt ->
-      [C.block| void { $(Fl_Button* updateButton)->copy_tooltip($(char* ctt)); } |]
+    [C.block| void { $(Fl_Button* updateButton)->tooltip(
+      "Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks."
+    ); } |]
     cbUpdate <- makeCallback \_ _ -> sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
@@ -402,8 +395,9 @@ miscPageLipsync sink rect tab startTasks = do
     rawButton <- withRect rawArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create *.lipsync") } |]
     [C.block| void { $(Fl_Button* rawButton)->color($(Fl_Color taskColor)); } |]
-    withUTF8 "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files." \ctt ->
-      [C.block| void { $(Fl_Button* rawButton)->copy_tooltip($(char* ctt)); } |]
+    [C.block| void { $(Fl_Button* rawButton)->tooltip(
+      "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files."
+    ); } |]
     cbRaw <- makeCallback \_ _ -> sink $ EventIO do
       input <- pickedFile
       askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
@@ -480,8 +474,9 @@ miscPageLipsync sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Turn vocal tracks into LIPSYNC* tracks for RB3") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    withUTF8 "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set." \ctt ->
-      [C.block| void { $(Fl_Button* btn)->copy_tooltip($(char* ctt)); } |]
+    [C.block| void { $(Fl_Button* btn)->tooltip(
+      "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set."
+    ); } |]
     cb <- makeCallback \_ _ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
     [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
 
@@ -489,8 +484,9 @@ miscPageLipsync sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Turn vocal tracks into LIPSYNC* tracks for TBRB") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    withUTF8 "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set." \ctt ->
-      [C.block| void { $(Fl_Button* btn)->copy_tooltip($(char* ctt)); } |]
+    [C.block| void { $(Fl_Button* btn)->tooltip(
+      "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set."
+    ); } |]
     cb <- makeCallback \_ _ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
     [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
 
@@ -518,8 +514,7 @@ miscPageDryVox sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "MIDI file" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("MIDI file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO do
@@ -534,7 +529,7 @@ miscPageDryVox sink rect tab startTasks = do
       when (result == 0) do
         cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
         f <- peekUTF8 cstr
-        withUTF8 f \cf ->
+        withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
     [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
@@ -565,7 +560,7 @@ miscPageDryVox sink rect tab startTasks = do
   let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
         btn <- withRect rect' \bx by bw bh ->
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        withUTF8 (T.unpack label) \clbl ->
+        withUTF8 (label :: T.Text) \clbl ->
           [C.block| void {
             $(Fl_Button* btn)->copy_label($(char* clbl));
             $(Fl_Button* btn)->color($(Fl_Color taskColor));
@@ -608,8 +603,7 @@ miscPageDryVox sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "Audio file" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("Audio file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO do
@@ -624,7 +618,7 @@ miscPageDryVox sink rect tab startTasks = do
       when (result == 0) do
         cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
         f <- peekUTF8 cstr
-        withUTF8 f \cf ->
+        withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
     [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]

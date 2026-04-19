@@ -13,36 +13,33 @@
 module Onyx.GUI.Song where
 
 import           Onyx.GUI.Core
-import           Onyx.GUI.Util                    (askFolder)
+import           Onyx.GUI.Util              (askFolder)
 
-import           Control.Monad                    (forM_, void)
-import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
-import           Control.Monad.Trans.Writer       (execWriterT, tell)
-import           Data.Char                        (toLower)
-import           Data.Default.Class               (def)
-import           Data.Function                    ((&))
-import           Data.IORef                       (modifyIORef, newIORef,
-                                                    readIORef)
-import           Data.Maybe                       (fromMaybe, isJust)
-import           Data.Monoid                      (Endo (..))
-import qualified Data.Text                        as T
-import           Foreign                          (Ptr)
-import           Foreign.C                        (CInt)
-import qualified Language.C.Inline.Cpp            as C
-import           Onyx.Build                       (targetTitle)
+import           Control.Monad              (void)
+import           Control.Monad.IO.Class     (MonadIO (..), liftIO)
+import           Control.Monad.Trans.Writer (execWriterT, tell)
+import           Data.Char                  (toLower)
+import           Data.Default.Class         (def)
+import           Data.Function              ((&))
+import           Data.IORef                 (modifyIORef, newIORef, readIORef)
+import           Data.Maybe                 (fromMaybe, isJust)
+import           Data.Monoid                (Endo (..))
+import qualified Data.Text                  as T
+import           Foreign                    (Ptr)
+import qualified Language.C.Inline.Cpp      as C
+import           Onyx.Build                 (targetTitle)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                    (withUTF8)
-import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
+import           Onyx.GUI.Util              (withUTF8)
+import           Onyx.Harmonix.Ark.GH2      (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.Mode                        (anyDrums, anyFiveFret)
-import           Onyx.Preferences                 (Preferences (..),
-                                                    getDefaultPS3Dir,
-                                                    readPreferences)
+import           Onyx.Mode                  (anyDrums, anyFiveFret)
+import           Onyx.Preferences           (Preferences (..), getDefaultPS3Dir,
+                                             readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
-import           Optics                           ((%), (.~))
-import           System.FilePath                  (takeDirectory, takeExtension,
-                                                    (<.>))
+import           Optics                     ((%), (.~))
+import           System.FilePath            (takeDirectory, takeExtension,
+                                             (<.>))
 
 C.context flContext
 
@@ -599,7 +596,8 @@ songPageGH3 sink rect tab proj build = mdo
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
         let updateCoopButton = do
               coop <- readIORef coopPart
-              let lbl = case coop of
+              let lbl :: T.Text
+                  lbl = case coop of
                     GH2Bass   -> "Coop: Bass"
                     GH2Rhythm -> "Coop: Rhythm"
               withUTF8 lbl \clbl ->
@@ -798,7 +796,8 @@ songPageGH2 sink rect tab proj build = mdo
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
         let updateCoopButton = do
               coop <- readIORef coopPart
-              let lbl = case coop of
+              let lbl :: T.Text
+                  lbl = case coop of
                     GH2Bass   -> "Coop: Bass"
                     GH2Rhythm -> "Coop: Rhythm"
               withUTF8 lbl \clbl ->

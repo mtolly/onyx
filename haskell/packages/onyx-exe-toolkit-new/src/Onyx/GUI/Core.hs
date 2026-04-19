@@ -13,11 +13,11 @@ module Onyx.GUI.Core where
 
 import           Control.Concurrent               (ThreadId)
 import qualified Control.Exception                as Exc
+import           Control.Monad                    (when)
 import           Control.Monad.Extra              (forM, forM_, guard, unless,
                                                    void)
 import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
 import           Control.Monad.Trans.Class        (lift)
-import           Control.Monad.Trans.Maybe        (MaybeT (..))
 import           Control.Monad.Trans.Reader       (ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Resource     (ResourceT, resourceForkIO,
                                                    runResourceT)
@@ -32,33 +32,21 @@ import           Data.IORef                       (newIORef, readIORef,
                                                    writeIORef)
 import           Data.List.Extra                  (findIndex)
 import qualified Data.List.NonEmpty               as NE
-import           Data.Maybe                       (catMaybes, fromMaybe,
-                                                    listToMaybe)
+import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      (Endo (..))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
--- import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
--- import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
--- import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
---                                                             Position (..),
---                                                             Rectangle (..),
---                                                             Size (..),
---                                                             Width (..), X (..),
---                                                             Y (..))
--- import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
-import           Foreign                          (Ptr, nullPtr)
+import           Foreign                          (Ptr)
 import           Foreign.C                        (CInt, CUChar)
-import           Control.Monad                    (when)
 import qualified Language.C.Inline.Cpp            as C
-import           Numeric                          (readHex)
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Build                       (NameRule (..), hashRB3,
                                                    targetTitle, validFileName,
                                                    validFileNamePiece)
 import           Onyx.Build.Common                (getTargetMetadata)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                    (askFolder, withUTF8,
-                                                   peekUTF8)
+import           Onyx.GUI.Util                    (askFolder, peekUTF8,
+                                                   withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.MIDI.Track.File             (PartName (..))
@@ -229,7 +217,7 @@ makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) 
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
     input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
-    withUTF8 (T.unpack $ T.unlines
+    withUTF8 (T.unlines
       [ "Template for where to create new files."
       , "  %input_dir% - folder containing the input"
       , "  %input_base% - input filename by itself, extension removed"
@@ -253,7 +241,7 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
       (_, resetRect) = chopRight 40 rectD
   button <- withRect buttonRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  withUTF8 (T.unpack buttonText) \clabel ->
+  withUTF8 buttonText \clabel ->
     [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
   [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
   input <- withRect inputRect \ix iy iw ih ->
@@ -262,7 +250,7 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
     $(Fl_Input* input)->labelsize(13);
     $(Fl_Input* input)->align(FL_ALIGN_LEFT);
   } |]
-  withUTF8 (T.unpack defTemplate) \cdef ->
+  withUTF8 defTemplate \cdef ->
     [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
   cbButton <- makeCallback \_ _ -> do
     val <- peekInputValue input
@@ -279,7 +267,7 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   resetButton <- withRect resetRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
   cbReset <- makeCallback \_ _ -> sink $ EventIO do
-    withUTF8 (T.unpack defTemplate) \cdef ->
+    withUTF8 defTemplate \cdef ->
       [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
   [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
   return input
@@ -382,7 +370,7 @@ makeTab rect name fn = do
       (_, innerRect) = chopTop tabHeight rect
   group <- withRect innerRect \gx gy gw gh ->
     [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
-  withUTF8 (T.unpack name) \cname ->
+  withUTF8 name \cname ->
     [C.block| void { $(Fl_Group* group)->copy_label($(char* cname)); } |]
   res <- fn innerRect group
   [C.block| void { $(Fl_Group* group)->end(); } |]
@@ -395,7 +383,7 @@ horizRadio' rect cb opts = do
   btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
     btn <- withRect rectButton \bx by bw bh ->
       [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (T.unpack label) \clabel ->
+    withUTF8 label \clabel ->
       [C.block| void { $(Fl_Round_Button* btn)->copy_label($(char* clabel)); } |]
     let bval = if b then 1 else 0 :: CInt
     [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
@@ -418,7 +406,8 @@ horizRadio rect = horizRadio' rect Nothing
 
 speedPercent' :: Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
 speedPercent' isConverter rect = do
-  let lbl = if isConverter then "Speed (%)" else ""
+  let lbl :: T.Text
+      lbl = if isConverter then "Speed (%)" else ""
   speed <- withRect rect \sx sy sw sh ->
     [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh)) } |]
   withUTF8 lbl \clabel ->
@@ -432,8 +421,10 @@ speedPercent' isConverter rect = do
     s->minimum(1);
     s->value(100);
   } |]
-  when isConverter $ withUTF8 "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio." \tip ->
-    [C.block| void { $(Fl_Counter* speed)->copy_tooltip($(char* tip)); } |]
+  when isConverter do
+    [C.block| void { $(Fl_Counter* speed)->copy_tooltip(
+      "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+    ); } |]
   let getSpeed = do
         v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
         return (realToFrac v / 100 :: Double)
@@ -447,7 +438,7 @@ makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
   menu <- withRect rect \mx my mw mh ->
     [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack initialLabel) \clabel ->
+  withUTF8 initialLabel \clabel ->
     [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt) -> do
@@ -455,7 +446,7 @@ makePresetDropdown rect opts = do
     let label' = T.unpack $ T.replace "/" "\\/" label
     menuCb <- makeCallback \_ _ -> do
       writeIORef ref opt
-      withUTF8 (T.unpack label) \newLabel ->
+      withUTF8 label \newLabel ->
         [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
     withUTF8 label' \clabel ->
       [C.block| void {
@@ -470,14 +461,14 @@ makeDropdown rect opts = do
         []      -> NE.head opts
   menu <- withRect rect \mx my mw mh ->
     [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack initialLabel) \clabel ->
+  withUTF8 initialLabel \clabel ->
     [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt, _) -> do
     let label' = T.unpack $ T.replace "/" "\\/" label
     menuCb <- makeCallback \_ _ -> do
       writeIORef ref opt
-      withUTF8 (T.unpack label) \newLabel ->
+      withUTF8 label \newLabel ->
         [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
     withUTF8 label' \clabel ->
       [C.block| void {
@@ -555,6 +546,7 @@ warnXboxGHWoR sink go = sink $ EventOnyx do
       );
     } |]
     savePreferences prefs { prefWarnedXboxWoR = True }
+  go
 
 data STFSSpec = STFSSpec
   { stfsPath :: FilePath
@@ -703,7 +695,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
           $(Fl_Tree* tree)->clear();
           $(Fl_Tree* tree)->add("");
         } |]
-        withUTF8 (T.unpack plural) \cplural ->
+        withUTF8 plural \cplural ->
           [C.block| void { $(Fl_Tree* tree)->root_label($(char* cplural)); } |]
         updateLabel ([] :: [a])
         [C.block| void { Fl::redraw(); } |]
@@ -713,10 +705,10 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
         forM_ gs \imp -> do
           let (entry, sublines) = display imp
-          withUTF8 (T.unpack entry) \centry -> do
+          withUTF8 entry \centry -> do
             item <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* root), $(char* centry)) } |]
             forM_ sublines \subline ->
-              withUTF8 (T.unpack subline) \csub ->
+              withUTF8 subline \csub ->
                 [C.block| void { $(Fl_Tree* tree)->add($(Fl_Tree_Item* item), $(char* csub)); } |]
             [C.block| void { $(Fl_Tree_Item* item)->close(); } |]
         let fs' = fs ++ gs
@@ -735,7 +727,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
     picker <- [C.exp| Fl_Native_File_Chooser* {
       new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
     } |]
-    withUTF8 ("Load " <> T.unpack single) \ctitle ->
+    withUTF8 ("Load " <> single) \ctitle ->
       [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
     result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
     when (result == 0) do
@@ -746,7 +738,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
       sink $ EventOnyx $ forkSearch fs
     [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
   withRect btnRectA' \bx by bw bh -> do
-    withUTF8 ("Add " <> T.unpack single) \clbl -> do
+    withUTF8 ("Add " <> single) \clbl -> do
       btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
       [C.block| void {
         $(Fl_Button* btn)->copy_label($(char* clbl));
@@ -754,7 +746,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
       } |]
   cbClear <- makeCallback \_ _ -> sink $ EventIO $ void clearFiles
   withRect btnRectB' \bx by bw bh -> do
-    withUTF8 ("Clear " <> T.unpack plural) \clbl -> do
+    withUTF8 ("Clear " <> plural) \clbl -> do
       btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
       [C.block| void {
         $(Fl_Button* btn)->copy_label($(char* clbl));
@@ -785,7 +777,7 @@ customTitleSuffix sink rect getSuffix setSuffix = do
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else do
             sfx <- getSuffix
-            withUTF8 (T.unpack $ T.strip sfx) \csfx ->
+            withUTF8 (T.strip sfx) \csfx ->
               [C.block| void { $(Fl_Input* input)->value($(char* csfx)); } |]
             [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
@@ -838,7 +830,7 @@ numberBox rect lbl f = do
   check <- liftIO do
     c <- withRect checkArea \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-    withUTF8 (T.unpack lbl) \clbl ->
+    withUTF8 lbl \clbl ->
       [C.block| void { $(Fl_Check_Button* c)->copy_label($(char* clbl)); } |]
     return c
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
@@ -876,13 +868,12 @@ partSelectors rect proj slots = let
     choice <- liftIO do
       choice <- withRect r' \cx cy cw ch ->
         [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-      withUTF8 (T.unpack lbl) \clbl ->
+      withUTF8 lbl \clbl ->
         [C.block| void { $(Fl_Choice* choice)->copy_label($(char* clbl)); } |]
       [C.block| void { $(Fl_Choice* choice)->align(FL_ALIGN_TOP); } |]
-      withUTF8 "(none)" \cnone ->
-        [C.block| void { $(Fl_Choice* choice)->add($(char* cnone)); } |]
+      [C.block| void { $(Fl_Choice* choice)->add("(none)"); } |]
       forM_ fparts' \(_, opt, _) ->
-        withUTF8 (T.unpack opt) \copt ->
+        withUTF8 opt \copt ->
           [C.block| void { $(Fl_Choice* choice)->add($(char* copt)); } |]
       let initVal = case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
             Nothing -> 0 :: CInt -- (none)
@@ -929,11 +920,11 @@ saveFileChooser title preset mdir onPick = do
   picker <- [C.exp| Fl_Native_File_Chooser* {
     new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
   } |]
-  withUTF8 (T.unpack title) \ctitle ->
+  withUTF8 title \ctitle ->
     [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-  withUTF8 (T.unpack preset) \cpreset ->
+  withUTF8 preset \cpreset ->
     [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
-  forM_ mdir \dir -> withUTF8 (T.unpack dir) \cdir ->
+  forM_ mdir \dir -> withUTF8 dir \cdir ->
     [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
   result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
   when (result == 0) do
@@ -948,7 +939,7 @@ browseFileChooser title onPick = do
   picker <- [C.exp| Fl_Native_File_Chooser* {
     new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
   } |]
-  withUTF8 (T.unpack title) \ctitle ->
+  withUTF8 title \ctitle ->
     [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
   result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
   when (result == 0) do

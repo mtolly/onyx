@@ -18,10 +18,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI (launchGUI) where
 
-import           Onyx.GUI.Batch
-import           Onyx.GUI.Core
-import           Onyx.GUI.Misc
-import           Onyx.GUI.Song
 import           Codec.Picture                     (readImage, savePngImage,
                                                     writePng)
 import           Control.Concurrent                (MVar, ThreadId, forkIO,
@@ -52,8 +48,13 @@ import           Data.Conduit.Audio                (integralSample, mapSamples)
 import           Data.Function                     ((&))
 import           Data.Functor                      ((<&>))
 import qualified Data.Set                          as Set
+import           Onyx.GUI.Batch
+import           Onyx.GUI.Core
+import           Onyx.GUI.Misc
+import           Onyx.GUI.Song
 import           Optics                            (mapped, (%), (%~), (.~))
 -- import qualified Data.Connection                           as Conn
+import           Data.Bits                         ((.&.))
 import           Data.Fixed                        (Milli)
 import           Data.Foldable                     (toList)
 import qualified Data.HashMap.Strict               as HM
@@ -73,24 +74,11 @@ import           Data.Time.Clock.System            (SystemTime (..))
 import qualified Data.Vector.Storable              as VS
 import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
-import           Data.Bits                         ((.&.))
 import           Foreign                           (Ptr, alloca,
-                                                    castFunPtrToPtr,
-                                                    freeHaskellFunPtr, nullPtr,
+                                                    castFunPtrToPtr, nullPtr,
                                                     peek, toBool, withArray)
-import           Foreign.C                         (CInt, CString)
+import           Foreign.C                         (CInt)
 import qualified Foreign.C                         as C
--- import qualified Graphics.UI.FLTK.LowLevel.Base.GlWindow   as FLGL
--- import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
--- import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
--- import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
---                                                             Position (..),
---                                                             Rectangle (..),
---                                                             Size (..),
---                                                             Width (..), X (..),
---                                                             Y (..))
--- import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
--- import           Graphics.UI.FLTK.LowLevel.X               (openCallback)
 import           Network.HTTP.Req                  ((/:))
 import qualified Network.HTTP.Req                  as Req
 import           Numeric                           (showHex)
@@ -116,18 +104,15 @@ import           Onyx.Game.Track
 import           Onyx.Genre                        (FullGenre (..),
                                                     interpretGenre)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                     (askFolder, withUTF8,
-                                                    peekUTF8)
+import           Onyx.GUI.Util                     (askFolder, peekUTF8,
+                                                    withMaybeUTF8, withUTF8)
 import           Onyx.Harmonix.Ark.GH2             (GH2InstallLocation (..))
-import qualified Onyx.Harmonix.DTA.Serialize.GH2   as D
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Harmonix.MOGG                (oggToMoggFiles)
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Harmonix.RockBand.SongCache  (hardcodeSongCacheIDs)
 import           Onyx.Image.DXT                    (readRBImageMaybe)
 import           Onyx.Import
-import           Onyx.Import.GuitarHero2           (Setlist (..),
-                                                    loadSetlistFull)
 import           Onyx.Keys.Ranges                  (closeShiftsFile)
 import           Onyx.MIDI.Common                  (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                  as RB
@@ -299,9 +284,7 @@ continueImport makeMenuBar hasAudio imp = do
       selectPlan [] = withNoPlan
       selectPlan [k] = withPlan k
       selectPlan (k : ks) = stackIO $ sink $ EventIO do
-        let labelK = T.pack $ show k
-            labelKs = T.pack $ show ks
-        withUTF8 (T.unpack labelKs) \cks -> withUTF8 (T.unpack labelK) \ck -> do
+        withUTF8 (show ks) \cks -> withUTF8 (show k) \ck -> do
           n <- [C.exp| int { fl_choice("Select an audio plan", $(char* cks), $(char* ck), nullptr) } |]
           sink $ EventOnyx case n of
             1 -> withPlan k
@@ -351,7 +334,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
           , if imp.imp2x then " (2x)" else ""
           ]
     check <- [C.exp| Fl_Check_Button* { new Fl_Check_Button(0, 0, 400, 25) } |]
-    withUTF8 (T.unpack entry) \clabel ->
+    withUTF8 entry \clabel ->
       [C.block| void {
         $(Fl_Check_Button* check)->copy_label($(char* clabel));
         $(Fl_Check_Button* check)->value(0);
@@ -369,11 +352,12 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
           (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
         let newValue = not $ and bools
             checked = length $ filter id bools
+            selectLabel, openLabel :: T.Text
             selectLabel = if newValue then "Select all" else "Select none"
             openLabel = case checked of
               0 -> "Close"
               1 -> "Open 1 song"
-              _ -> "Open " <> show checked <> " songs"
+              _ -> "Open " <> T.pack (show checked) <> " songs"
         withUTF8 selectLabel \csel ->
           [C.block| void { $(Fl_Button* selectButton)->copy_label($(char* csel)); } |]
         withUTF8 openLabel \copen ->
@@ -511,7 +495,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           simpleText lbl inputType getter rect' = withRect rect' \ix iy iw ih -> do
             input <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
             let ctype = inputType
-            withUTF8 (T.unpack lbl) \clabel ->
+            withUTF8 lbl \clabel ->
               [C.block| void {
                 Fl_Input* inp = $(Fl_Input* input);
                 inp->copy_label($(char* clabel));
@@ -520,7 +504,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 inp->input_type($(int ctype));
               } |]
             let initVal = fromMaybe "" $ getter proj.projectSongYaml.metadata
-            withUTF8 (T.unpack initVal) \cval ->
+            withUTF8 initVal \cval ->
               [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
             return input
           flNormalInput = [C.pure| int { FL_NORMAL_INPUT } |]
@@ -551,7 +535,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             input <- liftIO do
               btn <- withRect rect' \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (T.unpack lbl) \clabel ->
+              withUTF8 lbl \clabel ->
                 [C.block| void {
                   $(Fl_Check_Button* btn)->copy_label($(char* clabel));
                   $(Fl_Check_Button* btn)->labelsize(13);
@@ -650,7 +634,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               let FullGenre{..} = interpretGenre
                     (guard (g /= "") >> Just g)
                     (guard (s /= "") >> Just s)
-              withUTF8 (T.unpack $ T.concat
+              withUTF8 (T.concat
                 [ "RB3: ", rbn2Genre, " (", rbn2Subgenre, "), "
                 , "RB2: ", rbn1Genre, " (", rbn1Subgenre, ")"
                 ]) \clabel ->
@@ -756,14 +740,14 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         then return Nothing
         else do
           let partName = T.toTitle $ F.getPartName fpart
-          itemInst <- withUTF8 (T.unpack partName) \cname ->
+          itemInst <- withUTF8 partName \cname ->
             [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* root), $(char* cname)) } |]
           let addType :: T.Text -> (Ptr Fl_Tree_Item -> IO (Bool -> Part FilePath -> IO (Part FilePath))) -> IO (Part FilePath -> IO (Part FilePath))
               addType lbl extra = do
                 itemCheck <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemInst), "") } |]
                 check <- withRect dummyRect \bx by bw bh ->
                   [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-                withUTF8 (T.unpack lbl) \clabel ->
+                withUTF8 lbl \clabel ->
                   [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clabel)); } |]
                 [C.block| void { $(Fl_Check_Button* check)->value(1); } |]
                 let checkAsWidget = [C.exp| Fl_Widget* { (Fl_Widget*)$(Fl_Check_Button* check) } |]
@@ -778,7 +762,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 itemChoice <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemParent), "") } |]
                 choice <- withRect dummyRect \cx cy cw ch ->
                   [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-                forM_ opts \opt -> withUTF8 (T.unpack $ getLabel opt) \clabel ->
+                forM_ opts \opt -> withUTF8 (getLabel opt) \clabel ->
                   [C.block| void { $(Fl_Choice* choice)->add($(char* clabel)); } |]
                 let idx = fromMaybe 0 $ elemIndex cur opts :: Int
                     cidx = fromIntegral idx :: CInt
@@ -1025,8 +1009,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   _ <- stopPlaying songLength ps
                   return $ SongState songLength Nothing
               putState ss'
-              sink $ EventIO $ withUTF8 "@>" \clbl ->
-                [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+              [C.block| void { $(Fl_Button* playButton)->label("@>"); } |]
           let ps = Playing
                 { playStarted = curTime
                 , playSpeed = speed
@@ -1092,12 +1075,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             ss <- takeState
             ss' <- case ss.songPlaying of
               Nothing -> do
-                sink $ EventIO $ withUTF8 "@square" \clbl ->
-                  [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+                [C.block| void { $(Fl_Button* playButton)->label("@square"); } |]
                 startPlaying ss.songTime
               Just ps -> do
-                sink $ EventIO $ withUTF8 "@>" \clbl ->
-                  [C.block| void { $(Fl_Button* playButton)->copy_label($(char* clbl)); } |]
+                [C.block| void { $(Fl_Button* playButton)->label("@>"); } |]
                 t <- stopPlaying ss.songTime ps
                 return $ SongState t Nothing
             putState ss'
@@ -1155,7 +1136,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             return cutoffLabel
         let updateLabelRB3 = do
               stars <- tracksToStars <$> getTracksRB3
-              let setLabel box txt = withUTF8 (T.unpack txt) \clabel ->
+              let setLabel box txt = withUTF8 txt \clabel ->
                     [C.block| void { $(Fl_Box* box)->copy_label($(char* clabel)); } |]
               setLabel l1S $ maybe "" (\n -> "1*: " <> commafy n) stars.stars1
               setLabel l2S $ maybe "" (\n -> "2*: " <> commafy n) stars.stars2
@@ -1184,7 +1165,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               bases <- map (\(_, _, base) -> base) <$> getTracksGH2
               let base = sum bases
                   mult n = floor $ toRational base * n :: Int
-                  setLabel box txt = withUTF8 (T.unpack txt) \clabel ->
+                  setLabel box txt = withUTF8 txt \clabel ->
                     [C.block| void { $(Fl_Box* box)->copy_label($(char* clabel)); } |]
               if length bases <= 1
                 then do
@@ -1194,9 +1175,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   setLabel gh1Five $ "5* (GH1): "   <> commafy (mult 3  )
                 else do
                   setLabel ghBase  $ "Base: " <> commafy base
-                  setLabel ghFour  ""
+                  setLabel ghFour  ("" :: T.Text)
                   setLabel gh2Five $ "5* (GH2): " <> commafy (mult 2)
-                  setLabel gh1Five ""
+                  setLabel gh1Five ("" :: T.Text)
         updateLabelGH2
 
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
@@ -1505,35 +1486,35 @@ makePS3PackPresetDropdown _sink rect = do
       labelSeparate = "Each song gets a new USRDIR subfolder"
       labelCustomInitial = "Custom USRDIR subfolder..."
       labelCustom txt = "Custom folder: " <> txt
+      customPrompt :: T.Text
       customPrompt = "Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)"
   menu <- withRect rect \mx my mw mh ->
     [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack labelOne) \clabel ->
+  withUTF8 labelOne \clabel ->
     [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef QCOneFolder
   let addItem label action = do
         menuCb <- makeCallback \_ _ -> action
-        withUTF8 (T.unpack $ T.replace "/" "\\/" label) \clabel' ->
+        withUTF8 (T.replace "/" "\\/" label) \clabel' ->
           [C.block| void {
             $(Fl_Menu_Button* menu)->add($(char* clabel'), 0, $(Fl_Callback menuCb));
           } |]
   addItem labelOne do
     writeIORef ref QCOneFolder
-    withUTF8 (T.unpack labelOne) \newLabel ->
+    withUTF8 labelOne \newLabel ->
       [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   addItem labelSeparate do
     writeIORef ref QCSeparateFolders
-    withUTF8 (T.unpack labelSeparate) \newLabel ->
+    withUTF8 labelSeparate \newLabel ->
       [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   addItem labelCustomInitial do
     defValue <- readIORef ref <&> \case
       QCCustomFolder bs -> Just $ TE.decodeUtf8 bs
       _                 -> Nothing
-    withUTF8 (T.unpack customPrompt) \cprompt -> do
-      result <- case defValue of
-        Nothing -> [C.exp| const char* { fl_input($(char* cprompt)) } |]
-        Just dv -> withUTF8 (T.unpack dv) \cdef ->
-          [C.exp| const char* { fl_input($(char* cprompt), $(char* cdef)) } |]
+    withUTF8 customPrompt \cprompt -> do
+      result <- withMaybeUTF8 defValue \cdef -> [C.exp| const char* {
+        fl_input("%s", $(char* cdef), $(char* cprompt))
+      } |]
       if result == nullPtr
         then return () -- cancelled, leave as whatever it was
         else do
@@ -1542,7 +1523,7 @@ makePS3PackPresetDropdown _sink rect = do
             then return () -- ignore empty input
             else do
               writeIORef ref $ QCCustomFolder $ TE.encodeUtf8 txt
-              withUTF8 (T.unpack $ labelCustom txt) \newLabel ->
+              withUTF8 (labelCustom txt) \newLabel ->
                 [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   return $ readIORef ref
 
@@ -1551,13 +1532,13 @@ makeModeDropdown rect opts withOpt = do
   let (initialLabel, initialOpt) = head opts
   menu <- withRect rect \mx my mw mh ->
     [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
-  withUTF8 (T.unpack initialLabel) \clabel ->
+  withUTF8 initialLabel \clabel ->
     [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   forM_ opts \(label, opt) -> do
     let label' = T.unpack $ T.replace "/" "\\/" label
     menuCb <- makeCallback \_ _ -> do
       withOpt opt
-      withUTF8 (T.unpack label) \newLabel ->
+      withUTF8 label \newLabel ->
         [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
     withUTF8 label' \clabel' ->
       [C.block| void {
@@ -1580,7 +1561,7 @@ starSelectors rect foundTracks updateLabel trackToName slots = let
         matchTracks = [ t | t@(strack, _, _) <- foundTracks, elem strack trackFilter ]
     choice <- withRect r' \cx cy cw ch ->
       [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-    withUTF8 (T.unpack lbl) \clabel ->
+    withUTF8 lbl \clabel ->
       [C.block| void {
         $(Fl_Choice* choice)->copy_label($(char* clabel));
         $(Fl_Choice* choice)->align(FL_ALIGN_TOP);
@@ -1592,7 +1573,7 @@ starSelectors rect foundTracks updateLabel trackToName slots = let
             RB.Medium -> "(M)"
             RB.Hard   -> "(H)"
             RB.Expert -> "(X)"
-      withUTF8 (T.unpack itemLabel) \citem ->
+      withUTF8 itemLabel \citem ->
         [C.block| void { $(Fl_Choice* choice)->add($(char* citem)); } |]
     [C.block| void { $(Fl_Choice* choice)->value(0); } |]
     cbChoice <- makeCallback \_ _ -> updateLabel
@@ -1601,7 +1582,7 @@ starSelectors rect foundTracks updateLabel trackToName slots = let
       i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
       return case drop (fromIntegral i - 1) matchTracks of
         t : _ | i /= 0 -> [t]
-        _               -> []
+        _              -> []
   in mconcat $ map instSelector $ zip slots rects
 
 -- _selectArkDestination not translated
@@ -1792,7 +1773,7 @@ miscPagePacks sink rect tab startTasks = mdo
                   , "(" <> T.toUpper (T.pack $ showHex info.stfsMeta.md_TitleID "") <> ")"
                   ]
                 []       -> ""
-          withUTF8 (T.unpack gameLabel) \clbl ->
+          withUTF8 gameLabel \clbl ->
             [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
   group <- fileLoadWindow filesRect sink "CON/LIVE" "CON/LIVE" modifyButtons [] searchSTFS
     \info -> let
@@ -1945,11 +1926,12 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                 _               -> False
           if all isValidInPlace files
             then do
-              [C.block| void { $(Fl_Button* go)->copy_label("Start"); } |]
+              [C.block| void { $(Fl_Button* go)->label("Start"); } |]
               [C.block| void { $(Fl_Button* go)->activate(); } |]
             else do
-              withUTF8 "Unsupported format: transform in place supports CON/LIVE/PKG" \clbl ->
-                [C.block| void { $(Fl_Button* go)->copy_label($(char* clbl)); } |]
+              [C.block| void { $(Fl_Button* go)->label(
+                "Unsupported format: transform in place supports CON/LIVE/PKG"
+              ); } |]
               [C.block| void { $(Fl_Button* go)->deactivate(); } |]
       updateFiles f = do
         modifyMVar_ loadedFiles f
@@ -2013,9 +1995,9 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   processorGetters <- forM processors \(label, tooltip, processor) -> do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-    withUTF8 (T.unpack label) \clbl ->
+    withUTF8 label \clbl ->
       [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
-    withUTF8 (T.unpack tooltip) \ctip ->
+    withUTF8 tooltip \ctip ->
       [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* ctip)); } |]
     return do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
@@ -2026,8 +2008,9 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   getDecryptMOGGs <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Decrypt MOGGs") } |]
-    withUTF8 "Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced."
+    ); } |]
     return do
       v <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       return $ v /= 0
@@ -2327,7 +2310,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
               let titleStr = case packs of
                     [_] -> "Save pack file"
                     _   -> "Select template for packs (a number will be added for each pack)"
-              withUTF8 titleStr \ctitle ->
+              withUTF8 (titleStr :: String) \ctitle ->
                 [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
               result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
               when (result == 0) do
@@ -2584,8 +2567,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   (checkMIDI, processorMIDI) <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), ".chart to MIDI") } |]
-    withUTF8 "Converts all .chart files to .mid." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "Converts all .chart files to .mid."
+    ); } |]
     cbCheck <- makeCallback \_ _ -> do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       when (checked == 0) $
@@ -2599,8 +2583,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   (checkPSTapOpen, processorPSTapOpen) <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "PS tap/open format") } |]
-    withUTF8 "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords."
+    ); } |]
     cbCheck <- makeCallback \_ _ -> do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       when (checked /= 0) $
@@ -2614,8 +2599,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   (checkOgg, processorOgg) <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .ogg") } |]
-    withUTF8 "Reencode audio files as Ogg Vorbis if they are not already." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "Reencode audio files as Ogg Vorbis if they are not already."
+    ); } |]
     cbCheck <- makeCallback \_ _ -> do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       when (checked /= 0) $
@@ -2628,8 +2614,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   (checkOpus, processorOpus) <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .opus") } |]
-    withUTF8 "Reencode audio file as Opus if they are not already." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "Reencode audio file as Opus if they are not already."
+    ); } |]
     cbCheck <- makeCallback \_ _ -> do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       when (checked /= 0) $
@@ -2643,8 +2630,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   processorRealToElite <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Real Drums to Elite") } |]
-    withUTF8 "If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums." \tip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* check)->tooltip(
+      "If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums."
+    ); } |]
     return do
       checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
       return if checked /= 0 then fillEliteFromPSReal else return
@@ -2698,7 +2686,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
                 , "Select a different mode if you want to keep them."
                 ]
             ]
-      withUTF8 (T.unpack warningText) \cmsg -> do
+      withUTF8 warningText \cmsg -> do
         result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
         when (result == 1) do
           sink $ EventOnyx do
@@ -2748,7 +2736,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
             guard $ numDeleteEncore /= 0
             ["", "WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones"]
           ]
-        in withUTF8 (T.unpack warningText) \cmsg -> do
+        in withUTF8 warningText \cmsg -> do
           result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
           when (result == 1) f
 
@@ -2957,8 +2945,7 @@ miscPageMIDI sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "MIDI or .chart" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("MIDI or .chart"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO do
@@ -2973,7 +2960,7 @@ miscPageMIDI sink rect tab startTasks = do
       when (result == 0) do
         cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
         f <- peekUTF8 cstr
-        withUTF8 f \cf ->
+        withUTF8 (f :: String) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
         [C.block| void { $(Fl_Input* input)->do_callback(); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
@@ -3072,7 +3059,7 @@ miscPageMIDI sink rect tab startTasks = do
   let updatePathInput = do
         cstr <- [C.exp| const char* { $(Fl_Input* pathInput)->value() } |]
         t <- peekUTF8 cstr
-        if any (not . isSpace) t
+        if any (not . isSpace) (t :: String)
           then forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->activate(); } |]
           else forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->deactivate(); } |]
   updatePathInput
@@ -3106,8 +3093,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "CON folder" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("CON folder"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \f ->
@@ -3127,8 +3113,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
     } |]
-    withUTF8 "Song cache" \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+    [C.block| void { $(Fl_Input* input)->label("Song cache"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     cbPick <- makeCallback \_ _ -> sink $ EventIO do
@@ -3143,7 +3128,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
       when (result == 0) do
         cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
         f <- peekUTF8 cstr
-        withUTF8 f \cf ->
+        withUTF8 (f :: String) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
     [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
@@ -3371,7 +3356,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
             let isSelected = elem t selected
                 flags = [C.pure| int { FL_MENU_TOGGLE } |]
                   + if isSelected then [C.pure| int { FL_MENU_VALUE } |] else 0
-            withUTF8 (T.unpack t) \ct ->
+            withUTF8 t \ct ->
               [C.block| void {
                 $(Fl_Menu_Button* trackMenu)->add($(char* ct), 0, 0, 0, $(int flags));
               } |]
@@ -3400,7 +3385,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
         then Set.delete t currentAudio
         else Set.insert t currentAudio
       sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
-    withUTF8 (T.unpack t) \ct ->
+    withUTF8 t \ct ->
       [C.block| void {
         $(Fl_Menu_Button* audioMenu)->add($(char* ct), 0, $(Fl_Callback cbAudio), 0, $(int flags));
       } |]
@@ -3418,7 +3403,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
         radioFlags = [C.pure| int { FL_MENU_RADIO } |]
           + if isSelected then [C.pure| int { FL_MENU_VALUE } |] else 0
     cbBG <- makeCallback \_ _ -> writeIORef currentBG bg
-    withUTF8 (T.unpack t) \ct ->
+    withUTF8 t \ct ->
       [C.block| void {
         $(Fl_Menu_Button* bgMenu)->add($(char* ct), 0, $(Fl_Callback cbBG), 0, $(int radioFlags));
       } |]
@@ -3500,7 +3485,7 @@ warnQuickConvert count sink go = let
     , " for online compatibility."
     ]
   in stackIO do
-    withUTF8 (T.unpack warningText) \cmsg -> do
+    withUTF8 warningText \cmsg -> do
       result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
       when (result == 1) $ sink $ EventOnyx go
 
@@ -3555,12 +3540,12 @@ launchBatch sink makeMenuBar startFiles = mdo
             , ("Vocals", Just Vocal )
             , ("Other" , Nothing    )
             ]
-      withRect (head subrects) \bx by bw bh ->
+      void $ withRect (head subrects) \bx by bw bh ->
         [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Import:") } |]
       getters <- forM (zip insts $ drop 1 subrects) \((txt, inst), subrect) -> do
         btn <- withRect subrect \bx by bw bh ->
           [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        withUTF8 (T.unpack txt) \clbl ->
+        withUTF8 (txt :: T.Text) \clbl ->
           [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
         [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
         return do
@@ -3893,14 +3878,14 @@ launchPreferences sink makeMenuBar = do
             (_, resetRect) = chopRight 40 rectD
         input <- withRect inputRect \ix iy iw ih ->
           [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-        withUTF8 (T.unpack label) \clabel ->
+        withUTF8 label \clabel ->
           [C.block| void {
             Fl_Input* inp = $(Fl_Input* input);
             inp->copy_label($(char* clabel));
             inp->labelsize(13);
             inp->align(FL_ALIGN_LEFT);
           } |]
-        withUTF8 (T.unpack initValue) \cval ->
+        withUTF8 initValue \cval ->
           [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
         browseButton <- withRect browseRect \bx by bw bh ->
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
@@ -3978,7 +3963,7 @@ launchPreferences sink makeMenuBar = do
             btn <- withRect box \bx by bw bh ->
               [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
             [C.block| void { $(Fl_Check_Button* btn)->copy_label("For non-open-note games, convert \"muted strums\" to Harmonix style"); } |]
-            withUTF8 (T.unpack $ T.unwords
+            withUTF8 (T.unwords
               [ "When checked, sequences of the form \"chord, strummed open notes, strummed chord\" are assumed to represent muted strums."
               , "Instead of always becoming green, these open notes will become the lowest note of the following chord,"
               , "or of the preceding chord if it is closer to the open notes."
@@ -4029,7 +4014,7 @@ launchPreferences sink makeMenuBar = do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
               [C.block| void { $(Fl_Check_Button* btn)->copy_label("Modify tempos in RB export to follow Magma rules"); } |]
-              withUTF8 (T.unpack $ T.unwords
+              withUTF8 (T.unwords
                 [ "Magma requires MIDI files to use tempos in the range of 40 to 300 BPM."
                 , "This is a more restricted range than the games actually require."
                 ]) \ctooltip ->
@@ -4072,7 +4057,7 @@ launchPreferences sink makeMenuBar = do
             gh2OffsetCounter <- withRect middleBox \cx cy cw ch ->
               [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
             let initOffset = realToFrac $ loadedPrefs.prefGH2Offset * 1000 :: C.CDouble
-            withUTF8 (T.unpack $ T.unwords
+            withUTF8 (T.unwords
               [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
               , "Positive values mean audio will be pulled earlier, to account for delay."
               , "Negative values mean audio will be pushed later."
@@ -4104,7 +4089,7 @@ launchPreferences sink makeMenuBar = do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
               [C.block| void { $(Fl_Check_Button* btn)->copy_label("For GH2 and GH3, sort by artist first (instead of title)"); } |]
-              withUTF8 (T.unpack $ T.unwords
+              withUTF8 (T.unwords
                 [ "This affects GH2 .ARK bonus songs (when the above box is checked)"
                 , "and GH3 DLC (as sorted in the Song Cache file)."
                 ]) \ctooltip ->
@@ -4155,7 +4140,7 @@ launchPreferences sink makeMenuBar = do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
               [C.block| void { $(Fl_Check_Button* btn)->copy_label("Ensure valid filenames for Xbox 360 USB or HDD drives"); } |]
-              withUTF8 (T.unpack $ T.unwords
+              withUTF8 (T.unwords
                 [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
                 , "max of 42 characters, and will also have plus and comma characters"
                 , "replaced (a restriction for files on a 360 hard drive, but not USB)."
@@ -4171,7 +4156,7 @@ launchPreferences sink makeMenuBar = do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
               [C.block| void { $(Fl_Check_Button* btn)->copy_label("Use true number IDs instead of symbols on Xbox 360 RB files"); } |]
-              withUTF8 (T.unpack $ T.unwords
+              withUTF8 (T.unwords
                 [ "When checked, Rock Band files will use a random integer for song_id."
                 , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
                 , "generate a random ID. A true integer is required for some contexts"
@@ -4196,7 +4181,7 @@ launchPreferences sink makeMenuBar = do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
               [C.block| void { $(Fl_Check_Button* btn)->copy_label("Encrypt .mid.edat files for PS3"); } |]
-              withUTF8 (T.unpack $ T.unwords
+              withUTF8 (T.unwords
                 [ "When checked, .mid.edat files for PS3 customs will be encrypted."
                 , "This is required for a real console, but optional (and can be less"
                 , "convenient) when playing on emulator."
@@ -4384,7 +4369,7 @@ launchPreferences sink makeMenuBar = do
             savePreferences newPrefs
             [C.block| void { $(Fl_Window* window)->hide(); } |]
       if loadedPrefs.prefMagma == MagmaRequire && newPrefs.prefMagma /= MagmaRequire
-        then withUTF8 (T.unpack magmaWarning) \cmsg -> do
+        then withUTF8 magmaWarning \cmsg -> do
           result <- [C.exp| int { fl_choice("%s", "Cancel", "OK", nullptr, $(char* cmsg)) } |]
           when (result == 1) continueSave
         else continueSave
@@ -4506,7 +4491,7 @@ launchGUI initSongs = withAL \hasAudio -> do
             -- TODO need to set window_menu_style to avoid weird slash submenu,
             -- see details in launchWindow
             forM_ menuOptions \(a, b, c, d) -> do
-              withUTF8 a \str -> do
+              withUTF8 (a :: String) \str -> do
                 cb <- makeCallback \_ _ -> c
                 [C.block| void {
                   $(Fl_Sys_Menu_Bar* menu)->add($(char* str), $(int b), $(Fl_Callback cb), nullptr, $(int d));

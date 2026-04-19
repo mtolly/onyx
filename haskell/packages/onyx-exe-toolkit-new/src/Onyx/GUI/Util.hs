@@ -1,38 +1,47 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE QuasiQuotes     #-}
-{-# LANGUAGE TemplateHaskell #-}
-module Onyx.GUI.Util (askFolder, withUTF8, peekUTF8) where
+{-# LANGUAGE BlockArguments    #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TemplateHaskell   #-}
+module Onyx.GUI.Util (askFolder, Fl_UTF8(..), withMaybeUTF8, peekMaybeUTF8) where
 
-import           Control.Exception     (bracket)
-import           Foreign               (nullPtr)
-import           Foreign.C             (CString, peekCString, withCString)
-import           Onyx.GUI.Binding
-
-#ifdef WINDOWS
-
+import           Control.Exception        (bracket)
+import qualified Data.ByteString          as B
+import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as TE
+import           Data.Text.Encoding.Error (lenientDecode)
 import           Foreign
 import           Foreign.C
-
-#else
-
-import qualified Language.C.Inline.Cpp as C
+import qualified Language.C.Inline.Cpp    as C
+import           Onyx.GUI.Binding
 
 C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 
-#endif
+class Fl_UTF8 s where
+  withUTF8 :: s -> (CString -> IO a) -> IO a
+  peekUTF8 :: CString -> IO s
 
-withUTF8 :: String -> (CString -> IO a) -> IO a
-withUTF8 = withCString -- TODO actually force utf-8
+instance Fl_UTF8 B.ByteString where
+  withUTF8 = B.useAsCString
+  peekUTF8 = B.packCString
 
-peekUTF8 :: CString -> IO String
-peekUTF8 = peekCString -- TODO actually force utf-8
+-- TODO use Data.Text.Foreign after we upgrade text package
+instance Fl_UTF8 T.Text where
+  withUTF8 = withUTF8 . TE.encodeUtf8
+  peekUTF8 = fmap (TE.decodeUtf8With lenientDecode) . peekUTF8
 
-peekMaybeUTF8 :: CString -> IO (Maybe String)
+instance Fl_UTF8 String where
+  withUTF8 = withUTF8 . T.pack
+  peekUTF8 = fmap T.unpack . peekUTF8
+
+withMaybeUTF8 :: (Fl_UTF8 s) => Maybe s -> (CString -> IO a) -> IO a
+withMaybeUTF8 = maybe ($ nullPtr) withUTF8
+
+peekMaybeUTF8 :: (Fl_UTF8 s) => CString -> IO (Maybe s)
 peekMaybeUTF8 p = if p == nullPtr
   then return Nothing
   else Just <$> peekUTF8 p

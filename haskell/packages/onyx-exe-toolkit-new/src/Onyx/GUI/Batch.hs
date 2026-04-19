@@ -12,32 +12,29 @@
 module Onyx.GUI.Batch where
 
 import           Onyx.GUI.Core
-import           Onyx.GUI.Util                    (askFolder)
+import           Onyx.GUI.Util         (askFolder)
 
-import           Control.Applicative              ((<|>))
-import           Control.Monad.Extra              ((>=>))
-import           Data.Default.Class               (def)
-import           Data.Function                    ((&))
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (find)
-import           Data.Maybe                       (fromMaybe, isJust)
-import qualified Data.Text                        as T
-import           Foreign                          (Ptr)
-import           Foreign.C                        (CInt)
-import qualified Language.C.Inline.Cpp            as C
+import           Control.Applicative   ((<|>))
+import           Control.Monad.Extra   ((>=>))
+import           Data.Default.Class    (def)
+import           Data.Function         ((&))
+import qualified Data.HashMap.Strict   as HM
+import           Data.List             (find)
+import           Data.Maybe            (fromMaybe, isJust)
+import qualified Data.Text             as T
+import           Foreign               (Ptr)
+import qualified Language.C.Inline.Cpp as C
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                    (withUTF8)
-import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
+import           Onyx.Harmonix.Ark.GH2 (GH2InstallLocation (..))
 import           Onyx.Import
-import qualified Onyx.MIDI.Track.File             as F
-import           Onyx.Mode                        (anyDrums, anyFiveFret)
-import           Onyx.Preferences                 (Preferences (..),
-                                                    getDefaultPS3Dir,
-                                                    readPreferences)
+import qualified Onyx.MIDI.Track.File  as F
+import           Onyx.Mode             (anyDrums, anyFiveFret)
+import           Onyx.Preferences      (Preferences (..), getDefaultPS3Dir,
+                                        readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
-import           Optics                           (mapped, (%), (%~), (.~))
-import           System.FilePath                  (takeDirectory)
+import           Optics                (mapped, (%), (%~), (.~))
+import           System.FilePath       (takeDirectory)
 
 C.context flContext
 
@@ -99,8 +96,9 @@ batchPageRB3 sink rect tab build = do
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     box <- withRect rect' \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Convert non-Pro Drums to all toms") } |]
-    withUTF8 "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked." \tip ->
-      [C.block| void { $(Fl_Check_Button* box)->copy_tooltip($(char* tip)); } |]
+    [C.block| void { $(Fl_Check_Button* box)->tooltip(
+      "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
+    ); } |]
     return do
       v <- [C.exp| int { $(Fl_Check_Button* box)->value() } |]
       return (v /= 0)
