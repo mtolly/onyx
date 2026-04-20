@@ -208,6 +208,8 @@ C.include "FL/fl_ask.H"
 C.include "FL/fl_draw.H"
 C.include "hs_gl_window.h"
 C.include "hs_scrubber.h"
+C.include "hs_dnd_button.h"
+C.include "FL/platform.H"
 
 promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = do
@@ -572,15 +574,14 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
       padded 10 10 0 0 (Size (Width 190) (Height 190)) \rect' -> mdo
         cover <- liftIO $ withRect rect' \bx by bw bh ->
-          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        -- TODO: dragAndDrop handler for cover art (needs C++ subclass)
+          [C.exp| HsDndButton* { new HsDndButton($(int bx), $(int by), $(int bw), $(int bh)) } |]
         let setPNG defaultImage f = do
               png <- withUTF8 f \cpath ->
                 [C.exp| Fl_PNG_Image* { new Fl_PNG_Image($(char* cpath)) } |]
               [C.block| void {
                 Fl_PNG_Image* img = $(Fl_PNG_Image* png);
                 img->scale(180, 180, 0, 1);
-                ((Fl_Button*)$(Fl_Button* cover))->image(img);
+                ((Fl_Button*)$(HsDndButton* cover))->image(img);
               } |]
               return (png, guard (not defaultImage) >> Just f)
         currentImage <- liftIO
@@ -599,7 +600,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   oldImage <- modifyMVar currentImage \(oldImage, _) -> do
                     newPair <- setPNG False newPath
                     return (newPair, oldImage)
-                  [C.block| void { $(Fl_Button* cover)->redraw(); } |]
+                  [C.block| void { $(HsDndButton* cover)->redraw(); } |]
                   [C.block| void { delete $(Fl_PNG_Image* oldImage); } |]
         liftIO do
           cbCover <- makeCallback \_ _ -> do
@@ -615,7 +616,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               cpath <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
               path <- peekUTF8 cpath
               swapImage path
-          [C.block| void { $(Fl_Button* cover)->callback($(Fl_Callback cbCover)); } |]
+          [C.block| void { $(HsDndButton* cover)->callback($(Fl_Callback cbCover)); } |]
+          setDndButtonCallback cover (mapM_ swapImage . listToMaybe)
         tell do
           (_, mpath) <- readMVar currentImage
           return $ Endo case mpath of
@@ -4557,23 +4559,25 @@ launchGUI initSongs = withAL \hasAudio -> do
       [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
       [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
 
-  -- TODO drag and drop support for open/batch buttons
-
   cbButtonOpen <- makeCallback \_ _ -> promptLoad sink makeMenuBar hasAudio
-  withRect areaOpen \x y w h -> [C.block| void {
-    Fl_Button* buttonOpen = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Load a song");
-    buttonOpen->color($(Fl_Color loadSongColor));
-    buttonOpen->callback($(Fl_Callback cbButtonOpen));
-    buttonOpen->labelsize(13);
+  buttonOpen <- withRect areaOpen \x y w h ->
+    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), "Load a song") } |]
+  [C.block| void {
+    $(HsDndButton* buttonOpen)->color($(Fl_Color loadSongColor));
+    $(HsDndButton* buttonOpen)->callback($(Fl_Callback cbButtonOpen));
+    $(HsDndButton* buttonOpen)->labelsize(13);
   } |]
+  setDndButtonCallback buttonOpen (sink . EventOnyx . startLoad makeMenuBar hasAudio)
 
   cbButtonBatch <- makeCallback \_ _ -> launchBatch' sink makeMenuBar []
-  withRect areaBatch \x y w h -> [C.block| void {
-    Fl_Button* buttonBatch = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Batch recompile");
-    buttonBatch->color($(Fl_Color batchProcessColor));
-    buttonBatch->callback($(Fl_Callback cbButtonBatch));
-    buttonBatch->labelsize(13);
+  buttonBatch <- withRect areaBatch \x y w h ->
+    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), "Batch recompile") } |]
+  [C.block| void {
+    $(HsDndButton* buttonBatch)->color($(Fl_Color batchProcessColor));
+    $(HsDndButton* buttonBatch)->callback($(Fl_Callback cbButtonBatch));
+    $(HsDndButton* buttonBatch)->labelsize(13);
   } |]
+  setDndButtonCallback buttonBatch (launchBatch' sink makeMenuBar)
 
   cbButtonQuick <- makeCallback \_ _ -> launchQuickConvert' sink makeMenuBar
   withRect areaQuick \x y w h -> [C.block| void {
@@ -4599,7 +4603,15 @@ launchGUI initSongs = withAL \hasAudio -> do
     $(Fl_Window* termWindow)->show();
   } |]
 
-  -- TODO support drag and drop onto mac app icon
+  -- Support drag and drop onto mac app icon
+  when macOS do
+    fpOpen <- makeOpenCallback \cstr -> do
+      str <- peekUTF8 cstr
+      sink $ EventOnyx $ startLoad makeMenuBar hasAudio [str]
+    let pOpen = castFunPtrToPtr fpOpen
+    [C.block| void {
+      fl_open_callback((void (*)(const char*))$(void* pOpen));
+    } |]
 
   let logChan = logIO $ sink . EventMsg
       wait = if macOS

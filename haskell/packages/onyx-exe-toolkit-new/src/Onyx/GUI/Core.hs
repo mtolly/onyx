@@ -36,9 +36,10 @@ import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      (Endo (..))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Foreign                          (Ptr)
-import           Foreign.C                        (CInt, CUChar)
+import           Foreign                          (Ptr, castFunPtrToPtr)
+import           Foreign.C                        (CInt, CUChar, peekCString)
 import qualified Language.C.Inline.Cpp            as C
+import           Numeric                          (readHex)
 import           Onyx.Audio                       (Audio (..))
 import           Onyx.Build                       (NameRule (..), hashRB3,
                                                    targetTitle, validFileName,
@@ -86,6 +87,9 @@ C.include "FL/Fl_Tree_Item.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 C.include "FL/fl_ask.H"
 C.include "Fl_Center.h"
+C.include "hs_dnd_button.h"
+C.include "hs_dnd_group.h"
+C.include "hs_dnd_box.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -752,10 +756,65 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         $(Fl_Button* btn)->copy_label($(char* clbl));
         $(Fl_Button* btn)->callback($(Fl_Callback cbClear));
       } |]
+  -- Invisible box overlay on tree rect for drag-and-drop.
+  -- Placed last so it's on top; returns 0 for non-DnD events so they pass through.
+  dndBox <- withRect treeRect' \dx dy dw dh ->
+    [C.exp| HsDndBox* { new HsDndBox($(int dx), $(int dy), $(int dw), $(int dh)) } |]
+  setDndBoxCallback dndBox (sink . EventOnyx . forkSearch)
   [C.block| void { $(Fl_Group* group)->end(); } |]
   return (group, void clearFiles)
 
--- TODO: dragAndDrop needs custom event handling, stub for now
+-- | Parse the text from an FLTK DnD paste event into file paths.
+-- Linux uses URL encoding: file:///path/to/file with percent-encoded non-ASCII.
+parseDndText :: String -> [String]
+parseDndText str = map (T.unpack . removeProtocol) $ T.lines $ T.pack str
+  where
+    removeProtocol s = case T.stripPrefix "file://" s of
+      Nothing -> s
+      Just s' -> TE.decodeUtf8 $ percentDecode s'
+    percentDecode :: T.Text -> B.ByteString
+    percentDecode s = case T.uncons s of
+      Just ('%', t) -> case readHex $ T.unpack $ T.take 2 t of
+        [(n, "")] -> B.cons n $ percentDecode $ T.drop 2 t
+        _         -> B.cons 37 {- % -} $ percentDecode t
+      Just (h  , t) -> TE.encodeUtf8 (T.singleton h) <> percentDecode t
+      Nothing       -> ""
+
+-- | Set a DnD callback on an HsDndButton. The callback receives a list of file paths.
+setDndButtonCallback :: Ptr HsDndButton -> ([String] -> IO ()) -> IO ()
+setDndButtonCallback btn f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  let pDnd = castFunPtrToPtr fpDnd
+  [C.block| void {
+    $(HsDndButton* btn)->set_dnd_callback(
+      (HsDndCallback)$(void* pDnd), NULL);
+  } |]
+
+-- | Set a DnD callback on an HsDndGroup. The callback receives a list of file paths.
+setDndGroupCallback :: Ptr HsDndGroup -> ([String] -> IO ()) -> IO ()
+setDndGroupCallback grp f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  let pDnd = castFunPtrToPtr fpDnd
+  [C.block| void {
+    $(HsDndGroup* grp)->set_dnd_callback(
+      (HsDndCallback)$(void* pDnd), NULL);
+  } |]
+
+-- | Set a DnD callback on an HsDndBox. The callback receives a list of file paths.
+setDndBoxCallback :: Ptr HsDndBox -> ([String] -> IO ()) -> IO ()
+setDndBoxCallback box f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  let pDnd = castFunPtrToPtr fpDnd
+  [C.block| void {
+    $(HsDndBox* box)->set_dnd_callback(
+      (HsDndCallback)$(void* pDnd), NULL);
+  } |]
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 

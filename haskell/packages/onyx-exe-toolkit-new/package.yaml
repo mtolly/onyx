@@ -9,6 +9,8 @@ build-type: Custom
 
 extra-source-files:
 - ../../icon/icon.*
+- cbits/*.h
+- cbits/*.cpp
 
 ghc-options: -Wall
 
@@ -39,6 +41,9 @@ executables:
     - cbits/hs_gl_window.cpp
     - cbits/Fl_Center.cpp
     - cbits/hs_scrubber.cpp
+    - cbits/hs_dnd_button.cpp
+    - cbits/hs_dnd_group.cpp
+    - cbits/hs_dnd_box.cpp
     include-dirs:
     - cbits
 

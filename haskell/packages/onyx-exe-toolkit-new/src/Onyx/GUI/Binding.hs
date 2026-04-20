@@ -4,7 +4,7 @@
 module Onyx.GUI.Binding where
 
 import           Foreign
-import           Foreign.C             (CInt, CUInt)
+import           Foreign.C             (CInt, CString, CUInt)
 import qualified Language.C.Inline.Cpp as C
 
 newtype Fl_Widget = Fl_Widget (Ptr Fl_Widget)
@@ -36,11 +36,16 @@ newtype HsGlWindow = HsGlWindow (Ptr HsGlWindow)
 newtype Fl_Menu_Item = Fl_Menu_Item (Ptr Fl_Menu_Item)
 newtype Fl_Center = Fl_Center (Ptr Fl_Center)
 newtype HsScrubber = HsScrubber (Ptr HsScrubber)
+newtype HsDndButton = HsDndButton (Ptr HsDndButton)
+newtype HsDndGroup = HsDndGroup (Ptr HsDndGroup)
+newtype HsDndBox = HsDndBox (Ptr HsDndBox)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
 type TimeoutCallback = Ptr () -> IO ()
 type ScrubberHandleCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
+type DndCallback = Ptr () -> CString -> IO ()
+type OpenCallback = CString -> IO ()
 
 newtype Fl_Color = Fl_Color CUInt
 
@@ -75,6 +80,9 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("Fl_Menu_Item", [t| Fl_Menu_Item |])
   , ("Fl_Center", [t| Fl_Center |])
   , ("HsScrubber", [t| HsScrubber |])
+  , ("HsDndButton", [t| HsDndButton |])
+  , ("HsDndGroup", [t| HsDndGroup |])
+  , ("HsDndBox", [t| HsDndBox |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]
@@ -98,3 +106,13 @@ foreign import ccall "wrapper"
   makeScrubberHandleCallback
     ::            ScrubberHandleCallback
     -> IO (FunPtr ScrubberHandleCallback)
+
+foreign import ccall "wrapper"
+  makeDndCallback
+    ::            DndCallback
+    -> IO (FunPtr DndCallback)
+
+foreign import ccall "wrapper"
+  makeOpenCallback
+    ::            OpenCallback
+    -> IO (FunPtr OpenCallback)
