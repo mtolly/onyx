@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -36,7 +37,8 @@ import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      (Endo (..))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Foreign                          (Ptr, castFunPtrToPtr)
+import           Foreign                          (Ptr, castFunPtrToPtr,
+                                                   nullPtr)
 import           Foreign.C                        (CInt, CUChar, peekCString)
 import qualified Language.C.Inline.Cpp            as C
 import           Numeric                          (readHex)
@@ -90,6 +92,7 @@ C.include "Fl_Center.h"
 C.include "hs_dnd_button.h"
 C.include "hs_dnd_group.h"
 C.include "hs_dnd_box.h"
+C.include "hs_tree.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -682,11 +685,12 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
       (_, btnRectB') = chopLeft 5 btnRectB
   label <- withRect labelRect' \lx ly lw lh ->
     [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh)) } |]
-  tree <- withRect treeRect' \tx ty tw th ->
-    [C.exp| Fl_Tree* { new Fl_Tree($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  hsTree <- withRect treeRect' \tx ty tw th ->
+    [C.exp| HsTree* { new HsTree($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  let tree = [C.pure| Fl_Tree* { (Fl_Tree*)$(HsTree* hsTree) } |]
   [C.block| void {
-    $(Fl_Tree* tree)->end();
-    $(Fl_Group* group)->resizable($(Fl_Tree* tree));
+    $(HsTree* hsTree)->end();
+    $(Fl_Group* group)->resizable($(HsTree* hsTree));
   } |]
   let updateLabel fs = do
         let msg = case length fs of
@@ -725,6 +729,88 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         stackIO $ sink $ EventIO $ addFiles imps
         searchSongs $ locs ++ children
       forkSearch = void . forkOnyx . searchSongs
+      swapFiles index1 index2 = modifyFiles \fs -> do
+        let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
+        let ci1 = fromIntegral index1 :: CInt
+            ci2 = fromIntegral index2 :: CInt
+        [C.block| void {
+          Fl_Tree_Item* root = $(Fl_Tree* tree)->root();
+          if (root) root->swap_children($(int ci1), $(int ci2));
+        } |]
+        updateLabel fs'
+        [C.block| void { Fl::redraw(); } |]
+        return fs'
+      removeFile index = modifyFiles \fs -> do
+        let fs' = take index fs ++ drop (index + 1) fs
+        -- Find and remove the tree item at this index
+        let ci = fromIntegral index :: CInt
+        [C.block| void {
+          Fl_Tree_Item* root = $(Fl_Tree* tree)->root();
+          if (root && $(int ci) < root->children()) {
+            Fl_Tree_Item* child = root->child($(int ci));
+            if (child) $(Fl_Tree* tree)->remove(child);
+          }
+        } |]
+        updateLabel fs'
+        [C.block| void { Fl::redraw(); } |]
+        return fs'
+  -- Handle Ctrl+Up, Ctrl+Down, Delete on the tree
+  fpHandle <- makeTreeHandleCallback \_ event -> do
+    if event /= [C.pure| int { FL_KEYDOWN } |] then return 0 else do
+      key <- [C.exp| int { Fl::event_key() } |]
+      cmd <- [C.exp| int { (Fl::event_state() & FL_COMMAND) ? 1 : 0 } |]
+      -- Walk up from focused item to find depth-1 (top-level song) item
+      let getSongIndex = do
+            focused <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->get_item_focus() } |]
+            if focused == nullPtr then return Nothing else do
+              -- Walk up to depth 1
+              let walkUp item = do
+                    d <- [C.exp| int { $(Fl_Tree_Item* item)->depth() } |]
+                    case compare d 1 of
+                      LT -> return nullPtr
+                      EQ -> return item
+                      GT -> do
+                        p <- [C.exp| Fl_Tree_Item* { $(Fl_Tree_Item* item)->parent() } |]
+                        if p == nullPtr then return nullPtr else walkUp p
+              songItem <- walkUp focused
+              if songItem == nullPtr then return Nothing else do
+                root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
+                ix <- [C.exp| int { $(Fl_Tree_Item* root)->find_child($(Fl_Tree_Item* songItem)) } |]
+                if ix < 0 then return Nothing
+                  else return $ Just (fromIntegral ix :: Int)
+      if | key == [C.pure| int { FL_Up } |] && cmd == 1 -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix | ix > 0 -> do
+                 sink $ EventIO $ swapFiles (ix - 1) ix
+                 return 1
+               _ -> return 0
+         | key == [C.pure| int { FL_Down } |] && cmd == 1 -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix -> do
+                 nChildren <- [C.exp| int {
+                   $(Fl_Tree* tree)->root() ? $(Fl_Tree* tree)->root()->children() : 0
+                 } |]
+                 if ix < fromIntegral nChildren - 1
+                   then do
+                     sink $ EventIO $ swapFiles ix (ix + 1)
+                     return 1
+                   else return 0
+               _ -> return 0
+         | key == [C.pure| int { FL_Delete } |] -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix -> do
+                 sink $ EventIO $ removeFile ix
+                 return 1
+               _ -> return 0
+         | otherwise -> return 0
+  let pHandle = castFunPtrToPtr fpHandle
+  [C.block| void {
+    $(HsTree* hsTree)->set_handle_callback(
+      (HsTreeHandleCallback)$(void* pHandle), NULL);
+  } |]
   clearFiles
   sink $ EventOnyx $ forkSearch startFiles
   cbAdd <- makeCallback \_ _ -> sink $ EventIO do

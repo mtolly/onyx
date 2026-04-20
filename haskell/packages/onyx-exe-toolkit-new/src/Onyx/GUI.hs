@@ -1906,10 +1906,10 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         Nothing -> return ()
         Just go -> computePacks >>= \case
           Nothing -> do
-            [C.block| void { $(Fl_Button* go)->copy_label("Invalid pack size"); } |]
+            [C.block| void { $(Fl_Button* go)->label("Invalid pack size"); } |]
             [C.block| void { $(Fl_Button* go)->deactivate(); } |]
           Just [] -> do
-            [C.block| void { $(Fl_Button* go)->copy_label("No songs added"); } |]
+            [C.block| void { $(Fl_Button* go)->label("No songs added"); } |]
             [C.block| void { $(Fl_Button* go)->deactivate(); } |]
           Just packs -> do
             let lbl = case length packs of
@@ -3931,7 +3931,7 @@ launchPreferences sink makeMenuBar = do
           let [checkBox, _, counterBox, _] = splitHorizN 4 box
           check <- withRect checkBox \cx cy cw ch ->
             [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-          [C.block| void { $(Fl_Check_Button* check)->copy_label("Unlimited cores"); } |]
+          [C.block| void { $(Fl_Check_Button* check)->label("Unlimited cores"); } |]
           let checkVal = if isNothing loadedPrefs.prefThreads then 1 else 0 :: CInt
           [C.block| void { $(Fl_Check_Button* check)->value($(int checkVal)); } |]
           counter <- withRect counterBox \cx cy cw ch ->
@@ -3939,7 +3939,7 @@ launchPreferences sink makeMenuBar = do
           let initCores = maybe 1 fromIntegral loadedPrefs.prefThreads :: C.CDouble
           [C.block| void {
             Fl_Counter* c = $(Fl_Counter* counter);
-            c->copy_label("Core limit");
+            c->label("Core limit");
             c->labelsize(13);
             c->align(FL_ALIGN_LEFT);
             c->type(FL_SIMPLE_COUNTER);
@@ -3964,7 +3964,7 @@ launchPreferences sink makeMenuBar = do
           check <- lineBox \box -> do
             btn <- withRect box \bx by bw bh ->
               [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-            [C.block| void { $(Fl_Check_Button* btn)->copy_label("For non-open-note games, convert \"muted strums\" to Harmonix style"); } |]
+            [C.block| void { $(Fl_Check_Button* btn)->label("For non-open-note games, convert \"muted strums\" to Harmonix style"); } |]
             withUTF8 (T.unwords
               [ "When checked, sequences of the form \"chord, strummed open notes, strummed chord\" are assumed to represent muted strums."
               , "Instead of always becoming green, these open notes will become the lowest note of the following chord,"
@@ -3995,7 +3995,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Always export black VENUE track"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Always export black VENUE track"); } |]
               let v = if loadedPrefs.prefBlackVenue then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4005,7 +4005,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Label 2x kick charts as (2x Bass Pedal) by default"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Label 2x kick charts as (2x Bass Pedal) by default"); } |]
               let v = if loadedPrefs.prefLabel2x then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4015,7 +4015,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Modify tempos in RB export to follow Magma rules"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Modify tempos in RB export to follow Magma rules"); } |]
               withUTF8 (T.unwords
                 [ "Magma requires MIDI files to use tempos in the range of 40 to 300 BPM."
                 , "This is a more restricted range than the games actually require."
@@ -4066,7 +4066,7 @@ launchPreferences sink makeMenuBar = do
               ]) \ctooltip ->
               [C.block| void {
                 Fl_Counter* c = $(Fl_Counter* gh2OffsetCounter);
-                c->copy_label("GH2 Audio Offset (ms)");
+                c->label("GH2 Audio Offset (ms)");
                 c->labelsize(13);
                 c->align(FL_ALIGN_LEFT);
                 c->step(1);
@@ -4080,7 +4080,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Sort GH2 bonus songs when adding to .ARK"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Sort GH2 bonus songs when adding to .ARK"); } |]
               let v = if loadedPrefs.prefSortGH2 then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4090,7 +4090,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("For GH2 and GH3, sort by artist first (instead of title)"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("For GH2 and GH3, sort by artist first (instead of title)"); } |]
               withUTF8 (T.unwords
                 [ "This affects GH2 .ARK bonus songs (when the above box is checked)"
                 , "and GH3 DLC (as sorted in the Song Cache file)."
@@ -4115,7 +4115,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Mix down stems in CH output"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Mix down stems in CH output"); } |]
               let v = if loadedPrefs.prefCHDownmix then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4141,7 +4141,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Ensure valid filenames for Xbox 360 USB or HDD drives"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Ensure valid filenames for Xbox 360 USB or HDD drives"); } |]
               withUTF8 (T.unwords
                 [ "When checked, the filenames of CON or LIVE files will be trimmed to a"
                 , "max of 42 characters, and will also have plus and comma characters"
@@ -4157,7 +4157,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Use true number IDs instead of symbols on Xbox 360 RB files"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Use true number IDs instead of symbols on Xbox 360 RB files"); } |]
               withUTF8 (T.unwords
                 [ "When checked, Rock Band files will use a random integer for song_id."
                 , "Otherwise, an 'o' is prefixed to form a symbol, and the game will"
@@ -4182,7 +4182,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Encrypt .mid.edat files for PS3"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Encrypt .mid.edat files for PS3"); } |]
               withUTF8 (T.unwords
                 [ "When checked, .mid.edat files for PS3 customs will be encrypted."
                 , "This is required for a real console, but optional (and can be less"
@@ -4227,7 +4227,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("FXAA"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("FXAA"); } |]
               let v = if loadedPrefs.prefFXAA then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4240,7 +4240,7 @@ launchPreferences sink makeMenuBar = do
             let initFPS = fromIntegral loadedPrefs.prefPreviewFPS :: C.CDouble
             [C.block| void {
               Fl_Counter* c = $(Fl_Counter* fpsCounter);
-              c->copy_label("Frames per second");
+              c->label("Frames per second");
               c->labelsize(13);
               c->align(FL_ALIGN_LEFT);
               c->step(1);
@@ -4289,7 +4289,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Audio waveform"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Audio waveform"); } |]
               let v = if loadedPrefs.prefWaveform then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4299,7 +4299,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Lefty flip"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Lefty flip"); } |]
               let v = if loadedPrefs.prefLeftyFlip then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4320,7 +4320,7 @@ launchPreferences sink makeMenuBar = do
               let initQ = realToFrac $ loadedPrefs.prefOGGQuality * 10 :: C.CDouble
               [C.block| void {
                 Fl_Value_Slider* s = $(Fl_Value_Slider* slider);
-                s->copy_label("OGG Vorbis quality");
+                s->label("OGG Vorbis quality");
                 s->labelsize(13);
                 s->align(FL_ALIGN_LEFT);
                 s->type(FL_HOR_NICE_SLIDER);
@@ -4335,7 +4335,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label("Treat undecryptable MOGGs as silent instead of an error"); } |]
+              [C.block| void { $(Fl_Check_Button* btn)->label("Treat undecryptable MOGGs as silent instead of an error"); } |]
               let v = if loadedPrefs.prefDecryptSilent then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4357,7 +4357,7 @@ launchPreferences sink makeMenuBar = do
     saveButton <- withRect rectButtonA \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     [C.block| void {
-      $(Fl_Button* saveButton)->copy_label("Save");
+      $(Fl_Button* saveButton)->label("Save");
       $(Fl_Button* saveButton)->color($(Fl_Color taskColor));
     } |]
     cbSave <- makeCallback \_ _ -> do

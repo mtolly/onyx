@@ -39,6 +39,7 @@ newtype HsScrubber = HsScrubber (Ptr HsScrubber)
 newtype HsDndButton = HsDndButton (Ptr HsDndButton)
 newtype HsDndGroup = HsDndGroup (Ptr HsDndGroup)
 newtype HsDndBox = HsDndBox (Ptr HsDndBox)
+newtype HsTree = HsTree (Ptr HsTree)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
@@ -46,6 +47,7 @@ type TimeoutCallback = Ptr () -> IO ()
 type ScrubberHandleCallback = Ptr () -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
 type DndCallback = Ptr () -> CString -> IO ()
 type OpenCallback = CString -> IO ()
+type TreeHandleCallback = Ptr () -> CInt -> IO CInt
 
 newtype Fl_Color = Fl_Color CUInt
 
@@ -83,6 +85,7 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("HsDndButton", [t| HsDndButton |])
   , ("HsDndGroup", [t| HsDndGroup |])
   , ("HsDndBox", [t| HsDndBox |])
+  , ("HsTree", [t| HsTree |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]
@@ -116,3 +119,8 @@ foreign import ccall "wrapper"
   makeOpenCallback
     ::            OpenCallback
     -> IO (FunPtr OpenCallback)
+
+foreign import ccall "wrapper"
+  makeTreeHandleCallback
+    ::            TreeHandleCallback
+    -> IO (FunPtr TreeHandleCallback)

@@ -44,6 +44,7 @@ executables:
     - cbits/hs_dnd_button.cpp
     - cbits/hs_dnd_group.cpp
     - cbits/hs_dnd_box.cpp
+    - cbits/hs_tree.cpp
     include-dirs:
     - cbits
 
