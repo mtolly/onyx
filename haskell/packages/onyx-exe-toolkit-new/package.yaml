@@ -45,6 +45,7 @@ executables:
     - cbits/hs_dnd_group.cpp
     - cbits/hs_dnd_box.cpp
     - cbits/hs_tree.cpp
+    - cbits/Fl_Simple_Terminal.cpp
     include-dirs:
     - cbits
 

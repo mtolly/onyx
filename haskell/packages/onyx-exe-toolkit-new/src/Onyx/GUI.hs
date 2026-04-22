@@ -188,7 +188,7 @@ C.include "FL/Fl_Check_Button.H"
 C.include "FL/Fl_Box.H"
 C.include "FL/Fl_Input.H"
 C.include "FL/Fl_Pack.H"
-C.include "FL/Fl_Terminal.H"
+C.include "Fl_Simple_Terminal.h"
 C.include "FL/Fl_Menu_Bar.H"
 C.include "FL/Fl_Sys_Menu_Bar.H"
 C.include "FL/Fl_Tabs.H"
@@ -1608,16 +1608,15 @@ taskOutputPage rect tab sink cbStart cbEnd = do
   labelTask <- withRect labelRect' \lx ly lw lh ->
     [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh), "\xe2\x80\xa6") } |]
   termTask <- withRect termRect' \tx ty tw th ->
-    [C.block| Fl_Terminal* {
-      Fl_Terminal* t = new Fl_Terminal($(int tx), $(int ty), $(int tw), $(int th));
-      // TODO Fl_Terminal doesn't seem to have an "unlimited" mode like Fl_Simple_Terminal did,
-      // just using a large number for now
-      t->history_lines(10000);
+    [C.block| Fl_Simple_Terminal* {
+      Fl_Simple_Terminal* t = new Fl_Simple_Terminal($(int tx), $(int ty), $(int tw), $(int th));
+      t->history_lines(-1);
       t->ansi(true);
+      t->stay_at_bottom(true);
       return t;
     } |]
   [C.block| void {
-    $(Fl_Group* tab)->resizable($(Fl_Terminal* termTask));
+    $(Fl_Group* tab)->resizable($(Fl_Simple_Terminal* termTask));
   } |]
   cancelButton <- withRect buttonRect' \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Cancel") } |]
@@ -3830,7 +3829,7 @@ toTermMessage :: (MessageLevel, Message) -> TermMessage
 toTermMessage (MessageLog    , msg) = TermLog msg.messageString
 toTermMessage (MessageWarning, msg) = TermWarning msg
 
-addTerm :: Ptr Fl_Terminal -> TermMessage -> IO ()
+addTerm :: Ptr Fl_Simple_Terminal -> TermMessage -> IO ()
 addTerm term pair = do
   let newtxt = filterUserError $ T.pack case pair of
         TermStart x y   -> "\ESC[46m" <> x <> "\ESC[0m" <> ": " <> y
@@ -3842,7 +3841,7 @@ addTerm term pair = do
       filterUserError = T.replace "user error " ""
   B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") \cs ->
     [C.block| void {
-      $(Fl_Terminal* term)->append($(char* cs));
+      $(Fl_Simple_Terminal* term)->append($(char* cs));
     } |]
 
 macOS :: Bool
@@ -4539,18 +4538,16 @@ launchGUI initSongs = withAL \hasAudio -> do
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
       }
     } |]
-  term <- [C.block| Fl_Terminal* {
-    Fl_Terminal* term = new Fl_Terminal
+  term <- [C.block| Fl_Simple_Terminal* {
+    Fl_Simple_Terminal* term = new Fl_Simple_Terminal
       ( 10
       , 45 + $(int menuHeight)
       , 630
       , 345 - $(int menuHeight)
       );
-    // TODO Fl_Terminal doesn't seem to have an "unlimited" mode like Fl_Simple_Terminal did,
-    // just using a large number for now
-    // TODO seems to have some problems with resizing, need to always wrap at width
-    term->history_lines(10000);
+    term->history_lines(-1);
     term->ansi(true);
+    term->stay_at_bottom(true);
     return term;
   } |]
 
@@ -4598,7 +4595,7 @@ launchGUI initSongs = withAL \hasAudio -> do
   cbTermWindow <- makeCallback \_ _ -> windowCloser (return ()) termWindow
   [C.block| void {
     $(Fl_Window* termWindow)->end();
-    $(Fl_Window* termWindow)->resizable($(Fl_Terminal* term));
+    $(Fl_Window* termWindow)->resizable($(Fl_Simple_Terminal* term));
     $(Fl_Window* termWindow)->callback($(Fl_Callback cbTermWindow));
     $(Fl_Window* termWindow)->show();
   } |]
