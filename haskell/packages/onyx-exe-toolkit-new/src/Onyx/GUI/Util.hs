@@ -4,7 +4,11 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
-module Onyx.GUI.Util (askFolder, Fl_UTF8(..), withMaybeUTF8, peekMaybeUTF8) where
+module Onyx.GUI.Util
+( askFolder
+, Fl_UTF8(..), withMaybeUTF8, peekMaybeUTF8
+, checkValue
+) where
 
 import           Control.Exception        (bracket)
 import qualified Data.ByteString          as B
@@ -45,6 +49,9 @@ peekMaybeUTF8 :: (Fl_UTF8 s) => CString -> IO (Maybe s)
 peekMaybeUTF8 p = if p == nullPtr
   then return Nothing
   else Just <$> peekUTF8 p
+
+checkValue :: Ptr Fl_Check_Button -> IO Bool
+checkValue check = toBool <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
 
 askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
 

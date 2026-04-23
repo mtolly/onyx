@@ -24,6 +24,7 @@ import           Control.Monad.Trans.Resource     (ResourceT, resourceForkIO,
                                                    runResourceT)
 import           Control.Monad.Trans.Writer       (WriterT, tell)
 import qualified Data.ByteString                  as B
+import           Data.Coerce                      (coerce)
 import           Data.Default.Class               (Default, def)
 import           Data.Foldable                    (toList)
 import           Data.Function                    ((&))
@@ -48,8 +49,8 @@ import           Onyx.Build                       (NameRule (..), hashRB3,
                                                    validFileNamePiece)
 import           Onyx.Build.Common                (getTargetMetadata)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                    (askFolder, peekUTF8,
-                                                   withUTF8)
+import           Onyx.GUI.Util                    (askFolder, checkValue,
+                                                   peekUTF8, withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.MIDI.Track.File             (PartName (..))
@@ -428,13 +429,15 @@ speedPercent' isConverter rect = do
     s->minimum(1);
     s->value(100);
   } |]
-  when isConverter do
-    [C.block| void { $(Fl_Counter* speed)->copy_tooltip(
-      "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-    ); } |]
+  if isConverter
+    then do
+      [C.block| void { $(Fl_Counter* speed)->tooltip(
+        "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+      ); } |]
+    else [C.block| void { $(Fl_Counter* speed)->tooltip("Speed (%)"); } |]
   let getSpeed = do
         v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
-        return (realToFrac v / 100 :: Double)
+        return (coerce v / 100 :: Double)
   return (getSpeed, speed)
 
 speedPercent :: Bool -> Rectangle -> IO (IO Double)
@@ -450,7 +453,7 @@ makePresetDropdown rect opts = do
   ref <- newIORef initialOpt
   forM_ opts \(label, opt) -> do
     -- need to escape in menu items (but not button label) to not make submenus
-    let label' = T.unpack $ T.replace "/" "\\/" label
+    let label' = T.replace "/" "\\/" label
     menuCb <- makeCallback \_ _ -> do
       writeIORef ref opt
       withUTF8 label \newLabel ->
@@ -472,7 +475,8 @@ makeDropdown rect opts = do
     [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt, _) -> do
-    let label' = T.unpack $ T.replace "/" "\\/" label
+    -- need to escape in menu items (but not button label) to not make submenus
+    let label' = T.replace "/" "\\/" label
     menuCb <- makeCallback \_ _ -> do
       writeIORef ref opt
       withUTF8 label \newLabel ->
@@ -507,8 +511,8 @@ gh2DeluxeSelector _sink rect = do
     $(Fl_Choice* kicks)->value(0);
   } |]
   let updateKicks = do
-        enabled <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-        if enabled /= 0
+        enabled <- checkValue check
+        if enabled
           then [C.block| void { $(Fl_Choice* kicks)->activate(); } |]
           else [C.block| void { $(Fl_Choice* kicks)->deactivate(); } |]
   cbCheck <- makeCallback \_ _ -> updateKicks
@@ -516,8 +520,8 @@ gh2DeluxeSelector _sink rect = do
   updateKicks
   [C.block| void { $(Fl_Check_Button* check)->value(0); } |]
   return do
-    enableDeluxe <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-    if enableDeluxe /= 0
+    enableDeluxe <- checkValue check
+    if enableDeluxe
       then do
         i <- [C.exp| int { $(Fl_Choice* kicks)->value() } |]
         return $ Just $ i == 1
@@ -917,8 +921,8 @@ customTitleSuffix sink rect getSuffix setSuffix = do
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-        if b /= 0
+        b <- checkValue check
+        if b
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else do
             sfx <- getSuffix
@@ -929,9 +933,9 @@ customTitleSuffix sink rect getSuffix setSuffix = do
   cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
   liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
   tell do
-    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    b <- checkValue check
     s <- peekInputValue input
-    return $ Endo $ setSuffix $ guard (b /= 0) >> Just (T.strip s)
+    return $ Endo $ setSuffix $ guard b >> Just (T.strip s)
   return controlInput
 
 songIDBox
@@ -946,17 +950,17 @@ songIDBox rect f = do
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-        if b /= 0
+        b <- checkValue check
+        if b
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
   cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
   liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
   tell do
-    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    b <- checkValue check
     s <- peekInputValue input
-    return $ Endo $ f if b /= 0 && s /= ""
+    return $ Endo $ f if b && s /= ""
       then case readMaybe $ T.unpack s of
         Nothing -> SongIDSymbol s
         Just i  -> SongIDInt i
@@ -981,17 +985,17 @@ numberBox rect lbl f = do
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-        if b /= 0
+        b <- checkValue check
+        if b
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
   cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
   liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
   tell do
-    b <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    b <- checkValue check
     s <- peekInputValue input
-    return $ Endo $ f if b /= 0 && s /= ""
+    return $ Endo $ f if b && s /= ""
       then readMaybe $ T.unpack s
       else Nothing
 

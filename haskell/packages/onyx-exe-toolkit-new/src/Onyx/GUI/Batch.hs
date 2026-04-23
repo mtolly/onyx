@@ -11,9 +11,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Batch where
 
-import           Onyx.GUI.Core
-import           Onyx.GUI.Util         (askFolder)
-
 import           Control.Applicative   ((<|>))
 import           Control.Monad.Extra   ((>=>))
 import           Data.Default.Class    (def)
@@ -25,6 +22,8 @@ import qualified Data.Text             as T
 import           Foreign               (Ptr)
 import qualified Language.C.Inline.Cpp as C
 import           Onyx.GUI.Binding
+import           Onyx.GUI.Core
+import           Onyx.GUI.Util         (askFolder, checkValue)
 import           Onyx.Harmonix.Ark.GH2 (GH2InstallLocation (..))
 import           Onyx.Import
 import qualified Onyx.MIDI.Track.File  as F
@@ -99,9 +98,7 @@ batchPageRB3 sink rect tab build = do
     [C.block| void { $(Fl_Check_Button* box)->tooltip(
       "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
     ); } |]
-    return do
-      v <- [C.exp| int { $(Fl_Check_Button* box)->value() } |]
-      return (v /= 0)
+    return $ checkValue box
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB3
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
@@ -132,6 +129,7 @@ batchPageRB3 sink rect tab build = do
               else SongIDAutoSymbol
             , encoding = newPreferences.prefRB3Encoding
             }
+          -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart F.PartDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]
@@ -323,8 +321,8 @@ batchPageGH2 sink rect tab build = do
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Make practice mode audio for PS2") } |]
     getDeluxe <- gh2DeluxeSelector sink rectB
     return (do
-      v <- [C.exp| int { $(Fl_Check_Button* boxA)->value() } |]
-      return (v /= 0), getDeluxe)
+      v <- checkValue boxA
+      return v, getDeluxe)
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio

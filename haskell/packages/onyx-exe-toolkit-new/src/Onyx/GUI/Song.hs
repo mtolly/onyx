@@ -29,7 +29,7 @@ import           Foreign                    (Ptr)
 import qualified Language.C.Inline.Cpp      as C
 import           Onyx.Build                 (targetTitle)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util              (withUTF8)
+import           Onyx.GUI.Util              (checkValue, withUTF8)
 import           Onyx.Harmonix.Ark.GH2      (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.Mode                  (anyDrums, anyFiveFret)
@@ -77,20 +77,20 @@ songPageRB3 sink rect tab proj build = mdo
       box <- liftIO $ withRect rect' \cx cy cw ch ->
         [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "2x Bass Pedal drums") } |]
       tell do
-        b <- [C.exp| int { $(Fl_Check_Button* box)->value() } |]
-        return $ Endo \rb3 -> (rb3 :: TargetRB3 FilePath) & #is2xBassPedal .~ (b /= 0)
+        b <- checkValue box
+        return $ Endo \rb3 -> (rb3 :: TargetRB3 FilePath) & #is2xBassPedal .~ b
       return box
     fullWidth 35 \rect' -> songIDBox rect' \sid rb3 ->
       rb3 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #guitar .~ v)
-        , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar)
+        , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar) -- technically pro guitar can make five fret. but good to be safe
         )
       , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #bass   .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar)
         )
       , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #keys   .~ v)
-        , (\p -> isJust (anyFiveFret p) || isJust p.proKeys)
+        , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- similarly pro keys can make five fret
         )
       , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
@@ -198,8 +198,8 @@ songPageRB2 sink rect tab proj build = mdo
       box <- liftIO $ withRect rect' \cx cy cw ch ->
         [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "2x Bass Pedal drums") } |]
       tell do
-        b <- [C.exp| int { $(Fl_Check_Button* box)->value() } |]
-        return $ Endo \rb2 -> (rb2 :: TargetRB2 FilePath) & #is2xBassPedal .~ (b /= 0)
+        b <- checkValue box
+        return $ Endo \rb2 -> (rb2 :: TargetRB2 FilePath) & #is2xBassPedal .~ b
       return box
     fullWidth 35 \rect' -> songIDBox rect' \sid rb2 ->
       rb2 & #songID .~ sid
@@ -838,8 +838,8 @@ songPageGH2 sink rect tab proj build = mdo
       boxA <- liftIO $ withRect rectA \cx cy cw ch ->
         [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Make practice mode audio for PS2") } |]
       tell do
-        b <- [C.exp| int { $(Fl_Check_Button* boxA)->value() } |]
-        return $ Endo \gh2 -> gh2 { practiceAudio = b /= 0 }
+        b <- checkValue boxA
+        return $ Endo \gh2 -> gh2 { practiceAudio = b }
       getDeluxe <- liftIO $ gh2DeluxeSelector sink rectB
       tell $ getDeluxe >>= \opt -> return $ Endo \gh2 -> case opt of
         Nothing   -> gh2 { gh2Deluxe = False, is2xBassPedal = False }

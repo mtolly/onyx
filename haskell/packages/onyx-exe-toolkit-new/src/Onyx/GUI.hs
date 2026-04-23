@@ -44,6 +44,7 @@ import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (isSpace, toLower, toUpper)
+import           Data.Coerce                       (coerce)
 import           Data.Conduit.Audio                (integralSample, mapSamples)
 import           Data.Function                     ((&))
 import           Data.Functor                      ((<&>))
@@ -75,10 +76,10 @@ import qualified Data.Vector.Storable              as VS
 import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
 import           Foreign                           (Ptr, alloca,
-                                                    castFunPtrToPtr, nullPtr,
+                                                    castFunPtrToPtr,
+                                                    freeHaskellFunPtr, nullPtr,
                                                     peek, toBool, withArray)
-import           Foreign.C                         (CInt)
-import qualified Foreign.C                         as C
+import           Foreign.C                         (CDouble, CInt)
 import           Network.HTTP.Req                  ((/:))
 import qualified Network.HTTP.Req                  as Req
 import           Numeric                           (showHex)
@@ -104,8 +105,9 @@ import           Onyx.Game.Track
 import           Onyx.Genre                        (FullGenre (..),
                                                     interpretGenre)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                     (askFolder, peekUTF8,
-                                                    withMaybeUTF8, withUTF8)
+import           Onyx.GUI.Util                     (askFolder, checkValue,
+                                                    peekUTF8, withMaybeUTF8,
+                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2             (GH2InstallLocation (..))
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Harmonix.MOGG                (oggToMoggFiles)
@@ -350,8 +352,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   openButton <- withRect areaOpen \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
   let updateButtons = do
-        bools <- forM checks \check ->
-          (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+        bools <- mapM checkValue checks
         let newValue = not $ and bools
             checked = length $ filter id bools
             selectLabel, openLabel :: T.Text
@@ -369,16 +370,14 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
         [C.block| void { $(Fl_Button* openButton)->redraw(); } |]
   updateButtons
   cbSelect <- makeCallback \_ _ -> do
-    bools <- forM checks \check ->
-      (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    bools <- mapM checkValue checks
     let newValue = if and bools then 0 else 1 :: CInt
     forM_ checks \check ->
       [C.block| void { $(Fl_Check_Button* check)->value($(int newValue)); } |]
     updateButtons
   [C.block| void { $(Fl_Button* selectButton)->callback($(Fl_Callback cbSelect)); } |]
   cbOpen <- makeCallback \_ _ -> do
-    bools <- forM checks \check ->
-      (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+    bools <- mapM checkValue checks
     forM_ (zip bools imps) \(b, imp) -> when b do
       sink $ EventOnyx $ void $ forkOnyx do
         continueImport makeMenuBar hasAudio imp
@@ -413,24 +412,21 @@ getTimeMonotonic = alloca \psecs -> alloca \pnsecs -> do
 -- | Calls an IO action at a regular interval using Fl::add_timeout.
 -- Returns an IO action that stops the animation.
 startAnimation :: Double -> IO () -> IO (IO ())
-startAnimation frameTime redraw = do
+startAnimation frameTime redraw = mdo
   stopper <- newIORef False
-  let loop _userData = do
+  let cft = coerce frameTime :: CDouble
+      loop _userData = do
         readIORef stopper >>= \case
-          True  -> return ()
+          True  -> freeHaskellFunPtr fp
           False -> do
             redraw
-            fpNext <- makeTimeoutCallback loop
-            let cft = realToFrac frameTime :: C.CDouble
-                pNext = castFunPtrToPtr fpNext
             [C.block| void {
-              Fl::repeat_timeout($(double cft), (void(*)(void*))$(void* pNext), nullptr);
+              Fl::repeat_timeout($(double cft), (void(*)(void*))$(void* p), nullptr);
             } |]
-  fp1 <- makeTimeoutCallback loop
-  let cft = realToFrac frameTime :: C.CDouble
-      p1 = castFunPtrToPtr fp1
+  fp <- makeTimeoutCallback loop
+  let p = castFunPtrToPtr fp
   [C.block| void {
-    Fl::add_timeout($(double cft), (void(*)(void*))$(void* p1), nullptr);
+    Fl::add_timeout($(double cft), (void(*)(void*))$(void* p), nullptr);
   } |]
   return $ writeIORef stopper True
 
@@ -546,7 +542,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
             tell do
-              b <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* input)->value() } |]
+              b <- checkValue input
               return $ Endo $ #metadata %~ setter b
       liftIO do
         _ <- [C.exp| Fl_Box* { new Fl_Box(0, 0, 800, 5) } |]
@@ -757,7 +753,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 [C.block| void { $(Fl_Tree_Item* itemCheck)->widget($(Fl_Widget* checkWidget)); } |]
                 fn <- extra itemCheck
                 return \curPart -> do
-                  isChecked <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+                  isChecked <- checkValue check
                   fn isChecked curPart
               makeChoiceFrom :: (Eq a) => [a] -> Ptr Fl_Tree_Item -> a -> (a -> T.Text) -> IO (IO a)
               makeChoiceFrom opts itemParent cur getLabel = do
@@ -930,7 +926,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         songLength = realToFrac $ U.applyTempoMap
           song.previewTempo
           song.previewTiming.timingEnd
-        csongLength = realToFrac songLength :: C.CDouble
+        csongLength = coerce songLength :: CDouble
     -- Set up scrubber colors and section markers (all drawing done in C++)
     [C.block| void {
       $(HsScrubber* scrubber)->set_colors($(unsigned int filledColorVal), $(unsigned int emptyColorVal));
@@ -938,7 +934,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     let sectionTimes = Map.keys $ previewSections song
     case sectionTimes of
       [] -> return ()
-      times -> withArray (map realToFrac times :: [C.CDouble]) \pTimes -> do
+      times -> withArray (coerce times :: [CDouble]) \pTimes -> do
         let count = fromIntegral (length times) :: CInt
         [C.block| void {
           $(HsScrubber* scrubber)->set_sections($(double* pTimes), $(int count), $(double csongLength));
@@ -999,7 +995,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           stopAnim <- startAnimation (recip $ realToFrac ?preferences.prefPreviewFPS) do
             t' <- currentSongTime <$> getTimeMonotonic <*> readIORef varTime
             [C.block| void { Fl::lock(); } |]
-            let ct' = realToFrac t' :: C.CDouble
+            let ct' = coerce t' :: CDouble
             [C.block| void { $(HsScrubber* scrubber)->value($(double ct')); } |]
             redrawGL
             [C.block| void { Fl::unlock(); } |]
@@ -1026,10 +1022,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           mouseX <- [C.exp| int { Fl::event_x() } |]
           timeMin <- [C.exp| double { $(HsScrubber* scrubber)->minimum() } |]
           timeMax <- [C.exp| double { $(HsScrubber* scrubber)->maximum() } |]
-          let newTime = max (realToFrac timeMin) $ min (realToFrac timeMax) $
-                realToFrac timeMin + (realToFrac timeMax - realToFrac timeMin)
+          let newTime = max (coerce timeMin) $ min (coerce timeMax) $
+                coerce timeMin + (coerce timeMax - coerce timeMin)
                 * (fromIntegral (mouseX - sx) / fromIntegral sw) :: Double
-              cnewTime = realToFrac newTime :: C.CDouble
+              cnewTime = coerce newTime :: CDouble
           [C.block| void { $(HsScrubber* scrubber)->value($(double cnewTime)); } |]
           return newTime
     fpScrubberHandle <- makeScrubberHandleCallback \_ cevent _ _ _ _ -> do
@@ -2001,8 +1997,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     withUTF8 tooltip \ctip ->
       [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* ctip)); } |]
     return do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then processor else return
+      checked <- checkValue check
+      return if checked then processor else return
   let getSongTransform = do
         procs <- sequence processorGetters
         return $ foldr (>=>) return procs
@@ -2012,9 +2008,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     [C.block| void { $(Fl_Check_Button* check)->tooltip(
       "Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced."
     ); } |]
-    return do
-      v <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return $ v /= 0
+    return $ checkValue check
   [C.block| void { $(Fl_Pack* packProcessors)->end(); } |]
 
   -- row2: select mode
@@ -2064,9 +2058,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Encrypt .mid.edat") } |]
         when ?preferences.prefPS3Encrypt $
           [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
-        return do
-          v <- [C.exp| int { $(Fl_Check_Button* btn)->value() } |]
-          return $ v /= 0
+        return $ checkValue btn
       makeFormatSelect :: IO () -> IO () -> IO () -> IO () -> IO (IO QuickConvertFormatOutput)
       makeFormatSelect ps3On ps3Off foldersOn foldersOff = do
         ref <- newIORef $ QCOutputTwoWay QCFormatCON
@@ -2459,7 +2451,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Try to generate preview audio") } |]
     cbGo <- makeCallback \_ _ -> sink $ EventIO do
       files <- readMVar loadedFiles
-      tryPreview <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* boxPrev)->value() } |]
+      tryPreview <- checkValue boxPrev
       songTransform <- getSongTransform
       askFolder ?preferences.prefDirWii \dout -> sink $ EventOnyx $ startTasks let
         settings = QuickDolphinSettings
@@ -2572,13 +2564,12 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Converts all .chart files to .mid."
     ); } |]
     cbCheck <- makeCallback \_ _ -> do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      when (checked == 0) $
-        [C.block| void { $(Fl_Check_Button* checkPSTapOpen)->value(0); } |]
+      checked <- checkValue check
+      when checked [C.block| void { $(Fl_Check_Button* checkPSTapOpen)->value(0); } |]
     [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then convertMIDI else return
+      checked <- checkValue check
+      return if checked then convertMIDI else return
       )
 
   (checkPSTapOpen, processorPSTapOpen) <- do
@@ -2588,13 +2579,12 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords."
     ); } |]
     cbCheck <- makeCallback \_ _ -> do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      when (checked /= 0) $
-        [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
+      checked <- checkValue check
+      when checked [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
     [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then psTapOpenFormats else return
+      checked <- checkValue check
+      return if checked then psTapOpenFormats else return
       )
 
   (checkOgg, processorOgg) <- do
@@ -2604,13 +2594,12 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Reencode audio files as Ogg Vorbis if they are not already."
     ); } |]
     cbCheck <- makeCallback \_ _ -> do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      when (checked /= 0) $
-        [C.block| void { $(Fl_Check_Button* checkOpus)->value(0); } |]
+      checked <- checkValue check
+      when checked [C.block| void { $(Fl_Check_Button* checkOpus)->value(0); } |]
     [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then stackIO . convertOgg else return
+      checked <- checkValue check
+      return if checked then stackIO . convertOgg else return
       )
   (checkOpus, processorOpus) <- do
     check <- withRect processorBox \cx cy cw ch ->
@@ -2619,13 +2608,12 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Reencode audio file as Opus if they are not already."
     ); } |]
     cbCheck <- makeCallback \_ _ -> do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      when (checked /= 0) $
-        [C.block| void { $(Fl_Check_Button* checkOgg)->value(0); } |]
+      checked <- checkValue check
+      when checked [C.block| void { $(Fl_Check_Button* checkOgg)->value(0); } |]
     [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then stackIO . convertOpus else return
+      checked <- checkValue check
+      return if checked then stackIO . convertOpus else return
       )
 
   processorRealToElite <- do
@@ -2635,8 +2623,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums."
     ); } |]
     return do
-      checked <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-      return if checked /= 0 then fillEliteFromPSReal else return
+      checked <- checkValue check
+      return if checked then fillEliteFromPSReal else return
 
   let getTransform = do
         procs <- sequence [processorMIDI, processorPSTapOpen, processorOgg, processorOpus, processorRealToElite]
@@ -2751,7 +2739,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Start"
       "%input_dir%/%input_base%"
       \template -> do
-        deleteOriginals <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* checkDeleteOriginals)->value() } |]
+        deleteOriginals <- checkValue checkDeleteOriginals
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "" template deleteOriginals
@@ -2777,7 +2765,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       "Start"
       "%input_dir%/%input_base%.sng"
       \template -> do
-        deleteOriginals <- fmap (/= 0) $ [C.exp| int { $(Fl_Check_Button* checkDeleteOriginals)->value() } |]
+        deleteOriginals <- checkValue checkDeleteOriginals
         qfofs <- readMVar loadedFiles
         transform <- getTransform
         tasks <- computeTasks qfofs "sng" template deleteOriginals
@@ -3550,8 +3538,8 @@ launchBatch sink makeMenuBar startFiles = mdo
           [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
         [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
         return do
-          b <- [C.exp| int { $(Fl_Check_Button* btn)->value() } |]
-          return $ guard (b /= 0) >> Just inst
+          b <- checkValue btn
+          return $ guard b >> Just inst
       return \songYaml -> do
         active <- catMaybes <$> sequence getters
         return $ (songYaml :: SongYaml FilePath) & #parts .~ do
@@ -3935,7 +3923,7 @@ launchPreferences sink makeMenuBar = do
           [C.block| void { $(Fl_Check_Button* check)->value($(int checkVal)); } |]
           counter <- withRect counterBox \cx cy cw ch ->
             [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-          let initCores = maybe 1 fromIntegral loadedPrefs.prefThreads :: C.CDouble
+          let initCores = maybe 1 fromIntegral loadedPrefs.prefThreads :: CDouble
           [C.block| void {
             Fl_Counter* c = $(Fl_Counter* counter);
             c->label("Core limit");
@@ -3948,15 +3936,15 @@ launchPreferences sink makeMenuBar = do
             c->value($(double initCores));
           } |]
           let updateCounter = do
-                v <- [C.exp| int { $(Fl_Check_Button* check)->value() } |]
-                if v /= 0
+                v <- checkValue check
+                if v
                   then [C.block| void { $(Fl_Counter* counter)->deactivate(); } |]
                   else [C.block| void { $(Fl_Counter* counter)->activate(); } |]
           cbCheck <- makeCallback \_ _ -> updateCounter
           [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
           updateCounter
           return do
-            unlimited <- (/= 0) <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            unlimited <- checkValue check
             cores <- [C.exp| double { $(Fl_Counter* counter)->value() } |]
             return \prefs -> prefs { prefThreads = if unlimited then Nothing else Just $ round cores }
         , do
@@ -3973,8 +3961,7 @@ launchPreferences sink makeMenuBar = do
             let v = if loadedPrefs.prefDetectMuted then 1 else 0 :: CInt
             [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
             return btn
-          return $ (\b prefs -> prefs { prefDetectMuted = b }) . (/= 0) <$>
-            [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+          return $ (\b prefs -> prefs { prefDetectMuted = b }) <$> checkValue check
         ]
       [C.block| void { $(Fl_Pack* pack)->end(); } |]
       return (tab, fn)
@@ -3998,8 +3985,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefBlackVenue then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefBlackVenue = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefBlackVenue = b }) <$> checkValue check
           , do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
@@ -4008,8 +3994,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefLabel2x then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefLabel2x = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefLabel2x = b }) <$> checkValue check
           , do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
@@ -4023,8 +4008,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefLegalTempos then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefLegalTempos = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefLegalTempos = b }) <$> checkValue check
           , do
             getRB3Encoding <- lineBox \box -> do
               let (boxA, boxB) = chopLeft 230 box
@@ -4057,7 +4041,7 @@ launchPreferences sink makeMenuBar = do
             let [_, middleBox, _] = splitHorizN 3 box
             gh2OffsetCounter <- withRect middleBox \cx cy cw ch ->
               [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-            let initOffset = realToFrac $ loadedPrefs.prefGH2Offset * 1000 :: C.CDouble
+            let initOffset = coerce $ loadedPrefs.prefGH2Offset * 1000 :: CDouble
             withUTF8 (T.unwords
               [ "Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay."
               , "Positive values mean audio will be pulled earlier, to account for delay."
@@ -4083,8 +4067,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefSortGH2 then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefSortGH2 = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefSortGH2 = b }) <$> checkValue check
           , do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
@@ -4098,8 +4081,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefArtistSort then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefArtistSort = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefArtistSort = b }) <$> checkValue check
           ]
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
         return fn
@@ -4118,8 +4100,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefCHDownmix then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefCHDownmix = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefCHDownmix = b }) <$> checkValue check
           , do
             audioFormat <- lineBox \box -> horizRadio box
               [ ("Output Ogg Vorbis audio", CHAudioOggVorbis, loadedPrefs.prefCHAudioFormat == CHAudioOggVorbis)
@@ -4150,8 +4131,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefTrimXbox then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefTrimXbox = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefTrimXbox = b }) <$> checkValue check
           , do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
@@ -4168,8 +4148,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefRBNumberID then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefRBNumberID = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefRBNumberID = b }) <$> checkValue check
           ]
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
         return fn
@@ -4191,8 +4170,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefPS3Encrypt then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefPS3Encrypt = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefPS3Encrypt = b }) <$> checkValue check
           , do
             getDir <- lineBox \box -> folderBox box "PS3/RPCS3 install folder" $ T.pack $ fromMaybe "" loadedPrefs.prefDirPS3
             return $ (\mdir prefs -> prefs { prefDirPS3 = mdir }) <$> getDir
@@ -4230,13 +4208,12 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefFXAA then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefFXAA = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefFXAA = b }) <$> checkValue check
           , lineBox \box -> do
             let [_, middleBox, _] = splitHorizN 3 box
             fpsCounter <- withRect middleBox \cx cy cw ch ->
               [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-            let initFPS = fromIntegral loadedPrefs.prefPreviewFPS :: C.CDouble
+            let initFPS = fromIntegral loadedPrefs.prefPreviewFPS :: CDouble
             [C.block| void {
               Fl_Counter* c = $(Fl_Counter* fpsCounter);
               c->label("Frames per second");
@@ -4292,8 +4269,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefWaveform then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefWaveform = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefWaveform = b }) <$> checkValue check
           , do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
@@ -4302,8 +4278,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefLeftyFlip then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefLeftyFlip = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefLeftyFlip = b }) <$> checkValue check
           ]
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
         return fn
@@ -4316,7 +4291,7 @@ launchPreferences sink makeMenuBar = do
               let sliderRect = leaveLeftLabelSpace box
               slider <- withRect sliderRect \sx sy sw sh ->
                 [C.exp| Fl_Value_Slider* { new Fl_Value_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
-              let initQ = realToFrac $ loadedPrefs.prefOGGQuality * 10 :: C.CDouble
+              let initQ = coerce $ loadedPrefs.prefOGGQuality * 10 :: CDouble
               [C.block| void {
                 Fl_Value_Slider* s = $(Fl_Value_Slider* slider);
                 s->label("OGG Vorbis quality");
@@ -4338,8 +4313,7 @@ launchPreferences sink makeMenuBar = do
               let v = if loadedPrefs.prefDecryptSilent then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
-            return $ (\b prefs -> prefs { prefDecryptSilent = b }) . (/= 0) <$>
-              [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+            return $ (\b prefs -> prefs { prefDecryptSilent = b }) <$> checkValue check
           ]
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
         return fn
