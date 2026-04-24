@@ -169,7 +169,7 @@ miscPageLipsync sink rect tab startTasks = do
       } |]
       [C.block| void {
         $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}");
+        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
       } |]
       result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
       when (result == 0) do
@@ -523,7 +523,7 @@ miscPageDryVox sink rect tab startTasks = do
       } |]
       [C.block| void {
         $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}");
+        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
       } |]
       result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
       when (result == 0) do

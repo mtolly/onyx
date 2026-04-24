@@ -575,6 +575,7 @@ batchPageRB2 sink rect tab build = do
                 then SongIDAutoInt
                 else SongIDAutoSymbol
             & #ps3Encrypt        .~ newPreferences.prefPS3Encrypt
+          -- TODO need to use anyDrums
           kicksConfigs = case (kicks, maybe Kicks1x (.kicks) $ getPart F.PartDrums yaml >>= (.drums)) of
             (_        , Kicks1x) -> [(False, ""   )]
             (Kicks1x  , _      ) -> [(False, "_1x")]

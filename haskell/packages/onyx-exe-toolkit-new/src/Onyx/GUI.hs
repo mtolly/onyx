@@ -76,7 +76,6 @@ import qualified Data.Vector.Storable              as VS
 import           Data.Version                      (showVersion)
 import           Data.Word                         (Word32)
 import           Foreign                           (Ptr, alloca,
-                                                    castFunPtrToPtr,
                                                     freeHaskellFunPtr, nullPtr,
                                                     peek, toBool, withArray)
 import           Foreign.C                         (CDouble, CInt)
@@ -332,6 +331,8 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   pack <- withRect songsInnerArea \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
   checks <- forM imps \imp -> do
+    -- TODO ampersands in the label text here turn into "underline next character".
+    -- need to figure out how to escape
     let entry = T.concat
           [ fromMaybe "Untitled" imp.impTitle
           , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
@@ -421,12 +422,11 @@ startAnimation frameTime redraw = mdo
           False -> do
             redraw
             [C.block| void {
-              Fl::repeat_timeout($(double cft), (void(*)(void*))$(void* p), nullptr);
+              Fl::repeat_timeout($(double cft), $(void(*fp)(void*)), nullptr);
             } |]
   fp <- makeTimeoutCallback loop
-  let p = castFunPtrToPtr fp
   [C.block| void {
-    Fl::add_timeout($(double cft), (void(*)(void*))$(void* p), nullptr);
+    Fl::add_timeout($(double cft), $(void(*fp)(void*)), nullptr);
   } |]
   return $ writeIORef stopper True
 
@@ -591,6 +591,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                     (fatal "Couldn't read RB image file")
                     (stackIO . writePng newPath)
                     . readRBImageMaybe False
+                    -- TODO support .png_ps3
                   else stackIO (readImage f) >>= either fatal (stackIO . savePngImage newPath)
                 stackIO $ sink $ EventIO do
                   oldImage <- modifyMVar currentImage \(oldImage, _) -> do
@@ -632,6 +633,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               let FullGenre{..} = interpretGenre
                     (guard (g /= "") >> Just g)
                     (guard (s /= "") >> Just s)
+              -- TODO show in-game names, not dta names
               withUTF8 (T.concat
                 [ "RB3: ", rbn2Genre, " (", rbn2Subgenre, "), "
                 , "RB2: ", rbn1Genre, " (", rbn1Subgenre, ")"
@@ -918,7 +920,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       $(HsScrubber* scrubber)->value(0);
       $(HsScrubber* scrubber)->deactivate();
     } |]
-    (getSpeed, _counter) <- speedPercent' False speedArea
+    (getSpeed, counter) <- speedPercent' False speedArea
     [C.block| void { $(Fl_Group* topControls)->end(); } |]
     [C.block| void { $(Fl_Group* topControls)->resizable($(HsScrubber* scrubber)); } |]
     -- Set up song length
@@ -1062,10 +1064,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
              redrawGL
              return 1
          | otherwise -> return (-1) -- fall through to default handler
-    let pScrubberHandle = castFunPtrToPtr fpScrubberHandle
     [C.block| void {
       $(HsScrubber* scrubber)->set_handle_callback(
-        (HsScrubberHandleCallback)$(void* pScrubberHandle), NULL);
+        $(int (*fpScrubberHandle)(void*, int, int, int, int, int)), NULL);
     } |]
     let togglePlay = readIORef scrubberDragResume >>= \case
           Just _  -> return () -- we are dragging the scrubber, ignore
@@ -1085,6 +1086,13 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       $(Fl_Button* playButton)->callback($(Fl_Callback cbPlayButton));
       $(Fl_Button* playButton)->shortcut(' ');
     } |]
+    cbCounter <- makeCallback \_ _ -> do
+      ss <- takeState
+      ss' <- case ss.songPlaying of
+        Nothing -> redrawGL >> return ss
+        Just ps -> stopPlaying ss.songTime ps >>= startPlaying
+      putState ss'
+    [C.block| void { $(Fl_Counter* counter)->callback($(Fl_Callback cbCounter)); } |]
     let cleanup = do
           ss <- takeState
           case ss.songPlaying of
@@ -1092,6 +1100,32 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             Just ps -> void $ stopPlaying ss.songTime ps
           deleteGL
     return (tab, cleanup)
+    {-
+    paused:
+      user hits play:
+        start playing from current position and speed
+        change button icon to pause
+      user moves scrubber:
+        change position shown on track
+      user changes speed:
+        nothing
+    playing:
+      user hits pause:
+        stop (set position to calculated current position)
+        change button icon to play
+      user moves scrubber:
+        stop (set position to new position)
+        start playing from new position
+      user changes speed:
+        stop (set position to calculated current position)
+        start playing at the new speed
+      a frame's time passes:
+        calculate current position
+        redraw the track
+        set scrubber position
+      window closes:
+        stop audio
+    -}
 
   _starsTab <- makeTab windowRect "Stars" \rect tab -> do
     setTabColor tab homeTabColor
@@ -1109,6 +1143,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       stackIO $ sink $ EventIO $ mdo
         [C.block| void { $(Fl_Pack* pack)->begin(); } |]
 
+        -- TODO when we add localization support, need to support different separators
+        -- (e.g. Spanish should use periods)
         let commafy n = T.pack $ reverse $ go $ reverse $ show n
             go (x : y : z : rest@(_ : _))
               = [x, y, z, ','] ++ go rest
@@ -1394,6 +1430,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 return [f]
           sink $ EventOnyx $ startTasks [("Build web preview", task)]
       [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
+    -- TODO this needs to somehow start from a pre-import midi file if present
+    -- so we don't mess up things like encore pad tracks
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Produce MIDI with automatic reductions") } |]
@@ -1721,7 +1759,7 @@ getAudioSpec :: FilePath -> IO (Maybe AudioSpec)
 getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
   Left e -> let
     _ = e :: Snd.Exception
-    in return Nothing
+    in return Nothing -- TODO handle MP3
   Right info -> let
     withFormat fmt = return $ Just AudioSpec
       { audioPath = f
@@ -1817,6 +1855,7 @@ miscPagePacks sink rect tab startTasks = mdo
                   roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
                   merged <- STFS.packCombineFolders roots
                   stackIO $ saveHandleFolder merged f
+                  -- TODO add album_art save? probably check what gh2dx xenia setup expects
                   return Nothing
               return $ f : toList maybeArtDir
             taskLabel = case output of
@@ -3356,7 +3395,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   updateParts False $ map (map fst) $ previewTracks initSong
   cbTrackMenu <- makeCallback \_ _ -> do
     sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
-    -- Reopen menu so user can toggle multiple items
+    -- reopen menu (TODO find a way to not close it at all)
     sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
   [C.block| void { $(Fl_Menu_Button* trackMenu)->callback($(Fl_Callback cbTrackMenu)); } |]
 
@@ -3373,6 +3412,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
       setAudio if Set.member t currentAudio
         then Set.delete t currentAudio
         else Set.insert t currentAudio
+      -- reopen menu (TODO find a way to not close it at all)
       sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
     withUTF8 t \ct ->
       [C.block| void {
@@ -3431,9 +3471,12 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
       RGGraphics.drawTracks stuff (RGGraphics.WindowDims (fromIntegral w) (fromIntegral h)) t speed bg ?preferences.prefEliteLayout
         (flip mapMaybe selected \name -> (name,) <$> lookup name flatTrks)
         mAudioHandle
-  let pDrawCb = castFunPtrToPtr drawCb
+  -- TODO add an option to use high-res GL on Mac.
+  -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
+  -- But on Mac by default I believe the GL resolution is non-retina unless you set this.
+  -- Either way pixelsPerUnit will handle the UI correctly.
   [C.block| void {
-    $(HsGlWindow* glwindow)->set_draw_callback((HsDrawCallback)$(void* pDrawCb), nullptr);
+    $(HsGlWindow* glwindow)->set_draw_callback($(void (*drawCb)(void*)), nullptr);
   } |]
 
   let deleteGL = do
@@ -4579,9 +4622,8 @@ launchGUI initSongs = withAL \hasAudio -> do
     fpOpen <- makeOpenCallback \cstr -> do
       str <- peekUTF8 cstr
       sink $ EventOnyx $ startLoad makeMenuBar hasAudio [str]
-    let pOpen = castFunPtrToPtr fpOpen
     [C.block| void {
-      fl_open_callback((void (*)(const char*))$(void* pOpen));
+      fl_open_callback($(void (*fpOpen)(const char*)));
     } |]
 
   let logChan = logIO $ sink . EventMsg

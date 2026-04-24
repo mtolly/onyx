@@ -38,8 +38,7 @@ import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      (Endo (..))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Foreign                          (Ptr, castFunPtrToPtr,
-                                                   nullPtr)
+import           Foreign                          (Ptr, nullPtr)
 import           Foreign.C                        (CInt, CUChar, peekCString)
 import qualified Language.C.Inline.Cpp            as C
 import           Numeric                          (readHex)
@@ -499,7 +498,7 @@ gh2DeluxeSelector
   :: (Event -> IO ())
   -> Rectangle
   -> IO (IO (Maybe Bool)) -- Bool is True if 2x drums
-gh2DeluxeSelector _sink rect = do
+gh2DeluxeSelector sink rect = do
   let (checkArea, kicksArea) = chopRight 150 rect
   check <- withRect checkArea \cx cy cw ch ->
     [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "GH2 Deluxe features") } |]
@@ -515,7 +514,7 @@ gh2DeluxeSelector _sink rect = do
         if enabled
           then [C.block| void { $(Fl_Choice* kicks)->activate(); } |]
           else [C.block| void { $(Fl_Choice* kicks)->deactivate(); } |]
-  cbCheck <- makeCallback \_ _ -> updateKicks
+  cbCheck <- makeCallback \_ _ -> sink $ EventIO updateKicks
   [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
   updateKicks
   [C.block| void { $(Fl_Check_Button* check)->value(0); } |]
@@ -810,10 +809,9 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
                  return 1
                _ -> return 0
          | otherwise -> return 0
-  let pHandle = castFunPtrToPtr fpHandle
   [C.block| void {
     $(HsTree* hsTree)->set_handle_callback(
-      (HsTreeHandleCallback)$(void* pHandle), NULL);
+      $(int (*fpHandle)(void*, int)), NULL);
   } |]
   clearFiles
   sink $ EventOnyx $ forkSearch startFiles
@@ -876,10 +874,9 @@ setDndButtonCallback btn f = do
   fpDnd <- makeDndCallback \_ cstr -> do
     str <- peekCString cstr
     f $ parseDndText str
-  let pDnd = castFunPtrToPtr fpDnd
   [C.block| void {
     $(HsDndButton* btn)->set_dnd_callback(
-      (HsDndCallback)$(void* pDnd), NULL);
+      $(void (*fpDnd)(void*, const char*)), NULL);
   } |]
 
 -- | Set a DnD callback on an HsDndGroup. The callback receives a list of file paths.
@@ -888,10 +885,9 @@ setDndGroupCallback grp f = do
   fpDnd <- makeDndCallback \_ cstr -> do
     str <- peekCString cstr
     f $ parseDndText str
-  let pDnd = castFunPtrToPtr fpDnd
   [C.block| void {
     $(HsDndGroup* grp)->set_dnd_callback(
-      (HsDndCallback)$(void* pDnd), NULL);
+      $(void (*fpDnd)(void*, const char*)), NULL);
   } |]
 
 -- | Set a DnD callback on an HsDndBox. The callback receives a list of file paths.
@@ -900,10 +896,9 @@ setDndBoxCallback box f = do
   fpDnd <- makeDndCallback \_ cstr -> do
     str <- peekCString cstr
     f $ parseDndText str
-  let pDnd = castFunPtrToPtr fpDnd
   [C.block| void {
     $(HsDndBox* box)->set_dnd_callback(
-      (HsDndCallback)$(void* pDnd), NULL);
+      $(void (*fpDnd)(void*, const char*)), NULL);
   } |]
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
