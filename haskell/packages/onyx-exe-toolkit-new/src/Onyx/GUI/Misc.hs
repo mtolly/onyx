@@ -9,8 +9,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Misc where
 
-import           Onyx.GUI.Core
-
 import           Control.Applicative          ((<|>))
 import           Control.Concurrent           (modifyMVar_, newMVar, readMVar)
 import           Control.Monad                (forM, guard, join, when)
@@ -31,7 +29,9 @@ import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
                                                makeMetadataPKG,
                                                metadataPS3Folder)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util                (askFolder, peekUTF8, withUTF8)
+import           Onyx.GUI.Core
+import           Onyx.GUI.Util                (askFolder, peekUTF8, setCallback,
+                                               withUTF8)
 import           Onyx.Harmonix.RockBand.Milo  as Milo
 import           Onyx.Import                  (installPS3Folder)
 import           Onyx.MIDI.Read               (mapTrack)
@@ -77,7 +77,7 @@ miscPageMilo sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Extract .milo to folder") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> do
+    setCallback btn do
       picker1 <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -106,12 +106,11 @@ miscPageMilo sink rect tab startTasks = do
             in startTasks [("Extract " <> fin, task)]
         [C.block| void { delete $(Fl_Native_File_Chooser* picker2); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker1); } |]
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Repack .milo from folder") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> askFolder Nothing \din -> do
+    setCallback btn $ askFolder Nothing \din -> do
       let dinText = T.pack din
           presetFile = case T.stripSuffix "-extract" dinText of
             Just stripped -> stripped
@@ -135,7 +134,6 @@ miscPageMilo sink rect tab startTasks = do
             return [fout]
           in startTasks [("Repack " <> din, task)]
       [C.block| void { delete $(Fl_Native_File_Chooser* miloPicker); } |]
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   [C.block| void {
     $(Fl_Pack* pack)->end();
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
@@ -163,7 +161,7 @@ miscPageLipsync sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("MIDI file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback pick $ sink $ EventIO do
       picker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -178,7 +176,6 @@ miscPageLipsync sink rect tab startTasks = do
         withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -229,7 +226,7 @@ miscPageLipsync sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make GH2 .voc from PART VOCALS") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback btn $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
       saveVoc input \voc -> sink $ EventOnyx let
@@ -244,7 +241,6 @@ miscPageLipsync sink rect tab startTasks = do
             $ mid.tracks.fixedPartVocals
           return [voc]
         in startTasks [("Make GH2 .voc: " <> voc, task)]
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
 
   let pickMilo go = do
         picker <- [C.exp| Fl_Native_File_Chooser* {
@@ -298,7 +294,7 @@ miscPageLipsync sink rect tab startTasks = do
     [C.block| void { $(Fl_Button* makeButton)->tooltip(
       "Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS."
     ); } |]
-    cbMake <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback makeButton $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
       trans <- getTransition
@@ -338,14 +334,13 @@ miscPageLipsync sink rect tab startTasks = do
               _                             -> MagmaLipsync1 (fromMaybe empty lip1)
           return [milo]
         in startTasks [("Create .milo from MIDI lipsync: " <> milo, task)]
-    [C.block| void { $(Fl_Button* makeButton)->callback($(Fl_Callback cbMake)); } |]
     updateButton <- withRect updateArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Update RB3/TBRB .milo_*") } |]
     [C.block| void { $(Fl_Button* updateButton)->color($(Fl_Color taskColor)); } |]
     [C.block| void { $(Fl_Button* updateButton)->tooltip(
       "Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks."
     ); } |]
-    cbUpdate <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback updateButton $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
       trans <- getTransition
@@ -391,14 +386,13 @@ miscPageLipsync sink rect tab startTasks = do
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [("Update .milo with MIDI lipsync: " <> milo, task)]
-    [C.block| void { $(Fl_Button* updateButton)->callback($(Fl_Callback cbUpdate)); } |]
     rawButton <- withRect rawArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create *.lipsync") } |]
     [C.block| void { $(Fl_Button* rawButton)->color($(Fl_Color taskColor)); } |]
     [C.block| void { $(Fl_Button* rawButton)->tooltip(
       "Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files."
     ); } |]
-    cbRaw <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback rawButton $ sink $ EventIO do
       input <- pickedFile
       askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
         task = do
@@ -427,7 +421,6 @@ miscPageLipsync sink rect tab startTasks = do
             stackIO $ BL.writeFile path bs
             return path
         in startTasks [("Export .lipsync to folder", task)]
-    [C.block| void { $(Fl_Button* rawButton)->callback($(Fl_Callback cbRaw)); } |]
 
   let makeLipsyncTracks loadVisemes toEvents = do
         input <- pickedFile
@@ -477,8 +470,7 @@ miscPageLipsync sink rect tab startTasks = do
     [C.block| void { $(Fl_Button* btn)->tooltip(
       "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the standard RB viseme set."
     ); } |]
-    cb <- makeCallback \_ _ -> sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
 
   padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
@@ -487,8 +479,7 @@ miscPageLipsync sink rect tab startTasks = do
     [C.block| void { $(Fl_Button* btn)->tooltip(
       "Uses HARM* or PART VOCALS to produce LIPSYNC{1-3} tracks containing viseme information, using the Beatles RB viseme set."
     ); } |]
-    cb <- makeCallback \_ _ -> sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
+    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
   [C.block| void {
     $(Fl_Pack* pack)->end();
@@ -517,7 +508,7 @@ miscPageDryVox sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("MIDI file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback pick $ sink $ EventIO do
       picker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -532,7 +523,6 @@ miscPageDryVox sink rect tab startTasks = do
         withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -565,7 +555,7 @@ miscPageDryVox sink rect tab startTasks = do
             $(Fl_Button* btn)->copy_label($(char* clbl));
             $(Fl_Button* btn)->color($(Fl_Color taskColor));
           } |]
-        cb <- makeCallback \_ _ -> sink $ EventIO do
+        setCallback btn $ sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
           picker <- [C.exp| Fl_Native_File_Chooser* {
@@ -591,7 +581,6 @@ miscPageDryVox sink rect tab startTasks = do
                 return [f]
               in startTasks [(T.unpack label <> ": " <> input, task)]
           [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-        [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   dryvoxButton "Make sine wave dry vox from MIDI" $ return . sineDryVox
   pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
@@ -606,7 +595,7 @@ miscPageDryVox sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("Audio file"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback pick $ sink $ EventIO do
       picker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -621,7 +610,6 @@ miscPageDryVox sink rect tab startTasks = do
         withUTF8 (f :: B.ByteString) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -652,7 +640,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
   btn1 <- withRect xboxRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH3 cache (360)") } |]
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  cb1 <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- [C.exp| Fl_Native_File_Chooser* {
       new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
@@ -673,11 +661,10 @@ miscPageGH3SongCache sink rect tab startTasks = do
           return [f]
         in [("Make GH3 cache file", task)]
     [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-  [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
   btn2 <- withRect ps3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH3 cache (PS3)") } |]
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  cb2 <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- [C.exp| Fl_Native_File_Chooser* {
       new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
@@ -698,11 +685,10 @@ miscPageGH3SongCache sink rect tab startTasks = do
           return [f]
         in [("Make GH3 cache file", task)]
     [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-  [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
   btn3 <- withRect looseRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH3 cache (RPCS3)") } |]
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
-  cb3 <- makeCallback \_ _ -> sink $ EventOnyx do
+  setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
@@ -713,7 +699,6 @@ miscPageGH3SongCache sink rect tab startTasks = do
               GuitarHeroAerosmith -> "BLUS30133"
         stackIO $ installPS3Folder gameID (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
       in [("Install GH3 cache file", task)]
-  [C.block| void { $(Fl_Button* btn3)->callback($(Fl_Callback cb3)); } |]
 
 miscPageWoRSongCache
   :: (Event -> IO ())
@@ -733,7 +718,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
   btn1 <- withRect xboxRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH:WoR cache (360)") } |]
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  cb1 <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- [C.exp| Fl_Native_File_Chooser* {
       new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
@@ -754,11 +739,10 @@ miscPageWoRSongCache sink rect tab startTasks = do
           return [f]
         in [("Make WoR cache file", task)]
     [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-  [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
   btn2 <- withRect ps3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH:WoR cache (PS3)") } |]
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  cb2 <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     picker <- [C.exp| Fl_Native_File_Chooser* {
       new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
@@ -779,11 +763,10 @@ miscPageWoRSongCache sink rect tab startTasks = do
           return [f]
         in [("Make WoR cache file", task)]
     [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-  [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
   btn3 <- withRect looseRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH:WoR cache (RPCS3)") } |]
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
-  cb3 <- makeCallback \_ _ -> sink $ EventOnyx do
+  setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
@@ -791,7 +774,6 @@ miscPageWoRSongCache sink rect tab startTasks = do
         folder <- getAllMetadata inputs >>= stackIO . metadataPS3Folder
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
       in [("Install GH3 cache file", task)]
-  [C.block| void { $(Fl_Button* btn3)->callback($(Fl_Callback cb3)); } |]
 
 miscPageCONtoPKG
   :: (Event -> IO ())
@@ -819,10 +801,8 @@ miscPageCONtoPKG sink rect tab startTasks = do
   btn1 <- withRect rb2Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Convert to PKG (RB2)") } |]
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  cb1 <- makeCallback \_ _ -> callback False
-  [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
+  setCallback btn1 $ callback False
   btn2 <- withRect rb3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Convert to PKG (RB3)") } |]
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  cb2 <- makeCallback \_ _ -> callback True
-  [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
+  setCallback btn2 $ callback True

@@ -23,7 +23,7 @@ import           Foreign               (Ptr)
 import qualified Language.C.Inline.Cpp as C
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
-import           Onyx.GUI.Util         (askFolder, checkValue)
+import           Onyx.GUI.Util         (askFolder, checkValue, setCallback)
 import           Onyx.Harmonix.Ark.GH2 (GH2InstallLocation (..))
 import           Onyx.Import
 import qualified Onyx.MIDI.Track.File  as F
@@ -75,10 +75,9 @@ batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 3
   button <- withRect rect' \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folders") } |]
   [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
-  cb <- makeCallback \_ _ -> sink $ EventOnyx do
+  setCallback button $ sink $ EventOnyx do
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir usePath
-  [C.block| void { $(Fl_Button* button)->callback($(Fl_Callback cb)); } |]
 
 batchPageRB3
   :: (?preferences :: Preferences)
@@ -217,14 +216,13 @@ batchPageGH1 sink rect tab build = do
     btn <- withRect r \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Songs") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> do
+    setCallback btn do
       browseFileChooser "Select .HDR file" \f -> let
         gen = takeDirectory f
         in getTargetSong id "" \song -> do
           build \proj -> let
             (tgt, _) = song proj
             in (tgt, GH1ARK gen)
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   makeTemplateRunner
     sink
     "Create PS2 DIY folders"
@@ -320,9 +318,7 @@ batchPageGH2 sink rect tab build = do
     boxA <- withRect rectA \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Make practice mode audio for PS2") } |]
     getDeluxe <- gh2DeluxeSelector sink rectB
-    return (do
-      v <- checkValue boxA
-      return v, getDeluxe)
+    return (checkValue boxA, getDeluxe)
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
@@ -378,14 +374,13 @@ batchPageGH2 sink rect tab build = do
     btn <- withRect r \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Songs") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> do
+    setCallback btn do
       browseFileChooser "Select .HDR file" \f -> let
         gen = takeDirectory f
         in getTargetSong False id "" \song -> do
           build \proj -> let
             (tgt, _) = song proj
             in (tgt, GH2ARK gen GH2AddBonus)
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   makeTemplateRunner
     sink
     "Create PS2 DIY folders"

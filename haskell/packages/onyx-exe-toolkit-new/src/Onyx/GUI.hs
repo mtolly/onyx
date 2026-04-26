@@ -105,8 +105,8 @@ import           Onyx.Genre                        (FullGenre (..),
                                                     interpretGenre)
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Util                     (askFolder, checkValue,
-                                                    peekUTF8, withMaybeUTF8,
-                                                    withUTF8)
+                                                    peekUTF8, setCallback,
+                                                    withMaybeUTF8, withUTF8)
 import           Onyx.Harmonix.Ark.GH2             (GH2InstallLocation (..))
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Harmonix.MOGG                (oggToMoggFiles)
@@ -370,23 +370,19 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
         [C.block| void { $(Fl_Button* openButton)->color($(Fl_Color color)); } |]
         [C.block| void { $(Fl_Button* openButton)->redraw(); } |]
   updateButtons
-  cbSelect <- makeCallback \_ _ -> do
+  setCallback selectButton do
     bools <- mapM checkValue checks
     let newValue = if and bools then 0 else 1 :: CInt
     forM_ checks \check ->
       [C.block| void { $(Fl_Check_Button* check)->value($(int newValue)); } |]
     updateButtons
-  [C.block| void { $(Fl_Button* selectButton)->callback($(Fl_Callback cbSelect)); } |]
-  cbOpen <- makeCallback \_ _ -> do
+  setCallback openButton do
     bools <- mapM checkValue checks
     forM_ (zip bools imps) \(b, imp) -> when b do
       sink $ EventOnyx $ void $ forkOnyx do
         continueImport makeMenuBar hasAudio imp
     [C.block| void { $(Fl_Window* window)->hide(); } |]
-  [C.block| void { $(Fl_Button* openButton)->callback($(Fl_Callback cbOpen)); } |]
-  forM_ checks \check -> do
-    cbCheck <- makeCallback \_ _ -> updateButtons
-    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  forM_ checks \check -> setCallback check updateButtons
 
   let scrollAsGroup = [C.exp| Fl_Group* { (Fl_Group*)$(Fl_Scroll* scroll) } |]
   scrollGroup <- scrollAsGroup
@@ -600,7 +596,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   [C.block| void { $(HsDndButton* cover)->redraw(); } |]
                   [C.block| void { delete $(Fl_PNG_Image* oldImage); } |]
         liftIO do
-          cbCover <- makeCallback \_ _ -> do
+          setCallback cover do
             picker <- [C.exp| Fl_Native_File_Chooser* {
               new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
             } |]
@@ -613,7 +609,6 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               cpath <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
               path <- peekUTF8 cpath
               swapImage path
-          [C.block| void { $(HsDndButton* cover)->callback($(Fl_Callback cbCover)); } |]
           setDndButtonCallback cover (mapM_ swapImage . listToMaybe)
         tell do
           (_, mpath) <- readMVar currentImage
@@ -640,11 +635,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 ]) \clabel ->
                 [C.block| void { $(Fl_Box* calcGenreBox)->copy_label($(char* clabel)); } |]
         calcGenre
-        cbGenre <- makeCallback \_ _ -> calcGenre
+        setCallback genreInput calcGenre
+        setCallback subgenreInput calcGenre
         [C.block| void {
-          $(Fl_Input* genreInput)->callback($(Fl_Callback cbGenre));
-          $(Fl_Input* genreInput)->when(FL_WHEN_CHANGED);
-          $(Fl_Input* subgenreInput)->callback($(Fl_Callback cbGenre));
+          $(Fl_Input* genreInput   )->when(FL_WHEN_CHANGED);
           $(Fl_Input* subgenreInput)->when(FL_WHEN_CHANGED);
         } |]
       padded 5 10 5 10 (Size (Width 500) (Height 30)) \rect' -> do
@@ -723,8 +717,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               withUTF8 (show r) \cval ->
                 [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
           controlRank
-          cbChoice <- makeCallback \_ _ -> controlRank
-          [C.block| void { $(Fl_Choice* choice)->callback($(Fl_Callback cbChoice)); } |]
+          setCallback choice controlRank
           [C.block| void { $(Fl_Group* group)->end(); } |]
           let groupAsWidget = [C.exp| Fl_Widget* { (Fl_Widget*)$(Fl_Group* group) } |]
           groupWidget <- groupAsWidget
@@ -903,8 +896,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 , parts = maybe [] (.parts) maybeAudio <&> \name ->
                   (name, if elem name currentEnabledAudio then 1 else 0)
                 }
-    cbVolSlider <- makeCallback \_ _ -> updateVolume
-    [C.block| void { $(Fl_Hor_Nice_Slider* volSlider)->callback($(Fl_Callback cbVolSlider)); } |]
+    setCallback volSlider updateVolume
     playButton <- withRect playButtonArea \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@>") } |]
     [C.block| void { $(Fl_Button* playButton)->deactivate(); } |]
@@ -1081,18 +1073,14 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 t <- stopPlaying ss.songTime ps
                 return $ SongState t Nothing
             putState ss'
-    cbPlayButton <- makeCallback \_ _ -> togglePlay
-    [C.block| void {
-      $(Fl_Button* playButton)->callback($(Fl_Callback cbPlayButton));
-      $(Fl_Button* playButton)->shortcut(' ');
-    } |]
-    cbCounter <- makeCallback \_ _ -> do
+    setCallback playButton togglePlay
+    [C.block| void { $(Fl_Button* playButton)->shortcut(' '); } |]
+    setCallback counter do
       ss <- takeState
       ss' <- case ss.songPlaying of
         Nothing -> redrawGL >> return ss
         Just ps -> stopPlaying ss.songTime ps >>= startPlaying
       putState ss'
-    [C.block| void { $(Fl_Counter* counter)->callback($(Fl_Callback cbCounter)); } |]
     let cleanup = do
           ss <- takeState
           case ss.songPlaying of
@@ -1420,7 +1408,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Build web preview") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cbBtn <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn $ sink $ EventIO do
         let presetName = T.pack $ proj.projectTemplate <> "_player"
         saveFileChooser "Save web preview folder" presetName (T.pack <$> ?preferences.prefDirPreview) \f -> do
           proj' <- fullProjModify [] proj
@@ -1429,14 +1417,13 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 copyDirRecursive tmp f
                 return [f]
           sink $ EventOnyx $ startTasks [("Build web preview", task)]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
     -- TODO this needs to somehow start from a pre-import midi file if present
     -- so we don't mess up things like encore pad tracks
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Produce MIDI with automatic reductions") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cbBtn <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn $ sink $ EventIO do
         picker <- [C.exp| Fl_Native_File_Chooser* {
           new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
         } |]
@@ -1460,14 +1447,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
               return [f'])]
         [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Find hanging Pro Keys notes") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cbBtn <- makeCallback \_ _ -> sink $ EventOnyx do
+      setCallback btn $ sink $ EventOnyx do
         startTasks [("Pro Keys range check", proKeysHanging Nothing proj >> return [])]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cbBtn)); } |]
     [C.block| void { $(Fl_Pack* pack)->end(); } |]
     [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
     return tab
@@ -1487,17 +1472,15 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
 
   [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
   updateTabsColor tabs
-  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
-  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  setCallback tabs $ updateTabsColor tabs
   [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* rb3Tab)); } |]
 
-  cbWindow <- makeCallback \_ _ -> windowCloser
+  setCallback window $ windowCloser
     (cancelTasks >> cleanupGL >> mapM_ release proj.projectRelease)
     window
   [C.block| void {
     $(Fl_Window* window)->end();
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
     $(Fl_Window* window)->show();
   } |]
 
@@ -1735,15 +1718,13 @@ taskOutputPage rect tab sink cbStart cbEnd = do
             cbStart'
             updateStatus id
 
-  cbCancel <- makeCallback \_ _ -> sink $ EventIO cancelTasks
-  [C.block| void { $(Fl_Button* cancelButton)->callback($(Fl_Callback cbCancel)); } |]
-  cbShow <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback cancelButton $ sink $ EventIO cancelTasks
+  setCallback showButton $ sink $ EventIO do
     res <- takeMVar taskStatus
     case res of
       Left (Just (dir, files)) -> osShowFolder dir files
       _                        -> return ()
     putMVar taskStatus res
-  [C.block| void { $(Fl_Button* showButton)->callback($(Fl_Callback cbShow)); } |]
 
   return (startTasks, cancelTasks)
 
@@ -2295,11 +2276,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         $(Fl_Input* inp)->value("4000");
       } |]
       return inp
-    cbMaxSize <- makeCallback \_ _ -> updatePackGo
-    [C.block| void {
-      $(Fl_Input* maxSizeInput)->callback($(Fl_Callback cbMaxSize));
-      $(Fl_Input* maxSizeInput)->when(FL_WHEN_CHANGED);
-    } |]
+    setCallback maxSizeInput updatePackGo
+    [C.block| void { $(Fl_Input* maxSizeInput)->when(FL_WHEN_CHANGED); } |]
     writeIORef packMaxSizeRef $ Just maxSizeInput
     cbGo <- makeCallback \_ _ -> do
       enc <- getEncrypt
@@ -2602,10 +2580,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     [C.block| void { $(Fl_Check_Button* check)->tooltip(
       "Converts all .chart files to .mid."
     ); } |]
-    cbCheck <- makeCallback \_ _ -> do
+    setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkPSTapOpen)->value(0); } |]
-    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
       checked <- checkValue check
       return if checked then convertMIDI else return
@@ -2617,10 +2594,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     [C.block| void { $(Fl_Check_Button* check)->tooltip(
       "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords."
     ); } |]
-    cbCheck <- makeCallback \_ _ -> do
+    setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
-    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
       checked <- checkValue check
       return if checked then psTapOpenFormats else return
@@ -2632,10 +2608,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     [C.block| void { $(Fl_Check_Button* check)->tooltip(
       "Reencode audio files as Ogg Vorbis if they are not already."
     ); } |]
-    cbCheck <- makeCallback \_ _ -> do
+    setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkOpus)->value(0); } |]
-    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
       checked <- checkValue check
       return if checked then stackIO . convertOgg else return
@@ -2646,10 +2621,9 @@ pageQuickConvertCH sink rect tab startTasks = mdo
     [C.block| void { $(Fl_Check_Button* check)->tooltip(
       "Reencode audio file as Opus if they are not already."
     ); } |]
-    cbCheck <- makeCallback \_ _ -> do
+    setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkOgg)->value(0); } |]
-    [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
     return (check, do
       checked <- checkValue check
       return if checked then stackIO . convertOpus else return
@@ -2890,7 +2864,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         btn <- withRect rect' \bx by bw bh ->
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
         [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-        cb <- makeCallback \_ _ -> sink $ EventIO do
+        setCallback btn $ sink $ EventIO do
           audio <- readMVar loadedAudio
           let title = "Save " <> T.unpack defaultExt <> " file"
               preset = case audio of
@@ -2900,7 +2874,6 @@ miscPageMOGG sink rect tab startTasks = mdo
               ext = map toLower $ takeExtension f
               f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
               in sink $ EventOnyx $ task' audio f'
-        [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
         return btn
 
   btnMogg <- makeSaveAudioButton moggRect "*.mogg" "mogg" \audio f' ->
@@ -2976,7 +2949,7 @@ miscPageMIDI sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("MIDI or .chart"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback pick $ sink $ EventIO do
       picker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -2992,7 +2965,6 @@ miscPageMIDI sink rect tab startTasks = do
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
         [C.block| void { $(Fl_Input* input)->do_callback(); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return (input, do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr)
@@ -3003,7 +2975,7 @@ miscPageMIDI sink rect tab startTasks = do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Fill in lower difficulties and drum animations") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cb <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser "Save reduced MIDI file" "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
           ext = map toLower $ takeExtension f
@@ -3013,14 +2985,13 @@ miscPageMIDI sink rect tab startTasks = do
               simpleReduce input f'
               return [f']
             in startTasks [("Reduce MIDI: " <> input, task)]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
       return btn
 
     , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Find hanging Pro Keys notes") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cb <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn $ sink $ EventIO do
         input <- pickedFile
         sink $ EventOnyx let
           task = do
@@ -3028,14 +2999,13 @@ miscPageMIDI sink rect tab startTasks = do
             lg $ T.unpack $ closeShiftsFile mid
             return []
           in startTasks [("Pro Keys range check: " <> input, task)]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
       return btn
 
     , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Make REAPER project with RB template") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      cb <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser "Save REAPER project" "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
           ext = map toUpper $ takeExtension f
@@ -3045,7 +3015,6 @@ miscPageMIDI sink rect tab startTasks = do
               makeReaper (TuningInfo [] 0) input input [] f'
               return [f']
             in startTasks [("Make REAPER project: " <> input, task)]
-      [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
       return btn
 
     , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
@@ -3053,7 +3022,7 @@ miscPageMIDI sink rect tab startTasks = do
       btn1 <- withRect rectLeft \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Clean convert .chart to MIDI") } |]
       [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-      cb1 <- makeCallback \_ _ -> sink $ EventIO do
+      setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser "Save MIDI file" "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
           ext = map toLower $ takeExtension f
@@ -3064,20 +3033,18 @@ miscPageMIDI sink rect tab startTasks = do
               stackIO $ Save.toFile f' $ TE.encodeUtf8 <$> mid
               return [f']
             in startTasks [("Convert to MIDI: " <> input, task)]
-      [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
 
       -- note, this button doesn't disable when path box is empty since it doesn't use it
       btn2 <- withRect rectRight \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Batch") } |]
       [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-      cb2 <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir ->
+      setCallback btn2 $ sink $ EventIO $ askFolder Nothing \dir ->
         sink $ EventOnyx let
           task = do
             results <- recursiveChartToMidi dir
             when (null results) $ lg "No .chart files found."
             return results
           in startTasks [("Convert .chart to MIDI (batch): " <> dir, task)]
-      [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
 
       return btn1
 
@@ -3091,11 +3058,8 @@ miscPageMIDI sink rect tab startTasks = do
           then forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->activate(); } |]
           else forM_ midiButtons \b -> [C.block| void { $(Fl_Button* b)->deactivate(); } |]
   updatePathInput
-  cbPath <- makeCallback \_ _ -> sink $ EventIO updatePathInput
-  [C.block| void {
-    $(Fl_Input* pathInput)->callback($(Fl_Callback cbPath));
-    $(Fl_Input* pathInput)->when(FL_WHEN_CHANGED);
-  } |]
+  setCallback pathInput $ sink $ EventIO updatePathInput
+  [C.block| void { $(Fl_Input* pathInput)->when(FL_WHEN_CHANGED); } |]
 
   [C.block| void {
     $(Fl_Pack* pack)->end();
@@ -3124,10 +3088,9 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("CON folder"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \f ->
+    setCallback pick $ sink $ EventIO $ askFolder Nothing \f ->
       withUTF8 f \cf ->
         [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -3144,7 +3107,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("Song cache"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    cbPick <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback pick $ sink $ EventIO do
       picker <- [C.exp| Fl_Native_File_Chooser* {
         new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
       } |]
@@ -3159,7 +3122,6 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
         withUTF8 (f :: String) \cf ->
           [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
       [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
-    [C.block| void { $(Fl_Button* pick)->callback($(Fl_Callback cbPick)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -3167,7 +3129,7 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Apply numeric IDs from song cache") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    cb <- makeCallback \_ _ -> sink $ EventIO do
+    setCallback btn $ sink $ EventIO do
       dir <- pickedFolder
       cache <- pickedCache
       let cache' = case cache of
@@ -3178,7 +3140,6 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
           hardcodeSongCacheIDs cache' dir
           return []
         in startTasks [("Hardcode song cache: " <> dir, task)]
-    [C.block| void { $(Fl_Button* btn)->callback($(Fl_Callback cb)); } |]
   [C.block| void {
     $(Fl_Pack* pack)->end();
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
@@ -3243,16 +3204,14 @@ launchQuickConvert sink makeMenuBar = mdo
 
   [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
   updateTabsColor tabs
-  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
-  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  setCallback tabs $ updateTabsColor tabs
   let firstTab = head functionTabs
   [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
 
-  cbWindow <- makeCallback \_ _ -> windowCloser cancelTasks window
+  setCallback window $ windowCloser cancelTasks window
   [C.block| void {
     $(Fl_Window* window)->end();
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
     $(Fl_Window* window)->show();
   } |]
 
@@ -3325,16 +3284,14 @@ launchMisc sink makeMenuBar = mdo
 
   [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
   updateTabsColor tabs
-  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
-  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  setCallback tabs $ updateTabsColor tabs
   let firstTab = head functionTabs
   [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
 
-  cbWindow <- makeCallback \_ _ -> windowCloser cancelTasks window
+  setCallback window $ windowCloser cancelTasks window
   [C.block| void {
     $(Fl_Window* window)->end();
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
     $(Fl_Window* window)->show();
   } |]
 
@@ -3393,11 +3350,10 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
 
   initSong <- getSong
   updateParts False $ map (map fst) $ previewTracks initSong
-  cbTrackMenu <- makeCallback \_ _ -> do
+  setCallback trackMenu do
     sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
     -- reopen menu (TODO find a way to not close it at all)
     sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
-  [C.block| void { $(Fl_Menu_Button* trackMenu)->callback($(Fl_Callback cbTrackMenu)); } |]
 
   -- Audio selection menu
   audioMenu <- withRect audioSelectArea \mx my mw mh ->
@@ -3816,17 +3772,15 @@ launchBatch sink makeMenuBar startFiles = mdo
 
   [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
   updateTabsColor tabs
-  cbTabs <- makeCallback \_ _ -> updateTabsColor tabs
-  [C.block| void { $(Fl_Tabs* tabs)->callback($(Fl_Callback cbTabs)); } |]
+  setCallback tabs $ updateTabsColor tabs
   [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* tabSongs)); } |]
 
-  cbWindow <- makeCallback \_ _ -> windowCloser
+  setCallback window $ windowCloser
     (cancelTasks >> modifyMVar_ cleanupOnCancel \m -> mapM_ release (HM.elems m) >> return HM.empty)
     window
   [C.block| void {
     $(Fl_Window* window)->end();
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->callback($(Fl_Callback cbWindow));
     $(Fl_Window* window)->show();
   } |]
 
@@ -3921,15 +3875,13 @@ launchPreferences sink makeMenuBar = do
           [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
         browseButton <- withRect browseRect \bx by bw bh ->
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-        cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir ->
+        setCallback browseButton $ sink $ EventIO $ askFolder Nothing \dir ->
           withUTF8 dir \cdir ->
             [C.block| void { $(Fl_Input* input)->value($(char* cdir)); } |]
-        [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
         resetButton <- withRect resetRect \bx by bw bh ->
           [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
-        cbReset <- makeCallback \_ _ -> sink $ EventIO do
+        setCallback resetButton $ sink $ EventIO do
           [C.block| void { $(Fl_Input* input)->value(""); } |]
-        [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
         return do
           val <- peekInputValue input
           return $ case val of
@@ -3983,8 +3935,7 @@ launchPreferences sink makeMenuBar = do
                 if v
                   then [C.block| void { $(Fl_Counter* counter)->deactivate(); } |]
                   else [C.block| void { $(Fl_Counter* counter)->activate(); } |]
-          cbCheck <- makeCallback \_ _ -> updateCounter
-          [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+          setCallback check updateCounter
           updateCounter
           return do
             unlimited <- checkValue check
@@ -4376,7 +4327,7 @@ launchPreferences sink makeMenuBar = do
       $(Fl_Button* saveButton)->label("Save");
       $(Fl_Button* saveButton)->color($(Fl_Color taskColor));
     } |]
-    cbSave <- makeCallback \_ _ -> do
+    setCallback saveButton do
       newPrefs <- ($ loadedPrefs) <$> combinePrefs (pref1 : restPrefs)
       let magmaWarning = T.unlines
             [ "Warning! Disabling Magma can result in Rock Band files that crash the game,"
@@ -4391,12 +4342,10 @@ launchPreferences sink makeMenuBar = do
           result <- [C.exp| int { fl_choice("%s", "Cancel", "OK", nullptr, $(char* cmsg)) } |]
           when (result == 1) continueSave
         else continueSave
-    [C.block| void { $(Fl_Button* saveButton)->callback($(Fl_Callback cbSave)); } |]
     cancelButton <- withRect rectButtonB \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Cancel") } |]
-    cbCancel <- makeCallback \_ _ ->
+    setCallback cancelButton
       [C.block| void { $(Fl_Window* window)->hide(); } |]
-    [C.block| void { $(Fl_Button* cancelButton)->callback($(Fl_Callback cbCancel)); } |]
     [C.block| void { $(Fl_Group* bottomArea)->end(); } |]
     [C.block| void {
       $(Fl_Window* window)->end();
@@ -4609,11 +4558,10 @@ launchGUI initSongs = withAL \hasAudio -> do
     buttonMisc->labelsize(13);
   } |]
 
-  cbTermWindow <- makeCallback \_ _ -> windowCloser (return ()) termWindow
+  setCallback termWindow $ windowCloser (return ()) termWindow
   [C.block| void {
     $(Fl_Window* termWindow)->end();
     $(Fl_Window* termWindow)->resizable($(Fl_Simple_Terminal* term));
-    $(Fl_Window* termWindow)->callback($(Fl_Callback cbTermWindow));
     $(Fl_Window* termWindow)->show();
   } |]
 

@@ -12,9 +12,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Song where
 
-import           Onyx.GUI.Core
-import           Onyx.GUI.Util              (askFolder)
-
 import           Control.Monad              (void)
 import           Control.Monad.IO.Class     (MonadIO (..), liftIO)
 import           Control.Monad.Trans.Writer (execWriterT, tell)
@@ -29,7 +26,9 @@ import           Foreign                    (Ptr)
 import qualified Language.C.Inline.Cpp      as C
 import           Onyx.Build                 (targetTitle)
 import           Onyx.GUI.Binding
-import           Onyx.GUI.Util              (checkValue, withUTF8)
+import           Onyx.GUI.Core
+import           Onyx.GUI.Util              (askFolder, checkValue, setCallback,
+                                             withUTF8)
 import           Onyx.Harmonix.Ark.GH2      (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.Mode                  (anyDrums, anyFiveFret)
@@ -108,10 +107,8 @@ songPageRB3 sink rect tab proj build = mdo
         (\msfx rb3 -> (rb3 :: TargetRB3 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
-      cb2x <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Check_Button* box2x)->callback($(Fl_Callback cb2x)); } |]
+      liftIO $ setCallback counterSpeed controlInput
+      liftIO $ setCallback box2x controlInput
   let makeTarget :: Preferences -> IO (TargetRB3 FilePath)
       makeTarget newPreferences = do
         modifier <- targetModifier
@@ -128,7 +125,7 @@ songPageRB3 sink rect tab proj build = mdo
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
+    setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
       saveFileChooser "Save RB3 CON file"
         (T.pack $ proj.projectTemplate <> "_rb3con")
@@ -136,10 +133,9 @@ songPageRB3 sink rect tab proj build = mdo
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ build qcPossible tgt $ RB3CON $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
-    cb2 <- makeCallback \_ _ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
+    setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
       saveFileChooser "Save RB3 PKG file"
         (T.pack $ proj.projectTemplate <> ".pkg")
@@ -147,28 +143,25 @@ songPageRB3 sink rect tab proj build = mdo
         \f -> build qcPossible tgt $ RB3PKG if map toLower (takeExtension f) == ".pkg"
           then f
           else f <.> "pkg"
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Magma project") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
+    setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser "Save Magma v2 project"
         (T.pack $ proj.projectTemplate <> "_project")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build False tgt $ RB3Magma f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
-    cb2 <- makeCallback \_ _ -> sink $ EventOnyx do
+    setCallback btn2 $ sink $ EventOnyx do
       tgt <- makeFinalTarget
       defDir <- getDefaultPS3Dir
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
       stackIO $ askFolder defDir \dout -> do
         build qcPossible tgt $ RB3LoosePS3 dout
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
@@ -226,10 +219,8 @@ songPageRB2 sink rect tab proj build = mdo
         (\msfx rb2 -> (rb2 :: TargetRB2 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
-      cb2x <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Check_Button* box2x)->callback($(Fl_Callback cb2x)); } |]
+      liftIO $ setCallback counterSpeed controlInput
+      liftIO $ setCallback box2x controlInput
   let makeTarget :: Preferences -> IO (TargetRB2 FilePath)
       makeTarget newPreferences = do
         modifier <- targetModifier
@@ -245,35 +236,32 @@ songPageRB2 sink rect tab proj build = mdo
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
+    setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser "Save RB2 CON file"
         (T.pack $ proj.projectTemplate <> "_rb2con")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ build tgt $ RB2CON $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
-    cb2 <- makeCallback \_ _ -> sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
+    setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser "Save RB2 PKG file"
         (T.pack $ proj.projectTemplate <> ".pkg")
         Nothing
         \f -> build tgt $ RB2PKG if map toLower (takeExtension f) == ".pkg"
           then f
           else f <.> "pkg"
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx do
+    setCallback btn1 $ sink $ EventOnyx do
       tgt <- makeFinalTarget
       defDir <- getDefaultPS3Dir
       stackIO $ askFolder defDir \dout -> do
         build tgt $ RB2LoosePS3 dout
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
@@ -333,15 +321,14 @@ songPageGHWOR sink rect tab proj build = mdo
         (\msfx gh5 -> (gh5 :: TargetGH5 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
   let initTarget = def
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
-    cb1 <- makeCallback \_ _ -> do
+    setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save GH:WoR LIVE file"
         (T.pack $ proj.projectTemplate <> "_ghwor")
@@ -349,28 +336,25 @@ songPageGHWOR sink rect tab proj build = mdo
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORLIVE $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
-    cb2 <- makeCallback \_ _ -> do
+    setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save GH:WoR PKG file"
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORPKG f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx do
+    setCallback btn1 $ sink $ EventOnyx do
       tgt <- stackIO makeTarget
       defDir <- getDefaultPS3Dir
       stackIO $ askFolder defDir \dout -> do
         build tgt $ GHWORLoosePS3 dout
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
@@ -430,15 +414,14 @@ songPageRR sink rect tab proj build = mdo
         (\msfx rr -> (rr :: TargetRR FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
   let initTarget = def
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
-    cb1 <- makeCallback \_ _ -> do
+    setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save RR LIVE file"
         (T.pack $ proj.projectTemplate <> "_rr")
@@ -446,16 +429,14 @@ songPageRR sink rect tab proj build = mdo
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ build tgt $ RRLIVE $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create RPCS3 PKG file") } |]
-    cb2 <- makeCallback \_ _ -> do
+    setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save RR PKG file"
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ RRPKG f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
@@ -514,38 +495,34 @@ songPagePS sink rect tab proj build = mdo
         (\msfx ps -> (ps :: TargetPS FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
   let makeTarget = fmap ($ def) targetModifier
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 5 0 5 -> r2, trimClock 0 0 0 5 -> r3] = splitHorizN 3 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS song folder") } |]
-    cb1 <- makeCallback \_ _ -> do
+    setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS song folder"
         (T.pack $ proj.projectTemplate <> "_chps")
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSDir f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH .sng file") } |]
-    cb2 <- makeCallback \_ _ -> do
+    setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS .sng file"
         (T.pack $ proj.projectTemplate <> ".sng")
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSSng f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     btn3 <- withRect r3 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS zip file") } |]
-    cb3 <- makeCallback \_ _ -> do
+    setCallback btn3 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS zip file"
         (T.pack $ proj.projectTemplate <> "_chps.zip")
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSZip f
-    [C.block| void { $(Fl_Button* btn3)->callback($(Fl_Callback cb3)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
@@ -604,12 +581,11 @@ songPageGH3 sink rect tab proj build = mdo
                 [C.block| void { $(Fl_Button* coopButton)->copy_label($(char* clbl)); } |]
               controlRhythm $ coop == GH2Rhythm
         updateCoopButton
-        cbCoop <- makeCallback \_ _ -> sink $ EventIO do
+        setCallback coopButton $ sink $ EventIO do
           modifyIORef coopPart \case
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-        [C.block| void { $(Fl_Button* coopButton)->callback($(Fl_Callback cbCoop)); } |]
       tell $ readIORef coopPart >>= \coop -> return $ Endo \gh3 -> (gh3 :: TargetGH3 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #keys  .~ v)
@@ -631,15 +607,14 @@ songPageGH3 sink rect tab proj build = mdo
         (\msfx gh3 -> (gh3 :: TargetGH3 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
   let initTarget = def :: TargetGH3 FilePath
       makeTarget = fmap ($ initTarget) targetModifier
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
-    cb1 <- makeCallback \_ _ -> do
+    setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save GH3 LIVE file"
         (T.pack $ proj.projectTemplate <> "_gh3live")
@@ -647,28 +622,25 @@ songPageGH3 sink rect tab proj build = mdo
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ build tgt $ GH3LIVE $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
-    cb2 <- makeCallback \_ _ -> do
+    setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save GH3 PKG file"
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ GH3PKG f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
-    cb1 <- makeCallback \_ _ -> sink $ EventOnyx do
+    setCallback btn1 $ sink $ EventOnyx do
       tgt <- stackIO makeTarget
       defDir <- getDefaultPS3Dir
       stackIO $ askFolder defDir \dout -> do
         build tgt $ GH3LoosePS3 dout
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
@@ -721,8 +693,7 @@ songPageGH1 sink rect tab proj build = mdo
         (\msfx gh1 -> (gh1 :: TargetGH1 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
   let initTarget :: Preferences -> TargetGH1 FilePath
       initTarget prefs = (def :: TargetGH1 FilePath) & #offset .~ prefs.prefGH2Offset
       makeTarget = fmap ($ initTarget ?preferences) targetModifier
@@ -734,19 +705,17 @@ songPageGH1 sink rect tab proj build = mdo
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
-    cb1 <- makeCallback \_ _ -> makeTargetUpdatePrefs \tgt -> do
+    setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
       browseFileChooser "Select .HDR file" \f -> let
         gen = takeDirectory f
         in build tgt $ GH1ARK gen
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
-    cb2 <- makeCallback \_ _ -> makeTargetUpdatePrefs \tgt -> do
+    setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser "Create DIY folder"
         (T.pack $ proj.projectTemplate <> "_gh1")
         Nothing
         \f -> build tgt $ GH1DIYPS2 f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
@@ -804,12 +773,11 @@ songPageGH2 sink rect tab proj build = mdo
                 [C.block| void { $(Fl_Button* coopButton)->copy_label($(char* clbl)); } |]
               controlRhythm $ coop == GH2Rhythm
         updateCoopButton
-        cbCoop <- makeCallback \_ _ -> sink $ EventIO do
+        setCallback coopButton $ sink $ EventIO do
           modifyIORef coopPart \case
             GH2Bass   -> GH2Rhythm
             GH2Rhythm -> GH2Bass
           updateCoopButton
-        [C.block| void { $(Fl_Button* coopButton)->callback($(Fl_Callback cbCoop)); } |]
       tell $ readIORef coopPart >>= \coop -> return $ Endo \gh2 -> (gh2 :: TargetGH2 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
       [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #keys  .~ v)
@@ -831,8 +799,7 @@ songPageGH2 sink rect tab proj build = mdo
         (\msfx gh2 -> (gh2 :: TargetGH2 FilePath)
           & #common % #label_ .~ msfx
         )
-      cbSpeed <- liftIO $ makeCallback \_ _ -> controlInput
-      liftIO [C.block| void { $(Fl_Counter* counterSpeed)->callback($(Fl_Callback cbSpeed)); } |]
+      liftIO $ setCallback counterSpeed controlInput
     fullWidth 35 \rect' -> do
       let [rectA, rectB] = splitHorizN 2 rect'
       boxA <- liftIO $ withRect rectA \cx cy cw ch ->
@@ -855,33 +822,30 @@ songPageGH2 sink rect tab proj build = mdo
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
-    cb1 <- makeCallback \_ _ -> makeTargetUpdatePrefs \tgt -> do
+    setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
       browseFileChooser "Select .HDR file" \f -> let
         gen = takeDirectory f
         in build tgt $ GH2ARK gen GH2AddBonus
-    [C.block| void { $(Fl_Button* btn1)->callback($(Fl_Callback cb1)); } |]
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
-    cb2 <- makeCallback \_ _ -> makeTargetUpdatePrefs \tgt -> do
+    setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser "Create DIY folder"
         (T.pack $ proj.projectTemplate <> "_gh2")
         Nothing
         \f -> build tgt $ GH2DIYPS2 f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
   fullWidth 35 \rect' -> do
     btn2 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
-    cb2 <- makeCallback \_ _ -> makeTargetUpdatePrefs \tgt -> do
+    setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser "Save GH2 LIVE file"
         (T.pack $ proj.projectTemplate <> "_gh2live")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ warnCombineXboxGH2 sink $ build tgt $ GH2LIVE $ trimXbox newPreferences f
-    [C.block| void { $(Fl_Button* btn2)->callback($(Fl_Callback cb2)); } |]
     let greenColor = fl_rgb_color 179 221 187
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]

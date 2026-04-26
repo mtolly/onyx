@@ -1,13 +1,18 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ViewPatterns          #-}
 module Onyx.GUI.Util
 ( askFolder
 , Fl_UTF8(..), withMaybeUTF8, peekMaybeUTF8
 , checkValue
+, Cast(..)
+, setCallback
 ) where
 
 import           Control.Exception        (bracket)
@@ -23,7 +28,18 @@ import           Onyx.GUI.Binding
 C.context flContext
 
 C.include "FL/Fl.H"
+C.include "FL/Fl_Button.H"
+C.include "FL/Fl_Check_Button.H"
+C.include "FL/Fl_Round_Button.H"
+C.include "FL/Fl_Counter.H"
+C.include "FL/Fl_Input.H"
+C.include "FL/Fl_Window.H"
+C.include "FL/Fl_Tabs.H"
+C.include "FL/Fl_Menu_Button.H"
 C.include "FL/Fl_Native_File_Chooser.H"
+C.include "FL/Fl_Hor_Nice_Slider.H"
+C.include "FL/Fl_Choice.H"
+C.include "hs_dnd_button.h"
 
 class Fl_UTF8 s where
   withUTF8 :: s -> (CString -> IO a) -> IO a
@@ -50,8 +66,29 @@ peekMaybeUTF8 p = if p == nullPtr
   then return Nothing
   else Just <$> peekUTF8 p
 
+class Cast a b where
+  cast :: Ptr a -> Ptr b
+
+instance Cast Fl_Widget Fl_Widget where cast = id
+instance Cast Fl_Button Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Button* p) } |]
+instance Cast Fl_Check_Button Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Check_Button* p) } |]
+instance Cast Fl_Round_Button Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Round_Button* p) } |]
+instance Cast Fl_Menu_Button Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Menu_Button* p) } |]
+instance Cast Fl_Counter Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Counter* p) } |]
+instance Cast Fl_Input Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Input* p) } |]
+instance Cast Fl_Window Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Window* p) } |]
+instance Cast Fl_Tabs Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Tabs* p) } |]
+instance Cast Fl_Hor_Nice_Slider Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Hor_Nice_Slider* p) } |]
+instance Cast Fl_Choice Fl_Widget where cast p = [C.pure| Fl_Widget* { $(Fl_Choice* p) } |]
+instance Cast HsDndButton Fl_Widget where cast p = [C.pure| Fl_Widget* { $(HsDndButton* p) } |]
+
 checkValue :: Ptr Fl_Check_Button -> IO Bool
 checkValue check = toBool <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
+
+setCallback :: (Cast a Fl_Widget) => Ptr a -> IO () -> IO ()
+setCallback (cast -> btn) act = do
+  cb <- makeCallback \_ _ -> act
+  [C.block| void { $(Fl_Widget* btn)->callback($(Fl_Callback cb)); } |]
 
 askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
 

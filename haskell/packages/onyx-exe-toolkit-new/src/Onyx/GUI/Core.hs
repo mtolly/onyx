@@ -49,7 +49,8 @@ import           Onyx.Build                       (NameRule (..), hashRB3,
 import           Onyx.Build.Common                (getTargetMetadata)
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Util                    (askFolder, checkValue,
-                                                   peekUTF8, withUTF8)
+                                                   peekUTF8, setCallback,
+                                                   withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
 import           Onyx.MIDI.Track.File             (PartName (..))
@@ -259,24 +260,21 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   } |]
   withUTF8 defTemplate \cdef ->
     [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
-  cbButton <- makeCallback \_ _ -> do
+  setCallback button do
     val <- peekInputValue input
     useTemplate val
-  [C.block| void { $(Fl_Button* button)->callback($(Fl_Callback cbButton)); } |]
   browseButton <- withRect browseRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-  cbBrowse <- makeCallback \_ _ -> sink $ EventIO $ askFolder Nothing \dir -> do
+  setCallback browseButton $ sink $ EventIO $ askFolder Nothing \dir -> do
     val <- peekInputValue input
     let newVal = dir </> takeFileName (T.unpack val)
     withUTF8 newVal \cnewval ->
       [C.block| void { $(Fl_Input* input)->value($(char* cnewval)); } |]
-  [C.block| void { $(Fl_Button* browseButton)->callback($(Fl_Callback cbBrowse)); } |]
   resetButton <- withRect resetRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
-  cbReset <- makeCallback \_ _ -> sink $ EventIO do
+  setCallback resetButton $ sink $ EventIO do
     withUTF8 defTemplate \cdef ->
       [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
-  [C.block| void { $(Fl_Button* resetButton)->callback($(Fl_Callback cbReset)); } |]
   return input
 
 chopRight :: CInt -> Rectangle -> (Rectangle, Rectangle)
@@ -396,12 +394,11 @@ horizRadio' rect cb opts = do
     [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
     return btn
   forM_ btns \opt -> do
-    cbOpt <- makeCallback \_ _ -> do
+    setCallback opt do
       forM_ btns \opt' -> do
         let v = if opt == opt' then 1 else 0 :: CInt
         [C.block| void { $(Fl_Round_Button* opt')->value($(int v)); } |]
       sequence_ cb
-    [C.block| void { $(Fl_Round_Button* opt)->callback($(Fl_Callback cbOpt)); } |]
   return do
     bools <- forM btns \btn -> do
       v <- [C.exp| int { $(Fl_Round_Button* btn)->value() } |]
@@ -514,8 +511,7 @@ gh2DeluxeSelector sink rect = do
         if enabled
           then [C.block| void { $(Fl_Choice* kicks)->activate(); } |]
           else [C.block| void { $(Fl_Choice* kicks)->deactivate(); } |]
-  cbCheck <- makeCallback \_ _ -> sink $ EventIO updateKicks
-  [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  setCallback check $ sink $ EventIO updateKicks
   updateKicks
   [C.block| void { $(Fl_Check_Button* check)->value(0); } |]
   return do
@@ -815,35 +811,29 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
   } |]
   clearFiles
   sink $ EventOnyx $ forkSearch startFiles
-  cbAdd <- makeCallback \_ _ -> sink $ EventIO do
-    picker <- [C.exp| Fl_Native_File_Chooser* {
-      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
-    } |]
-    withUTF8 ("Load " <> single) \ctitle ->
-      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-    when (result == 0) do
-      n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
-      fs <- forM [0 .. n - 1] \i -> do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
-        peekUTF8 cstr
-      sink $ EventOnyx $ forkSearch fs
-    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
   withRect btnRectA' \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 ("Add " <> single) \clbl -> do
-      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-      [C.block| void {
-        $(Fl_Button* btn)->copy_label($(char* clbl));
-        $(Fl_Button* btn)->callback($(Fl_Callback cbAdd));
+      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
+    setCallback btn $ sink $ EventIO do
+      picker <- [C.exp| Fl_Native_File_Chooser* {
+        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
       } |]
-  cbClear <- makeCallback \_ _ -> sink $ EventIO $ void clearFiles
+      withUTF8 ("Load " <> single) \ctitle ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+        fs <- forM [0 .. n - 1] \i -> do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+          peekUTF8 cstr
+        sink $ EventOnyx $ forkSearch fs
+      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
   withRect btnRectB' \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 ("Clear " <> plural) \clbl -> do
-      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-      [C.block| void {
-        $(Fl_Button* btn)->copy_label($(char* clbl));
-        $(Fl_Button* btn)->callback($(Fl_Callback cbClear));
-      } |]
+      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
+    setCallback btn $ sink $ EventIO $ void clearFiles
   -- Invisible box overlay on tree rect for drag-and-drop.
   -- Placed last so it's on top; returns 0 for non-DnD events so they pass through.
   dndBox <- withRect treeRect' \dx dy dw dh ->
@@ -925,8 +915,7 @@ customTitleSuffix sink rect getSuffix setSuffix = do
               [C.block| void { $(Fl_Input* input)->value($(char* csfx)); } |]
             [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
-  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
-  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  liftIO $ setCallback check controlInput
   tell do
     b <- checkValue check
     s <- peekInputValue input
@@ -950,8 +939,7 @@ songIDBox rect f = do
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
-  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
-  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  liftIO $ setCallback check controlInput
   tell do
     b <- checkValue check
     s <- peekInputValue input
@@ -985,8 +973,7 @@ numberBox rect lbl f = do
           then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
-  cbCheck <- liftIO $ makeCallback \_ _ -> controlInput
-  liftIO [C.block| void { $(Fl_Check_Button* check)->callback($(Fl_Callback cbCheck)); } |]
+  liftIO $ setCallback check controlInput
   tell do
     b <- checkValue check
     s <- peekInputValue input
