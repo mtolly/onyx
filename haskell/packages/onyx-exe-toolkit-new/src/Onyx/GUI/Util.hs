@@ -86,6 +86,8 @@ instance Cast HsDndButton Fl_Widget where cast p = [C.pure| Fl_Widget* { $(HsDnd
 checkValue :: Ptr Fl_Check_Button -> IO Bool
 checkValue check = toBool <$> [C.exp| int { $(Fl_Check_Button* check)->value() } |]
 
+-- TODO eventually we probably want to free these when widgets are deleted.
+-- fltkhs made subclasses of everything for that purpose
 setCallback :: (Cast a Fl_Widget) => Ptr a -> IO () -> IO ()
 setCallback (cast -> btn) act = do
   cb <- makeCallback \_ _ -> act
