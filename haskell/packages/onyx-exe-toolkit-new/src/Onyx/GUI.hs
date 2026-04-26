@@ -106,7 +106,9 @@ import           Onyx.Genre                        (FullGenre (..),
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Util                     (askFolder, checkValue,
                                                     peekUTF8, setCallback,
-                                                    withMaybeUTF8, withUTF8)
+                                                    withMaybeUTF8,
+                                                    withNativeFileChooser,
+                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2             (GH2InstallLocation (..))
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Harmonix.MOGG                (oggToMoggFiles)
@@ -213,19 +215,17 @@ C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
 
 promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
-promptLoad sink makeMenuBar hasAudio = do
-  picker <- [C.exp| Fl_Native_File_Chooser* {
-    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
-  } |]
-  [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Load song"); } |]
-  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-  when (result == 0) do
-    n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
-    fs <- forM [0 .. n - 1] \i -> do
-      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
-      peekUTF8 cstr
-    sink $ EventOnyx $ startLoad makeMenuBar hasAudio fs
-  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
+  [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
+  \picker -> do
+    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Load song"); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+      fs <- forM [0 .. n - 1] \i -> do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+        peekUTF8 cstr
+      sink $ EventOnyx $ startLoad makeMenuBar hasAudio fs
 
 startLoad :: (Width -> Bool -> IO CInt) -> Bool -> [FilePath] -> Onyx ()
 startLoad makeMenuBar hasAudio fs = do
@@ -306,7 +306,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   let windowWidth = Width 500
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
-  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+  window <- withSize windowSize \w h ->
     [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Select Songs") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
@@ -460,7 +460,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
       title = T.unpack $ T.replace "/" "_" $ fromMaybe "Song" proj.projectSongYaml.metadata.title
-  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+  window <- withSize windowSize \w h ->
     [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h)) } |]
   withUTF8 title \ctitle ->
     [C.block| void { $(Fl_Window* window)->copy_label($(char* ctitle)); } |]
@@ -596,19 +596,18 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   [C.block| void { $(HsDndButton* cover)->redraw(); } |]
                   [C.block| void { delete $(Fl_PNG_Image* oldImage); } |]
         liftIO do
-          setCallback cover do
-            picker <- [C.exp| Fl_Native_File_Chooser* {
-              new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-            } |]
-            [C.block| void {
-              $(Fl_Native_File_Chooser* picker)->title("Select album art");
-              $(Fl_Native_File_Chooser* picker)->filter("*.{png,jpg,jpeg,png_xbox,png_wii}");
-            } |]
-            result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-            when (result == 0) do
-              cpath <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-              path <- peekUTF8 cpath
-              swapImage path
+          setCallback cover $ withNativeFileChooser
+            [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+            \picker -> do
+              [C.block| void {
+                $(Fl_Native_File_Chooser* picker)->title("Select album art");
+                $(Fl_Native_File_Chooser* picker)->filter("*.{png,jpg,jpeg,png_xbox,png_wii}");
+              } |]
+              result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+              when (result == 0) do
+                cpath <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+                path <- peekUTF8 cpath
+                swapImage path
           setDndButtonCallback cover (mapM_ swapImage . listToMaybe)
         tell do
           (_, mpath) <- readMVar currentImage
@@ -1423,30 +1422,28 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Produce MIDI with automatic reductions") } |]
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-      setCallback btn $ sink $ EventIO do
-        picker <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-        } |]
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save MIDI file"); } |]
-        isDir <- Dir.doesDirectoryExist proj.projectSource
-        let dir = if isDir then proj.projectSource else takeDirectory proj.projectSource
-        withUTF8 dir \cdir ->
-          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->filter("*.mid");
-          $(Fl_Native_File_Chooser* picker)->preset_file("reduced.mid");
-        } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          when (not $ null f) do
-            let ext = map toLower $ takeExtension f
-                f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
-            sink $ EventOnyx $ startTasks [(f', do
-              simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
-              return [f'])]
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+      setCallback btn $ sink $ EventIO $ withNativeFileChooser
+        [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+        \picker -> do
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save MIDI file"); } |]
+          isDir <- Dir.doesDirectoryExist proj.projectSource
+          let dir = if isDir then proj.projectSource else takeDirectory proj.projectSource
+          withUTF8 dir \cdir ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+          [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->filter("*.mid");
+            $(Fl_Native_File_Chooser* picker)->preset_file("reduced.mid");
+          } |]
+          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+          when (result == 0) do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+            f <- peekUTF8 cstr
+            when (not $ null f) do
+              let ext = map toLower $ takeExtension f
+                  f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
+              sink $ EventOnyx $ startTasks [(f', do
+                simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
+                return [f'])]
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Find hanging Pro Keys notes") } |]
@@ -1806,55 +1803,50 @@ miscPagePacks sink rect tab startTasks = mdo
 
   let doPrompt output = sink $ EventIO do
         stfs <- readMVar loadedSTFS
-        picker <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-        } |]
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save STFS file"); } |]
-        case stfs of
-          f : _ -> withUTF8 (takeDirectory $ stfsPath f) \cdir ->
-            [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-          _     -> return ()
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          sink $ EventOnyx $ startTasks let
-            task = do
-              packName <- stackIO $ peekInputValue nameInput
-              packDesc <- stackIO $ peekInputValue descInput
-              let makeSTFS isLIVE = let
-                    applyOpts o = o
-                      { STFS.createNames        = [packName]
-                      , STFS.createDescriptions = [packDesc]
-                      , STFS.createLIVE         = isLIVE
-                      }
-                    in STFS.makePack (map stfsPath stfs) applyOpts f
-              maybeArtDir <- case output of
-                PackCON       -> makeSTFS False
-                PackLIVE      -> makeSTFS True
-                PackExtracted -> do
-                  roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
-                  merged <- STFS.packCombineFolders roots
-                  stackIO $ saveHandleFolder merged f
-                  -- TODO add album_art save? probably check what gh2dx xenia setup expects
-                  return Nothing
-              return $ f : toList maybeArtDir
-            taskLabel = case output of
-              PackExtracted -> "Save pack as extracted contents: " <> f
-              PackCON       -> "Save pack as CON: " <> f
-              PackLIVE      -> "Save pack as LIVE: " <> f
-            in [(taskLabel, task)]
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+        withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save STFS file"); } |]
+          case stfs of
+            f : _ -> withUTF8 (takeDirectory $ stfsPath f) \cdir ->
+              [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+            _     -> return ()
+          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+          when (result == 0) do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+            f <- peekUTF8 cstr
+            sink $ EventOnyx $ startTasks let
+              task = do
+                packName <- stackIO $ peekInputValue nameInput
+                packDesc <- stackIO $ peekInputValue descInput
+                let makeSTFS isLIVE = let
+                      applyOpts o = o
+                        { STFS.createNames        = [packName]
+                        , STFS.createDescriptions = [packDesc]
+                        , STFS.createLIVE         = isLIVE
+                        }
+                      in STFS.makePack (map stfsPath stfs) applyOpts f
+                maybeArtDir <- case output of
+                  PackCON       -> makeSTFS False
+                  PackLIVE      -> makeSTFS True
+                  PackExtracted -> do
+                    roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
+                    merged <- STFS.packCombineFolders roots
+                    stackIO $ saveHandleFolder merged f
+                    -- TODO add album_art save? probably check what gh2dx xenia setup expects
+                    return Nothing
+                return $ f : toList maybeArtDir
+              taskLabel = case output of
+                PackExtracted -> "Save pack as extracted contents: " <> f
+                PackCON       -> "Save pack as CON: " <> f
+                PackLIVE      -> "Save pack as LIVE: " <> f
+              in [(taskLabel, task)]
 
   gameBox <- withRect gameRect \bx by bw bh ->
     [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
 
-  nameInput <- withRect nameRect \ix iy iw ih -> do
-    inp <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack name") } |]
-    return inp
-  descInput <- withRect descRect \ix iy iw ih -> do
-    inp <- [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack description") } |]
-    return inp
+  nameInput <- withRect nameRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack name") } |]
+  descInput <- withRect descRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Pack description") } |]
 
   cbCON <- makeCallback \_ _ -> doPrompt PackCON
   btnCON <- withRect conRect \bx by bw bh -> do
@@ -1961,7 +1953,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         n -> show n <> " songs"
       in (entry, [subline])
 
-  -- right side: processors
+  -- right side: processors to transform midis and other files
   packProcessors <- withRect (trimClock 5 5 5 0 processorsRect) \px py pw ph ->
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
   let processorBox = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 40))
@@ -2046,8 +2038,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
     , ("Make Dolphin (Wii) pack"                                  , QCDolphin  )
     ] withQCMode
 
-  let quickTemplateRB :: Preferences -> QuickConvertFormat -> FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
-      quickTemplateRB prefs fmt fin ext txt qdta = fixXbox $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
+  let quickTemplate :: Preferences -> QuickConvertFormat -> FilePath -> T.Text -> T.Text -> Maybe QuickDTA -> FilePath
+      quickTemplate prefs fmt fin ext txt qdta = fixXbox $ validFileName NameRulePC $ dropTrailingPathSeparator $ T.unpack $ foldr ($) txt
         [ T.intercalate (T.pack $ takeDirectory fin) . T.splitOn "%input_dir%"
         , T.intercalate (validFileNamePiece NameRulePC $ dropExt $ T.pack $ takeFileName fin) . T.splitOn "%input_base%"
         , T.intercalate ext . T.splitOn "%ext%"
@@ -2076,7 +2068,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       makeCheckEncrypt = do
         btn <- withRect ps3EncryptArea \cx cy cw ch ->
           [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Encrypt .mid.edat") } |]
-        when ?preferences.prefPS3Encrypt $
+        when ?preferences.prefPS3Encrypt
           [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
         return $ checkValue btn
       makeFormatSelect :: IO () -> IO () -> IO () -> IO () -> IO (IO QuickConvertFormatOutput)
@@ -2099,11 +2091,11 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         return $ readIORef ref
       modeGroup :: IO () -> IO (Ptr Fl_Group)
       modeGroup inner = do
-        grp <- withRect row34 \gx gy gw gh ->
+        group <- withRect row34 \gx gy gw gh ->
           [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
         inner
-        [C.block| void { $(Fl_Group* grp)->end(); } |]
-        return grp
+        [C.block| void { $(Fl_Group* group)->end(); } |]
+        return group
 
   -- Transform in place
   inPlaceGoRef <- newIORef Nothing
@@ -2162,8 +2154,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   -- One to one
   oneToOne <- modeGroup $ mdo
     getFormat <- makeFormatSelect
-      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
-      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      [C.block| void { $(Fl_Group* ps3Options)->activate(); } |]
+      [C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |]
       ([C.block| void { $(Fl_Group* groupStartFile)->hide(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->show(); } |])
       ([C.block| void { $(Fl_Group* groupStartFile)->show(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->hide(); } |])
     ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
@@ -2183,7 +2175,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       "Start"
       "%input_dir%/%input_base%_convert%ext%"
       \template -> sink $ EventOnyx $ stackIO getFormat >>= \case
-        QCOutputLoosePS3   -> return ()
+        QCOutputLoosePS3   -> return () -- shouldn't happen
         QCOutputTwoWay fmt -> do
           files <- stackIO $ readMVar loadedFiles
           enc <- stackIO getEncrypt
@@ -2200,7 +2192,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                     QCFormatCON  -> ""
                     QCFormatLIVE -> ""
                     QCFormatPKG  -> ".pkg"
-                  fout = quickTemplateRB newPreferences fmt fin ext template Nothing
+                  fout = quickTemplate newPreferences fmt fin ext template Nothing
                   isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
                   ps3Settings = QuickPS3Settings
                     { qcPS3Folder      = ps3Folder
@@ -2258,8 +2250,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   packMaxSizeRef <- newIORef Nothing
   makePacks <- modeGroup $ mdo
     getFormat <- makeFormatSelect
-      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
-      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      [C.block| void { $(Fl_Group* ps3Options)->activate(); } |]
+      [C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |]
       (return ())
       (return ())
     ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
@@ -2313,59 +2305,57 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                           }
                     saveQuickSongsPS3Folder qsongs' ps3Settings dout
                   in ("Pack #" <> show (i :: Int), task)
-            QCOutputTwoWay fmt -> stackIO do
-              picker <- [C.exp| Fl_Native_File_Chooser* {
-                new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-              } |]
-              let titleStr = case packs of
-                    [_] -> "Save pack file"
-                    _   -> "Select template for packs (a number will be added for each pack)"
-              withUTF8 (titleStr :: String) \ctitle ->
-                [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-              result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-              when (result == 0) do
-                cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-                userPath <- peekUTF8 cstr
-                let getOutputPath n = case fmt of
-                      QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
-                      _           -> userPath <> packNumber n
-                sink $ EventOnyx do
-                  newPreferences <- readPreferences
-                  startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
-                    fout = getOutputPath i
-                    task = do
-                      mapM_ (lg . T.unpack . artistTitle) qsongs
-                      qsongs' <- mapM songTransform qsongs
-                      let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
-                          maybeEncoding = if isRB3
-                            then newPreferences.prefPackEncoding
-                            else Just Latin1
-                          qsongsReencode = case maybeEncoding of
-                            Nothing          -> qsongs'
-                            Just newEncoding -> qsongs' <&> \qsong -> qsong
-                              { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+            QCOutputTwoWay fmt -> stackIO $ withNativeFileChooser
+              [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+              \picker -> do
+                let titleStr = case packs of
+                      [_] -> "Save pack file"
+                      _   -> "Select template for packs (a number will be added for each pack)"
+                withUTF8 (titleStr :: String) \ctitle ->
+                  [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+                result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+                when (result == 0) do
+                  cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+                  userPath <- peekUTF8 cstr
+                  let getOutputPath n = case fmt of
+                        QCFormatPKG -> dropExtension userPath <> packNumber n <> ".pkg"
+                        _           -> userPath <> packNumber n
+                  sink $ EventOnyx do
+                    newPreferences <- readPreferences
+                    startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
+                      fout = getOutputPath i
+                      task = do
+                        mapM_ (lg . T.unpack . artistTitle) qsongs
+                        qsongs' <- mapM songTransform qsongs
+                        let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                            maybeEncoding = if isRB3
+                              then newPreferences.prefPackEncoding
+                              else Just Latin1
+                            qsongsReencode = case maybeEncoding of
+                              Nothing          -> qsongs'
+                              Just newEncoding -> qsongs' <&> \qsong -> qsong
+                                { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+                                }
+                            ps3Folder' = case ps3Folder of
+                              QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
+                              _                 -> ps3Folder
+                            ps3Settings = QuickPS3Settings
+                              { qcPS3Folder      = Just ps3Folder'
+                              , qcPS3EncryptMIDI = enc
+                              , qcPS3EncryptMOGG = not decryptMOGGs
+                              , qcPS3RB3         = isRB3
                               }
-                          ps3Folder' = case ps3Folder of
-                            QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
-                            _                 -> ps3Folder
-                          ps3Settings = QuickPS3Settings
-                            { qcPS3Folder      = Just ps3Folder'
-                            , qcPS3EncryptMIDI = enc
-                            , qcPS3EncryptMOGG = not decryptMOGGs
-                            , qcPS3RB3         = isRB3
-                            }
-                          xboxSettings live = stackIO $
-                            (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
-                            (defaultTitle qsongsReencode)
-                            ""
-                            live
-                      case fmt of
-                        QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
-                        QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
-                        QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
-                      return [fout]
-                    in ("Pack #" <> show (i :: Int), task)
-              [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+                            xboxSettings live = stackIO $
+                              (if isRB3 then STFS.rb3STFSOptions else STFS.rb2STFSOptions)
+                              (defaultTitle qsongsReencode)
+                              ""
+                              live
+                        case fmt of
+                          QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                          QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
+                          QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                        return [fout]
+                      in ("Pack #" <> show (i :: Int), task)
     btnGo <- withRect goArea \bx by bw bh -> do
       btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Save pack as…") } |]
       [C.block| void {
@@ -2378,8 +2368,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   -- Make songs
   makeSongs <- modeGroup $ mdo
     getFormat <- makeFormatSelect
-      ([C.block| void { $(Fl_Group* ps3Options)->activate(); } |])
-      ([C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |])
+      [C.block| void { $(Fl_Group* ps3Options)->activate(); } |]
+      [C.block| void { $(Fl_Group* ps3Options)->deactivate(); } |]
       ([C.block| void { $(Fl_Group* groupStartFile)->hide(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->show(); } |])
       ([C.block| void { $(Fl_Group* groupStartFile)->show(); } |] >> [C.block| void { $(Fl_Group* groupStartLoosePS3)->hide(); } |])
     ps3Options <- withRect ps3OptionsArea \gx gy gw gh ->
@@ -2409,7 +2399,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                   QCFormatCON  -> ""
                   QCFormatLIVE -> ""
                   QCFormatPKG  -> ".pkg"
-                fout = dout </> quickTemplateRB newPreferences fmt qinput.quickInputPath ext template (Just qsong.quickSongDTA)
+                fout = dout </> quickTemplate newPreferences fmt qinput.quickInputPath ext template (Just qsong.quickSongDTA)
                 isRB3 = qsong.quickSongDTA.qdtaRB3
                 task = do
                   qsong' <- songTransform qsong
@@ -2562,7 +2552,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       updateFiles = modifyMVar_ loadedFiles
   (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink "CH song" "CH songs" updateFiles [] searchQuickFoF
     \qfof -> let
-      entry = T.pack $ qfof.location
+      entry = T.pack qfof.location
       subline = case qfof.format of
         FoFFormat FoFFolder -> "folder format"
         FoFFormat FoFSNG    -> ".sng format"
@@ -2668,13 +2658,14 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   -- row3/row4: mode-specific stuff
   let modeGroup :: IO () -> IO (Ptr Fl_Group)
       modeGroup inner = do
-        grp <- withRect row34 \gx gy gw gh ->
+        group <- withRect row34 \gx gy gw gh ->
           [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
         inner
-        [C.block| void { $(Fl_Group* grp)->end(); } |]
-        return grp
+        [C.block| void { $(Fl_Group* group)->end(); } |]
+        return group
 
-  -- Transform in place
+  -- Transform in place (each input is replaced with a file, package type preserved)
+  --   3rd row: go button
   inPlace <- modeGroup do
     cbGo <- makeCallback \_ _ -> do
       qfofs <- readMVar loadedFiles
@@ -2692,6 +2683,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
         when (result == 1) do
           sink $ EventOnyx do
+            -- TODO this is a hack to avoid stale .sng references after editing them.
+            -- should come up with a better solution!
             stackIO clearFiles
             startTasks $ qfofs <&> \orig -> let
               loc = orig.location
@@ -2742,7 +2735,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
           result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
           when (result == 1) f
 
-  -- new folders
+  -- new folders, template "%input_dir%/%input_base%", warn if any name conflicts
   toFolders <- modeGroup do
     checkDeleteOriginals <- withRect row3 \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Delete original files") } |]
@@ -2757,7 +2750,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         transform <- getTransform
         tasks <- computeTasks qfofs "" template deleteOriginals
         promptTasks tasks $ sink $ EventOnyx do
-          stackIO clearFiles
+          stackIO clearFiles -- hack as mentioned above
           startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
@@ -2768,7 +2761,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
               return [fout]
             in (fout, task)
 
-  -- new sng
+  -- new sng, template "%input_dir%/%input_base%.sng", warn if any name conflicts
   toSNGs <- modeGroup do
     checkDeleteOriginals <- withRect row3 \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Delete original files") } |]
@@ -2783,7 +2776,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
         transform <- getTransform
         tasks <- computeTasks qfofs "sng" template deleteOriginals
         promptTasks tasks $ sink $ EventOnyx do
-          stackIO clearFiles
+          stackIO clearFiles -- hack as mentioned above
           startTasks $ tasks <&> \(orig, _, taskType, fout) -> let
             task = do
               qfof <- transform orig
@@ -2856,6 +2849,7 @@ miscPageMOGG sink rect tab startTasks = mdo
           secs = realToFrac $ time - realToFrac mins * 60 :: Milli
           zero = if secs < 10 then "0" else ""
           stamp = T.pack $ show mins <> ":" <> zero <> show secs
+          -- `time` package can do this once 1.9 is used in GHC 8.8
           in stamp <> " (" <> T.pack (show info.audioFrames) <> " frames @ " <> T.pack (show info.audioRate) <> "Hz)"
         ]
       in (entry, sublines)
@@ -2949,22 +2943,20 @@ miscPageMIDI sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("MIDI or .chart"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker)->title("Load MIDI or .chart file");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi,chart}");
-      } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-        f <- peekUTF8 cstr
-        withUTF8 (f :: String) \cf ->
-          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-        [C.block| void { $(Fl_Input* input)->do_callback(); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+      [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+      \picker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title("Load MIDI or .chart file");
+          $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi,chart}");
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          withUTF8 (f :: String) \cf ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
+          [C.block| void { $(Fl_Input* input)->do_callback(); } |]
     return (input, do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr)
@@ -3084,8 +3076,8 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     [C.block| void {
       $(Fl_Input* input)->labelsize(13);
       $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+      $(Fl_Input* input)->label("CON folder");
     } |]
-    [C.block| void { $(Fl_Input* input)->label("CON folder"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO $ askFolder Nothing \f ->
@@ -3107,21 +3099,19 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     [C.block| void { $(Fl_Input* input)->label("Song cache"); } |]
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker)->title("Load RB3 song cache");
-        $(Fl_Native_File_Chooser* picker)->filter("songcache");
-      } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-        f <- peekUTF8 cstr
-        withUTF8 (f :: String) \cf ->
-          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+      [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+      \picker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title("Load RB3 song cache");
+          $(Fl_Native_File_Chooser* picker)->filter("songcache");
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          withUTF8 (f :: String) \cf ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -3156,7 +3146,7 @@ launchQuickConvert sink makeMenuBar = mdo
   let windowWidth = Width 1000
       windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
-  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+  window <- withSize windowSize \w h ->
     [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Quick Convert") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
@@ -3220,7 +3210,7 @@ launchMisc sink makeMenuBar = mdo
   let windowWidth = Width 900
       windowHeight = Height 600
       windowSize = Size windowWidth windowHeight
-  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+  window <- withSize windowSize \w h ->
     [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Tools") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
@@ -3346,14 +3336,14 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
                 $(Fl_Menu_Button* trackMenu)->add($(char* ct), 0, 0, 0, $(int flags));
               } |]
           writeIORef currentParts names
-          when doRedraw $ sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
+          when doRedraw $ sink $ EventIO [C.block| void { Fl::redraw(); } |]
 
   initSong <- getSong
   updateParts False $ map (map fst) $ previewTracks initSong
   setCallback trackMenu do
-    sink $ EventIO $ [C.block| void { Fl::redraw(); } |]
+    sink $ EventIO [C.block| void { Fl::redraw(); } |]
     -- reopen menu (TODO find a way to not close it at all)
-    sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
+    sink $ EventIO [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
 
   -- Audio selection menu
   audioMenu <- withRect audioSelectArea \mx my mw mh ->
@@ -3369,7 +3359,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
         then Set.delete t currentAudio
         else Set.insert t currentAudio
       -- reopen menu (TODO find a way to not close it at all)
-      sink $ EventIO $ [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
+      sink $ EventIO [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
     withUTF8 t \ct ->
       [C.block| void {
         $(Fl_Menu_Button* audioMenu)->add($(char* ct), 0, $(Fl_Callback cbAudio), 0, $(int flags));
@@ -3398,6 +3388,11 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
 
   -- GL window
   varStuff <- newMVar GLPreload
+  -- TODO add an option to use Fl::use_high_res_GL(1)
+  -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
+  -- But on Mac by default I believe the GL resolution is non-retina unless you set this.
+  -- Either way pixels_per_unit will handle the UI correctly
+  [C.block| void { Fl::use_high_res_GL(0); } |]
   glwindow <- withRect glArea \gx gy gw gh ->
     [C.exp| HsGlWindow* { new HsGlWindow($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   [C.block| void {
@@ -3407,7 +3402,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   drawCb <- makeDrawCallback \_ -> do
     mstuff <- modifyMVar varStuff \case
       GLPreload -> do
-        scale <- [C.exp| float { $(HsGlWindow* glwindow)->pixels_per_unit_public() } |]
+        scale <- [C.exp| float { $(HsGlWindow* glwindow)->pixels_per_unit() } |]
         embedOnyx sink (RGGraphics.loadGLStuff (realToFrac scale) $ Just initSong) >>= \case
           Nothing -> return (GLFailed, Nothing)
           Just s  -> return (GLLoaded s, Just s)
@@ -3420,17 +3415,13 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
       bg <- readIORef currentBG
       updateParts True $ map (map fst) trks
       selected <- getSelectedMenuItems trackMenu
-      w <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_w_public() } |]
-      h <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_h_public() } |]
+      w <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_w() } |]
+      h <- [C.exp| int { $(HsGlWindow* glwindow)->pixel_h() } |]
       let flatTrks = concat trks
       mAudioHandle <- getAudioHandle
       RGGraphics.drawTracks stuff (RGGraphics.WindowDims (fromIntegral w) (fromIntegral h)) t speed bg ?preferences.prefEliteLayout
         (flip mapMaybe selected \name -> (name,) <$> lookup name flatTrks)
         mAudioHandle
-  -- TODO add an option to use high-res GL on Mac.
-  -- This appears to always be forced true on hidpi Linux. Not sure of Windows.
-  -- But on Mac by default I believe the GL resolution is non-retina unless you set this.
-  -- Either way pixelsPerUnit will handle the UI correctly.
   [C.block| void {
     $(HsGlWindow* glwindow)->set_draw_callback($(void (*drawCb)(void*)), nullptr);
   } |]
@@ -3485,7 +3476,7 @@ launchBatch sink makeMenuBar startFiles = mdo
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
-  window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+  window <- withSize windowSize \w h ->
     [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Batch Recompile") } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
@@ -3890,7 +3881,7 @@ launchPreferences sink makeMenuBar = do
       combinePrefs :: [IO (a -> a)] -> IO (a -> a)
       combinePrefs = fmap (foldr (.) id) . sequence
   stackIO do
-    window <- withRect (Rectangle (Position (X 0) (Y 0)) windowSize) \_ _ w h ->
+    window <- withSize windowSize \w h ->
       [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Onyx Preferences") } |]
     [C.block| void { $(Fl_Window* window)->color($(Fl_Color behindTabsColor)); } |]
     menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
@@ -4643,11 +4634,10 @@ getSelectedMenuItems menu = do
   n <- [C.exp| int { $(Fl_Menu_Button* menu)->size() } |]
   fmap catMaybes $ forM [0 .. n - 1] \i -> do
     flags <- [C.exp| int { $(Fl_Menu_Button* menu)->menu()[$(int i)].flags } |]
-    let flMenuValue = [C.pure| int { FL_MENU_VALUE } |]
-    if flags .&. flMenuValue /= 0
+    if flags .&. [C.pure| int { FL_MENU_VALUE } |] /= 0
       then do
         cstr <- [C.exp| const char* { $(Fl_Menu_Button* menu)->menu()[$(int i)].label() } |]
         if cstr == nullPtr
           then return Nothing
-          else Just <$> (T.pack <$> peekUTF8 cstr)
+          else Just . T.pack <$> peekUTF8 cstr
       else return Nothing

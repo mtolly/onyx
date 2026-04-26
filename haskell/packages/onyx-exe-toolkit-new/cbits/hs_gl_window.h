@@ -12,9 +12,6 @@ public:
   HsGlWindow(int x, int y, int w, int h);
   void set_draw_callback(HsDrawCallback cb, void* data);
   void draw() override;
-  int pixel_w_public();
-  int pixel_h_public();
-  float pixels_per_unit_public();
 };
 
 #endif

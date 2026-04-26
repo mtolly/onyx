@@ -331,7 +331,7 @@ songPageGHWOR sink rect tab proj build = mdo
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save GH:WoR LIVE file"
-        (T.pack $ proj.projectTemplate <> "_ghwor")
+        (T.pack $ proj.projectTemplate <> "_ghwor") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
@@ -341,12 +341,11 @@ songPageGHWOR sink rect tab proj build = mdo
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save GH:WoR PKG file"
-        (T.pack $ proj.projectTemplate <> ".pkg")
+        (T.pack $ proj.projectTemplate <> ".pkg") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirRB)
         \f -> warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORPKG f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
@@ -437,9 +436,8 @@ songPageRR sink rect tab proj build = mdo
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ RRPKG f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
@@ -504,7 +502,7 @@ songPagePS sink rect tab proj build = mdo
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS song folder"
-        (T.pack $ proj.projectTemplate <> "_chps")
+        (T.pack $ proj.projectTemplate <> "_chps") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSDir f
     btn2 <- withRect r2 \bx by bw bh ->
@@ -512,7 +510,7 @@ songPagePS sink rect tab proj build = mdo
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS .sng file"
-        (T.pack $ proj.projectTemplate <> ".sng")
+        (T.pack $ proj.projectTemplate <> ".sng") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSSng f
     btn3 <- withRect r3 \bx by bw bh ->
@@ -520,13 +518,12 @@ songPagePS sink rect tab proj build = mdo
     setCallback btn3 do
       tgt <- makeTarget
       saveFileChooser "Save CH/PS zip file"
-        (T.pack $ proj.projectTemplate <> "_chps.zip")
+        (T.pack $ proj.projectTemplate <> "_chps.zip") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSZip f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
@@ -545,8 +542,9 @@ songPageGH3 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      (getSpeed, counter) <- liftIO $ centerFixed rect' $
-        speedPercent' True (trimClock 0 250 0 250 rect')
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh3 ->
         (gh3 :: TargetGH3 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -630,9 +628,8 @@ songPageGH3 sink rect tab proj build = mdo
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ GH3PKG f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
@@ -660,8 +657,9 @@ songPageGH1 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      (getSpeed, counter) <- liftIO $ centerFixed rect' $
-        speedPercent' True (trimClock 0 250 0 250 rect')
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh1 ->
         (gh1 :: TargetGH1 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -716,9 +714,8 @@ songPageGH1 sink rect tab proj build = mdo
         (T.pack $ proj.projectTemplate <> "_gh1")
         Nothing
         \f -> build tgt $ GH1DIYPS2 f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
@@ -737,8 +734,9 @@ songPageGH2 sink rect tab proj build = mdo
   let fullWidth h = padded 5 10 5 10 (Size (Width 800) (Height h))
   targetModifier <- fmap (fmap appEndo) $ execWriterT do
     counterSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> do
-      (getSpeed, counter) <- liftIO $ centerFixed rect' $
-        speedPercent' True (trimClock 0 250 0 250 rect')
+      let centerRect = trimClock 0 250 0 250 rect'
+      (getSpeed, counter) <- liftIO $
+        centerFixed rect' $ speedPercent' True centerRect
       tell $ getSpeed >>= \speed -> return $ Endo \gh2 ->
         (gh2 :: TargetGH2 FilePath) & #common % #speed .~ Just speed
       return counter
@@ -833,9 +831,8 @@ songPageGH2 sink rect tab proj build = mdo
         (T.pack $ proj.projectTemplate <> "_gh2")
         Nothing
         \f -> build tgt $ GH2DIYPS2 f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color greenColor)); } |]
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn2 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
@@ -846,8 +843,7 @@ songPageGH2 sink rect tab proj build = mdo
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
           stackIO $ warnCombineXboxGH2 sink $ build tgt $ GH2LIVE $ trimXbox newPreferences f
-    let greenColor = fl_rgb_color 179 221 187
-    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color greenColor)); } |]
+    [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()

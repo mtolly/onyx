@@ -13,6 +13,7 @@ module Onyx.GUI.Util
 , checkValue
 , Cast(..)
 , setCallback
+, withNativeFileChooser
 ) where
 
 import           Control.Exception        (bracket)
@@ -90,6 +91,13 @@ setCallback (cast -> btn) act = do
   cb <- makeCallback \_ _ -> act
   [C.block| void { $(Fl_Widget* btn)->callback($(Fl_Callback cb)); } |]
 
+withNativeFileChooser :: CInt -> (Ptr Fl_Native_File_Chooser -> IO a) -> IO a
+withNativeFileChooser typ = bracket
+  [C.exp| Fl_Native_File_Chooser* {
+    new Fl_Native_File_Chooser((Fl_Native_File_Chooser::Type)$(int typ))
+  } |]
+  \p -> [C.block| void { delete $(Fl_Native_File_Chooser* p); } |]
+
 askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
 
 #ifdef WINDOWS
@@ -106,11 +114,8 @@ askFolderResult initial = maybe ($ nullPtr) withCWString initial \ws -> do
 
 #else
 
-askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s -> bracket
-  [C.exp| Fl_Native_File_Chooser* {
-    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_DIRECTORY)
-  } |]
-  (\p -> [C.block| void { delete $(Fl_Native_File_Chooser* p); } |])
+askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s ->
+  withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_DIRECTORY } |]
   \picker -> [C.block| const char* {
     Fl_Native_File_Chooser* picker = $(Fl_Native_File_Chooser* picker);
     picker->title("Select folder");

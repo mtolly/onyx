@@ -50,6 +50,7 @@ import           Onyx.Build.Common                (getTargetMetadata)
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    peekUTF8, setCallback,
+                                                   withNativeFileChooser,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
@@ -111,6 +112,9 @@ fl_rgb_color r g b =
 
 withRect :: Rectangle -> (CInt -> CInt -> CInt -> CInt -> a) -> a
 withRect (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) f = f x y w h
+
+withSize :: Size -> (CInt -> CInt -> a) -> a
+withSize (Size (Width w) (Height h)) f = f w h
 
 --------------------------------------------------------------------------------
 
@@ -815,20 +819,18 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 ("Add " <> single) \clbl -> do
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    setCallback btn $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_MULTI_FILE)
-      } |]
-      withUTF8 ("Load " <> single) \ctitle ->
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
-        fs <- forM [0 .. n - 1] \i -> do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
-          peekUTF8 cstr
-        sink $ EventOnyx $ forkSearch fs
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    setCallback btn $ sink $ EventIO $ withNativeFileChooser
+      [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
+      \picker -> do
+        withUTF8 ("Load " <> single) \ctitle ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+          fs <- forM [0 .. n - 1] \i -> do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+            peekUTF8 cstr
+          sink $ EventOnyx $ forkSearch fs
   withRect btnRectB' \bx by bw bh -> do
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 ("Clear " <> plural) \clbl -> do
@@ -1047,34 +1049,30 @@ peekInputValue input = do
 
 -- | Helper for save file chooser pattern used throughout song pages
 saveFileChooser :: T.Text -> T.Text -> Maybe T.Text -> (FilePath -> IO ()) -> IO ()
-saveFileChooser title preset mdir onPick = do
-  picker <- [C.exp| Fl_Native_File_Chooser* {
-    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-  } |]
-  withUTF8 title \ctitle ->
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-  withUTF8 preset \cpreset ->
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
-  forM_ mdir \dir -> withUTF8 dir \cdir ->
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-  when (result == 0) do
-    cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-    f <- peekUTF8 cstr
-    when (not $ null f) $ onPick f
-  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+saveFileChooser title preset mdir onPick = withNativeFileChooser
+  [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+  \picker -> do
+    withUTF8 title \ctitle ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+    withUTF8 preset \cpreset ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+    forM_ mdir \dir -> withUTF8 dir \cdir ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+      f <- peekUTF8 cstr
+      when (not $ null f) $ onPick f
 
 -- | Helper for browsing a single file
 browseFileChooser :: T.Text -> (FilePath -> IO ()) -> IO ()
-browseFileChooser title onPick = do
-  picker <- [C.exp| Fl_Native_File_Chooser* {
-    new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-  } |]
-  withUTF8 title \ctitle ->
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-  result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-  when (result == 0) do
-    cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-    f <- peekUTF8 cstr
-    when (not $ null f) $ onPick f
-  [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+browseFileChooser title onPick = withNativeFileChooser
+  [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+  \picker -> do
+    withUTF8 title \ctitle ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+      f <- peekUTF8 cstr
+      when (not $ null f) $ onPick f

@@ -11,7 +11,3 @@ void HsGlWindow::set_draw_callback(HsDrawCallback cb, void* data) {
 void HsGlWindow::draw() {
   if (draw_cb) draw_cb(draw_data);
 }
-
-int HsGlWindow::pixel_w_public() { return pixel_w(); }
-int HsGlWindow::pixel_h_public() { return pixel_h(); }
-float HsGlWindow::pixels_per_unit_public() { return pixels_per_unit(); }

@@ -31,7 +31,7 @@ import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
 import           Onyx.GUI.Util                (askFolder, peekUTF8, setCallback,
-                                               withUTF8)
+                                               withNativeFileChooser, withUTF8)
 import           Onyx.Harmonix.RockBand.Milo  as Milo
 import           Onyx.Import                  (installPS3Folder)
 import           Onyx.MIDI.Read               (mapTrack)
@@ -77,35 +77,32 @@ miscPageMilo sink rect tab startTasks = do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Extract .milo to folder") } |]
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn do
-      picker1 <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker1)->title("Load .milo");
-        $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-      } |]
-      result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
-      when (result1 == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
-        fin <- peekUTF8 cstr
-        picker2 <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
+    setCallback btn $ withNativeFileChooser
+      [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+      \picker1 -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker1)->title("Load .milo");
+          $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
         } |]
-        [C.block| void { $(Fl_Native_File_Chooser* picker2)->title("Create folder"); } |]
-        withUTF8 (fin <> "-extract") \cpreset ->
-          [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
-        result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
-        when (result2 == 0) do
-          cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
-          dout <- peekUTF8 cstr2
-          sink $ EventOnyx let
-            task = do
-              unpackMilo fin dout
-              return [dout]
-            in startTasks [("Extract " <> fin, task)]
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker2); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker1); } |]
+        result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
+        when (result1 == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
+          fin <- peekUTF8 cstr
+          withNativeFileChooser
+            [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+            \picker2 -> do
+            [C.block| void { $(Fl_Native_File_Chooser* picker2)->title("Create folder"); } |]
+            withUTF8 (fin <> "-extract") \cpreset ->
+              [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
+            result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
+            when (result2 == 0) do
+              cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
+              dout <- peekUTF8 cstr2
+              sink $ EventOnyx let
+                task = do
+                  unpackMilo fin dout
+                  return [dout]
+                in startTasks [("Extract " <> fin, task)]
   padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Repack .milo from folder") } |]
@@ -115,25 +112,22 @@ miscPageMilo sink rect tab startTasks = do
           presetFile = case T.stripSuffix "-extract" dinText of
             Just stripped -> stripped
             Nothing       -> dinText <> ".milo"
-      miloPicker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* miloPicker)->title("Save .milo");
-        $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-      } |]
-      withUTF8 presetFile \cpreset ->
-        [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
-        fout <- peekUTF8 cstr
-        sink $ EventOnyx let
-          task = do
-            packMilo din fout
-            return [fout]
-          in startTasks [("Repack " <> din, task)]
-      [C.block| void { delete $(Fl_Native_File_Chooser* miloPicker); } |]
+      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* miloPicker)->title("Save .milo");
+          $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+        } |]
+        withUTF8 presetFile \cpreset ->
+          [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
+          fout <- peekUTF8 cstr
+          sink $ EventOnyx let
+            task = do
+              packMilo din fout
+              return [fout]
+            in startTasks [("Repack " <> din, task)]
   [C.block| void {
     $(Fl_Pack* pack)->end();
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
@@ -162,20 +156,17 @@ miscPageLipsync sink rect tab startTasks = do
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
-      } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-        f <- peekUTF8 cstr
-        withUTF8 (f :: B.ByteString) \cf ->
-          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
+          $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          withUTF8 (f :: B.ByteString) \cf ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -206,21 +197,18 @@ miscPageLipsync sink rect tab startTasks = do
       )
 
   let saveVoc input go = do
-        picker <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-        } |]
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Save .voc file");
-          $(Fl_Native_File_Chooser* picker)->filter("*.voc");
-        } |]
-        withUTF8 (dropExtension input <.> "voc") \cpreset ->
-          [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          fout <- peekUTF8 cstr
-          go fout
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+        withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+          [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title("Save .voc file");
+            $(Fl_Native_File_Chooser* picker)->filter("*.voc");
+          } |]
+          withUTF8 (dropExtension input <.> "voc") \cpreset ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+          when (result == 0) do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+            fout <- peekUTF8 cstr
+            go fout
 
   padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
@@ -243,35 +231,29 @@ miscPageLipsync sink rect tab startTasks = do
         in startTasks [("Make GH2 .voc: " <> voc, task)]
 
   let pickMilo go = do
-        picker <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-        } |]
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Load Milo file");
-          $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          go f
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+        withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
+          [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title("Load Milo file");
+            $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+          } |]
+          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+          when (result == 0) do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+            f <- peekUTF8 cstr
+            go f
       saveMilo input go = do
-        picker <- [C.exp| Fl_Native_File_Chooser* {
-          new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-        } |]
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Save Milo file");
-          $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        withUTF8 (dropExtension input <.> "milo_xbox") \cpreset ->
-          [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          fout <- peekUTF8 cstr
-          go fout
-        [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+        withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+          [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title("Save Milo file");
+            $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+          } |]
+          withUTF8 (dropExtension input <.> "milo_xbox") \cpreset ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+          when (result == 0) do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+            fout <- peekUTF8 cstr
+            go fout
       hasLipsyncTracks :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m Bool
       hasLipsyncTracks mid = let
         trks = mid.tracks
@@ -509,20 +491,17 @@ miscPageDryVox sink rect tab startTasks = do
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
-      } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-        f <- peekUTF8 cstr
-        withUTF8 (f :: B.ByteString) \cf ->
-          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
+          $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          withUTF8 (f :: B.ByteString) \cf ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -558,29 +537,26 @@ miscPageDryVox sink rect tab startTasks = do
         setCallback btn $ sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
-          picker <- [C.exp| Fl_Native_File_Chooser* {
-            new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-          } |]
-          [C.block| void {
-            $(Fl_Native_File_Chooser* picker)->title("Save lipsync audio");
-            $(Fl_Native_File_Chooser* picker)->filter("*.wav");
-          } |]
-          withUTF8 ((dropExtension input ++ defaultSuffix voc) <.> "wav") \cpreset ->
-            [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
-          result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-          when (result == 0) do
-            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-            f <- peekUTF8 cstr
-            sink $ EventOnyx let
-              task = do
-                mid <- F.loadMIDI input
-                let _ = mid :: F.Song (F.FixedFile U.Beats)
-                    trk = mapTrack (U.applyTempoTrack mid.tempos) $ getSelectedVox voc mid
-                src <- toDryVoxFormat <$> fn trk
-                runAudio src f
-                return [f]
-              in startTasks [(T.unpack label <> ": " <> input, task)]
-          [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+          withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+            [C.block| void {
+              $(Fl_Native_File_Chooser* picker)->title("Save lipsync audio");
+              $(Fl_Native_File_Chooser* picker)->filter("*.wav");
+            } |]
+            withUTF8 ((dropExtension input ++ defaultSuffix voc) <.> "wav") \cpreset ->
+              [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+            result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+            when (result == 0) do
+              cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+              f <- peekUTF8 cstr
+              sink $ EventOnyx let
+                task = do
+                  mid <- F.loadMIDI input
+                  let _ = mid :: F.Song (F.FixedFile U.Beats)
+                      trk = mapTrack (U.applyTempoTrack mid.tempos) $ getSelectedVox voc mid
+                  src <- toDryVoxFormat <$> fn trk
+                  runAudio src f
+                  return [f]
+                in startTasks [(T.unpack label <> ": " <> input, task)]
   dryvoxButton "Make sine wave dry vox from MIDI" $ return . sineDryVox
   pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
     let (_, rectA) = chopLeft 100 rect'
@@ -596,20 +572,17 @@ miscPageDryVox sink rect tab startTasks = do
     pick <- withRect pickRect \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
-      picker <- [C.exp| Fl_Native_File_Chooser* {
-        new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_FILE)
-      } |]
-      [C.block| void {
-        $(Fl_Native_File_Chooser* picker)->title("Load song or vocals audio");
-        $(Fl_Native_File_Chooser* picker)->filter("*.{wav,ogg,mp3,flac}");
-      } |]
-      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-      when (result == 0) do
-        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-        f <- peekUTF8 cstr
-        withUTF8 (f :: B.ByteString) \cf ->
-          [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-      [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
+        [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title("Load song or vocals audio");
+          $(Fl_Native_File_Chooser* picker)->filter("*.{wav,ogg,mp3,flac}");
+        } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+          f <- peekUTF8 cstr
+          withUTF8 (f :: B.ByteString) \cf ->
+            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
     return do
       cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
       peekUTF8 cstr
@@ -642,49 +615,43 @@ miscPageGH3SongCache sink rect tab startTasks = do
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
-    picker <- [C.exp| Fl_Native_File_Chooser* {
-      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-    } |]
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (360)"); } |]
-    case inputs of
-      f : _ -> withUTF8 (takeDirectory f) \cdir ->
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-      _ -> return ()
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("gh3_custom_cache"); } |]
-    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-    when (result == 0) do
-      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-      f <- peekUTF8 cstr
-      sink $ EventOnyx $ startTasks let
-        task = do
-          combineGH3SongCache360 inputs f
-          return [f]
-        in [("Make GH3 cache file", task)]
-    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (360)"); } |]
+      case inputs of
+        f : _ -> withUTF8 (takeDirectory f) \cdir ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+        _ -> return ()
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("gh3_custom_cache"); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        sink $ EventOnyx $ startTasks let
+          task = do
+            combineGH3SongCache360 inputs f
+            return [f]
+          in [("Make GH3 cache file", task)]
   btn2 <- withRect ps3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH3 cache (PS3)") } |]
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
-    picker <- [C.exp| Fl_Native_File_Chooser* {
-      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-    } |]
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (PS3)"); } |]
-    case inputs of
-      f : _ -> withUTF8 (takeDirectory f) \cdir ->
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-      _ -> return ()
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("gh3_custom_cache.pkg"); } |]
-    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-    when (result == 0) do
-      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-      f <- peekUTF8 cstr
-      sink $ EventOnyx $ startTasks let
-        task = do
-          combineGH3SongCachePS3 inputs f
-          return [f]
-        in [("Make GH3 cache file", task)]
-    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (PS3)"); } |]
+      case inputs of
+        f : _ -> withUTF8 (takeDirectory f) \cdir ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+        _ -> return ()
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("gh3_custom_cache.pkg"); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        sink $ EventOnyx $ startTasks let
+          task = do
+            combineGH3SongCachePS3 inputs f
+            return [f]
+          in [("Make GH3 cache file", task)]
   btn3 <- withRect looseRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH3 cache (RPCS3)") } |]
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
@@ -720,49 +687,43 @@ miscPageWoRSongCache sink rect tab startTasks = do
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
-    picker <- [C.exp| Fl_Native_File_Chooser* {
-      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-    } |]
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (360)"); } |]
-    case inputs of
-      f : _ -> withUTF8 (takeDirectory f) \cdir ->
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-      _ -> return ()
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("ghwor_custom_cache"); } |]
-    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-    when (result == 0) do
-      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-      f <- peekUTF8 cstr
-      sink $ EventOnyx $ startTasks let
-        task = do
-          makeMetadataLIVE inputs f
-          return [f]
-        in [("Make WoR cache file", task)]
-    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (360)"); } |]
+      case inputs of
+        f : _ -> withUTF8 (takeDirectory f) \cdir ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+        _ -> return ()
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("ghwor_custom_cache"); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        sink $ EventOnyx $ startTasks let
+          task = do
+            makeMetadataLIVE inputs f
+            return [f]
+          in [("Make WoR cache file", task)]
   btn2 <- withRect ps3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH:WoR cache (PS3)") } |]
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
-    picker <- [C.exp| Fl_Native_File_Chooser* {
-      new Fl_Native_File_Chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE)
-    } |]
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (PS3)"); } |]
-    case inputs of
-      f : _ -> withUTF8 (takeDirectory f) \cdir ->
-        [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
-      _ -> return ()
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("ghwor_custom_cache.pkg"); } |]
-    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-    when (result == 0) do
-      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-      f <- peekUTF8 cstr
-      sink $ EventOnyx $ startTasks let
-        task = do
-          makeMetadataPKG inputs f
-          return [f]
-        in [("Make WoR cache file", task)]
-    [C.block| void { delete $(Fl_Native_File_Chooser* picker); } |]
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (PS3)"); } |]
+      case inputs of
+        f : _ -> withUTF8 (takeDirectory f) \cdir ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+        _ -> return ()
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file("ghwor_custom_cache.pkg"); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+        f <- peekUTF8 cstr
+        sink $ EventOnyx $ startTasks let
+          task = do
+            makeMetadataPKG inputs f
+            return [f]
+          in [("Make WoR cache file", task)]
   btn3 <- withRect looseRect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH:WoR cache (RPCS3)") } |]
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
