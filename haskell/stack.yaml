@@ -2,7 +2,6 @@ packages:
 - packages/onyx-lib
 - packages/onyx-lib-game
 - packages/onyx-exe-toolkit
-- packages/onyx-exe-toolkit-new
 - packages/onyx-ffmpeg
 - packages/onyx-handle
 extra-deps:
@@ -28,17 +27,6 @@ extra-deps:
 # git repos
 - git: https://github.com/mtolly/midi
   commit: 67c595a8f0c3b2fa193c088374de5bf544234ff0 # string-param branch
-- git: https://github.com/mtolly/fltkhs
-  # from TheGreatConsolidation upstream branch with several edits:
-  # - updated fltk due to file picker bug in macos monterey
-  #   as well as drag and drop bug in wayland
-  # - fix some bindings on all platforms due to that update
-  # - add some screen scale function bindings
-  # - put built fltk and c-lib under onyx's .stack-work, instead of /tmp
-  # - newer fltk also supports kdialog but I disabled that until it's more polished
-  commit: 993a8edb42849c517c1ee86afdfd255ec4a2ba16
-  subdirs:
-  - fltkhs
 - git: https://github.com/mtolly/midi-util
   commit: 36f80fcbc57a9ee0c9e3175cc5890afe7da3abf2 # string-param branch
 - git: https://github.com/mtolly/OpenAL
@@ -62,8 +50,4 @@ extra-deps:
   subdirs:
   - conduit-audio-lame
 resolver: lts-22.34
-flags:
-  fltkhs:
-    bundled: true
-    opengl: true
 allow-newer: true

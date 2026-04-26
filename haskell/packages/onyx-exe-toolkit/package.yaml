@@ -5,22 +5,54 @@ author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
 license: GPL-3
 license-file: ../../LICENSE.txt
+build-type: Custom
 
 extra-source-files:
 - ../../icon/icon.*
+- cbits/*.h
+- cbits/*.cpp
 
 ghc-options: -Wall
+
+custom-setup:
+  dependencies:
+  - Cabal
+  - base
+  - process
+  - filepath
 
 executables:
 
   onyx:
     source-dirs: src
     main: Main.hs
+    other-modules:
+    - Onyx.GUI
+    - Onyx.GUI.Batch
+    - Onyx.GUI.Binding
+    - Onyx.GUI.Core
+    - Onyx.GUI.Misc
+    - Onyx.GUI.Song
+    - Onyx.GUI.Util
+    - Paths_onyx_exe_toolkit
     c-sources:
     - cbits/time_monotonic.c
+    cxx-sources:
+    - cbits/hs_gl_window.cpp
+    - cbits/Fl_Center.cpp
+    - cbits/hs_scrubber.cpp
+    - cbits/hs_dnd_button.cpp
+    - cbits/hs_dnd_group.cpp
+    - cbits/hs_dnd_box.cpp
+    - cbits/hs_tree.cpp
+    - cbits/Fl_Simple_Terminal.cpp
+    include-dirs:
+    - cbits
 
     dependencies:
     - base
+    - inline-c
+    - inline-c-cpp
     - directory
     - aeson
     - text
@@ -35,7 +67,6 @@ executables:
     - data-default-class
     - stm
     - req
-    - fltkhs
     - midi
     - event-list
     - containers
@@ -54,6 +85,7 @@ executables:
     - JuicyPixels
     - hashable
     - optics
+    - vector
     # my libraries
     - midi-util
     - conduit-audio
@@ -61,7 +93,12 @@ executables:
     - onyx-lib
     - onyx-lib-game
     - onyx-handle
-    - vector
+
+    extra-libraries:
+    - stdc++
+    # everything for fltk is added via Setup.hs running fltk-config
+    
+    cxx-options: -std=c++11
 
     ghc-options: -threaded -O -with-rtsopts=-N
 
