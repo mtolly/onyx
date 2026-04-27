@@ -213,6 +213,7 @@ C.include "hs_gl_window.h"
 C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
+C.include "FL/fl_string_functions.h"
 
 promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -2357,7 +2358,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                         return [fout]
                       in ("Pack #" <> show (i :: Int), task)
     btnGo <- withRect goArea \bx by bw bh -> do
-      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Save pack as…") } |]
+      btn <- withUTF8 ("Save pack as…" :: T.Text) \s ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* s))) } |]
       [C.block| void {
         $(Fl_Button* btn)->color($(Fl_Color taskColor));
         $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
@@ -2469,7 +2471,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
           saveQuickSongsDolphin qsongs settings dout
         in [("Make Dolphin pack", task)]
     withRect row4 \bx by bw bh -> do
-      btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Select folder…") } |]
+      btn <- withUTF8 ("Select folder…" :: T.Text) \s ->
+        [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* s))) } |]
       [C.block| void {
         $(Fl_Button* btn)->color($(Fl_Color taskColor));
         $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
@@ -4476,9 +4479,8 @@ launchGUI initSongs = withAL \hasAudio -> do
     Fl_Button* buttonGithub = new Fl_Button(10, 10 + $(int menuHeight), 100, 25, "Homepage");
     buttonGithub->callback($(Fl_Callback cbGithub));
   } |]
-  labelLatest <- [C.exp| Fl_Box* {
-    new Fl_Box(120, 10 + $(int menuHeight), 520, 25, "Checking for updates…")
-  } |]
+  labelLatest <- withUTF8 ("Checking for updates…" :: T.Text) \s ->
+    [C.exp| Fl_Box* { new Fl_Box(120, 10 + $(int menuHeight), 520, 25, fl_strdup($(char* s))) } |]
   _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO do
     let compInt = case comp of
           EQ -> 0
