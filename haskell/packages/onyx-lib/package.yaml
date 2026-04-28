@@ -121,7 +121,6 @@ library:
   - cbits/encode_vag.c
   - cbits/cross_correlate.c
   extra-libraries:
-  - stdc++
   - vorbisfile # needed for ghci to work, even though it's under pkg-config?
   pkg-config-dependencies:
   - vorbisfile
@@ -136,6 +135,12 @@ library:
     else:
       dependencies: mountpoints
   - condition: os(darwin)
-    cpp-options: -DMACOSX
-    c-sources: cbits/macfiles.m
-    frameworks: AppKit
+    then:
+      cpp-options: -DMACOSX
+      c-sources: cbits/macfiles.m
+      frameworks: AppKit
+      extra-libraries:
+      - c++
+    else:
+      extra-libraries:
+      - stdc++

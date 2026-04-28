@@ -33,4 +33,7 @@ library
     cbits/ArkTool_v6.1/HdrFile.cpp
     cbits/ArkTool_v6.1/PssVgsAccess.cpp
     cbits/ArkTool_v6.1/SongCrypt.cpp
-  extra-libraries: stdc++
+  if os(darwin)
+    extra-libraries: c++
+  else
+    extra-libraries: stdc++

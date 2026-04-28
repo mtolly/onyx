@@ -94,29 +94,32 @@ executables:
     - onyx-lib-game
     - onyx-handle
 
-    extra-libraries:
-    - stdc++
     # everything for fltk is added via Setup.hs running fltk-config
-    
+
     cxx-options: -std=c++11
 
-    ghc-options: -threaded -O -with-rtsopts=-N
+    # -optcxx- needed for inline-c-cpp snippets
+    # (cxx-options only applies to files in cxx-sources)
+    ghc-options: -threaded -O -with-rtsopts=-N -optcxx-std=c++11
 
     when:
     - condition: os(mingw32)
       then:
         cpp-options: -DWINDOWS
         ld-options: ../../icon/icon.o -mwindows
+        extra-libraries: stdc++
         dependencies: Win32
         cxx-sources:
         - cbits/win_open_folder.cpp
-        cxx-options: -std=c++11
       else:
         dependencies: mountpoints
     - condition: os(darwin)
       cpp-options: -DMACOSX
-      # copied from fltkhs-hello-world, also unwind is to avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
-      ghc-options: "-optl-Wl,-lfltkc -optl-Wl,-keep_dwarf_unwind"
+      extra-libraries: c++
+      # avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
+      ghc-options: "-optl-Wl,-keep_dwarf_unwind"
+    - condition: os(linux)
+      extra-libraries: stdc++
 
   onyx-package:
     main: Installer.hs

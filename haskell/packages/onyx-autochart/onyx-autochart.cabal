@@ -15,5 +15,8 @@ library
     cbits/midi-ch.cpp
   build-depends: base, containers
   default-language: Haskell2010
-  extra-libraries: stdc++
   cxx-options: -std=c++11
+  if os(darwin)
+    extra-libraries: c++
+  else
+    extra-libraries: stdc++

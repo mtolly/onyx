@@ -31,6 +31,9 @@ myConfHook (description, buildInfo) flags = do
         = applyFlags fs $ bi <> mempty { extraLibDirs = [drop 2 f] }
       applyFlags ("-framework" : f : fs) bi
         = applyFlags fs $ bi <> mempty { frameworks = [f] }
+      applyFlags ("-weak_framework" : f : fs) bi
+        -- doesn't look like Cabal supports "weak"
+        = applyFlags fs $ bi <> mempty { frameworks = [f] }
       applyFlags ("-framework-path" : f : fs) bi
         = applyFlags fs $ bi <> mempty { extraFrameworkDirs = [f] }
       applyFlags (f : fs) bi = applyFlags fs $ if archivePath f

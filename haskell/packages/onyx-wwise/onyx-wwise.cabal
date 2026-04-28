@@ -20,6 +20,9 @@ library
     cbits/wwriff.cpp
   build-depends: base, bytestring
   default-language: Haskell2010
-  extra-libraries: stdc++
   pkgconfig-depends: ogg, vorbis
   cxx-options: -std=c++11
+  if os(darwin)
+    extra-libraries: c++
+  else
+    extra-libraries: stdc++

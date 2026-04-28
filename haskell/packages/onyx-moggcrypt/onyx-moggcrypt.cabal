@@ -11,7 +11,8 @@ library
     src
   -- the extra c++11 setting here doesn't seem like it should be required,
   -- since we have the other one down in cxx-options.
-  -- but otherwise inline-c-cpp snippets throw errors on old ubuntu in docker
+  -- but otherwise inline-c-cpp snippets throw errors on old ubuntu in docker.
+  -- (not sure why -optcxx-std=c++11 doesn't work, at least on mac)
   ghc-options: -Wall -optcxx -std=c++11 -O
   include-dirs:
     cbits
@@ -27,5 +28,9 @@ library
     cbits/XTEABlockEncrypter.cpp
   build-depends: base, bytestring, onyx-handle, resourcet, inline-c, inline-c-cpp, containers
   default-language: Haskell2010
-  extra-libraries: stdc++, vorbisfile
+  extra-libraries: vorbisfile
+  if os(darwin)
+    extra-libraries: c++
+  else
+    extra-libraries: stdc++
   cxx-options: -std=c++11 -DVR_NO_DECODE
