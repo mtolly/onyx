@@ -26,11 +26,7 @@ library
     cbits/VorbisEncrypter.cpp
     cbits/VorbisReader.cpp
     cbits/XTEABlockEncrypter.cpp
-  build-depends: base, bytestring, onyx-handle, resourcet, inline-c, inline-c-cpp, containers
+  build-depends: base, bytestring, onyx-handle, resourcet, inline-c, inline-c-cpp, containers, system-cxx-std-lib
   default-language: Haskell2010
   extra-libraries: vorbisfile
-  if os(darwin)
-    extra-libraries: c++
-  else
-    extra-libraries: stdc++
   cxx-options: -std=c++11 -DVR_NO_DECODE

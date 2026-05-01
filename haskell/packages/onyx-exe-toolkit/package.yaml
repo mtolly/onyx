@@ -51,6 +51,7 @@ executables:
 
     dependencies:
     - base
+    - system-cxx-std-lib
     - inline-c
     - inline-c-cpp
     - directory
@@ -107,7 +108,6 @@ executables:
       then:
         cpp-options: -DWINDOWS
         ld-options: ../../icon/icon.o -mwindows
-        extra-libraries: stdc++
         dependencies: Win32
         cxx-sources:
         - cbits/win_open_folder.cpp
@@ -115,11 +115,8 @@ executables:
         dependencies: mountpoints
     - condition: os(darwin)
       cpp-options: -DMACOSX
-      extra-libraries: c++
       # avoid https://gitlab.haskell.org/ghc/ghc/issues/11829
       ghc-options: "-optl-Wl,-keep_dwarf_unwind"
-    - condition: os(linux)
-      extra-libraries: stdc++
 
   onyx-package:
     main: Installer.hs

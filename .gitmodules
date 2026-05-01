@@ -37,6 +37,3 @@
 [submodule "haskell/dependencies/libs/SDL"]
 	path = haskell/dependencies/libs/SDL
 	url = https://github.com/libsdl-org/SDL
-[submodule "haskell/cabal"]
-	path = haskell/cabal
-	url = https://github.com/mtolly/cabal

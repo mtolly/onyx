@@ -7,6 +7,7 @@ import           Distribution.Simple
 import           Distribution.Simple.LocalBuildInfo
 import           Distribution.Simple.Setup          (ConfigFlags)
 import           System.FilePath                    (takeExtension)
+import           System.Info                        (os)
 import           System.Process                     (readProcess)
 
 main :: IO ()
@@ -20,11 +21,15 @@ myConfHook (description, buildInfo) flags = do
 
   -- borrowing this logic from fltkhs to apply fltk-config output to cabal
 
+  let (prog, args) = case os of
+        -- fltk-config is a shell script!
+        "mingw32" -> ("sh", ["../../dependencies/root/bin/fltk-config"])
+        _         -> ("../../dependencies/root/bin/fltk-config", [])
   -- TODO `words` doesn't handle paths with spaces? unlikely to be an issue though
-  allFlags <- words <$> readProcess "../../dependencies/root/bin/fltk-config"
+  allFlags <- words <$> readProcess prog
     -- seems like our current fltk build only makes static .a anyway?
     -- fine either static/dynamic but this way we can just add as extra-libraries dependency
-    ["--ldflags", "--use-gl", "--use-images"] ""
+    (args <> ["--ldflags", "--use-gl", "--use-images"]) ""
   let applyFlags (f : fs) bi | "-l" `isPrefixOf` f
         = applyFlags fs $ bi <> mempty { extraLibs = [drop 2 f], extraGHCiLibs = [drop 2 f] }
       applyFlags (f : fs) bi | "-L" `isPrefixOf` f

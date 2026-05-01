@@ -11,19 +11,12 @@ extra-source-files:
 
 ghc-options: -Wall
 
-# this doesn't actually customize anything,
-# it just makes sure that we use the patched Cabal
-# which works around a c2hs invocation issue on Windows
-custom-setup:
-  dependencies:
-  - base
-  - Cabal
-
 library:
 
   source-dirs: src
   dependencies:
   - base
+  - system-cxx-std-lib
   - shake
   - hashable
   - directory
@@ -87,6 +80,7 @@ library:
   - linear
   - pretty-simple
   - optics
+  - inline-c
   # my libraries
   - jammittools
   - midi-util
@@ -110,7 +104,6 @@ library:
 
   ghc-options: -O
   build-tools:
-  - c2hs >= 0.27.1
   - alex
   - happy
 
@@ -135,12 +128,6 @@ library:
     else:
       dependencies: mountpoints
   - condition: os(darwin)
-    then:
-      cpp-options: -DMACOSX
-      c-sources: cbits/macfiles.m
-      frameworks: AppKit
-      extra-libraries:
-      - c++
-    else:
-      extra-libraries:
-      - stdc++
+    cpp-options: -DMACOSX
+    c-sources: cbits/macfiles.m
+    frameworks: AppKit

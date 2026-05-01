@@ -24,13 +24,21 @@ opus:
 	# and if we don't set the version, then libsndfile won't use any external libs
 	cd libs/opus && echo 'PACKAGE_VERSION="1.4"' > package_version
 	cd libs/opus && ./autogen.sh
+ifeq ($(OS),Windows_NT)
+	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
+else
 	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
+endif
 	cd libs/opus && make
 	cd libs/opus && make install
 
 flac:
 	cd libs/flac && ./autogen.sh
+ifeq ($(OS),Windows_NT)
+	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
+else
 	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
+endif
 	cd libs/flac && make
 	cd libs/flac && make install
 
@@ -50,9 +58,11 @@ rubberband:
 
 fltk:
 	# TODO previously we hacked fltkhs to disable kdialog support,
-	# do we still need to do that or is it fixed up now
+	# do we still need to do that or is it fixed up now?
+	# pen support is off because it fails to build on my windows 10 22h2 vm
 	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
-		-DFLTK_USE_SYSTEM_LIBJPEG=OFF -DFLTK_USE_SYSTEM_ZLIB=OFF -DFLTK_USE_SYSTEM_LIBPNG=OFF
+		-DFLTK_USE_SYSTEM_LIBJPEG=OFF -DFLTK_USE_SYSTEM_ZLIB=OFF -DFLTK_USE_SYSTEM_LIBPNG=OFF \
+		-DFLTK_OPTION_PEN_SUPPORT=OFF
 	cd libs/fltk && cmake --build build
 	cd libs/fltk && cmake --install build
 
