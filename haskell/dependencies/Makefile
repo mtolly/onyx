@@ -1,6 +1,13 @@
 mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
 current_dir := $(dir $(mkfile_path))
 
+# need to force ffmpeg to use Clang on Windows
+ifeq ($(OS),Windows_NT)
+ffmpeg_cc := --cc=clang --cxx=clang++ --objcc=clang --dep-cc=clang
+else
+ffmpeg_cc :=
+endif
+
 # libraries we are currently building locally
 default: ogg vorbis opus flac ffmpeg lame libsndfile libsamplerate fltk
 
@@ -70,7 +77,7 @@ ffmpeg:
 	# were recommended by Claude Code for CPU compatibility
 	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers \
 		--disable-avx512 --disable-avx512icl --disable-xop --disable-fma4 --disable-avx2 --disable-fma3 \
-		--prefix=$(current_dir)/root
+		--prefix=$(current_dir)/root $(ffmpeg_cc)
 	cd libs/FFmpeg && make
 	cd libs/FFmpeg && make install
 
