@@ -20,27 +20,20 @@ vorbis:
 	cd libs/vorbis && make install
 
 opus:
+	# (not sure if this is still required with cmake)
 	# update_version doesn't work in the copied-to-docker git repo.
 	# and if we don't set the version, then libsndfile won't use any external libs
-	cd libs/opus && echo 'PACKAGE_VERSION="1.4"' > package_version
-	cd libs/opus && ./autogen.sh
-ifeq ($(OS),Windows_NT)
-	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
-else
-	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
-endif
-	cd libs/opus && make
-	cd libs/opus && make install
+	cd libs/opus && echo 'PACKAGE_VERSION="1.5.2"' > package_version
+	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
+		-DOPUS_BUILD_SHARED_LIBRARY=ON
+	cd libs/opus && cmake --build build
+	cd libs/opus && cmake --install build
 
 flac:
-	cd libs/flac && ./autogen.sh
-ifeq ($(OS),Windows_NT)
-	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig LDFLAGS="-lssp" ./configure --prefix=$(current_dir)/root
-else
-	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
-endif
-	cd libs/flac && make
-	cd libs/flac && make install
+	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
+		-DBUILD_SHARED_LIBS=ON -DINSTALL_MANPAGES=OFF
+	cd libs/flac && cmake --build build
+	cd libs/flac && cmake --install build
 
 sdl:
 	cd libs/SDL && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
