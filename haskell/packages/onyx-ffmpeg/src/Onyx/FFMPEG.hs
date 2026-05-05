@@ -1,6 +1,7 @@
 {-
 Claude Code did most of the work of translating this binding from c2hs to inline-c
 -}
+{-# LANGUAGE BlockArguments             #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DuplicateRecordFields      #-}
 {-# LANGUAGE EmptyDataDecls             #-}
@@ -24,11 +25,14 @@ import           Control.Concurrent.STM       (atomically, newTBQueueIO,
                                                readTBQueue, writeTBQueue)
 import           Control.Exception            (Exception (..), throwIO)
 import           Control.Monad                (forM, forM_, unless, when)
-import           Control.Monad.Trans.Resource (MonadResource, liftResourceT,
-                                               resourceForkIO)
-import           Data.Coerce                  (coerce)
-import           Data.Conduit                 (ConduitM, bracketP, yield)
+import           Control.Monad.Trans.Resource (MonadResource, ResourceT,
+                                               liftResourceT, resourceForkIO,
+                                               runResourceT)
+import           Data.Char                    (toLower)
+import           Data.Conduit                 (ConduitM, bracketP, runConduit,
+                                               yield, (.|))
 import qualified Data.Conduit.Audio           as CA
+import qualified Data.Conduit.List            as CL
 import           Data.IORef                   (newIORef, readIORef, writeIORef)
 import           Data.List.Split              (splitOn)
 import qualified Data.Map                     as Map
@@ -47,9 +51,11 @@ import qualified Language.C.Inline.Context    as C
 import qualified Language.C.Types             as C
 import           Onyx.MP3                     (MP3GaplessInfo (..), stripMP3)
 import           Onyx.Util.Handle             (Readable, fileReadable, rOpen)
-import           System.IO                    (Handle, SeekMode (..), hClose,
-                                               hFileSize, hGetBuf, hIsWritable,
-                                               hPutBuf, hSeek, hTell)
+import           System.FilePath              (takeExtension)
+import           System.IO                    (Handle, IOMode (ReadWriteMode),
+                                               SeekMode (..), hClose, hFileSize,
+                                               hGetBuf, hIsWritable, hPutBuf,
+                                               hSeek, hTell, withBinaryFile)
 import           System.Posix.Internals       (sEEK_CUR, sEEK_END, sEEK_SET)
 import           Text.Read                    (readMaybe)
 import           UnliftIO                     (MonadIO, MonadUnliftIO, bracket,
@@ -76,6 +82,16 @@ data AVChannelLayout
 data SwsContext
 data SwrContext
 
+-- enum types
+newtype AVCodecID = AVCodecID CInt
+  deriving (Eq, Show)
+newtype AVMediaType = AVMediaType CInt
+  deriving (Eq, Show)
+newtype AVPixelFormat = AVPixelFormat CInt
+  deriving (Eq, Show)
+newtype AVSampleFormat = AVSampleFormat CInt
+  deriving (Eq, Show)
+
 -- Set up inline-c context
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
@@ -99,6 +115,10 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "AVChannelLayout"   , [t| AVChannelLayout   |])
     , (C.Struct   "SwsContext"        , [t| SwsContext        |])
     , (C.Struct   "SwrContext"        , [t| SwrContext        |])
+    , (C.Enum     "AVCodecID"         , [t| AVCodecID         |])
+    , (C.Enum     "AVMediaType"       , [t| AVMediaType       |])
+    , (C.Enum     "AVPixelFormat"     , [t| AVPixelFormat     |])
+    , (C.Enum     "AVSampleFormat"    , [t| AVSampleFormat    |])
     ]
   }
 
@@ -114,16 +134,20 @@ C.include "libavfilter/buffersink.h"
 C.include "libavfilter/buffersrc.h"
 C.include "libswresample/swresample.h"
 
--- Enum types
-newtype AVCodecID = AVCodecID CInt
-  deriving (Eq, Show)
+-- enum values we care about
 
 pattern AV_CODEC_ID_MP3 :: AVCodecID
 pattern AV_CODEC_ID_MP3 <- ((== AVCodecID [C.pure| int { AV_CODEC_ID_MP3 } |]) -> True) where
   AV_CODEC_ID_MP3 = AVCodecID [C.pure| int { AV_CODEC_ID_MP3 } |]
-
-newtype AVMediaType = AVMediaType CInt
-  deriving (Eq, Show)
+pattern AV_CODEC_ID_VORBIS :: AVCodecID
+pattern AV_CODEC_ID_VORBIS <- ((== AVCodecID [C.pure| int { AV_CODEC_ID_VORBIS } |]) -> True) where
+  AV_CODEC_ID_VORBIS = AVCodecID [C.pure| int { AV_CODEC_ID_VORBIS } |]
+pattern AV_CODEC_ID_OPUS :: AVCodecID
+pattern AV_CODEC_ID_OPUS <- ((== AVCodecID [C.pure| int { AV_CODEC_ID_OPUS } |]) -> True) where
+  AV_CODEC_ID_OPUS = AVCodecID [C.pure| int { AV_CODEC_ID_OPUS } |]
+pattern AV_CODEC_ID_PCM_S16LE :: AVCodecID
+pattern AV_CODEC_ID_PCM_S16LE <- ((== AVCodecID [C.pure| int { AV_CODEC_ID_PCM_S16LE } |]) -> True) where
+  AV_CODEC_ID_PCM_S16LE = AVCodecID [C.pure| int { AV_CODEC_ID_PCM_S16LE } |]
 
 pattern AVMEDIA_TYPE_VIDEO :: AVMediaType
 pattern AVMEDIA_TYPE_VIDEO <- ((== AVMediaType [C.pure| int { AVMEDIA_TYPE_VIDEO } |]) -> True) where
@@ -132,15 +156,9 @@ pattern AVMEDIA_TYPE_AUDIO :: AVMediaType
 pattern AVMEDIA_TYPE_AUDIO <- ((== AVMediaType [C.pure| int { AVMEDIA_TYPE_AUDIO } |]) -> True) where
   AVMEDIA_TYPE_AUDIO = AVMediaType [C.pure| int { AVMEDIA_TYPE_AUDIO } |]
 
-newtype AVPixelFormat = AVPixelFormat CInt
-  deriving (Eq, Show)
-
 pattern AV_PIX_FMT_RGBA :: AVPixelFormat
 pattern AV_PIX_FMT_RGBA <- ((== AVPixelFormat [C.pure| int { AV_PIX_FMT_RGBA } |]) -> True) where
   AV_PIX_FMT_RGBA = AVPixelFormat [C.pure| int { AV_PIX_FMT_RGBA } |]
-
-newtype AVSampleFormat = AVSampleFormat CInt
-  deriving (Eq, Show)
 
 pattern AV_SAMPLE_FMT_S16 :: AVSampleFormat
 pattern AV_SAMPLE_FMT_S16 <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_S16 } |]) -> True) where
@@ -148,6 +166,15 @@ pattern AV_SAMPLE_FMT_S16 <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_S1
 pattern AV_SAMPLE_FMT_FLT :: AVSampleFormat
 pattern AV_SAMPLE_FMT_FLT <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_FLT } |]) -> True) where
   AV_SAMPLE_FMT_FLT = AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_FLT } |]
+pattern AV_SAMPLE_FMT_S16P :: AVSampleFormat
+pattern AV_SAMPLE_FMT_S16P <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_S16P } |]) -> True) where
+  AV_SAMPLE_FMT_S16P = AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_S16P } |]
+pattern AV_SAMPLE_FMT_FLTP :: AVSampleFormat
+pattern AV_SAMPLE_FMT_FLTP <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_FLTP } |]) -> True) where
+  AV_SAMPLE_FMT_FLTP = AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_FLTP } |]
+pattern AV_SAMPLE_FMT_NONE :: AVSampleFormat
+pattern AV_SAMPLE_FMT_NONE <- ((== AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_NONE } |]) -> True) where
+  AV_SAMPLE_FMT_NONE = AVSampleFormat [C.pure| int { AV_SAMPLE_FMT_NONE } |]
 
 -----------------------------
 
@@ -211,6 +238,14 @@ av_frame_unref :: Ptr AVFrame -> IO ()
 av_frame_unref frame =
   [C.block| void { av_frame_unref($(AVFrame* frame)); } |]
 
+av_frame_get_buffer :: Ptr AVFrame -> CInt -> IO CInt
+av_frame_get_buffer frame align =
+  [C.exp| int { av_frame_get_buffer($(AVFrame* frame), $(int align)) } |]
+
+av_frame_make_writable :: Ptr AVFrame -> IO CInt
+av_frame_make_writable frame =
+  [C.exp| int { av_frame_make_writable($(AVFrame* frame)) } |]
+
 av_packet_alloc :: IO (Ptr AVPacket)
 av_packet_alloc =
   [C.exp| AVPacket* { av_packet_alloc() } |]
@@ -238,6 +273,18 @@ av_seek_frame ctx streamIndex timestamp flags =
     )
   } |]
 
+avformat_new_stream :: Ptr AVFormatContext -> Ptr AVCodec -> IO (Ptr AVStream)
+avformat_new_stream s c =
+  [C.exp| AVStream* { avformat_new_stream($(AVFormatContext* s), $(AVCodec* c)) } |]
+
+avformat_write_header :: Ptr AVFormatContext -> Ptr (Ptr AVDictionary) -> IO CInt
+avformat_write_header s options =
+  [C.exp| int { avformat_write_header($(AVFormatContext* s), $(AVDictionary** options)) } |]
+
+av_write_trailer :: Ptr AVFormatContext -> IO CInt
+av_write_trailer s =
+  [C.exp| int { av_write_trailer($(AVFormatContext* s)) } |]
+
 getStreams :: Ptr AVFormatContext -> IO [Ptr AVStream]
 getStreams ctx = do
   n <- [C.exp| unsigned int { $(AVFormatContext* ctx)->nb_streams } |]
@@ -258,7 +305,7 @@ durationSeconds ctx = do
 startTimeSeconds :: Ptr AVFormatContext -> IO (Maybe Double)
 startTimeSeconds ctx = do
   start_time <- [C.exp| int64_t { $(AVFormatContext* ctx)->start_time } |]
-  return $ if start_time == [C.pure| int64_t { AV_NOPTS_VALUE } |]
+  return if start_time == [C.pure| int64_t { AV_NOPTS_VALUE } |]
     then Nothing
     else Just $ realToFrac start_time / realToFrac [C.pure| int64_t { AV_TIME_BASE } |]
 {-
@@ -276,10 +323,10 @@ startTimeSeconds ctx = do
 -}
 
 instance HasField "codec_type" (Ptr AVCodecParameters) (IO AVMediaType) where
-  getField params = AVMediaType <$> [C.exp| int { $(AVCodecParameters* params)->codec_type } |]
+  getField params = [C.exp| enum AVMediaType { $(AVCodecParameters* params)->codec_type } |]
 
 instance HasField "codec_id" (Ptr AVCodecParameters) (IO AVCodecID) where
-  getField params = AVCodecID <$> [C.exp| int { $(AVCodecParameters* params)->codec_id } |]
+  getField params = [C.exp| enum AVCodecID { $(AVCodecParameters* params)->codec_id } |]
 
 instance HasField "width" (Ptr AVCodecParameters) (IO CInt) where
   getField params = [C.exp| int { $(AVCodecParameters* params)->width } |]
@@ -288,12 +335,12 @@ instance HasField "height" (Ptr AVCodecParameters) (IO CInt) where
   getField params = [C.exp| int { $(AVCodecParameters* params)->height } |]
 
 avcodec_find_decoder :: AVCodecID -> IO (Ptr AVCodec)
-avcodec_find_decoder (coerce -> codecId) =
-  [C.exp| const AVCodec* { avcodec_find_decoder($(int codecId)) } |]
+avcodec_find_decoder codecId =
+  [C.exp| const AVCodec* { avcodec_find_decoder($(enum AVCodecID codecId)) } |]
 
 avcodec_find_encoder :: AVCodecID -> IO (Ptr AVCodec)
-avcodec_find_encoder (coerce -> codecId) =
-  [C.exp| const AVCodec* { avcodec_find_encoder($(int codecId)) } |]
+avcodec_find_encoder codecId =
+  [C.exp| const AVCodec* { avcodec_find_encoder($(enum AVCodecID codecId)) } |]
 
 instance HasField "time_base" (Ptr AVStream) (IO (CInt, CInt)) where
   getField stream = do
@@ -315,6 +362,15 @@ avcodec_parameters_to_context ctx params =
     avcodec_parameters_to_context(
       $(AVCodecContext* ctx),
       $(AVCodecParameters* params)
+    )
+  } |]
+
+avcodec_parameters_from_context :: Ptr AVCodecParameters -> Ptr AVCodecContext -> IO CInt
+avcodec_parameters_from_context par codec =
+  [C.exp| int {
+    avcodec_parameters_from_context(
+      $(AVCodecParameters* par),
+      $(AVCodecContext* codec)
     )
   } |]
 
@@ -356,15 +412,15 @@ avcodec_receive_packet ctx packet =
   } |]
 
 sws_getContext :: CInt -> CInt -> AVPixelFormat -> CInt -> CInt -> AVPixelFormat -> CInt -> Ptr () -> Ptr () -> Ptr CDouble -> IO (Ptr SwsContext)
-sws_getContext srcW srcH (coerce -> srcFormat) dstW dstH (coerce -> dstFormat) flags srcFilter dstFilter param =
+sws_getContext srcW srcH srcFormat dstW dstH dstFormat flags srcFilter dstFilter param =
   [C.exp| struct SwsContext* {
     sws_getContext(
       $(int srcW),
       $(int srcH),
-      $(int srcFormat),
+      $(enum AVPixelFormat srcFormat),
       $(int dstW),
       $(int dstH),
-      $(int dstFormat),
+      $(enum AVPixelFormat dstFormat),
       $(int flags),
       $(void* srcFilter),
       $(void* dstFilter),
@@ -390,13 +446,13 @@ sws_BILINEAR :: CInt
 sws_BILINEAR = [C.pure| int { SWS_BILINEAR } |]
 
 av_image_fill_arrays :: Ptr (Ptr Word8) -> Ptr CInt -> Ptr Word8 -> AVPixelFormat -> CInt -> CInt -> CInt -> IO CInt
-av_image_fill_arrays dst_data dst_linesize src (coerce -> pix_fmt) width height align =
+av_image_fill_arrays dst_data dst_linesize src pix_fmt width height align =
   [C.exp| int {
     av_image_fill_arrays(
       $(uint8_t** dst_data),
       $(int* dst_linesize),
       $(uint8_t* src),
-      $(int pix_fmt),
+      $(enum AVPixelFormat pix_fmt),
       $(int width),
       $(int height),
       $(int align)
@@ -418,7 +474,7 @@ instance HasField "pts" (Ptr AVPacket) (IO Int64) where
   getField packet = [C.exp| int64_t { $(AVPacket* packet)->pts } |]
 
 instance HasField "pix_fmt" (Ptr AVCodecContext) (IO AVPixelFormat) where
-  getField ctx = AVPixelFormat <$> [C.exp| int { $(AVCodecContext* ctx)->pix_fmt } |]
+  getField ctx = [C.exp| enum AVPixelFormat { $(AVCodecContext* ctx)->pix_fmt } |]
 
 instance HasField "time_base" (Ptr AVCodecContext) (IO (CInt, CInt)) where
   getField ctx = do
@@ -427,14 +483,14 @@ instance HasField "time_base" (Ptr AVCodecContext) (IO (CInt, CInt)) where
     return (num, den)
 
 av_image_alloc :: Ptr (Ptr Word8) -> Ptr CInt -> CInt -> CInt -> AVPixelFormat -> CInt -> IO CInt
-av_image_alloc pointers linesizes w h (coerce -> pix_fmt) align =
+av_image_alloc pointers linesizes w h pix_fmt align =
   [C.exp| int {
     av_image_alloc(
       $(uint8_t** pointers),
       $(int* linesizes),
       $(int w),
       $(int h),
-      $(int pix_fmt),
+      $(enum AVPixelFormat pix_fmt),
       $(int align)
     )
   } |]
@@ -444,17 +500,17 @@ av_freep (castPtr -> ptr) =
   [C.block| void { av_freep($(void** ptr)); } |]
 
 instance HasField "width" (Ptr AVFrame) (SettableStateVar CInt) where
-  getField frame = makeSettableStateVar $ \width ->
+  getField frame = makeSettableStateVar \width ->
     [C.block| void { $(AVFrame* frame)->width = $(int width); } |]
 
 instance HasField "height" (Ptr AVFrame) (SettableStateVar CInt) where
-  getField frame = makeSettableStateVar $ \height ->
+  getField frame = makeSettableStateVar \height ->
     [C.block| void { $(AVFrame* frame)->height = $(int height); } |]
 
 instance HasField "format" (Ptr AVFrame) (SettableStateVar AVPixelFormat) where
-  getField frame = makeSettableStateVar $ \(coerce -> fmt) ->
+  getField frame = makeSettableStateVar \fmt ->
     [C.block| void {
-      $(AVFrame* frame)->format = $(int fmt);
+      $(AVFrame* frame)->format = $(enum AVPixelFormat fmt);
     } |]
 
 av_log_set_level :: CInt -> IO ()
@@ -465,11 +521,11 @@ avseek_FLAG_BACKWARD :: CInt
 avseek_FLAG_BACKWARD = [C.pure| int { AVSEEK_FLAG_BACKWARD } |]
 
 av_find_best_stream :: Ptr AVFormatContext -> AVMediaType -> CInt -> CInt -> Ptr (Ptr AVCodec) -> CInt -> IO CInt
-av_find_best_stream ctx (coerce -> type_) wanted_stream_nb related_stream decoder_ret flags =
+av_find_best_stream ctx type_ wanted_stream_nb related_stream decoder_ret flags =
   [C.exp| int {
     av_find_best_stream(
       $(AVFormatContext* ctx),
-      $(int type_),
+      $(enum AVMediaType type_),
       $(int wanted_stream_nb),
       $(int related_stream),
       $(const AVCodec** decoder_ret),
@@ -531,9 +587,13 @@ av_get_default_channel_layout :: CInt -> IO Int64
 av_get_default_channel_layout nb_channels =
   [C.exp| int64_t { av_get_default_channel_layout($(int nb_channels)) } |]
 
+av_channel_layout_default :: Ptr AVChannelLayout -> CInt -> IO ()
+av_channel_layout_default p nb_channels =
+  [C.block| void { av_channel_layout_default($(AVChannelLayout* p), $(int nb_channels)); } |]
+
 av_get_sample_fmt_name :: AVSampleFormat -> IO CString
-av_get_sample_fmt_name (coerce -> fmt) =
-  [C.exp| const char* { av_get_sample_fmt_name($(int fmt)) } |]
+av_get_sample_fmt_name fmt =
+  [C.exp| const char* { av_get_sample_fmt_name($(enum AVSampleFormat fmt)) } |]
 
 av_opt_set_bin :: Ptr () -> CString -> Ptr Word8 -> CInt -> CInt -> IO CInt
 av_opt_set_bin obj name val val_size search_flags =
@@ -553,8 +613,8 @@ av_OPT_SEARCH_CHILDREN = [C.pure| int { AV_OPT_SEARCH_CHILDREN } |]
 av_opt_set_int_list :: (Storable a) => Ptr () -> String -> [a] -> CInt -> IO CInt
 av_opt_set_int_list obj name vals flags = do
   let arraySize = fromIntegral $ sizeOf (head vals) * length vals
-  withArray vals $ \pvals -> do
-    withCString name $ \pname -> do
+  withArray vals \pvals -> do
+    withCString name \pname -> do
       av_opt_set_bin obj pname (castPtr pvals) arraySize flags
 
 avfilter_graph_parse_ptr :: Ptr AVFilterGraph -> CString -> Ptr (Ptr AVFilterInOut) -> Ptr (Ptr AVFilterInOut) -> Ptr () -> IO CInt
@@ -637,8 +697,8 @@ averror_EOF :: IO CInt
 averror_EOF = [C.exp| int { AVERROR_EOF } |]
 
 av_get_bytes_per_sample :: AVSampleFormat -> IO CInt
-av_get_bytes_per_sample (coerce -> fmt) =
-  [C.exp| int { av_get_bytes_per_sample($(int fmt)) } |]
+av_get_bytes_per_sample fmt =
+  [C.exp| int { av_get_bytes_per_sample($(enum AVSampleFormat fmt)) } |]
 
 avfilter_link :: Ptr AVFilterContext -> CUInt -> Ptr AVFilterContext -> CUInt -> IO CInt
 avfilter_link src srcpad dst dstpad =
@@ -651,17 +711,33 @@ avfilter_link src srcpad dst dstpad =
     )
   } |]
 
--- TODO switch from this to swr_alloc_set_opts_2
+-- TODO switch from this to swr_alloc_set_opts2
 swr_alloc_set_opts :: Ptr SwrContext -> Int64 -> AVSampleFormat -> CInt -> Int64 -> AVSampleFormat -> CInt -> CInt -> Ptr () -> IO (Ptr SwrContext)
-swr_alloc_set_opts swr out_ch_layout (coerce -> out_sample_fmt) out_sample_rate in_ch_layout (coerce -> in_sample_fmt) in_sample_rate log_offset log_ctx
+swr_alloc_set_opts swr out_ch_layout out_sample_fmt out_sample_rate in_ch_layout in_sample_fmt in_sample_rate log_offset log_ctx
   = [C.exp| struct SwrContext* {
       swr_alloc_set_opts(
         $(struct SwrContext* swr),
         $(int64_t out_ch_layout),
-        $(int out_sample_fmt),
+        $(enum AVSampleFormat out_sample_fmt),
         $(int out_sample_rate),
         $(int64_t in_ch_layout),
-        $(int in_sample_fmt),
+        $(enum AVSampleFormat in_sample_fmt),
+        $(int in_sample_rate),
+        $(int log_offset),
+        $(void* log_ctx)
+      )
+    } |]
+
+swr_alloc_set_opts2 :: Ptr (Ptr SwrContext) -> Ptr AVChannelLayout -> AVSampleFormat -> CInt -> Ptr AVChannelLayout -> AVSampleFormat -> CInt -> CInt -> Ptr () -> IO CInt
+swr_alloc_set_opts2 ps out_ch_layout out_sample_fmt out_sample_rate in_ch_layout in_sample_fmt in_sample_rate log_offset log_ctx
+  = [C.exp| int {
+      swr_alloc_set_opts2(
+        $(struct SwrContext** ps),
+        $(const AVChannelLayout* out_ch_layout),
+        $(enum AVSampleFormat out_sample_fmt),
+        $(int out_sample_rate),
+        $(const AVChannelLayout* in_ch_layout),
+        $(enum AVSampleFormat in_sample_fmt),
         $(int in_sample_rate),
         $(int log_offset),
         $(void* log_ctx)
@@ -694,7 +770,7 @@ conduitBracket :: (MonadResource m) => Bracket (ConduitM i o m)
 conduitBracket = Bracket bracketP
 
 unliftBracket :: (MonadUnliftIO m) => Bracket m
-unliftBracket = Bracket $ \acq rel -> bracket (liftIO acq) (liftIO . rel)
+unliftBracket = Bracket \acq rel -> bracket (liftIO acq) (liftIO . rel)
 
 withHandleAVIO :: (MonadIO m) => Bracket m -> Handle -> (Ptr AVIOContext -> m a) -> m a
 withHandleAVIO (runBracket -> brkt) h f = do
@@ -707,11 +783,11 @@ withHandleAVIO (runBracket -> brkt) h f = do
         hGetBuf h buf (fromIntegral size) >>= \case
           0 -> averror_EOF -- if we return 0 you get "Invalid return value 0 for stream protocol"
           n -> return $ fromIntegral n
-  brkt (makeReadWriteFn readFunction) freeHaskellFunPtr $ \reader -> do
+  brkt (makeReadWriteFn readFunction) freeHaskellFunPtr \reader -> do
     let writeFunction _ buf size = do
           -- putStrLn $ "write: " <> show (buf, size)
           hPutBuf h buf (fromIntegral size) >> return size -- is this right? hPutBuf returns ()
-    brkt (makeReadWriteFn writeFunction) freeHaskellFunPtr $ \writer -> do
+    brkt (makeReadWriteFn writeFunction) freeHaskellFunPtr \writer -> do
       let modeMap =
             [ (sEEK_END, SeekFromEnd)
             , (sEEK_CUR, RelativeSeek)
@@ -730,7 +806,7 @@ withHandleAVIO (runBracket -> brkt) h f = do
                 Just mode -> return mode
               -- putStrLn $ "seek: " <> show (posn, whence)
               hSeek h mode (fromIntegral posn) >> fmap fromIntegral (hTell h)
-      brkt (makeSeekFn seekFunction) freeHaskellFunPtr $ \seeker -> do
+      brkt (makeSeekFn seekFunction) freeHaskellFunPtr \seeker -> do
         brkt
           (avio_alloc_context (castPtr initBuf) (fromIntegral initSize) (if canWrite then 1 else 0) nullPtr reader writer seeker)
           (\p -> with p avio_context_free)
@@ -780,8 +856,8 @@ instance HasField "nb_frames" (Ptr AVStream) (IO Int64) where
 instance HasField "duration" (Ptr AVStream) (IO Int64) where
   getField stream = [C.exp| int64_t { $(AVStream* stream)->duration } |]
 
-instance HasField "codec_id" (Ptr AVCodecContext) (IO CInt) where
-  getField ctx = [C.exp| int { $(AVCodecContext* ctx)->codec_id } |]
+instance HasField "codec_id" (Ptr AVCodecContext) (IO AVCodecID) where
+  getField ctx = [C.exp| enum AVCodecID { $(AVCodecContext* ctx)->codec_id } |]
 
 instance HasField "frame_size" (Ptr AVCodecContext) (IO CInt) where
   getField ctx = [C.exp| int { $(AVCodecContext* ctx)->frame_size } |]
@@ -790,7 +866,7 @@ instance HasField "frame_size" (Ptr AVCodecContext) (IO CInt) where
 instance HasField "channel_layout" (Ptr AVCodecContext) (StateVar Word64) where
   getField ctx = makeStateVar
     [C.exp| uint64_t { $(AVCodecContext* ctx)->channel_layout } |]
-    $ \layout -> [C.block| void { $(AVCodecContext* ctx)->channel_layout = $(uint64_t layout); } |]
+    \layout -> [C.block| void { $(AVCodecContext* ctx)->channel_layout = $(uint64_t layout); } |]
 
 instance HasField "ch_layout" (Ptr AVCodecContext) (IO (Ptr AVChannelLayout)) where
   getField ctx =
@@ -800,7 +876,7 @@ instance HasField "nb_channels" (Ptr AVChannelLayout) (IO CInt) where
   getField layout = [C.exp| int { $(AVChannelLayout* layout)->nb_channels } |]
 
 instance HasField "sample_fmt" (Ptr AVCodecContext) (IO AVSampleFormat) where
-  getField ctx = AVSampleFormat <$> [C.exp| int { $(AVCodecContext* ctx)->sample_fmt } |]
+  getField ctx = [C.exp| enum AVSampleFormat { $(AVCodecContext* ctx)->sample_fmt } |]
 
 instance HasField "nb_samples" (Ptr AVFrame) (IO CInt) where
   getField frame = [C.exp| int { $(AVFrame* frame)->nb_samples } |]
@@ -840,22 +916,22 @@ withStream brkt mediaType r fn = do
   let freeIfNeeded p = readIORef openInputError >>= \case
         True  -> return ()
         False -> with p avformat_close_input
-  runBracket brkt avformat_alloc_context freeIfNeeded $ \fmt_ctx -> let
+  runBracket brkt avformat_alloc_context freeIfNeeded \fmt_ctx -> let
     handleOpenInputResult res = do
       when (res /= 0) $ writeIORef openInputError True
       ffCheck "avformat_open_input" (== 0) $ return res
-    openInput = runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
+    openInput = runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio -> do
       liftIO $ setAVFormatContextPB fmt_ctx avio
-      liftIO $ with fmt_ctx $ \pctx -> do
+      liftIO $ with fmt_ctx \pctx -> do
         avformat_open_input pctx nullPtr nullPtr nullPtr >>= handleOpenInputResult
       afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
-      (streamIndex, dec) <- liftIO $ alloca $ \pdec -> do
+      (streamIndex, dec) <- liftIO $ alloca \pdec -> do
         streamIndex <- av_find_best_stream fmt_ctx mediaType -1 -1 pdec 0
         dec <- peek pdec
         return (streamIndex, dec)
-      runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
+      runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) \dec_ctx -> do
         stream <- liftIO $ (!! fromIntegral streamIndex) <$> getStreams fmt_ctx
         params <- liftIO stream.codecpar
         liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
@@ -871,17 +947,17 @@ withAllStreams
   -> (Ptr AVFormatContext -> [(Ptr AVCodecContext, Ptr AVStream)] -> m a)
   -> m a
 withAllStreams brkt mediaType r fn = do
-  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) $ \fmt_ctx -> let
-    openInput = runBracket brkt (rOpen r) hClose $ \h -> withHandleAVIO brkt h $ \avio -> do
+  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) \fmt_ctx -> let
+    openInput = runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio -> do
       liftIO $ setAVFormatContextPB fmt_ctx avio
-      liftIO $ with fmt_ctx $ \pctx -> do
+      liftIO $ with fmt_ctx \pctx -> do
         ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
       afterOpenInput
     afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
       numStreams <- liftIO fmt_ctx.nb_streams
-      matchingStreams <- liftIO $ alloca $ \pdec -> do
-        fmap catMaybes $ forM [0 .. fromIntegral numStreams - 1] $ \i -> do
+      matchingStreams <- liftIO $ alloca \pdec -> do
+        fmap catMaybes $ forM [0 .. fromIntegral numStreams - 1] \i -> do
           streamIndex <- av_find_best_stream fmt_ctx mediaType i -1 pdec 0
           if streamIndex /= i -- could also compare to AVERROR_STREAM_NOT_FOUND
             then return Nothing
@@ -890,7 +966,7 @@ withAllStreams brkt mediaType r fn = do
               return $ Just (i, dec)
       allStreams <- liftIO $ getStreams fmt_ctx
       let loadStream (i, dec) rest = do
-            runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) $ \dec_ctx -> do
+            runBracket brkt (avcodec_alloc_context3 dec) (\p -> with p avcodec_free_context) \dec_ctx -> do
               let stream = allStreams !! fromIntegral i
               params <- liftIO stream.codecpar
               liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
@@ -922,7 +998,7 @@ ffSourceFrom dur input = do
         rate <- dec_ctx.sample_rate
         channels <- dec_ctx.channels
         -- trying to handle festival's m4a-opus files right, they have weird low nb_frames
-        isM4A <- fmt_ctx.iformat >>= \fmt -> if coerce fmt == nullPtr
+        isM4A <- fmt_ctx.iformat >>= \fmt -> if fmt == nullPtr
           then return False
           else fmt.name >>= \s -> if s == nullPtr
             then return False
@@ -945,9 +1021,9 @@ ffSourceFrom dur input = do
             return frames
         return (rate, channels, framesOrig)
 
-  (rate, channels, framesOrig, isMP3) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx dec_ctx stream -> do
+  (rate, channels, framesOrig, isMP3) <- withStream unliftBracket AVMEDIA_TYPE_AUDIO input \fmt_ctx dec_ctx stream -> do
     (rate, channels, frames) <- getStreamInfo fmt_ctx dec_ctx stream
-    isMP3 <- (\codecID -> AVCodecID codecID == AV_CODEC_ID_MP3) <$> dec_ctx.codec_id
+    isMP3 <- (AV_CODEC_ID_MP3 ==) <$> dec_ctx.codec_id
     return (rate, channels, frames, isMP3)
 
   (inputStripped, skipStart, frames) <- if isMP3
@@ -975,10 +1051,10 @@ ffSourceFrom dur input = do
       startSecs = fromIntegral startFrame / fromIntegral rate
 
   return CA.AudioSource
-    { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO inputStripped $ \fmt_ctx dec_ctx stream -> do
+    { CA.source   = withStream conduitBracket AVMEDIA_TYPE_AUDIO inputStripped \fmt_ctx dec_ctx stream -> do
 
-      bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
-      bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
+      bracketP av_packet_alloc (\p -> with p av_packet_free) \packet -> do
+      bracketP av_frame_alloc (\f -> with f av_frame_free) \frame -> do
 
       audio_stream_index <- liftIO stream.index
 
@@ -1014,7 +1090,7 @@ ffSourceFrom dur input = do
             rate
             0
             nullPtr
-      bracketP swrChangeFormat (\f -> with f swr_free) $ \swr -> do
+      bracketP swrChangeFormat (\f -> with f swr_free) \swr -> do
       liftIO $ ffCheck "swr_init" (>= 0) $ swr_init swr
 
       queue <- liftIO $ newTBQueueIO 10
@@ -1036,7 +1112,7 @@ ffSourceFrom dur input = do
                     -- thanks to https://stackoverflow.com/a/60317000/509936
                     skipManual <- do
                       pts <- liftIO packet.pts
-                      return $ if pts < wantPTS
+                      return if pts < wantPTS
                         then round $ (fromIntegral (wantPTS - pts) * streamRes) / codecRes
                         else 0
                     codeSendPacket <- liftIO $ avcodec_send_packet dec_ctx packet
@@ -1053,11 +1129,11 @@ ffSourceFrom dur input = do
               then loop -- no more frames to get, time to feed more packets
               else do
                 countSamples <- liftIO frame.nb_samples
-                when (countSamples > skipManual) $ do
+                when (countSamples > skipManual) do
                   mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channels
-                  liftIO $ MV.unsafeWith mvec $ \p -> do
+                  liftIO $ MV.unsafeWith mvec \p -> do
                     inputPlanes <- frame.extended_data
-                    withArray [p] $ \outputPlanes -> do
+                    withArray [p] \outputPlanes -> do
                       ffCheck "swr_convert" (>= 0) $ swr_convert
                         swr
                         (castPtr outputPlanes)
@@ -1084,7 +1160,7 @@ ffSourceBinkFrom :: forall m a. (MonadResource m, FFSample a) =>
   CA.Duration -> Readable -> IO (CA.AudioSource m a)
 ffSourceBinkFrom dur input = do
 
-  (rate, channels, frames) <- withAllStreams unliftBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx decStreams -> do
+  (rate, channels, frames) <- withAllStreams unliftBracket AVMEDIA_TYPE_AUDIO input \fmt_ctx decStreams -> do
     rates <- mapM ((.sample_rate) . fst) decStreams
     rate <- case rates of
       [] -> fail "No streams in .bik file"
@@ -1102,15 +1178,15 @@ ffSourceBinkFrom dur input = do
         CA.Seconds s -> floor $ s * fromIntegral rate
 
   return CA.AudioSource
-    { CA.source   = withAllStreams conduitBracket AVMEDIA_TYPE_AUDIO input $ \fmt_ctx decStreams -> do
+    { CA.source   = withAllStreams conduitBracket AVMEDIA_TYPE_AUDIO input \fmt_ctx decStreams -> do
 
-      bracketP av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
-      bracketP av_frame_alloc (\f -> with f av_frame_free) $ \frame -> do
+      bracketP av_packet_alloc (\p -> with p av_packet_free) \packet -> do
+      bracketP av_frame_alloc (\f -> with f av_frame_free) \frame -> do
 
       let startSecs :: Double
           startSecs = fromIntegral startFrame / fromIntegral rate
 
-      streamList <- liftIO $ forM decStreams $ \(dec_ctx, stream) -> do
+      streamList <- liftIO $ forM decStreams \(dec_ctx, stream) -> do
 
         audio_stream_index <- stream.index
 
@@ -1130,7 +1206,7 @@ ffSourceBinkFrom dur input = do
 
       let streamLookup = Map.fromList streamList
           allQueues = map (\(_, (_, _, _, _, queue)) -> queue) streamList
-          endQueues = forM_ allQueues $ \queue -> do
+          endQueues = forM_ allQueues \queue -> do
             liftIO $ atomically $ writeTBQueue queue Nothing
 
       -- assume always mono for now
@@ -1146,7 +1222,7 @@ ffSourceBinkFrom dur input = do
             rate
             0
             nullPtr
-      bracketP swrChangeFormat (\f -> with f swr_free) $ \swr -> do
+      bracketP swrChangeFormat (\f -> with f swr_free) \swr -> do
       liftIO $ ffCheck "swr_init" (>= 0) $ swr_init swr
 
       let loop = do
@@ -1166,7 +1242,7 @@ ffSourceBinkFrom dur input = do
                     -- thanks to https://stackoverflow.com/a/60317000/509936
                     skipManual <- do
                       pts <- liftIO packet.pts
-                      return $ if pts < wantPTS
+                      return if pts < wantPTS
                         then round $ (fromIntegral (wantPTS - pts) * streamRes) / codecRes
                         else 0
                     codeSendPacket <- liftIO $ avcodec_send_packet dec_ctx packet
@@ -1184,11 +1260,11 @@ ffSourceBinkFrom dur input = do
               else do
                 countSamples <- liftIO frame.nb_samples
                 let channelsThis = 1
-                when (countSamples > skipManual) $ do
+                when (countSamples > skipManual) do
                   mvec <- liftIO $ MV.new $ fromIntegral $ countSamples * channelsThis
-                  liftIO $ MV.unsafeWith mvec $ \p -> do
+                  liftIO $ MV.unsafeWith mvec \p -> do
                     inputPlanes <- frame.extended_data
-                    withArray [p] $ \outputPlanes -> do
+                    withArray [p] \outputPlanes -> do
                       ffCheck "swr_convert" (>= 0) $ swr_convert
                         swr
                         (castPtr outputPlanes)
@@ -1214,14 +1290,196 @@ ffSourceBinkFrom dur input = do
     , CA.frames   = max 0 $ frames - fromIntegral startFrame
     }
 
+-- Pick a sample format the encoder accepts;
+-- if FLT possible use that, othewise whatever the encoder lists first
+chooseOutputSampleFormat :: Ptr AVCodec -> IO AVSampleFormat
+chooseOutputSampleFormat codec =
+  [C.block| enum AVSampleFormat {
+    const enum AVSampleFormat *p = $(AVCodec* codec)->sample_fmts;
+    if (!p)
+      return AV_SAMPLE_FMT_NONE;
+
+    enum AVSampleFormat first = *p;
+    for (; *p != AV_SAMPLE_FMT_NONE; p++) {
+      if (*p == AV_SAMPLE_FMT_FLT) return AV_SAMPLE_FMT_FLT;
+    }
+    return first;
+  } |]
+
+encodeAndWrite :: Ptr AVFormatContext -> Ptr AVCodecContext -> Ptr AVStream -> Ptr AVFrame -> IO CInt
+encodeAndWrite fmt_ctx enc_ctx st frame =
+  [C.block| int {
+    AVFormatContext* fmt_ctx = $(AVFormatContext* fmt_ctx);
+    AVCodecContext* enc_ctx = $(AVCodecContext* enc_ctx);
+    AVStream* st = $(AVStream* st);
+    AVFrame* frame = $(AVFrame* frame);
+
+    int ret = avcodec_send_frame(enc_ctx, frame);
+    if (ret < 0) {
+      return ret;
+    }
+
+    AVPacket *pkt = av_packet_alloc();
+    if (!pkt)
+      return AVERROR(ENOMEM);
+
+    while (1) {
+      ret = avcodec_receive_packet(enc_ctx, pkt);
+      if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        ret = 0;
+        break;
+      }
+      if (ret < 0) {
+        break;
+      }
+
+      av_packet_rescale_ts(pkt, enc_ctx->time_base, st->time_base);
+      pkt->stream_index = st->index;
+
+      ret = av_interleaved_write_frame(fmt_ctx, pkt);
+      av_packet_unref(pkt);
+      if (ret < 0) {
+        break;
+      }
+    }
+
+    av_packet_free(&pkt);
+    return ret;
+  } |]
+
+ffSink :: FilePath -> CA.AudioSource (ResourceT IO) Float -> IO ()
+ffSink fout src = do
+
+  (muxer, codecID, outRate) <- case map toLower $ takeExtension fout of
+    ".ogg"  -> return ("ogg", AV_CODEC_ID_VORBIS   , round src.rate)
+    ".opus" -> return ("ogg", AV_CODEC_ID_OPUS     , 48000   )
+    ".wav"  -> return ("wav", AV_CODEC_ID_PCM_S16LE, round src.rate)
+    _       -> fail $ "Unsupported output audio file extension: " <> fout
+
+  let contextGet = alloca \p -> do
+        n <- withCString muxer \m ->
+          withCString fout $ avformat_alloc_output_context2 p nullPtr m
+        fmt_ctx <- peek p
+        return (n, fmt_ctx)
+      contextClear (_, fmt_ctx) = when (fmt_ctx /= nullPtr) $ avformat_free_context fmt_ctx
+  bracket contextGet contextClear \(n, fmt_ctx) -> do
+  when (n < 0 || fmt_ctx == nullPtr) $ fail "Couldn't create output context"
+
+  codec <- avcodec_find_encoder codecID
+  when (codec == nullPtr) $ fail "Codec not available"
+
+  st <- avformat_new_stream fmt_ctx nullPtr
+  when (st == nullPtr) $ fail "ENOMEM"
+
+  let encGet = avcodec_alloc_context3 codec
+      encClear enc_ctx = when (enc_ctx /= nullPtr) $ with enc_ctx avcodec_free_context
+  bracket encGet encClear \enc_ctx -> do
+  when (enc_ctx == nullPtr) $ fail "ENOMEM"
+
+  outSampleFormat <- chooseOutputSampleFormat codec
+  when (outSampleFormat == AV_SAMPLE_FMT_NONE) $ fail "Encoder advertises no sample formats"
+
+  pChannelLayout <- enc_ctx.ch_layout
+  av_channel_layout_default pChannelLayout $ fromIntegral src.channels
+  let swrGet = alloca \pswr -> do
+        ffCheck "Loading swr" (>= 0) $ swr_alloc_set_opts2
+          pswr
+          pChannelLayout
+          outSampleFormat
+          outRate
+          pChannelLayout
+          AV_SAMPLE_FMT_FLT
+          (round src.rate)
+          0
+          nullPtr
+        peek pswr
+      swrClear swr = when (swr /= nullPtr) $ with swr swr_free
+  bracket swrGet swrClear \swr -> do
+  when (swr == nullPtr) $ fail "Null swr"
+  ffCheck "swr_init" (>= 0) $ swr_init swr
+
+  [C.block| void {
+    AVCodecContext* enc_ctx = $(AVCodecContext* enc_ctx);
+    enc_ctx->sample_fmt = $(enum AVSampleFormat outSampleFormat);
+    enc_ctx->sample_rate = $(int outRate);
+    enc_ctx->bit_rate = 128000; // TODO change this as needed
+    enc_ctx->time_base = (AVRational){ 1, $(int outRate) };
+    enc_ctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL; // needed for vorbis and opus encoders
+
+    if ($(AVFormatContext* fmt_ctx)->oformat->flags & AVFMT_GLOBALHEADER) {
+      enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    }
+  } |]
+
+  ffCheck "Opening encoder" (>= 0) $ avcodec_open2 enc_ctx codec nullPtr
+
+  codecpar <- st.codecpar
+  ffCheck "Setting codec parameters" (>= 0) $ avcodec_parameters_from_context codecpar enc_ctx
+  [C.block| void { $(AVStream* st)->time_base = $(AVCodecContext* enc_ctx)->time_base; } |]
+
+  withBinaryFile fout ReadWriteMode \h -> do
+  withHandleAVIO unliftBracket h \avio -> do
+  when (avio == nullPtr) $ fail "Couldn't create AVIO"
+  setAVFormatContextPB fmt_ctx avio
+
+  ffCheck "Writing header" (>= 0) $ avformat_write_header fmt_ctx nullPtr
+
+  bracket av_frame_alloc (\f -> with f av_frame_free) \frame -> do
+  when (frame == nullPtr) $ fail "ENOMEM"
+
+  ffCheck "Copying channel layout" (>= 0) [C.block| int {
+    AVFrame* frame = $(AVFrame* frame);
+    AVCodecContext* enc_ctx = $(AVCodecContext* enc_ctx);
+
+    frame->format      = enc_ctx->sample_fmt;
+    frame->sample_rate = enc_ctx->sample_rate;
+    // PCM encoders report frame_size == 0, meaning any size works
+    frame->nb_samples  = enc_ctx->frame_size > 0 ? enc_ctx->frame_size : 1024;
+    return av_channel_layout_copy(&frame->ch_layout, &enc_ctx->ch_layout);
+  } |]
+
+  maxFrameSamples <- frame.nb_samples
+  let reorg = CA.reorganize (fromIntegral maxFrameSamples) src
+
+  ffCheck "Allocate frame buffer" (>= 0) $ av_frame_get_buffer frame 0
+
+  outputPlanes <- frame.extended_data
+  vPTS <- newIORef 0
+  runResourceT $ runConduit $ reorg.source .| CL.mapM_ \buf -> liftIO do
+
+    let countSamples = fromIntegral $ CA.vectorFrames buf src.channels
+    ffCheck "av_frame_make_writable" (>= 0) $ av_frame_make_writable frame
+
+    V.unsafeWith buf \p -> do
+      withArray [p] \inputPlanes -> do
+        ffCheck "swr_convert" (>= 0) $ swr_convert
+          swr
+          (castPtr outputPlanes)
+          countSamples
+          (castPtr inputPlanes)
+          countSamples
+
+    pts <- readIORef vPTS
+    [C.block| void {
+      $(AVFrame* frame)->nb_samples = $(int countSamples);
+      $(AVFrame* frame)->pts = $(int pts);
+    } |]
+    writeIORef vPTS $ pts + fromIntegral countSamples
+
+    ffCheck "Writing frame" (>= 0) $ encodeAndWrite fmt_ctx enc_ctx st frame
+
+  ffCheck "Flushing" (>= 0) $ encodeAndWrite fmt_ctx enc_ctx st nullPtr
+
+  ffCheck "Writing trailer" (>= 0) $ av_write_trailer fmt_ctx
+
 graphCreateFilter :: String -> Maybe String -> Maybe String -> Ptr AVFilterGraph -> IO (Ptr AVFilterContext)
 graphCreateFilter filterType name args graph = do
   avfilter <- withCString filterType avfilter_get_by_name
-  when (coerce avfilter == nullPtr) $ error $ "graphCreateFilter: no filter type named " <> show filterType
-  alloca $ \p -> do
-    maybe ($ nullPtr) withCString name $ \pname -> do
-      maybe ($ nullPtr) withCString args $ \pargs -> do
-        ffCheck "avfilter_graph_create_filter" (>= 0) $ do
+  when (avfilter == nullPtr) $ error $ "graphCreateFilter: no filter type named " <> show filterType
+  alloca \p -> do
+    maybe ($ nullPtr) withCString name \pname -> do
+      maybe ($ nullPtr) withCString args \pargs -> do
+        ffCheck "avfilter_graph_create_filter" (>= 0) do
           avfilter_graph_create_filter p avfilter pname pargs nullPtr graph
     peek p
 
@@ -1256,7 +1514,7 @@ data GraphInput = GraphInput
 
 supplyAudio :: [GraphInput] -> IO ()
 supplyAudio inputs = do
-  newFrames <- forConcurrently inputs $ \input -> do
+  newFrames <- forConcurrently inputs \input -> do
     audio_stream_index <- input.giStream.index
     output <- filterOutputs input.giBuffer >>= \case
       [output] -> return output
@@ -1291,11 +1549,11 @@ supplyAudio inputs = do
             then readFrame -- need more packets
             else return $ Just (frame, input.giBuffer)
         in readFrame
-  forM_ (catMaybes newFrames) $ \(frame, buffer) -> do
+  forM_ (catMaybes newFrames) \(frame, buffer) -> do
     av_buffersrc_add_frame_flags buffer frame 0 >>= \case
       0 -> return ()
       n -> putStrLn $ "av_buffersrc_add_frame_flags: " <> show n
-    when (coerce frame /= nullPtr) $ do
+    when (frame /= nullPtr) do
       av_frame_unref frame
       with frame av_frame_free
 
@@ -1305,11 +1563,11 @@ data GraphOutput a
   | GraphOutput a
 
 tryGetGraphOutput :: Ptr AVFilterContext -> (Ptr AVFrame -> IO a) -> IO (GraphOutput a)
-tryGetGraphOutput buffersink_ctx withFrame = bracket av_frame_alloc (\p -> with p av_frame_free) $ \filt_frame -> do
+tryGetGraphOutput buffersink_ctx withFrame = bracket av_frame_alloc (\p -> with p av_frame_free) \filt_frame -> do
   ret <- av_buffersink_get_frame buffersink_ctx filt_frame
   eof <- averror_EOF
   if ret < 0
-    then return $ if ret == eof then GraphEOF else GraphNeedInput
+    then return if ret == eof then GraphEOF else GraphNeedInput
     else do
       x <- withFrame filt_frame
       av_frame_unref filt_frame
@@ -1318,9 +1576,9 @@ tryGetGraphOutput buffersink_ctx withFrame = bracket av_frame_alloc (\p -> with 
 audioIntegratedVolume :: FilePath -> IO (Maybe Float)
 audioIntegratedVolume f = do
 
-  withStream unliftBracket AVMEDIA_TYPE_AUDIO (fileReadable f) $ \fmt_ctx dec_ctx stream -> do
+  withStream unliftBracket AVMEDIA_TYPE_AUDIO (fileReadable f) \fmt_ctx dec_ctx stream -> do
 
-  bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) $ \graph -> do
+  bracket avfilter_graph_alloc (\p -> with p avfilter_graph_free) \graph -> do
 
   -- buffer audio source: the decoded frames from the decoder will be inserted here.
   buffersrc_ctx <- addFilterSource dec_ctx stream graph
@@ -1337,11 +1595,11 @@ audioIntegratedVolume f = do
   ffCheck "avfilter_graph_config" (>= 0) $ avfilter_graph_config graph nullPtr
 
   -- read all packets
-  bracket av_packet_alloc (\p -> with p av_packet_free) $ \packet -> do
+  bracket av_packet_alloc (\p -> with p av_packet_free) \packet -> do
   let loop vol = do
-        result <- tryGetGraphOutput buffersink_ctx $ \filt_frame -> do
+        result <- tryGetGraphOutput buffersink_ctx \filt_frame -> do
           meta <- getAVFrameMetadata filt_frame
-          entry <- withCString "lavfi.r128.I" $ \k -> av_dict_get meta k nullPtr 0
+          entry <- withCString "lavfi.r128.I" \k -> av_dict_get meta k nullPtr 0
           if entry == nullPtr
             then return Nothing
             else fmap readMaybe $ getAVDictionaryEntryValue entry >>= peekCString

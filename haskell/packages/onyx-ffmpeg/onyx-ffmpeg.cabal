@@ -13,6 +13,7 @@ library
   build-depends:
       base
     , conduit-audio
+    , filepath
     , conduit
     , unliftio
     , resourcet
