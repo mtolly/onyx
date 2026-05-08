@@ -828,6 +828,11 @@ setAVFormatContextPB :: Ptr AVFormatContext -> Ptr AVIOContext -> IO ()
 setAVFormatContextPB ctx pb =
   [C.block| void { $(AVFormatContext* ctx)->pb = $(AVIOContext* pb); } |]
 
+-- Tells avformat_close_input not to free pb itself, since withHandleAVIO owns it.
+setAVFormatFlagCustomIO :: Ptr AVFormatContext -> IO ()
+setAVFormatFlagCustomIO ctx =
+  [C.block| void { $(AVFormatContext* ctx)->flags |= AVFMT_FLAG_CUSTOM_IO; } |]
+
 getAVCodecContextSampleRate :: Ptr AVCodecContext -> IO CInt
 getAVCodecContextSampleRate ctx =
   [C.exp| int { $(AVCodecContext* ctx)->sample_rate } |]
@@ -916,16 +921,18 @@ withStream brkt mediaType r fn = do
   let freeIfNeeded p = readIORef openInputError >>= \case
         True  -> return ()
         False -> with p avformat_close_input
-  runBracket brkt avformat_alloc_context freeIfNeeded \fmt_ctx -> let
-    handleOpenInputResult res = do
-      when (res /= 0) $ writeIORef openInputError True
-      ffCheck "avformat_open_input" (== 0) $ return res
-    openInput = runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio -> do
+      handleOpenInputResult res = do
+        when (res /= 0) $ writeIORef openInputError True
+        ffCheck "avformat_open_input" (== 0) $ return res
+  -- The handle/AVIO brackets must wrap the format-context bracket so that
+  -- avformat_close_input runs while pb (and the underlying Handle) are still
+  -- valid. AVFMT_FLAG_CUSTOM_IO tells avformat_close_input not to free pb.
+  runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio ->
+    runBracket brkt avformat_alloc_context freeIfNeeded \fmt_ctx -> do
       liftIO $ setAVFormatContextPB fmt_ctx avio
+      liftIO $ setAVFormatFlagCustomIO fmt_ctx
       liftIO $ with fmt_ctx \pctx -> do
         avformat_open_input pctx nullPtr nullPtr nullPtr >>= handleOpenInputResult
-      afterOpenInput
-    afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
       (streamIndex, dec) <- liftIO $ alloca \pdec -> do
         streamIndex <- av_find_best_stream fmt_ctx mediaType -1 -1 pdec 0
@@ -937,7 +944,6 @@ withStream brkt mediaType r fn = do
         liftIO $ ffCheck "avcodec_parameters_to_context" (>= 0) $ avcodec_parameters_to_context dec_ctx params
         liftIO $ ffCheck "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
         fn fmt_ctx dec_ctx stream
-    in openInput
 
 withAllStreams
   :: (MonadIO m)
@@ -947,13 +953,14 @@ withAllStreams
   -> (Ptr AVFormatContext -> [(Ptr AVCodecContext, Ptr AVStream)] -> m a)
   -> m a
 withAllStreams brkt mediaType r fn = do
-  runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) \fmt_ctx -> let
-    openInput = runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio -> do
+  -- See withStream for why the handle/AVIO brackets wrap the format-context
+  -- bracket and why AVFMT_FLAG_CUSTOM_IO is set.
+  runBracket brkt (rOpen r) hClose \h -> withHandleAVIO brkt h \avio ->
+    runBracket brkt avformat_alloc_context (\p -> with p avformat_close_input) \fmt_ctx -> do
       liftIO $ setAVFormatContextPB fmt_ctx avio
+      liftIO $ setAVFormatFlagCustomIO fmt_ctx
       liftIO $ with fmt_ctx \pctx -> do
         ffCheck "avformat_open_input" (== 0) $ avformat_open_input pctx nullPtr nullPtr nullPtr
-      afterOpenInput
-    afterOpenInput = do
       liftIO $ ffCheck "avformat_find_stream_info" (>= 0) $ avformat_find_stream_info fmt_ctx nullPtr
       numStreams <- liftIO fmt_ctx.nb_streams
       matchingStreams <- liftIO $ alloca \pdec -> do
@@ -973,7 +980,6 @@ withAllStreams brkt mediaType r fn = do
               liftIO $ ffCheck "avcodec_open2" (== 0) $ avcodec_open2 dec_ctx dec nullPtr
               rest (dec_ctx, stream)
       withMany loadStream matchingStreams $ fn fmt_ctx
-    in openInput
 
 class (Storable a) => FFSample a where
   ffSampleFormat :: a -> AVSampleFormat

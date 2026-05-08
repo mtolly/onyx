@@ -514,13 +514,6 @@ loadAudioInput fin = case takeExtension fin of
     case map (standardRate . mapSamples fractionalSample) chans of
       src : srcs -> return $ foldl merge src srcs
       []         -> fail "buildSource: VGS has 0 channels"
-  -- this is a bad hack for a problem on Windows of temp folders not being
-  -- deleted because (apparently) ffmpeg isn't letting go of its input file
-  -- even after processing finishes or the thread is killed. particularly
-  -- seems to happen when going RB -> CH (mogg -> wav(s) -> oggs).
-  -- need to actually figure out what's going on!
-  -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
-  ".wav" -> sourceSnd fin
   ".xma" -> sourceXMA2CorrectLength     $ fileReadable fin
   ".bik" -> ffSourceBinkFrom (Frames 0) $ fileReadable fin
   _      -> ffSourceFrom     (Frames 0) $ fileReadable fin
