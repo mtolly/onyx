@@ -29,6 +29,7 @@ import           Control.Monad.Trans.Resource (MonadResource, ResourceT,
                                                liftResourceT, resourceForkIO,
                                                runResourceT)
 import           Data.Char                    (toLower)
+import           Data.Coerce                  (coerce)
 import           Data.Conduit                 (ConduitM, bracketP, runConduit,
                                                yield, (.|))
 import qualified Data.Conduit.Audio           as CA
@@ -1398,14 +1399,23 @@ encodeAndWrite fmt_ctx enc_ctx st frame =
     return ret;
   } |]
 
-ffSink :: FilePath -> CA.AudioSource (ResourceT IO) Float -> IO ()
-ffSink fout src = do
+-- For Ogg Vorbis output, takes quality in oggenc style (typically 0-10)
+ffSink :: Maybe Double -> FilePath -> CA.AudioSource (ResourceT IO) Float -> IO ()
+ffSink oggQuality fout src = do
 
   (muxer, codecID, outRate) <- case map toLower $ takeExtension fout of
     ".ogg"  -> return ("ogg", AV_CODEC_ID_VORBIS   , round src.rate)
     ".opus" -> return ("ogg", AV_CODEC_ID_OPUS     , 48000         )
     ".wav"  -> return ("wav", AV_CODEC_ID_PCM_S16LE, round src.rate)
     _       -> fail $ "Unsupported output audio file extension: " <> fout
+
+  -- VBR-by-quality only applies to Vorbis. FFmpeg expects the oggenc-style
+  -- quality scaled by FF_QP2LAMBDA (= 118) in global_quality, with the
+  -- AV_CODEC_FLAG_QSCALE flag set; bit_rate must be left at 0.
+  let qp2lambda = coerce [C.pure| double { FF_QP2LAMBDA } |] :: Double
+      (useQscale, globalQuality) = case (codecID, oggQuality) of
+        (AV_CODEC_ID_VORBIS, Just q) -> (1 :: CInt, round (q * qp2lambda) :: CInt)
+        _                            -> (0       , 0                             )
 
   let contextGet = alloca \p -> do
         n <- withCString muxer \m ->
@@ -1453,9 +1463,15 @@ ffSink fout src = do
     AVCodecContext* enc_ctx = $(AVCodecContext* enc_ctx);
     enc_ctx->sample_fmt = $(enum AVSampleFormat outSampleFormat);
     enc_ctx->sample_rate = $(int outRate);
-    enc_ctx->bit_rate = 128000; // TODO change this as needed
     enc_ctx->time_base = (AVRational){ 1, $(int outRate) };
     enc_ctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL; // needed for vorbis and opus encoders
+
+    if ($(int useQscale)) {
+      enc_ctx->flags |= AV_CODEC_FLAG_QSCALE;
+      enc_ctx->global_quality = $(int globalQuality);
+    } else {
+      enc_ctx->bit_rate = 128000;
+    }
 
     if ($(AVFormatContext* fmt_ctx)->oformat->flags & AVFMT_GLOBALHEADER) {
       enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;

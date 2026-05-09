@@ -101,7 +101,8 @@ import           Onyx.Audio.FSB
 import           Onyx.Audio.SndfileExtra
 import           Onyx.Audio.VGS                   (decryptReadVGS,
                                                    readSingleRateVGS, readVGS)
-import           Onyx.FFMPEG                      (ffSource, ffSourceBinkFrom,
+import           Onyx.FFMPEG                      (ffSink, ffSource,
+                                                   ffSourceBinkFrom,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
 import           Onyx.Harmonix.MOGG               (sourceVorbis)
@@ -660,21 +661,18 @@ audioIO oggQuality src out = let
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
     then merge src $ silent (Frames 0) (rate src) 1
-    else if takeExtension out == ".opus"
-      -- opus doesn't support 44.1 kHz; later we should probably come up with a better way to support 48 kHz
-      then resampleTo 48000 SincMediumQuality src
-      else src
+    else src
   withSndFormat fmt = runResourceT case (takeExtension out, oggQuality) of
     (".ogg", Just q) -> do
       let setup hsnd = void $ liftIO $ setVBREncodingQuality hsnd q
       sinkSndWithHandle out fmt setup src'
     _ -> sinkSnd out fmt src'
   in case takeExtension out of
-    ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-    ".opus" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatOpus Snd.EndianFile
-    ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    ".mp3" -> runResourceT $ sinkMP3 out src'
-    ext -> error $ "audioIO: unknown audio output file extension " ++ ext
+    ".ogg"  -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+    ".opus" -> ffSink Nothing out src'
+    ".wav"  -> ffSink Nothing out src'
+    ".mp3"  -> runResourceT $ sinkMP3 out src'
+    ext     -> error $ "audioIO: unknown audio output file extension " ++ ext
 
 runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = do
