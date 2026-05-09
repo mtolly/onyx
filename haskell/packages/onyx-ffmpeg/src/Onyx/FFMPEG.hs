@@ -81,6 +81,7 @@ data AVCodecParameters
 data AVChannelLayout
 data SwsContext
 data SwrContext
+data AVAudioFifo
 
 -- enum types
 newtype AVCodecID = AVCodecID CInt
@@ -115,6 +116,7 @@ C.context $ C.baseCtx <> mempty
     , (C.TypeName "AVChannelLayout"   , [t| AVChannelLayout   |])
     , (C.Struct   "SwsContext"        , [t| SwsContext        |])
     , (C.Struct   "SwrContext"        , [t| SwrContext        |])
+    , (C.TypeName "AVAudioFifo"       , [t| AVAudioFifo       |])
     , (C.Enum     "AVCodecID"         , [t| AVCodecID         |])
     , (C.Enum     "AVMediaType"       , [t| AVMediaType       |])
     , (C.Enum     "AVPixelFormat"     , [t| AVPixelFormat     |])
@@ -133,6 +135,7 @@ C.include "libavfilter/avfilter.h"
 C.include "libavfilter/buffersink.h"
 C.include "libavfilter/buffersrc.h"
 C.include "libswresample/swresample.h"
+C.include "libavutil/audio_fifo.h"
 
 -- enum values we care about
 
@@ -764,6 +767,48 @@ swr_free :: Ptr (Ptr SwrContext) -> IO ()
 swr_free pswr =
   [C.block| void { swr_free($(struct SwrContext** pswr)); } |]
 
+swr_get_delay :: Ptr SwrContext -> Int64 -> IO Int64
+swr_get_delay swr base =
+  [C.exp| int64_t { swr_get_delay($(struct SwrContext* swr), $(int64_t base)) } |]
+
+av_audio_fifo_alloc :: AVSampleFormat -> CInt -> CInt -> IO (Ptr AVAudioFifo)
+av_audio_fifo_alloc fmt channels nb_samples =
+  [C.exp| AVAudioFifo* {
+    av_audio_fifo_alloc(
+      $(enum AVSampleFormat fmt),
+      $(int channels),
+      $(int nb_samples)
+    )
+  } |]
+
+av_audio_fifo_free :: Ptr AVAudioFifo -> IO ()
+av_audio_fifo_free fifo =
+  [C.block| void { av_audio_fifo_free($(AVAudioFifo* fifo)); } |]
+
+av_audio_fifo_write :: Ptr AVAudioFifo -> Ptr (Ptr Word8) -> CInt -> IO CInt
+av_audio_fifo_write fifo dataPtr nb_samples =
+  [C.exp| int {
+    av_audio_fifo_write(
+      $(AVAudioFifo* fifo),
+      (void**) $(uint8_t** dataPtr),
+      $(int nb_samples)
+    )
+  } |]
+
+av_audio_fifo_read :: Ptr AVAudioFifo -> Ptr (Ptr Word8) -> CInt -> IO CInt
+av_audio_fifo_read fifo dataPtr nb_samples =
+  [C.exp| int {
+    av_audio_fifo_read(
+      $(AVAudioFifo* fifo),
+      (void**) $(uint8_t** dataPtr),
+      $(int nb_samples)
+    )
+  } |]
+
+av_audio_fifo_size :: Ptr AVAudioFifo -> IO CInt
+av_audio_fifo_size fifo =
+  [C.exp| int { av_audio_fifo_size($(AVAudioFifo* fifo)) } |]
+
 newtype Bracket m = Bracket { runBracket :: forall a b. IO a -> (a -> IO ()) -> (a -> m b) -> m b }
 
 conduitBracket :: (MonadResource m) => Bracket (ConduitM i o m)
@@ -1358,7 +1403,7 @@ ffSink fout src = do
 
   (muxer, codecID, outRate) <- case map toLower $ takeExtension fout of
     ".ogg"  -> return ("ogg", AV_CODEC_ID_VORBIS   , round src.rate)
-    ".opus" -> return ("ogg", AV_CODEC_ID_OPUS     , 48000   )
+    ".opus" -> return ("ogg", AV_CODEC_ID_OPUS     , 48000         )
     ".wav"  -> return ("wav", AV_CODEC_ID_PCM_S16LE, round src.rate)
     _       -> fail $ "Unsupported output audio file extension: " <> fout
 
@@ -1444,35 +1489,108 @@ ffSink fout src = do
     return av_channel_layout_copy(&frame->ch_layout, &enc_ctx->ch_layout);
   } |]
 
-  maxFrameSamples <- frame.nb_samples
-  let reorg = CA.reorganize (fromIntegral maxFrameSamples) src
+  frameSize <- frame.nb_samples
 
   ffCheck "Allocate frame buffer" (>= 0) $ av_frame_get_buffer frame 0
 
-  outputPlanes <- frame.extended_data
-  vPTS <- newIORef 0
-  runResourceT $ runConduit $ reorg.source .| CL.mapM_ \buf -> liftIO do
+  -- Resampler output is staged in this scratch frame before being sliced into
+  -- encoder-sized frames via the FIFO. Capacity grows on demand.
+  bracket av_frame_alloc (\f -> with f av_frame_free) \scratch -> do
+  when (scratch == nullPtr) $ fail "ENOMEM"
+
+  let configureScratch nbSamples = do
+        av_frame_unref scratch
+        ffCheck "Configuring scratch frame" (>= 0) [C.block| int {
+          AVFrame* scratch = $(AVFrame* scratch);
+          AVCodecContext* enc_ctx = $(AVCodecContext* enc_ctx);
+          scratch->format      = enc_ctx->sample_fmt;
+          scratch->sample_rate = enc_ctx->sample_rate;
+          scratch->nb_samples  = $(int nbSamples);
+          return av_channel_layout_copy(&scratch->ch_layout, &enc_ctx->ch_layout);
+        } |]
+        ffCheck "Allocate scratch buffer" (>= 0) $ av_frame_get_buffer scratch 0
+
+  scratchCapRef <- newIORef (max frameSize 4096)
+  readIORef scratchCapRef >>= configureScratch
+
+  let fifoGet = av_audio_fifo_alloc outSampleFormat
+        (fromIntegral src.channels) frameSize
+      fifoFree f = when (f /= nullPtr) $ av_audio_fifo_free f
+  bracket fifoGet fifoFree \fifo -> do
+  when (fifo == nullPtr) $ fail "Couldn't allocate AVAudioFifo"
+
+  let srcRate :: CInt
+      srcRate = round src.rate
+
+      ensureScratch needed = do
+        cap <- readIORef scratchCapRef
+        when (needed > cap) do
+          let newCap = max needed (cap * 2)
+          configureScratch newCap
+          writeIORef scratchCapRef newCap
+
+      pushScratchToFifo produced = when (produced > 0) do
+        planes <- scratch.extended_data
+        written <- av_audio_fifo_write fifo (castPtr planes) produced
+        when (written /= produced) $ fail
+          "av_audio_fifo_write returned fewer samples than requested"
+
+  vPTS <- newIORef (0 :: CInt)
+
+  let drainFrame nbSamples = do
+        [C.block| void { $(AVFrame* frame)->nb_samples = $(int frameSize); } |]
+        ffCheck "av_frame_make_writable" (>= 0) $ av_frame_make_writable frame
+        planes <- frame.extended_data
+        readN <- av_audio_fifo_read fifo (castPtr planes) nbSamples
+        when (readN /= nbSamples) $ fail
+          "av_audio_fifo_read returned fewer samples than requested"
+        pts <- readIORef vPTS
+        [C.block| void {
+          $(AVFrame* frame)->nb_samples = $(int nbSamples);
+          $(AVFrame* frame)->pts = $(int pts);
+        } |]
+        writeIORef vPTS $ pts + nbSamples
+        ffCheck "Writing frame" (>= 0) $ encodeAndWrite fmt_ctx enc_ctx st frame
+
+      drainFull = do
+        sz <- av_audio_fifo_size fifo
+        when (sz >= frameSize) do
+          drainFrame frameSize
+          drainFull
+
+      flushResampler = do
+        cap <- readIORef scratchCapRef
+        planes <- scratch.extended_data
+        produced <- swr_convert swr (castPtr planes) cap nullPtr 0
+        when (produced < 0) $ throwIO FFMPEGError
+          { ffContext = "swr_convert (flush)", ffCode = fromIntegral produced }
+        pushScratchToFifo produced
+        when (produced > 0) flushResampler
+
+  runResourceT $ runConduit $ src.source .| CL.mapM_ \buf -> liftIO do
 
     let countSamples = fromIntegral $ CA.vectorFrames buf src.channels
-    ffCheck "av_frame_make_writable" (>= 0) $ av_frame_make_writable frame
-
-    V.unsafeWith buf \p -> do
+    delay <- swr_get_delay swr (fromIntegral srcRate)
+    let needed64 :: Int64
+        needed64 = ((delay + fromIntegral countSamples) * fromIntegral outRate
+                     + fromIntegral srcRate - 1) `div` fromIntegral srcRate
+    ensureScratch (fromIntegral needed64)
+    cap <- readIORef scratchCapRef
+    scratchPlanes <- scratch.extended_data
+    produced <- V.unsafeWith buf \p -> do
       withArray [p] \inputPlanes -> do
-        ffCheck "swr_convert" (>= 0) $ swr_convert
-          swr
-          (castPtr outputPlanes)
-          countSamples
-          (castPtr inputPlanes)
-          countSamples
+        r <- swr_convert swr (castPtr scratchPlanes) cap
+          (castPtr inputPlanes) countSamples
+        when (r < 0) $ throwIO FFMPEGError
+          { ffContext = "swr_convert", ffCode = fromIntegral r }
+        return r
+    pushScratchToFifo produced
+    drainFull
 
-    pts <- readIORef vPTS
-    [C.block| void {
-      $(AVFrame* frame)->nb_samples = $(int countSamples);
-      $(AVFrame* frame)->pts = $(int pts);
-    } |]
-    writeIORef vPTS $ pts + fromIntegral countSamples
-
-    ffCheck "Writing frame" (>= 0) $ encodeAndWrite fmt_ctx enc_ctx st frame
+  flushResampler
+  drainFull
+  remaining <- av_audio_fifo_size fifo
+  when (remaining > 0) $ drainFrame remaining
 
   ffCheck "Flushing" (>= 0) $ encodeAndWrite fmt_ctx enc_ctx st nullPtr
 
