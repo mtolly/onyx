@@ -1442,7 +1442,9 @@ ffSink oggQuality fout src = do
 
   pChannelLayout <- enc_ctx.ch_layout
   av_channel_layout_default pChannelLayout $ fromIntegral src.channels
-  let swrGet = alloca \pswr -> do
+  -- NOTE: pswr has to start out pointing to null so ffmpeg allocates correctly;
+  -- "alloca \pswr" causes a (not consistent) segfault!
+  let swrGet = with nullPtr \pswr -> do
         ffCheck "Loading swr" (>= 0) $ swr_alloc_set_opts2
           pswr
           pChannelLayout
