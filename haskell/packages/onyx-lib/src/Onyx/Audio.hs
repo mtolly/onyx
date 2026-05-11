@@ -117,6 +117,7 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle                 (Readable, fileReadable,
                                                    handleToByteString,
                                                    useHandle)
+import           Onyx.VorbisEnc                   (sinkOggVorbis)
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
 import qualified Sound.MIDI.Util                  as U
@@ -660,15 +661,11 @@ audioIO oggQuality src out = let
     -- this works around an issue with oggenc:
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
+    -- TODO do we still need to do this with our vorbisenc code, or can we fix it
     then merge src $ silent (Frames 0) (rate src) 1
     else src
-  withSndFormat fmt = runResourceT case (takeExtension out, oggQuality) of
-    (".ogg", Just q) -> do
-      let setup hsnd = void $ liftIO $ setVBREncodingQuality hsnd q
-      sinkSndWithHandle out fmt setup src'
-    _ -> sinkSnd out fmt src'
   in case takeExtension out of
-    ".ogg"  -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+    ".ogg"  -> sinkOggVorbis oggQuality out src'
     ".opus" -> ffSink Nothing out src'
     ".wav"  -> ffSink Nothing out src'
     ".mp3"  -> runResourceT $ sinkMP3 out src'

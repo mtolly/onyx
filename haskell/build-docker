@@ -2,6 +2,15 @@
 set -e
 set -u
 
+if command -v docker >/dev/null 2>&1; then
+    DOCKER=docker
+elif command -v podman >/dev/null 2>&1; then
+    DOCKER=podman
+else
+    echo "Error: neither docker nor podman found in PATH" >&2
+    exit 1
+fi
+
 ./copy-resources
-docker build -t onyxite/onyx .
-docker run -v "$(pwd)":/external onyxite/onyx bash -c "cp /onyx/*.AppImage /external"
+"$DOCKER" build -t onyxite/onyx .
+"$DOCKER" run -v "$(pwd)":/external onyxite/onyx bash -c "cp /onyx/*.AppImage /external"

@@ -100,6 +100,7 @@ library:
   - onyx-moggcrypt
   - onyx-autochart
   - onyx-libzip
+  - onyx-vorbisenc
   - utf8proc
 
   ghc-options: -O

@@ -24,6 +24,7 @@ extra-deps:
 - packages/onyx-npdata
 - packages/onyx-moggcrypt
 - packages/onyx-autochart
+- packages/onyx-vorbisenc
 # git repos
 - git: https://github.com/mtolly/midi
   commit: 67c595a8f0c3b2fa193c088374de5bf544234ff0 # string-param branch
