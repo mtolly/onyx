@@ -34,6 +34,7 @@ import           Development.Shake                     (need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
+import           Onyx.Audio                            (audioLength, audioRate)
 import           Onyx.FeedBack.Load                    (loadRawMIDIOrChart)
 import           Onyx.MIDI.Common                      (Key (..), showKey)
 import           Onyx.MIDI.Track.Drums.Elite           (eliteDrumNoteNames)
@@ -50,7 +51,6 @@ import           Onyx.Resources                        (colorMapDrums,
                                                         colorMapRSLow,
                                                         getResourcesPath)
 import           Onyx.StackTrace
-import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta
@@ -1238,11 +1238,15 @@ getTempos mid = case U.decodeFile mid of
 
 makeReaperFromData :: (SendMessage m, MonadIO m) => TuningInfo -> F.T T.Text -> F.T T.Text -> [FilePath] -> FilePath -> StackTraceT m ()
 makeReaperFromData tunings mid tempoMid audios out = do
-  lenAudios <- stackIO $ flip mapMaybeM audios \aud -> do
-    info <- Snd.getFileInfo aud
-    return case Snd.frames info of
-      0 -> Nothing
-      f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
+  lenAudios <- flip mapMaybeM audios \aud -> do
+    len  <- stackIO $ audioLength aud
+    rate <- stackIO $ audioRate aud
+    case (len, rate) of
+      (Just 0, _     ) -> return Nothing
+      (Just l, Just r) -> return $ Just (fromIntegral l / fromIntegral r, aud)
+      _                -> do
+        warn $ "Couldn't load audio information for: " <> aud
+        return Nothing
   tmap <- getTempos tempoMid
   let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
       getLastTime = foldr max NNC.zero . map getTrackLastTime

@@ -82,27 +82,22 @@ sinkOggVorbis optQuality fout src = do
   withBinaryFile fout WriteMode \h -> do
 
   -- calloc (init to zero) so we can call *_clear functions always
-  bracket [C.exp| ogg_stream_state* { calloc(1, sizeof(ogg_stream_state)) } |]
-    (\p -> [C.block| void { free($(ogg_stream_state* p)); } |]) \os -> do
-  bracket [C.exp| ogg_page* { calloc(1, sizeof(ogg_page)) } |]
-    (\p -> [C.block| void { free($(ogg_page* p)); } |]) \og -> do
-  bracket [C.exp| ogg_packet* { calloc(1, sizeof(ogg_packet)) } |]
-    (\p -> [C.block| void { free($(ogg_packet* p)); } |]) \op -> do
-  bracket [C.exp| vorbis_info* { calloc(1, sizeof(vorbis_info)) } |]
-    (\p -> [C.block| void { free($(vorbis_info* p)); } |]) \vi -> do
-  bracket [C.exp| vorbis_comment* { calloc(1, sizeof(vorbis_comment)) } |]
-    (\p -> [C.block| void { free($(vorbis_comment* p)); } |]) \vc -> do
-  bracket [C.exp| vorbis_dsp_state* { calloc(1, sizeof(vorbis_dsp_state)) } |]
-    (\p -> [C.block| void { free($(vorbis_dsp_state* p)); } |]) \vd -> do
-  bracket [C.exp| vorbis_block* { calloc(1, sizeof(vorbis_block)) } |]
-    (\p -> [C.block| void { free($(vorbis_block* p)); } |]) \vb -> do
+  let free :: Ptr a -> IO ()
+      free p = let v = castPtr p in [C.block| void { free($(void* v)); } |]
+  bracket [C.exp| ogg_stream_state* { calloc(1, sizeof(ogg_stream_state)) } |] free \os -> do
+  bracket [C.exp| ogg_page        * { calloc(1, sizeof(ogg_page        )) } |] free \og -> do
+  bracket [C.exp| ogg_packet      * { calloc(1, sizeof(ogg_packet      )) } |] free \op -> do
+  bracket [C.exp| vorbis_info     * { calloc(1, sizeof(vorbis_info     )) } |] free \vi -> do
+  bracket [C.exp| vorbis_comment  * { calloc(1, sizeof(vorbis_comment  )) } |] free \vc -> do
+  bracket [C.exp| vorbis_dsp_state* { calloc(1, sizeof(vorbis_dsp_state)) } |] free \vd -> do
+  bracket [C.exp| vorbis_block    * { calloc(1, sizeof(vorbis_block    )) } |] free \vb -> do
 
   flip finally [C.block| void {
-    ogg_stream_clear($(ogg_stream_state* os));
-    vorbis_block_clear($(vorbis_block* vb));
-    vorbis_dsp_clear($(vorbis_dsp_state* vd));
-    vorbis_comment_clear($(vorbis_comment* vc));
-    vorbis_info_clear($(vorbis_info* vi));
+    ogg_stream_clear    ($(ogg_stream_state* os));
+    vorbis_block_clear  ($(vorbis_block    * vb));
+    vorbis_dsp_clear    ($(vorbis_dsp_state* vd));
+    vorbis_comment_clear($(vorbis_comment  * vc));
+    vorbis_info_clear   ($(vorbis_info     * vi));
   } |] do
 
   let channels = fromIntegral src.channels

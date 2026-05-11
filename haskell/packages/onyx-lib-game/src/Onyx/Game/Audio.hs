@@ -29,7 +29,6 @@ import           Control.Monad.Trans.Resource
 import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as CA
-import           Data.Conduit.Audio.Sndfile   (sourceSndFrom)
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef
@@ -162,12 +161,6 @@ stereoInt16ToMonoFloat samples
             r = fromIntegral (samples V.! rightIdx) / 32768.0
             in (l + r) / 2.0
           else 0.0  -- Fallback, though this shouldn't happen with proper math
-
-_sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
-_sndSecsSpeed pos mspeed f = do
-  src <- sourceSndFrom (CA.Seconds pos) f
-  let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
-  return $ CA.mapSamples CA.integralSample $ adjustSpeed src
 
 -- TODO it would be nice if we could switch audio devices seamlessly on default device change.
 -- see https://github.com/kcat/openal-soft/issues/555

@@ -74,7 +74,6 @@ import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding  as L
 import           Data.Conduit.Audio.SampleRate
-import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List                as CL
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.Either                      (lefts, rights)
@@ -98,7 +97,6 @@ import           Foreign.C                        (CFloat, CInt (..))
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
-import           Onyx.Audio.SndfileExtra
 import           Onyx.Audio.VGS                   (decryptReadVGS,
                                                    readSingleRateVGS, readVGS)
 import           Onyx.FFMPEG                      (ffSink, ffSource,
@@ -876,13 +874,8 @@ decentMP3 out = sinkMP3WithHandle out \lame -> liftIO do
   L.check $ L.setVBR lame L.VbrDefault
   L.check $ L.setVBRQ lame 6 -- 0 (hq) to 9 (lq)
 
-decentVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-decentVorbis out = let
-  setup hsnd = liftIO (setVBREncodingQuality hsnd 0.2) >>= \case
-    True  -> return ()
-    False -> error "decentVorbis: couldn't set encoding quality"
-  fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-  in sinkSndWithHandle out fmt setup
+decentVorbis :: FilePath -> AudioSource (ResourceT IO) Float -> IO ()
+decentVorbis = sinkOggVorbis $ Just 0.2
 
 -- | Returns channel indexes (starting from 0) which are silent.
 emptyChannels :: (Monad m, V.Storable a, Eq a, Num a) => AudioSource m a -> ConduitT () o m [Int]

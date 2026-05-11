@@ -22,8 +22,7 @@ import           Control.Exception                    (evaluate)
 import           Control.Monad
 import           Control.Monad.Codec                  (codecOut)
 import           Control.Monad.IO.Class               (MonadIO)
-import           Control.Monad.Trans.Resource         (MonadResource, ResourceT,
-                                                       runResourceT)
+import           Control.Monad.Trans.Resource         (MonadResource, ResourceT)
 import           Control.Monad.Trans.State.Strict     (execState)
 import           Data.Bifunctor                       (first, second)
 import qualified Data.ByteString                      as B
@@ -33,7 +32,6 @@ import           Data.Char                            (isAlphaNum, isAscii,
                                                        isLower, isUpper,
                                                        toLower)
 import qualified Data.Conduit.Audio                   as CA
-import           Data.Conduit.Audio.Sndfile           (sinkSnd, sourceSndFrom)
 import qualified Data.Digest.Pure.MD5                 as MD5
 import qualified Data.EventList.Absolute.TimeBody     as ATB
 import qualified Data.EventList.Relative.TimeBody     as RTB
@@ -41,7 +39,7 @@ import           Data.Foldable                        (toList)
 import           Data.Functor                         ((<&>))
 import           Data.Functor.Identity                (Identity)
 import           Data.Hashable                        (hash)
-import           Data.Int                             (Int16, Int32)
+import           Data.Int                             (Int32)
 import qualified Data.IntSet                          as IntSet
 import           Data.List                            (partition)
 import           Data.List.NonEmpty                   (NonEmpty (..))
@@ -55,6 +53,7 @@ import           Data.Tuple.Extra                     (fst3, snd3, thd3)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
+import           Onyx.FFMPEG                          (ffSourceFrom)
 import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
                                                        Tree (..), readDTABytes,
@@ -100,8 +99,8 @@ import           Onyx.StackTrace
 import           Onyx.Util.Binary                     (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode                (encodeLatin1)
+import           Onyx.VorbisEnc                       (sinkOggVorbis)
 import           Onyx.Xbox.STFS
-import qualified Sound.File.Sndfile                   as Snd
 import qualified Sound.MIDI.File                      as F
 import qualified Sound.MIDI.File.Event                as E
 import qualified Sound.MIDI.File.Event.Meta           as Meta
@@ -818,9 +817,8 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" \temp -> do
         prevOgg = temp </> "preview.ogg"
         prevMogg = temp </> "preview.mogg"
         silentPreview = stackIO
-          $ runResourceT
-          $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-          $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
+          $ sinkOggVorbis Nothing prevOgg
+          $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Float)
     if settings.qcDolphinPreview
       then case [r | (_, QFUnencryptedMOGG r) <- toList qsong.quickSongFiles] of
         [] -> do
@@ -831,10 +829,9 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" \temp -> do
           errorToEither (stackIO $ saveReadable (moggToOgg r) fullOgg) >>= \case
             -- TODO the above error catch is untested since moving to moggcrypt
             Right () -> do
-              src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) fullOgg
+              src <- stackIO $ ffSourceFrom (CA.Seconds $ realToFrac prevStart / 1000) (fileReadable fullOgg)
               stackIO
-                $ runResourceT
-                $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+                $ sinkOggVorbis Nothing prevOgg
                 $ fadeStart (CA.Seconds 0.75)
                 $ fadeEnd (CA.Seconds 0.75)
                 $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)

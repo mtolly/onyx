@@ -75,7 +75,6 @@ import           Onyx.Util.Files                  (copyDirRecursive)
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import           Onyx.WebPlayer                   (makeDisplay)
 import           Path                             (parseAbsDir, toFilePath)
-import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
 import qualified Sound.MIDI.Util                  as U
@@ -341,8 +340,9 @@ _melodyRules buildInfo dir tgt = do
       $ Melody.randomNotes
       $ maybe mempty (.onyxMelody)
       $ Map.lookup tgt.part mid.tracks.onyxParts
-    info <- liftIO $ Snd.getFileInfo melodyAudio
-    let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
+    Just len <- liftIO $ audioLength melodyAudio
+    Just r   <- liftIO $ audioRate   melodyAudio
+    let secs = realToFrac len / realToFrac r :: U.Seconds
         str = unlines
           [ "1.02"
           , intercalate ";"
@@ -718,7 +718,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           stackIO $ runResourceT $ decentMP3 out src
         dir </> "preview-audio.ogg" %> \out -> do
           src <- lift $ lift $ buildSource $ Input $ dir </> "everything.wav"
-          stackIO $ runResourceT $ decentVorbis out src
+          stackIO $ decentVorbis out src
 
         -- Warn about notes that might hang off before a pro keys range shift
         phony (dir </> "hanging") do
