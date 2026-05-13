@@ -63,7 +63,6 @@ executables:
     - yaml
     - process
     - resourcet
-    - hsndfile
     - transformers
     - data-default-class
     - stm

@@ -33,8 +33,6 @@ library:
   - bytestring
   - process
   - resourcet
-  - hsndfile
-  - hsndfile-vector
   - JuicyPixels
   - conduit
   - vector
@@ -85,7 +83,6 @@ library:
   - jammittools
   - midi-util
   - conduit-audio
-  - conduit-audio-sndfile
   - conduit-audio-samplerate
   - conduit-audio-lame
   - rubberband

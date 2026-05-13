@@ -7,12 +7,6 @@
 [submodule "haskell/dependencies/libs/vorbis"]
 	path = haskell/dependencies/libs/vorbis
 	url = https://github.com/xiph/vorbis
-[submodule "haskell/dependencies/libs/opus"]
-	path = haskell/dependencies/libs/opus
-	url = https://github.com/xiph/opus
-[submodule "haskell/dependencies/libs/flac"]
-	path = haskell/dependencies/libs/flac
-	url = https://github.com/xiph/flac
 [submodule "haskell/dependencies/libs/FFmpeg"]
 	path = haskell/dependencies/libs/FFmpeg
 	url = https://github.com/FFmpeg/FFmpeg
@@ -25,9 +19,6 @@
 [submodule "haskell/dependencies/libs/libsamplerate"]
 	path = haskell/dependencies/libs/libsamplerate
 	url = https://github.com/libsndfile/libsamplerate
-[submodule "haskell/dependencies/libs/libsndfile"]
-	path = haskell/dependencies/libs/libsndfile
-	url = https://github.com/libsndfile/libsndfile
 [submodule "haskell/dependencies/libs/openal-soft"]
 	path = haskell/dependencies/libs/openal-soft
 	url = https://github.com/kcat/openal-soft

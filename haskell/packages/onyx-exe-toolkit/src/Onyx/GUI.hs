@@ -82,9 +82,10 @@ import           Foreign.C                         (CDouble, CInt)
 import           Network.HTTP.Req                  ((/:))
 import qualified Network.HTTP.Req                  as Req
 import           Numeric                           (showHex)
-import           Onyx.Audio                        (Audio (..), buildSource',
-                                                    makeXMAFSB3, makeXMAPieces,
-                                                    runAudio)
+import           Onyx.Audio                        (Audio (..), audioChannels,
+                                                    audioLength, audioRate,
+                                                    buildSource', makeXMAFSB3,
+                                                    makeXMAPieces, runAudio)
 import           Onyx.Audio.FSB                    (emitFSB, ghBandXMAtoFSB4)
 import           Onyx.Audio.VGS                    (writeVGSMultiRate)
 import           Onyx.Build                        (NameRule (..),
@@ -143,7 +144,6 @@ import           Onyx.Util.Handle                  (fileReadable,
                                                     saveHandleFolder)
 import qualified Onyx.Xbox.STFS                    as STFS
 import           Paths_onyx_exe_toolkit            (version)
-import qualified Sound.File.Sndfile                as Snd
 import qualified Sound.MIDI.File.Save              as Save
 import qualified Sound.MIDI.Util                   as U
 import qualified System.Directory                  as Dir
@@ -1727,31 +1727,35 @@ taskOutputPage rect tab sink cbStart cbEnd = do
   return (startTasks, cancelTasks)
 
 data AudioSpec = AudioSpec
-  { audioPath     :: FilePath
-  , audioFormat   :: T.Text
-  , audioFrames   :: Int
-  , audioRate     :: Double
-  , audioChannels :: Int
+  { path     :: FilePath
+  , format   :: T.Text
+  , frames   :: Int
+  , rate     :: Int
+  , channels :: Int
   }
 
 getAudioSpec :: FilePath -> IO (Maybe AudioSpec)
-getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
-  Left e -> let
-    _ = e :: Snd.Exception
-    in return Nothing -- TODO handle MP3
-  Right info -> let
-    withFormat fmt = return $ Just AudioSpec
-      { audioPath = f
-      , audioFormat = fmt
-      , audioFrames = Snd.frames info
-      , audioRate = realToFrac $ Snd.samplerate info
-      , audioChannels = Snd.channels info
-      }
-    in case Snd.headerFormat $ Snd.format info of
-      Snd.HeaderFormatWav  -> withFormat "WAVE"
-      Snd.HeaderFormatOgg  -> withFormat "Ogg Vorbis"
-      Snd.HeaderFormatFlac -> withFormat "FLAC"
-      _                    -> return Nothing
+getAudioSpec f = audioChannels f >>= \case
+  Nothing -> return Nothing
+  Just ch -> audioRate f >>= \case
+    Nothing -> return Nothing
+    Just r -> audioLength f >>= \case
+      Nothing -> return Nothing
+      Just len -> let
+        withFormat fmt = return $ Just AudioSpec
+          { path     = f
+          , format   = fmt
+          , frames   = fromIntegral len
+          , rate     = r
+          , channels = ch
+          }
+        in case map toLower $ takeExtension f of
+          ".wav"  -> withFormat "WAVE"
+          ".ogg"  -> withFormat "Ogg Vorbis"
+          ".flac" -> withFormat "FLAC"
+          ".mp3"  -> withFormat "MP3"
+          ".opus" -> withFormat "Opus"
+          _       -> return Nothing
 
 miscPagePacks
   :: (Event -> IO ())
@@ -2805,12 +2809,12 @@ miscPageMOGG sink rect tab startTasks = mdo
       [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
       [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
       isSingleOgg = \case
-        [aud] | aud.audioFormat == "Ogg Vorbis" -> Just aud
-        _                                       -> Nothing
+        [aud] | aud.format == "Ogg Vorbis" -> Just aud
+        _                                  -> Nothing
       modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
       modifyAudio f = do
         newAudio <- modifyMVar loadedAudio \auds -> (\x -> (x, x)) <$> f auds
-        let chans = sum $ map (.audioChannels) newAudio
+        let chans = sum $ map (.channels) newAudio
         sink $ EventIO do
           let moggLabel = T.unpack $ let
                 op = case isSingleOgg newAudio of
@@ -2842,18 +2846,18 @@ miscPageMOGG sink rect tab startTasks = mdo
   group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     \info -> let
-      entry = T.pack info.audioPath
+      entry = T.pack info.path
       sublines =
-        [ info.audioFormat <> ", " <> T.pack (show info.audioChannels)
-          <> case info.audioChannels of 1 -> " channel"; _ -> " channels"
+        [ info.format <> ", " <> T.pack (show info.channels)
+          <> case info.channels of 1 -> " channel"; _ -> " channels"
         , let
-          time = realToFrac info.audioFrames / info.audioRate
+          time = realToFrac info.frames / realToFrac info.rate :: Double
           mins = floor $ time / 60 :: Int
           secs = realToFrac $ time - realToFrac mins * 60 :: Milli
           zero = if secs < 10 then "0" else ""
           stamp = T.pack $ show mins <> ":" <> zero <> show secs
           -- `time` package can do this once 1.9 is used in GHC 8.8
-          in stamp <> " (" <> T.pack (show info.audioFrames) <> " frames @ " <> T.pack (show info.audioRate) <> "Hz)"
+          in stamp <> " (" <> T.pack (show info.frames) <> " frames @ " <> T.pack (show info.rate) <> " Hz)"
         ]
       in (entry, sublines)
 
@@ -2865,7 +2869,7 @@ miscPageMOGG sink rect tab startTasks = mdo
           audio <- readMVar loadedAudio
           let title = "Save " <> T.unpack defaultExt <> " file"
               preset = case audio of
-                [aud] -> Just $ T.pack $ takeFileName aud.audioPath -<.> T.unpack defaultExt
+                [aud] -> Just $ T.pack $ takeFileName aud.path -<.> T.unpack defaultExt
                 _     -> Just $ "out." <> defaultExt
           saveFileChooser (T.pack title) (T.pack filterStr) preset \f -> let
               ext = map toLower $ takeExtension f
@@ -2875,16 +2879,16 @@ miscPageMOGG sink rect tab startTasks = mdo
 
   btnMogg <- makeSaveAudioButton moggRect "*.mogg" "mogg" \audio f' ->
     startTasks case isSingleOgg audio of
-      Just aud -> [("Ogg to MOGG", oggToMoggFiles aud.audioPath f' >> return [f'])]
+      Just aud -> [("Ogg to MOGG", oggToMoggFiles aud.path f' >> return [f'])]
       Nothing  -> let
         task = tempDir "makemogg" \tmp -> do
           let ogg = tmp </> "temp.ogg"
-          case map (.audioRate) audio of
+          case map (.rate) audio of
             []             -> return ()
             rates@(r : rs) -> unless (all (== r) rs) do
               fatal $ "All files must have the same sample rate, but found: " <> show (nubOrd rates)
           ne <- maybe (fatal "No input files") return $ NE.nonEmpty audio
-          src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) ne
+          src <- buildSource' $ Merge $ fmap (Input . (.path)) ne
           runAudio src ogg
           oggToMoggFiles ogg f'
           return [f']
@@ -2893,7 +2897,7 @@ miscPageMOGG sink rect tab startTasks = mdo
   btnVgs <- makeSaveAudioButton vgsRect "*.vgs" "vgs" \audio f' ->
     startTasks let
       task = do
-        srcs <- mapM (buildSource' . Input . (.audioPath)) audio
+        srcs <- mapM (buildSource' . Input . (.path)) audio
         stackIO $ runResourceT $ writeVGSMultiRate f' $ map (mapSamples integralSample) srcs
         return [f']
       in [("VGS file creation", task)]
@@ -2902,7 +2906,7 @@ miscPageMOGG sink rect tab startTasks = mdo
     startTasks let
       task = tempDir "makefsb3" \tmp -> do
         wavs <- forM (zip [0..] audio) \(i, aud) -> do
-          src <- buildSource' $ Input aud.audioPath
+          src <- buildSource' $ Input aud.path
           let wav = tmp </> show (i :: Int) <.> "wav"
           runAudio src wav
           return wav
@@ -2915,7 +2919,7 @@ miscPageMOGG sink rect tab startTasks = mdo
       task = tempDir "makefsb4" \tmp -> do
         let wav = tmp </> "audio.wav"
         audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
-        src <- buildSource' $ Merge $ fmap (Input . (.audioPath)) audio'
+        src <- buildSource' $ Merge $ fmap (Input . (.path)) audio'
         runAudio src wav
         fsb <- makeXMAPieces (fileReadable wav) >>= ghBandXMAtoFSB4
         stackIO $ BL.writeFile f' $ emitFSB fsb

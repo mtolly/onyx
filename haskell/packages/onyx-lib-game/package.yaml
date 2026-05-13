@@ -37,7 +37,6 @@ library:
   - OpenAL
   - conduit
   - conduit-audio
-  - conduit-audio-sndfile
   - wavefront
   - codec
   - directory

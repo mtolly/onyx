@@ -9,7 +9,7 @@ ffmpeg_cc :=
 endif
 
 # libraries we are currently building locally
-default: ogg vorbis opus flac ffmpeg lame libsndfile libsamplerate fltk
+default: ogg vorbis ffmpeg lame libsamplerate fltk
 
 clean:
 	rm -rf root/*
@@ -25,22 +25,6 @@ vorbis:
 	cd libs/vorbis && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
 	cd libs/vorbis && make
 	cd libs/vorbis && make install
-
-opus:
-	# (not sure if this is still required with cmake)
-	# update_version doesn't work in the copied-to-docker git repo.
-	# and if we don't set the version, then libsndfile won't use any external libs
-	cd libs/opus && echo 'PACKAGE_VERSION="1.5.2"' > package_version
-	cd libs/opus && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
-		-DOPUS_BUILD_SHARED_LIBRARY=ON
-	cd libs/opus && cmake --build build
-	cd libs/opus && cmake --install build
-
-flac:
-	cd libs/flac && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
-		-DBUILD_SHARED_LIBS=ON -DINSTALL_MANPAGES=OFF
-	cd libs/flac && cmake --build build
-	cd libs/flac && cmake --install build
 
 sdl:
 	cd libs/SDL && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
@@ -88,13 +72,6 @@ lame:
 	cd libs/LAME && ./configure --prefix=$(current_dir)/root --disable-decoder --disable-frontend
 	cd libs/LAME && make
 	cd libs/LAME && make install
-
-libsndfile:
-	# repo is on 1.0.31 because of https://github.com/libsndfile/libsndfile/issues/827
-	cd libs/libsndfile && ./autogen.sh
-	cd libs/libsndfile && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig ./configure --prefix=$(current_dir)/root
-	cd libs/libsndfile && make
-	cd libs/libsndfile && make install
 
 libsamplerate:
 	cd libs/libsamplerate && ./autogen.sh
