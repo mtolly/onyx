@@ -7,7 +7,7 @@ case $(uname) in
     echo "linux detected"
     if which pacman > /dev/null; then
       echo "arch detected"
-      pacman -Sy --needed rubberband openal \
+      pacman -Sy --needed rubberband \
         cmake autogen autoconf libtool pkg-config nasm unzip make automake glu
       # Manjaro was good with everything but `glu`, which was added for Arch
     elif which apt-get > /dev/null; then
@@ -16,14 +16,7 @@ case $(uname) in
       apt-get -y install build-essential cmake autogen autoconf libtool \
         libtool-bin pkg-config gettext nasm unzip libx11-dev \
         libxft-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
-        libasound2-dev libbz2-dev librubberband-dev libopenal-dev
-      case $(cat /etc/issue) in
-        *16\.04* )
-          # don't need to do anything for the docker version
-          ;;
-        * )
-          apt-get -y install python-is-python3
-      esac
+        libasound2-dev libbz2-dev librubberband-dev
       # when we use sdl2, maybe add: libudev dbus ibus
     else
       echo "unknown"
@@ -36,18 +29,13 @@ case $(uname) in
     # also for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
     # but just "pkgconf" so libsndfile configures right (seeing ogg/vorbis/flac/opus).
     stack exec -- pacman -Sy --needed mingw-w64-x86_64-pkgconf pkgconf \
-      mingw-w64-x86_64-openal mingw-w64-x86_64-rubberband \
+      mingw-w64-x86_64-rubberband \
       wget tar unzip zip man autoconf \
       automake nasm make libtool autogen python mingw-w64-x86_64-cmake
     ;;
   Darwin )
     echo "macos detected"
-    brew install autoconf automake dylibbundler m4 openal-soft nasm pkg-config rubberband libtool autogen python cmake
-    # brew caveat mentions adding openal-soft to PKG_CONFIG_PATH,
-    # instead we'll hack it like so :)
-    ln -f -s /usr/local/opt/openal-soft/lib/pkgconfig/openal.pc /usr/local/lib/pkgconfig/openal.pc
-    # also need python to be python3 for libsndfile build
-    ln -f -s /usr/local/opt/python/libexec/bin/python /usr/local/bin/python
+    brew install autoconf automake dylibbundler m4 nasm pkg-config rubberband libtool autogen python cmake
     ;;
   * )
     echo "unknown"

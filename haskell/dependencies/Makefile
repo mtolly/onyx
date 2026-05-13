@@ -9,7 +9,7 @@ ffmpeg_cc :=
 endif
 
 # libraries we are currently building locally
-default: ogg vorbis ffmpeg lame libsamplerate fltk
+default: ogg vorbis ffmpeg lame libsamplerate fltk openal
 
 clean:
 	rm -rf root/*
@@ -51,7 +51,7 @@ fltk:
 	cd libs/fltk && cmake --install build
 
 openal:
-	# does not build on ubuntu 16.04
+	# note, at some point newer openal-soft commits require a newer cmake (3.18) than is in ubuntu 20.04 (3.16)
 	cd libs/openal-soft/build && cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root -D ALSOFT_EXAMPLES=OFF ..
 	cd libs/openal-soft/build && make
 	cd libs/openal-soft/build && make install

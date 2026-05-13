@@ -33,8 +33,6 @@ extra-deps:
   commit: 3c74c9807c2d126cbbd2596082f9b9345a247ec5
 - git: https://github.com/mtolly/codec # ghc 8.8+ (to 9.6) and aeson patches
   commit: a6b98bbc1e37a7835b6c59a4425aa57600cf386e
-- git: https://github.com/mtolly/mpg123-haskell-binding
-  commit: 4790b92549b7db51801a67cf1055259e3abcf60e
 - git: https://github.com/mtolly/shake # disables shake controlling the thread count
   commit: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
 - git: https://github.com/mtolly/tcp-streams # ghc 9.6 patch
@@ -43,8 +41,6 @@ extra-deps:
   commit: 3af4544b752ab552b16dd1ccdd6d4cd02def2988
 - git: https://github.com/mtolly/utf8proc-hs
   commit: 5ed6b59099013be261764a8ac2ff158c0f3e0066
-- git: https://github.com/mtolly/hsndfile # unreleased upstream past 0.8.0 (switches to pkg-config), also add opus to enum
-  commit: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
 - git: https://github.com/mtolly/conduit-audio
   commit: 9102bf0ba460bb0d74fde8da42800fea48ed666e
   subdirs:

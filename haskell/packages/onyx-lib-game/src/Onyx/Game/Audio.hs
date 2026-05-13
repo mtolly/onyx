@@ -8,7 +8,9 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 module Onyx.Game.Audio
@@ -39,8 +41,8 @@ import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
 import qualified Data.Vector.Storable         as V
 import           Foreign                      hiding (void)
-import           Foreign.C                    (CFloat (..), CInt (..),
-                                               CUInt (..))
+import           Foreign.C                    (CFloat (..), CUInt (..))
+import qualified Language.C.Inline            as C
 import           Onyx.Audio
 import           Onyx.Audio.Render            (computeChannelsPlan,
                                                loadSamplesFromBuildDir,
@@ -59,6 +61,11 @@ import qualified Sound.OpenAL                 as AL
 import           Sound.OpenAL                 (($=))
 import           System.FilePath              (takeDirectory, takeExtension,
                                                (<.>), (</>))
+
+C.context C.baseCtx
+
+C.include "AL/al.h"
+C.include "AL/alext.h"
 
 {-
 {-# NOINLINE lockAL #-}
@@ -205,9 +212,6 @@ emptySources srcs = do
       emptySources srcs'
 -}
 
-foreign import ccall unsafe
-  alSourcei :: AL.ALuint -> AL.ALenum -> AL.ALint -> IO ()
-
 data AudioHandle = AudioHandle
   { audioStop     :: IO ()
   , audioSetGain  :: GainLevels -> IO ()
@@ -299,7 +303,7 @@ readySourceWithWaveform inputChannels initGain ca waveformBuf = do
     with src \p -> do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
       doAL "playSource setting direct mode" do
-        alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
+        [C.block| void { alSourcei($(unsigned int srcID), AL_DIRECT_CHANNELS_SOFT, 1); } |]
   let setGain g = forM_ (zip srcs $ assigned) \(src, (name, srcAssigned)) -> let
         volDB = case srcAssigned of
           AssignedMono _ vol -> vol
