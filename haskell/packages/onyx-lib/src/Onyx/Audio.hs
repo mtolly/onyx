@@ -56,14 +56,15 @@ import           Control.Concurrent               (newEmptyMVar, threadDelay,
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (ap, forM, forM_, guard,
-                                                   replicateM_, unless, void,
-                                                   when)
+                                                   replicateM, replicateM_,
+                                                   unless, when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Data.Bifunctor                   (bimap, first, second)
 import           Data.Binary.Get                  (getWord32le)
+import           Data.Bits                        (shiftR)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
@@ -88,12 +89,19 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
-import           Data.Word                        (Word8)
+import qualified Data.Vector.Storable.Mutable     as VM
+import           Data.Word                        (Word16, Word32, Word8,
+                                                   byteSwap16)
 import           Development.Shake                (Action, getShakeOptions,
                                                    need, shakeFiles)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
-import           Foreign                          (Ptr, castPtr)
+import           Foreign                          (Ptr, allocaBytes, castPtr,
+                                                   peekElemOff, pokeElemOff,
+                                                   withMany)
 import           Foreign.C                        (CFloat, CInt (..))
+import           GHC.ByteOrder                    (ByteOrder (..),
+                                                   targetByteOrder)
+import           GHC.IO.Handle                    (HandlePosn (..))
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
@@ -116,8 +124,6 @@ import           Onyx.Util.Handle                 (Readable, fileReadable,
                                                    handleToByteString,
                                                    useHandle)
 import           Onyx.VorbisEnc                   (sinkOggVorbis)
-import qualified Sound.File.Sndfile               as Snd
-import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           System.Directory                 (makeAbsolute)
@@ -637,21 +643,88 @@ buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
 
+buildWAV :: Double -> Int -> FilePath -> ((V.Vector Int16 -> IO ()) -> IO ()) -> IO ()
+buildWAV r ch fp withSink = IO.withBinaryFile fp IO.ReadWriteMode \h -> let
+  chunk ctype f = do
+    B.hPut h ctype
+    lenPosn <- IO.hGetPosn h
+    B.hPut h $ B.pack [0xDE, 0xAD, 0xBE, 0xEF] -- filled in later
+    HandlePosn _ start <- IO.hGetPosn h
+    x <- f
+    endPosn@(HandlePosn _ end) <- IO.hGetPosn h
+    IO.hSetPosn lenPosn
+    writeLE32 (fromIntegral $ end - start :: Word32)
+    IO.hSetPosn endPosn
+    return x
+  writeLE32 :: Word32 -> IO ()
+  writeLE32 w = B.hPut h $ B.pack [a, b, c, d] where
+    a = fromIntegral w
+    b = fromIntegral $ w `shiftR` 8
+    c = fromIntegral $ w `shiftR` 16
+    d = fromIntegral $ w `shiftR` 24
+  writeLE16 :: Word16 -> IO ()
+  writeLE16 w = B.hPut h $ B.pack [a, b] where
+    a = fromIntegral w
+    b = fromIntegral $ w `shiftR` 8
+  -- write directly on little-endian systems, byte swap if needed on big-endian
+  writeSamples :: V.Vector Int16 -> IO ()
+  writeSamples v = let
+    n = V.length v
+    nBytes = n * 2
+    in case targetByteOrder of
+      LittleEndian -> V.unsafeWith v \ptr ->
+        IO.hPutBuf h (castPtr ptr :: Ptr Word8) nBytes
+      BigEndian -> V.unsafeWith v \srcPtr ->
+        allocaBytes nBytes \dstPtr -> do
+          let srcPtrW = castPtr srcPtr :: Ptr Word16
+              dstPtrW = dstPtr         :: Ptr Word16
+              go !i
+                | i >= n    = return ()
+                | otherwise = do
+                    w <- peekElemOff srcPtrW i
+                    pokeElemOff dstPtrW i (byteSwap16 w)
+                    go (i + 1)
+          go 0
+          IO.hPutBuf h (castPtr dstPtr :: Ptr Word8) nBytes
+  in chunk "RIFF" do
+    B.hPut h "WAVE"
+    chunk "fmt " do
+      writeLE16 (1                             :: Word16) -- 1 is PCM
+      writeLE16 (fromIntegral ch               :: Word16) -- channels
+      writeLE32 (floor r                       :: Word32) -- sample rate
+      writeLE32 (floor r * fromIntegral ch * 2 :: Word32) -- avg. bytes per second = rate * block align
+      writeLE16 (fromIntegral ch * 2           :: Word16) -- block align = chans * (bps / 8)
+      writeLE16 (16                            :: Word16) -- bits per sample
+    chunk "data" $ withSink writeSamples
+
+-- uses GHC specialized Float->Int primop
+{-# INLINE clampFloatToInt16 #-}
+clampFloatToInt16 :: Float -> Int16
+clampFloatToInt16 x
+  | x >=  1   = maxBound
+  | x <= -1   = minBound
+  | otherwise = fromIntegral (round (x * 32767) :: Int)
+
 audioToChannelWAVs :: AudioSource (ResourceT IO) Float -> [FilePath] -> IO ()
-audioToChannelWAVs src fouts = let
-  openSources = C.bracketP
-    (forM fouts \fp -> Snd.openFile fp Snd.WriteMode Snd.defaultInfo
-      { Snd.format = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-      , Snd.samplerate = round $ rate src
-      , Snd.channels = 1
-      }
-    )
-    (mapM_ Snd.hClose)
-  in runResourceT $ C.runConduit $ (source (clampFloat src) .|) $ openSources \handles -> do
-    CL.mapM_ \buf -> do
-      let chans = deinterleave (channels src) buf
-      forM_ (zip handles chans) \(h, c) -> do
-        void $ liftIO $ Snd.hPutBuffer h $ SndBuf.toBuffer c
+audioToChannelWAVs src fouts = withMany (buildWAV src.rate 1) fouts \sinks -> do
+  let !nch = src.channels
+  runResourceT $ C.runConduit $ src.source .| CL.mapM_ \buf -> liftIO $ do
+    -- optimized code to deinterleave buf + convert/clamp to Int16
+    let !nframes = V.length buf `div` nch
+    mvs <- replicateM nch (VM.unsafeNew nframes :: IO (VM.IOVector Int16))
+    V.unsafeWith buf \srcPtr -> do
+      let goCh !_ []          = return ()
+          goCh !j (mv : rest) = do
+            let goFrame !i = if i >= nframes
+                  then return ()
+                  else do
+                    f <- peekElemOff srcPtr (i * nch + j)
+                    VM.unsafeWrite mv i (clampFloatToInt16 f)
+                    goFrame (i + 1)
+            goFrame 0
+            goCh (j + 1) rest
+      goCh 0 mvs
+    forM_ (zip sinks mvs) \(sink, mv) -> V.unsafeFreeze mv >>= sink
 
 audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
 audioIO oggQuality src out = let
@@ -677,7 +750,6 @@ runAudio src out = do
   lg $ "Finished writing audio to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
--- libsndfile should do this, after <https://github.com/kaoskorobase/hsndfile/pull/12>
 clampFloat :: (Monad m) => AudioSource m Float -> AudioSource m Float
 clampFloat src = src { source = source src .| CL.map clampVector } where
   clampVector = V.map \s -> if
