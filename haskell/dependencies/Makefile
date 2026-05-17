@@ -9,7 +9,7 @@ ffmpeg_cc :=
 endif
 
 # libraries we are currently building locally
-default: ogg vorbis ffmpeg lame libsamplerate fltk openal
+default: ogg vorbis ffmpeg lame libsamplerate rubberband fltk openal
 
 clean:
 	rm -rf root/*
@@ -32,13 +32,14 @@ sdl:
 	cd libs/SDL && make install
 
 rubberband:
-	# TODO this is currently broken
-	cd libs/rubberband && make -f ../../extra/Makefile.rubberband
-	mkdir -p $(current_dir)/root/lib
-	cp libs/rubberband/lib/* $(current_dir)/root/lib
-	mkdir -p $(current_dir)/root/include
-	cp -R libs/rubberband/rubberband $(current_dir)/root/include
-	./make-pkg-config extra/rubberband.pc.in $(current_dir)/root
+	# note, if we don't set libdir then it uses e.g. `lib/x86_64-linux-gnu` and then ghc can't find rubberband.pc
+	cd libs/rubberband && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig meson setup build \
+		--prefix $(current_dir)/root \
+		-Dlibdir=lib \
+		-Dauto_features=disabled -Ddefault_library=shared \
+		-Dresampler=libsamplerate
+	cd libs/rubberband && ninja -C build
+	cd libs/rubberband && ninja -C build install
 
 fltk:
 	# TODO previously we hacked fltkhs to disable kdialog support,
@@ -52,7 +53,8 @@ fltk:
 
 openal:
 	# note, at some point newer openal-soft commits require a newer cmake (3.18) than is in ubuntu 20.04 (3.16)
-	cd libs/openal-soft/build && cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root -D ALSOFT_EXAMPLES=OFF ..
+	# TODO does this need anything else to disable unneeded dependencies?
+	cd libs/openal-soft/build && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root -D ALSOFT_EXAMPLES=OFF ..
 	cd libs/openal-soft/build && make
 	cd libs/openal-soft/build && make install
 

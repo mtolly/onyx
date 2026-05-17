@@ -2,6 +2,10 @@
 set -e
 set -u
 
+# TODO: arch, windows, macos need meson
+# TODO: do we still need python? was for libsndfile
+# (but also meson will install python anyway)
+
 case $(uname) in
   Linux )
     echo "linux detected"
@@ -16,7 +20,7 @@ case $(uname) in
       apt-get -y install build-essential cmake autogen autoconf libtool \
         libtool-bin pkg-config gettext nasm unzip libx11-dev \
         libxft-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
-        libasound2-dev libbz2-dev librubberband-dev
+        libasound2-dev libbz2-dev meson
       # when we use sdl2, maybe add: libudev dbus ibus
     else
       echo "unknown"
