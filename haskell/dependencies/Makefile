@@ -52,11 +52,14 @@ fltk:
 	cd libs/fltk && cmake --install build
 
 openal:
-	# note, at some point newer openal-soft commits require a newer cmake (3.18) than is in ubuntu 20.04 (3.16)
+	# note, at some point newer openal-soft commits require a newer cmake (3.18) than is in ubuntu 20.04 (3.16).
+	# CMAKE_POLICY_VERSION_MINIMUM setting needed on Windows for some reason.
 	# TODO does this need anything else to disable unneeded dependencies?
-	cd libs/openal-soft/build && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root -D ALSOFT_EXAMPLES=OFF ..
-	cd libs/openal-soft/build && make
-	cd libs/openal-soft/build && make install
+	cd libs/openal-soft/build && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DALSOFT_EXAMPLES=OFF \
+		..
+	cd libs/openal-soft && cmake --build build
+	cd libs/openal-soft && cmake --install build
 
 ffmpeg:
 	# disabling AVX-512, AVX-512ICL, XOP, FMA4, and optionally AVX2, FMA3,
