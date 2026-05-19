@@ -8,6 +8,13 @@ else
 ffmpeg_cc :=
 endif
 
+# need pango for FLTK glyph fallback for non-ASCII text on Linux
+ifeq ($(shell uname),Linux)
+fltk_pango := -DFLTK_USE_PANGO=ON
+else
+fltk_pango :=
+endif
+
 # libraries we are currently building locally
 default: ogg vorbis ffmpeg lame libsamplerate rubberband fltk openal
 
@@ -44,10 +51,10 @@ rubberband:
 fltk:
 	# TODO previously we hacked fltkhs to disable kdialog support,
 	# do we still need to do that or is it fixed up now?
-	# pen support is off because it fails to build on my windows 10 22h2 vm
+	# pen support is off because it fails to build on my windows 10 22h2 vm.
 	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
 		-DFLTK_USE_SYSTEM_LIBJPEG=OFF -DFLTK_USE_SYSTEM_ZLIB=OFF -DFLTK_USE_SYSTEM_LIBPNG=OFF \
-		-DFLTK_OPTION_PEN_SUPPORT=OFF
+		-DFLTK_OPTION_PEN_SUPPORT=OFF $(fltk_pango)
 	cd libs/fltk && cmake --build build
 	cd libs/fltk && cmake --install build
 

@@ -10,14 +10,14 @@ case $(uname) in
     if which pacman > /dev/null; then
       echo "arch detected"
       pacman -Sy --needed rubberband \
-        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu
+        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu pango
       # Manjaro was good with everything but `glu`, which was added for Arch
     elif which apt-get > /dev/null; then
       echo "debian/ubuntu detected"
       apt-get -y update
       apt-get -y install build-essential cmake autogen autoconf libtool \
         libtool-bin pkg-config gettext nasm unzip libx11-dev \
-        libxft-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
+        libxft-dev libpango1.0-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
         libasound2-dev libbz2-dev meson
       # when we use sdl2, maybe add: libudev dbus ibus
     else
