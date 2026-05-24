@@ -38,9 +38,9 @@ extra-deps:
 - git: https://github.com/mtolly/tcp-streams # ghc 9.6 patch
   commit: 0269618e5e73e11026b45bd9e59a677dc89b1c23
 - git: https://github.com/mtolly/onyx-libzip
-  commit: 3af4544b752ab552b16dd1ccdd6d4cd02def2988
+  commit: 7973f099934083fd9189d6cf96ebe07a92ae9441
 - git: https://github.com/mtolly/utf8proc-hs
-  commit: 5ed6b59099013be261764a8ac2ff158c0f3e0066
+  commit: 83f47fa6070735d340dfbd8731110460808b378f
 - git: https://github.com/mtolly/conduit-audio
   commit: 9102bf0ba460bb0d74fde8da42800fea48ed666e
   subdirs:

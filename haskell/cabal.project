@@ -17,13 +17,10 @@ packages:
   packages/onyx-npdata
   packages/onyx-moggcrypt
   packages/onyx-autochart
+  packages/onyx-vorbisenc
 
 -- Equivalent to stack's allow-newer: true
 allow-newer: all:all
-
--- Package flags
-package fltkhs
-  flags: +bundled +opengl
 
 -- Git repository dependencies
 
@@ -31,18 +28,6 @@ source-repository-package
   type: git
   location: https://github.com/mtolly/midi
   tag: 67c595a8f0c3b2fa193c088374de5bf544234ff0
-
-source-repository-package
-  type: git
-  location: https://github.com/mtolly/conduit-audio
-  tag: 0a90a9541b261583a09e5d5f9f416bc7ae59d07d
-  subdir: conduit-audio-mpg123
-
-source-repository-package
-  type: git
-  location: https://github.com/mtolly/fltkhs
-  tag: 993a8edb42849c517c1ee86afdfd255ec4a2ba16
-  subdir: fltkhs
 
 source-repository-package
   type: git
@@ -61,11 +46,6 @@ source-repository-package
 
 source-repository-package
   type: git
-  location: https://github.com/mtolly/mpg123-haskell-binding
-  tag: 4790b92549b7db51801a67cf1055259e3abcf60e
-
-source-repository-package
-  type: git
   location: https://github.com/mtolly/shake
   tag: a4ecb069cbce6d4566e2dd025bcc79b8f8a5839d
 
@@ -77,17 +57,12 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/mtolly/onyx-libzip
-  tag: 3af4544b752ab552b16dd1ccdd6d4cd02def2988
+  tag: 7973f099934083fd9189d6cf96ebe07a92ae9441
 
 source-repository-package
   type: git
   location: https://github.com/mtolly/utf8proc-hs
-  tag: 5ed6b59099013be261764a8ac2ff158c0f3e0066
-
-source-repository-package
-  type: git
-  location: https://github.com/mtolly/hsndfile
-  tag: e02e1d9236d2a0959d0c81ac55f48d61f0b14979
+  tag: 83f47fa6070735d340dfbd8731110460808b378f
 
 source-repository-package
   type: git
