@@ -19,13 +19,14 @@ case $(uname) in
     stack exec -- onyx-package version-print | xargs -I{} mv Onyx-{}-x86_64.AppImage onyx-{}-linux-x64.AppImage
     ;;
   MINGW* )
-    export STACK_YAML=stack-ghc-9.2.yaml
     rm -rf win/
     mkdir win/
     stack exec which onyx | xargs -I{} cp {} win/
     cp dependencies/root/bin/*.dll win/
     # this needs to be /mingw64 in stack's msys2
     stack exec -- bash -c "cp /mingw64/bin/*.dll win/"
+    # this is newly needed with Clang for libc++.dll and libunwind.dll, they come with GHC
+    cp "$LOCALAPPDATA"/Programs/stack/x86_64-windows/ghc-9.6.6/mingw/bin/*.dll win/
     stack exec strip win/onyx.exe
     cp LICENSE.txt win/LICENSE.txt
     cp CHANGES.md win/CHANGES.txt

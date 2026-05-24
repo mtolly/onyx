@@ -12,15 +12,13 @@ import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first, second)
 import           Control.Monad                    (forM_, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
-import           Control.Monad.Trans.Resource     (MonadResource, runResourceT)
+import           Control.Monad.Trans.Resource     (MonadResource)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Binary.Get
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isAlphaNum, isDigit, toLower)
 import           Data.Conduit.Audio
-import           Data.Conduit.Audio.Mpg123        (sourceMpg)
-import           Data.Conduit.Audio.Sndfile       (sourceSnd)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Pico)
@@ -36,12 +34,16 @@ import           Data.Tuple                       (swap)
 import           Numeric
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.DTXMania.XA                 (sourceXA)
+import           Onyx.FFMPEG                      (ffSource)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import qualified Onyx.MIDI.Track.FiveFret         as Five
 import           Onyx.StackTrace
+import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Files                  (fixFileCase)
+import           Onyx.Util.Handle                 (Readable, fileReadable,
+                                                   subHandle, useHandle)
 import           Onyx.Util.Text.Decode            (decodeWithDefault)
 import           Onyx.Util.Text.ShiftJIS          (decodeShiftJIS)
 import qualified Sound.MIDI.Util                  as U
@@ -407,33 +409,30 @@ readDTXLines fmt lns = DTX
       (chan, frets) <- mapping
       return $ (frets,) <$> getChannel chan
 
+findDTXAudio :: FilePath -> IO (Maybe FilePath)
+findDTXAudio fp' = do
+  fp <- fixFileCase fp'
+  Dir.doesFileExist fp >>= \case
+    True  -> return $ Just fp
+    False -> case map toLower $ takeExtension fp of
+      ".ogg" -> return Nothing
+      _      -> findDTXAudio $ fp -<.> "ogg"
+
+loadDTXAudio :: (MonadResource m) => Readable -> IO (AudioSource m Float)
+loadDTXAudio r = do
+  magic <- useHandle r \h -> B.hGet h 4
+  case magic of
+    "KWD1" -> mapSamples fractionalSample <$> sourceXA r
+    "RIFF" -> sourceCompressedWAV r
+    _      -> ffSource r -- mp3, ogg, etc.
+
 dtxAudioSource :: (MonadResource m, MonadIO f, SendMessage f) =>
   FilePath -> StackTraceT f (Maybe (AudioSource m Float))
-dtxAudioSource fp' = do
-  fp <- fixFileCase fp'
-  stackIO (Dir.doesFileExist fp) >>= \case
-    True -> stackIO $ Just <$> case map toLower $ takeExtension fp of
-      ".mp3" -> sourceMpg fp
-      ".xa"  -> mapSamples fractionalSample <$> sourceXA fp
-      ".wav" -> sourceCompressedWAV fp
-      _      -> sourceSnd fp
-    False -> do
-      tryOgg <- case map toLower $ takeExtension fp of
-        ".ogg" -> return Nothing
-        _      -> dtxAudioSource $ fp -<.> "ogg"
-      case tryOgg of
-        Nothing -> warn $ "Couldn't find audio file at: " <> fp
-        Just _  -> return ()
-      return tryOgg
-
-dropBytes :: (MonadResource m) => Integer -> FilePath -> FilePath -> (FilePath -> m a) -> m a
-dropBytes n template f cb = tempDir "onyx-dtx-import" \dir -> do
-  temp <- liftIO $ withBinaryFile f ReadMode \h -> do
-    let temp = dir </> template
-    hSeek h AbsoluteSeek n
-    BL.hGetContents h >>= BL.writeFile temp
-    return temp
-  cb temp
+dtxAudioSource f = stackIO (findDTXAudio f) >>= \case
+  Nothing    -> do
+    warn $ "Couldn't find audio file at: " <> f
+    return Nothing
+  Just found -> stackIO $ Just <$> loadDTXAudio (fileReadable found)
 
 findOggS :: Handle -> IO (Maybe Integer)
 findOggS h = do
@@ -443,15 +442,14 @@ findOggS h = do
     (x, y) = B.breakSubstring "OggS" bs
     in guard (not $ B.null y) >> Just (fromIntegral $ B.length x)
 
-sourceCompressedWAV :: (MonadIO f, MonadResource m) => FilePath -> f (AudioSource m Float)
-sourceCompressedWAV f = liftIO do
-  maybeCompressedStart <- withBinaryFile f ReadMode \h -> do
+-- Older DTX simfiles sometimes have these strange "wav" with mp3 or ogg data inside
+sourceCompressedWAV :: (MonadIO f, MonadResource m) => Readable -> f (AudioSource m Float)
+sourceCompressedWAV r = liftIO do
+  maybeCompressedStart <- useHandle r \h -> do
     let findChunk magic = hSeek h AbsoluteSeek 12 >> findChunk' magic
         findChunk' magic = do
           thisChunk <- BL.hGet h 4
-          size <- BL.hGet h 4 >>= \bs -> case runGetOrFail getWord32le bs of
-            Left  (_, _, err) -> liftIO $ ioError $ userError $ "[" <> f <> "] " <> err
-            Right (_, _, x  ) -> return x
+          size <- BL.hGet h 4 >>= runGetM getWord32le
           if magic == thisChunk
             then return ()
             else do
@@ -463,24 +461,21 @@ sourceCompressedWAV f = liftIO do
     dataStart <- hTell h
     let oggOrData = do
           firstOggS <- findOggS h
-          return $ Just (sourceSnd, "dtx-audio.ogg", fromMaybe dataStart firstOggS)
+          return $ Just $ fromMaybe dataStart firstOggS
     case audioType of
-      "Og"  -> oggOrData
-      "pg"  -> oggOrData
-      "U\0" -> return $ Just (sourceMpg, "dtx-audio.mp3", dataStart)
+      -- referencing https://www.recordingblogs.com/wiki/format-chunk-of-a-wave-file
+      "U\0" -> return $ Just dataStart -- MP3
+      -- no idea if these have differences, just adding all from the table
+      "Og"  -> oggOrData -- seen
+      "Pg"  -> oggOrData
+      "Qg"  -> oggOrData
+      "og"  -> oggOrData
+      "pg"  -> oggOrData -- seen
+      "qg"  -> oggOrData
       _     -> return Nothing
-  case maybeCompressedStart of
-    Nothing                       -> sourceSnd f
-    Just (getSource, name, inner) -> do
-      src <- runResourceT $ dropBytes inner name f $ liftIO . getSource
-      return AudioSource
-        { frames   = frames   src
-        , rate     = rate     src
-        , channels = channels src
-        , source   = dropBytes inner name f \temp -> do
-          src' <- liftIO $ getSource temp
-          source src'
-        }
+  ffSource $ case maybeCompressedStart of
+    Nothing    -> r
+    Just inner -> subHandle (<> " | inside compressed wav") inner Nothing r
 
 makeDTX :: DTX -> T.Text
 makeDTX DTX{..} = T.unlines $ execWriter do

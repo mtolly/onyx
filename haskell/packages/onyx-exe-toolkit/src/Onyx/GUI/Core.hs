@@ -2,80 +2,121 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecursiveDo           #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Core where
 
-import           Control.Concurrent                        (ThreadId)
-import qualified Control.Exception                         as Exc
-import           Control.Monad.Extra                       (forM, forM_, guard,
-                                                            unless, void)
-import           Control.Monad.IO.Class                    (MonadIO (..),
-                                                            liftIO)
-import           Control.Monad.Trans.Class                 (lift)
-import           Control.Monad.Trans.Maybe                 (MaybeT (..))
-import           Control.Monad.Trans.Reader                (ReaderT, ask,
-                                                            runReaderT)
-import           Control.Monad.Trans.Resource              (ResourceT,
-                                                            resourceForkIO,
-                                                            runResourceT)
-import           Control.Monad.Trans.Writer                (WriterT, tell)
-import qualified Data.ByteString                           as B
-import           Data.Default.Class                        (Default, def)
-import           Data.Foldable                             (toList)
-import           Data.Function                             ((&))
-import           Data.Functor                              ((<&>))
-import qualified Data.HashMap.Strict                       as HM
-import           Data.IORef                                (newIORef, readIORef,
-                                                            writeIORef)
-import           Data.List.Extra                           (findIndex)
-import qualified Data.List.NonEmpty                        as NE
-import           Data.Maybe                                (catMaybes,
-                                                            listToMaybe)
-import           Data.Monoid                               (Endo (..))
-import qualified Data.Text                                 as T
-import qualified Data.Text.Encoding                        as TE
-import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
-import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
-import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
-                                                            Position (..),
-                                                            Rectangle (..),
-                                                            Size (..),
-                                                            Width (..), X (..),
-                                                            Y (..))
-import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
-import           Numeric                                   (readHex)
-import           Onyx.Audio                                (Audio (..))
-import           Onyx.Build                                (NameRule (..),
-                                                            hashRB3,
-                                                            targetTitle,
-                                                            validFileName,
-                                                            validFileNamePiece)
-import           Onyx.Build.Common                         (getTargetMetadata)
-import           Onyx.GUI.Util                             (askFolder)
-import           Onyx.Harmonix.Ark.GH2                     (GH2InstallLocation (..))
+import           Control.Concurrent               (ThreadId)
+import qualified Control.Exception                as Exc
+import           Control.Monad                    (when)
+import           Control.Monad.Extra              (forM, forM_, guard, unless,
+                                                   void)
+import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
+import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.Reader       (ReaderT, ask, runReaderT)
+import           Control.Monad.Trans.Resource     (ResourceT, resourceForkIO,
+                                                   runResourceT)
+import           Control.Monad.Trans.Writer       (WriterT, tell)
+import qualified Data.ByteString                  as B
+import           Data.Coerce                      (coerce)
+import           Data.Default.Class               (Default, def)
+import           Data.Foldable                    (toList)
+import           Data.Function                    ((&))
+import           Data.Functor                     ((<&>))
+import qualified Data.HashMap.Strict              as HM
+import           Data.IORef                       (newIORef, readIORef,
+                                                   writeIORef)
+import           Data.List.Extra                  (findIndex)
+import qualified Data.List.NonEmpty               as NE
+import           Data.Maybe                       (listToMaybe)
+import           Data.Monoid                      (Endo (..))
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
+import           Foreign                          (Ptr, nullPtr)
+import           Foreign.C                        (CInt, CUChar, peekCString)
+import qualified Language.C.Inline.Cpp            as C
+import           Numeric                          (readHex)
+import           Onyx.Audio                       (Audio (..))
+import           Onyx.Build                       (NameRule (..), hashRB3,
+                                                   targetTitle, validFileName,
+                                                   validFileNamePiece)
+import           Onyx.Build.Common                (getTargetMetadata)
+import           Onyx.GUI.Binding
+import           Onyx.GUI.Util                    (askFolder, checkValue,
+                                                   peekUTF8, setCallback,
+                                                   withNativeFileChooser,
+                                                   withUTF8)
+import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.MIDI.Track.File                      (PartName (..))
-import qualified Onyx.MIDI.Track.File                      as F
-import qualified Onyx.PlayStation.PKG                      as PKG
-import           Onyx.Preferences                          (Preferences (..),
-                                                            readPreferences,
-                                                            savePreferences)
+import           Onyx.MIDI.Track.File             (PartName (..))
+import qualified Onyx.MIDI.Track.File             as F
+import qualified Onyx.PlayStation.PKG             as PKG
+import           Onyx.Preferences                 (Preferences (..),
+                                                   readPreferences,
+                                                   savePreferences)
 import           Onyx.Project
 import           Onyx.QuickConvert.FretsOnFire
 import           Onyx.QuickConvert.RockBand
 import           Onyx.QuickConvert.RockRevolution
 import           Onyx.StackTrace
-import qualified Onyx.Xbox.STFS                            as STFS
-import           Optics                                    ((.~))
-import qualified System.Directory                          as Dir
-import           System.FilePath                           (dropTrailingPathSeparator,
-                                                            takeDirectory,
-                                                            takeFileName, (</>))
-import           Text.Read                                 (readMaybe)
+import qualified Onyx.Xbox.STFS                   as STFS
+import           Optics                           ((.~))
+import qualified System.Directory                 as Dir
+import           System.FilePath                  (dropTrailingPathSeparator,
+                                                   takeDirectory, takeFileName,
+                                                   (</>))
+import           Text.Read                        (readMaybe)
+
+C.context flContext
+
+C.include "FL/Fl.H"
+C.include "FL/Fl_Group.H"
+C.include "FL/Fl_Box.H"
+C.include "FL/Fl_Button.H"
+C.include "FL/Fl_Check_Button.H"
+C.include "FL/Fl_Round_Button.H"
+C.include "FL/Fl_Input.H"
+C.include "FL/Fl_Counter.H"
+C.include "FL/Fl_Choice.H"
+C.include "FL/Fl_Menu_Button.H"
+C.include "FL/Fl_Pack.H"
+C.include "FL/Fl_Tree.H"
+C.include "FL/Fl_Tree_Item.H"
+C.include "FL/Fl_Native_File_Chooser.H"
+C.include "FL/fl_ask.H"
+C.include "Fl_Center.h"
+C.include "hs_dnd_button.h"
+C.include "hs_dnd_group.h"
+C.include "hs_dnd_box.h"
+C.include "hs_tree.h"
+
+newtype X = X CInt deriving (Eq, Show, Ord)
+newtype Y = Y CInt deriving (Eq, Show, Ord)
+newtype Width = Width CInt deriving (Eq, Show, Ord)
+newtype Height = Height CInt deriving (Eq, Show, Ord)
+data Position = Position X Y deriving (Eq, Show, Ord)
+data Size = Size Width Height deriving (Eq, Show, Ord)
+data Rectangle = Rectangle { rectanglePosition :: Position , rectangleSize :: Size } deriving (Eq, Show, Ord)
+
+fl_rgb_color :: CUChar -> CUChar -> CUChar -> Fl_Color
+fl_rgb_color r g b =
+  [C.pure| Fl_Color {
+    fl_rgb_color($(unsigned char r), $(unsigned char g), $(unsigned char b))
+  } |]
+
+withRect :: Rectangle -> (CInt -> CInt -> CInt -> CInt -> a) -> a
+withRect (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) f = f x y w h
+
+withSize :: Size -> (CInt -> CInt -> a) -> a
+withSize (Size (Width w) (Height h)) f = f w h
+
+--------------------------------------------------------------------------------
 
 type Onyx = StackTraceT OnyxInner
 type OnyxInner = QueueLog (ReaderT (Event -> IO ()) (ResourceT IO))
@@ -120,11 +161,7 @@ logErrors_ sink = void . logErrors sink
 safeOnyx :: Onyx () -> Onyx ()
 safeOnyx f = getEventSink >>= \sink -> errorToEither f >>= logErrors_ sink
 
-_resizeWindow :: FL.Ref FL.Window -> Size -> IO ()
-_resizeWindow window size = do
-  x <- FL.getX window
-  y <- FL.getY window
-  FL.resize window $ Rectangle (Position x y) size
+-- not translating _resizeWindow
 
 data RB3Create
   = RB3CON FilePath
@@ -192,7 +229,7 @@ makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) 
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
     input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
-    FL.setTooltip input $ T.unlines
+    withUTF8 (T.unlines
       [ "Template for where to create new files."
       , "  %input_dir% - folder containing the input"
       , "  %input_base% - input filename by itself, extension removed"
@@ -202,9 +239,10 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
       , "  %album% - album from song's metadata"
       , "  %author% - author from song's metadata"
       , "  %song_id% - unique song ID"
-      ]
+      ]) \tip ->
+      [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
 
-makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (FL.Ref FL.Input)
+makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
 makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   let (buttonRect, notButton) = chopLeft 250 rect
       (_, rectA) = chopLeft 80 notButton
@@ -213,63 +251,73 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
       (browseRect, _) = chopLeft 40 rectC
       (_, rectD) = chopRight 50 rectC
       (_, resetRect) = chopRight 40 rectD
-  button <- FL.buttonNew buttonRect $ Just buttonText
-  taskColor >>= FL.setColor button
-  input <- FL.inputNew
-    inputRect
-    (Just "Template")
-    (Just FL.FlNormalInput) -- required for labels to work
-  FL.setLabelsize input $ FL.FontSize 13
-  FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-  FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
-  void $ FL.setValue input defTemplate
-  FL.setCallback button \_ -> FL.getValue input >>= useTemplate
-  browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
-  FL.setCallback browseButton \_ -> sink $ EventIO $ askFolder Nothing \dir -> do
-    val <- FL.getValue input
-    void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
-  resetButton <- FL.buttonNew resetRect $ Just "@undo"
-  FL.setCallback resetButton \_ -> sink $ EventIO do
-    void $ FL.setValue input defTemplate
+  button <- withRect buttonRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  withUTF8 buttonText \clabel ->
+    [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
+  [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
+  input <- withRect inputRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
+  [C.block| void {
+    $(Fl_Input* input)->labelsize(13);
+    $(Fl_Input* input)->align(FL_ALIGN_LEFT);
+  } |]
+  withUTF8 defTemplate \cdef ->
+    [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
+  setCallback button do
+    val <- peekInputValue input
+    useTemplate val
+  browseButton <- withRect browseRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
+  setCallback browseButton $ sink $ EventIO $ askFolder Nothing \dir -> do
+    val <- peekInputValue input
+    let newVal = dir </> takeFileName (T.unpack val)
+    withUTF8 newVal \cnewval ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cnewval)); } |]
+  resetButton <- withRect resetRect \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@undo") } |]
+  setCallback resetButton $ sink $ EventIO do
+    withUTF8 defTemplate \cdef ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cdef)); } |]
   return input
 
-chopRight :: Int -> Rectangle -> (Rectangle, Rectangle)
+chopRight :: CInt -> Rectangle -> (Rectangle, Rectangle)
 chopRight n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   ( Rectangle (Position (X x) (Y y)) (Size (Width $ w - n) (Height h))
   , Rectangle (Position (X $ x + w - n) (Y y)) (Size (Width n) (Height h))
   )
 
-chopLeft :: Int -> Rectangle -> (Rectangle, Rectangle)
+chopLeft :: CInt -> Rectangle -> (Rectangle, Rectangle)
 chopLeft n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   ( Rectangle (Position (X x) (Y y)) (Size (Width n) (Height h))
   , Rectangle (Position (X $ x + n) (Y y)) (Size (Width $ w - n) (Height h))
   )
 
-chopTop :: Int -> Rectangle -> (Rectangle, Rectangle)
+chopTop :: CInt -> Rectangle -> (Rectangle, Rectangle)
 chopTop n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   ( Rectangle (Position (X x) (Y y)) (Size (Width w) (Height n))
   , Rectangle (Position (X x) (Y $ y + n)) (Size (Width w) (Height $ h - n))
   )
 
-chopBottom :: Int -> Rectangle -> (Rectangle, Rectangle)
+chopBottom :: CInt -> Rectangle -> (Rectangle, Rectangle)
 chopBottom n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   ( Rectangle (Position (X x) (Y y)) (Size (Width w) (Height $ h - n))
   , Rectangle (Position (X x) (Y $ y + h - n)) (Size (Width w) (Height n))
   )
 
-splitHorizN :: Int -> Rectangle -> [Rectangle]
+splitHorizN :: CInt -> Rectangle -> [Rectangle]
 splitHorizN 1 rect = [rect]
 splitHorizN n rect@(Rectangle _ (Size (Width w) _)) = let
   (rectFirst, rectRest) = chopLeft (quot w n) rect
   in rectFirst : splitHorizN (n - 1) rectRest
 
-splitVertN :: Int -> Rectangle -> [Rectangle]
+splitVertN :: CInt -> Rectangle -> [Rectangle]
 splitVertN 1 rect = [rect]
 splitVertN n rect@(Rectangle _ (Size _ (Height h))) = let
   (rectFirst, rectRest) = chopTop (quot h n) rect
   in rectFirst : splitVertN (n - 1) rectRest
 
-trimClock :: Int -> Int -> Int -> Int -> Rectangle -> Rectangle
+trimClock :: CInt -> CInt -> CInt -> CInt -> Rectangle -> Rectangle
 trimClock t r b l rect = let
   (_, rect1) = chopTop    t rect
   (rect2, _) = chopRight  r rect1
@@ -277,123 +325,120 @@ trimClock t r b l rect = let
   (_, rect4) = chopLeft   l rect3
   in rect4
 
-homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, quickConvertColor, defaultColor :: IO FLE.Color
-homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
-functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
-taskColor         = FLE.rgbColorWithRgb (179,221,187)
-globalLogColor    = FLE.rgbColorWithRgb (114,74,124)
-miscColor         = FLE.rgbColorWithRgb (177,173,244)
-loadSongColor     = FLE.rgbColorWithRgb (186,229,181)
-batchProcessColor = FLE.rgbColorWithRgb (237,173,193)
-behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
-quickConvertColor = FLE.rgbColorWithRgb (232,213,150)
-defaultColor      = FLE.rgbColorWithRgb (192,192,192)
+homeTabColor, functionTabColor, taskColor, globalLogColor, miscColor, loadSongColor, batchProcessColor, behindTabsColor, quickConvertColor, defaultColor :: Fl_Color
+homeTabColor      = fl_rgb_color 209 177 224
+functionTabColor  = fl_rgb_color 224 210 177
+taskColor         = fl_rgb_color 179 221 187
+globalLogColor    = fl_rgb_color 114 74 124
+miscColor         = fl_rgb_color 177 173 244
+loadSongColor     = fl_rgb_color 186 229 181
+batchProcessColor = fl_rgb_color 237 173 193
+behindTabsColor   = fl_rgb_color 94 94 94
+quickConvertColor = fl_rgb_color 232 213 150
+defaultColor      = fl_rgb_color 192 192 192
 
-setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
-setTabColor tab color = do
-  FL.setColor tab color
-  FL.setSelectionColor tab color
+setTabColor :: Ptr Fl_Group -> Fl_Color -> IO ()
+setTabColor tab color =
+  [C.block| void {
+    $(Fl_Group* tab)->color($(Fl_Color color));
+    $(Fl_Group* tab)->selection_color($(Fl_Color color));
+  } |]
 
 padded
   :: (MonadIO m)
-  => Int -> Int -> Int -> Int
+  => CInt -> CInt -> CInt -> CInt
   -> Size
   -> (Rectangle -> m a)
   -> m a
 padded t r b l size@(Size (Width w) (Height h)) fn = do
-  group <- liftIO $ FL.groupNew
-    (Rectangle
-      (Position (X 0) (Y 0))
-      (Size (Width (w + l + r)) (Height (h + t + b)))
-    )
-    Nothing
-  let rect = Rectangle (Position (X l) (Y t)) size
-  box <- liftIO $ FL.boxNew rect Nothing
-  liftIO $ FL.setResizable group $ Just box
+  group <- liftIO do
+    let gw = w + fromIntegral l + fromIntegral r
+        gh = h + fromIntegral t + fromIntegral b
+    [C.exp| Fl_Group* { new Fl_Group(0, 0, $(int gw), $(int gh)) } |]
+  let rect = Rectangle (Position (X $ fromIntegral l) (Y $ fromIntegral t)) size
+  box <- liftIO $ withRect rect \bx by bw bh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  liftIO [C.block| void {
+    $(Fl_Group* group)->resizable($(Fl_Box* box));
+  } |]
   x <- fn rect
-  liftIO $ FL.end group
+  liftIO [C.block| void { $(Fl_Group* group)->end(); } |]
   return x
 
--- | Ported from Erco's Fl_Center class
 centerFixed :: Rectangle -> IO a -> IO a
 centerFixed rect makeChildren = do
-  let centerX :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO X
-      centerX this wid = do
-        X x <- FL.getX this
-        Width w <- FL.getW this
-        Width widW <- FL.getW wid
-        return $ X $ x + quot w 2 - quot widW 2
-      centerY :: FL.Ref FL.Group -> FL.Ref FL.WidgetBase -> IO Y
-      centerY this wid = do
-        Y y <- FL.getY this
-        Height h <- FL.getH this
-        Height widH <- FL.getH wid
-        return $ Y $ y + quot h 2 - quot widH 2
-      myResize :: FL.Ref FL.Group -> Rectangle -> IO ()
-      myResize this rect' = do
-        FL.resizeWidgetBase (FL.safeCast this) rect'
-        children <- FL.children this
-        forM_ [0 .. children - 1] \i -> do
-          mcw <- FL.getChild this $ FL.AtIndex i
-          forM_ mcw \cw -> do
-            newX <- centerX this cw
-            newY <- centerY this cw
-            newW <- FL.getW cw
-            newH <- FL.getH cw
-            FL.resize cw $ Rectangle
-              (Position newX newY)
-              (Size newW newH)
-  group <- FL.groupCustom rect Nothing Nothing FL.defaultCustomWidgetFuncs
-    { FL.resizeCustom = Just myResize
-    }
+  center <- withRect rect \cx cy cw ch ->
+    [C.exp| Fl_Center* { new Fl_Center($(int cx), $(int cy), $(int cw), $(int ch)) } |]
   x <- makeChildren
-  FL.end group
-  myResize group rect
+  [C.block| void { $(Fl_Center* center)->end(); } |]
   return x
 
-makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
+makeTab :: Rectangle -> T.Text -> (Rectangle -> Ptr Fl_Group -> IO a) -> IO a
 makeTab rect name fn = do
   let tabHeight = 25
       (_, innerRect) = chopTop tabHeight rect
-  group <- FL.groupNew innerRect (Just name)
+  group <- withRect innerRect \gx gy gw gh ->
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
+  withUTF8 name \cname ->
+    [C.block| void { $(Fl_Group* group)->copy_label($(char* cname)); } |]
   res <- fn innerRect group
-  FL.end group
+  [C.block| void { $(Fl_Group* group)->end(); } |]
   return res
 
 horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio' _    _  []   = error "horizRadio: empty option list"
 horizRadio' rect cb opts = do
-  let rects = splitHorizN (length opts) rect
+  let rects = splitHorizN (fromIntegral $ length opts) rect
   btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
-    btn <- FL.roundButtonNew rectButton $ Just label
-    void $ FL.setValue btn b
+    btn <- withRect rectButton \bx by bw bh ->
+      [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 label \clabel ->
+      [C.block| void { $(Fl_Round_Button* btn)->copy_label($(char* clabel)); } |]
+    let bval = if b then 1 else 0 :: CInt
+    [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
     return btn
-  forM_ btns \opt -> FL.setCallback opt \_ -> do
-    forM_ btns \opt' -> FL.setValue opt' $ opt == opt'
-    sequence_ cb
+  forM_ btns \opt -> do
+    setCallback opt do
+      forM_ btns \opt' -> do
+        let v = if opt == opt' then 1 else 0 :: CInt
+        [C.block| void { $(Fl_Round_Button* opt')->value($(int v)); } |]
+      sequence_ cb
   return do
-    bools <- mapM FL.getValue btns
+    bools <- forM btns \btn -> do
+      v <- [C.exp| int { $(Fl_Round_Button* btn)->value() } |]
+      return (v /= 0)
     return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
 
 horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
-speedPercent' :: Bool -> Rectangle -> IO (IO Double, FL.Ref FL.Counter)
+speedPercent' :: Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
 speedPercent' isConverter rect = do
-  speed <- FL.counterNew rect if isConverter
-    then Just "Speed (%)"
-    else Nothing
-  FL.setLabelsize speed $ FL.FontSize 13
-  FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-  FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
-  FL.setStep speed 1
-  FL.setLstep speed 5
-  FL.setMinimum speed 1
-  void $ FL.setValue speed 100
-  FL.setTooltip speed if isConverter
-    then "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-    else "Speed (%)"
-  return ((/ 100) <$> FL.getValue speed, speed)
+  let lbl :: T.Text
+      lbl = if isConverter then "Speed (%)" else ""
+  speed <- withRect rect \sx sy sw sh ->
+    [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+  withUTF8 lbl \clabel ->
+    [C.block| void { $(Fl_Counter* speed)->copy_label($(char* clabel)); } |]
+  [C.block| void {
+    Fl_Counter* s = $(Fl_Counter* speed);
+    s->labelsize(13);
+    s->align(FL_ALIGN_LEFT);
+    s->step(1);
+    s->lstep(5);
+    s->minimum(1);
+    s->value(100);
+  } |]
+  if isConverter
+    then do
+      [C.block| void { $(Fl_Counter* speed)->tooltip(
+        "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+      ); } |]
+    else [C.block| void { $(Fl_Counter* speed)->tooltip("Speed (%)"); } |]
+  let getSpeed = do
+        v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
+        return (coerce v / 100 :: Double)
+  return (getSpeed, speed)
 
 speedPercent :: Bool -> Rectangle -> IO (IO Double)
 speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
@@ -401,17 +446,22 @@ speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
 makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
-  menu <- FL.menuButtonNew rect $ Just initialLabel
+  menu <- withRect rect \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 initialLabel \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
-    FL.add menu label' Nothing
-      ((Just \_ -> do
-        writeIORef ref opt
-        FL.setLabel menu label
-      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
-      (FL.MenuItemFlags [])
+    menuCb <- makeCallback \_ _ -> do
+      writeIORef ref opt
+      withUTF8 label \newLabel ->
+        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 label' \clabel ->
+      [C.block| void {
+        $(Fl_Menu_Button* menu)->add($(char* clabel), 0, $(Fl_Callback menuCb));
+      } |]
   return $ readIORef ref
 
 makeDropdown :: Rectangle -> NE.NonEmpty (T.Text, a, Bool) -> IO (IO a)
@@ -419,17 +469,22 @@ makeDropdown rect opts = do
   let (initialLabel, initialOpt, _) = case NE.filter (\(_, _, b) -> b) opts of
         opt : _ -> opt
         []      -> NE.head opts
-  menu <- FL.menuButtonNew rect $ Just initialLabel
+  menu <- withRect rect \mx my mw mh ->
+    [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh)) } |]
+  withUTF8 initialLabel \clabel ->
+    [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* clabel)); } |]
   ref <- newIORef initialOpt
   forM_ opts \(label, opt, _) -> do
     -- need to escape in menu items (but not button label) to not make submenus
     let label' = T.replace "/" "\\/" label
-    FL.add menu label' Nothing
-      ((Just \_ -> do
-        writeIORef ref opt
-        FL.setLabel menu label
-      ) :: Maybe (FL.Ref FL.MenuItem -> IO ()))
-      (FL.MenuItemFlags [])
+    menuCb <- makeCallback \_ _ -> do
+      writeIORef ref opt
+      withUTF8 label \newLabel ->
+        [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
+    withUTF8 label' \clabel ->
+      [C.block| void {
+        $(Fl_Menu_Button* menu)->add($(char* clabel), 0, $(Fl_Callback menuCb));
+      } |]
   return $ readIORef ref
 
 trimXbox
@@ -446,21 +501,28 @@ gh2DeluxeSelector
   -> IO (IO (Maybe Bool)) -- Bool is True if 2x drums
 gh2DeluxeSelector sink rect = do
   let (checkArea, kicksArea) = chopRight 150 rect
-  check <- FL.checkButtonNew checkArea $ Just "GH2 Deluxe features"
-  kicks <- FL.choiceNew kicksArea Nothing
-  mapM_ (FL.addName kicks) ["1x drums", "2x drums"]
-  void $ FL.setValue kicks $ FL.MenuItemByIndex $ FL.AtIndex 0
+  check <- withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "GH2 Deluxe features") } |]
+  kicks <- withRect kicksArea \kx ky kw kh ->
+    [C.exp| Fl_Choice* { new Fl_Choice($(int kx), $(int ky), $(int kw), $(int kh)) } |]
+  [C.block| void {
+    $(Fl_Choice* kicks)->add("1x drums");
+    $(Fl_Choice* kicks)->add("2x drums");
+    $(Fl_Choice* kicks)->value(0);
+  } |]
   let updateKicks = do
-        enabled <- FL.getValue check
-        (if enabled then FL.activate else FL.deactivate) kicks
-  FL.setCallback check \_ -> sink $ EventIO updateKicks
+        enabled <- checkValue check
+        if enabled
+          then [C.block| void { $(Fl_Choice* kicks)->activate(); } |]
+          else [C.block| void { $(Fl_Choice* kicks)->deactivate(); } |]
+  setCallback check $ sink $ EventIO updateKicks
   updateKicks
-  void $ FL.setValue check False
+  [C.block| void { $(Fl_Check_Button* check)->value(0); } |]
   return do
-    enableDeluxe <- FL.getValue check
+    enableDeluxe <- checkValue check
     if enableDeluxe
       then do
-        FL.AtIndex i <- FL.getValue kicks
+        i <- [C.exp| int { $(Fl_Choice* kicks)->value() } |]
         return $ Just $ i == 1
       else return Nothing
 
@@ -468,10 +530,13 @@ warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
 warnCombineXboxGH2 sink go = sink $ EventOnyx do
   prefs <- readPreferences
   stackIO $ unless prefs.prefWarnedXboxGH2 do
-    void $ FL.flChoice (T.unlines
-      [ "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\")."
-      , "Loading more than 16 packages will fail to load some songs, and will corrupt your save!"
-      ]) "OK" Nothing Nothing
+    [C.block| void {
+      fl_choice(
+        "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\").\n"
+        "Loading more than 16 packages will fail to load some songs, and will corrupt your save!",
+        "OK", nullptr, nullptr
+      );
+    } |]
     savePreferences prefs { prefWarnedXboxGH2 = True }
   stackIO go
 
@@ -479,14 +544,17 @@ warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
 warnXboxGHWoR sink go = sink $ EventOnyx do
   prefs <- readPreferences
   stackIO $ unless prefs.prefWarnedXboxWoR do
-    void $ FL.flChoice (T.unlines
-      [ "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,"
-      , "to produce the extra file needed to load your songs."
-      , ""
-      , "IMPORTANT: There may be an issue with loading too many custom songs"
-      , "into Guitar Hero: Warriors of Rock, that could corrupt your save."
-      , "Please back up any save data you care about before loading custom songs!"
-      ]) "OK" Nothing Nothing
+    [C.block| void {
+      fl_choice(
+        "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,\n"
+        "to produce the extra file needed to load your songs.\n"
+        "\n"
+        "IMPORTANT: There may be an issue with loading too many custom songs\n"
+        "into Guitar Hero: Warriors of Rock, that could corrupt your save.\n"
+        "Please back up any save data you care about before loading custom songs!",
+        "OK", nullptr, nullptr
+      );
+    } |]
     savePreferences prefs { prefWarnedXboxWoR = True }
   go
 
@@ -592,7 +660,7 @@ fileLoadWindow
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
-  -> IO (FL.Ref FL.Group)
+  -> IO (Ptr Fl_Group)
 fileLoadWindow rect sink single plural modifyFiles startFiles step display
   = fmap fst
   $ fileLoadWindow' rect sink single plural modifyFiles startFiles step display
@@ -606,91 +674,57 @@ fileLoadWindow'
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
-  -> IO (FL.Ref FL.Group, IO ())
+  -> IO (Ptr Fl_Group, IO ())
 fileLoadWindow' rect sink single plural modifyFiles startFiles step display = mdo
-  group <- FL.groupNew rect Nothing
+  group <- withRect rect \gx gy gw gh ->
+    [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   let (labelRect, belowLabel) = chopTop 40 rect
-      (termRect, buttonsRect) = chopBottom 50 belowLabel
+      (treeRect, buttonsRect) = chopBottom 50 belowLabel
       labelRect' = trimClock 10 10 5 10 labelRect
-      termRect' = trimClock 5 10 5 10 termRect
+      treeRect' = trimClock 5 10 5 10 treeRect
       buttonsRect' = trimClock 5 10 10 10 buttonsRect
       [btnRectA, btnRectB] = splitHorizN 2 buttonsRect'
       (btnRectA', _) = chopRight 5 btnRectA
       (_, btnRectB') = chopLeft 5 btnRectB
-  label <- FL.boxNew labelRect' Nothing
-  tree <- FL.treeCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-    { FL.handleCustom = Just \_ evt -> case evt of
-      FLE.Keydown -> do
-        cmd <- FLTK.eventCommand
-        let upToSong :: FL.Ref FL.TreeItem -> MaybeT IO (FL.Ref FL.TreeItem)
-            upToSong i = lift (FL.getDepth i) >>= \case
-              0 -> MaybeT $ return Nothing
-              1 -> return i
-              _ -> MaybeT (FL.getParent i) >>= upToSong
-            getSongFocus :: MaybeT IO (FL.Ref FL.TreeItem, Int, FL.Ref FL.TreeItem)
-            getSongFocus = do
-              item <- MaybeT $ FL.getItemFocus tree
-              songItem <- upToSong item
-              root <- MaybeT $ FL.root tree
-              FL.AtIndex ix <- MaybeT $ FL.findChild root
-                $ FL.TreeItemPointerLocator $ FL.TreeItemPointer songItem
-              return (root, ix, songItem)
-        FLTK.eventKey >>= \case
-          FL.SpecialKeyType FLE.Kb_Up | cmd -> do
-            void $ runMaybeT do
-              (root, ix, _songItem) <- getSongFocus
-              unless (ix == 0) $ lift $ swapFiles root (ix - 1) ix
-            return $ Right ()
-          FL.SpecialKeyType FLE.Kb_Down | cmd -> do
-            void $ runMaybeT do
-              (root, ix, _songItem) <- getSongFocus
-              len <- liftIO $ FL.children root
-              unless (ix == len - 1) $ lift $ swapFiles root ix (ix + 1)
-            return $ Right ()
-          FL.SpecialKeyType FLE.Kb_Delete -> do
-            void $ runMaybeT do
-              (_root, ix, songItem) <- getSongFocus
-              lift $ removeFile songItem ix
-            return $ Right ()
-          _ -> FL.handleTreeBase (FL.safeCast tree) evt
-      _ -> FL.handleTreeBase (FL.safeCast tree) evt
-    }
-  FL.end tree
-  FL.setResizable group $ Just tree
-  let updateLabel fs = FL.setLabel label $ T.pack case length fs of
-        1 -> "1 file loaded."
-        n -> show n ++ " files loaded."
+  label <- withRect labelRect' \lx ly lw lh ->
+    [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh)) } |]
+  hsTree <- withRect treeRect' \tx ty tw th ->
+    [C.exp| HsTree* { new HsTree($(int tx), $(int ty), $(int tw), $(int th)) } |]
+  let tree = [C.pure| Fl_Tree* { (Fl_Tree*)$(HsTree* hsTree) } |]
+  [C.block| void {
+    $(HsTree* hsTree)->end();
+    $(Fl_Group* group)->resizable($(HsTree* hsTree));
+  } |]
+  let updateLabel fs = do
+        let msg = case length fs of
+              1 -> "1 file loaded."
+              n -> show n ++ " files loaded."
+        withUTF8 msg \cmsg ->
+          [C.block| void { $(Fl_Box* label)->copy_label($(char* cmsg)); } |]
       clearFiles = modifyFiles \_ -> do
-        FL.clear tree
-        _ <- FL.add tree ""
-        FL.rootLabel tree plural
-        updateLabel []
-        FLTK.redraw
+        [C.block| void {
+          $(Fl_Tree* tree)->clear();
+          $(Fl_Tree* tree)->add("");
+        } |]
+        withUTF8 plural \cplural ->
+          [C.block| void { $(Fl_Tree* tree)->root_label($(char* cplural)); } |]
+        updateLabel ([] :: [a])
+        [C.block| void { Fl::redraw(); } |]
         return []
-      swapFiles :: FL.Ref FL.TreeItem -> Int -> Int -> IO ()
-      swapFiles root index1 index2 = modifyFiles \fs -> do
-        let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
-        void $ FL.swapChildren root (FL.AtIndex index1) (FL.AtIndex index2)
-        updateLabel fs'
-        FLTK.redraw
-        return fs'
-      removeFile songItem index = modifyFiles \fs -> do
-        let fs' = take index fs ++ drop (index + 1) fs
-        void $ FL.remove tree songItem
-        updateLabel fs'
-        FLTK.redraw
-        return fs'
       addFiles [] = return ()
       addFiles gs = modifyFiles \fs -> do
-        Just root <- FL.root tree
+        root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
         forM_ gs \imp -> do
           let (entry, sublines) = display imp
-          Just item <- FL.addAt tree entry root
-          forM_ sublines \subline -> void $ FL.addAt tree subline item
-          FL.close item
+          withUTF8 entry \centry -> do
+            item <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* root), $(char* centry)) } |]
+            forM_ sublines \subline ->
+              withUTF8 subline \csub ->
+                [C.block| void { $(Fl_Tree* tree)->add($(Fl_Tree_Item* item), $(char* csub)); } |]
+            [C.block| void { $(Fl_Tree_Item* item)->close(); } |]
         let fs' = fs ++ gs
         updateLabel fs'
-        FLTK.redraw
+        [C.block| void { Fl::redraw(); } |]
         return fs'
       searchSongs [] = return ()
       searchSongs (loc : locs) = do
@@ -698,56 +732,166 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
         stackIO $ sink $ EventIO $ addFiles imps
         searchSongs $ locs ++ children
       forkSearch = void . forkOnyx . searchSongs
+      swapFiles index1 index2 = modifyFiles \fs -> do
+        let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
+        let ci1 = fromIntegral index1 :: CInt
+            ci2 = fromIntegral index2 :: CInt
+        [C.block| void {
+          Fl_Tree_Item* root = $(Fl_Tree* tree)->root();
+          if (root) root->swap_children($(int ci1), $(int ci2));
+        } |]
+        updateLabel fs'
+        [C.block| void { Fl::redraw(); } |]
+        return fs'
+      removeFile index = modifyFiles \fs -> do
+        let fs' = take index fs ++ drop (index + 1) fs
+        -- Find and remove the tree item at this index
+        let ci = fromIntegral index :: CInt
+        [C.block| void {
+          Fl_Tree_Item* root = $(Fl_Tree* tree)->root();
+          if (root && $(int ci) < root->children()) {
+            Fl_Tree_Item* child = root->child($(int ci));
+            if (child) $(Fl_Tree* tree)->remove(child);
+          }
+        } |]
+        updateLabel fs'
+        [C.block| void { Fl::redraw(); } |]
+        return fs'
+  -- Handle Ctrl+Up, Ctrl+Down, Delete on the tree
+  fpHandle <- makeTreeHandleCallback \_ event -> do
+    if event /= [C.pure| int { FL_KEYDOWN } |] then return 0 else do
+      key <- [C.exp| int { Fl::event_key() } |]
+      cmd <- [C.exp| int { (Fl::event_state() & FL_COMMAND) ? 1 : 0 } |]
+      -- Walk up from focused item to find depth-1 (top-level song) item
+      let getSongIndex = do
+            focused <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->get_item_focus() } |]
+            if focused == nullPtr then return Nothing else do
+              -- Walk up to depth 1
+              let walkUp item = do
+                    d <- [C.exp| int { $(Fl_Tree_Item* item)->depth() } |]
+                    case compare d 1 of
+                      LT -> return nullPtr
+                      EQ -> return item
+                      GT -> do
+                        p <- [C.exp| Fl_Tree_Item* { $(Fl_Tree_Item* item)->parent() } |]
+                        if p == nullPtr then return nullPtr else walkUp p
+              songItem <- walkUp focused
+              if songItem == nullPtr then return Nothing else do
+                root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
+                ix <- [C.exp| int { $(Fl_Tree_Item* root)->find_child($(Fl_Tree_Item* songItem)) } |]
+                if ix < 0 then return Nothing
+                  else return $ Just (fromIntegral ix :: Int)
+      if | key == [C.pure| int { FL_Up } |] && cmd == 1 -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix | ix > 0 -> do
+                 sink $ EventIO $ swapFiles (ix - 1) ix
+                 return 1
+               _ -> return 0
+         | key == [C.pure| int { FL_Down } |] && cmd == 1 -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix -> do
+                 nChildren <- [C.exp| int {
+                   $(Fl_Tree* tree)->root() ? $(Fl_Tree* tree)->root()->children() : 0
+                 } |]
+                 if ix < fromIntegral nChildren - 1
+                   then do
+                     sink $ EventIO $ swapFiles ix (ix + 1)
+                     return 1
+                   else return 0
+               _ -> return 0
+         | key == [C.pure| int { FL_Delete } |] -> do
+             mIx <- getSongIndex
+             case mIx of
+               Just ix -> do
+                 sink $ EventIO $ removeFile ix
+                 return 1
+               _ -> return 0
+         | otherwise -> return 0
+  [C.block| void {
+    $(HsTree* hsTree)->set_handle_callback(
+      $(int (*fpHandle)(void*, int)), NULL);
+  } |]
   clearFiles
   sink $ EventOnyx $ forkSearch startFiles
-  void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-    { FL.handleCustom = Just
-      $ dragAndDrop (sink . EventOnyx . forkSearch)
-      . (\_ _ -> return $ Left FL.UnknownEvent)
-    }
-  btnA <- FL.buttonNew btnRectA' $ Just $ "Add " <> single
-  FL.setCallback btnA \_ -> sink $ EventIO do
-    picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
-    FL.setTitle picker $ "Load " <> single
-    FL.showWidget picker >>= \case
-      FL.NativeFileChooserPicked -> do
-        n <- FL.getCount picker
-        fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-        sink $ EventOnyx $ forkSearch $ map T.unpack $ catMaybes fs
-      _ -> return ()
-  btnB <- FL.buttonNew btnRectB' $ Just $ "Clear " <> plural
-  FL.setCallback btnB \_ -> sink $ EventIO clearFiles
-  FL.end group
-  return (group, clearFiles)
+  withRect btnRectA' \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 ("Add " <> single) \clbl -> do
+      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
+    setCallback btn $ sink $ EventIO $ withNativeFileChooser
+      [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
+      \picker -> do
+        withUTF8 ("Load " <> single) \ctitle ->
+          [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+        when (result == 0) do
+          n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+          fs <- forM [0 .. n - 1] \i -> do
+            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+            peekUTF8 cstr
+          sink $ EventOnyx $ forkSearch fs
+  withRect btnRectB' \bx by bw bh -> do
+    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 ("Clear " <> plural) \clbl -> do
+      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
+    setCallback btn $ sink $ EventIO $ void clearFiles
+  -- Invisible box overlay on tree rect for drag-and-drop.
+  -- Placed last so it's on top; returns 0 for non-DnD events so they pass through.
+  dndBox <- withRect treeRect' \dx dy dw dh ->
+    [C.exp| HsDndBox* { new HsDndBox($(int dx), $(int dy), $(int dw), $(int dh)) } |]
+  setDndBoxCallback dndBox (sink . EventOnyx . forkSearch)
+  [C.block| void { $(Fl_Group* group)->end(); } |]
+  return (group, void clearFiles)
 
-dragAndDrop
-  :: ([String] -> IO ())
-  -> (FLE.Event -> IO (Either a ()))
-  -> FLE.Event
-  -> IO (Either a ())
-dragAndDrop f fallback = \case
-  FLE.DndEnter -> return $ Right () -- we want dnd events
-  FLE.DndDrag -> return $ Right ()
-  FLE.DndLeave -> return $ Right ()
-  FLE.DndRelease -> return $ Right () -- give us the text!
-  FLE.Paste -> do
-    str <- FLTK.eventText
-    -- linux uses URL encoding starting with file://
-    -- and then using percent encoding for non-ascii chars
-    let removeProtocol s = case T.stripPrefix "file://" s of
-          Nothing -> s
-          Just s' -> TE.decodeUtf8 $ percentDecode s'
-        percentDecode :: T.Text -> B.ByteString
-        percentDecode s = case T.uncons s of
-          Just ('%', t) -> case readHex $ T.unpack $ T.take 2 t of
-            [(n, "")] -> B.cons n $ percentDecode $ T.drop 2 t
-            _         -> B.cons 37 {- % -} $ percentDecode t -- shouldn't happen but whatever
-          Just (h  , t) -> TE.encodeUtf8 (T.singleton h) <> percentDecode t
-          Nothing       -> ""
-    () <- f $ map (T.unpack . removeProtocol) $ T.lines str
-    -- lines is because multiple files are separated by \n
-    return $ Right ()
-  e -> fallback e
+-- | Parse the text from an FLTK DnD paste event into file paths.
+-- Linux uses URL encoding: file:///path/to/file with percent-encoded non-ASCII.
+parseDndText :: String -> [String]
+parseDndText str = map (T.unpack . removeProtocol) $ T.lines $ T.pack str
+  where
+    removeProtocol s = case T.stripPrefix "file://" s of
+      Nothing -> s
+      Just s' -> TE.decodeUtf8 $ percentDecode s'
+    percentDecode :: T.Text -> B.ByteString
+    percentDecode s = case T.uncons s of
+      Just ('%', t) -> case readHex $ T.unpack $ T.take 2 t of
+        [(n, "")] -> B.cons n $ percentDecode $ T.drop 2 t
+        _         -> B.cons 37 {- % -} $ percentDecode t
+      Just (h  , t) -> TE.encodeUtf8 (T.singleton h) <> percentDecode t
+      Nothing       -> ""
+
+-- | Set a DnD callback on an HsDndButton. The callback receives a list of file paths.
+setDndButtonCallback :: Ptr HsDndButton -> ([String] -> IO ()) -> IO ()
+setDndButtonCallback btn f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  [C.block| void {
+    $(HsDndButton* btn)->set_dnd_callback(
+      $(void (*fpDnd)(void*, const char*)), NULL);
+  } |]
+
+-- | Set a DnD callback on an HsDndGroup. The callback receives a list of file paths.
+setDndGroupCallback :: Ptr HsDndGroup -> ([String] -> IO ()) -> IO ()
+setDndGroupCallback grp f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  [C.block| void {
+    $(HsDndGroup* grp)->set_dnd_callback(
+      $(void (*fpDnd)(void*, const char*)), NULL);
+  } |]
+
+-- | Set a DnD callback on an HsDndBox. The callback receives a list of file paths.
+setDndBoxCallback :: Ptr HsDndBox -> ([String] -> IO ()) -> IO ()
+setDndBoxCallback box f = do
+  fpDnd <- makeDndCallback \_ cstr -> do
+    str <- peekCString cstr
+    f $ parseDndText str
+  [C.block| void {
+    $(HsDndBox* box)->set_dnd_callback(
+      $(void (*fpDnd)(void*, const char*)), NULL);
+  } |]
 
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
@@ -759,24 +903,24 @@ customTitleSuffix
   -> BuildYamlControl tgt (IO ())
 customTitleSuffix sink rect getSuffix setSuffix = do
   let (checkArea, inputArea) = chopLeft 200 rect
-  check <- liftIO $ FL.checkButtonNew checkArea (Just "Custom Title Suffix")
-  input <- liftIO $ FL.inputNew
-    inputArea
-    Nothing
-    (Just FL.FlNormalInput) -- required for labels to work
+  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Custom Title Suffix") } |]
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- FL.getValue check
+        b <- checkValue check
         if b
-          then FL.activate input
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
           else do
             sfx <- getSuffix
-            void $ FL.setValue input $ T.strip sfx
-            FL.deactivate input
+            withUTF8 (T.strip sfx) \csfx ->
+              [C.block| void { $(Fl_Input* input)->value($(char* csfx)); } |]
+            [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO $ sink $ EventIO controlInput -- have to delay; can't call now due to dependency loop!
-  liftIO $ FL.setCallback check \_ -> controlInput
+  liftIO $ setCallback check controlInput
   tell do
-    b <- FL.getValue check
-    s <- FL.getValue input
+    b <- checkValue check
+    s <- peekInputValue input
     return $ Endo $ setSuffix $ guard b >> Just (T.strip s)
   return controlInput
 
@@ -787,19 +931,20 @@ songIDBox
   -> BuildYamlControl tgt ()
 songIDBox rect f = do
   let (checkArea, inputArea) = chopLeft 200 rect
-  check <- liftIO $ FL.checkButtonNew checkArea (Just "Specific Song ID")
-  input <- liftIO $ FL.inputNew
-    inputArea
-    Nothing
-    (Just FL.FlNormalInput) -- required for labels to work
+  check <- liftIO $ withRect checkArea \cx cy cw ch ->
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Specific Song ID") } |]
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- FL.getValue check
-        (if b then FL.activate else FL.deactivate) input
+        b <- checkValue check
+        if b
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
+          else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
-  liftIO $ FL.setCallback check \_ -> controlInput
+  liftIO $ setCallback check controlInput
   tell do
-    b <- FL.getValue check
-    s <- FL.getValue input
+    b <- checkValue check
+    s <- peekInputValue input
     return $ Endo $ f if b && s /= ""
       then case readMaybe $ T.unpack s of
         Nothing -> SongIDSymbol s
@@ -816,19 +961,24 @@ numberBox
   -> BuildYamlControl tgt ()
 numberBox rect lbl f = do
   let (checkArea, inputArea) = chopLeft 250 rect
-  check <- liftIO $ FL.checkButtonNew checkArea (Just lbl)
-  input <- liftIO $ FL.inputNew
-    inputArea
-    Nothing
-    (Just FL.FlNormalInput) -- required for labels to work
+  check <- liftIO do
+    c <- withRect checkArea \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    withUTF8 lbl \clbl ->
+      [C.block| void { $(Fl_Check_Button* c)->copy_label($(char* clbl)); } |]
+    return c
+  input <- liftIO $ withRect inputArea \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
-        b <- FL.getValue check
-        (if b then FL.activate else FL.deactivate) input
+        b <- checkValue check
+        if b
+          then [C.block| void { $(Fl_Input* input)->activate(); } |]
+          else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
   liftIO controlInput
-  liftIO $ FL.setCallback check \_ -> controlInput
+  liftIO $ setCallback check controlInput
   tell do
-    b <- FL.getValue check
-    s <- FL.getValue input
+    b <- checkValue check
+    s <- peekInputValue input
     return $ Endo $ f if b && s /= ""
       then readMaybe $ T.unpack s
       else Nothing
@@ -840,7 +990,7 @@ partSelectors
   -> [(T.Text, tgt -> PartName, PartName -> tgt -> tgt, Part FilePath -> Bool)]
   -> BuildYamlControl tgt (Bool -> IO ())
 partSelectors rect proj slots = let
-  rects = splitHorizN (length slots) rect
+  rects = splitHorizN (fromIntegral $ length slots) rect
   fparts = do
     (fpart, part) <- HM.toList proj.projectSongYaml.parts.getParts
     guard $ part /= emptyPart
@@ -849,21 +999,28 @@ partSelectors rect proj slots = let
     let r' = trimClock 20 5 5 5 r
         fparts' = [ t | t@(_, _, part) <- fparts, partFilter part ]
     choice <- liftIO do
-      choice <- FL.choiceNew r' $ Just lbl
-      FL.setAlign choice $ FLE.Alignments [FLE.AlignTypeTop]
-      FL.addName choice "(none)"
-      forM_ fparts' \(_, opt, _) -> FL.addName choice opt
-      void $ FL.setValue choice $ FL.MenuItemByIndex $ FL.AtIndex $
-        case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
-          Nothing -> 0 -- (none)
-          Just i  -> i + 1
+      choice <- withRect r' \cx cy cw ch ->
+        [C.exp| Fl_Choice* { new Fl_Choice($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+      withUTF8 lbl \clbl ->
+        [C.block| void { $(Fl_Choice* choice)->copy_label($(char* clbl)); } |]
+      [C.block| void { $(Fl_Choice* choice)->align(FL_ALIGN_TOP); } |]
+      [C.block| void { $(Fl_Choice* choice)->add("(none)"); } |]
+      forM_ fparts' \(_, opt, _) ->
+        withUTF8 opt \copt ->
+          [C.block| void { $(Fl_Choice* choice)->add($(char* copt)); } |]
+      let initVal = case findIndex (\(fpart, _, _) -> fpart == getter def) fparts' of
+            Nothing -> 0 :: CInt -- (none)
+            Just i  -> fromIntegral i + 1
+      [C.block| void { $(Fl_Choice* choice)->value($(int initVal)); } |]
       return choice
     tell do
-      FL.AtIndex i <- FL.getValue choice
-      return $ Endo $ setter case drop (i - 1) fparts' of
+      i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
+      return $ Endo $ setter case drop (fromIntegral i - 1) fparts' of
         (fpart, _, _) : _ | i /= 0 -> fpart
         _                          -> PartName "undefined"
-    return \b -> if b then FL.activate choice else FL.deactivate choice
+    return \b -> if b
+      then [C.block| void { $(Fl_Choice* choice)->activate(); } |]
+      else [C.block| void { $(Fl_Choice* choice)->deactivate(); } |]
   in do
     controls <- mapM instSelector $ zip slots rects
     return \b -> mapM_ ($ b) controls
@@ -884,3 +1041,38 @@ mixDownStems song = song
       }
     MoggPlan info -> MoggPlan $ info & #parts .~ Parts HM.empty
   }
+
+peekInputValue :: Ptr Fl_Input -> IO T.Text
+peekInputValue input = do
+  cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+  T.pack <$> peekUTF8 cstr
+
+-- | Helper for save file chooser pattern used throughout song pages
+saveFileChooser :: T.Text -> T.Text -> Maybe T.Text -> (FilePath -> IO ()) -> IO ()
+saveFileChooser title preset mdir onPick = withNativeFileChooser
+  [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+  \picker -> do
+    withUTF8 title \ctitle ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+    withUTF8 preset \cpreset ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->preset_file($(char* cpreset)); } |]
+    forM_ mdir \dir -> withUTF8 dir \cdir ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+      f <- peekUTF8 cstr
+      when (not $ null f) $ onPick f
+
+-- | Helper for browsing a single file
+browseFileChooser :: T.Text -> (FilePath -> IO ()) -> IO ()
+browseFileChooser title onPick = withNativeFileChooser
+  [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+  \picker -> do
+    withUTF8 title \ctitle ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+    result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+    when (result == 0) do
+      cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
+      f <- peekUTF8 cstr
+      when (not $ null f) $ onPick f

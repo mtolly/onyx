@@ -1,14 +1,11 @@
 #!/bin/bash
 BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
 
-case $(uname) in
-  MINGW* )
-    export STACK_YAML=stack-ghc-9.2.yaml
-    ;;
-esac
+# PATH is needed on Windows for TH (inline-c) to find .dll files
 
 env PKG_CONFIG_PATH="$BUILD_DIR"/dependencies/root/lib/pkgconfig \
   LD_LIBRARY_PATH="$BUILD_DIR"/dependencies/root/lib \
+  PATH="$BUILD_DIR"/dependencies/root/bin:"$PATH" \
   stack "$@" \
   --extra-lib-dirs="$BUILD_DIR"/dependencies/root/lib \
   --extra-include-dirs="$BUILD_DIR"/dependencies/root/include

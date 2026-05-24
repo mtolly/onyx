@@ -39,7 +39,7 @@ import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.Search
 import qualified Onyx.MIDI.Track.Drums        as Drums
-import           Onyx.MIDI.Track.File         (PartName)
+import           Onyx.MIDI.Track.File         (PartName, SampleTrigger (..))
 import           Onyx.Project
 import           Onyx.StackTrace              (SendMessage, StackTraceT,
                                                Staction, fatal, inside, lg,
@@ -117,7 +117,7 @@ manualLeaf
   => FilePath
   -> AudioLibrary
   -> (T.Text -> StackTraceT m FilePath) -- build audio object by name, return path to file
-  -> StackTraceT m [(T.Text, [(Double, T.Text, T.Text)])] -- get sample triggers list
+  -> StackTraceT m [(T.Text, [(Double, SampleTrigger (Maybe Double))])] -- get sample triggers list
   -> SongYaml FilePath
   -> AudioInput
   -> StackTraceT m (Audio Duration FilePath)
@@ -133,14 +133,26 @@ manualLeaf rel alib buildDependency getSamples songYaml (Named name) = case HM.l
       let polyphony = case info.groupPolyphony of
             Nothing -> Nothing
             Just p  -> Just (p, realToFrac info.groupCrossfade)
-          uniqueSamples = nubOrd [ sample | (_, _, sample) <- triggers ]
+          uniqueSamples = nubOrd [ trigger.audio | (_, trigger) <- triggers ]
       -- only locate each sample once
       sampleToAudio <- fmap HM.fromList $ forM uniqueSamples \sample -> do
         audio <- manualLeaf rel alib buildDependency getSamples songYaml $ Named sample
         return (sample, audio)
-      return $ Samples polyphony $ flip mapMaybe triggers \(secs, group, sample) -> do
-        audio <- HM.lookup sample sampleToAudio
-        return (Seconds secs, (group, audio))
+      return $ Samples polyphony $ flip mapMaybe triggers \(secs, trigger) -> do
+        audio <- HM.lookup trigger.audio sampleToAudio
+        let tweak = tweakPanVol . tweakTranspose . tweakDuration
+            tweakPanVol = case (trigger.pan, trigger.volume) of
+              -- note, this leaves center mono sources as mono. will stereofy later
+              (0  , 0    ) -> id
+              (0  , volDB) -> Gain $ 10 ** (volDB / 20)
+              (pan, volDB) -> PansVols [realToFrac pan] [realToFrac volDB]
+            tweakTranspose = case trigger.transpose of
+              0 -> id
+              _ -> StretchSimple $ 1 / (2 ** (trigger.transpose / 12))
+            tweakDuration = case trigger.link of
+              Just duration -> Take Start $ Seconds duration
+              Nothing       -> id
+        return (Seconds secs, (trigger.group, tweak audio))
   Nothing -> fatal $ "Couldn't find an audio source named " ++ show name
 manualLeaf rel _alib _buildDependency _getSamples songYaml (JammitSelect audpart name) = case HM.lookup name songYaml.jammit of
   Just _  -> return $ Input $ rel </> jammitPath "gen" name audpart
@@ -222,7 +234,7 @@ loadSamplesFromBuildDir
   :: (MonadIO m)
   => (FilePath -> StackTraceT m FilePath)
   -> T.Text -- plan
-  -> StackTraceT m [(T.Text, [(Double, T.Text, T.Text)])]
+  -> StackTraceT m [(T.Text, [(Double, SampleTrigger (Maybe Double))])]
 loadSamplesFromBuildDir builder planName = do
   txt <- builder $ "gen/plan" </> T.unpack planName </> "samples.txt"
   fmap read $ stackIO $ readFile txt
@@ -230,7 +242,7 @@ loadSamplesFromBuildDir builder planName = do
 loadSamplesFromBuildDirShake
   :: FilePath
   -> T.Text -- plan
-  -> Staction [(T.Text, [(Double, T.Text, T.Text)])]
+  -> Staction [(T.Text, [(Double, SampleTrigger (Maybe Double))])]
 loadSamplesFromBuildDirShake rel = loadSamplesFromBuildDir \f -> do
   opts <- lift $ lift getShakeOptions
   let isSlash c = c == '/' || c == '\\'

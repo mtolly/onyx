@@ -41,7 +41,7 @@ module Onyx.Audio
 , fadeStart, fadeEnd
 , mixMany, mixMany'
 , clampIfSilent
-, stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios
+, stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios, gainRatioToDecibels
 , emptyChannels
 , remapChannels
 , makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
@@ -56,14 +56,15 @@ import           Control.Concurrent               (newEmptyMVar, threadDelay,
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (ap, forM, forM_, guard,
-                                                   replicateM_, unless, void,
-                                                   when)
+                                                   replicateM, replicateM_,
+                                                   unless, when)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Data.Bifunctor                   (bimap, first, second)
 import           Data.Binary.Get                  (getWord32le)
+import           Data.Bits                        (shiftR)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
@@ -74,7 +75,6 @@ import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding  as L
 import           Data.Conduit.Audio.SampleRate
-import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List                as CL
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.Either                      (lefts, rights)
@@ -89,19 +89,26 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Vector.Storable             as V
-import           Data.Word                        (Word8)
+import qualified Data.Vector.Storable.Mutable     as VM
+import           Data.Word                        (Word16, Word32, Word8,
+                                                   byteSwap16)
 import           Development.Shake                (Action, getShakeOptions,
                                                    need, shakeFiles)
 import           Development.Shake.FilePath       (takeExtension, (-<.>))
-import           Foreign                          (Ptr, castPtr)
+import           Foreign                          (Ptr, allocaBytes, castPtr,
+                                                   peekElemOff, pokeElemOff,
+                                                   withMany)
 import           Foreign.C                        (CFloat, CInt (..))
+import           GHC.ByteOrder                    (ByteOrder (..),
+                                                   targetByteOrder)
+import           GHC.IO.Handle                    (HandlePosn (..))
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
-import           Onyx.Audio.SndfileExtra
 import           Onyx.Audio.VGS                   (decryptReadVGS,
                                                    readSingleRateVGS, readVGS)
-import           Onyx.FFMPEG                      (ffSource, ffSourceBinkFrom,
+import           Onyx.FFMPEG                      (ffSink, ffSource,
+                                                   ffSourceBinkFrom,
                                                    ffSourceFrom)
 import           Onyx.Harmonix.Magma              (withWin32Exe)
 import           Onyx.Harmonix.MOGG               (sourceVorbis)
@@ -116,8 +123,7 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle                 (Readable, fileReadable,
                                                    handleToByteString,
                                                    useHandle)
-import qualified Sound.File.Sndfile               as Snd
-import qualified Sound.File.Sndfile.Buffer.Vector as SndBuf
+import           Onyx.VorbisEnc                   (sinkOggVorbis)
 import qualified Sound.MIDI.Util                  as U
 import qualified Sound.RubberBand                 as RB
 import           System.Directory                 (makeAbsolute)
@@ -204,12 +210,25 @@ mapTime f aud = case aud of
   PansVols ps vs  x  -> PansVols ps vs $ mapTime f x
   Samples poly samps -> Samples poly $ map (bimap f $ second $ mapTime f) samps
 
+stretchSimple :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchSimple ratio = let
+  maxManual = 2 ** (1 / 24) -- half a semitone
+  minManual = 1 / maxManual
+  in if minManual <= ratio && ratio <= maxManual
+    then stretchManual ratio
+    else stretchRate   ratio
+
+stretchRate :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchRate ratio src
+  = resampleTo src.rate SincMediumQuality
+  $ reorganize chunkSize src { rate = src.rate / ratio }
+
 {- |
 Simple linear interpolation of an audio stream.
 This is intended to make very small duration adjustments.
 -}
-stretchSimple :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
-stretchSimple ratio src = AudioSource
+stretchManual :: (Monad m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchManual ratio src = AudioSource
   { rate     = rate src
   , frames   = ceiling $ fromIntegral (frames src) * ratio
   , channels = channels src
@@ -501,13 +520,6 @@ loadAudioInput fin = case takeExtension fin of
     case map (standardRate . mapSamples fractionalSample) chans of
       src : srcs -> return $ foldl merge src srcs
       []         -> fail "buildSource: VGS has 0 channels"
-  -- this is a bad hack for a problem on Windows of temp folders not being
-  -- deleted because (apparently) ffmpeg isn't letting go of its input file
-  -- even after processing finishes or the thread is killed. particularly
-  -- seems to happen when going RB -> CH (mogg -> wav(s) -> oggs).
-  -- need to actually figure out what's going on!
-  -- TODO this can also happen with .mp3 (import gh3 and play 3d preview, then close)...
-  ".wav" -> sourceSnd fin
   ".xma" -> sourceXMA2CorrectLength     $ fileReadable fin
   ".bik" -> ffSourceBinkFrom (Frames 0) $ fileReadable fin
   _      -> ffSourceFrom     (Frames 0) $ fileReadable fin
@@ -589,7 +601,11 @@ buildSource' aud = case aud of
       src <- buildSource' sample >>= \s -> if framesToSeconds (frames s) (rate s) < 10
         then liftIO $ cacheAudio s
         else return s
-      return (sample, src)
+      -- fix any center mono sources left mono by manualLeaf
+      let stereo = if src.channels == 1
+            then applyPansVols [0] [0] src
+            else src
+      return (sample, stereo)
     let stdRate = 44100
         secondsTimes = samps <&> first \case
           Seconds s -> s
@@ -627,21 +643,88 @@ buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
 
+buildWAV :: Double -> Int -> FilePath -> ((V.Vector Int16 -> IO ()) -> IO ()) -> IO ()
+buildWAV r ch fp withSink = IO.withBinaryFile fp IO.ReadWriteMode \h -> let
+  chunk ctype f = do
+    B.hPut h ctype
+    lenPosn <- IO.hGetPosn h
+    B.hPut h $ B.pack [0xDE, 0xAD, 0xBE, 0xEF] -- filled in later
+    HandlePosn _ start <- IO.hGetPosn h
+    x <- f
+    endPosn@(HandlePosn _ end) <- IO.hGetPosn h
+    IO.hSetPosn lenPosn
+    writeLE32 (fromIntegral $ end - start :: Word32)
+    IO.hSetPosn endPosn
+    return x
+  writeLE32 :: Word32 -> IO ()
+  writeLE32 w = B.hPut h $ B.pack [a, b, c, d] where
+    a = fromIntegral w
+    b = fromIntegral $ w `shiftR` 8
+    c = fromIntegral $ w `shiftR` 16
+    d = fromIntegral $ w `shiftR` 24
+  writeLE16 :: Word16 -> IO ()
+  writeLE16 w = B.hPut h $ B.pack [a, b] where
+    a = fromIntegral w
+    b = fromIntegral $ w `shiftR` 8
+  -- write directly on little-endian systems, byte swap if needed on big-endian
+  writeSamples :: V.Vector Int16 -> IO ()
+  writeSamples v = let
+    n = V.length v
+    nBytes = n * 2
+    in case targetByteOrder of
+      LittleEndian -> V.unsafeWith v \ptr ->
+        IO.hPutBuf h (castPtr ptr :: Ptr Word8) nBytes
+      BigEndian -> V.unsafeWith v \srcPtr ->
+        allocaBytes nBytes \dstPtr -> do
+          let srcPtrW = castPtr srcPtr :: Ptr Word16
+              dstPtrW = dstPtr         :: Ptr Word16
+              go !i
+                | i >= n    = return ()
+                | otherwise = do
+                    w <- peekElemOff srcPtrW i
+                    pokeElemOff dstPtrW i (byteSwap16 w)
+                    go (i + 1)
+          go 0
+          IO.hPutBuf h (castPtr dstPtr :: Ptr Word8) nBytes
+  in chunk "RIFF" do
+    B.hPut h "WAVE"
+    chunk "fmt " do
+      writeLE16 (1                             :: Word16) -- 1 is PCM
+      writeLE16 (fromIntegral ch               :: Word16) -- channels
+      writeLE32 (floor r                       :: Word32) -- sample rate
+      writeLE32 (floor r * fromIntegral ch * 2 :: Word32) -- avg. bytes per second = rate * block align
+      writeLE16 (fromIntegral ch * 2           :: Word16) -- block align = chans * (bps / 8)
+      writeLE16 (16                            :: Word16) -- bits per sample
+    chunk "data" $ withSink writeSamples
+
+-- uses GHC specialized Float->Int primop
+{-# INLINE clampFloatToInt16 #-}
+clampFloatToInt16 :: Float -> Int16
+clampFloatToInt16 x
+  | x >=  1   = maxBound
+  | x <= -1   = minBound
+  | otherwise = fromIntegral (round (x * 32767) :: Int)
+
 audioToChannelWAVs :: AudioSource (ResourceT IO) Float -> [FilePath] -> IO ()
-audioToChannelWAVs src fouts = let
-  openSources = C.bracketP
-    (forM fouts \fp -> Snd.openFile fp Snd.WriteMode Snd.defaultInfo
-      { Snd.format = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-      , Snd.samplerate = round $ rate src
-      , Snd.channels = 1
-      }
-    )
-    (mapM_ Snd.hClose)
-  in runResourceT $ C.runConduit $ (source (clampFloat src) .|) $ openSources \handles -> do
-    CL.mapM_ \buf -> do
-      let chans = deinterleave (channels src) buf
-      forM_ (zip handles chans) \(h, c) -> do
-        void $ liftIO $ Snd.hPutBuffer h $ SndBuf.toBuffer c
+audioToChannelWAVs src fouts = withMany (buildWAV src.rate 1) fouts \sinks -> do
+  let !nch = src.channels
+  runResourceT $ C.runConduit $ src.source .| CL.mapM_ \buf -> liftIO $ do
+    -- optimized code to deinterleave buf + convert/clamp to Int16
+    let !nframes = V.length buf `div` nch
+    mvs <- replicateM nch (VM.unsafeNew nframes :: IO (VM.IOVector Int16))
+    V.unsafeWith buf \srcPtr -> do
+      let goCh !_ []          = return ()
+          goCh !j (mv : rest) = do
+            let goFrame !i = if i >= nframes
+                  then return ()
+                  else do
+                    f <- peekElemOff srcPtr (i * nch + j)
+                    VM.unsafeWrite mv i (clampFloatToInt16 f)
+                    goFrame (i + 1)
+            goFrame 0
+            goCh (j + 1) rest
+      goCh 0 mvs
+    forM_ (zip sinks mvs) \(sink, mv) -> V.unsafeFreeze mv >>= sink
 
 audioIO :: Maybe Double -> AudioSource (ResourceT IO) Float -> FilePath -> IO ()
 audioIO oggQuality src out = let
@@ -649,22 +732,15 @@ audioIO oggQuality src out = let
     -- this works around an issue with oggenc:
     -- it assumes 6 channels is 5.1 surround where the last channel
     -- is LFE, so instead we add a silent 7th channel
+    -- TODO do we still need to do this with our vorbisenc code, or can we fix it
     then merge src $ silent (Frames 0) (rate src) 1
-    else if takeExtension out == ".opus"
-      -- opus doesn't support 44.1 kHz; later we should probably come up with a better way to support 48 kHz
-      then resampleTo 48000 SincMediumQuality src
-      else src
-  withSndFormat fmt = runResourceT case (takeExtension out, oggQuality) of
-    (".ogg", Just q) -> do
-      let setup hsnd = void $ liftIO $ setVBREncodingQuality hsnd q
-      sinkSndWithHandle out fmt setup src'
-    _ -> sinkSnd out fmt src'
+    else src
   in case takeExtension out of
-    ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-    ".opus" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatOpus Snd.EndianFile
-    ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    ".mp3" -> runResourceT $ sinkMP3 out src'
-    ext -> error $ "audioIO: unknown audio output file extension " ++ ext
+    ".ogg"  -> sinkOggVorbis oggQuality out src'
+    ".opus" -> ffSink Nothing out src'
+    ".wav"  -> ffSink Nothing out src'
+    ".mp3"  -> runResourceT $ sinkMP3 out src'
+    ext     -> error $ "audioIO: unknown audio output file extension " ++ ext
 
 runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = do
@@ -674,7 +750,6 @@ runAudio src out = do
   lg $ "Finished writing audio to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
--- libsndfile should do this, after <https://github.com/kaoskorobase/hsndfile/pull/12>
 clampFloat :: (Monad m) => AudioSource m Float -> AudioSource m Float
 clampFloat src = src { source = source src .| CL.map clampVector } where
   clampVector = V.map \s -> if
@@ -771,6 +846,7 @@ audioRateReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Int)
 audioRateReadable f r = if supportedFFExt f
   then liftIO $ Just . round . rate <$> ffSourceSimple r
   else return Nothing
+  -- TODO maybe add .vgs support
 
 audioSeconds :: (MonadIO m, MonadFail m) => FilePath -> m U.Seconds
 audioSeconds f = do
@@ -831,6 +907,13 @@ fromStereoPanRatios (ratioL, ratioR) = let
   -- This becomes null in song.yml and breaks audio generation later
   in if isNaN result then 0 else result
 
+-- volRatio = 10 ** (volDB / 20)
+gainRatioToDecibels :: Float -> Float
+gainRatioToDecibels ratio = let
+  db = logBase 10 ratio * 20
+  -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
+  in if isInfinite db && db < 0 then -9999 else db
+
 -- Used for PowerGig import, also GH1 import
 -- Gets the RB-style vol given the "raw" L/R ratios and the desired ones.
 decibelDifferenceInPanRatios :: (Float, Float) -> (Float, Float) -> Float
@@ -839,10 +922,7 @@ decibelDifferenceInPanRatios (oneL, oneR) (twoL, twoR) = let
   volRatio = if oneL > oneR
     then twoL / oneL
     else twoR / oneR
-  -- volRatio = 10 ** (volDB / 20)
-  result = logBase 10 volRatio * 20
-  -- handle -inf for GH1 (we use 0 vol ratio for silent channel)
-  in if isInfinite result && result < 0 then -9999 else result
+  in gainRatioToDecibels volRatio
 
 -- | Like 'applyPansVols', but mixes into mono instead of stereo.
 applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float
@@ -866,13 +946,8 @@ decentMP3 out = sinkMP3WithHandle out \lame -> liftIO do
   L.check $ L.setVBR lame L.VbrDefault
   L.check $ L.setVBRQ lame 6 -- 0 (hq) to 9 (lq)
 
-decentVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-decentVorbis out = let
-  setup hsnd = liftIO (setVBREncodingQuality hsnd 0.2) >>= \case
-    True  -> return ()
-    False -> error "decentVorbis: couldn't set encoding quality"
-  fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-  in sinkSndWithHandle out fmt setup
+decentVorbis :: FilePath -> AudioSource (ResourceT IO) Float -> IO ()
+decentVorbis = sinkOggVorbis $ Just 0.2
 
 -- | Returns channel indexes (starting from 0) which are silent.
 emptyChannels :: (Monad m, V.Storable a, Eq a, Num a) => AudioSource m a -> ConduitT () o m [Int]

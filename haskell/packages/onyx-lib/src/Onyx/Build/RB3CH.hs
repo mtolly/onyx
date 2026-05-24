@@ -726,18 +726,18 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
       autoVoxMood vox = makeMoods tempos timing $ vox.notes <&> \case
         (_, True)  -> NoteOn () ()
         (_, False) -> NoteOff ()
-      trkVox' = trkVox & #mood %~ \mood ->
-        noEarlyMood if RTB.null mood
-          then case voxCount of
-            Nothing     -> RTB.empty
-            Just Vocal1 -> autoVoxMood trkVox
-            Just _      -> autoVoxMood trkHarm1
-          else mood
-      trkHarm1' = trkHarm1 & #mood .~ RTB.empty
-      trkHarm2' = trkHarm2 & #mood .~ RTB.empty
-      trkHarm3' = trkHarm3 & #mood .~ RTB.empty
-      -- we used to do asciiLyrics here for PS, but removing now since we can give UTF-8 midis to CH
-      voxPSCH = hashTalkies
+  trkVox' <- inside "PART VOCALS" $ fixLyricPositions mmap $ trkVox & #mood %~ \mood ->
+    noEarlyMood if RTB.null mood
+      then case voxCount of
+        Nothing     -> RTB.empty
+        Just Vocal1 -> autoVoxMood trkVox
+        Just _      -> autoVoxMood trkHarm1
+      else mood
+  trkHarm1' <- inside "HARM1" $ fixLyricPositions mmap $ trkHarm1 & #mood .~ RTB.empty
+  trkHarm2' <- inside "HARM2" $ fixLyricPositions mmap $ trkHarm2 & #mood .~ RTB.empty
+  trkHarm3' <- inside "HARM3" $ fixLyricPositions mmap $ trkHarm3 & #mood .~ RTB.empty
+  -- we used to do asciiLyrics here for PS, but removing now since we can give UTF-8 midis to CH
+  let voxPSCH = hashTalkies
       -- CH lyrics don't handle ^ correctly, so we replace with the standard #.
       -- specifically "word-^" results in the hyphen being shown.
       hashTalkies vt = vt { lyrics = T.replace "^" "#" <$> vt.lyrics }

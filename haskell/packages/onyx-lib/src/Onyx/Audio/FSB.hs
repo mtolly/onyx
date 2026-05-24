@@ -283,6 +283,8 @@ fixFSB :: FSB -> FSB
 fixFSB fsb = let
   fixSongs songs = zip songs fsb.fsbSongData <&> \(song, sdata) -> song
     { fsbSongHeaderSize = songHeaderSize song
+    -- TODO each song data size should also be padded to 0x10 with zeroes
+    -- (at least for gh3 fsb3; probably fsb4 also)
     , fsbSongDataSize   = fromIntegral $ BL.length sdata
     }
   header = case fsb.fsbHeader of

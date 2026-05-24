@@ -1,13 +1,15 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TupleSections     #-}
 module Onyx.Util.Handle where
 
 import           Control.Concurrent.MVar       (modifyMVar, newMVar)
-import           Control.Exception             (bracket, throwIO)
+import           Control.Exception             (bracket, evaluate, throwIO)
 import           Control.Monad                 (forM, forM_, guard, unless)
 import           Control.Monad.Trans.Resource  (MonadResource, allocate,
                                                 release)
@@ -69,7 +71,7 @@ instance D.RawIO SimpleHandle where
     pos <- shTell sh
     let maxBytes = shSize sh - pos
     bs <- shRead sh $ min (fromIntegral n) maxBytes
-    unsafeUseAsCStringLen bs $ \(p', len) -> copyBytes p (castPtr p') len
+    unsafeUseAsCStringLen bs \(p', len) -> copyBytes p (castPtr p') len
     return $ B.length bs
   readNonBlocking sh p w64 n = (\bytes -> guard (bytes /= 0) >> Just bytes) <$> D.read sh p w64 n
   write            _ _ _ _ = throwIO unsupportedOperation
@@ -158,12 +160,12 @@ appendSimpleHandle x y = do
       writeIORef posn $ p + n
       let segmentX = do
             guard $ p < shSize x
-            Just $ do
+            Just do
               shSeek x p
               shRead x $ min (shSize x - p) n
           segmentY = do
             guard $ p + n > shSize x
-            Just $ do
+            Just do
               shSeek y $ max 0 (p - shSize x)
               shRead y $ n - max 0 (shSize x - p)
       fmap B.concat $ sequence $ catMaybes [segmentX, segmentY]
@@ -178,10 +180,10 @@ resourceHandle r = do
   return (h, release rkey)
 
 copyReadableToHandle :: Readable -> Handle -> IO ()
-copyReadableToHandle r hout = useHandle r $ \h -> let
+copyReadableToHandle r hout = useHandle r \h -> let
   go = do
     chunk <- B.hGet h smallChunkSize
-    unless (B.null chunk) $ do
+    unless (B.null chunk) do
       B.hPut hout chunk
       go
   in go
@@ -192,17 +194,17 @@ saveReadable r dest = case rFilePath r of
   Nothing  -> withBinaryFile dest WriteMode $ copyReadableToHandle r
 
 saveReadables :: [Readable] -> FilePath -> IO ()
-saveReadables rs dest = withBinaryFile dest WriteMode $ \h -> do
+saveReadables rs dest = withBinaryFile dest WriteMode \h -> do
   mapM_ (`copyReadableToHandle` h) rs
 
 saveHandleFolder :: Folder T.Text Readable -> FilePath -> IO ()
 saveHandleFolder folder dest = do
   Dir.createDirectoryIfMissing False dest
-  forM_ (folderSubfolders folder) $ \(name, sub) -> do
+  forM_ (folderSubfolders folder) \(name, sub) -> do
     let subdest = dest </> T.unpack name
     Dir.createDirectoryIfMissing False subdest
     saveHandleFolder sub subdest
-  forM_ (folderFiles folder) $ \(name, file) -> do
+  forM_ (folderFiles folder) \(name, file) -> do
     saveReadable file $ dest </> T.unpack name
 
 data Folder name a = Folder
@@ -293,7 +295,7 @@ findFileCI spath folder = case NE.uncons spath of
 crawlFolder :: FilePath -> IO (Folder T.Text Readable)
 crawlFolder f = do
   ents <- sort <$> Dir.listDirectory f
-  results <- forM ents $ \ent -> Dir.doesFileExist (f </> ent) >>= \case
+  results <- forM ents \ent -> Dir.doesFileExist (f </> ent) >>= \case
     True  -> return $ Left (T.pack ent, fileReadable $ f </> ent)
     False -> do
       sub <- crawlFolder $ f </> ent
@@ -356,7 +358,7 @@ generateCachedReadable generate = do
   return Readable
     { rFilePath = Nothing
     , rOpen = do
-      r <- modifyMVar v $ \mr -> do
+      r <- modifyMVar v \mr -> do
         r <- maybe generate return mr
         return (Just r, r)
       rOpen r
@@ -364,15 +366,33 @@ generateCachedReadable generate = do
 
 readableToMemory :: Readable -> IO Readable
 readableToMemory r = do
-  v <- newMVar Nothing
+  getPair <- cache $ useHandle r \h -> do
+    let label = handleLabel h
+    _ <- evaluate $ T.pack label
+    bs <- handleToByteString h
+    return (label, bs)
   return Readable
     { rFilePath = Nothing
     , rOpen = do
-      bs <- modifyMVar v $ \mbs -> do
-        bs <- maybe (useHandle r handleToByteString) return mbs
-        return (Just bs, bs)
-      byteStringSimpleHandle bs >>= openSimpleHandle "(memory-saved handle)"
+      (label, bs) <- getPair
+      byteStringSimpleHandle bs >>= openSimpleHandle (label <> " | memory-saved")
     }
 
 singleFolder :: t -> Folder t a -> Folder t a
 singleFolder name inner = Folder { folderSubfolders = [(name, inner)], folderFiles = [] }
+
+-- ensures that only the first thread will do the evaluation,
+-- and threads that request the result after evaluation is done
+-- will only have to read IORef and not take a lock on an MVar
+cache :: IO a -> IO (IO a)
+cache make = mdo
+  mvar <- newMVar Nothing
+  ref <- newIORef $ Left $ modifyMVar mvar \case
+    Nothing -> do
+      x <- make
+      writeIORef ref $ Right x
+      return (Just x, x)
+    Just x -> return (Just x, x)
+  return $ readIORef ref >>= \case
+    Left makeOrWait -> makeOrWait
+    Right x         -> return x

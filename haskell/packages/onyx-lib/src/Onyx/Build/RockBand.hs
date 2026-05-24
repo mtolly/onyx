@@ -16,7 +16,6 @@ import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Conduit.Audio
-import           Data.Conduit.Audio.Sndfile
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Foldable                         (toList)
@@ -46,6 +45,7 @@ import           Onyx.Codec.Common                     (valueId)
 import qualified Onyx.Controller.ProGuitar             as PGPlay
 import           Onyx.DeriveHelpers                    (mergeEmpty)
 import           Onyx.Difficulty
+import           Onyx.FFMPEG                           (ffSink)
 import           Onyx.Genre
 import qualified Onyx.Harmonix.DTA                     as D
 import           Onyx.Harmonix.DTA.C3
@@ -108,7 +108,6 @@ import           Onyx.Vocal.DryVox                     (clipDryVox,
 import           Onyx.Xbox.STFS                        (rb2pkg, rb3pkg)
 import           Optics                                ((%), (%~), (.~))
 import           Paths_onyx_lib                        (version)
-import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.Util                       as U
@@ -285,14 +284,13 @@ rbRules buildInfo dir rb3 mrb2 = do
     runAudio (clampIfSilent s) out
   let saveClip :: F.Song (F.FixedFile U.Beats) -> FilePath -> VocalTrack U.Beats -> Staction ()
       saveClip m out vox = do
-        let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-            clip = clipDryVox $ U.applyTempoTrack m.tempos $ fmap isJust $ vocalTubes vox
+        let clip = clipDryVox $ U.applyTempoTrack m.tempos $ fmap isJust $ vocalTubes vox
         unclippedVox <- shk $ buildSource $ Input pathMagmaVocal
         unclipped <- case frames unclippedVox of
           0 -> shk $ buildSource $ Input pathMagmaSong
           _ -> return unclippedVox
         lg $ "Writing a clipped dry vocals file to " ++ out
-        stackIO $ runResourceT $ sinkSnd out fmt $ toDryVoxFormat $ clip unclipped
+        stackIO $ ffSink Nothing out $ toDryVoxFormat $ clip unclipped
         lg $ "Finished writing dry vocals to " ++ out
   pathMagmaDryvox0 %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
@@ -308,8 +306,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     saveClip m out m.tracks.fixedHarm3
   pathMagmaDryvoxSine %> \out -> do
     m <- F.shakeMIDI pathMagmaMid
-    let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-    liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
+    liftIO $ ffSink Nothing out $ RB2.dryVoxAudio m
   pathMagmaDummyMono   %> buildAudio (Silence 1 $ Seconds 31) -- we set preview start to 0:00 so these can be short
   pathMagmaDummyStereo %> buildAudio (Silence 2 $ Seconds 31)
   -- TODO support target-specific album art

@@ -51,6 +51,7 @@ import           Onyx.Harmonix.Ark.GH2        (GH2Installation (..),
                                                detectGameGH)
 import           Onyx.Harmonix.DTA            (Chunk (..), DTA (..), Tree (..),
                                                readFileDTA)
+import           Onyx.Import.Amplitude        (importAmpPS2Ark)
 import           Onyx.Import.Amplitude2016    (importAmplitude,
                                                importAmplitudeArk)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
@@ -194,6 +195,10 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             (hdr, arks) <- stackIO $ loadGEN gen
             folder <- loadArkFolder hdr arks
             importSTFSFolder loc (first TE.decodeLatin1 folder) >>= foundImports "Rock Band (.ARK)" loc
+          Just GameAmp -> do
+            (hdr, arks) <- stackIO $ loadGEN gen
+            folder <- loadArkFolder hdr arks
+            importAmpPS2Ark loc folder >>= foundImports "Amplitude (PS2)" loc
         amp@(_ : _) -> foundImports "Amplitude (2016)" loc amp
       foundDTXSet loc = importSet loc >>= foundImports "DTXMania (set.def)" (takeDirectory loc)
       foundDTX loc = foundImport "DTXMania" loc $ importDTX loc
@@ -702,6 +707,7 @@ installGH1 gh1 proj gen = do
     Just GameGH2    -> fatal "This appears to be a Guitar Hero II or 80's ARK!"
     Just GameGH2DX2 -> fatal "This appears to be a Guitar Hero II Deluxe ARK!"
     Just GameRB     -> fatal "This appears to be a Rock Band ARK!"
+    Just GameAmp    -> fatal "This appears to be an Amplitude ARK!"
   dir <- buildGH1Dir gh1 proj
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"
@@ -742,6 +748,7 @@ installGH2 gh2 proj gen = do
     Just GameGH2    -> lg "ARK detected as GH2, no drums support."
     Just GameGH2DX2 -> lg "ARK detected as GH2 Deluxe with drums support."
     Just GameRB     -> fatal "This appears to be a Rock Band ARK!"
+    Just GameAmp    -> fatal "This appears to be an Amplitude ARK!"
   dir <- buildGH2Dir gh2 proj
   files <- stackIO $ Dir.listDirectory dir
   dta <- stackIO $ readFileDTA $ dir </> "songs-inner.dta"

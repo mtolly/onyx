@@ -2,28 +2,23 @@
 set -e
 set -u
 
+# TODO: arch, macos need meson, can probably drop python
+
 case $(uname) in
   Linux )
     echo "linux detected"
     if which pacman > /dev/null; then
       echo "arch detected"
-      pacman -Sy --needed rubberband mpg123 openal \
-        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu
+      pacman -Sy --needed rubberband \
+        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu pango
       # Manjaro was good with everything but `glu`, which was added for Arch
     elif which apt-get > /dev/null; then
       echo "debian/ubuntu detected"
       apt-get -y update
       apt-get -y install build-essential cmake autogen autoconf libtool \
         libtool-bin pkg-config gettext nasm unzip libx11-dev \
-        libxft-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
-        libasound2-dev libbz2-dev libmpg123-dev librubberband-dev libopenal-dev
-      case $(cat /etc/issue) in
-        *16\.04* )
-          # don't need to do anything for the docker version
-          ;;
-        * )
-          apt-get -y install python-is-python3
-      esac
+        libxft-dev libpango1.0-dev libgl-dev libxext-dev libglu-dev libjack-dev libpulse-dev \
+        libasound2-dev libbz2-dev meson
       # when we use sdl2, maybe add: libudev dbus ibus
     else
       echo "unknown"
@@ -33,21 +28,17 @@ case $(uname) in
   MINGW* )
     echo "windows detected"
     # note, msys2 replaced pkg-config with pkgconf (but still has alias pkg-config).
-    # also for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
-    # but just "pkgconf" so libsndfile configures right (seeing ogg/vorbis/flac/opus).
+    # for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
+    # but when we used libsndfile that needed "pkgconf" to pick up ogg/vorbis/flac/opus.
+    # not sure if other C/C++ libs are the same but keeping it to be safe
     stack exec -- pacman -Sy --needed mingw-w64-x86_64-pkgconf pkgconf \
-      mingw-w64-x86_64-openal mingw-w64-x86_64-rubberband \
-      mingw-w64-x86_64-mpg123 wget tar unzip zip man autoconf \
-      automake nasm make libtool autogen python mingw-w64-x86_64-cmake
+      wget tar unzip zip man autoconf \
+      automake nasm make libtool autogen mingw-w64-x86_64-cmake \
+      mingw-w64-x86_64-meson
     ;;
   Darwin )
     echo "macos detected"
-    brew install autoconf automake dylibbundler m4 mpg123 openal-soft nasm pkg-config rubberband libtool autogen python cmake
-    # brew caveat mentions adding openal-soft to PKG_CONFIG_PATH,
-    # instead we'll hack it like so :)
-    ln -f -s /usr/local/opt/openal-soft/lib/pkgconfig/openal.pc /usr/local/lib/pkgconfig/openal.pc
-    # also need python to be python3 for libsndfile build
-    ln -f -s /usr/local/opt/python/libexec/bin/python /usr/local/bin/python
+    brew install autoconf automake dylibbundler m4 nasm pkg-config rubberband libtool autogen python cmake
     ;;
   * )
     echo "unknown"

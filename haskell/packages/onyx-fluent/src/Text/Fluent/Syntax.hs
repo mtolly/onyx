@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Text.Fluent.Syntax where
@@ -97,7 +98,7 @@ term = do
 commentLine :: Parser T.Text
 commentLine = do
   hashes <- try "###" <|> try "##" <|> "#"
-  comment <- optional $ do
+  comment <- optional do
     void $ single ' '
     chars <- many $ try comment_char
     return $ T.pack $ ' ' : chars
@@ -118,7 +119,7 @@ junk = do
 
 junk_line :: Parser T.Text
 junk_line = do
-  nonNewlines <- takeWhile1P (Just "non-newline") $ \c -> c /= '\n'
+  nonNewlines <- takeWhile1P (Just "non-newline") \c -> c /= '\n'
   end <- "\n" <|> (eof >> return "")
   guard $ not $ T.null nonNewlines && T.null end
   return $ nonNewlines <> end
@@ -144,7 +145,7 @@ pattern :: Parser Pattern
 pattern = do
   els <- many1 $ try patternElement
   -- remove common leading space from block lines
-  let spaceLengths = flip mapMaybe els $ \case
+  let spaceLengths = flip mapMaybe els \case
         BlockText      s   -> Just $ T.length $ T.takeWhile (== ' ') s
         BlockPlaceable s _ -> Just $ T.length $ T.takeWhile (== ' ') s
         _                  -> Nothing
@@ -299,7 +300,7 @@ callArguments = do
 
 argument_list :: Parser [Argument]
 argument_list = do
-  notFinal <- many $ try $ do
+  notFinal <- many $ try do
     arg <- argument
     void $ optional blank'
     void ","
@@ -378,8 +379,8 @@ type Identifier = T.Text
 
 identifier :: Parser Identifier
 identifier = do
-  x <- satisfy $ \c -> ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
-  xs <- takeWhileP (Just "identifier post-first character") $ \c -> or
+  x <- satisfy \c -> ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+  xs <- takeWhileP (Just "identifier post-first character") \c -> or
     [ 'a' <= c && c <= 'z'
     , 'A' <= c && c <= 'Z'
     , '0' <= c && c <= '9'
@@ -407,7 +408,7 @@ quoted_char = let
     <|> ("\\"     >> fail "not quoted_char")
     <|> (line_end >> fail "not quoted_char")
     <|> anySingle
-  hex = satisfy $ \c -> or
+  hex = satisfy \c -> or
     [ '0' <= c && c <= '9'
     , 'a' <= c && c <= 'f'
     , 'A' <= c && c <= 'F'
@@ -427,7 +428,7 @@ quoted_char = let
   in try normal <|> try special_escape <|> try unicode_escape_4 <|> unicode_escape_6
 
 digits :: Parser T.Text
-digits = takeWhile1P (Just "digit") $ \c -> '0' <= c && c <= '9'
+digits = takeWhile1P (Just "digit") \c -> '0' <= c && c <= '9'
 
 blank_inline :: Parser T.Text
 blank_inline = takeWhile1P (Just "space") (== ' ')
@@ -440,7 +441,7 @@ line_end' = "\r\n" <|> "\n"
 
 blank_block :: Parser T.Text
 -- probably a better way to do this
-blank_block = fmap (T.concat . concat) $ many1 $ try $ do
+blank_block = fmap (T.concat . concat) $ many1 $ try do
   x <- optional blank_inline
   y <- line_end
   guard $ isJust x || not (T.null y)

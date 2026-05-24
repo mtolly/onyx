@@ -18,6 +18,7 @@ module Onyx.Audio.VGS
 , writeVGS
 , writeVGSMultiRate
 , vgsInMemory
+, makeVGSHeader
 ) where
 
 import           Control.Monad                (forM, forM_, liftM4, replicateM_)
@@ -262,14 +263,10 @@ readSingleRateVGS dur vgs = do
 
 splitOutVGSChannels :: [Int] -> VGS -> IO BL.ByteString
 splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
-  newHeader = mconcat
-    [ "VgS!"
-    , BB.word32LE 2
-    , mconcat $ wantChannels <&> \i -> let
-      (rate, blocks) = vgs.header.channels !! i
-      in BB.word32LE rate <> BB.word32LE blocks
-    , BB.byteString $ B.replicate (0x80 - (length wantChannels + 1) * 8) 0
-    ]
+  newHeader = makeVGSHeader VGSHeader
+    { version  = 2
+    , channels = wantChannels <&> \i -> vgs.header.channels !! i
+    }
   -- filter vag blocks by channel and change their index
   go !bb !blocksLeft = if blocksLeft > 0
     then do
@@ -283,6 +280,13 @@ splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
       go bb' $ blocksLeft - 1
     else return $ BB.toLazyByteString bb
   in go newHeader $ sum $ map snd vgs.header.channels
+
+makeVGSHeader :: VGSHeader -> BB.Builder
+makeVGSHeader hdr
+  = "VgS!"
+  <> BB.word32LE hdr.version
+  <> mconcat [ BB.word32LE rate <> BB.word32LE blocks | (rate, blocks) <- hdr.channels ]
+  <> BB.byteString (B.replicate (0x80 - (length hdr.channels + 1) * 8) 0)
 
 -------------------------------------
 -- decrypt translated from arktool --
@@ -343,7 +347,7 @@ decryptReadVGS input = do
       keys <- useHandle input \h -> do
         IO.hSeek h IO.AbsoluteSeek 0x80
         BL.hGet h 0x10 >>= runGetM (liftA2 (,) getWord64le getWord64le)
-      return $ makeHandle "(decrypted vgs)" $ do
+      return $ makeHandle "(decrypted vgs)" do
         h <- rOpen input
         newHeader <- byteStringSimpleHandle $ runPut do
           putByteString "VgS!"

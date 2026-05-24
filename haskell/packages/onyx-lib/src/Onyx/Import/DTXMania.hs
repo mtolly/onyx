@@ -153,9 +153,12 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         }
       audios = AudioSamples poly
       track = F.SamplesTrack
-        $ fmap (\chip -> F.SampleTrigger "" chip)
-        -- don't include sample if we didn't find its audio
-        $ RTB.filter (\chip -> HS.member chip foundChips) chips
+        { F.sampleTriggers
+          = fmap F.simpleTrigger
+          -- don't include sample if we didn't find its audio
+          $ RTB.filter (\chip -> HS.member chip foundChips) chips
+        , F.sampleNotes = RTB.empty
+        }
       in (Just (name, audios), Just (name, track))
   audioForChipGroups polyphony name chips = if all (RTB.null . snd) chips
     then (Nothing, Nothing)
@@ -165,12 +168,15 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
         , groupCrossfade = 0.002
         }
       audios = AudioSamples poly
-      track = F.SamplesTrack $ foldr RTB.merge RTB.empty do
-        (groupName, groupChips) <- chips
-        return
-          $ fmap (F.SampleTrigger groupName)
-          -- don't include sample if we didn't find its audio
-          $ RTB.filter (\chip -> HS.member chip foundChips) groupChips
+      track = F.SamplesTrack
+        { F.sampleTriggers = foldr RTB.merge RTB.empty do
+          (groupName, groupChips) <- chips
+          return
+            $ fmap (\x -> (F.simpleTrigger x) { F.group = groupName })
+            -- don't include sample if we didn't find its audio
+            $ RTB.filter (\chip -> HS.member chip foundChips) groupChips
+        , F.sampleNotes = RTB.empty
+        }
       in (Just (name, audios), Just (name, track))
   getDrumChipGroup (groupName, lanes)
     = (groupName, RTB.mapMaybe (\(l, chip) -> guard (elem l lanes) >> Just chip) dtx.dtx_Drums)
@@ -201,10 +207,7 @@ dtxMakeAudioPlan dtx (songYaml, mid) = let
   -- LP notes should cut off any previous HH notes, and HHC should cut off HHO.
   -- but this implementation does mean HHC only has polyphony 1 - should revisit in future
   hihatSilencer = Just ("hihat-silencer", AudioSnippet $ Silence 2 $ CA.Frames 0)
-  hihatSilencerTrigger = F.SampleTrigger
-    { sampleGroup = "HH"
-    , sampleAudio = "hihat-silencer"
-    }
+  hihatSilencerTrigger = (F.simpleTrigger "hihat-silencer") { F.group = "HH" }
   cymbalTrack' = cymbalTrack <&> fmap \trk -> trk
     { F.sampleTriggers = RTB.merge trk.sampleTriggers $
       RTB.flatten $ RTB.collectCoincident dtx.dtx_Drums <&> \instant ->

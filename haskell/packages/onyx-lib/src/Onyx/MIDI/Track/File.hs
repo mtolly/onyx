@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveTraversable     #-}
 {-# LANGUAGE DerivingVia           #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
@@ -23,6 +24,7 @@ import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
                                                     runStateT)
 import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
+import           Data.Bifunctor                    (bimap)
 import qualified Data.ByteString                   as B
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
@@ -83,7 +85,9 @@ import qualified Sound.MIDI.File                   as F
 import qualified Sound.MIDI.File.Event             as E
 import qualified Sound.MIDI.File.Event.Meta        as Meta
 import qualified Sound.MIDI.File.Save              as Save
+import qualified Sound.MIDI.Message.Channel.Voice  as V
 import qualified Sound.MIDI.Util                   as U
+import           Text.Read                         (readMaybe)
 
 type FileParser m t = StackTraceT (StateT [RTB.T t (E.T T.Text)] m)
 type FileBuilder t = Writer [RTB.T t (E.T T.Text)]
@@ -1194,37 +1198,131 @@ keysToProKeys d ft = ProKeysTrack
       in fmap colorToKey <$> fd.gems
   }
 
-newtype SamplesTrack t = SamplesTrack
-  { sampleTriggers :: RTB.T t SampleTrigger
+data SamplesTrack t = SamplesTrack
+  { sampleTriggers :: RTB.T t (SampleTrigger (Maybe Int))
+  , sampleNotes    :: RTB.T t (Edge () Int)
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (SamplesTrack t)
 
 instance TraverseTrack SamplesTrack where
-  traverseTrack fn (SamplesTrack a)
-    = SamplesTrack <$> fn a
+  traverseTrack fn (SamplesTrack a b)
+    = SamplesTrack <$> fn a <*> fn b
 
 instance ChopTrack SamplesTrack where
-  chopTake t = mapTrack $ U.trackTake t
-  chopDrop t = mapTrack $ U.trackDrop t
+  chopTake t st = SamplesTrack
+    { sampleTriggers = U.trackTake  t st.sampleTriggers
+    , sampleNotes    = chopTakeEdge t st.sampleNotes
+    }
+  chopDrop t st = SamplesTrack
+    { sampleTriggers = U.trackDrop  t st.sampleTriggers
+    , sampleNotes    = chopDropEdge t st.sampleNotes
+    }
 
 instance ParseTrack SamplesTrack where
   parseTrack = do
     sampleTriggers <- (.sampleTriggers) =. command
+    sampleNotes    <- (.sampleNotes   ) =. Codec
+      { codecIn = slurpTrack \mt -> let
+        applyPitchEdges (pitch, thisEdges) = thisEdges <&> bimap
+          (const ())
+          (\_chan -> V.fromPitch pitch)
+        notes
+          = foldr RTB.merge RTB.empty
+          $ map applyPitchEdges
+          $ Map.toList mt.midiNotes
+        mt' = mt { midiNotes = Map.empty }
+        in (notes, mt')
+      , codecOut = makeTrackBuilder $ fmap $ makeEdge' . bimap
+        (const 96)
+        (\k -> (0, k))
+      }
     return SamplesTrack{..}
 
-data SampleTrigger = SampleTrigger
-  { sampleGroup :: T.Text
-  , sampleAudio :: T.Text
-  } deriving (Eq, Ord, Show)
+data SampleTrigger a = SampleTrigger
+  { group     :: T.Text
+  , audio     :: T.Text
+  , pan       :: Double
+  , volume    :: Double
+  , transpose :: Double
+  , link      :: a -- starts as pitch of linked midi note, later computed duration
+  } deriving (Eq, Ord, Show, Read, Functor)
 
-instance Command SampleTrigger where
-  toCommand = \case
-    [x]    -> Just $ SampleTrigger "" x
-    [x, y] -> Just $ SampleTrigger x y
-    _      -> Nothing
-  fromCommand = \case
-    SampleTrigger "" x -> [x]
-    SampleTrigger x  y -> [x, y]
+simpleTrigger :: T.Text -> SampleTrigger (Maybe Int)
+simpleTrigger audio = SampleTrigger
+  { group     = ""
+  , audio     = audio
+  , pan       = 0
+  , volume    = 0
+  , transpose = 0
+  , link      = Nothing
+  }
+
+parseSampleTrigger :: [T.Text] -> Maybe (SampleTrigger (Maybe Int))
+parseSampleTrigger ts = let
+  isPrefixed t = case T.uncons t of
+    Just (c, _) -> c `elem` ("<>!+-=" :: [Char])
+    Nothing     -> False
+  goFields st [] = Just st
+  goFields st (t : rest) = case T.uncons t of
+    Just ('<', s) -> readMaybe (T.unpack s) >>= \v -> goFields st { pan       = negate v } rest
+    Just ('>', s) -> readMaybe (T.unpack s) >>= \v -> goFields st { pan       = v        } rest
+    Just ('!', s) -> readMaybe (T.unpack s) >>= \v -> goFields st { volume    = v        } rest
+    Just ('+', s) -> readMaybe (T.unpack s) >>= \v -> goFields st { transpose = v        } rest
+    Just ('-', _) -> readMaybe (T.unpack t) >>= \v -> goFields st { transpose = v        } rest
+    Just ('=', s) -> readMaybe (T.unpack s) >>= \v -> goFields st { link      = Just v   } rest
+    _             -> Nothing
+  in case ts of
+    t1 : t2 : rest
+      | not (isPrefixed t1) && not (isPrefixed t2)
+      -> goFields (simpleTrigger t2) { group = t1 } rest
+    t1 : rest
+      | not (isPrefixed t1)
+      -> goFields (simpleTrigger t1) rest
+    _ -> Nothing
+
+unparseSampleTrigger :: SampleTrigger (Maybe Int) -> [T.Text]
+unparseSampleTrigger st = concat
+  [ filter (not . T.null) [st.group]
+  , [st.audio]
+  , case compare st.pan 0 of
+    LT -> [T.pack $ '<' : show (negate st.pan)]
+    EQ -> []
+    GT -> [T.pack $ '>' : show st.pan]
+  , do
+    guard $ st.volume /= 0
+    [T.pack $ '!' : show st.volume]
+  , case compare st.transpose 0 of
+    LT -> [T.pack $ show st.transpose]
+    EQ -> []
+    GT -> [T.pack $ '+' : show st.transpose]
+  , case st.link of
+    Nothing -> []
+    Just p  -> [T.pack $ '=' : show p]
+  ]
+
+instance Command (SampleTrigger (Maybe Int)) where
+  toCommand = parseSampleTrigger
+  fromCommand = unparseSampleTrigger
+
+-- for sample triggers linked to midi notes, place the note durations in the triggers
+linkDurations :: (NNC.C t) => SamplesTrack t -> RTB.T t (SampleTrigger (Maybe t))
+linkDurations st = let
+  joined = RTB.merge
+    (Left  <$> st.sampleTriggers)
+    (Right <$> st.sampleNotes   )
+  go RNil = RNil
+  go (Wait dt instant rest) = let
+    linked = do
+      Left trigger <- instant
+      return trigger
+        { link = case trigger.link of
+          Nothing    -> Nothing
+          Just pitch -> case RTB.filter (== Right (EdgeOff pitch)) $ RTB.flatten rest of
+            RNil         -> Nothing
+            Wait dur _ _ -> Just dur
+        }
+    in Wait dt linked $ go rest
+  in RTB.flatten $ go $ RTB.collectCoincident joined
 
 displayPartName :: PartName -> T.Text
 displayPartName = \case

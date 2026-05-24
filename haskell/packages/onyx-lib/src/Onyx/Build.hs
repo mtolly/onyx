@@ -58,6 +58,7 @@ import           Onyx.Image.DXT
 import           Onyx.Keys.Ranges
 import qualified Onyx.MelodysEscape               as Melody
 import           Onyx.MIDI.Common
+import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.Drums            as D
 import qualified Onyx.MIDI.Track.Drums.Elite      as ED
 import qualified Onyx.MIDI.Track.File             as F
@@ -74,7 +75,6 @@ import           Onyx.Util.Files                  (copyDirRecursive)
 import           Onyx.Util.Text.Decode            (decodeGeneral)
 import           Onyx.WebPlayer                   (makeDisplay)
 import           Path                             (parseAbsDir, toFilePath)
-import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
 import qualified Sound.MIDI.Util                  as U
@@ -340,8 +340,9 @@ _melodyRules buildInfo dir tgt = do
       $ Melody.randomNotes
       $ maybe mempty (.onyxMelody)
       $ Map.lookup tgt.part mid.tracks.onyxParts
-    info <- liftIO $ Snd.getFileInfo melodyAudio
-    let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
+    Just len <- liftIO $ audioLength melodyAudio
+    Just r   <- liftIO $ audioRate   melodyAudio
+    let secs = realToFrac len / realToFrac r :: U.Seconds
         str = unlines
           [ "1.02"
           , intercalate ";"
@@ -658,15 +659,11 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
         sampleTimes %> \out -> do
           input <- F.shakeMIDI midraw
           let _ = input :: F.Song (F.OnyxFile U.Beats)
-              output :: [(T.Text, [(Double, T.Text, T.Text)])]
+              output :: [(T.Text, [(Double, F.SampleTrigger (Maybe Double))])]
               output = map (second getSampleList) $ Map.toList input.tracks.onyxSamples
-              getSampleList = map makeSampleTriple . ATB.toPairList . RTB.toAbsoluteEventList 0 . (.sampleTriggers)
-              makeSampleTriple :: (U.Beats, F.SampleTrigger) -> (Double, T.Text, T.Text)
-              makeSampleTriple (bts, trigger) =
-                ( realToFrac $ U.applyTempoMap input.tempos bts
-                , trigger.sampleGroup
-                , trigger.sampleAudio
-                )
+              getSampleList = map triggerDouble . ATB.toPairList . RTB.toAbsoluteEventList 0 . F.linkDurations . mapTrack (U.applyTempoTrack input.tempos)
+              triggerDouble :: (U.Seconds, F.SampleTrigger (Maybe U.Seconds)) -> (Double, F.SampleTrigger (Maybe Double))
+              triggerDouble (posn, trigger) = (realToFrac posn, fmap realToFrac <$> trigger)
           stackIO $ writeFile out $ show output
 
         display %> \out -> do
@@ -721,7 +718,7 @@ shakeBuild audioDirs yamlPathRel extraTargets buildables = do
           stackIO $ runResourceT $ decentMP3 out src
         dir </> "preview-audio.ogg" %> \out -> do
           src <- lift $ lift $ buildSource $ Input $ dir </> "everything.wav"
-          stackIO $ runResourceT $ decentVorbis out src
+          stackIO $ decentVorbis out src
 
         -- Warn about notes that might hang off before a pro keys range shift
         phony (dir </> "hanging") do

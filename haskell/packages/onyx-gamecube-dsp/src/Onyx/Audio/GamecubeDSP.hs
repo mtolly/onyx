@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 module Onyx.Audio.GamecubeDSP where
 
 import           Control.Exception
@@ -14,8 +15,8 @@ foreign import ccall safe "dkdsp_main"
 dsper :: FilePath -> FilePath -> IO ()
 dsper fin fout = do
   let args = ["hs-dsper", fin, fout]
-  withMany withCString args $ \ps -> do
-    withArrayLen ps $ \len p -> do
+  withMany withCString args \ps -> do
+    withArrayLen ps \len p -> do
       res <- dsper_main (fromIntegral len) p
       case res of
         0 -> return ()
@@ -25,8 +26,8 @@ dsper fin fout = do
 dkdsp :: FilePath -> Maybe FilePath -> FilePath -> IO ()
 dkdsp fin finR fout = do
   let args = ["hs-dkdsp", fin] <> maybe [] (\r -> ["-s", r]) finR <> [fout]
-  withMany withCString args $ \ps -> do
-    withArrayLen ps $ \len p -> do
+  withMany withCString args \ps -> do
+    withArrayLen ps \len p -> do
       res <- dkdsp_main (fromIntegral len) p
       case res of
         0 -> return ()

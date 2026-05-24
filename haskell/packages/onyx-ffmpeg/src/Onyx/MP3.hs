@@ -1,6 +1,7 @@
 {-
 Claude wrote this
 -}
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -29,7 +30,7 @@ data MP3GaplessInfo = MP3GaplessInfo
 -- MP3 'Readable', returning a 'Readable' pointing at the first real audio
 -- frame and any gapless playback info that was found in the metadata.
 stripMP3 :: Readable -> IO (Readable, Maybe MP3GaplessInfo)
-stripMP3 readable = useHandle readable $ \h -> do
+stripMP3 readable = useHandle readable \h -> do
   fileSize <- hFileSize h
   hSeek h AbsoluteSeek 0
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -68,7 +69,7 @@ ov_clear (OggVorbis_File vf) =
 
 getChannelsRate :: OggVorbis_File -> IO (CInt, CLong)
 getChannelsRate (OggVorbis_File vf) =
-  alloca $ \prate -> do
+  alloca \prate -> do
     chans <- [C.block| int {
       vorbis_info *info = ov_info($(OggVorbis_File* vf), -1);
       *$(long* prate) = info->rate;

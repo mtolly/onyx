@@ -65,7 +65,7 @@ Your OS-specific package should be created.
 
 # Docker
 
-1. Install Docker (or, install Podman and edit `build-docker`)
+1. Install Docker or Podman
 
 2. `./build-docker`
 

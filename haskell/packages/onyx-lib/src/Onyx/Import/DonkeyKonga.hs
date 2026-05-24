@@ -266,9 +266,9 @@ importDKSong chartName isMidi chartFile dsp level = do
           $ map (\((ahigh, alow, aclap), (dt, instant)) -> let
               drums = map fst instant
               in (dt, concat
-                [ [F.SampleTrigger "" ahigh | elem (Pro Yellow ()) drums]
-                , [F.SampleTrigger "" alow  | elem (Pro Blue   ()) drums]
-                , [F.SampleTrigger "" aclap | elem Red drums || elem (Pro Green ()) drums]
+                [ [F.simpleTrigger ahigh | elem (Pro Yellow ()) drums]
+                , [F.simpleTrigger alow  | elem (Pro Blue   ()) drums]
+                , [F.simpleTrigger aclap | elem Red drums || elem (Pro Green ()) drums]
                 ])
             )
           $ zip roundRobin
@@ -276,6 +276,7 @@ importDKSong chartName isMidi chartFile dsp level = do
           $ RTB.collectCoincident
           $ (.gems)
           $ fromMaybe mempty $ Map.lookup Expert converted.difficulties
+        , F.sampleNotes = RTB.empty
         }
 
   audio <- case level of

@@ -5,54 +5,65 @@
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Batch where
 
+import           Control.Applicative   ((<|>))
+import           Control.Monad.Extra   ((>=>))
+import           Data.Default.Class    (def)
+import           Data.Function         ((&))
+import qualified Data.HashMap.Strict   as HM
+import           Data.List             (find)
+import           Data.Maybe            (fromMaybe, isJust)
+import qualified Data.Text             as T
+import           Foreign               (Ptr)
+import qualified Language.C.Inline.Cpp as C
+import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
-import           Onyx.GUI.Util                      (askFolder)
-
-import           Control.Applicative                ((<|>))
-import           Control.Monad.Extra                ((>=>))
-import           Data.Default.Class                 (def)
-import           Data.Function                      ((&))
-import qualified Data.HashMap.Strict                as HM
-import           Data.List                          (find)
-import           Data.Maybe                         (fromMaybe, isJust)
-import qualified Data.Text                          as T
-import           Graphics.UI.FLTK.LowLevel.FLTKHS   (Height (..),
-                                                     Rectangle (..), Size (..),
-                                                     Width (..))
-import qualified Graphics.UI.FLTK.LowLevel.FLTKHS   as FL
-import           Graphics.UI.FLTK.LowLevel.GlWindow ()
-import           Onyx.Harmonix.Ark.GH2              (GH2InstallLocation (..))
+import           Onyx.GUI.Util         (askFolder, checkValue, setCallback)
+import           Onyx.Harmonix.Ark.GH2 (GH2InstallLocation (..))
 import           Onyx.Import
-import qualified Onyx.MIDI.Track.File               as F
-import           Onyx.Mode                          (anyDrums, anyFiveFret)
-import           Onyx.Preferences                   (Preferences (..),
-                                                     getDefaultPS3Dir,
-                                                     readPreferences)
+import qualified Onyx.MIDI.Track.File  as F
+import           Onyx.Mode             (anyDrums, anyFiveFret)
+import           Onyx.Preferences      (Preferences (..), getDefaultPS3Dir,
+                                        readPreferences)
 import           Onyx.Project
 import           Onyx.StackTrace
-import           Optics                             (mapped, (%), (%~), (.~))
-import           System.FilePath                    (takeDirectory)
+import           Optics                (mapped, (%), (%~), (.~))
+import           System.FilePath       (takeDirectory)
+
+C.context flContext
+
+C.include "FL/Fl.H"
+C.include "FL/Fl_Group.H"
+C.include "FL/Fl_Box.H"
+C.include "FL/Fl_Button.H"
+C.include "FL/Fl_Check_Button.H"
+C.include "FL/Fl_Input.H"
+C.include "FL/Fl_Counter.H"
+C.include "FL/Fl_Pack.H"
+C.include "FL/Fl_Native_File_Chooser.H"
 
 batchPagePreview
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> FilePath) -> IO ())
   -> IO ()
 batchPagePreview sink rect tab build = do
-  pack <- FL.packNew rect Nothing
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
   makeTemplateRunner
     sink
     "Build web previews"
     (maybe "%input_dir%" T.pack ?preferences.prefDirPreview <> "/%input_base%_player")
     (\template -> build \proj -> T.unpack $ templateApplyInput proj Nothing template)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchButtonLoosePS3
@@ -61,9 +72,10 @@ batchButtonLoosePS3
   -> IO ()
 batchButtonLoosePS3 sink usePath = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
   let (rect', _) = chopLeft 250 rect
-  button <- FL.buttonNew rect' $ Just "Create PS3/RPCS3 folders"
-  taskColor >>= FL.setColor button
-  FL.setCallback button \_ -> sink $ EventOnyx do
+  button <- withRect rect' \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folders") } |]
+  [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
+  setCallback button $ sink $ EventOnyx do
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir usePath
 
@@ -71,18 +83,21 @@ batchPageRB3
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> (Bool -> (Project -> ([(TargetRB3 FilePath, RB3Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB3 sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
-    box <- FL.checkButtonNew rect' (Just "Convert non-Pro Drums to all toms")
-    FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
-    return $ FL.getValue box
+    box <- withRect rect' \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Convert non-Pro Drums to all toms") } |]
+    [C.block| void { $(Fl_Check_Button* box)->tooltip(
+      "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
+    ); } |]
+    return $ checkValue box
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB3
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
@@ -157,22 +172,22 @@ batchPageRB3 sink rect tab build = do
     "Create Magma projects"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%_project")
     (\template -> sink $ EventOnyx $ getTargetSong False RB3Magma template >>= \(_, x) -> stackIO $ build False x)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageGH1
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> (TargetGH1 FilePath, GH1Create)) -> IO ())
   -> IO ()
 batchPageGH1 sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   let getTargetSong usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
@@ -198,43 +213,37 @@ batchPageGH1 sink rect tab build = do
             ]
           in (tgt, usePath fout)
   padded 5 10 5 10 (Size (Width 500) (Height 35)) \r -> do
-    btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
-    color <- taskColor
-    FL.setColor btn color
-    FL.setCallback btn \_ -> do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
-      FL.setTitle picker "Select .HDR file"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> let
-            gen = takeDirectory f
-            in getTargetSong id "" \song -> do
-              build \proj -> let
-                (tgt, _) = song proj
-                in (tgt, GH1ARK gen)
-        _ -> return ()
+    btn <- withRect r \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Songs") } |]
+    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    setCallback btn do
+      browseFileChooser "Select .HDR file" \f -> let
+        gen = takeDirectory f
+        in getTargetSong id "" \song -> do
+          build \proj -> let
+            (tgt, _) = song proj
+            in (tgt, GH1ARK gen)
   makeTemplateRunner
     sink
     "Create PS2 DIY folders"
     "%input_dir%/%input_base%%modifiers%_gh1"
     (\template -> getTargetSong GH1DIYPS2 template build)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageGH3
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> (TargetGH3 FilePath, GH3Create)) -> IO ())
   -> IO ()
 batchPageGH3 sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         go \proj -> let
@@ -288,27 +297,28 @@ batchPageGH3 sink rect tab build = do
     (\template -> getTargetSong False GH3PKG template build)
   batchButtonLoosePS3 sink \dout -> do
     sink $ EventIO $ getTargetSong False (const $ GH3LoosePS3 dout) "" build
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageGH2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> (TargetGH2 FilePath, GH2Create)) -> IO ())
   -> IO ()
 batchPageGH2 sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   (getPracticeAudio, getDeluxe) <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     let [rectA, rectB] = splitHorizN 2 rect'
-    boxA <- FL.checkButtonNew rectA $ Just "Make practice mode audio for PS2"
+    boxA <- withRect rectA \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Make practice mode audio for PS2") } |]
     getDeluxe <- gh2DeluxeSelector sink rectB
-    return (FL.getValue boxA, getDeluxe)
+    return (checkValue boxA, getDeluxe)
   let getTargetSong xbox usePath template go = sink $ EventOnyx $ readPreferences >>= \newPrefs -> stackIO do
         speed <- getSpeed
         practiceAudio <- getPracticeAudio
@@ -361,22 +371,16 @@ batchPageGH2 sink rect tab build = do
             ]
           in (tgt, usePath fout)
   padded 5 10 5 10 (Size (Width 500) (Height 35)) \r -> do
-    btn <- FL.buttonNew r $ Just "Add to PS2 ARK as Bonus Songs"
-    color <- taskColor
-    FL.setColor btn color
-    FL.setCallback btn \_ -> do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
-      FL.setTitle picker "Select .HDR file"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-          Nothing -> return ()
-          Just f  -> let
-            gen = takeDirectory f
-            in getTargetSong False id "" \song -> do
-              build \proj -> let
-                (tgt, _) = song proj
-                in (tgt, GH2ARK gen GH2AddBonus)
-        _ -> return ()
+    btn <- withRect r \bx by bw bh ->
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Songs") } |]
+    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    setCallback btn do
+      browseFileChooser "Select .HDR file" \f -> let
+        gen = takeDirectory f
+        in getTargetSong False id "" \song -> do
+          build \proj -> let
+            (tgt, _) = song proj
+            in (tgt, GH2ARK gen GH2AddBonus)
   makeTemplateRunner
     sink
     "Create PS2 DIY folders"
@@ -387,22 +391,22 @@ batchPageGH2 sink rect tab build = do
     "Create Xbox 360 LIVE files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%_gh2live")
     (\template -> warnCombineXboxGH2 sink $ getTargetSong True GH2LIVE template build)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageGHWOR
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> ((TargetGH5 FilePath, GHWORCreate), SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageGHWOR sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 5 lane", False, not ?preferences.prefGH4Lane)
@@ -457,22 +461,22 @@ batchPageGHWOR sink rect tab build = do
     (\template -> warnXboxGHWoR sink $ getTargetSong False GHWORPKG template >>= stackIO . build)
   batchButtonLoosePS3 sink \dout -> do
     warnXboxGHWoR sink $ getTargetSong False (const $ GHWORLoosePS3 dout) "" >>= stackIO . build
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageRR
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> ((TargetRR FilePath, RRCreate), SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRR sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getProTo4 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     fn <- horizRadio rect'
       [ ("Pro Drums to 6 pad", False, False)
@@ -525,22 +529,22 @@ batchPageRR sink rect tab build = do
     "Create RPCS3 PKG files"
     (maybe "%input_dir%" T.pack ?preferences.prefDirRB <> "/%input_base%%modifiers%.pkg")
     (\template -> sink $ EventOnyx $ getTargetSong False RRPKG template >>= stackIO . build)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPageRB2
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> ([(TargetRB2 FilePath, RB2Create)], SongYaml FilePath)) -> IO ())
   -> IO ()
 batchPageRB2 sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsRB2
   getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
@@ -602,22 +606,22 @@ batchPageRB2 sink rect tab build = do
     (\template -> sink $ EventOnyx $ getTargetSong False RB2PKG template >>= stackIO . build)
   batchButtonLoosePS3 sink \dout -> do
     sink $ EventOnyx $ getTargetSong False (const $ RB2LoosePS3 dout) "" >>= stackIO . build
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 batchPagePS
   :: (?preferences :: Preferences)
   => (Event -> IO ())
   -> Rectangle
-  -> FL.Ref FL.Group
+  -> Ptr Fl_Group
   -> ((Project -> (TargetPS FilePath, PSCreate)) -> IO ())
   -> IO ()
 batchPagePS sink rect tab build = do
-  pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' -> let
-    centerRect = trimClock 0 250 0 250 rect'
-    in centerFixed rect' $ speedPercent True centerRect
+  pack <- withRect rect \px py pw ph ->
+    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  getSpeed <- padded 10 0 5 0 (Size (Width 800) (Height 35)) \rect' ->
+    centerFixed rect' $ speedPercent True (trimClock 0 250 0 250 rect')
   getPreset <- padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     makePresetDropdown rect' batchPartPresetsCH
   let getTargetSong usePath template = do
@@ -651,8 +655,8 @@ batchPagePS sink rect tab build = do
     "Create CH zips"
     (maybe "%input_dir%" T.pack ?preferences.prefDirCH <> "/%input_base%%modifiers%_ps.zip")
     (getTargetSong PSZip >=> build)
-  FL.end pack
-  FL.setResizable tab $ Just pack
+  [C.block| void { $(Fl_Pack* pack)->end(); } |]
+  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Pack* pack)); } |]
   return ()
 
 forceProDrums :: SongYaml f -> SongYaml f

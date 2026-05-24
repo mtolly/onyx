@@ -8,7 +8,9 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 module Onyx.Game.Audio
@@ -29,19 +31,18 @@ import           Control.Monad.Trans.Resource
 import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as CA
-import           Data.Conduit.Audio.Sndfile   (sourceSndFrom)
 import           Data.Foldable                (toList)
 import qualified Data.HashMap.Strict          as HM
 import           Data.IORef
-import           Data.List.Extra              (nubOrd)
+import           Data.List.Extra              (nubOrd, sort)
 import qualified Data.List.NonEmpty           as NE
 import           Data.List.Split              (splitPlaces)
 import qualified Data.Set                     as Set
 import qualified Data.Text                    as T
 import qualified Data.Vector.Storable         as V
 import           Foreign                      hiding (void)
-import           Foreign.C                    (CFloat (..), CInt (..),
-                                               CUInt (..))
+import           Foreign.C                    (CFloat (..), CUInt (..))
+import qualified Language.C.Inline            as C
 import           Onyx.Audio
 import           Onyx.Audio.Render            (computeChannelsPlan,
                                                loadSamplesFromBuildDir,
@@ -60,6 +61,11 @@ import qualified Sound.OpenAL                 as AL
 import           Sound.OpenAL                 (($=))
 import           System.FilePath              (takeDirectory, takeExtension,
                                                (<.>), (</>))
+
+C.context C.baseCtx
+
+C.include "AL/al.h"
+C.include "AL/alext.h"
 
 {-
 {-# NOINLINE lockAL #-}
@@ -163,12 +169,6 @@ stereoInt16ToMonoFloat samples
             in (l + r) / 2.0
           else 0.0  -- Fallback, though this shouldn't happen with proper math
 
-_sndSecsSpeed :: (MonadResource m) => Double -> Maybe Double -> FilePath -> IO (CA.AudioSource m Int16)
-_sndSecsSpeed pos mspeed f = do
-  src <- sourceSndFrom (CA.Seconds pos) f
-  let adjustSpeed = maybe id (\speed -> stretchRealtime (recip speed) 1) mspeed
-  return $ CA.mapSamples CA.integralSample $ adjustSpeed src
-
 -- TODO it would be nice if we could switch audio devices seamlessly on default device change.
 -- see https://github.com/kcat/openal-soft/issues/555
 withAL :: (Bool -> IO a) -> IO a
@@ -211,9 +211,6 @@ emptySources srcs = do
       threadDelay 5000
       emptySources srcs'
 -}
-
-foreign import ccall unsafe
-  alSourcei :: AL.ALuint -> AL.ALenum -> AL.ALint -> IO ()
 
 data AudioHandle = AudioHandle
   { audioStop     :: IO ()
@@ -306,7 +303,7 @@ readySourceWithWaveform inputChannels initGain ca waveformBuf = do
     with src \p -> do
       srcID <- peek $ castPtr p -- this is dumb but OpenAL pkg doesn't expose constructor
       doAL "playSource setting direct mode" do
-        alSourcei srcID 0x1033 1 -- this is AL_DIRECT_CHANNELS_SOFT (should use c2hs!)
+        [C.block| void { alSourcei($(unsigned int srcID), AL_DIRECT_CHANNELS_SOFT, 1); } |]
   let setGain g = forM_ (zip srcs $ assigned) \(src, (name, srcAssigned)) -> let
         volDB = case srcAssigned of
           AssignedMono _ vol -> vol
@@ -561,7 +558,7 @@ projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
       { parts = concat
         [ ["Backing"]
         , do
-          (name, indexes) <- HM.toList x.parts.getParts
+          (name, indexes) <- sort $ HM.toList x.parts.getParts
           guard $ not $ null $ concat $ toList indexes
           return $ displayPartName name
         , ["Crowd" | not $ null x.crowd]
@@ -572,7 +569,7 @@ projectAudio k proj = case lookup k $ HM.toList proj.projectSongYaml.plans of
     let audios = concat
           [ ("Backing",) <$> toList x.song
           , do
-            (partName, partAudio) <- HM.toList x.parts.getParts
+            (partName, partAudio) <- sort $ HM.toList x.parts.getParts
             partSingle <- toList partAudio
             return (displayPartName partName, partSingle)
           , ("Crowd",) <$> toList x.crowd

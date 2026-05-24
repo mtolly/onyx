@@ -204,6 +204,7 @@ gh3Rules buildInfo dir gh3 = do
             putWord32be 0
             putWord32be 0
             putWord32be 0
+      -- TODO these indexes may not be right if preview file is empty?
       datEntry "preview" 0
       datEntry "song" 1
       when hasGuitarAudio $ datEntry "guitar" 2

@@ -191,6 +191,7 @@ convertAudio convFrom convTo q = do
             hClose hout
             saveReadable r fin
             src <- loadAudioInput fin
+            -- TODO use preference for ogg quality
             audioIO Nothing src fout
             BL.fromStrict <$> B.readFile fout
         return (newName, FoFReadable $ makeHandle newStr $ byteStringSimpleHandle bs)

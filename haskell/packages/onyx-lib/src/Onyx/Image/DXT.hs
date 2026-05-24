@@ -35,8 +35,8 @@ compressDXTBlock img = unsafePerformIO do
         x <- [0..3]
         let PixelRGB8 r g b = pixelAt img x y
         [r, g, b, 0]
-  allocaBytes 8 $ \dst -> do
-    B.useAsCString bs $ \src -> do
+  allocaBytes 8 \dst -> do
+    B.useAsCString bs \src -> do
       let cast1 = castPtr :: Ptr Word8 -> Ptr CUChar
           cast2 = castPtr :: Ptr CChar -> Ptr CUChar
           cast3 = castPtr :: Ptr Word8 -> Ptr CChar
@@ -63,7 +63,7 @@ pixelFrom565 w = PixelRGB8
 
 mixProportions :: (Pixel a, Integral (PixelBaseComponent a)) =>
   Float -> Float -> a -> a -> a
-mixProportions f0 f1 = mixWith $ \_ p0 p1 ->
+mixProportions f0 f1 = mixWith \_ p0 p1 ->
   floor $ fromIntegral p0 * f0 + fromIntegral p1 * f1
 
 data DXTFormat
@@ -137,15 +137,15 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter do
           PNGWii -> do
             -- first 4x4 blocks are 4-grouped into 8x8 in reading-order,
             -- then those 8x8 blocks are in reading-order
-            forM_ [0, 8 .. size - 8] $ \bigY ->
-              forM_ [0, 8 .. size - 8] $ \bigX ->
-                forM_ [bigY, bigY + 4] $ \y ->
-                  forM_ [bigX, bigX + 4] $ \x ->
+            forM_ [0, 8 .. size - 8] \bigY ->
+              forM_ [0, 8 .. size - 8] \bigX ->
+                forM_ [bigY, bigY + 4] \y ->
+                  forM_ [bigX, bigX + 4] \x ->
                     tell $ writeDXT1Chunk fmt $ chunkAt x y
           _ -> do
             -- simple reading-order
-            forM_ [0, 4 .. size - 4] $ \y ->
-              forM_ [0, 4 .. size - 4] $ \x ->
+            forM_ [0, 4 .. size - 4] \y ->
+              forM_ [0, 4 .. size - 4] \x ->
                 tell $ writeDXT1Chunk fmt $ chunkAt x y
   case fmt of
     DDS     -> mipmaps
@@ -172,9 +172,9 @@ toHMXPS2 img_ = BB.toLazyByteString $ execWriter do
         x <- [0 .. imageWidth  palette - 1]
         y <- [0 .. imageHeight palette - 1]
         return $ pixelAt palette x y
-  forM_ (take 256 $ paletteColors <> repeat (PixelRGB8 0 0 0)) $ \(PixelRGB8 r g b) -> do
+  forM_ (take 256 $ paletteColors <> repeat (PixelRGB8 0 0 0)) \(PixelRGB8 r g b) -> do
     tell $ BB.byteString $ B.pack [r, g, b, 0x80]
-  forM_ (V.toList $ imageData indexed) $ \i -> do
+  forM_ (V.toList $ imageData indexed) \i -> do
     tell $ BB.word8 $ flip34 i
 
 ddsDXT1Signature :: B.ByteString
@@ -242,18 +242,18 @@ readDDS bs = let
     let width = fromIntegral dwWidth
         height = fromIntegral dwHeight
     case fmt_dwFourCC of
-      "DXT1" -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ readDXTChunk DDS True
+      "DXT1" -> arrangeRows (quot width 4) (quot height 4)
+        <$> replicateM (quot (width * height) 16) (readDXTChunk DDS True)
       -- these are untested
-      f | elem f ["DXT2", "DXT3", "DXT4", "DXT5"] -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ readDXTChunk DDS False
+      f | elem f ["DXT2", "DXT3", "DXT4", "DXT5"] -> arrangeRows (quot width 4) (quot height 4)
+        <$> replicateM (quot (width * height) 16) (readDXTChunk DDS False)
       _ -> fail "Unrecognized DDS compression format"
   in runGetM parseImage bs
 
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
 readRBImageMaybe :: Bool -> BL.ByteString -> Maybe (Image PixelRGBA8)
 readRBImageMaybe isPS3 bs = let
-  readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
+  readWiiChunk = arrangeRows 2 2 <$> replicateM 4 (readDXTChunk PNGWii True)
   readRGBA = do
     -- used in all the bitmap (non-dxt) types
     r <- getWord8
@@ -264,12 +264,12 @@ readRBImageMaybe isPS3 bs = let
   palette8bit, palette4bit :: Int -> Int -> Get (Image PixelRGBA8)
   palette8bit width height = do
     palette <- replicateM 256 readRGBA
-    fmap (Image width height . V.fromList . concat) $ replicateM (width * height) do
+    Image width height . V.fromList . concat <$> replicateM (width * height) do
       i <- getWord8
       return $ palette !! fromIntegral (flip34 i)
   palette4bit width height = do
     palette <- replicateM 16 readRGBA
-    fmap (Image width height . V.fromList . concat . concat) $ replicateM (quot (width * height) 2) do
+    Image width height . V.fromList . concat . concat <$> replicateM (quot (width * height) 2) do
       i <- getWord8
       let high = (i `shiftR` 4) .&. 0xF
           low  = i              .&. 0xF
@@ -290,7 +290,7 @@ readRBImageMaybe isPS3 bs = let
       -- 4-bit palette
       (0x04, 0x03) -> palette4bit width height
       -- non-paletted simple bitmap, see metagame/image/gen/turret_arm.bmp.gz
-      (0x20, 0x03) -> fmap (Image width height . V.fromList . concat) $ replicateM (width * height) readRGBA
+      (0x20, 0x03) -> Image width height . V.fromList . concat <$> replicateM (width * height) readRGBA
       _ -> fail "Unrecognized HMX image format"
   -- GH1 and onward
   format1 = do
@@ -305,14 +305,14 @@ readRBImageMaybe isPS3 bs = let
     let xboxOrPS3 = if isPS3 then PNGPS3 else PNGXbox
     case (bitsPerPixel, format) of
       -- Xbox DXT1
-      (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ readDXTChunk xboxOrPS3 True
+      (0x04, 0x08) -> arrangeRows (quot width 4) (quot height 4)
+        <$> replicateM (quot (width * height) 16) (readDXTChunk xboxOrPS3 True)
       -- Xbox DXT3
-      (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
-        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk xboxOrPS3 False
+      (0x08, 0x18) -> arrangeRows (quot width 4) (quot height 4)
+        <$> replicateM (quot (width * height) 16) (skip 8 >> readDXTChunk xboxOrPS3 False)
       -- Wii DXT1
-      (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
-        $ replicateM (quot (width * height) 64) readWiiChunk
+      (0x04, 0x48) -> arrangeRows (quot width 8) (quot height 8)
+        <$> replicateM (quot (width * height) 64) readWiiChunk
       -- PS2 BMP, 8-bit indices; typical color images
       (0x08, 0x03) -> palette8bit width height
       -- PS2 BMP, 4-bit indices; seen in GH1 for fonts and other B/W images, e.g. ghui/image/gen/hand_gw.bmp_ps2

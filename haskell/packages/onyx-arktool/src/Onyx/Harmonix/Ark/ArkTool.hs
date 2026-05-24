@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE TemplateHaskell   #-}
@@ -49,7 +50,7 @@ ark_Open
   :: ArkHdrPair
   -> FilePath -- ^ ark directory
   -> IO ()
-ark_Open (ArkHdrPair p) arkDirpath = withCString arkDirpath $ \p_arkDirpath ->
+ark_Open (ArkHdrPair p) arkDirpath = withCString arkDirpath \p_arkDirpath ->
   arkCheck ("opening ark from " <> arkDirpath)
     [C.exp| bool { $(ArkHdrPair* p)->Open($(char* p_arkDirpath)) } |]
 
@@ -68,8 +69,8 @@ ark_TryGetFile
   -> Bool -- ^ whether to perform decryption
   -> IO Bool
 ark_TryGetFile (ArkHdrPair p) destFilepath arkFilename performDecrypts =
-  withCString destFilepath $ \p_destFilepath -> do
-    B.useAsCString arkFilename $ \p_arkFilename -> do
+  withCString destFilepath \p_destFilepath -> do
+    B.useAsCString arkFilename \p_arkFilename -> do
       let c_performDecrypts = fromBool performDecrypts
       toBool <$> [C.exp| bool {
         $(ArkHdrPair* p)->GetFile
@@ -96,8 +97,8 @@ ark_AddFile
   -> Bool -- ^ whether to perform encryption
   -> IO ()
 ark_AddFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
-  withCString srcFilepath $ \p_srcFilepath -> do
-    B.useAsCString arkFilename $ \p_arkFilename -> do
+  withCString srcFilepath \p_srcFilepath -> do
+    B.useAsCString arkFilename \p_arkFilename -> do
       let c_performEncrypts = fromBool performEncrypts
       arkCheck ("inserting file " <> show srcFilepath <> " at " <> show arkFilename)
         [C.exp| bool {
@@ -113,7 +114,7 @@ ark_RemoveFile
   -> B.ByteString -- ^ filename in ark
   -> IO ()
 ark_RemoveFile (ArkHdrPair p) arkFilename =
-  B.useAsCString arkFilename $ \p_arkFilename -> do
+  B.useAsCString arkFilename \p_arkFilename -> do
     arkCheck ("removing file " <> show arkFilename)
       [C.exp| bool { $(ArkHdrPair* p)->RemoveFile($(char* p_arkFilename)) } |]
 
@@ -124,8 +125,8 @@ ark_ReplaceAFile
   -> Bool -- ^ whether to perform encryption
   -> IO ()
 ark_ReplaceAFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
-  withCString srcFilepath $ \p_srcFilepath -> do
-    B.useAsCString arkFilename $ \p_arkFilename -> do
+  withCString srcFilepath \p_srcFilepath -> do
+    B.useAsCString arkFilename \p_arkFilename -> do
       let c_performEncrypts = fromBool performEncrypts
       arkCheck ("replacing file " <> show arkFilename <> " with " <> show srcFilepath)
         [C.exp| bool {
@@ -142,7 +143,7 @@ ark_First
   -> B.ByteString -- ^ search filepath
   -> IO FileEntry
 ark_First (ArkHdrPair p) (FileEntrySetIter rIter) searchFilepath = do
-  B.useAsCString searchFilepath $ \c_searchFilepath -> do
+  B.useAsCString searchFilepath \c_searchFilepath -> do
     FileEntry <$>
       [C.exp| const FileEntry* {
         $(ArkHdrPair* p)->First
@@ -157,7 +158,7 @@ ark_Next
   -> B.ByteString -- ^ search filepath
   -> IO FileEntry
 ark_Next (ArkHdrPair p) (FileEntrySetIter rIter) searchFilepath = do
-  B.useAsCString searchFilepath $ \c_searchFilepath -> do
+  B.useAsCString searchFilepath \c_searchFilepath -> do
     FileEntry <$>
       [C.exp| const FileEntry* {
         $(ArkHdrPair* p)->Next
@@ -172,7 +173,7 @@ ark_Arkname (FileEntry p) = do
   B.packCString s
 
 searchFiles :: ArkHdrPair -> B.ByteString -> IO [FileEntry]
-searchFiles ark pat = bracket ark_new_iterator ark_delete_iterator $ \iter -> do
+searchFiles ark pat = bracket ark_new_iterator ark_delete_iterator \iter -> do
   let go entry@(FileEntry p) = if p == nullPtr
         then return []
         else (entry :) <$> (ark_Next ark iter pat >>= go)
@@ -184,14 +185,14 @@ wrapArk s f = do
   unless b $ fail $ "ARK operation failed: " <> s
 
 withArk :: FilePath -> (ArkHdrPair -> IO a) -> IO a
-withArk gen act = bracket ark_new ark_delete $ \ark -> do
-  bracket_ (ark_Open ark gen) (ark_Close ark) $ do
+withArk gen act = bracket ark_new ark_delete \ark -> do
+  bracket_ (ark_Open ark gen) (ark_Close ark) do
     act ark
 
 ark_DecryptVgs :: FilePath -> FilePath -> IO Bool
 ark_DecryptVgs ofilename ifilename = do
-  withCString ofilename $ \c_ofilename -> do
-    withCString ifilename $ \c_ifilename -> do
+  withCString ofilename \c_ofilename -> do
+    withCString ifilename \c_ifilename -> do
       toBool <$>
         [C.exp| bool {
           DecryptVgs($(char* c_ofilename), $(char* c_ifilename))

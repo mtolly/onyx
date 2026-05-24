@@ -51,7 +51,7 @@ import           Graphics.GL.Types
 import           Linear                       (M44, V2 (..), V3 (..), V4 (..),
                                                (!*!))
 import qualified Linear                       as L
-import qualified Onyx.Amplitude.File          as Amp
+import           Onyx.Amplitude.PS2.MIDI      (AmpInstrument (..))
 import           Onyx.Build.RB3CH             (BasicTiming (..))
 import           Onyx.Codec.JSON              (loadYaml)
 import           Onyx.Game.Audio              (AudioHandle (..))
@@ -1335,11 +1335,12 @@ drawMania gl nowTime speed mchart trk = do
         | otherwise     = let
           boxColor = case mchart.style of
             ManiaAmplitude inst -> case inst of
-              Amp.Drums  -> sc.red
-              Amp.Bass   -> sc.blue
-              Amp.Synth  -> sc.yellow
-              Amp.Vocal  -> sc.green
-              Amp.Guitar -> sc.orange
+              AmpDrums  -> sc.red
+              AmpBass   -> sc.blue
+              AmpSynth  -> sc.yellow
+              AmpVocal  -> sc.green
+              AmpGuitar -> sc.orange
+              AmpFX     -> sc.purple
             _ -> case color of
               ManiaRed   -> sc.red
               ManiaWhite -> sc.blue
@@ -1375,11 +1376,12 @@ drawMania gl nowTime speed mchart trk = do
         stretch = ObjectStretch (V3 x1 y1 z1) (V3 x2 y2 z2)
         texid = case mchart.style of
           ManiaAmplitude inst -> case inst of
-            Amp.Drums  -> TextureRedGem
-            Amp.Bass   -> TextureBlueGem
-            Amp.Synth  -> TextureYellowGem
-            Amp.Vocal  -> TextureGreenGem
-            Amp.Guitar -> TextureOrangeGem
+            AmpDrums  -> TextureRedGem
+            AmpBass   -> TextureBlueGem
+            AmpSynth  -> TextureYellowGem
+            AmpVocal  -> TextureGreenGem
+            AmpGuitar -> TextureOrangeGem
+            AmpFX     -> TexturePurpleGem
           _ -> case color of
             ManiaRed   -> TextureRedGem
             ManiaWhite -> TextureBlueGem
@@ -1447,11 +1449,12 @@ drawMania gl nowTime speed mchart trk = do
   forM_ (zip [0..] keys) \(i, color) -> let
     tex = case mchart.style of
       ManiaAmplitude inst -> case inst of
-        Amp.Drums  -> TextureTargetRed
-        Amp.Bass   -> TextureTargetBlue
-        Amp.Synth  -> TextureTargetYellow
-        Amp.Vocal  -> TextureTargetGreen
-        Amp.Guitar -> TextureTargetOrange
+        AmpDrums  -> TextureTargetRed
+        AmpBass   -> TextureTargetBlue
+        AmpSynth  -> TextureTargetYellow
+        AmpVocal  -> TextureTargetGreen
+        AmpGuitar -> TextureTargetOrange
+        AmpFX     -> TextureTargetPurple
       _ -> case color of
         ManiaRed   -> TextureTargetRed
         ManiaWhite -> TextureTargetBlue
@@ -1470,11 +1473,12 @@ drawMania gl nowTime speed mchart trk = do
         (colorsYes, colorsNo) = flip partitionMaybe colors \(i, color) -> let
           light = case mchart.style of
             ManiaAmplitude inst -> case inst of
-              Amp.Drums  -> TextureTargetRedLight
-              Amp.Bass   -> TextureTargetBlueLight
-              Amp.Synth  -> TextureTargetYellowLight
-              Amp.Vocal  -> TextureTargetGreenLight
-              Amp.Guitar -> TextureTargetOrangeLight
+              AmpDrums  -> TextureTargetRedLight
+              AmpBass   -> TextureTargetBlueLight
+              AmpSynth  -> TextureTargetYellowLight
+              AmpVocal  -> TextureTargetGreenLight
+              AmpGuitar -> TextureTargetOrangeLight
+              AmpFX     -> TextureTargetPurpleLight
             _ -> case color of
               ManiaRed   -> TextureTargetRedLight
               ManiaWhite -> TextureTargetBlueLight

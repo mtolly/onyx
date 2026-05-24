@@ -214,6 +214,11 @@ importRSSong folder song level = do
               (_    , True , _    , True ) -> Just RSComboRhythm
               (_    , _    , True , _    ) -> Just RSBass
               (False, False, False, _    ) -> Nothing
+            centOffset = case jsonAttrs of
+              A.Object o -> case KM.lookup "CentOffset" o of
+                Just (A.Number n) -> n
+                _                 -> 0
+              _ -> 0
         -- TODO warn if marrtype is Nothing?
         forM marrtype \arrtype -> do
           -- I've seen CF files (Timepiece Phase II) that have a null in this tone list
@@ -234,10 +239,10 @@ importRSSong folder song level = do
             fileToneC    <- prop "Tone_C" jsonAttrs >>= getString >>= findMaybeTone
             fileToneD    <- prop "Tone_D" jsonAttrs >>= getString >>= findMaybeTone
             return RSTones{..}
-          return $ Right (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year), isBass, tones)
+          return $ Right (RSArrSlot arrmod arrtype, sng, bnkPath, (title, artist, album, year, centOffset), isBass, tones)
   let parts = rights partsWithVox
       maybeVoxSNG = listToMaybe $ lefts partsWithVox
-  (_, firstArr, bnk, (title, artist, album, year), _, _) <- case parts of
+  (_, firstArr, bnk, (title, artist, album, year, centOffset), _, _) <- case parts of
     []    -> fatal "No entries found in song"
     p : _ -> return p
   art <- case map (.rsAlbumArtLarge) song of
@@ -626,6 +631,11 @@ importRSSong folder song level = do
         pair@(_, True) : pairs -> pair : removeDupePhraseStart (dropWhile snd pairs)
         pair : pairs -> pair : removeDupePhraseStart pairs
         [] -> []
+      -- detect the low bass hack and undo it
+      (modifiedCentOffset, octaveDown) = if centOffset < (-600)
+        then (centOffset + 1200, True )
+        else (centOffset       , False)
+      fixOffsetOctave n = if octaveDown then n - 12 else n
       partsMap = HM.fromList do
         ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
         let part = emptyPart
@@ -634,10 +644,11 @@ importRSSong folder song level = do
                 , hopoThreshold = 170
                 , tuning        = if isBass
                   -- TODO set gtrGlobal smarter (detect number applied to all offsets)
-                  -- TODO import bass-on-guitar correctly (threshold for very low offsets?)
+                  -- TODO detect bass-on-guitar via some threshold and use Bass5/Bass6 as tuning base
                   then GtrTuning
                     { gtrBase    = Bass4
-                    , gtrOffsets = map fromIntegral $ take 4 sng.sng_Metadata.meta_Tuning
+                    , gtrOffsets = map (fixOffsetOctave . fromIntegral)
+                      $ take 4 sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
                     , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
@@ -646,7 +657,8 @@ importRSSong folder song level = do
                     }
                   else GtrTuning
                     { gtrBase    = Guitar6
-                    , gtrOffsets = map fromIntegral sng.sng_Metadata.meta_Tuning
+                    , gtrOffsets = map (fixOffsetOctave . fromIntegral)
+                      sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
                     , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0
@@ -709,7 +721,7 @@ importRSSong folder song level = do
       , parts       = Parts HM.empty
       , crowd       = Nothing
       , comments    = []
-      , tuningCents = 0 -- TODO get from manifest .json (CentOffset)
+      , tuningCents = round modifiedCentOffset
       , fileTempo   = Nothing
       }
     , parts = Parts partsMapWithVox

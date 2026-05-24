@@ -155,14 +155,43 @@ joinMatchingTracks = go NNC.zero [] where
   go !elapsed _ RNil (Wait ty _ _) = Left (elapsed <> ty, True)
   go _ pairs RNil RNil = Right $ RTB.fromPairList $ reverse pairs
 
-getLyricNotes :: (Monad m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
+-- First tries to match notes and lyrics exactly on time.
+-- Then if there are the same count of each, moves lyrics to match with notes.
+-- Otherwise, error if there are different counts.
+joinNotesLyrics :: (NNC.C t, SendMessage m) => (t -> String) -> RTB.T t a -> RTB.T t T.Text -> StackTraceT m (RTB.T t (a, T.Text))
+joinNotesLyrics showTime notes lyrics = case joinMatchingTracks notes lyrics of
+  Right perfect -> return perfect
+  Left (errorTime, isLyricNoNote) -> let
+    err = if isLyricNoNote
+      then "Lyric without a corresponding note at " <> showTime errorTime
+      else "Note without a corresponding lyric at " <> showTime errorTime
+    in if length notes == length lyrics
+      then do
+        warn $ "Adjusting vocal lyric times to match notes; " <> err
+        return $ RTB.fromPairList $ zipWith
+          (\(dt, note) (_, lyric) -> (dt, (note, lyric)))
+          (RTB.toPairList notes)
+          (RTB.toPairList lyrics)
+      else fatal err
+
+fixLyricPositions :: (SendMessage m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (VocalTrack U.Beats)
+fixLyricPositions mmap vox = let
+  joinedNotes = joinEdgesSimple $ vox.notes <&> \(p, b) -> if b then EdgeOn () p else EdgeOff p
+  in do
+    joined <- joinNotesLyrics (showPosition mmap) joinedNotes vox.lyrics
+    return vox
+      { notes = splitEdgesSimple (fst <$> joined) <&> \case
+        EdgeOn () p -> (p, True )
+        EdgeOff   p -> (p, False)
+      , lyrics = snd <$> joined
+      }
+
+getLyricNotes :: (SendMessage m) => U.MeasureMap -> VocalTrack U.Beats -> StackTraceT m (RTB.T U.Beats (LyricNote, U.Beats))
 getLyricNotes mmap vox = let
   joinedNotes = joinEdgesSimple $ vox.notes <&> \(p, b) -> if b then EdgeOn () p else EdgeOff p
-  in case joinMatchingTracks joinedNotes vox.lyrics of
-    Left (errorTime, isLyricNoNote) -> fatal if isLyricNoNote
-      then "Lyric without a corresponding note at " <> showPosition mmap errorTime
-      else "Note without a corresponding lyric at " <> showPosition mmap errorTime
-    Right joined -> return $ joined <&> \(((), pitch, len), lyric) -> let
+  in do
+    joined <- joinNotesLyrics (showPosition mmap) joinedNotes vox.lyrics
+    return $ joined <&> \(((), pitch, len), lyric) -> let
       lyricNote = case lyric of
         "+" -> SlideTo pitch
         _   -> case T.stripSuffix "#" lyric of
