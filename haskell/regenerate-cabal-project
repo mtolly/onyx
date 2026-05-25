@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""Regenerate cabal.project and cabal.project.freeze from stack.yaml.
+
+- Local packages, git source-repos, and allow-newer come from stack.yaml.
+- The freeze file starts as the Stackage snapshot's cabal.config. Constraint
+  lines are removed for any package supplied locally, by git repo, or by an
+  extra-dep Hackage override; the extra-deps are then appended as constraints.
+- If cabal.project.extra exists alongside stack.yaml, its contents are appended
+  verbatim to cabal.project.
+
+Git repos are shallow-cloned into .cache/cabal-regen/<commit> so we can find
+the cabal package names they provide (needed to filter the freeze).
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write(
+        "error: PyYAML not available in this python ({}).\n"
+        "Install with `pip install pyyaml`, or run this script with a python\n"
+        "that already has it (e.g. /usr/bin/python3).\n".format(sys.executable)
+    )
+    sys.exit(1)
+
+BUILD_DIR = Path(__file__).resolve().parent
+STACK_YAML = BUILD_DIR / "stack.yaml"
+EXTRA_FILE = BUILD_DIR / "cabal.project.extra"
+PROJECT_FILE = BUILD_DIR / "cabal.project"
+FREEZE_FILE = BUILD_DIR / "cabal.project.freeze"
+CACHE_DIR = BUILD_DIR / ".cache" / "cabal-regen"
+
+# name-version where version starts with digits. Greedy name, anchored version,
+# e.g. JuicyPixels-stbir-0.1.0.0 -> ("JuicyPixels-stbir", "0.1.0.0").
+VER_RE = re.compile(r"^(.+)-(\d+(?:\.\d+)*[a-z]?)$")
+
+
+def log(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def parse_stack(stack_path: Path):
+    """Return (resolver, allow_newer, local_paths, hackage_deps, git_repos).
+
+    hackage_deps is [(name, version)].
+    git_repos is [(url, commit, [subdir_or_None, ...])].
+    """
+    with stack_path.open() as f:
+        data = yaml.safe_load(f)
+
+    resolver = data.get("resolver") or ""
+    allow_newer = bool(data.get("allow-newer", False))
+
+    local_paths: list[str] = []
+    hackage: list[tuple[str, str]] = []
+    gits: list[tuple[str, str, list]] = []
+
+    for p in data.get("packages") or []:
+        if not isinstance(p, str):
+            sys.exit(f"unexpected packages entry: {p!r}")
+        local_paths.append(p)
+
+    for e in data.get("extra-deps") or []:
+        if isinstance(e, str):
+            if "/" in e or (stack_path.parent / e).is_dir():
+                local_paths.append(e)
+            else:
+                m = VER_RE.match(e)
+                if not m:
+                    sys.exit(f"can't parse extra-dep {e!r} as name-version")
+                hackage.append((m.group(1), m.group(2)))
+        elif isinstance(e, dict) and "git" in e:
+            gits.append((e["git"], e["commit"], e.get("subdirs") or [None]))
+        else:
+            sys.exit(f"unsupported extra-dep entry: {e!r}")
+
+    return resolver, allow_newer, local_paths, hackage, gits
+
+
+def fetch_git(url: str, commit: str) -> Path:
+    """Return a local checkout path for url@commit, populating the cache on miss."""
+    dest = CACHE_DIR / commit
+    if dest.is_dir():
+        return dest
+    log(f"Fetching {url} @ {commit}")
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(prefix=f"{commit}.", dir=CACHE_DIR))
+    try:
+        # Fast path: init + fetch a single commit (works on GitHub for most shas).
+        ok = False
+        try:
+            subprocess.run(["git", "init", "--quiet", str(tmp)], check=True)
+            subprocess.run(
+                ["git", "-C", str(tmp), "remote", "add", "origin", url], check=True
+            )
+            subprocess.run(
+                ["git", "-C", str(tmp), "fetch", "--quiet", "--depth=1", "origin", commit],
+                check=True,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                ["git", "-C", str(tmp), "-c", "advice.detachedHead=false",
+                 "checkout", "--quiet", "FETCH_HEAD"],
+                check=True,
+            )
+            ok = True
+        except subprocess.CalledProcessError:
+            pass
+        if not ok:
+            shutil.rmtree(tmp)
+            tmp = Path(tempfile.mkdtemp(prefix=f"{commit}.", dir=CACHE_DIR))
+            subprocess.run(["git", "clone", "--quiet", url, str(tmp)], check=True)
+            subprocess.run(
+                ["git", "-C", str(tmp), "-c", "advice.detachedHead=false",
+                 "checkout", "--quiet", commit],
+                check=True,
+            )
+        shutil.rmtree(tmp / ".git", ignore_errors=True)
+        tmp.rename(dest)
+    except Exception:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return dest
+
+
+def cabal_names_in(dir_path: Path) -> list[str]:
+    names = [p.stem for p in dir_path.glob("*.cabal") if p.is_file()]
+    if names:
+        return names
+    pkg_yaml = dir_path / "package.yaml"
+    if pkg_yaml.is_file():
+        with pkg_yaml.open() as f:
+            return [yaml.safe_load(f)["name"]]
+    return []
+
+
+def fetch_snapshot(resolver: str) -> str:
+    url = f"https://www.stackage.org/{resolver}/cabal.config"
+    log(f"Fetching {url}")
+    req = urllib.request.Request(url, headers={"User-Agent": "regenerate-cabal-project"})
+    with urllib.request.urlopen(req) as resp:
+        return resp.read().decode("utf-8")
+
+
+def build_freeze(snapshot: str, exclude: set[str], extras: list[tuple[str, str]]) -> str:
+    m = re.search(r"^constraints:\s*", snapshot, re.MULTILINE)
+    if not m:
+        sys.exit("snapshot has no 'constraints:' block")
+    header = snapshot[: m.start()].rstrip() + "\n"
+    body = snapshot[m.end():]
+
+    # Keep each entry as its full constraint text (e.g. "foo ==1.2.3" or
+    # "base installed") so boot-library "installed" entries pass through.
+    kept: list[str] = []
+    for entry in body.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        em = re.match(r"^(\S+)\s+(.+)$", entry)
+        if not em:
+            sys.exit(f"unparseable constraint entry: {entry!r}")
+        name = em.group(1)
+        if name not in exclude:
+            kept.append(entry)
+    kept.extend(f"{n} =={v}" for n, v in extras)
+    if not kept:
+        sys.exit("no constraints to write")
+
+    out = [header, f"constraints: {kept[0]}"]
+    for entry in kept[1:]:
+        out.append(f",\n             {entry}")
+    out.append("\n")
+    return "".join(out)
+
+
+def build_project(resolver, ghc, allow_newer, local_paths, gits) -> str:
+    lines = [
+        "-- Generated by regenerate-cabal-project from stack.yaml.",
+        "-- Do not edit by hand; put additions in cabal.project.extra.",
+        f"-- Resolver: {resolver}",
+        "",
+    ]
+    if ghc:
+        lines += [f"with-compiler: {ghc}", ""]
+    lines.append("packages:")
+    for p in local_paths:
+        lines.append(f"  {p}")
+    lines.append("")
+    if allow_newer:
+        lines += ["allow-newer: all:all", ""]
+    for url, commit, subdirs in gits:
+        for sd in subdirs:
+            lines += [
+                "source-repository-package",
+                "  type: git",
+                f"  location: {url}",
+                f"  tag: {commit}",
+            ]
+            if sd:
+                lines.append(f"  subdir: {sd}")
+            lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def main() -> None:
+    resolver, allow_newer, local_paths, hackage, gits = parse_stack(STACK_YAML)
+    if not resolver:
+        sys.exit("error: no resolver in stack.yaml")
+
+    exclude: set[str] = set()
+
+    for relpath in local_paths:
+        d = BUILD_DIR / relpath
+        if not d.is_dir():
+            log(f"warning: local package dir not found: {d}")
+            continue
+        names = cabal_names_in(d)
+        if not names:
+            log(f"warning: could not determine package name in {d}")
+        exclude.update(names)
+
+    for url, commit, subdirs in gits:
+        repo = fetch_git(url, commit)
+        for sd in subdirs:
+            target = repo / sd if sd else repo
+            names = cabal_names_in(target)
+            if not names:
+                log(f"warning: no .cabal/package.yaml in {target}")
+            exclude.update(names)
+
+    for name, _ in hackage:
+        exclude.add(name)
+
+    snapshot = fetch_snapshot(resolver)
+    FREEZE_FILE.write_text(build_freeze(snapshot, exclude, hackage))
+
+    gm = re.search(r"^with-compiler:\s*(\S+)", snapshot, re.MULTILINE)
+    ghc = gm.group(1) if gm else None
+    project = build_project(resolver, ghc, allow_newer, local_paths, gits)
+    if EXTRA_FILE.is_file():
+        project += "\n-- ---- appended from cabal.project.extra ----\n"
+        project += EXTRA_FILE.read_text()
+        if not project.endswith("\n"):
+            project += "\n"
+    PROJECT_FILE.write_text(project)
+
+    log(f"Wrote {PROJECT_FILE}")
+    log(f"Wrote {FREEZE_FILE}")
+
+
+if __name__ == "__main__":
+    main()

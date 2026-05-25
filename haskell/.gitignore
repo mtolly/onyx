@@ -12,3 +12,4 @@ onyx-command-line-*
 *.AppImage
 dist-newstyle
 cabal.project.local
+/.cache/
