@@ -4,6 +4,7 @@ packages:
 - packages/onyx-exe-toolkit
 - packages/onyx-ffmpeg
 - packages/onyx-handle
+- packages/onyx-fluent
 extra-deps:
 - conduit-audio-0.2.0.3
 - conduit-audio-samplerate-0.1.0.3

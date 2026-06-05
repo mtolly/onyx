@@ -40,24 +40,17 @@ import           Control.Monad.Trans.Resource      (release, runResourceT)
 import           Control.Monad.Trans.Writer        (execWriterT, tell)
 import qualified Data.Aeson                        as A
 import qualified Data.Aeson.KeyMap                 as KM
+import           Data.Bits                         ((.&.))
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Char8             as B8
 import qualified Data.ByteString.Lazy              as BL
 import           Data.Char                         (isSpace, toLower, toUpper)
 import           Data.Coerce                       (coerce)
 import           Data.Conduit.Audio                (integralSample, mapSamples)
-import           Data.Function                     ((&))
-import           Data.Functor                      ((<&>))
-import qualified Data.Set                          as Set
-import           Onyx.GUI.Batch
-import           Onyx.GUI.Core
-import           Onyx.GUI.Misc
-import           Onyx.GUI.Song
-import           Optics                            (mapped, (%), (%~), (.~))
--- import qualified Data.Connection                           as Conn
-import           Data.Bits                         ((.&.))
 import           Data.Fixed                        (Milli)
 import           Data.Foldable                     (toList)
+import           Data.Function                     ((&))
+import           Data.Functor                      ((<&>))
 import qualified Data.HashMap.Strict               as HM
 import           Data.Int                          (Int64)
 import           Data.IORef                        (newIORef, readIORef,
@@ -69,6 +62,7 @@ import           Data.Maybe                        (catMaybes, fromMaybe,
                                                     isJust, isNothing,
                                                     listToMaybe, mapMaybe)
 import           Data.Monoid                       (Endo (..))
+import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
 import           Data.Time.Clock.System            (SystemTime (..))
@@ -104,9 +98,14 @@ import qualified Onyx.Game.Graphics                as RGGraphics
 import           Onyx.Game.Track
 import           Onyx.Genre                        (FullGenre (..),
                                                     interpretGenre)
+import           Onyx.GUI.Batch
 import           Onyx.GUI.Binding
+import           Onyx.GUI.Core
+import           Onyx.GUI.Misc
+import           Onyx.GUI.Song
 import           Onyx.GUI.Util                     (askFolder, checkValue,
                                                     peekUTF8, setCallback,
+                                                    setLabelTooltip,
                                                     withMaybeUTF8,
                                                     withNativeFileChooser,
                                                     withUTF8)
@@ -118,6 +117,8 @@ import           Onyx.Harmonix.RockBand.SongCache  (hardcodeSongCacheIDs)
 import           Onyx.Image.DXT                    (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Keys.Ranges                  (closeShiftsFile)
+import           Onyx.Localization                 (L, l10n, l10nArgs, l10nFull,
+                                                    vNumber, vString)
 import           Onyx.MIDI.Common                  (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                  as RB
 import qualified Onyx.MIDI.Track.File              as F
@@ -143,6 +144,7 @@ import           Onyx.Util.Files                   (commonDir, copyDirRecursive,
 import           Onyx.Util.Handle                  (fileReadable,
                                                     saveHandleFolder)
 import qualified Onyx.Xbox.STFS                    as STFS
+import           Optics                            (mapped, (%), (%~), (.~))
 import           Paths_onyx_exe_toolkit            (version)
 import qualified Sound.MIDI.File.Save              as Save
 import qualified Sound.MIDI.Util                   as U
@@ -154,8 +156,6 @@ import           System.FilePath                   (dropExtension,
                                                     (-<.>), (<.>), (</>))
 import           System.Info                       (os)
 import           System.Random                     (randomIO)
--- import qualified System.IO.Streams                         as Streams
--- import qualified System.IO.Streams.TCP                     as TCP
 import           Text.Read                         (readMaybe)
 
 #ifdef WINDOWS
@@ -163,20 +163,6 @@ import           Foreign                           (intPtrToPtr)
 import           Graphics.Win32                    (loadIcon)
 import           System.Win32                      (HINSTANCE)
 #endif
-
-{-
-import           Control.Concurrent                        (newChan, readChan,
-                                                            writeChan)
-import           Control.Concurrent.Async                  (async,
-                                                            waitAnyCancel)
-import           Control.Monad.Catch                       (catchIOError)
-import           Control.Monad.Trans.Resource              (ResourceT, allocate,
-                                                            register)
-import           Data.IORef                                (IORef)
-import           Data.Time                                 (getCurrentTime)
-import qualified Network.Socket                            as Socket
-import qualified System.FSNotify                           as FS
--}
 
 import qualified Language.C.Inline.Cpp             as C
 
@@ -215,7 +201,7 @@ C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
 
-promptLoad :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
+promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
   [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
   \picker -> do
@@ -228,7 +214,7 @@ promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
         peekUTF8 cstr
       sink $ EventOnyx $ startLoad makeMenuBar hasAudio fs
 
-startLoad :: (Width -> Bool -> IO CInt) -> Bool -> [FilePath] -> Onyx ()
+startLoad :: (?loc :: L) => (Width -> Bool -> IO CInt) -> Bool -> [FilePath] -> Onyx ()
 startLoad makeMenuBar hasAudio fs = do
   sink <- getEventSink
   void $ forkOnyx do
@@ -263,7 +249,8 @@ importWithPreferences imp = do
     else return projInit
 
 continueImport
-  :: (Width -> Bool -> IO CInt)
+  :: (?loc :: L)
+  => (Width -> Bool -> IO CInt)
   -> Bool
   -> Importable OnyxInner
   -> Onyx ()
@@ -298,7 +285,8 @@ continueImport makeMenuBar hasAudio imp = do
     else withNoPlan
 
 multipleSongsWindow
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> (Width -> Bool -> IO CInt)
   -> Bool
   -> [Importable OnyxInner]
@@ -307,8 +295,8 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   let windowWidth = Width 500
       windowHeight = Height 400
       windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Select Songs") } |]
+  window <- withUTF8 (l10n "song-list-title") \s -> withSize windowSize \w h ->
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -358,11 +346,11 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
         let newValue = not $ and bools
             checked = length $ filter id bools
             selectLabel, openLabel :: T.Text
-            selectLabel = if newValue then "Select all" else "Select none"
+            selectLabel = if newValue then l10n "song-list-select-all" else l10n "song-list-select-none"
             openLabel = case checked of
-              0 -> "Close"
-              1 -> "Open 1 song"
-              _ -> "Open " <> T.pack (show checked) <> " songs"
+              0 -> l10n "song-list-close"
+              _ -> l10nArgs "song-list-open"
+                [("count", vNumber $ fromIntegral checked)]
         withUTF8 selectLabel \csel ->
           [C.block| void { $(Fl_Button* selectButton)->copy_label($(char* csel)); } |]
         withUTF8 openLabel \copen ->
@@ -447,7 +435,7 @@ currentSongTime stime ss = case ss.songPlaying of
     in (timeToDouble stime - timeToDouble p.playStarted) * p.playSpeed
 
 launchWindow
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> (Width -> Bool -> IO CInt)
   -> Project
@@ -544,21 +532,21 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       liftIO do
         _ <- [C.exp| Fl_Box* { new Fl_Box(0, 0, 800, 5) } |]
         return ()
-      fullWidth $ simpleTextGet "Title" (.title) (#title .~)
+      fullWidth $ simpleTextGet (l10n "label-title") (.title) (#title .~)
       fullWidth \rect' -> do
         let (artistArea, trimClock 0 0 0 50 -> yearArea) = chopRight 120 rect'
-        simpleTextGet "Artist" (.artist) (#artist .~) artistArea
-        simpleTextGetInt "Year" (.year) (#year .~) yearArea
+        simpleTextGet (l10n "label-artist") (.artist) (#artist .~) artistArea
+        simpleTextGetInt (l10n "label-year") (.year) (#year .~) yearArea
       fullWidth \rect' -> do
         let (albumArea, trimClock 0 0 0 30 -> trackNumArea) = chopRight 120 rect'
-        simpleTextGet "Album" (.album) (#album .~) albumArea
+        simpleTextGet (l10n "label-album") (.album) (#album .~) albumArea
         simpleTextGetInt "#" (.trackNumber) (#trackNumber .~) trackNumArea
-      fullWidth $ simpleTextGet "Author" (.author) (#author .~)
+      fullWidth $ simpleTextGet (l10n "label-author") (.author) (#author .~)
       (genreInput, subgenreInput) <- fullWidth \rect' -> let
         [trimClock 0 50 0 0 -> genreArea, trimClock 0 0 0 50 -> subgenreArea] = splitHorizN 2 rect'
         in do
-          genreInput    <- liftIO $ simpleText "Genre"    flNormalInput (.genre   ) genreArea
-          subgenreInput <- liftIO $ simpleText "Subgenre" flNormalInput (.subgenre) subgenreArea
+          genreInput    <- liftIO $ simpleText (l10n "label-genre"   ) flNormalInput (.genre   ) genreArea
+          subgenreInput <- liftIO $ simpleText (l10n "label-subgenre") flNormalInput (.subgenre) subgenreArea
           applyToMetadata (#genre .~) genreInput
           applyToMetadata (#subgenre .~) subgenreInput
           return (genreInput, subgenreInput)
@@ -569,6 +557,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         cover <- liftIO $ withRect rect' \bx by bw bh ->
           [C.exp| HsDndButton* { new HsDndButton($(int bx), $(int by), $(int bw), $(int bh)) } |]
         let setPNG defaultImage f = do
+              -- TODO we probably want to load and scale the image ourselves,
+              -- avoid needing to go through gen/cover.png + better downscale through stbir
               png <- withUTF8 f \cpath ->
                 [C.exp| Fl_PNG_Image* { new Fl_PNG_Image($(char* cpath)) } |]
               [C.block| void {
@@ -600,8 +590,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           setCallback cover $ withNativeFileChooser
             [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
             \picker -> do
-              [C.block| void {
-                $(Fl_Native_File_Chooser* picker)->title("Select album art");
+              withUTF8 (l10n "picker-album-art") \s -> [C.block| void {
+                $(Fl_Native_File_Chooser* picker)->title(fl_strdup($(char* s))); // is fl_strdup required
                 $(Fl_Native_File_Chooser* picker)->filter("*.{png,jpg,jpeg,png_xbox,png_wii}");
               } |]
               result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -768,52 +758,52 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   return $ opts !! fromIntegral i
               makeChoice :: (Eq a, Enum a, Bounded a) => Ptr Fl_Tree_Item -> a -> (a -> T.Text) -> IO (IO a)
               makeChoice = makeChoiceFrom [minBound .. maxBound]
-          mbGRYBO <- forM part.grybo \pg -> addType "5-Fret" \itemCheck -> do
+          mbGRYBO <- forM part.grybo \pg -> addType (l10n "mode-5fret") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #grybo .~ do
                 guard isChecked
                 Just $ (pg :: ModeFive) & #difficulty .~ diff
-          mbGHL <- forM part.ghl \pg -> addType "6-Fret" \itemCheck -> do
+          mbGHL <- forM part.ghl \pg -> addType (l10n "mode-6fret") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #ghl .~ do
                 guard isChecked
                 Just $ (pg :: ModeSix) & #difficulty .~ diff
-          mbProKeys <- forM part.proKeys \pk -> addType "Pro Keys" \itemCheck -> do
+          mbProKeys <- forM part.proKeys \pk -> addType (l10n "mode-pro-keys") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pk.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #proKeys .~ do
                 guard isChecked
                 Just $ (pk :: ModeProKeys) & #difficulty .~ diff
-          mbProGuitar <- forM part.proGuitar \pg -> addType "Pro Guitar" \itemCheck -> do
+          mbProGuitar <- forM part.proGuitar \pg -> addType (l10n "mode-pro-guitar") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pg.difficulty
             return \isChecked curPart -> do
               diff <- getDiff
               return $ curPart & #proGuitar .~ do
                 guard isChecked
                 Just $ (pg :: ModeProGuitar FilePath) & #difficulty .~ diff
-          mbDrums <- forM part.drums \pd -> addType "Drums" \itemCheck -> do
+          mbDrums <- forM part.drums \pd -> addType (l10n "mode-drums") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pd.difficulty
             getMode <- makeChoice itemCheck pd.mode \case
-              Drums4     -> "4-Lane Drums"
-              Drums5     -> "5-Lane Drums"
-              DrumsPro   -> "Pro Drums"
-              DrumsReal  -> "Phase Shift Real Drums"
-              DrumsElite -> "Elite Drums"
+              Drums4     -> l10n "drums-mode-4lane"
+              Drums5     -> l10n "drums-mode-5lane"
+              DrumsPro   -> l10n "drums-mode-pro"
+              DrumsReal  -> l10n "drums-mode-real"
+              DrumsElite -> l10n "drums-mode-elite"
             getKicks <- makeChoice itemCheck pd.kicks \case
-              Kicks1x   -> "1x Bass Pedal"
-              Kicks2x   -> "2x Bass Pedal"
-              KicksBoth -> "1x+2x Bass Pedal (PS X+ or C3 format)"
+              Kicks1x   -> l10n "bass-pedal-1x"
+              Kicks2x   -> l10n "bass-pedal-2x"
+              KicksBoth -> l10n "bass-pedal-both-input"
             getKit <- makeChoice itemCheck pd.kit \case
-              HardRockKit   -> "Hard Rock Kit"
-              ArenaKit      -> "Arena Kit"
-              VintageKit    -> "Vintage Kit"
-              TrashyKit     -> "Trashy Kit"
-              ElectronicKit -> "Electronic Kit"
+              HardRockKit   -> l10n "drums-rb3-kit-hard-rock"
+              ArenaKit      -> l10n "drums-rb3-kit-arena"
+              VintageKit    -> l10n "drums-rb3-kit-vintage"
+              TrashyKit     -> l10n "drums-rb3-kit-trashy"
+              ElectronicKit -> l10n "drums-rb3-kit-electronic"
             return \isChecked curPart -> do
               diff <- getDiff
               mode <- getMode
@@ -826,16 +816,16 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   & #mode       .~ mode
                   & #kicks      .~ kicks
                   & #kit        .~ kit
-          mbVocal <- forM part.vocal \pv -> addType "Vocals" \itemCheck -> do
+          mbVocal <- forM part.vocal \pv -> addType (l10n "mode-vocals") \itemCheck -> do
             getDiff <- makeDifficulty itemCheck pv.difficulty
             getCount <- makeChoice itemCheck pv.count \case
-              Vocal1 -> "Solo"
-              Vocal2 -> "Harmonies (2)"
-              Vocal3 -> "Harmonies (3)"
+              Vocal1 -> l10n "vocals-solo"
+              Vocal2 -> l10n "vocals-harmonies-2"
+              Vocal3 -> l10n "vocals-harmonies-3"
             getGender <- makeChoiceFrom [Nothing, Just Male, Just Female] itemCheck pv.gender \case
-              Nothing     -> "Unspecified Gender"
-              Just Male   -> "Male"
-              Just Female -> "Female"
+              Nothing     -> l10n "gender-unspecified"
+              Just Male   -> l10n "gender-male"
+              Just Female -> l10n "gender-female"
             return \isChecked curPart -> do
               diff   <- getDiff
               count  <- getCount
@@ -846,7 +836,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   & #difficulty .~ diff
                   & #count      .~ count
                   & #gender     .~ gender
-          mbMania <- forM part.mania \pm -> addType "Mania" \_itemCheck -> do
+          mbMania <- forM part.mania \pm -> addType (l10n "mode-mania") \_itemCheck -> do
             return \isChecked curPart -> do
               -- TODO difficulty
               return curPart { mania = guard isChecked >> Just pm }
@@ -1321,7 +1311,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE tgt proj'
               stackIO $ Dir.copyFile tmp fout
-              warn "Make sure you combine songs into packs before playing! Loading more than 16 package files will corrupt your GH2 save."
+              warn $ T.unpack $ l10n "warning-gh2-packs"
               return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
@@ -1341,7 +1331,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             GH3LIVE{}     -> "Building GH3 LIVE file"
             GH3PKG{}      -> "Building GH3 PKG file"
             GH3LoosePS3{} -> "Building GH3 PS3 folders"
-          warnCache = warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          warnCache = warn $ T.unpack $ l10n "warning-gh3-cache"
           task = case create of
             GH3LIVE fout -> do
               tmp <- buildGH3LIVE tgt proj'
@@ -2544,7 +2534,7 @@ data QuickFoFTask
   deriving (Eq)
 
 pageQuickConvertCH
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -2573,10 +2563,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   (checkMIDI, processorMIDI) <- do
     check <- withRect processorBox \cx cy cw ch ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), ".chart to MIDI") } |]
-    [C.block| void { $(Fl_Check_Button* check)->tooltip(
-      "Converts all .chart files to .mid."
-    ); } |]
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-ch-chart-to-midi" []) check
     setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkPSTapOpen)->value(0); } |]
@@ -2587,10 +2575,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   (checkPSTapOpen, processorPSTapOpen) <- do
     check <- withRect processorBox \cx cy cw ch ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "PS tap/open format") } |]
-    [C.block| void { $(Fl_Check_Button* check)->tooltip(
-      "Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords."
-    ); } |]
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-ch-ps-tap-open" []) check
     setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
@@ -2601,10 +2587,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   (checkOgg, processorOgg) <- do
     check <- withRect processorBox \cx cy cw ch ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .ogg") } |]
-    [C.block| void { $(Fl_Check_Button* check)->tooltip(
-      "Reencode audio files as Ogg Vorbis if they are not already."
-    ); } |]
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-ch-audio-ogg" []) check
     setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkOpus)->value(0); } |]
@@ -2614,10 +2598,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       )
   (checkOpus, processorOpus) <- do
     check <- withRect processorBox \cx cy cw ch ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Audio to .opus") } |]
-    [C.block| void { $(Fl_Check_Button* check)->tooltip(
-      "Reencode audio file as Opus if they are not already."
-    ); } |]
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-ch-audio-opus" []) check
     setCallback check do
       checked <- checkValue check
       when checked [C.block| void { $(Fl_Check_Button* checkOgg)->value(0); } |]
@@ -2628,10 +2610,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   processorRealToElite <- do
     check <- withRect processorBox \cx cy cw ch ->
-      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Real Drums to Elite") } |]
-    [C.block| void { $(Fl_Check_Button* check)->tooltip(
-      "If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums."
-    ); } |]
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-ch-real-drums-to-elite" []) check
     return do
       checked <- checkValue check
       return if checked then fillEliteFromPSReal else return
@@ -3142,13 +3122,13 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
   } |]
 
-launchQuickConvert' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchQuickConvert' :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
   prefs <- readPreferences
   let ?preferences = prefs
   stackIO $ launchQuickConvert sink makeMenuBar
 
-launchQuickConvert :: (?preferences :: Preferences) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchQuickConvert :: (?preferences :: Preferences, ?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchQuickConvert sink makeMenuBar = mdo
   let windowWidth = Width 1000
       windowHeight = Height 600
@@ -3166,23 +3146,23 @@ launchQuickConvert sink makeMenuBar = mdo
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
   functionTabs <- sequence
-    [ makeTab windowRect "RB quick convert + pack creator" \rect tab -> do
+    [ makeTab windowRect (l10n "quick-convert-tab-rb") \rect tab -> do
       setTabColor tab functionTabColor
       pageQuickConvertRB sink rect tab startTasks
       return tab
-    , makeTab windowRect "CH quick convert" \rect tab -> do
+    , makeTab windowRect (l10n "quick-convert-tab-ch") \rect tab -> do
       setTabColor tab functionTabColor
       pageQuickConvertCH sink rect tab startTasks
       return tab
-    , makeTab windowRect "RR renumber" \rect tab -> do
+    , makeTab windowRect (l10n "quick-convert-tab-rr-renumber") \rect tab -> do
       setTabColor tab functionTabColor
       pageRenumberRR sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH2 pack creator" \rect tab -> do
+    , makeTab windowRect (l10n "quick-convert-tab-gh2-pack") \rect tab -> do
       setTabColor tab functionTabColor
       miscPagePacks sink rect tab startTasks
       return tab
-    , makeTab windowRect "RB legacy CON->PKG" \rect tab -> do
+    , makeTab windowRect (l10n "quick-convert-tab-rb-legacy-pkg") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageCONtoPKG sink rect tab startTasks
       return tab
@@ -3212,7 +3192,7 @@ launchQuickConvert sink makeMenuBar = mdo
     $(Fl_Window* window)->show();
   } |]
 
-launchMisc :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
+launchMisc :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchMisc sink makeMenuBar = mdo
   let windowWidth = Width 900
       windowHeight = Height 600
@@ -3230,39 +3210,39 @@ launchMisc sink makeMenuBar = mdo
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
   functionTabs <- sequence
-    [ makeTab windowRect "MIDI stuff" \rect tab -> do
+    [ makeTab windowRect (l10n "misc-tab-midi-stuff") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageMIDI sink rect tab startTasks
       return tab
-    , makeTab windowRect "MOGG/VGS/FSB" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-mogg-vgs-fsb") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageMOGG sink rect tab startTasks
       return tab
-    , makeTab windowRect "Lipsync" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-lipsync") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageLipsync sink rect tab startTasks
       return tab
-    , makeTab windowRect "Dry vox" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-dry-vox") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageDryVox sink rect tab startTasks
       return tab
-    , makeTab windowRect ".milo" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-milo") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageMilo sink rect tab startTasks
       return tab
-    , makeTab windowRect "RB3 cache" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-rb3-cache") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageHardcodeSongCache sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH3 cache" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-gh3-cache") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageGH3SongCache sink rect tab startTasks
       return tab
-    , makeTab windowRect "GH:WoR cache" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-ghwor-cache") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageWoRSongCache sink rect tab startTasks
       return tab
-    , makeTab windowRect "CON to PKG" \rect tab -> do
+    , makeTab windowRect (l10n "misc-tab-con-to-pkg") \rect tab -> do
       setTabColor tab functionTabColor
       miscPageCONtoPKG sink rect tab startTasks
       return tab
@@ -3297,7 +3277,7 @@ launchMisc sink makeMenuBar = mdo
 data GLStatus = GLPreload | GLLoaded RGGraphics.GLStuff | GLFailed
 
 previewGroup
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> IO PreviewSong
@@ -3451,40 +3431,31 @@ applyDownmix prefs song = if prefs.prefCHDownmix
   then mixDownStems song
   else song
 
-launchBatch' :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
+launchBatch' :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
 launchBatch' sink makeMenuBar startFiles = sink $ EventOnyx do
   prefs <- readPreferences
   let ?preferences = prefs
   stackIO $ launchBatch sink makeMenuBar startFiles
 
-warnQuickConvert :: Int -> (Event -> IO ()) -> Onyx () -> Onyx ()
+warnQuickConvert :: (?loc :: L) => Int -> (Event -> IO ()) -> Onyx () -> Onyx ()
 warnQuickConvert count sink go = let
-  warningText = T.concat
-    [ "You appear to be converting "
-    , if count == 1 then "a Rock Band song" else "Rock Band songs"
-    , " to RB3 at 100% speed.\n"
-    , "If you don't want to change anything about the "
-    , if count == 1 then "song" else "songs"
-    , " except console platform,\n"
-    , "you should use Quick Convert to preserve the "
-    , if count == 1 then "song ID" else "song IDs"
-    , " for online compatibility."
-    ]
+  warningText = l10nArgs "warning-rb-quick-convert"
+    [("count", vNumber $ fromIntegral count)]
   in stackIO do
     withUTF8 warningText \cmsg -> do
       result <- [C.exp| int { fl_choice("%s", "Cancel", "Start", nullptr, $(char* cmsg)) } |]
       when (result == 1) $ sink $ EventOnyx go
 
 launchBatch
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> [FilePath] -> IO ()
 launchBatch sink makeMenuBar startFiles = mdo
   loadedFiles <- newMVar []
   let windowWidth = Width 800
       windowHeight = Height 500
       windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), "Batch Recompile") } |]
+  window <- withUTF8 (l10n "function-batch") \s -> withSize windowSize \w h ->
+    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
   menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
   let (_, windowRect) = chopTop menuHeight $ Rectangle
         (Position (X 0) (Y 0))
@@ -3507,9 +3478,10 @@ launchBatch sink makeMenuBar startFiles = mdo
         ]
       sublines = concat
         [ case imp.impAuthor of
-          Just author | T.any (not . isSpace) author -> ["Author: " <> author]
-          _                                          -> []
-        , ["Format: " <> imp.impFormat]
+          Just author | T.any (not . isSpace) author ->
+            [l10nArgs "batch-tab-songs-data-author" [("author", vString author)]]
+          _ -> []
+        , [l10nArgs "batch-tab-songs-data-format" [("format", vString imp.impFormat)]]
         , ["Path: " <> T.pack imp.impPath <> index]
         ]
       index = case imp.impIndex of
@@ -3519,19 +3491,20 @@ launchBatch sink makeMenuBar startFiles = mdo
     getter <- do
       let subrects = splitHorizN 7 importToggles
           insts =
-            [ ("Guitar", Just Guitar)
-            , ("Bass"  , Just Bass  )
-            , ("Drums" , Just Drums )
-            , ("Keys"  , Just Keys  )
-            , ("Vocals", Just Vocal )
-            , ("Other" , Nothing    )
+            [ (l10n "instrument-guitar", Just Guitar)
+            , (l10n "instrument-bass"  , Just Bass  )
+            , (l10n "instrument-drums" , Just Drums )
+            , (l10n "instrument-keys"  , Just Keys  )
+            , (l10n "instrument-vocals", Just Vocal )
+            , (l10n "instrument-other" , Nothing    )
             ]
-      void $ withRect (head subrects) \bx by bw bh ->
-        [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), "Import:") } |]
+      void $ withUTF8 (l10n "batch-tab-songs-import-label") \s ->
+        withRect (head subrects) \bx by bw bh ->
+          [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* s))) } |]
       getters <- forM (zip insts $ drop 1 subrects) \((txt, inst), subrect) -> do
         btn <- withRect subrect \bx by bw bh ->
           [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        withUTF8 (txt :: T.Text) \clbl ->
+        withUTF8 txt \clbl ->
           [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
         [C.block| void { $(Fl_Check_Button* btn)->value(1); } |]
         return do
@@ -3563,7 +3536,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           return $ HM.delete proj.projectLocation m
         either throwNoContext return res
   functionTabs <- sequence
-    [ makeTab windowRect "RB3" \rect tab -> do
+    [ makeTab windowRect (l10n "game-tab-rb3") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageRB3 sink rect tab \qcPossible settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3591,7 +3564,7 @@ launchBatch sink makeMenuBar startFiles = mdo
           then warnQuickConvert (length files) sink go
           else go
       return tab
-    , makeTab windowRect "RB2" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-rb2") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageRB2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3612,7 +3585,7 @@ launchBatch sink makeMenuBar startFiles = mdo
                 folder <- buildRB2LoosePS3 target proj'
                 stackIO $ installPS3Folder "BLUS30050" (Just "pkg-contents/rb2") folder dout
       return tab
-    , makeTab windowRect "Clone Hero" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-clone-hero") \rect tab -> do
       setTabColor tab functionTabColor
       batchPagePS sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3638,7 +3611,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               stackIO $ Dir.copyFile tmp fout
               return [fout]
       return tab
-    , makeTab windowRect "GH1" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-gh1") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageGH1 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3653,7 +3626,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH1DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "GH2" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-gh2") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageGH2 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3664,7 +3637,7 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH2LIVE fout    -> do
               tmp <- buildGH2LIVE target proj'
               stackIO $ Dir.copyFile tmp fout
-              warn "Make sure you combine songs into packs (go to 'Other tools') before playing! Loading more than 16 package files will corrupt your GH2 save."
+              warn $ T.unpack $ l10n "warning-gh2-packs"
               return [fout]
             GH2ARK fout loc -> case loc of
               GH2AddBonus -> do
@@ -3675,7 +3648,7 @@ launchBatch sink makeMenuBar startFiles = mdo
               makeGH2DIY target proj' fout
               return [fout]
       return tab
-    , makeTab windowRect "GH3" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-gh3") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageGH3 sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
@@ -3694,17 +3667,17 @@ launchBatch sink makeMenuBar startFiles = mdo
             GH3LoosePS3 dout -> do
               folder <- buildGH3LoosePS3 target proj'
               stackIO $ installPS3Folder "BLUS30074" (Just "pkg-contents/gh3") folder dout
-          warn "Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          warn $ T.unpack $ l10n "warning-gh3-cache"
           return results
       return tab
-    , makeTab windowRect "GH:WoR" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-ghwor") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageGHWOR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          let warnWoR = warn "Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs."
+          let warnWoR = warn $ T.unpack $ l10n "warning-ghwor-cache"
           case creator of
             GHWORLIVE fout -> do
               tmp <- buildGHWORLIVE target proj'
@@ -3720,14 +3693,14 @@ launchBatch sink makeMenuBar startFiles = mdo
               folder <- buildGHWORLoosePS3 target proj'
               stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") folder dout
       return tab
-    , makeTab windowRect "RR" \rect tab -> do
+    , makeTab windowRect (l10n "game-tab-rock-revolution") \rect tab -> do
       setTabColor tab functionTabColor
       batchPageRR sink rect tab \settings -> sink $ EventOnyx do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map (.impPath) files) $ files <&> \f -> doImport f \proj -> do
           let ((target, creator), yaml) = settings proj
           proj' <- stackIO $ filterParts yaml >>= saveProject proj
-          let warnRR = warn "All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use \"Quick Convert > RR renumber\" to reassign IDs."
+          let warnRR = warn $ T.unpack $ l10n "warning-rr-renumber"
           case creator of
             RRLIVE fout -> do
               tmp <- buildRRLIVE target proj'
@@ -4351,7 +4324,7 @@ launchPreferences sink makeMenuBar = do
       $(Fl_Window* window)->show();
     } |]
 
-launchGUI :: [FilePath] -> IO ()
+launchGUI :: (?loc :: L) => [FilePath] -> IO ()
 launchGUI initSongs = withAL \hasAudio -> do
   [C.block| void {
     Fl::scheme("gtk+");
@@ -4367,8 +4340,8 @@ launchGUI initSongs = withAL \hasAudio -> do
   -- terminal
   let consoleWidth = 650
       consoleHeight = 480
-  termWindow <- [C.exp| Fl_Window* {
-    new Fl_Double_Window($(int consoleWidth), $(int consoleHeight), "Onyx Console")
+  termWindow <- withUTF8 (l10n "console") \s -> [C.exp| Fl_Window* {
+    new Fl_Double_Window($(int consoleWidth), $(int consoleHeight), fl_strdup($(char* s)))
   } |]
   [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
   -- TODO set icon
@@ -4381,27 +4354,27 @@ launchGUI initSongs = withAL \hasAudio -> do
             menuX = 0
             menuY = 0
             menuOptions =
-              [ ( "File/Open Song"
+              [ ( l10n "menu-file" <> "/" <> l10n "menu-file-load"
                 , [C.pure| int { FL_COMMAND + 'o' } |]
                 , promptLoad sink makeMenuBar hasAudio
                 , 0
                 )
-              , ( "File/Batch Recompile"
+              , ( l10n "menu-file" <> "/" <> l10n "menu-file-batch"
                 , [C.pure| int { FL_COMMAND + 'b' } |]
                 , launchBatch' sink makeMenuBar []
                 , 0
                 )
-              , ( "File/Quick Convert"
+              , ( l10n "menu-file" <> "/" <> l10n "menu-file-quick"
                 , [C.pure| int { FL_COMMAND + 'u' } |]
                 , launchQuickConvert' sink makeMenuBar
                 , 0
                 )
-              , ( "File/Tools"
+              , ( l10n "menu-file" <> "/" <> l10n "menu-file-other"
                 , [C.pure| int { FL_COMMAND + 't' } |]
                 , launchMisc sink makeMenuBar
                 , 0
                 )
-              , ( "File/Close Window"
+              , ( l10n "menu-file" <> "/" <> l10n "menu-file-close"
                 , [C.pure| int { FL_COMMAND + 'w' } |]
                 , [C.block| void {
                     // Can't reproduce consistently, but sometimes on Windows, first_window returns one of
@@ -4413,30 +4386,30 @@ launchGUI initSongs = withAL \hasAudio -> do
                   } |]
                 , 0
                 )
-              , ( "Edit/Preferences"
+              , ( l10n "menu-edit" <> "/" <> l10n "menu-edit-preferences"
                 , 0 -- maybe Cmd+, on Mac
                 , sink $ EventOnyx $ launchPreferences sink makeMenuBar
                 , 0
                 )
-              , ( "Help/Readme"
+              , ( l10n "menu-help" <> "/" <> l10n "menu-help-readme"
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "README.html" >>= osOpenFile
                 , 0
                 )
-              , ( "Help/Update history"
+              , ( l10n "menu-help" <> "/" <> l10n "menu-help-updates"
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "CHANGES.txt" >>= osOpenFile
                 , 0
                 )
-              , ( "Help/License"
+              , ( l10n "menu-help" <> "/" <> l10n "menu-help-license"
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "LICENSE.txt" >>= osOpenFile
                 , 0
                 )
-              , ( "Help/Credits"
+              , ( l10n "menu-help" <> "/" <> l10n "menu-help-credits"
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "CREDITS.txt" >>= osOpenFile
@@ -4445,7 +4418,7 @@ launchGUI initSongs = withAL \hasAudio -> do
               ] ++ do
                 guard includeConsole
                 return
-                  ( "View/Show Console"
+                  ( l10n "menu-view" <> "/" <> l10n "menu-view-console"
                   , [C.pure| int { FL_CTRL + '`' } |]
                   , [C.block| void { $(Fl_Window* termWindow)->show(); } |]
                   , 0
@@ -4456,7 +4429,7 @@ launchGUI initSongs = withAL \hasAudio -> do
             -- TODO need to set window_menu_style to avoid weird slash submenu,
             -- see details in launchWindow
             forM_ menuOptions \(a, b, c, d) -> do
-              withUTF8 (a :: String) \str -> do
+              withUTF8 a \str -> do
                 cb <- makeCallback \_ _ -> c
                 [C.block| void {
                   $(Fl_Sys_Menu_Bar* menu)->add($(char* str), $(int b), $(Fl_Callback cb), nullptr, $(int d));
@@ -4479,28 +4452,27 @@ launchGUI initSongs = withAL \hasAudio -> do
   menuHeight <- makeMenuBar (Width consoleWidth) macOS
   cbGithub <- makeCallback \_ _ ->
     osOpenFile "https://github.com/mtolly/onyx/releases"
-  [C.block| void {
-    Fl_Button* buttonGithub = new Fl_Button(10, 10 + $(int menuHeight), 100, 25, "Homepage");
+  withUTF8 (l10n "homepage") \s -> [C.block| void {
+    Fl_Button* buttonGithub = new Fl_Button(10, 10 + $(int menuHeight), 100, 25, fl_strdup($(char* s)));
     buttonGithub->callback($(Fl_Callback cbGithub));
   } |]
-  labelLatest <- withUTF8 ("Checking for updates…" :: T.Text) \s ->
+  labelLatest <- withUTF8 (l10n "version-checking") \s ->
     [C.exp| Fl_Box* { new Fl_Box(120, 10 + $(int menuHeight), 520, 25, fl_strdup($(char* s))) } |]
-  _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO do
-    let compInt = case comp of
-          EQ -> 0
-          LT -> -1
-          GT -> 1
-    [C.block| void {
-      if ($(int compInt) < 0) {
-        $(Fl_Box* labelLatest)->label("New version available!");
+  _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO $ case comp of
+    LT -> withUTF8 (l10n "version-new") \s ->
+      [C.block| void {
+        $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
-      } else if ($(int compInt) == 0) {
-        $(Fl_Box* labelLatest)->label("You are using the latest version.");
-      } else {
-        $(Fl_Box* labelLatest)->label("Prerelease version");
+      } |]
+    EQ -> withUTF8 (l10n "version-latest") \s ->
+      [C.block| void {
+        $(Fl_Box* labelLatest)->copy_label($(char* s));
+      } |]
+    GT -> withUTF8 (l10n "version-prerelease") \s ->
+      [C.block| void {
+        $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
-      }
-    } |]
+      } |]
   term <- [C.block| Fl_Simple_Terminal* {
     Fl_Simple_Terminal* term = new Fl_Simple_Terminal
       ( 10
@@ -4520,8 +4492,8 @@ launchGUI initSongs = withAL \hasAudio -> do
       [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
 
   cbButtonOpen <- makeCallback \_ _ -> promptLoad sink makeMenuBar hasAudio
-  buttonOpen <- withRect areaOpen \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), "Load a song") } |]
+  buttonOpen <- withUTF8 (l10n "function-load") \s -> withRect areaOpen \x y w h ->
+    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
   [C.block| void {
     $(HsDndButton* buttonOpen)->color($(Fl_Color loadSongColor));
     $(HsDndButton* buttonOpen)->callback($(Fl_Callback cbButtonOpen));
@@ -4530,8 +4502,8 @@ launchGUI initSongs = withAL \hasAudio -> do
   setDndButtonCallback buttonOpen (sink . EventOnyx . startLoad makeMenuBar hasAudio)
 
   cbButtonBatch <- makeCallback \_ _ -> launchBatch' sink makeMenuBar []
-  buttonBatch <- withRect areaBatch \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), "Batch recompile") } |]
+  buttonBatch <- withUTF8 (l10n "function-batch") \s -> withRect areaBatch \x y w h ->
+    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
   [C.block| void {
     $(HsDndButton* buttonBatch)->color($(Fl_Color batchProcessColor));
     $(HsDndButton* buttonBatch)->callback($(Fl_Callback cbButtonBatch));
@@ -4540,16 +4512,16 @@ launchGUI initSongs = withAL \hasAudio -> do
   setDndButtonCallback buttonBatch (launchBatch' sink makeMenuBar)
 
   cbButtonQuick <- makeCallback \_ _ -> launchQuickConvert' sink makeMenuBar
-  withRect areaQuick \x y w h -> [C.block| void {
-    Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Quick convert/pack");
+  withUTF8 (l10n "function-quick") \s -> withRect areaQuick \x y w h -> [C.block| void {
+    Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
     buttonQuick->color($(Fl_Color quickConvertColor));
     buttonQuick->callback($(Fl_Callback cbButtonQuick));
     buttonQuick->labelsize(13);
   } |]
 
   cbButtonMisc <- makeCallback \_ _ -> launchMisc sink makeMenuBar
-  withRect areaMisc \x y w h -> [C.block| void {
-    Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), "Other tools");
+  withUTF8 (l10n "function-other") \s -> withRect areaMisc \x y w h -> [C.block| void {
+    Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
     buttonMisc->color($(Fl_Color miscColor));
     buttonMisc->callback($(Fl_Callback cbButtonMisc));
     buttonMisc->labelsize(13);

@@ -49,8 +49,6 @@ rubberband:
 	cd libs/rubberband && ninja -C build install
 
 fltk:
-	# TODO previously we hacked fltkhs to disable kdialog support,
-	# do we still need to do that or is it fixed up now?
 	# pen support is off because it fails to build on my windows 10 22h2 vm.
 	cd libs/fltk && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake . -B build -DCMAKE_INSTALL_PREFIX=$(current_dir)/root \
 		-DFLTK_USE_SYSTEM_LIBJPEG=OFF -DFLTK_USE_SYSTEM_ZLIB=OFF -DFLTK_USE_SYSTEM_LIBPNG=OFF \

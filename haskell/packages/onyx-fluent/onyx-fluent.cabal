@@ -5,9 +5,13 @@ build-type:     Simple
 
 library
   exposed-modules:
+
+    Onyx.Localization
+
     Text.Fluent.Syntax
     Text.Fluent.Logic
     Text.Fluent.Locale
+
   hs-source-dirs:
     src
   ghc-options: -Wall
@@ -18,4 +22,8 @@ library
     , megaparsec
     , unordered-containers
     , scientific
+    , filepath
+    , directory
+    , yaml
+    , aeson
   default-language: Haskell2010

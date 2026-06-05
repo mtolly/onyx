@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE ViewPatterns          #-}
@@ -14,9 +15,11 @@ module Onyx.GUI.Util
 , Cast(..)
 , setCallback
 , withNativeFileChooser
+, setLabelTooltip
 ) where
 
 import           Control.Exception        (bracket)
+import           Control.Monad            (forM_)
 import qualified Data.ByteString          as B
 import qualified Data.Text                as T
 import qualified Data.Text.Encoding       as TE
@@ -136,3 +139,10 @@ askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s ->
 
 askFolder :: Maybe FilePath -> (FilePath -> IO ()) -> IO ()
 askFolder initial fn = askFolderResult initial >>= mapM_ fn
+
+setLabelTooltip :: (Cast a Fl_Widget) => (T.Text, [(T.Text, T.Text)]) -> Ptr a -> IO ()
+setLabelTooltip (label, attrs) ptr = do
+  let widget = cast ptr
+  withUTF8 label \s -> [C.block| void { $(Fl_Widget* widget)->copy_label($(char* s)); } |]
+  forM_ (lookup "tooltip" attrs) \t -> withUTF8 t \s ->
+    [C.block| void { $(Fl_Widget* widget)->copy_tooltip($(char* s)); } |]

@@ -93,6 +93,7 @@ executables:
     - onyx-lib
     - onyx-lib-game
     - onyx-handle
+    - onyx-fluent
 
     # everything for fltk is added via Setup.hs running fltk-config
 

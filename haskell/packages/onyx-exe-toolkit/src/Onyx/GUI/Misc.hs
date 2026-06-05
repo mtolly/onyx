@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -31,9 +32,11 @@ import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
 import           Onyx.GUI.Util                (askFolder, peekUTF8, setCallback,
+                                               setLabelTooltip,
                                                withNativeFileChooser, withUTF8)
 import           Onyx.Harmonix.RockBand.Milo  as Milo
 import           Onyx.Import                  (installPS3Folder)
+import           Onyx.Localization            (L, l10n, l10nFull)
 import           Onyx.MIDI.Read               (mapTrack)
 import qualified Onyx.MIDI.Track.File         as F
 import           Onyx.MIDI.Track.Lipsync
@@ -65,7 +68,8 @@ C.include "FL/Fl_Pack.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 
 miscPageMilo
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -75,7 +79,8 @@ miscPageMilo sink rect tab startTasks = do
     [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
   padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Extract .milo to folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    setLabelTooltip (l10nFull "misc-button-extract-milo" []) btn
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
@@ -105,7 +110,8 @@ miscPageMilo sink rect tab startTasks = do
                 in startTasks [("Extract " <> fin, task)]
   padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
     btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Repack .milo from folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    setLabelTooltip (l10nFull "misc-button-repack-milo" []) btn
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ askFolder Nothing \din -> do
       let dinText = T.pack din
@@ -596,7 +602,8 @@ miscPageDryVox sink rect tab startTasks = do
   } |]
 
 miscPageGH3SongCache
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -611,7 +618,8 @@ miscPageGH3SongCache sink rect tab startTasks = do
     in (entry, sublines)
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
   btn1 <- withRect xboxRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH3 cache (360)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-gh3-cache-360" []) btn1
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -630,9 +638,10 @@ miscPageGH3SongCache sink rect tab startTasks = do
           task = do
             combineGH3SongCache360 inputs f
             return [f]
-          in [("Make GH3 cache file", task)]
+          in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
   btn2 <- withRect ps3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH3 cache (PS3)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-gh3-cache-ps3" []) btn2
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -651,9 +660,10 @@ miscPageGH3SongCache sink rect tab startTasks = do
           task = do
             combineGH3SongCachePS3 inputs f
             return [f]
-          in [("Make GH3 cache file", task)]
+          in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
   btn3 <- withRect looseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH3 cache (RPCS3)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-gh3-cache-install-rpcs3" []) btn3
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
   setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
@@ -665,10 +675,11 @@ miscPageGH3SongCache sink rect tab startTasks = do
               GuitarHero3         -> "BLUS30074"
               GuitarHeroAerosmith -> "BLUS30133"
         stackIO $ installPS3Folder gameID (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
-      in [("Install GH3 cache file", task)]
+      in [(T.unpack $ l10n "misc-task-install-gh3-cache", task)]
 
 miscPageWoRSongCache
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -683,7 +694,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
     in (entry, sublines)
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
   btn1 <- withRect xboxRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH:WoR cache (360)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-ghwor-cache-360" []) btn1
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -702,9 +714,10 @@ miscPageWoRSongCache sink rect tab startTasks = do
           task = do
             makeMetadataLIVE inputs f
             return [f]
-          in [("Make WoR cache file", task)]
+          in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
   btn2 <- withRect ps3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create GH:WoR cache (PS3)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-ghwor-cache-ps3" []) btn2
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -723,9 +736,10 @@ miscPageWoRSongCache sink rect tab startTasks = do
           task = do
             makeMetadataPKG inputs f
             return [f]
-          in [("Make WoR cache file", task)]
+          in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
   btn3 <- withRect looseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Install GH:WoR cache (RPCS3)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-ghwor-cache-install-rpcs3" []) btn3
   [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
   setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
@@ -734,10 +748,11 @@ miscPageWoRSongCache sink rect tab startTasks = do
       task = do
         folder <- getAllMetadata inputs >>= stackIO . metadataPS3Folder
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
-      in [("Install GH3 cache file", task)]
+      in [(T.unpack $ l10n "misc-task-install-ghwor-cache", task)]
 
 miscPageCONtoPKG
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -760,10 +775,12 @@ miscPageCONtoPKG sink rect tab startTasks = do
             return [pkg]
           in (input, task)
   btn1 <- withRect rb2Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Convert to PKG (RB2)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-con-to-pkg-rb2" []) btn1
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ callback False
   btn2 <- withRect rb3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Convert to PKG (RB3)") } |]
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  setLabelTooltip (l10nFull "misc-button-con-to-pkg-rb3" []) btn2
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ callback True

@@ -18,6 +18,7 @@ packages:
   packages/onyx-moggcrypt
   packages/onyx-autochart
   packages/onyx-vorbisenc
+  packages/onyx-fluent
 
 allow-newer: all:all
 

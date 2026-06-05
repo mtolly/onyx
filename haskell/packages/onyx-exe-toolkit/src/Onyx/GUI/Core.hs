@@ -845,7 +845,8 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
   return (group, void clearFiles)
 
 -- | Parse the text from an FLTK DnD paste event into file paths.
--- Linux uses URL encoding: file:///path/to/file with percent-encoded non-ASCII.
+-- Linux X11 uses URL encoding: file:///path/to/file with percent-encoded non-ASCII.
+-- We could also use fl_decode_uri but ours works
 parseDndText :: String -> [String]
 parseDndText str = map (T.unpack . removeProtocol) $ T.lines $ T.pack str
   where

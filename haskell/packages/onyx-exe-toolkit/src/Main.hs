@@ -1,6 +1,9 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE CPP            #-}
-{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ImplicitParams      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Main (main) where
 
 import           Control.Exception            (displayException)
@@ -9,6 +12,8 @@ import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Onyx.CommandLine             (commandLine)
 import           Onyx.GUI                     (launchGUI)
+import           Onyx.Localization
+import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace
 import           System.Environment           (getArgs)
 import           System.Exit
@@ -26,6 +31,18 @@ main = do
 #ifdef WINDOWS
   initCOM
 #endif
+
+  -- load english for now, will eventually select via preference
+  langRoot <- getResourcesPath "localization"
+  langs <- loadLanguages langRoot
+  let tryLanguage code = case filter (\lang -> lang.code == code) langs of
+        lang : _ -> Just <$> loadLanguage langRoot lang
+        []       -> return Nothing
+  loc <- tryLanguage "en" >>= \case
+    Nothing  -> fail "Couldn't load localization data"
+    Just loc -> return loc
+  let ?loc = loc
+
   argv <- getArgs
   case argv of
     []          -> launchGUI []

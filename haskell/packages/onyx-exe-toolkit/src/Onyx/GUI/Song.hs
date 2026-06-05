@@ -28,9 +28,10 @@ import           Onyx.Build                 (targetTitle)
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
 import           Onyx.GUI.Util              (askFolder, checkValue, setCallback,
-                                             withUTF8)
+                                             setLabelTooltip, withUTF8)
 import           Onyx.Harmonix.Ark.GH2      (GH2InstallLocation (..))
 import           Onyx.Import
+import           Onyx.Localization          (L, l10n, l10nFull)
 import           Onyx.Mode                  (anyDrums, anyFiveFret)
 import           Onyx.Preferences           (Preferences (..), getDefaultPS3Dir,
                                              readPreferences)
@@ -44,14 +45,9 @@ C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Group.H"
-C.include "FL/Fl_Box.H"
 C.include "FL/Fl_Button.H"
 C.include "FL/Fl_Check_Button.H"
-C.include "FL/Fl_Input.H"
-C.include "FL/Fl_Counter.H"
-C.include "FL/Fl_Choice.H"
 C.include "FL/Fl_Pack.H"
-C.include "FL/Fl_Native_File_Chooser.H"
 
 songPageRB3
   :: (?preferences :: Preferences)
@@ -644,7 +640,7 @@ songPageGH3 sink rect tab proj build = mdo
   return ()
 
 songPageGH1
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -704,7 +700,7 @@ songPageGH1 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
-      browseFileChooser "Select .HDR file" \f -> let
+      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
         gen = takeDirectory f
         in build tgt $ GH1ARK gen
     btn2 <- withRect r2 \bx by bw bh ->
@@ -721,7 +717,7 @@ songPageGH1 sink rect tab proj build = mdo
   return ()
 
 songPageGH2
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -801,7 +797,8 @@ songPageGH2 sink rect tab proj build = mdo
     fullWidth 35 \rect' -> do
       let [rectA, rectB] = splitHorizN 2 rect'
       boxA <- liftIO $ withRect rectA \cx cy cw ch ->
-        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Make practice mode audio for PS2") } |]
+        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+      liftIO $ setLabelTooltip (l10nFull "toggle-ps2-practice-audio" []) boxA
       tell do
         b <- checkValue boxA
         return $ Endo \gh2 -> gh2 { practiceAudio = b }
@@ -821,7 +818,7 @@ songPageGH2 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
-      browseFileChooser "Select .HDR file" \f -> let
+      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
         gen = takeDirectory f
         in build tgt $ GH2ARK gen GH2AddBonus
     btn2 <- withRect r2 \bx by bw bh ->

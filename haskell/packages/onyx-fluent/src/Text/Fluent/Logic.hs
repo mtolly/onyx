@@ -4,6 +4,7 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StrictData            #-}
 module Text.Fluent.Logic where
 
 import           Control.Monad          (guard)
@@ -21,24 +22,39 @@ import           Text.Megaparsec
 import           Text.Read              (readMaybe)
 
 data Fluent = Fluent
-  { messages :: HM.HashMap Identifier Message
-  , terms    :: HM.HashMap Identifier Term
-  , plural   :: PluralRule
+  { ftl    :: FTL
+  , plural :: PluralRule
   }
 
-loadFTL :: (MonadIO m, MonadFail m) => FilePath -> m Fluent
+data FTL = FTL
+  { messages :: HM.HashMap Identifier Message
+  , terms    :: HM.HashMap Identifier Term
+  } deriving (Show)
+
+instance Semigroup FTL where
+  x <> y = FTL
+    { messages = x.messages <> y.messages
+    , terms    = x.terms    <> y.terms
+    }
+
+instance Monoid FTL where
+  mempty = FTL
+    { messages = mempty
+    , terms    = mempty
+    }
+
+loadFTL :: (MonadIO m, MonadFail m) => FilePath -> m FTL
 loadFTL f = do
   t <- liftIO $ TE.decodeUtf8 <$> B.readFile f
   case parse resource f t of
     Left  err -> fail $ show err
-    Right res -> return Fluent
+    Right res -> return FTL
       { messages = HM.fromList [ (i, x) | Entry (EMessage i x) <- res ]
       , terms    = HM.fromList [ (i, x) | Entry (ETerm    i x) <- res ]
-      , plural   = fromMaybe (const PluralOther) $ HM.lookup "en" pluralRules -- TODO load locale
       }
 
 getMessage :: Identifier -> HM.HashMap Identifier Value -> Fluent -> Maybe (T.Text, [(Identifier, T.Text)])
-getMessage k args fluent = HM.lookup k fluent.messages >>= \(Message pat attrs) -> let
+getMessage k args fluent = HM.lookup k fluent.ftl.messages >>= \(Message pat attrs) -> let
   result = runPattern args (fromMaybe [] pat) fluent
   attrResults = do
     Attribute attr attrPat <- attrs
@@ -76,7 +92,7 @@ runExpressionValue args x fluent = case x of
         Just attr -> case lookup attr attrs of
           Nothing        -> "{" <> msg <> "." <> attr <> "}"
           Just attrValue -> attrValue
-    ITerm t maybeAttr termArgs -> VString $ case HM.lookup t fluent.terms of
+    ITerm t maybeAttr termArgs -> VString $ case HM.lookup t fluent.ftl.terms of
       Nothing -> "{-" <> t <> "}"
       Just (Term pat attrs) -> let
         fullArgs = case termArgs of

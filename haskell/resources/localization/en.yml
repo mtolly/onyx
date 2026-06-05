@@ -1,0 +1,6 @@
+code: en
+name: English
+name-en: English
+plural: en
+fluent:
+- en/main.ftl
