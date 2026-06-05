@@ -72,6 +72,8 @@ format-song-artist =
   {$title} ({$artist})
 
 speed-percent = Speed (%)
+speed-percent-tooltip =
+  Change the speed of the chart and its audio (without changing pitch).
 
 bass-pedal-1x = 1x Bass Pedal
 bass-pedal-2x = 2x Bass Pedal
@@ -94,10 +96,20 @@ song-list-open =
 
 warning-gh2-packs =
   Make sure you combine songs into packs (go to 'Other tools') before playing! Loading more than 16 package files will corrupt your GH2 save.
+warning-gh2-packs-long =
+  Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to "Quick convert").
+  Loading more than 16 packages will fail to load some songs, and will corrupt your save!
 warning-gh3-cache =
   Make sure you create a GH3 Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs.
 warning-ghwor-cache =
   Make sure you create a WoR Song Cache (go to 'Other tools') from all your customs and DLC! This is required to load multiple songs.
+warning-ghwor-long =
+  Please use the "WoR Song Cache" tab in Other Tools after conversion,
+  to produce the extra file needed to load your songs.
+
+  IMPORTANT: There may be an issue with loading too many custom songs
+  into Guitar Hero: Warriors of Rock, that could corrupt your save.
+  Please back up any save data you care about before loading custom songs!
 warning-rr-renumber =
   All generated Rock Revolution custom songs have the same ID. To load multiple songs, please use "Quick Convert > RR renumber" to reassign IDs.
 warning-rb-quick-convert =
@@ -116,6 +128,7 @@ warning-rb-quick-convert =
       [one] song ID
      *[other] song IDs
   } for online compatibility.
+warning-confirm = OK
 
 game-short-clone-hero = CH
 game-short-gh1 = GH1
@@ -187,7 +200,18 @@ vocals-harmonies-3 = Harmonies (3)
 
 toggle-ps2-practice-audio = Make practice mode audio for PS2
 
-file-picker-hdr-file = "Select .HDR file"
+file-picker-hdr-file = Select .HDR file
+
+template-runner-tooltip =
+  Template for where to create new files.
+    %input_dir% - folder containing the input
+    %input_base% - input filename by itself, extension removed
+    %modifiers% - added distinguishing features e.g. speed modifier
+    %title% - title from song's metadata (including modifiers)
+    %artist% - artist from song's metadata
+    %album% - album from song's metadata
+    %author% - author from song's metadata
+    %song_id% - unique song ID
 
 ## batch recompile
 
@@ -197,12 +221,27 @@ batch-tab-songs-add = Add Song
 batch-tab-songs-clear = Clear Songs
 batch-tab-songs-import-label = Import:
 
+batch-tab-song-entry =
+  {$has-title ->
+    [false] Untitled
+   *[true] {$title}
+  }{$has-artist ->
+    [false] {""}
+   *[true] {" "}({$artist})
+  }{$is-2x ->
+    [true] {" (2x)"}
+   *[false] {""}
+  }
 batch-tab-songs-data-author =
   Author: {$author}
 batch-tab-songs-data-format =
   Format: {$format}
 batch-tab-songs-data-path =
-  Path: {$path}
+  Path: {$path}{
+    $index ->
+      [none] {""}
+     *[some] {" "}(#{$index})
+  }
 
 batch-tab-rb3-all-toms = Convert non-Pro Drums to all toms
   .tooltip = When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked.
@@ -255,6 +294,10 @@ batch-task-ps2-diy = Create PS2 DIY folders
 batch-task-ps2-add = Add to PS2 ARK as Bonus Songs
 batch-task-360-live = Create Xbox 360 LIVE files
 batch-task-preview = Build web previews
+
+## song view
+
+song-toggle-2x-bass-pedal = 2x Bass Pedal drums
 
 ## quick convert
 

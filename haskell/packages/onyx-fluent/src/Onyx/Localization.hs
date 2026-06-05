@@ -40,6 +40,9 @@ vString = VString
 vNumber :: Scientific -> Value
 vNumber = VNumber
 
+vBool :: Bool -> Value
+vBool b = vString $ if b then "true" else "false"
+
 data Language = Language
   { code   :: T.Text
   , name   :: T.Text

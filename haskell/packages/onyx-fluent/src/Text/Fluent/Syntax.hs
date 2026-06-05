@@ -146,22 +146,24 @@ pattern = do
   els <- many1 $ try patternElement
   -- remove common leading space from block lines
   let spaceLengths = flip mapMaybe els \case
-        BlockText      s   -> Just $ T.length $ T.takeWhile (== ' ') s
-        BlockPlaceable s _ -> Just $ T.length $ T.takeWhile (== ' ') s
-        _                  -> Nothing
+        BlockText      _ s   -> Just $ T.length $ T.takeWhile (== ' ') s
+        BlockPlaceable _ s _ -> Just $ T.length $ T.takeWhile (== ' ') s
+        _                    -> Nothing
       dropSpaces = case spaceLengths of
         n : ns -> T.drop $ foldr min n ns
         []     -> id
   return $ els <&> \case
-    BlockText      s   -> BlockText      (dropSpaces s)
-    BlockPlaceable s x -> BlockPlaceable (dropSpaces s) x
-    inline             -> inline
+    BlockText      n s   -> BlockText      n (dropSpaces s)
+    BlockPlaceable n s x -> BlockPlaceable n (dropSpaces s) x
+    inline               -> inline
 
 data PatternElement
   = InlineText T.Text
-  | BlockText T.Text
+  -- block elements carry the number of preceding line breaks (blank lines in
+  -- the source produce more than one), so blank lines are preserved on output
+  | BlockText Int T.Text
   | InlinePlaceable Expression
-  | BlockPlaceable T.Text Expression
+  | BlockPlaceable Int T.Text Expression
   deriving (Show)
 
 patternElement :: Parser PatternElement
@@ -175,11 +177,11 @@ inline_text' = T.pack <$> many1 (try text_char)
 
 block_text :: Parser PatternElement
 block_text = do
-  void blank_block -- TODO we should be saving extra newlines here
+  bb <- blank_block
   sp <- blank_inline
   c <- indented_char
   t <- optional inline_text'
-  return $ BlockText $ sp <> T.singleton c <> fromMaybe "" t
+  return $ BlockText (T.count "\n" bb) $ sp <> T.singleton c <> fromMaybe "" t
 
 inline_placeable :: Parser PatternElement
 inline_placeable = InlinePlaceable <$> inline_placeable'
@@ -195,9 +197,9 @@ inline_placeable' = do
 
 block_placeable :: Parser PatternElement
 block_placeable = do
-  void blank_block -- TODO we should be saving extra newlines here
+  bb <- blank_block
   sp <- optional blank_inline
-  BlockPlaceable (fromMaybe "" sp) <$> inline_placeable'
+  BlockPlaceable (T.count "\n" bb) (fromMaybe "" sp) <$> inline_placeable'
 
 data Expression
   = EInline InlineExpression

@@ -54,6 +54,7 @@ import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
+import           Onyx.Localization                (L, l10n)
 import           Onyx.MIDI.Track.File             (PartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.PlayStation.PKG             as PKG
@@ -225,21 +226,11 @@ templateApplyInput proj mtgt txt = T.pack $ validFileName NameRulePC $ dropTrail
         _              -> T.pack $ show $ hashRB3 proj.projectSongYaml rb3
       _              -> ""
 
-makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner :: (?loc :: L) => (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
 makeTemplateRunner sink buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect -> do
     input <- makeTemplateRunner' sink rect buttonText defTemplate useTemplate
-    withUTF8 (T.unlines
-      [ "Template for where to create new files."
-      , "  %input_dir% - folder containing the input"
-      , "  %input_base% - input filename by itself, extension removed"
-      , "  %modifiers% - added distinguishing features e.g. speed modifier"
-      , "  %title% - title from song's metadata (including modifiers)"
-      , "  %artist% - artist from song's metadata"
-      , "  %album% - album from song's metadata"
-      , "  %author% - author from song's metadata"
-      , "  %song_id% - unique song ID"
-      ]) \tip ->
+    withUTF8 (l10n "template-runner-tooltip") \tip ->
       [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
 
 makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
@@ -257,7 +248,7 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
     [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
   [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
   input <- withRect inputRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), "Template") } |]
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   [C.block| void {
     $(Fl_Input* input)->labelsize(13);
     $(Fl_Input* input)->align(FL_ALIGN_LEFT);
@@ -412,10 +403,12 @@ horizRadio' rect cb opts = do
 horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
-speedPercent' :: Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
+speedPercent' :: (?loc :: L) => Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
 speedPercent' isConverter rect = do
   let lbl :: T.Text
-      lbl = if isConverter then "Speed (%)" else ""
+      lbl = if isConverter
+        then l10n "speed-percent"
+        else ""
   speed <- withRect rect \sx sy sw sh ->
     [C.exp| Fl_Counter* { new Fl_Counter($(int sx), $(int sy), $(int sw), $(int sh)) } |]
   withUTF8 lbl \clabel ->
@@ -429,18 +422,17 @@ speedPercent' isConverter rect = do
     s->minimum(1);
     s->value(100);
   } |]
-  if isConverter
-    then do
-      [C.block| void { $(Fl_Counter* speed)->tooltip(
-        "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-      ); } |]
-    else [C.block| void { $(Fl_Counter* speed)->tooltip("Speed (%)"); } |]
+  let tooltip = if isConverter
+        then l10n "speed-percent-tooltip"
+        else l10n "speed-percent"
+  withUTF8 tooltip \s ->
+    [C.block| void { $(Fl_Counter* speed)->copy_tooltip($(char* s)); } |]
   let getSpeed = do
         v <- [C.exp| double { $(Fl_Counter* speed)->value() } |]
         return (coerce v / 100 :: Double)
   return (getSpeed, speed)
 
-speedPercent :: Bool -> Rectangle -> IO (IO Double)
+speedPercent :: (?loc :: L) => Bool -> Rectangle -> IO (IO Double)
 speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 
 makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
@@ -526,35 +518,27 @@ gh2DeluxeSelector sink rect = do
         return $ Just $ i == 1
       else return Nothing
 
-warnCombineXboxGH2 :: (Event -> IO ()) -> IO () -> IO ()
+warnCombineXboxGH2 :: (?loc :: L) => (Event -> IO ()) -> IO () -> IO ()
 warnCombineXboxGH2 sink go = sink $ EventOnyx do
   prefs <- readPreferences
   stackIO $ unless prefs.prefWarnedXboxGH2 do
-    [C.block| void {
-      fl_choice(
-        "Note! When loading songs into Guitar Hero II for Xbox 360, you *must* combine them into packs (go to \"Quick convert\").\n"
-        "Loading more than 16 packages will fail to load some songs, and will corrupt your save!",
-        "OK", nullptr, nullptr
-      );
-    } |]
+    withUTF8 (l10n "warning-gh2-packs-long") \s ->
+      withUTF8 (l10n "warning-confirm") \ok ->
+        [C.block| void {
+          fl_choice("%s", $(char* ok), nullptr, nullptr, $(char* s));
+        } |]
     savePreferences prefs { prefWarnedXboxGH2 = True }
   stackIO go
 
-warnXboxGHWoR :: (Event -> IO ()) -> Onyx () -> IO ()
+warnXboxGHWoR :: (?loc :: L) => (Event -> IO ()) -> Onyx () -> IO ()
 warnXboxGHWoR sink go = sink $ EventOnyx do
   prefs <- readPreferences
   stackIO $ unless prefs.prefWarnedXboxWoR do
-    [C.block| void {
-      fl_choice(
-        "Please use the \"WoR Song Cache\" tab in Other Tools after conversion,\n"
-        "to produce the extra file needed to load your songs.\n"
-        "\n"
-        "IMPORTANT: There may be an issue with loading too many custom songs\n"
-        "into Guitar Hero: Warriors of Rock, that could corrupt your save.\n"
-        "Please back up any save data you care about before loading custom songs!",
-        "OK", nullptr, nullptr
-      );
-    } |]
+    withUTF8 (l10n "warning-ghwor-long") \s ->
+      withUTF8 (l10n "warning-confirm") \ok ->
+        [C.block| void {
+          fl_choice("%s", $(char* ok), nullptr, nullptr, $(char* s));
+        } |]
     savePreferences prefs { prefWarnedXboxWoR = True }
   go
 

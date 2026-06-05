@@ -50,7 +50,7 @@ C.include "FL/Fl_Check_Button.H"
 C.include "FL/Fl_Pack.H"
 
 songPageRB3
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -70,7 +70,8 @@ songPageRB3 sink rect tab proj build = mdo
       return counter
     box2x <- fullWidth 35 \rect' -> do
       box <- liftIO $ withRect rect' \cx cy cw ch ->
-        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "2x Bass Pedal drums") } |]
+        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+      liftIO $ liftIO $ setLabelTooltip (l10nFull "song-toggle-2x-bass-pedal" []) box
       tell do
         b <- checkValue box
         return $ Endo \rb3 -> (rb3 :: TargetRB3 FilePath) & #is2xBassPedal .~ b
@@ -165,7 +166,7 @@ songPageRB3 sink rect tab proj build = mdo
   return ()
 
 songPageRB2
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -185,7 +186,8 @@ songPageRB2 sink rect tab proj build = mdo
       return counter
     box2x <- fullWidth 35 \rect' -> do
       box <- liftIO $ withRect rect' \cx cy cw ch ->
-        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "2x Bass Pedal drums") } |]
+        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+      liftIO $ setLabelTooltip (l10nFull "song-toggle-2x-bass-pedal" []) box
       tell do
         b <- checkValue box
         return $ Endo \rb2 -> (rb2 :: TargetRB2 FilePath) & #is2xBassPedal .~ b
@@ -264,7 +266,7 @@ songPageRB2 sink rect tab proj build = mdo
   return ()
 
 songPageGHWOR
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -356,7 +358,7 @@ songPageGHWOR sink rect tab proj build = mdo
   return ()
 
 songPageRR
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -439,7 +441,7 @@ songPageRR sink rect tab proj build = mdo
   return ()
 
 songPagePS
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -525,7 +527,7 @@ songPagePS sink rect tab proj build = mdo
   return ()
 
 songPageGH3
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group

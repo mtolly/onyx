@@ -63,10 +63,10 @@ getMessage k args fluent = HM.lookup k fluent.ftl.messages >>= \(Message pat att
 
 runPattern :: HM.HashMap Identifier Value -> Pattern -> Fluent -> T.Text
 runPattern args pat fluent = T.concat $ zip [0 :: Int ..] pat >>= \(i, pe) -> case pe of
-  InlineText      t   -> [t]
-  BlockText       t   -> ["\n" | i /= 0] <> [t]
-  InlinePlaceable   x -> [runExpression args x fluent]
-  BlockPlaceable  t x -> ["\n" | i /= 0] <> [t, runExpression args x fluent]
+  InlineText       t   -> [t]
+  BlockText      n t   -> [T.replicate n "\n" | i /= 0] <> [t]
+  InlinePlaceable    x -> [runExpression args x fluent]
+  BlockPlaceable n t x -> [T.replicate n "\n" | i /= 0] <> [t, runExpression args x fluent]
 
 runExpression :: HM.HashMap Identifier Value -> Expression -> Fluent -> T.Text
 runExpression args x fluent = case runExpressionValue args x fluent of

@@ -118,7 +118,7 @@ import           Onyx.Image.DXT                    (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Keys.Ranges                  (closeShiftsFile)
 import           Onyx.Localization                 (L, l10n, l10nArgs, l10nFull,
-                                                    vNumber, vString)
+                                                    vBool, vNumber, vString)
 import           Onyx.MIDI.Common                  (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                  as RB
 import qualified Onyx.MIDI.Track.File              as F
@@ -3471,10 +3471,12 @@ launchBatch sink makeMenuBar startFiles = mdo
     setTabColor tab homeTabColor
     let (songsRect, importToggles) = chopBottom 40 rect
     group <- fileLoadWindow songsRect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
-      entry = T.concat
-        [ fromMaybe "Untitled" imp.impTitle
-        , maybe "" (\art -> " (" <> art <> ")") imp.impArtist
-        , if imp.imp2x then " (2x)" else ""
+      entry = l10nArgs "batch-tab-song-entry"
+        [ ("title", vString $ fromMaybe "" imp.impTitle)
+        , ("has-title", vBool $ isJust imp.impTitle)
+        , ("artist", vString $ fromMaybe "" imp.impArtist)
+        , ("has-artist", vBool $ isJust imp.impArtist)
+        , ("is-2x", vBool imp.imp2x)
         ]
       sublines = concat
         [ case imp.impAuthor of
@@ -3482,11 +3484,14 @@ launchBatch sink makeMenuBar startFiles = mdo
             [l10nArgs "batch-tab-songs-data-author" [("author", vString author)]]
           _ -> []
         , [l10nArgs "batch-tab-songs-data-format" [("format", vString imp.impFormat)]]
-        , ["Path: " <> T.pack imp.impPath <> index]
+        , [l10nArgs "batch-tab-songs-data-path"
+          [ ("path", vString $ T.pack imp.impPath)
+          , ("index", case imp.impIndex of
+              Nothing -> vString "none"
+              Just i  -> vNumber $ fromIntegral i
+            )
+          ]]
         ]
-      index = case imp.impIndex of
-        Nothing -> ""
-        Just i  -> T.pack $ " (#" <> show i <> ")"
       in (entry, sublines)
     getter <- do
       let subrects = splitHorizN 7 importToggles
