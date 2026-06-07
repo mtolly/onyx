@@ -85,8 +85,8 @@ miscPageMilo sink rect tab startTasks = do
     setCallback btn $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker1 -> do
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker1)->title("Load .milo");
+        withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
+          $(Fl_Native_File_Chooser* picker1)->title($(char* s));
           $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
         } |]
         result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
@@ -96,7 +96,8 @@ miscPageMilo sink rect tab startTasks = do
           withNativeFileChooser
             [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
             \picker2 -> do
-            [C.block| void { $(Fl_Native_File_Chooser* picker2)->title("Create folder"); } |]
+            withUTF8 (l10n "file-picker-create-folder") \s ->
+              [C.block| void { $(Fl_Native_File_Chooser* picker2)->title($(char* s)); } |]
             withUTF8 (fin <> "-extract") \cpreset ->
               [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
             result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
@@ -119,8 +120,8 @@ miscPageMilo sink rect tab startTasks = do
             Just stripped -> stripped
             Nothing       -> dinText <> ".milo"
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
-        [C.block| void {
-          $(Fl_Native_File_Chooser* miloPicker)->title("Save .milo");
+        withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
+          $(Fl_Native_File_Chooser* miloPicker)->title($(char* s));
           $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
         } |]
         withUTF8 presetFile \cpreset ->
@@ -140,7 +141,8 @@ miscPageMilo sink rect tab startTasks = do
   } |]
 
 miscPageLipsync
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -163,8 +165,8 @@ miscPageLipsync sink rect tab startTasks = do
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
+        withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title($(char* s));
           $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
         } |]
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -204,8 +206,8 @@ miscPageLipsync sink rect tab startTasks = do
 
   let saveVoc input go = do
         withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-          [C.block| void {
-            $(Fl_Native_File_Chooser* picker)->title("Save .voc file");
+          withUTF8 (l10n "file-picker-save-voc") \s -> [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title($(char* s));
             $(Fl_Native_File_Chooser* picker)->filter("*.voc");
           } |]
           withUTF8 (dropExtension input <.> "voc") \cpreset ->
@@ -238,8 +240,8 @@ miscPageLipsync sink rect tab startTasks = do
 
   let pickMilo go = do
         withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
-          [C.block| void {
-            $(Fl_Native_File_Chooser* picker)->title("Load Milo file");
+          withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title($(char* s));
             $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
           } |]
           result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -249,8 +251,8 @@ miscPageLipsync sink rect tab startTasks = do
             go f
       saveMilo input go = do
         withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-          [C.block| void {
-            $(Fl_Native_File_Chooser* picker)->title("Save Milo file");
+          withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
+            $(Fl_Native_File_Chooser* picker)->title($(char* s));
             $(Fl_Native_File_Chooser* picker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
           } |]
           withUTF8 (dropExtension input <.> "milo_xbox") \cpreset ->
@@ -475,7 +477,8 @@ miscPageLipsync sink rect tab startTasks = do
   } |]
 
 miscPageDryVox
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -498,8 +501,8 @@ miscPageDryVox sink rect tab startTasks = do
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Load MIDI file");
+        withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title($(char* s));
           $(Fl_Native_File_Chooser* picker)->filter("*.{mid,midi}"); // TODO also handle .chart?
         } |]
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -544,8 +547,8 @@ miscPageDryVox sink rect tab startTasks = do
           input <- pickedFile
           voc <- getVocalTrack
           withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-            [C.block| void {
-              $(Fl_Native_File_Chooser* picker)->title("Save lipsync audio");
+            withUTF8 (l10n "file-picker-save-lipsync-audio") \s -> [C.block| void {
+              $(Fl_Native_File_Chooser* picker)->title($(char* s));
               $(Fl_Native_File_Chooser* picker)->filter("*.wav");
             } |]
             withUTF8 ((dropExtension input ++ defaultSuffix voc) <.> "wav") \cpreset ->
@@ -579,8 +582,8 @@ miscPageDryVox sink rect tab startTasks = do
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
     setCallback pick $ sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
-        [C.block| void {
-          $(Fl_Native_File_Chooser* picker)->title("Load song or vocals audio");
+        withUTF8 (l10n "file-picker-load-dryvox-source-audio") \s -> [C.block| void {
+          $(Fl_Native_File_Chooser* picker)->title($(char* s));
           $(Fl_Native_File_Chooser* picker)->filter("*.{wav,ogg,mp3,flac}");
         } |]
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -624,7 +627,8 @@ miscPageGH3SongCache sink rect tab startTasks = do
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (360)"); } |]
+      withUTF8 (l10n "file-picker-save-gh3-cache-360") \s ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* s)); } |]
       case inputs of
         f : _ -> withUTF8 (takeDirectory f) \cdir ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
@@ -646,7 +650,8 @@ miscPageGH3SongCache sink rect tab startTasks = do
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save GH3 cache file (PS3)"); } |]
+      withUTF8 (l10n "file-picker-save-gh3-cache-ps3") \s ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* s)); } |]
       case inputs of
         f : _ -> withUTF8 (takeDirectory f) \cdir ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
@@ -700,7 +705,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (360)"); } |]
+      withUTF8 (l10n "file-picker-save-wor-cache-360") \s ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* s)); } |]
       case inputs of
         f : _ -> withUTF8 (takeDirectory f) \cdir ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
@@ -722,7 +728,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
-      [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Save WoR cache file (PS3)"); } |]
+      withUTF8 (l10n "file-picker-save-wor-cache-ps3") \s ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* s)); } |]
       case inputs of
         f : _ -> withUTF8 (takeDirectory f) \cdir ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]

@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -28,6 +29,7 @@ import           Foreign
 import           Foreign.C
 import qualified Language.C.Inline.Cpp    as C
 import           Onyx.GUI.Binding
+import           Onyx.Localization        (L, l10n)
 
 C.context flContext
 
@@ -103,7 +105,7 @@ withNativeFileChooser typ = bracket
   } |]
   \p -> [C.block| void { delete $(Fl_Native_File_Chooser* p); } |]
 
-askFolderResult :: Maybe FilePath -> IO (Maybe FilePath)
+askFolderResult :: (?loc :: L) => Maybe FilePath -> IO (Maybe FilePath)
 
 #ifdef WINDOWS
 
@@ -121,9 +123,9 @@ askFolderResult initial = maybe ($ nullPtr) withCWString initial \ws -> do
 
 askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s ->
   withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_DIRECTORY } |]
-  \picker -> [C.block| const char* {
+  \picker -> withUTF8 (l10n "file-picker-select-folder") \title -> [C.block| const char* {
     Fl_Native_File_Chooser* picker = $(Fl_Native_File_Chooser* picker);
-    picker->title("Select folder");
+    picker->title($(char* title));
     if ($(char* s)) {
       picker->directory($(char* s));
     }
@@ -137,7 +139,7 @@ askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s ->
 
 #endif
 
-askFolder :: Maybe FilePath -> (FilePath -> IO ()) -> IO ()
+askFolder :: (?loc :: L) => Maybe FilePath -> (FilePath -> IO ()) -> IO ()
 askFolder initial fn = askFolderResult initial >>= mapM_ fn
 
 setLabelTooltip :: (Cast a Fl_Widget) => (T.Text, [(T.Text, T.Text)]) -> Ptr a -> IO ()

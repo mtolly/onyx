@@ -124,7 +124,7 @@ songPageRB3 sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
-      saveFileChooser "Save RB3 CON file"
+      saveFileChooser (l10n "file-picker-save-rb3-con")
         (T.pack $ proj.projectTemplate <> "_rb3con")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
@@ -134,7 +134,7 @@ songPageRB3 sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
     setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
-      saveFileChooser "Save RB3 PKG file"
+      saveFileChooser (l10n "file-picker-save-rb3-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build qcPossible tgt $ RB3PKG if map toLower (takeExtension f) == ".pkg"
@@ -147,7 +147,7 @@ songPageRB3 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Magma project") } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
-      saveFileChooser "Save Magma v2 project"
+      saveFileChooser (l10n "file-picker-save-magma-v2")
         (T.pack $ proj.projectTemplate <> "_project")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build False tgt $ RB3Magma f
@@ -235,7 +235,7 @@ songPageRB2 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
-      saveFileChooser "Save RB2 CON file"
+      saveFileChooser (l10n "file-picker-save-rb2-con")
         (T.pack $ proj.projectTemplate <> "_rb2con")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
@@ -244,7 +244,7 @@ songPageRB2 sink rect tab proj build = mdo
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
     setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
-      saveFileChooser "Save RB2 PKG file"
+      saveFileChooser (l10n "file-picker-save-rb2-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg")
         Nothing
         \f -> build tgt $ RB2PKG if map toLower (takeExtension f) == ".pkg"
@@ -328,7 +328,7 @@ songPageGHWOR sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
     setCallback btn1 do
       tgt <- makeTarget
-      saveFileChooser "Save GH:WoR LIVE file"
+      saveFileChooser (l10n "file-picker-save-ghwor-live")
         (T.pack $ proj.projectTemplate <> "_ghwor") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
@@ -338,7 +338,7 @@ songPageGHWOR sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
     setCallback btn2 do
       tgt <- makeTarget
-      saveFileChooser "Save GH:WoR PKG file"
+      saveFileChooser (l10n "file-picker-save-ghwor-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirRB)
         \f -> warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORPKG f
@@ -420,7 +420,7 @@ songPageRR sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
     setCallback btn1 do
       tgt <- makeTarget
-      saveFileChooser "Save RR LIVE file"
+      saveFileChooser (l10n "file-picker-save-rr-live")
         (T.pack $ proj.projectTemplate <> "_rr")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
@@ -430,7 +430,7 @@ songPageRR sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create RPCS3 PKG file") } |]
     setCallback btn2 do
       tgt <- makeTarget
-      saveFileChooser "Save RR PKG file"
+      saveFileChooser (l10n "file-picker-save-rr-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ RRPKG f
@@ -499,7 +499,7 @@ songPagePS sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS song folder") } |]
     setCallback btn1 do
       tgt <- makeTarget
-      saveFileChooser "Save CH/PS song folder"
+      saveFileChooser (l10n "file-picker-save-ch-folder")
         (T.pack $ proj.projectTemplate <> "_chps") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSDir f
@@ -507,7 +507,7 @@ songPagePS sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH .sng file") } |]
     setCallback btn2 do
       tgt <- makeTarget
-      saveFileChooser "Save CH/PS .sng file"
+      saveFileChooser (l10n "file-picker-save-ch-sng")
         (T.pack $ proj.projectTemplate <> ".sng") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSSng f
@@ -515,7 +515,7 @@ songPagePS sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS zip file") } |]
     setCallback btn3 do
       tgt <- makeTarget
-      saveFileChooser "Save CH/PS zip file"
+      saveFileChooser (l10n "file-picker-save-ch-zip")
         (T.pack $ proj.projectTemplate <> "_chps.zip") -- TODO add modifiers
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSZip f
@@ -612,7 +612,7 @@ songPageGH3 sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
     setCallback btn1 do
       tgt <- makeTarget
-      saveFileChooser "Save GH3 LIVE file"
+      saveFileChooser (l10n "file-picker-save-gh3-live")
         (T.pack $ proj.projectTemplate <> "_gh3live")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
@@ -622,7 +622,7 @@ songPageGH3 sink rect tab proj build = mdo
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
     setCallback btn2 do
       tgt <- makeTarget
-      saveFileChooser "Save GH3 PKG file"
+      saveFileChooser (l10n "file-picker-save-gh3-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build tgt $ GH3PKG f
@@ -702,13 +702,13 @@ songPageGH1 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
-      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
+      browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in build tgt $ GH1ARK gen
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
-      saveFileChooser "Create DIY folder"
+      saveFileChooser (l10n "file-picker-create-diy-folder")
         (T.pack $ proj.projectTemplate <> "_gh1")
         Nothing
         \f -> build tgt $ GH1DIYPS2 f
@@ -820,13 +820,13 @@ songPageGH2 sink rect tab proj build = mdo
     btn1 <- withRect r1 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
-      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
+      browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in build tgt $ GH2ARK gen GH2AddBonus
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
-      saveFileChooser "Create DIY folder"
+      saveFileChooser (l10n "file-picker-create-diy-folder")
         (T.pack $ proj.projectTemplate <> "_gh2")
         Nothing
         \f -> build tgt $ GH2DIYPS2 f
@@ -836,7 +836,7 @@ songPageGH2 sink rect tab proj build = mdo
     btn2 <- withRect rect' \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
-      saveFileChooser "Save GH2 LIVE file"
+      saveFileChooser (l10n "file-picker-save-gh2-live")
         (T.pack $ proj.projectTemplate <> "_gh2live")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do

@@ -217,7 +217,7 @@ batchPageGH1 sink rect tab build = do
     setLabelTooltip (l10nFull "batch-task-ps2-add" []) btn
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn do
-      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
+      browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in getTargetSong id "" \song -> do
           build \proj -> let
@@ -377,7 +377,7 @@ batchPageGH2 sink rect tab build = do
     setLabelTooltip (l10nFull "batch-task-ps2-add" []) btn
     [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn do
-      browseFileChooser (l10n "file-picker-hdr-file") \f -> let
+      browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in getTargetSong False id "" \song -> do
           build \proj -> let

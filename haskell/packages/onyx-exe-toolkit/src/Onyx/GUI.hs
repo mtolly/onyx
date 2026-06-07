@@ -205,7 +205,8 @@ promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> B
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
   [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
   \picker -> do
-    [C.block| void { $(Fl_Native_File_Chooser* picker)->title("Load song"); } |]
+    withUTF8 (l10n "file-picker-load-song") \s ->
+      [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* s)); } |]
     result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
     when (result == 0) do
       n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
@@ -590,8 +591,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           setCallback cover $ withNativeFileChooser
             [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
             \picker -> do
-              withUTF8 (l10n "picker-album-art") \s -> [C.block| void {
-                $(Fl_Native_File_Chooser* picker)->title(fl_strdup($(char* s))); // is fl_strdup required
+              withUTF8 (l10n "file-picker-load-album-art") \s -> [C.block| void {
+                $(Fl_Native_File_Chooser* picker)->title($(char* s));
                 $(Fl_Native_File_Chooser* picker)->filter("*.{png,jpg,jpeg,png_xbox,png_wii}");
               } |]
               result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -1400,7 +1401,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
       setCallback btn $ sink $ EventIO do
         let presetName = T.pack $ proj.projectTemplate <> "_player"
-        saveFileChooser "Save web preview folder" presetName (T.pack <$> ?preferences.prefDirPreview) \f -> do
+        saveFileChooser (l10n "file-picker-save-web-preview") presetName (T.pack <$> ?preferences.prefDirPreview) \f -> do
           proj' <- fullProjModify [] proj
           let task = do
                 tmp <- buildPlayer Nothing proj'
@@ -1886,7 +1887,7 @@ data QuickConvertMode
   deriving (Eq)
 
 pageQuickConvertRB
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
@@ -2777,7 +2778,8 @@ pageQuickConvertCH sink rect tab startTasks = mdo
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
 miscPageMOGG
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -2847,11 +2849,12 @@ miscPageMOGG sink rect tab startTasks = mdo
         [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
         setCallback btn $ sink $ EventIO do
           audio <- readMVar loadedAudio
-          let title = "Save " <> T.unpack defaultExt <> " file"
+          let title = l10nArgs "file-picker-save-multitrack-audio"
+                [("extension", vString defaultExt)]
               preset = case audio of
                 [aud] -> Just $ T.pack $ takeFileName aud.path -<.> T.unpack defaultExt
                 _     -> Just $ "out." <> defaultExt
-          saveFileChooser (T.pack title) (T.pack filterStr) preset \f -> let
+          saveFileChooser title (T.pack filterStr) preset \f -> let
               ext = map toLower $ takeExtension f
               f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
               in sink $ EventOnyx $ task' audio f'
@@ -2909,7 +2912,8 @@ miscPageMOGG sink rect tab startTasks = mdo
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
 
 miscPageMIDI
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -2956,7 +2960,7 @@ miscPageMIDI sink rect tab startTasks = do
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser "Save reduced MIDI file" "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
+        saveFileChooser (l10n "file-picker-save-reduced-midi") "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
           ext = map toLower $ takeExtension f
           f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
           in sink $ EventOnyx let
@@ -2986,7 +2990,7 @@ miscPageMIDI sink rect tab startTasks = do
       [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser "Save REAPER project" "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
+        saveFileChooser (l10n "file-picker-save-reaper") "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
           ext = map toUpper $ takeExtension f
           f' = if ext == ".RPP" then f else f <.> "RPP"
           in sink $ EventOnyx let
@@ -3003,7 +3007,7 @@ miscPageMIDI sink rect tab startTasks = do
       [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
       setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser "Save MIDI file" "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
+        saveFileChooser (l10n "file-picker-save-midi") "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
           ext = map toLower $ takeExtension f
           f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
           in sink $ EventOnyx let
@@ -3046,7 +3050,8 @@ miscPageMIDI sink rect tab startTasks = do
   } |]
 
 miscPageHardcodeSongCache
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> Ptr Fl_Group
   -> ([(String, Onyx [FilePath])] -> Onyx ())
@@ -3820,7 +3825,7 @@ isNewestRelease cb = do
       _                   -> return ()
     _            -> return ()
 
-launchPreferences :: (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Onyx ()
+launchPreferences :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Onyx ()
 launchPreferences sink makeMenuBar = do
   loadedPrefs <- readPreferences
   let windowWidth = Width 800
@@ -4358,28 +4363,29 @@ launchGUI initSongs = withAL \hasAudio -> do
         let menuHeight = if macOS then 0 else 30
             menuX = 0
             menuY = 0
+            menuCrumbs = T.intercalate "/" . map (T.replace "/" "\\/")
             menuOptions =
-              [ ( l10n "menu-file" <> "/" <> l10n "menu-file-load"
+              [ ( menuCrumbs [l10n "menu-file", l10n "menu-file-load"]
                 , [C.pure| int { FL_COMMAND + 'o' } |]
                 , promptLoad sink makeMenuBar hasAudio
                 , 0
                 )
-              , ( l10n "menu-file" <> "/" <> l10n "menu-file-batch"
+              , ( menuCrumbs [l10n "menu-file", l10n "menu-file-batch"]
                 , [C.pure| int { FL_COMMAND + 'b' } |]
                 , launchBatch' sink makeMenuBar []
                 , 0
                 )
-              , ( l10n "menu-file" <> "/" <> l10n "menu-file-quick"
+              , ( menuCrumbs [l10n "menu-file", l10n "menu-file-quick"]
                 , [C.pure| int { FL_COMMAND + 'u' } |]
                 , launchQuickConvert' sink makeMenuBar
                 , 0
                 )
-              , ( l10n "menu-file" <> "/" <> l10n "menu-file-other"
+              , ( menuCrumbs [l10n "menu-file", l10n "menu-file-other"]
                 , [C.pure| int { FL_COMMAND + 't' } |]
                 , launchMisc sink makeMenuBar
                 , 0
                 )
-              , ( l10n "menu-file" <> "/" <> l10n "menu-file-close"
+              , ( menuCrumbs [l10n "menu-file", l10n "menu-file-close"]
                 , [C.pure| int { FL_COMMAND + 'w' } |]
                 , [C.block| void {
                     // Can't reproduce consistently, but sometimes on Windows, first_window returns one of
@@ -4391,30 +4397,30 @@ launchGUI initSongs = withAL \hasAudio -> do
                   } |]
                 , 0
                 )
-              , ( l10n "menu-edit" <> "/" <> l10n "menu-edit-preferences"
+              , ( menuCrumbs [l10n "menu-edit", l10n "menu-edit-preferences"]
                 , 0 -- maybe Cmd+, on Mac
                 , sink $ EventOnyx $ launchPreferences sink makeMenuBar
                 , 0
                 )
-              , ( l10n "menu-help" <> "/" <> l10n "menu-help-readme"
+              , ( menuCrumbs [l10n "menu-help", l10n "menu-help-readme"]
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "README.html" >>= osOpenFile
                 , 0
                 )
-              , ( l10n "menu-help" <> "/" <> l10n "menu-help-updates"
+              , ( menuCrumbs [l10n "menu-help", l10n "menu-help-updates"]
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "CHANGES.txt" >>= osOpenFile
                 , 0
                 )
-              , ( l10n "menu-help" <> "/" <> l10n "menu-help-license"
+              , ( menuCrumbs [l10n "menu-help", l10n "menu-help-license"]
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "LICENSE.txt" >>= osOpenFile
                 , 0
                 )
-              , ( l10n "menu-help" <> "/" <> l10n "menu-help-credits"
+              , ( menuCrumbs [l10n "menu-help", l10n "menu-help-credits"]
                 , 0
                 , sink $ EventIO do
                     getResourcesPath "CREDITS.txt" >>= osOpenFile
@@ -4423,7 +4429,7 @@ launchGUI initSongs = withAL \hasAudio -> do
               ] ++ do
                 guard includeConsole
                 return
-                  ( l10n "menu-view" <> "/" <> l10n "menu-view-console"
+                  ( menuCrumbs [l10n "menu-view", l10n "menu-view-console"]
                   , [C.pure| int { FL_CTRL + '`' } |]
                   , [C.block| void { $(Fl_Window* termWindow)->show(); } |]
                   , 0

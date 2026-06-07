@@ -9,10 +9,10 @@ version-new = New version available!
 version-latest = You are using the latest version.
 version-prerelease = Prerelease version
 
-function-load = Load a Song
-function-batch = Batch Recompile
-function-quick = Quick Convert/Pack
-function-other = Other Tools
+function-load = Load a song
+function-batch = Batch recompile
+function-quick = Quick convert/pack
+function-other = Other tools
 
 explain-header =
   <color=purple>Onyx</color> Music Game Toolkit, version {$version}
@@ -35,10 +35,10 @@ explain-other =
 ## menu bar (per window on windows/linux, app-wide on mac)
 
 menu-file = &File
-menu-file-load = Open Song
-menu-file-batch = Batch Recompile
-menu-file-quick = Quick Convert
-menu-file-other = Tools
+menu-file-load = {function-load}
+menu-file-batch = {function-batch}
+menu-file-quick = {function-quick}
+menu-file-other = {function-other}
 menu-file-close = Close Window
 
 menu-edit = &Edit
@@ -168,7 +168,42 @@ label-author = Author
 label-genre = Genre
 label-subgenre = Subgenre
 
-picker-album-art = Select album art
+file-picker-create-diy-folder = Create DIY folder
+file-picker-create-folder = Create folder
+file-picker-load-album-art = Select album art
+file-picker-load-dryvox-source-audio = Load song or vocals audio
+file-picker-load-hdr = Select .HDR file
+file-picker-load-midi = Load MIDI file
+file-picker-load-milo = Load .milo
+file-picker-load-song = Load song
+file-picker-save-ch-folder = Save CH/PS song folder
+file-picker-save-ch-sng = Save CH/PS .sng file
+file-picker-save-ch-zip = Save CH/PS zip file
+file-picker-save-gh2-live = Save GH2 LIVE file
+file-picker-save-gh3-cache-360 = Save GH3 cache file (360)
+file-picker-save-gh3-cache-ps3 = Save GH3 cache file (PS3)
+file-picker-save-gh3-live = Save GH3 LIVE file
+file-picker-save-gh3-pkg = Save GH3 PKG file
+file-picker-save-ghwor-live = Save GH:WoR LIVE file
+file-picker-save-ghwor-pkg = Save GH:WoR PKG file
+file-picker-save-lipsync-audio = Save lipsync audio
+file-picker-save-magma-v2 = Save Magma v2 project
+file-picker-save-midi = Save MIDI file
+file-picker-save-milo = Save .milo
+file-picker-save-multitrack-audio = Save .{$extension} file
+file-picker-save-rb2-con = Save RB2 CON file
+file-picker-save-rb2-pkg = Save RB2 PKG file
+file-picker-save-rb3-con = Save RB3 CON file
+file-picker-save-rb3-pkg = Save RB3 PKG file
+file-picker-save-reaper = Save REAPER project
+file-picker-save-reduced-midi = Save reduced MIDI file
+file-picker-save-rr-live = Save RR LIVE file
+file-picker-save-rr-pkg = Save RR PKG file
+file-picker-save-voc = Save .voc file
+file-picker-save-web-preview = Save web preview folder
+file-picker-save-wor-cache-360 = Save WoR cache file (360)
+file-picker-save-wor-cache-ps3 = Save WoR cache file (PS3)
+file-picker-select-folder = Select folder
 
 drums-mode-4lane = 4-Lane Drums
 drums-mode-5lane = 5-Lane Drums
@@ -199,8 +234,6 @@ vocals-harmonies-2 = Harmonies (2)
 vocals-harmonies-3 = Harmonies (3)
 
 toggle-ps2-practice-audio = Make practice mode audio for PS2
-
-file-picker-hdr-file = Select .HDR file
 
 template-runner-tooltip =
   Template for where to create new files.

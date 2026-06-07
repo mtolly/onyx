@@ -233,7 +233,7 @@ makeTemplateRunner sink buttonText defTemplate useTemplate = do
     withUTF8 (l10n "template-runner-tooltip") \tip ->
       [C.block| void { $(Fl_Input* input)->copy_tooltip($(char* tip)); } |]
 
-makeTemplateRunner' :: (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
+makeTemplateRunner' :: (?loc :: L) => (Event -> IO ()) -> Rectangle -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO (Ptr Fl_Input)
 makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   let (buttonRect, notButton) = chopLeft 250 rect
       (_, rectA) = chopLeft 80 notButton
