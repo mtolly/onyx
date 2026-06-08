@@ -55,7 +55,8 @@ import qualified Data.HashMap.Strict               as HM
 import           Data.Int                          (Int64)
 import           Data.IORef                        (newIORef, readIORef,
                                                     writeIORef)
-import           Data.List.Extra                   (elemIndex, nubOrd)
+import           Data.List.Extra                   (elemIndex, intercalate,
+                                                    nubOrd)
 import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromMaybe,
@@ -143,6 +144,8 @@ import           Onyx.Util.Files                   (commonDir, copyDirRecursive,
                                                     osOpenFile, osShowFolder)
 import           Onyx.Util.Handle                  (fileReadable,
                                                     saveHandleFolder)
+import           Onyx.Util.Text.RichText           (RichText (..), Tag (..),
+                                                    parseRichText)
 import qualified Onyx.Xbox.STFS                    as STFS
 import           Optics                            (mapped, (%), (%~), (.~))
 import           Paths_onyx_exe_toolkit            (version)
@@ -1596,7 +1599,8 @@ starSelectors rect foundTracks updateLabel trackToName slots = let
 -- _selectArkDestination not translated
 
 taskOutputPage
-  :: Rectangle
+  :: (?loc :: L)
+  => Rectangle
   -> Ptr Fl_Group
   -> (Event -> IO ()) -- event sink
   -> IO () -- callback when starting a task
@@ -1635,7 +1639,7 @@ taskOutputPage rect tab sink cbStart cbEnd = do
       (Maybe (FilePath, [FilePath])) -- finished, maybe have files to show the user
       (Int, Int, [[FilePath]], Int, ThreadId) -- tasks in progress
     ))
-  let taskMessage :: (MessageLevel, Message) -> IO ()
+  let taskMessage :: (?loc :: L) => (MessageLevel, Message) -> IO ()
       taskMessage = sink . EventIO . addTerm termTask . toTermMessage
       cbStart' = do
         cbStart
@@ -3795,14 +3799,14 @@ toTermMessage :: (MessageLevel, Message) -> TermMessage
 toTermMessage (MessageLog    , msg) = TermLog msg.messageString
 toTermMessage (MessageWarning, msg) = TermWarning msg
 
-addTerm :: Ptr Fl_Simple_Terminal -> TermMessage -> IO ()
+addTerm :: (?loc :: L) => Ptr Fl_Simple_Terminal -> TermMessage -> IO ()
 addTerm term pair = do
-  let newtxt = filterUserError $ T.pack case pair of
-        TermStart x y   -> "\ESC[46m" <> x <> "\ESC[0m" <> ": " <> y
-        TermLog str     -> str
-        TermWarning msg -> "\ESC[33mWarning\ESC[0m: " <> Exc.displayException msg
-        TermError msg   -> "\ESC[41mERROR!\ESC[0m " <> Exc.displayException msg
-        TermSuccess str -> "\ESC[42mSuccess!\ESC[0m " <> str
+  let newtxt = snd $ terminalMarkup $ filterUserError case pair of
+        TermStart x y   -> l10nArgs "terminal-task-start"   [("task-name", vString $ T.pack x), ("task-path", vString $ T.pack y)]
+        TermLog str     -> T.pack str
+        TermWarning msg -> l10nArgs "terminal-task-warning" [("message", vString $ T.pack $ Exc.displayException msg)]
+        TermError msg   -> l10nArgs "terminal-task-error"   [("message", vString $ T.pack $ Exc.displayException msg)]
+        TermSuccess str -> l10nArgs "terminal-task-success" [("message", vString $ T.pack str)]
       -- this comes from the default exception type but it's confusing to users
       filterUserError = T.replace "user error " ""
   B.useAsCString (TE.encodeUtf8 $ T.strip newtxt <> "\n") \cs ->
@@ -4334,6 +4338,56 @@ launchPreferences sink makeMenuBar = do
       $(Fl_Window* window)->show();
     } |]
 
+terminalMarkup :: T.Text -> (Int, T.Text)
+terminalMarkup txt = let
+  rich = parseRichText txt
+  -- probably need handling for wide chars here
+  len = sum [ T.length t | Plain t <- rich ]
+  marked = rich <&> \case
+    Plain t -> (t, False)
+    Markup tag -> maybe ("", False) (, True) do
+      guard $ tag.name == "color"
+      if tag.closing
+        then Just "\ESC[0m"
+        else tag.value >>= \v -> lookup v
+          -- supported Fl_Simple_Terminal ansi tags, not exactly unity's list
+          [ ("black"  , "\ESC[40m")
+          , ("red"    , "\ESC[41m")
+          , ("green"  , "\ESC[42m")
+          , ("yellow" , "\ESC[43m")
+          , ("blue"   , "\ESC[44m")
+          , ("magenta", "\ESC[45m")
+          , ("cyan"   , "\ESC[46m")
+          , ("white"  , "\ESC[47m")
+          ]
+  closer = if any snd marked
+    then "\ESC[0m" -- reset color in case it wasn't
+    else ""
+  in (len, T.concat (map fst marked) <> closer)
+
+terminalWelcome :: (?loc :: L) => [T.Text]
+terminalWelcome = let
+  fixLeadingSpace s = case span (== ' ') $ T.unpack s of
+    -- leading space on a terminal line doesn't work for some reason.
+    -- just replace with black characters on black background
+    (""    , _   ) -> s
+    (spaces, rest) -> T.pack $ "\ESC[30m" <> ('.' <$ spaces) <> "\ESC[0m" <> rest
+  render = snd . terminalMarkup
+  header = T.lines $ render $ l10nArgs "welcome-header"
+    [("version", vString $ T.pack $ showVersion version)]
+  functions =
+    [ (terminalMarkup $ "<color=green>"  <> l10n "function-load"  <> "</color>", map render $ T.lines $ l10n "welcome-load" )
+    , (terminalMarkup $ "<color=red>"    <> l10n "function-batch" <> "</color>", map render $ T.lines $ l10n "welcome-batch")
+    , (terminalMarkup $ "<color=yellow>" <> l10n "function-quick" <> "</color>", map render $ T.lines $ l10n "welcome-quick")
+    , (terminalMarkup $ "<color=cyan>"   <> l10n "function-other" <> "</color>", map render $ T.lines $ l10n "welcome-other")
+    ]
+  longestNameLength = maximum [ len | ((len, _), _) <- functions ]
+  renderedFunctions = functions <&> \((len, name), tasks) -> let
+    nameWithPadding = name <> T.replicate (longestNameLength - len) " "
+    leftSides = nameWithPadding : repeat (T.replicate longestNameLength " ")
+    in zipWith (\l r -> "  " <> l <> " | " <> r) leftSides tasks
+  in map fixLeadingSpace $ intercalate [""] (header : renderedFunctions) <> [""]
+
 launchGUI :: (?loc :: L) => [FilePath] -> IO ()
 launchGUI initSongs = withAL \hasAudio -> do
   [C.block| void {
@@ -4562,29 +4616,7 @@ launchGUI initSongs = withAL \hasAudio -> do
   -- TODO: catch errors that reach top level,
   -- and close the GUI with a nice error message
 
-  let fixLeadingSpace s = case span (== ' ') s of
-        -- leading space on a terminal line doesn't work for some reason.
-        -- just replace with black characters on black background
-        (""    , _   ) -> s
-        (spaces, rest) -> "\ESC[30m" <> ('.' <$ spaces) <> "\ESC[0m" <> rest
-  mapM_ (addTerm term . TermLog . fixLeadingSpace)
-    [ "\ESC[35mOnyx\ESC[0m Music Game Toolkit, version " <> showVersion version
-    , "Select an option below to get started."
-    , ""
-    , "  \ESC[32mLoad a song\ESC[0m     | bring songs to a new game"
-    , "                  | change song speed, reassign instruments"
-    , "                  | chart preview tool"
-    , ""
-    , "  \ESC[31mBatch recompile\ESC[0m | \"Load a song\" operations on multiple songs"
-    , ""
-    , "  \ESC[33mConvert/pack\ESC[0m    | edit songs without changing games"
-    , "                  | make packs, or extract from packs"
-    , "                  | switch console, e.g. \ESC[32m360\ESC[0m -> \ESC[36mPS3\ESC[0m"
-    , ""
-    , "  \ESC[36mOther tools\ESC[0m     | midi/audio utilities"
-    , "                  | lipsync/dryvox tools"
-    , ""
-    ]
+  mapM_ (addTerm term . TermLog . T.unpack) terminalWelcome
 
   case initSongs of
     [] -> return ()

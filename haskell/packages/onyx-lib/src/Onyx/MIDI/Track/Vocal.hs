@@ -23,7 +23,7 @@ import qualified Data.Text                         as T
 import           GHC.Generics                      (Generic)
 import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.DeriveHelpers
-import qualified Onyx.FretsOnFire                  as FoF
+import           Onyx.FretsOnFire                  (stripTags)
 import           Onyx.Harmonix.DTA.Serialize.Magma (Percussion (..))
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
@@ -123,10 +123,10 @@ asciify = let
 asciiLyrics :: VocalTrack t -> VocalTrack t
 asciiLyrics vt = vt { lyrics = asciify <$> vt.lyrics }
 
--- | Strips some CH-format tags used in lyric events.
-stripTags :: VocalTrack t -> VocalTrack t
-stripTags vt = vt
-  { lyrics = FoF.stripTags <$> vt.lyrics
+-- | Strips CH-format tags used in lyric events.
+stripLyricTags :: VocalTrack t -> VocalTrack t
+stripLyricTags vt = vt
+  { lyrics = stripTags <$> vt.lyrics
   }
 
 data TalkyDifficulty

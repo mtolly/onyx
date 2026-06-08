@@ -397,7 +397,7 @@ importFoF src dir level = do
         else if is2x then Kicks2x else Kicks1x
 
   let fixGHVox trks = trks
-        { F.fixedPartVocals = stripTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy trks.fixedPartVocals
+        { F.fixedPartVocals = stripLyricTags $ RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy trks.fixedPartVocals
         }
       -- TODO ugh newer CH/YARG rips always use the in-order format (RYBOG) without
       -- the song.ini tag. we may just need to assume it's always the case

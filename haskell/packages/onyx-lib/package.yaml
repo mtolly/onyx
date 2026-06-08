@@ -79,6 +79,7 @@ library:
   - pretty-simple
   - optics
   - inline-c
+  - megaparsec
   # my libraries
   - jammittools
   - midi-util

@@ -14,21 +14,21 @@ function-batch = Batch recompile
 function-quick = Quick convert/pack
 function-other = Other tools
 
-explain-header =
-  <color=purple>Onyx</color> Music Game Toolkit, version {$version}
+welcome-header =
+  <color=magenta>Onyx</color> Music Game Toolkit, version {$version}
   Select an option below to get started.
 
-explain-load =
+welcome-load =
   bring songs to a new game
   change song speed, reassign instruments
   chart preview tool
-explain-batch =
+welcome-batch =
   "Load a song" operations on multiple songs
-explain-quick =
+welcome-quick =
   edit songs without changing games
   make packs, or extract from packs
   switch console, e.g. <color=green>360</color> -> <color=cyan>PS3</color>
-explain-other =
+welcome-other =
   midi/audio utilities
   lipsync/dryvox tools
 
@@ -245,6 +245,11 @@ template-runner-tooltip =
     %album% - album from song's metadata
     %author% - author from song's metadata
     %song_id% - unique song ID
+
+terminal-task-start = <color=cyan>{$task-name}</color>: {$task-path}
+terminal-task-warning = <color=yellow>Warning</color>: {$message}
+terminal-task-error = <color=red>ERROR!</color> {$message}
+terminal-task-success = <color=green>Success!</color> {$message}
 
 ## batch recompile
 
