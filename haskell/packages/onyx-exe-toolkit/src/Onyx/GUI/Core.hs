@@ -54,7 +54,8 @@ import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.Localization                (L, l10n)
+import           Onyx.Localization                (L, l10n, l10nArgs, vNumber,
+                                                   vString)
 import           Onyx.MIDI.Track.File             (PartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.PlayStation.PKG             as PKG
@@ -96,6 +97,7 @@ C.include "hs_dnd_button.h"
 C.include "hs_dnd_group.h"
 C.include "hs_dnd_box.h"
 C.include "hs_tree.h"
+C.include "FL/fl_string_functions.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -247,8 +249,8 @@ makeTemplateRunner' sink rect buttonText defTemplate useTemplate = do
   withUTF8 buttonText \clabel ->
     [C.block| void { $(Fl_Button* button)->copy_label($(char* clabel)); } |]
   [C.block| void { $(Fl_Button* button)->color($(Fl_Color taskColor)); } |]
-  input <- withRect inputRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
+  input <- withUTF8 (l10n "template") \s -> withRect inputRect \ix iy iw ih ->
+    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih), fl_strdup($(char* s))) } |]
   [C.block| void {
     $(Fl_Input* input)->labelsize(13);
     $(Fl_Input* input)->align(FL_ALIGN_LEFT);
@@ -488,20 +490,25 @@ trimXbox prefs f = if prefs.prefTrimXbox
   else f
 
 gh2DeluxeSelector
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> IO (IO (Maybe Bool)) -- Bool is True if 2x drums
 gh2DeluxeSelector sink rect = do
   let (checkArea, kicksArea) = chopRight 150 rect
   check <- withRect checkArea \cx cy cw ch ->
-    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "GH2 Deluxe features") } |]
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+  withUTF8 (l10n "gh2-deluxe-features") \clbl ->
+    [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
   kicks <- withRect kicksArea \kx ky kw kh ->
     [C.exp| Fl_Choice* { new Fl_Choice($(int kx), $(int ky), $(int kw), $(int kh)) } |]
-  [C.block| void {
-    $(Fl_Choice* kicks)->add("1x drums");
-    $(Fl_Choice* kicks)->add("2x drums");
-    $(Fl_Choice* kicks)->value(0);
-  } |]
+  withUTF8 (l10n "gh2-deluxe-1x-drums") \c1x ->
+    withUTF8 (l10n "gh2-deluxe-2x-drums") \c2x ->
+      [C.block| void {
+        $(Fl_Choice* kicks)->add($(char* c1x));
+        $(Fl_Choice* kicks)->add($(char* c2x));
+        $(Fl_Choice* kicks)->value(0);
+      } |]
   let updateKicks = do
         enabled <- checkValue check
         if enabled
@@ -636,7 +643,8 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Nothing          -> return Nothing
 
 fileLoadWindow
-  :: Rectangle
+  :: (?loc :: L)
+  => Rectangle
   -> (Event -> IO ())
   -> T.Text -- ^ singular
   -> T.Text -- ^ plural
@@ -650,7 +658,8 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display
   $ fileLoadWindow' rect sink single plural modifyFiles startFiles step display
 
 fileLoadWindow'
-  :: Rectangle
+  :: (?loc :: L)
+  => Rectangle
   -> (Event -> IO ())
   -> T.Text -- ^ singular
   -> T.Text -- ^ plural
@@ -680,9 +689,8 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
     $(Fl_Group* group)->resizable($(HsTree* hsTree));
   } |]
   let updateLabel fs = do
-        let msg = case length fs of
-              1 -> "1 file loaded."
-              n -> show n ++ " files loaded."
+        let msg = l10nArgs "load-files-counter"
+              [("count", vNumber $ fromIntegral $ length fs)]
         withUTF8 msg \cmsg ->
           [C.block| void { $(Fl_Box* label)->copy_label($(char* cmsg)); } |]
       clearFiles = modifyFiles \_ -> do
@@ -801,12 +809,12 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
   sink $ EventOnyx $ forkSearch startFiles
   withRect btnRectA' \bx by bw bh -> do
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 ("Add " <> single) \clbl -> do
+    withUTF8 (l10nArgs "file-load-add" [("type", vString single)]) \clbl -> do
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
     setCallback btn $ sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
       \picker -> do
-        withUTF8 ("Load " <> single) \ctitle ->
+        withUTF8 (l10nArgs "file-load-load" [("type", vString single)]) \ctitle ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
@@ -817,7 +825,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
           sink $ EventOnyx $ forkSearch fs
   withRect btnRectB' \bx by bw bh -> do
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 ("Clear " <> plural) \clbl -> do
+    withUTF8 (l10nArgs "file-load-clear" [("type", vString plural)]) \clbl -> do
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
     setCallback btn $ sink $ EventIO $ void clearFiles
   -- Invisible box overlay on tree rect for drag-and-drop.
@@ -881,7 +889,8 @@ setDndBoxCallback box f = do
 type BuildYamlControl a = WriterT (IO (Endo a)) IO
 
 customTitleSuffix
-  :: (Event -> IO ())
+  :: (?loc :: L)
+  => (Event -> IO ())
   -> Rectangle
   -> IO T.Text
   -> (Maybe T.Text -> tgt -> tgt)
@@ -889,7 +898,9 @@ customTitleSuffix
 customTitleSuffix sink rect getSuffix setSuffix = do
   let (checkArea, inputArea) = chopLeft 200 rect
   check <- liftIO $ withRect checkArea \cx cy cw ch ->
-    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Custom Title Suffix") } |]
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+  liftIO $ withUTF8 (l10n "custom-title-suffix") \clbl ->
+    [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
@@ -910,14 +921,16 @@ customTitleSuffix sink rect getSuffix setSuffix = do
   return controlInput
 
 songIDBox
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => Rectangle
   -> (RBSongID -> tgt -> tgt)
   -> BuildYamlControl tgt ()
 songIDBox rect f = do
   let (checkArea, inputArea) = chopLeft 200 rect
   check <- liftIO $ withRect checkArea \cx cy cw ch ->
-    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch), "Specific Song ID") } |]
+    [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+  liftIO $ withUTF8 (l10n "specific-song-id") \clbl ->
+    [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
   input <- liftIO $ withRect inputArea \ix iy iw ih ->
     [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
   let controlInput = do
@@ -969,7 +982,7 @@ numberBox rect lbl f = do
       else Nothing
 
 partSelectors
-  :: (Default tgt)
+  :: (Default tgt, ?loc :: L)
   => Rectangle
   -> Project
   -> [(T.Text, tgt -> PartName, PartName -> tgt -> tgt, Part FilePath -> Bool)]
@@ -989,7 +1002,8 @@ partSelectors rect proj slots = let
       withUTF8 lbl \clbl ->
         [C.block| void { $(Fl_Choice* choice)->copy_label($(char* clbl)); } |]
       [C.block| void { $(Fl_Choice* choice)->align(FL_ALIGN_TOP); } |]
-      [C.block| void { $(Fl_Choice* choice)->add("(none)"); } |]
+      withUTF8 (l10n "part-none") \cnone ->
+        [C.block| void { $(Fl_Choice* choice)->add($(char* cnone)); } |]
       forM_ fparts' \(_, opt, _) ->
         withUTF8 opt \copt ->
           [C.block| void { $(Fl_Choice* choice)->add($(char* copt)); } |]

@@ -53,6 +53,30 @@ menu-help-credits = Credits
 menu-view = &View
 menu-view-console = Show Console
 
+## windows and tabs
+
+window-quick-convert = Quick Convert
+window-tools = Tools
+window-preferences = Onyx Preferences
+
+tab-metadata = Metadata
+tab-instruments = Instruments
+tab-preview = Preview
+tab-stars = Stars
+tab-utilities = Utilities
+tab-task = Task
+song-tab-ch-ps = CH/PS
+
+pref-tab-general = General
+pref-tab-rock-band = Rock Band
+pref-tab-guitar-hero = Guitar Hero
+pref-tab-clone-hero = Clone Hero
+pref-tab-360 = 360
+pref-tab-ps3 = PS3
+pref-tab-wii = Wii
+pref-tab-3d-preview = 3D Preview
+pref-tab-audio = Audio
+
 ## shared gui widgets
 
 load-files-counter =
@@ -68,9 +92,6 @@ instrument-keys = Keys
 instrument-vocals = Vocals
 instrument-other = Other
 
-format-song-artist =
-  {$title} ({$artist})
-
 speed-percent = Speed (%)
 speed-percent-tooltip =
   Change the speed of the chart and its audio (without changing pitch).
@@ -83,6 +104,18 @@ bass-pedal-both-input = 1x+2x Bass Pedal (PS X+ or C3 format)
 template = Template
 
 task-cancel = Cancel
+
+file-load-add = Add {$type}
+file-load-load = Load {$type}
+file-load-clear = Clear {$type}
+
+custom-title-suffix = Custom Title Suffix
+specific-song-id = Specific Song ID
+part-none = (none)
+
+gh2-deluxe-features = GH2 Deluxe features
+gh2-deluxe-1x-drums = 1x drums
+gh2-deluxe-2x-drums = 2x drums
 
 song-list-title = Select Songs
 song-list-select-all = Select all
@@ -154,7 +187,6 @@ game-tab-clone-hero = {game-clone-hero}
 game-tab-gh1 = {game-short-gh1}
 game-tab-gh2 = {game-short-gh2}
 game-tab-gh3 = {game-short-gh3}
-game-tab-rb1 = {game-short-rb1}
 game-tab-rb2 = {game-short-rb2}
 game-tab-rb3 = {game-short-rb3}
 game-tab-ghwor = {game-short-ghwor}
@@ -229,6 +261,13 @@ gender-female = Female
 gender-male = Male
 gender-unspecified = Unspecified Gender
 
+language-english = English
+language-french = French
+language-italian = Italian
+language-spanish = Spanish
+language-german = German
+language-japanese = Japanese
+
 vocals-solo = Solo
 vocals-harmonies-2 = Harmonies (2)
 vocals-harmonies-3 = Harmonies (3)
@@ -254,9 +293,6 @@ terminal-task-success = <color=green>Success!</color> {$message}
 ## batch recompile
 
 batch-tab-songs = Songs
-batch-tab-songs-tree-root = Songs
-batch-tab-songs-add = Add Song
-batch-tab-songs-clear = Clear Songs
 batch-tab-songs-import-label = Import:
 
 batch-tab-song-entry =
@@ -337,6 +373,35 @@ batch-task-preview = Build web previews
 
 song-toggle-2x-bass-pedal = 2x Bass Pedal drums
 
+part-guitar = Guitar
+part-bass = Bass
+part-keys = Keys
+part-drums = Drums
+part-vocal = Vocal
+part-rhythm = Rhythm
+part-guitar-coop = Guitar Coop
+part-vocal-animation = Vocal (animation)
+
+coop-bass = Coop: Bass
+coop-rhythm = Coop: Rhythm
+
+numberbox-gh5-song-id = Custom Song ID (dlc)
+numberbox-gh5-cdl = Custom Package ID (cdl)
+numberbox-rr-song-id = Custom Song ID
+numberbox-rr-leaderboard-id = Custom Leaderboard ID
+
+create-360-con = Create Xbox 360 CON file
+create-ps3-pkg = Create PS3 PKG file
+create-magma = Create Magma project
+create-ps3-folder = Create PS3/RPCS3 folder
+create-360-live = Create Xbox 360 LIVE file
+create-rpcs3-pkg = Create RPCS3 PKG file
+create-ch-folder = Create CH/PS song folder
+create-ch-sng = Create CH .sng file
+create-ch-zip = Create CH/PS zip file
+create-ps2-add-bonus = Add to PS2 ARK as Bonus Song
+create-ps2-diy = Create PS2 DIY folder
+
 ## quick convert
 
 quick-convert-tab-rb = RB quick convert + pack creator
@@ -383,3 +448,343 @@ misc-task-make-gh3-cache = Make GH3 cache file
 misc-task-install-gh3-cache = Install GH3 cache file
 misc-task-make-ghwor-cache = Make GH:WoR cache file
 misc-task-install-ghwor-cache = Install GH:WoR cache file
+
+# lipsync / dry vox / milo tools
+
+label-midi-file = MIDI file
+label-audio-file = Audio file
+label-transition-ms = Transition (ms)
+
+dryvox-blank = (blank)
+
+file-type-package = Package
+file-type-packages = Packages
+file-type-rb-con-live = Rock Band CON/LIVE
+file-type-con-live = CON/LIVE
+file-type-rb-song = Rock Band song
+file-type-rb-songs = Rock Band songs
+file-type-rr-song = RR song
+file-type-rr-songs = RR songs
+file-type-ch-song = CH song
+file-type-ch-songs = CH songs
+file-type-audio = Audio
+file-type-song = Song
+file-type-songs = Songs
+
+misc-button-make-voc = Make GH2 .voc from PART VOCALS
+misc-button-make-milo = Make RB3 .milo_*
+  .tooltip = Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS.
+misc-button-update-milo = Update RB3/TBRB .milo_*
+  .tooltip = Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks.
+misc-button-create-lipsync = Create *.lipsync
+  .tooltip = Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files.
+misc-button-vocal-lipsync-rb3 = Turn vocal tracks into LIPSYNC* tracks for RB3
+  .tooltip = Uses HARM* or PART VOCALS to produce LIPSYNC{"{"}1-3{"}"} tracks containing viseme information, using the standard RB viseme set.
+misc-button-vocal-lipsync-tbrb = Turn vocal tracks into LIPSYNC* tracks for TBRB
+  .tooltip = Uses HARM* or PART VOCALS to produce LIPSYNC{"{"}1-3{"}"} tracks containing viseme information, using the Beatles RB viseme set.
+misc-button-dryvox-sine = Make sine wave dry vox from MIDI
+misc-button-dryvox-clipped = Make clipped dry vox from MIDI and audio
+
+misc-task-extract-milo = Extract {$path}
+misc-task-repack-milo = Repack {$path}
+misc-task-make-voc = Make GH2 .voc: {$path}
+misc-task-make-milo = Create .milo from MIDI lipsync: {$path}
+misc-task-update-milo = Update .milo with MIDI lipsync: {$path}
+misc-task-export-lipsync = Export .lipsync to folder
+misc-task-vocal-to-lipsync = Convert vocal tracks to LIPSYNC tracks: {$path}
+misc-task-dryvox = {$name}: {$path}
+
+## preferences
+
+button-save = Save
+button-start = Start
+
+pref-unlimited-cores = Unlimited cores
+pref-core-limit = Core limit
+pref-detect-muted = For non-open-note games, convert "muted strums" to Harmonix style
+pref-detect-muted-tooltip = When checked, sequences of the form "chord, strummed open notes, strummed chord" are assumed to represent muted strums. Instead of always becoming green, these open notes will become the lowest note of the following chord, or of the preceding chord if it is closer to the open notes.
+
+pref-magma-require = Magma required
+pref-magma-try = Magma optional
+pref-magma-disable = Don't use Magma
+pref-black-venue = Always export black VENUE track
+pref-label-2x = Label 2x kick charts as (2x Bass Pedal) by default
+pref-legal-tempos = Modify tempos in RB export to follow Magma rules
+pref-legal-tempos-tooltip = Magma requires MIDI files to use tempos in the range of 40 to 300 BPM. This is a more restricted range than the games actually require.
+pref-rb3-encoding-label = RB3 recompile .dta
+pref-pack-encoding-label = RB3 pack .dta
+enc-latin1 = Latin-1
+enc-utf8 = UTF-8
+enc-as-is = As is
+
+pref-gh2-offset = GH2 Audio Offset (ms)
+pref-gh2-offset-tooltip = Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay. Positive values mean audio will be pulled earlier, to account for delay. Negative values mean audio will be pushed later.
+pref-sort-gh2 = Sort GH2 bonus songs when adding to .ARK
+pref-artist-sort = For GH2 and GH3, sort by artist first (instead of title)
+pref-artist-sort-tooltip = This affects GH2 .ARK bonus songs (when the above box is checked) and GH3 DLC (as sorted in the Song Cache file).
+
+pref-dir-ch = Default CH folder
+pref-ch-downmix = Mix down stems in CH output
+pref-ch-audio-ogg = Output Ogg Vorbis audio
+pref-ch-audio-opus = Output Opus audio
+
+pref-dir-rb = Default CON/LIVE folder
+pref-trim-xbox = Ensure valid filenames for Xbox 360 USB or HDD drives
+pref-trim-xbox-tooltip = When checked, the filenames of CON or LIVE files will be trimmed to a max of 42 characters, and will also have plus and comma characters replaced (a restriction for files on a 360 hard drive, but not USB).
+pref-rb-number-id = Use true number IDs instead of symbols on Xbox 360 RB files
+pref-rb-number-id-tooltip = When checked, Rock Band files will use a random integer for song_id. Otherwise, an 'o' is prefixed to form a symbol, and the game will generate a random ID. A true integer is required for some contexts such as RGH online play and PS3 conversion, and also maintains scores even if the song cache is regenerated.
+
+pref-ps3-encrypt = Encrypt .mid.edat files for PS3
+pref-ps3-encrypt-tooltip = When checked, .mid.edat files for PS3 customs will be encrypted. This is required for a real console, but optional (and can be less convenient) when playing on emulator.
+pref-dir-ps3 = PS3/RPCS3 install folder
+
+pref-dir-wii = Default Wii .app folder
+
+pref-msaa-none = No MSAA
+pref-msaa-2x = MSAA 2x
+pref-msaa-4x = MSAA 4x
+pref-msaa-8x = MSAA 8x
+pref-msaa-16x = MSAA 16x
+pref-fxaa = FXAA
+pref-fps = Frames per second
+pref-elite-hihat-default = Elite drums hihat side: default
+pref-elite-hihat-cross = Elite drums hihat side: cross hand
+pref-elite-hihat-open = Elite drums hihat side: open hand
+pref-elite-ride-default = Elite drums ride side: default
+pref-elite-ride-far = Elite drums ride side: far crash
+pref-elite-ride-near = Elite drums ride side: near crash
+pref-waveform = Audio waveform
+pref-lefty-flip = Lefty flip
+
+pref-ogg-quality = OGG Vorbis quality
+pref-decrypt-silent = Treat undecryptable MOGGs as silent instead of an error
+
+pref-magma-warning =
+  Warning! Disabling Magma can result in Rock Band files that crash the game,
+  as Onyx does not yet check all of the error cases that Magma does.
+  Please test any charts thoroughly before distributing to others!
+
+## quick convert
+
+qc-proc-black-venue = Black VENUE
+qc-proc-black-venue-tooltip = Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format.
+qc-proc-no-overdrive = No Overdrive
+qc-proc-no-overdrive-tooltip = Removes overdrive phrases from all instruments.
+qc-proc-no-lanes-gbk = No lanes (G/B/K)
+qc-proc-no-lanes-gbk-tooltip = Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys.
+qc-proc-no-lanes-drums = No lanes (drums)
+qc-proc-no-lanes-drums-tooltip = Removes one-pad and two-pad rolls/swells from Drums.
+qc-proc-no-drum-fills = No drum fills
+qc-proc-no-drum-fills-tooltip = Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos.
+qc-proc-force-22-protar = Force 22-fret protar
+qc-proc-force-22-protar-tooltip = For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos.
+qc-proc-unmute-22-protar = Unmute >22-fret protar
+qc-proc-unmute-22-protar-tooltip = Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input.
+qc-proc-decompress-milo = Decompress .milo_*
+qc-proc-decompress-milo-tooltip = Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion.
+qc-proc-author-to-tag = Author to DTA tag
+qc-proc-author-to-tag-tooltip = Copies author information from the C3 Magma comment format to the RB2/RB3 Deluxe game-readable format.
+qc-proc-strip-title-tags = Strip title tags
+qc-proc-strip-title-tags-tooltip = Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc.
+qc-proc-note-shuffle = Note shuffle
+qc-proc-note-shuffle-tooltip = Shuffles notes on 5-fret and drum parts.
+
+qc-decrypt-moggs = Decrypt MOGGs
+qc-decrypt-moggs-tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
+
+qc-mode-in-place = Transform in place: replace input files with new versions
+qc-mode-one-to-one = One to one: each input file produces a new output file
+qc-mode-make-packs = Make packs: combine songs up to a maximum file size
+qc-mode-make-songs = Make songs: produce a single file for each song
+qc-mode-make-dolphin = Make Dolphin (Wii) pack
+
+qc-format-con = CON (360)
+qc-format-live = LIVE (360)
+qc-format-pkg = PKG (PS3)
+qc-format-folders = Folders (PS3)
+
+qc-encrypt-edat = Encrypt .mid.edat
+qc-for-ps3-files = For PS3 files:
+
+qc-folder-keep = Keep original USRDIR subfolders
+qc-folder-keep-any = Keep original USRDIR subfolders (if any)
+qc-folder-combine = Combine into one new USRDIR subfolder
+qc-folder-combine-per-file = Combine into one new USRDIR subfolder per file
+qc-folder-combine-per-pack = Combine into one new USRDIR subfolder per pack
+qc-folder-each = Each song gets a new USRDIR subfolder
+qc-folder-custom-initial = Custom USRDIR subfolder...
+qc-folder-custom = Custom folder: {$folder}
+qc-folder-custom-prompt = Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)
+
+## gh2 pack creator
+
+pack-game-from-first = Game (from first in list):
+pack-game = Game:
+pack-save-stfs = Save STFS file
+pack-name = Pack name
+pack-description = Pack description
+pack-make-con = Make CON pack (RB3/RB2)
+pack-make-live = Make LIVE pack (all other games)
+pack-make-extracted = Make extracted folder
+pack-save-as = Save pack as…
+pack-task-extracted = Save pack as extracted contents: {$path}
+pack-task-con = Save pack as CON: {$path}
+pack-task-live = Save pack as LIVE: {$path}
+
+button-select-folder = Select folder…
+
+song-count =
+  {$count ->
+    [one] {$count} song
+   *[other] {$count} songs
+  }
+
+qc-max-pack-size = Max Pack Size (MiB)
+qc-invalid-pack-size = Invalid pack size
+qc-no-songs-added = No songs added
+qc-make-packs-count =
+  {$count ->
+    [one] Make {$count} pack
+   *[other] Make {$count} packs
+  }
+qc-unsupported-format = Unsupported format: transform in place supports CON/LIVE/PKG
+qc-empty = (empty)
+qc-songs-incl = {$count} songs incl. {$title}
+qc-save-pack-file = Save pack file
+qc-save-pack-template = Select template for packs (a number will be added for each pack)
+qc-pack-number = Pack #{$number}
+
+qc-fof-folder = folder format
+qc-fof-sng = .sng format
+qc-fof-encore = Encore format
+qc-mode-to-folders = To folders: save each song as a folder
+qc-mode-to-sng = To SNG: save each song as an .sng file
+
+qc-ch-warning-base = This will modify the selected songs, and the old versions will be deleted.
+qc-ch-warning-encore =
+  WARNING: This will convert Encore-format songs into CH-compatible ones, removing the original files.
+  Select a different mode if you want to keep them.
+qc-ch-ops-header = Based on the filename template, these operations will be performed:
+qc-ch-op-overwrite = - {$songs} will be overwritten with new versions
+qc-ch-op-convert = - {$songs} will be converted to new versions
+qc-ch-op-convert-delete = - {$songs} will be converted to new versions, and the old versions will be deleted
+qc-ch-ops-encore = WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones
+
+qc-delete-originals = Delete original files
+qc-dolphin-preview = Try to generate preview audio
+qc-task-make-dolphin = Make Dolphin pack
+
+## midi / cache / utilities / tasks
+
+label-midi-or-chart = MIDI or .chart
+midi-load-dialog = Load MIDI or .chart file
+midi-btn-reduce = Fill in lower difficulties and drum animations
+midi-task-reduce = Reduce MIDI: {$path}
+midi-btn-prokeys = Find hanging Pro Keys notes
+midi-task-prokeys = Pro Keys range check: {$path}
+midi-btn-reaper = Make REAPER project with RB template
+midi-task-reaper = Make REAPER project: {$path}
+midi-btn-chart-to-midi = Clean convert .chart to MIDI
+midi-task-chart-to-midi = Convert to MIDI: {$path}
+midi-btn-batch = Batch
+midi-task-chart-batch = Convert .chart to MIDI (batch): {$path}
+
+label-con-folder = CON folder
+label-song-cache = Song cache
+cache-load-dialog = Load RB3 song cache
+cache-btn-apply = Apply numeric IDs from song cache
+cache-task = Hardcode song cache: {$path}
+
+util-btn-preview = Build web preview
+util-btn-reduce = Produce MIDI with automatic reductions
+util-save-midi-dialog = Save MIDI file
+util-task-prokeys = Pro Keys range check
+
+task-show-files = Show created files
+task-cancelled = Cancelled tasks.
+task-status = {$done}/{$total} tasks complete: {$succeeded} succeeded, {$failed} failed
+task-number = Task {$number}
+task-created-files = Created files:
+
+mogg-btn-ogg = Ogg to MOGG, no re-encode ({$channels} channels)
+mogg-btn-combine = Combine into MOGG ({$channels} channels)
+mogg-btn-vgs = Combine into VGS ({$channels} channels)
+mogg-btn-fsb3 = Make FSB3-XMA1 ({$streams} streams, {$channels} channels total)
+mogg-btn-fsb4 = Make FSB4-XMA2 ({$channels} channels)
+mogg-task-ogg = Ogg to MOGG
+mogg-task-mogg = MOGG file creation
+mogg-task-vgs = VGS file creation
+mogg-task-fsb3 = FSB3 file creation
+mogg-task-fsb4 = FSB4 file creation
+audio-channels =
+  {$count ->
+    [one] {$count} channel
+   *[other] {$count} channels
+  }
+audio-frames = ({$frames} frames @ {$rate} Hz)
+
+## stars / metadata / instruments / preview / build
+
+stars-rb3-title = Rock Band 3 Star Cutoffs
+stars-gh-title = Guitar Hero 1/2 Star Cutoffs
+stars-lead = Lead
+stars-coop = Coop
+stars-1 = 1*: {$score}
+stars-2 = 2*: {$score}
+stars-3 = 3*: {$score}
+stars-4 = 4*: {$score}
+stars-5 = 5*: {$score}
+stars-gold = G*: {$score}
+stars-gh-base = Base: {$score}
+stars-gh-4 = 4*: {$score}
+stars-gh2-5 = 5* (GH2): {$score}
+stars-gh1-5 = 5* (GH1): {$score}
+
+diff-easy = (E)
+diff-medium = (M)
+diff-hard = (H)
+diff-expert = (X)
+
+meta-convert = Convert
+meta-rhythm-keys = Rhythm Keys
+meta-rhythm-bass = Rhythm Bass
+meta-auto-emh = Auto EMH
+meta-expert-only = Expert Only
+meta-cover = Cover
+label-track-number = #
+default-song-title = Song
+
+tier = Tier {$number}
+rank = Rank
+
+audio-plan-select = Select an audio plan
+loading-image = Loading image: {$path}
+
+preview-view-tracks = View Tracks
+preview-audio = Audio
+preview-background = Background
+preview-bg-none = None
+
+build-rb3-con = Building RB3 CON (360)
+build-rb3-pkg = Building RB3 PKG (PS3)
+build-magma = Building Magma project
+build-rb3-ps3 = Building RB3 PS3 folders
+build-rb2-con = Building RB2 CON (360)
+build-rb2-pkg = Building RB2 PKG (PS3)
+build-rb2-ps3 = Building RB2 PS3 folders
+build-ch-folder = Building CH/PS song folder
+build-ch-zip = Building CH/PS zip file
+build-ch-sng = Building CH/PS .sng file
+build-gh1-ark = Adding to GH1 ARK file
+build-gh1-diy = Creating GH1 DIY folder (PS2)
+build-gh2-live = Building GH2 LIVE file
+build-gh2-ark = Adding to GH2 ARK file
+build-gh2-diy = Creating GH2 DIY folder (PS2)
+build-gh3-live = Building GH3 LIVE file
+build-gh3-pkg = Building GH3 PKG file
+build-gh3-ps3 = Building GH3 PS3 folders
+build-ghwor-live = Building GH:WoR LIVE file
+build-ghwor-pkg = Building GH:WoR PKG file
+build-ghwor-ps3 = Building GH:WoR PS3 folders
+build-rr-live = Building RR LIVE file
+build-rr-pkg = Building RR PKG file

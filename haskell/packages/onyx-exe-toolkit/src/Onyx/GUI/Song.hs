@@ -79,19 +79,19 @@ songPageRB3 sink rect tab proj build = mdo
     fullWidth 35 \rect' -> songIDBox rect' \sid rb3 ->
       rb3 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #guitar .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar) -- technically pro guitar can make five fret. but good to be safe
         )
-      , ( "Bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #bass   .~ v)
+      , ( l10n "part-bass"  , (.bass  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #bass   .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proGuitar)
         )
-      , ( "Keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #keys   .~ v)
+      , ( l10n "part-keys"  , (.keys  ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #keys   .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proKeys) -- similarly pro keys can make five fret
         )
-      , ( "Drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #drums  .~ v)
+      , ( l10n "part-drums" , (.drums ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #vocal  .~ v)
+      , ( l10n "part-vocal" , (.vocal ), (\v rb3 -> (rb3 :: TargetRB3 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -121,7 +121,9 @@ songPageRB3 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-con") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
       saveFileChooser (l10n "file-picker-save-rb3-con")
@@ -131,7 +133,9 @@ songPageRB3 sink rect tab proj build = mdo
           newPreferences <- readPreferences
           stackIO $ build qcPossible tgt $ RB3CON $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-pkg") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       let qcPossible = fromMaybe 1 tgt.common.speed == 1
       saveFileChooser (l10n "file-picker-save-rb3-pkg")
@@ -145,14 +149,18 @@ songPageRB3 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Magma project") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-magma") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser (l10n "file-picker-save-magma-v2")
         (T.pack $ proj.projectTemplate <> "_project")
         (T.pack <$> ?preferences.prefDirRB)
         \f -> build False tgt $ RB3Magma f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-folder") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ sink $ EventOnyx do
       tgt <- makeFinalTarget
       defDir <- getDefaultPS3Dir
@@ -195,16 +203,16 @@ songPageRB2 sink rect tab proj build = mdo
     fullWidth 35 \rect' -> songIDBox rect' \sid rb2 ->
       rb2 & #songID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #bass   .~ v)
+      , ( l10n "part-bass"  , (.bass  ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #drums  .~ v)
+      , ( l10n "part-drums" , (.drums ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #vocal  .~ v)
+      , ( l10n "part-vocal" , (.vocal ), (\v rb2 -> (rb2 :: TargetRB2 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -233,7 +241,9 @@ songPageRB2 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 CON file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-con") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser (l10n "file-picker-save-rb2-con")
         (T.pack $ proj.projectTemplate <> "_rb2con")
@@ -242,7 +252,9 @@ songPageRB2 sink rect tab proj build = mdo
           newPreferences <- readPreferences
           stackIO $ build tgt $ RB2CON $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-pkg") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ sink $ EventOnyx $ makeFinalTarget >>= \tgt -> stackIO do
       saveFileChooser (l10n "file-picker-save-rb2-pkg")
         (T.pack $ proj.projectTemplate <> ".pkg")
@@ -254,7 +266,9 @@ songPageRB2 sink rect tab proj build = mdo
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-folder") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx do
       tgt <- makeFinalTarget
       defDir <- getDefaultPS3Dir
@@ -286,27 +300,27 @@ songPageGHWOR sink rect tab proj build = mdo
       return counter
     fullWidth 35 \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
-        [ ("Pro Drums to 5 lane", False, not ?preferences.prefGH4Lane)
-        , ("Pro Drums to 4 lane", True, ?preferences.prefGH4Lane)
+        [ (l10n "batch-tab-gh-drums-5lane", False, not ?preferences.prefGH4Lane)
+        , (l10n "batch-tab-gh-drums-4lane", True, ?preferences.prefGH4Lane)
         ]
       tell do
         b <- getProTo4
         return $ Endo \gh5 -> (gh5 :: TargetGH5 FilePath) & #proTo4 .~ fromMaybe False b
-    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID (dlc)" \sid gh5 ->
+    fullWidth 35 \rect' -> numberBox rect' (l10n "numberbox-gh5-song-id") \sid gh5 ->
       gh5 & #songID .~ sid
-    fullWidth 35 \rect' -> numberBox rect' "Custom Package ID (cdl)" \sid gh5 ->
+    fullWidth 35 \rect' -> numberBox rect' (l10n "numberbox-gh5-cdl") \sid gh5 ->
       gh5 & #cdl .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #bass   .~ v)
+      , ( l10n "part-bass"  , (.bass  ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #drums  .~ v)
+      , ( l10n "part-drums" , (.drums ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #vocal  .~ v)
+      , ( l10n "part-vocal" , (.vocal ), (\v gh5 -> (gh5 :: TargetGH5 FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -325,7 +339,9 @@ songPageGHWOR sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-live") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-ghwor-live")
@@ -335,7 +351,9 @@ songPageGHWOR sink rect tab proj build = mdo
           newPreferences <- readPreferences
           stackIO $ warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORLIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-pkg") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-ghwor-pkg")
@@ -346,7 +364,9 @@ songPageGHWOR sink rect tab proj build = mdo
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-folder") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx do
       tgt <- stackIO makeTarget
       defDir <- getDefaultPS3Dir
@@ -378,27 +398,27 @@ songPageRR sink rect tab proj build = mdo
       return counter
     fullWidth 35 \rect' -> do
       getProTo4 <- liftIO $ horizRadio rect'
-        [ ("Pro Drums to 6 pad", False, False)
-        , ("Pro Drums to 4 pad", True, True)
+        [ (l10n "batch-tab-rr-drums-6pad", False, False)
+        , (l10n "batch-tab-rr-drums-4pad", True, True)
         ]
       tell do
         b <- getProTo4
         return $ Endo \rr -> (rr :: TargetRR FilePath) & #proTo4 .~ fromMaybe False b
-    fullWidth 35 \rect' -> numberBox rect' "Custom Song ID" \sid rr ->
+    fullWidth 35 \rect' -> numberBox rect' (l10n "numberbox-rr-song-id") \sid rr ->
       rr & #songID .~ sid
-    fullWidth 35 \rect' -> numberBox rect' "Custom Leaderboard ID" \sid rr ->
+    fullWidth 35 \rect' -> numberBox rect' (l10n "numberbox-rr-leaderboard-id") \sid rr ->
       rr & #leaderboardID .~ sid
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar"           , (.guitar), (\v rr -> (rr :: TargetRR FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar"         , (.guitar), (\v rr -> (rr :: TargetRR FilePath) & #guitar .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Bass"             , (.bass  ), (\v rr -> (rr :: TargetRR FilePath) & #bass   .~ v)
+      , ( l10n "part-bass"           , (.bass  ), (\v rr -> (rr :: TargetRR FilePath) & #bass   .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Drums"            , (.drums ), (\v rr -> (rr :: TargetRR FilePath) & #drums  .~ v)
+      , ( l10n "part-drums"          , (.drums ), (\v rr -> (rr :: TargetRR FilePath) & #drums  .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal (animation)", (.vocal ), (\v rr -> (rr :: TargetRR FilePath) & #vocal  .~ v)
+      , ( l10n "part-vocal-animation", (.vocal ), (\v rr -> (rr :: TargetRR FilePath) & #vocal  .~ v)
         , (\p -> isJust p.vocal)
         )
       ]
@@ -417,7 +437,9 @@ songPageRR sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-live") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-rr-live")
@@ -427,7 +449,9 @@ songPageRR sink rect tab proj build = mdo
           newPreferences <- readPreferences
           stackIO $ build tgt $ RRLIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create RPCS3 PKG file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-rpcs3-pkg") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-rr-pkg")
@@ -460,25 +484,25 @@ songPagePS sink rect tab proj build = mdo
         (ps :: TargetPS FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS FilePath) & #guitar     .~ v)
+      [ ( l10n "part-guitar"     , (.guitar    ), (\v ps -> (ps :: TargetPS FilePath) & #guitar     .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar)
         )
-      , ( "Bass"       , (.bass      ), (\v ps -> (ps :: TargetPS FilePath) & #bass       .~ v)
+      , ( l10n "part-bass"       , (.bass      ), (\v ps -> (ps :: TargetPS FilePath) & #bass       .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.ghl || isJust p.proGuitar)
         )
-      , ( "Keys"       , (.keys      ), (\v ps -> (ps :: TargetPS FilePath) & #keys       .~ v)
+      , ( l10n "part-keys"       , (.keys      ), (\v ps -> (ps :: TargetPS FilePath) & #keys       .~ v)
         , (\p -> isJust (anyFiveFret p) || isJust p.proKeys)
         )
-      , ( "Drums"      , (.drums     ), (\v ps -> (ps :: TargetPS FilePath) & #drums      .~ v)
+      , ( l10n "part-drums"      , (.drums     ), (\v ps -> (ps :: TargetPS FilePath) & #drums      .~ v)
         , (\p -> isJust $ anyDrums p)
         )
-      , ( "Vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS FilePath) & #vocal      .~ v)
+      , ( l10n "part-vocal"      , (.vocal     ), (\v ps -> (ps :: TargetPS FilePath) & #vocal      .~ v)
         , (\p -> isJust p.vocal)
         )
-      , ( "Rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS FilePath) & #rhythm     .~ v)
+      , ( l10n "part-rhythm"     , (.rhythm    ), (\v ps -> (ps :: TargetPS FilePath) & #rhythm     .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
-      , ( "Guitar Coop", (.guitarCoop), (\v ps -> (ps :: TargetPS FilePath) & #guitarCoop .~ v)
+      , ( l10n "part-guitar-coop", (.guitarCoop), (\v ps -> (ps :: TargetPS FilePath) & #guitarCoop .~ v)
         , (\p -> isJust $ anyFiveFret p)
         )
       ]
@@ -496,7 +520,9 @@ songPagePS sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 5 0 5 -> r2, trimClock 0 0 0 5 -> r3] = splitHorizN 3 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS song folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ch-folder") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-ch-folder")
@@ -504,7 +530,9 @@ songPagePS sink rect tab proj build = mdo
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSDir f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH .sng file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ch-sng") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-ch-sng")
@@ -512,7 +540,9 @@ songPagePS sink rect tab proj build = mdo
         (T.pack <$> ?preferences.prefDirCH)
         \f -> build tgt $ PSSng f
     btn3 <- withRect r3 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create CH/PS zip file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ch-zip") \clbl ->
+      [C.block| void { $(Fl_Button* btn3)->copy_label($(char* clbl)); } |]
     setCallback btn3 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-ch-zip")
@@ -547,19 +577,19 @@ songPageGH3 sink rect tab proj build = mdo
         (gh3 :: TargetGH3 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #bass .~ v)
+        [ ( l10n "part-bass"  , (.bass  ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #bass .~ v)
           , isJust . anyFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #rhythm .~ v)
+        [ ( l10n "part-rhythm", (.rhythm), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #rhythm .~ v)
           , isJust . anyFiveFret
           )
         ]
@@ -571,8 +601,8 @@ songPageGH3 sink rect tab proj build = mdo
               coop <- readIORef coopPart
               let lbl :: T.Text
                   lbl = case coop of
-                    GH2Bass   -> "Coop: Bass"
-                    GH2Rhythm -> "Coop: Rhythm"
+                    GH2Bass   -> l10n "coop-bass"
+                    GH2Rhythm -> l10n "coop-rhythm"
               withUTF8 lbl \clbl ->
                 [C.block| void { $(Fl_Button* coopButton)->copy_label($(char* clbl)); } |]
               controlRhythm $ coop == GH2Rhythm
@@ -584,13 +614,13 @@ songPageGH3 sink rect tab proj build = mdo
           updateCoopButton
       tell $ readIORef coopPart >>= \coop -> return $ Endo \gh3 -> (gh3 :: TargetGH3 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #keys  .~ v)
+      [ ( l10n "part-keys" , (.keys ), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #drums .~ v)
+      , ( l10n "part-drums", (.drums), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #drums .~ v)
         , isJust . (.drums)
         )
-      , ( "Vocal", (.vocal), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #vocal .~ v)
+      , ( l10n "part-vocal", (.vocal), (\v gh3 -> (gh3 :: TargetGH3 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -609,7 +639,9 @@ songPageGH3 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-live") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-gh3-live")
@@ -619,7 +651,9 @@ songPageGH3 sink rect tab proj build = mdo
           newPreferences <- readPreferences
           stackIO $ build tgt $ GH3LIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3 PKG file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-pkg") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 do
       tgt <- makeTarget
       saveFileChooser (l10n "file-picker-save-gh3-pkg")
@@ -630,7 +664,9 @@ songPageGH3 sink rect tab proj build = mdo
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn1 <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS3/RPCS3 folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps3-folder") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ sink $ EventOnyx do
       tgt <- stackIO makeTarget
       defDir <- getDefaultPS3Dir
@@ -662,21 +698,21 @@ songPageGH1 sink rect tab proj build = mdo
         (gh1 :: TargetGH1 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #bass  .~ v)
+      [ ( l10n "part-bass" , (.bass ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #bass  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #keys  .~ v)
+      , ( l10n "part-keys" , (.keys ), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #drums .~ v)
+      , ( l10n "part-drums", (.drums), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #drums .~ v)
         , isJust . (.drums)
         )
-      , ( "Vocal", (.vocal), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #vocal .~ v)
+      , ( l10n "part-vocal", (.vocal), (\v gh1 -> (gh1 :: TargetGH1 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -700,13 +736,17 @@ songPageGH1 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps2-add-bonus") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
       browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in build tgt $ GH1ARK gen
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps2-diy") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser (l10n "file-picker-create-diy-folder")
         (T.pack $ proj.projectTemplate <> "_gh1")
@@ -739,19 +779,19 @@ songPageGH2 sink rect tab proj build = mdo
         (gh2 :: TargetGH2 FilePath) & #common % #speed .~ Just speed
       return counter
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #guitar .~ v)
+      [ ( l10n "part-guitar", (.guitar), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #guitar .~ v)
         , isJust . anyFiveFret
         )
       ]
     fullWidth 50 \rect' -> do
       let [bassArea, coopArea, rhythmArea] = splitHorizN 3 rect'
       void $ partSelectors bassArea proj
-        [ ( "Bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #bass .~ v)
+        [ ( l10n "part-bass"  , (.bass  ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #bass .~ v)
           , isJust . anyFiveFret
           )
         ]
       controlRhythm <- partSelectors rhythmArea proj
-        [ ( "Rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #rhythm .~ v)
+        [ ( l10n "part-rhythm", (.rhythm), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #rhythm .~ v)
           , isJust . anyFiveFret
           )
         ]
@@ -763,8 +803,8 @@ songPageGH2 sink rect tab proj build = mdo
               coop <- readIORef coopPart
               let lbl :: T.Text
                   lbl = case coop of
-                    GH2Bass   -> "Coop: Bass"
-                    GH2Rhythm -> "Coop: Rhythm"
+                    GH2Bass   -> l10n "coop-bass"
+                    GH2Rhythm -> l10n "coop-rhythm"
               withUTF8 lbl \clbl ->
                 [C.block| void { $(Fl_Button* coopButton)->copy_label($(char* clbl)); } |]
               controlRhythm $ coop == GH2Rhythm
@@ -776,13 +816,13 @@ songPageGH2 sink rect tab proj build = mdo
           updateCoopButton
       tell $ readIORef coopPart >>= \coop -> return $ Endo \gh2 -> (gh2 :: TargetGH2 FilePath) & #coop .~ coop
     fullWidth 50 \rect' -> void $ partSelectors rect' proj
-      [ ( "Keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #keys  .~ v)
+      [ ( l10n "part-keys" , (.keys ), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #keys  .~ v)
         , isJust . anyFiveFret
         )
-      , ( "Drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #drums .~ v)
+      , ( l10n "part-drums", (.drums), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #drums .~ v)
         , isJust . anyDrums
         )
-      , ( "Vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #vocal .~ v)
+      , ( l10n "part-vocal", (.vocal), (\v gh2 -> (gh2 :: TargetGH2 FilePath) & #vocal .~ v)
         , isJust . (.vocal)
         )
       ]
@@ -818,13 +858,17 @@ songPageGH2 sink rect tab proj build = mdo
   fullWidth 35 \rect' -> do
     let [trimClock 0 5 0 0 -> r1, trimClock 0 0 0 5 -> r2] = splitHorizN 2 rect'
     btn1 <- withRect r1 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Add to PS2 ARK as Bonus Song") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps2-add-bonus") \clbl ->
+      [C.block| void { $(Fl_Button* btn1)->copy_label($(char* clbl)); } |]
     setCallback btn1 $ makeTargetUpdatePrefs \tgt -> do
       browseFileChooser (l10n "file-picker-load-hdr") \f -> let
         gen = takeDirectory f
         in build tgt $ GH2ARK gen GH2AddBonus
     btn2 <- withRect r2 \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create PS2 DIY folder") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-ps2-diy") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser (l10n "file-picker-create-diy-folder")
         (T.pack $ proj.projectTemplate <> "_gh2")
@@ -834,7 +878,9 @@ songPageGH2 sink rect tab proj build = mdo
     [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   fullWidth 35 \rect' -> do
     btn2 <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "Create Xbox 360 LIVE file") } |]
+      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+    withUTF8 (l10n "create-360-live") \clbl ->
+      [C.block| void { $(Fl_Button* btn2)->copy_label($(char* clbl)); } |]
     setCallback btn2 $ makeTargetUpdatePrefs \tgt -> do
       saveFileChooser (l10n "file-picker-save-gh2-live")
         (T.pack $ proj.projectTemplate <> "_gh2live")
