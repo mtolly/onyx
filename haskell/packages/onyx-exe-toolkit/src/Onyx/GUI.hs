@@ -1796,7 +1796,7 @@ miscPagePacks sink rect tab startTasks = mdo
                 []       -> ""
           withUTF8 gameLabel \clbl ->
             [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
-  group <- fileLoadWindow filesRect sink (l10n "file-type-con-live") (l10n "file-type-con-live") modifyButtons [] searchSTFS
+  group <- fileLoadWindow filesRect sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
     \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
@@ -1965,7 +1965,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       updateFiles f = do
         modifyMVar_ loadedFiles f
         sink $ EventIO $ updatePackGo >> updateInPlace
-  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10n "file-type-rb-song") (l10n "file-type-rb-songs") updateFiles [] searchQuickSongs
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10nFull "file-type-rb-song" []) updateFiles [] searchQuickSongs
     \qinput -> let
       entry = T.pack qinput.quickInputPath
       subline = l10nArgs "song-count"
@@ -1979,54 +1979,40 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       procFolder f qsong = do
         newFiles <- f qsong.quickSongFiles
         return qsong { quickSongFiles = newFiles }
-      processors :: [(T.Text, T.Text, QuickSong -> Onyx QuickSong)]
+      processors :: [((T.Text, [(T.Text, T.Text)]), QuickSong -> Onyx QuickSong)]
       processors =
-        [ (,,) (l10n "qc-proc-black-venue")
-          (l10n "qc-proc-black-venue-tooltip")
+        [ (,) (l10nFull "qc-proc-black-venue" [])
           \qsong -> do
             let isRB3 = qsong.quickSongDTA.qdtaRB3
             procFolder (QRB.applyToMIDI $ return . blackVenue isRB3) qsong
-        , (,,) (l10n "qc-proc-no-overdrive")
-          (l10n "qc-proc-no-overdrive-tooltip")
+        , (,) (l10nFull "qc-proc-no-overdrive" [])
           $ procFolder $ QRB.applyToMIDI $ return . noOverdrive
-        , (,,) (l10n "qc-proc-no-lanes-gbk")
-          (l10n "qc-proc-no-lanes-gbk-tooltip")
+        , (,) (l10nFull "qc-proc-no-lanes-gbk" [])
           $ procFolder $ QRB.applyToMIDI $ return . noLanesGBK
-        , (,,) (l10n "qc-proc-no-lanes-drums")
-          (l10n "qc-proc-no-lanes-drums-tooltip")
+        , (,) (l10nFull "qc-proc-no-lanes-drums" [])
           $ procFolder $ QRB.applyToMIDI $ return . noLanesDrums
-        , (,,) (l10n "qc-proc-no-drum-fills")
-          (l10n "qc-proc-no-drum-fills-tooltip")
+        , (,) (l10nFull "qc-proc-no-drum-fills" [])
           $ procFolder $ QRB.applyToMIDI $ return . noDrumFills
-        , (,,) (l10n "qc-proc-force-22-protar")
-          (l10n "qc-proc-force-22-protar-tooltip")
+        , (,) (l10nFull "qc-proc-force-22-protar" [])
           $ procFolder $ QRB.applyToMIDI $ return . mustang22
-        , (,,) (l10n "qc-proc-unmute-22-protar")
-          (l10n "qc-proc-unmute-22-protar-tooltip")
+        , (,) (l10nFull "qc-proc-unmute-22-protar" [])
           $ procFolder $ QRB.applyToMIDI $ return . unmuteOver22
-        , (,,) (l10n "qc-proc-decompress-milo")
-          (l10n "qc-proc-decompress-milo-tooltip")
+        , (,) (l10nFull "qc-proc-decompress-milo" [])
           $ procFolder decompressMilos
-        , (,,) (l10n "qc-proc-author-to-tag")
-          (l10n "qc-proc-author-to-tag-tooltip")
+        , (,) (l10nFull "qc-proc-author-to-tag" [])
           $ return . transferAuthorToTag
-        , (,,) (l10n "qc-proc-strip-title-tags")
-          (l10n "qc-proc-strip-title-tags-tooltip")
+        , (,) (l10nFull "qc-proc-strip-title-tags" [])
           $ return . stripTitleTags
-        , (,,) (l10n "qc-proc-note-shuffle")
-          (l10n "qc-proc-note-shuffle-tooltip")
+        , (,) (l10nFull "qc-proc-note-shuffle" [])
           \qsong -> do
             shuffled <- noteShuffle qsong
             seed <- randomIO
             return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
         ]
-  processorGetters <- forM processors \(label, tooltip, processor) -> do
+  processorGetters <- forM processors \(locResult, processor) -> do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-    withUTF8 label \clbl ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
-    withUTF8 tooltip \ctip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* ctip)); } |]
+    setLabelTooltip locResult check
     return do
       checked <- checkValue check
       return if checked then processor else return
@@ -2036,10 +2022,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
   getDecryptMOGGs <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
-    withUTF8 (l10n "qc-decrypt-moggs") \clbl ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_label($(char* clbl)); } |]
-    withUTF8 (l10n "qc-decrypt-moggs-tooltip") \ctip ->
-      [C.block| void { $(Fl_Check_Button* check)->copy_tooltip($(char* ctip)); } |]
+    setLabelTooltip (l10nFull "qc-decrypt-moggs" []) check
     return $ checkValue check
   [C.block| void { $(Fl_Pack* packProcessors)->end(); } |]
 
@@ -2517,7 +2500,7 @@ pageRenumberRR sink rect tab startTasks = mdo
   loadedFiles <- newMVar []
   let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
       updateFiles = modifyMVar_ loadedFiles
-  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10n "file-type-rr-song") (l10n "file-type-rr-songs") updateFiles [] searchRockRevolution
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10nFull "file-type-rr-song" []) updateFiles [] searchRockRevolution
     \(path, songs) -> let
       entry = T.pack path
       subline = l10nArgs "song-count"
@@ -2578,7 +2561,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       (trimClock 5 10 5 10 -> row2, row34) = chopBottom 84 bottomRect
       [row3, row4] = map (trimClock 5 10 5 10) $ splitVertN 2 row34
       updateFiles = modifyMVar_ loadedFiles
-  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10n "file-type-ch-song") (l10n "file-type-ch-songs") updateFiles [] searchQuickFoF
+  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10nFull "file-type-ch-song" []) updateFiles [] searchQuickFoF
     \qfof -> let
       entry = T.pack qfof.location
       subline = case qfof.format of
@@ -2842,22 +2825,25 @@ miscPageMOGG sink rect tab startTasks = mdo
               [C.block| void { $(Fl_Button* b)->deactivate(); } |]
             else forM_ [btnMogg, btnVgs, btnFsb3, btnFsb4] \b ->
               [C.block| void { $(Fl_Button* b)->activate(); } |]
-  group <- fileLoadWindow filesRect sink (l10n "file-type-audio") (l10n "file-type-audio") modifyAudio []
+  group <- fileLoadWindow filesRect sink (l10nFull "file-type-audio" []) modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     \info -> let
       entry = T.pack info.path
       sublines =
-        [ info.format <> ", " <> l10nArgs "audio-channels"
-          [("count", vNumber $ fromIntegral info.channels)]
+        [ l10nArgs "audio-format-channels"
+          [ ("format", vString info.format)
+          , ("count", vNumber $ fromIntegral info.channels)
+          ]
         , let
           time = realToFrac info.frames / realToFrac info.rate :: Double
           mins = floor $ time / 60 :: Int
           secs = realToFrac $ time - realToFrac mins * 60 :: Milli
           zero = if secs < 10 then "0" else ""
           stamp = T.pack $ show mins <> ":" <> zero <> show secs
-          -- `time` package can do this once 1.9 is used in GHC 8.8
-          in stamp <> " " <> l10nArgs "audio-frames"
-            [ ("frames", vNumber $ fromIntegral info.frames)
+          -- could format timestamp with `time` package now
+          in l10nArgs "audio-duration"
+            [ ("duration", vString stamp)
+            , ("frames", vNumber $ fromIntegral info.frames)
             , ("rate", vNumber $ fromIntegral info.rate)
             ]
         ]
@@ -3502,7 +3488,7 @@ launchBatch sink makeMenuBar startFiles = mdo
   (tabSongs, filterParts) <- makeTab windowRect (l10n "batch-tab-songs") \rect tab -> do
     setTabColor tab homeTabColor
     let (songsRect, importToggles) = chopBottom 40 rect
-    group <- fileLoadWindow songsRect sink (l10n "file-type-song") (l10n "file-type-songs") (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
+    group <- fileLoadWindow songsRect sink (l10nFull "file-type-song" []) (modifyMVar_ loadedFiles) startFiles findSongs \imp -> let
       entry = l10nArgs "batch-tab-song-entry"
         [ ("title", vString $ fromMaybe "" imp.impTitle)
         , ("has-title", vBool $ isJust imp.impTitle)
@@ -3956,10 +3942,7 @@ launchPreferences sink makeMenuBar = do
           check <- lineBox \box -> do
             btn <- withRect box \bx by bw bh ->
               [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-            withUTF8 (l10n "pref-detect-muted") \clbl ->
-              [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-            withUTF8 (l10n "pref-detect-muted-tooltip") \ctooltip ->
-              [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+            setLabelTooltip (l10nFull "pref-detect-muted" []) btn
             let v = if loadedPrefs.prefDetectMuted then 1 else 0 :: CInt
             [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
             return btn
@@ -4003,10 +3986,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (l10n "pref-legal-tempos") \clbl ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-              withUTF8 (l10n "pref-legal-tempos-tooltip") \ctooltip ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              setLabelTooltip (l10nFull "pref-legal-tempos" []) btn
               let v = if loadedPrefs.prefLegalTempos then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4048,18 +4028,15 @@ launchPreferences sink makeMenuBar = do
             gh2OffsetCounter <- withRect middleBox \cx cy cw ch ->
               [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
             let initOffset = coerce $ loadedPrefs.prefGH2Offset * 1000 :: CDouble
-            withUTF8 (l10n "pref-gh2-offset-tooltip") \ctooltip ->
-              [C.block| void {
-                Fl_Counter* c = $(Fl_Counter* gh2OffsetCounter);
-                c->labelsize(13);
-                c->align(FL_ALIGN_LEFT);
-                c->step(1);
-                c->lstep(10);
-                c->copy_tooltip($(char* ctooltip));
-                c->value($(double initOffset));
-              } |]
-            withUTF8 (l10n "pref-gh2-offset") \clbl ->
-              [C.block| void { $(Fl_Counter* gh2OffsetCounter)->copy_label($(char* clbl)); } |]
+            setLabelTooltip (l10nFull "pref-gh2-offset" []) gh2OffsetCounter
+            [C.block| void {
+              Fl_Counter* c = $(Fl_Counter* gh2OffsetCounter);
+              c->labelsize(13);
+              c->align(FL_ALIGN_LEFT);
+              c->step(1);
+              c->lstep(10);
+              c->value($(double initOffset));
+            } |]
             return $ (\ms prefs -> prefs { prefGH2Offset = realToFrac ms / 1000 }) <$>
               [C.exp| double { $(Fl_Counter* gh2OffsetCounter)->value() } |]
           , do
@@ -4076,10 +4053,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (l10n "pref-artist-sort") \clbl ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-              withUTF8 (l10n "pref-artist-sort-tooltip") \ctooltip ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              setLabelTooltip (l10nFull "pref-artist-sort" []) btn
               let v = if loadedPrefs.prefArtistSort then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4124,10 +4098,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (l10n "pref-trim-xbox") \clbl ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-              withUTF8 (l10n "pref-trim-xbox-tooltip") \ctooltip ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              setLabelTooltip (l10nFull "pref-trim-xbox" []) btn
               let v = if loadedPrefs.prefTrimXbox then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4136,10 +4107,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (l10n "pref-rb-number-id") \clbl ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-              withUTF8 (l10n "pref-rb-number-id-tooltip") \ctooltip ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              setLabelTooltip (l10nFull "pref-rb-number-id" []) btn
               let v = if loadedPrefs.prefRBNumberID then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
@@ -4155,10 +4123,7 @@ launchPreferences sink makeMenuBar = do
             check <- lineBox \box -> do
               btn <- withRect box \bx by bw bh ->
                 [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-              withUTF8 (l10n "pref-ps3-encrypt") \clbl ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_label($(char* clbl)); } |]
-              withUTF8 (l10n "pref-ps3-encrypt-tooltip") \ctooltip ->
-                [C.block| void { $(Fl_Check_Button* btn)->copy_tooltip($(char* ctooltip)); } |]
+              setLabelTooltip (l10nFull "pref-ps3-encrypt" []) btn
               let v = if loadedPrefs.prefPS3Encrypt then 1 else 0 :: CInt
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn

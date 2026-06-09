@@ -54,8 +54,7 @@ import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.Localization                (L, l10n, l10nArgs, vNumber,
-                                                   vString)
+import           Onyx.Localization                (L, l10n, l10nArgs, vNumber)
 import           Onyx.MIDI.Track.File             (PartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.PlayStation.PKG             as PKG
@@ -646,29 +645,30 @@ fileLoadWindow
   :: (?loc :: L)
   => Rectangle
   -> (Event -> IO ())
-  -> T.Text -- ^ singular
-  -> T.Text -- ^ plural
+  -> (T.Text, [(T.Text, T.Text)]) -- ^ localized file type attributes
   -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (Ptr Fl_Group)
-fileLoadWindow rect sink single plural modifyFiles startFiles step display
+fileLoadWindow rect sink locType modifyFiles startFiles step display
   = fmap fst
-  $ fileLoadWindow' rect sink single plural modifyFiles startFiles step display
+  $ fileLoadWindow' rect sink locType modifyFiles startFiles step display
 
 fileLoadWindow'
   :: (?loc :: L)
   => Rectangle
   -> (Event -> IO ())
-  -> T.Text -- ^ singular
-  -> T.Text -- ^ plural
+  -> (T.Text, [(T.Text, T.Text)]) -- ^ localized file type attributes
   -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (Ptr Fl_Group, IO ())
-fileLoadWindow' rect sink single plural modifyFiles startFiles step display = mdo
+fileLoadWindow' rect sink locType modifyFiles startFiles step display = mdo
+  let getLocAttr k = case lookup k $ snd locType of
+        Just attr -> attr
+        Nothing   -> "{." <> k <> "}"
   group <- withRect rect \gx gy gw gh ->
     [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   let (labelRect, belowLabel) = chopTop 40 rect
@@ -698,8 +698,8 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
           $(Fl_Tree* tree)->clear();
           $(Fl_Tree* tree)->add("");
         } |]
-        withUTF8 plural \cplural ->
-          [C.block| void { $(Fl_Tree* tree)->root_label($(char* cplural)); } |]
+        withUTF8 (getLocAttr "tree-root") \lbl ->
+          [C.block| void { $(Fl_Tree* tree)->root_label($(char* lbl)); } |]
         updateLabel ([] :: [a])
         [C.block| void { Fl::redraw(); } |]
         return []
@@ -809,12 +809,12 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
   sink $ EventOnyx $ forkSearch startFiles
   withRect btnRectA' \bx by bw bh -> do
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10nArgs "file-load-add" [("type", vString single)]) \clbl -> do
+    withUTF8 (getLocAttr "add") \clbl -> do
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
     setCallback btn $ sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
       \picker -> do
-        withUTF8 (l10nArgs "file-load-load" [("type", vString single)]) \ctitle ->
+        withUTF8 (getLocAttr "load") \ctitle ->
           [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
@@ -825,7 +825,7 @@ fileLoadWindow' rect sink single plural modifyFiles startFiles step display = md
           sink $ EventOnyx $ forkSearch fs
   withRect btnRectB' \bx by bw bh -> do
     btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10nArgs "file-load-clear" [("type", vString plural)]) \clbl -> do
+    withUTF8 (getLocAttr "clear") \clbl -> do
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
     setCallback btn $ sink $ EventIO $ void clearFiles
   -- Invisible box overlay on tree rect for drag-and-drop.

@@ -612,7 +612,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10n "file-type-package") (l10n "file-type-packages") (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
+  group <- fileLoadWindow filesRect sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
@@ -690,7 +690,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10n "file-type-package") (l10n "file-type-packages") (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
+  group <- fileLoadWindow filesRect sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
@@ -765,7 +765,7 @@ miscPageCONtoPKG sink rect tab startTasks = do
   loadedFiles <- newMVar []
   let (filesRect, startRect) = chopBottom 50 rect
       [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10n "file-type-rb-con-live") (l10n "file-type-rb-con-live") (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
+  group <- fileLoadWindow filesRect sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
     entry = T.pack $ stfsPath info
     sublines = take 1 info.stfsMeta.md_DisplayName
     in (entry, sublines)

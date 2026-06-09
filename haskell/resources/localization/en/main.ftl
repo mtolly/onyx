@@ -105,10 +105,6 @@ template = Template
 
 task-cancel = Cancel
 
-file-load-add = Add {$type}
-file-load-load = Load {$type}
-file-load-clear = Clear {$type}
-
 custom-title-suffix = Custom Title Suffix
 specific-song-id = Specific Song ID
 part-none = (none)
@@ -457,19 +453,46 @@ label-transition-ms = Transition (ms)
 
 dryvox-blank = (blank)
 
-file-type-package = Package
-file-type-packages = Packages
-file-type-rb-con-live = Rock Band CON/LIVE
-file-type-con-live = CON/LIVE
-file-type-rb-song = Rock Band song
-file-type-rb-songs = Rock Band songs
-file-type-rr-song = RR song
-file-type-rr-songs = RR songs
-file-type-ch-song = CH song
-file-type-ch-songs = CH songs
-file-type-audio = Audio
-file-type-song = Song
-file-type-songs = Songs
+file-type-package =
+  .tree-root = Packages
+  .add = Add package
+  .load = Load package
+  .clear = Clear packages
+file-type-rb-con-live =
+  .tree-root = Rock Band CON/LIVE
+  .add = Add Rock Band CON/LIVE
+  .load = Load Rock Band CON/LIVE
+  .clear = Clear Rock Band CON/LIVE
+file-type-con-live =
+  .tree-root = CON/LIVE
+  .add = Add CON/LIVE
+  .load = Load CON/LIVE
+  .clear = Clear CON/LIVE
+file-type-rb-song =
+  .tree-root = Rock Band songs
+  .add = Add Rock Band song
+  .load = Load Rock Band song
+  .clear = Clear Rock Band songs
+file-type-rr-song =
+  .tree-root = RR songs
+  .add = Add RR song
+  .load = Load RR song
+  .clear = Clear RR songs
+file-type-ch-song =
+  .tree-root = CH songs
+  .add = Add CH song
+  .load = Load CH song
+  .clear = Clear CH songs
+file-type-audio =
+  .tree-root = Audio
+  .add = Add audio
+  .load = Load audio
+  .clear = Clear audio
+file-type-song =
+  .tree-root = Songs
+  .add = Add song
+  .load = Load song
+  .clear = Clear songs
 
 misc-button-make-voc = Make GH2 .voc from PART VOCALS
 misc-button-make-milo = Make RB3 .milo_*
@@ -502,7 +525,7 @@ button-start = Start
 pref-unlimited-cores = Unlimited cores
 pref-core-limit = Core limit
 pref-detect-muted = For non-open-note games, convert "muted strums" to Harmonix style
-pref-detect-muted-tooltip = When checked, sequences of the form "chord, strummed open notes, strummed chord" are assumed to represent muted strums. Instead of always becoming green, these open notes will become the lowest note of the following chord, or of the preceding chord if it is closer to the open notes.
+  .tooltip = When checked, sequences of the form "chord, strummed open notes, strummed chord" are assumed to represent muted strums. Instead of always becoming green, these open notes will become the lowest note of the following chord, or of the preceding chord if it is closer to the open notes.
 
 pref-magma-require = Magma required
 pref-magma-try = Magma optional
@@ -510,7 +533,7 @@ pref-magma-disable = Don't use Magma
 pref-black-venue = Always export black VENUE track
 pref-label-2x = Label 2x kick charts as (2x Bass Pedal) by default
 pref-legal-tempos = Modify tempos in RB export to follow Magma rules
-pref-legal-tempos-tooltip = Magma requires MIDI files to use tempos in the range of 40 to 300 BPM. This is a more restricted range than the games actually require.
+  .tooltip = Magma requires MIDI files to use tempos in the range of 40 to 300 BPM. This is a more restricted range than the games actually require.
 pref-rb3-encoding-label = RB3 recompile .dta
 pref-pack-encoding-label = RB3 pack .dta
 enc-latin1 = Latin-1
@@ -518,10 +541,10 @@ enc-utf8 = UTF-8
 enc-as-is = As is
 
 pref-gh2-offset = GH2 Audio Offset (ms)
-pref-gh2-offset-tooltip = Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay. Positive values mean audio will be pulled earlier, to account for delay. Negative values mean audio will be pushed later.
+  .tooltip = Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay. Positive values mean audio will be pulled earlier, to account for delay. Negative values mean audio will be pushed later.
 pref-sort-gh2 = Sort GH2 bonus songs when adding to .ARK
 pref-artist-sort = For GH2 and GH3, sort by artist first (instead of title)
-pref-artist-sort-tooltip = This affects GH2 .ARK bonus songs (when the above box is checked) and GH3 DLC (as sorted in the Song Cache file).
+  .tooltip = This affects GH2 .ARK bonus songs (when the above box is checked) and GH3 DLC (as sorted in the Song Cache file).
 
 pref-dir-ch = Default CH folder
 pref-ch-downmix = Mix down stems in CH output
@@ -530,12 +553,12 @@ pref-ch-audio-opus = Output Opus audio
 
 pref-dir-rb = Default CON/LIVE folder
 pref-trim-xbox = Ensure valid filenames for Xbox 360 USB or HDD drives
-pref-trim-xbox-tooltip = When checked, the filenames of CON or LIVE files will be trimmed to a max of 42 characters, and will also have plus and comma characters replaced (a restriction for files on a 360 hard drive, but not USB).
+  .tooltip = When checked, the filenames of CON or LIVE files will be trimmed to a max of 42 characters, and will also have plus and comma characters replaced (a restriction for files on a 360 hard drive, but not USB).
 pref-rb-number-id = Use true number IDs instead of symbols on Xbox 360 RB files
-pref-rb-number-id-tooltip = When checked, Rock Band files will use a random integer for song_id. Otherwise, an 'o' is prefixed to form a symbol, and the game will generate a random ID. A true integer is required for some contexts such as RGH online play and PS3 conversion, and also maintains scores even if the song cache is regenerated.
+  .tooltip = When checked, Rock Band files will use a random integer for song_id. Otherwise, an 'o' is prefixed to form a symbol, and the game will generate a random ID. A true integer is required for some contexts such as RGH online play and PS3 conversion, and also maintains scores even if the song cache is regenerated.
 
 pref-ps3-encrypt = Encrypt .mid.edat files for PS3
-pref-ps3-encrypt-tooltip = When checked, .mid.edat files for PS3 customs will be encrypted. This is required for a real console, but optional (and can be less convenient) when playing on emulator.
+  .tooltip = When checked, .mid.edat files for PS3 customs will be encrypted. This is required for a real console, but optional (and can be less convenient) when playing on emulator.
 pref-dir-ps3 = PS3/RPCS3 install folder
 
 pref-dir-wii = Default Wii .app folder
@@ -567,30 +590,30 @@ pref-magma-warning =
 ## quick convert
 
 qc-proc-black-venue = Black VENUE
-qc-proc-black-venue-tooltip = Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format.
+  .tooltip = Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format.
 qc-proc-no-overdrive = No Overdrive
-qc-proc-no-overdrive-tooltip = Removes overdrive phrases from all instruments.
+  .tooltip = Removes overdrive phrases from all instruments.
 qc-proc-no-lanes-gbk = No lanes (G/B/K)
-qc-proc-no-lanes-gbk-tooltip = Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys.
+  .tooltip = Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys.
 qc-proc-no-lanes-drums = No lanes (drums)
-qc-proc-no-lanes-drums-tooltip = Removes one-pad and two-pad rolls/swells from Drums.
+  .tooltip = Removes one-pad and two-pad rolls/swells from Drums.
 qc-proc-no-drum-fills = No drum fills
-qc-proc-no-drum-fills-tooltip = Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos.
+  .tooltip = Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos.
 qc-proc-force-22-protar = Force 22-fret protar
-qc-proc-force-22-protar-tooltip = For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos.
+  .tooltip = For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos.
 qc-proc-unmute-22-protar = Unmute >22-fret protar
-qc-proc-unmute-22-protar-tooltip = Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input.
+  .tooltip = Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input.
 qc-proc-decompress-milo = Decompress .milo_*
-qc-proc-decompress-milo-tooltip = Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion.
+  .tooltip = Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion.
 qc-proc-author-to-tag = Author to DTA tag
-qc-proc-author-to-tag-tooltip = Copies author information from the C3 Magma comment format to the RB2/RB3 Deluxe game-readable format.
+  .tooltip = Copies author information from the C3 Magma comment format to the RB2/RB3 Deluxe game-readable format.
 qc-proc-strip-title-tags = Strip title tags
-qc-proc-strip-title-tags-tooltip = Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc.
+  .tooltip = Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc.
 qc-proc-note-shuffle = Note shuffle
-qc-proc-note-shuffle-tooltip = Shuffles notes on 5-fret and drum parts.
+  .tooltip = Shuffles notes on 5-fret and drum parts.
 
 qc-decrypt-moggs = Decrypt MOGGs
-qc-decrypt-moggs-tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
+  .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
 
 qc-mode-in-place = Transform in place: replace input files with new versions
 qc-mode-one-to-one = One to one: each input file produces a new output file
@@ -716,12 +739,16 @@ mogg-task-mogg = MOGG file creation
 mogg-task-vgs = VGS file creation
 mogg-task-fsb3 = FSB3 file creation
 mogg-task-fsb4 = FSB4 file creation
-audio-channels =
-  {$count ->
+audio-format-channels =
+  {$format}, {$count ->
     [one] {$count} channel
    *[other] {$count} channels
   }
-audio-frames = ({$frames} frames @ {$rate} Hz)
+audio-duration =
+  {$duration} ({$frames ->
+    [one] {$frames} frame
+   *[other] {$frames} frames
+  } @ {$rate} Hz)
 
 ## stars / metadata / instruments / preview / build
 
