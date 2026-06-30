@@ -32,6 +32,8 @@ welcome-other =
   midi/audio utilities
   lipsync/dryvox tools
 
+language-restart = Restart Onyx to load the new selected language.
+
 ## menu bar (per window on windows/linux, app-wide on mac)
 
 menu-file = &File

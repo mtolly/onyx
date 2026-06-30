@@ -10,9 +10,13 @@ import           Control.Exception            (displayException)
 import           Control.Monad                (unless)
 import           Control.Monad.IO.Class       (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource (runResourceT)
+import           Data.Functor                 ((<&>))
+import           Data.Maybe                   (fromMaybe)
 import           Onyx.CommandLine             (commandLine)
 import           Onyx.GUI                     (launchGUI)
 import           Onyx.Localization
+import           Onyx.Preferences             (Preferences (prefLanguageCode),
+                                               readPreferences)
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace
 import           System.Environment           (getArgs)
@@ -32,15 +36,10 @@ main = do
   initCOM
 #endif
 
-  -- load english for now, will eventually select via preference
-  langRoot <- getResourcesPath "localization"
-  langs <- loadLanguages langRoot
-  let tryLanguage code = case filter (\lang -> lang.code == code) langs of
-        lang : _ -> Just <$> loadLanguage langRoot lang
-        []       -> return Nothing
-  loc <- tryLanguage "en" >>= \case
-    Nothing  -> fail "Couldn't load localization data"
-    Just loc -> return loc
+  code <- logStdout readPreferences <&> fromMaybe "en" . \case
+    Right prefs -> prefs.prefLanguageCode
+    Left _      -> Nothing
+  loc <- getResourcesPath "localization" >>= \root -> loadL root code
   let ?loc = loc
 
   argv <- getArgs

@@ -14,6 +14,7 @@ import           Control.Monad.IO.Class
 import qualified Data.Aeson             as A
 import           Data.Default.Class
 import           Data.Hashable          (Hashable (..))
+import qualified Data.Text              as T
 import           GHC.Conc               (getNumProcessors, setNumCapabilities)
 import           GHC.Generics           (Generic (..))
 import           Onyx.Codec.Common
@@ -25,7 +26,8 @@ import           System.FilePath        (takeDirectory, (</>))
 import           System.Info            (os)
 
 data Preferences = Preferences
-  { prefMagma         :: MagmaSetting
+  { prefLanguageCode  :: Maybe T.Text
+  , prefMagma         :: MagmaSetting
   , prefBlackVenue    :: Bool
   , prefLabel2x       :: Bool
   , prefTrimXbox      :: Bool
@@ -62,6 +64,7 @@ data Preferences = Preferences
 
 instance StackJSON Preferences where
   stackJSON = asObject "Preferences" do
+    prefLanguageCode  <- (.prefLanguageCode ) =. opt  Nothing          "language-code"   stackJSON
     prefMagma         <- (.prefMagma        ) =. fill MagmaRequire     "magma"           stackJSON
     prefBlackVenue    <- (.prefBlackVenue   ) =. fill False            "black-venue"     stackJSON
     prefLabel2x       <- (.prefLabel2x      ) =. fill True             "label-2x"        stackJSON

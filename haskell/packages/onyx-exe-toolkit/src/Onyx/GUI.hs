@@ -56,7 +56,7 @@ import           Data.Int                          (Int64)
 import           Data.IORef                        (newIORef, readIORef,
                                                     writeIORef)
 import           Data.List.Extra                   (elemIndex, intercalate,
-                                                    nubOrd)
+                                                    nubOrd, sortOn)
 import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromMaybe,
@@ -118,8 +118,10 @@ import           Onyx.Harmonix.RockBand.SongCache  (hardcodeSongCacheIDs)
 import           Onyx.Image.DXT                    (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Keys.Ranges                  (closeShiftsFile)
-import           Onyx.Localization                 (L, MessageOutput, l10n,
-                                                    l10nArgs, l10nFull, vBool,
+import           Onyx.Localization                 (L (..), Language (..),
+                                                    MessageOutput, l10n,
+                                                    l10nArgs, l10nFull,
+                                                    loadLanguage, vBool,
                                                     vNumber, vString)
 import           Onyx.MIDI.Common                  (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                  as RB
@@ -4371,6 +4373,26 @@ terminalWelcome = let
     in zipWith (\l r -> "  " <> l <> " | " <> r) leftSides tasks
   in map fixLeadingSpace $ intercalate [""] (header : renderedFunctions) <> [""]
 
+configureLanguageMenu :: (?loc :: L) => (Event -> IO ()) -> Ptr Fl_Menu_Button -> IO ()
+configureLanguageMenu sink menu = do
+  let sortedLanguages = sortOn (\lang -> T.toCaseFold lang.name) ?loc.allLanguages
+  forM_ sortedLanguages \lang -> do
+    let label = T.replace "/" "\\/" lang.name -- avoid making submenus
+    cb <- makeCallback \_ _ -> sink $ EventOnyx do
+      loadedPrefs <- readPreferences
+      savePreferences loadedPrefs { prefLanguageCode = Just lang.code }
+      newFluent <- stackIO $ loadLanguage ?loc.localizationRoot lang
+      let originalLoc = ?loc in let ?loc = originalLoc { loadedFluent = newFluent } in do
+        stackIO $ withUTF8 (l10n "language-restart") \msg -> withUTF8 (l10n "warning-confirm") \ok -> do
+          [C.block| void {
+            fl_choice("%s", $(char* ok), 0, 0, $(char* msg));
+          } |]
+    let isSelected = if lang.code == ?loc.loadedCode then 1 else 0
+    withUTF8 label \s -> [C.block| void {
+      int flags = FL_MENU_RADIO | ($(int isSelected) ? FL_MENU_VALUE : 0);
+      $(Fl_Menu_Button* menu)->add($(char* s), 0, $(Fl_Callback cb), nullptr, flags);
+    } |]
+
 launchGUI :: (?loc :: L) => [FilePath] -> IO ()
 launchGUI initSongs = withAL \hasAudio -> do
   [C.block| void {
@@ -4505,7 +4527,7 @@ launchGUI initSongs = withAL \hasAudio -> do
     buttonGithub->callback($(Fl_Callback cbGithub));
   } |]
   labelLatest <- withUTF8 (l10n "version-checking") \s ->
-    [C.exp| Fl_Box* { new Fl_Box(120, 10 + $(int menuHeight), 520, 25, fl_strdup($(char* s))) } |]
+    [C.exp| Fl_Box* { new Fl_Box(120, 10 + $(int menuHeight), 450, 25, fl_strdup($(char* s))) } |]
   _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO $ case comp of
     LT -> withUTF8 (l10n "version-new") \s ->
       [C.block| void {
@@ -4521,6 +4543,10 @@ launchGUI initSongs = withAL \hasAudio -> do
         $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
       } |]
+  languageMenu <- withUTF8 ("🌏" :: T.Text) \s -> [C.exp| Fl_Menu_Button* {
+    new Fl_Menu_Button(580, 10 + $(int menuHeight), 60, 25, fl_strdup($(char* s)))
+  } |]
+  configureLanguageMenu sink languageMenu
   term <- [C.block| Fl_Simple_Terminal* {
     Fl_Simple_Terminal* term = new Fl_Simple_Terminal
       ( 10

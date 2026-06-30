@@ -1,19 +1,21 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Localization
-( L, Identifier, MessageOutput(..)
+( L(..), Identifier, MessageOutput(..)
 , getAttribute
 , l10n, l10nArgs, l10nFull
 , vString, vNumber, vBool
 , Language(..)
-, loadLanguages
-, loadLanguage
+, loadL, loadLanguages, loadLanguage
 ) where
 
+import           Control.Applicative ((<|>))
 import           Control.Monad       (forM)
 import           Data.Aeson.Types    (prependFailure, typeMismatch)
 import           Data.Char           (toLower)
@@ -29,7 +31,12 @@ import           Text.Fluent.Locale
 import           Text.Fluent.Logic
 import           Text.Fluent.Syntax
 
-type L = Fluent
+data L = L
+  { localizationRoot :: FilePath
+  , loadedCode       :: T.Text
+  , loadedFluent     :: Fluent
+  , allLanguages     :: [Language]
+  }
 
 l10n :: (?loc :: L) => Identifier -> T.Text
 l10n k = l10nArgs k []
@@ -38,7 +45,7 @@ l10nArgs :: (?loc :: L) => Identifier -> [(Identifier, Value)] -> T.Text
 l10nArgs k args = (l10nFull k args).output
 
 l10nFull :: (?loc :: L) => Identifier -> [(Identifier, Value)] -> MessageOutput
-l10nFull k args = getMessage k (HM.fromList args) ?loc
+l10nFull k args = getMessage k (HM.fromList args) ?loc.loadedFluent
 
 vString :: T.Text -> Value
 vString = VString
@@ -66,13 +73,29 @@ instance Y.FromJSON Language where
     <*> v .: "fluent"
   parseJSON invalid = prependFailure "parsing language file failed, " $ typeMismatch "Object" invalid
 
+loadL :: FilePath -> T.Text -> IO L
+loadL root desiredCode = do
+  langs <- loadLanguages root
+  let tryLanguage code = case filter (\lang -> lang.code == code) langs of
+        lang : _ -> Just . (code,) <$> loadLanguage root lang
+        []       -> return Nothing
+  (code, fluent) <- (tryLanguage desiredCode <|> tryLanguage "en") >>= \case
+    Nothing  -> fail "Couldn't load localization data"
+    Just loc -> return loc
+  return L
+    { localizationRoot = root
+    , loadedCode = code
+    , loadedFluent = fluent
+    , allLanguages = langs
+    }
+
 loadLanguages :: FilePath -> IO [Language]
 loadLanguages root = fmap catMaybes $ listDirectory root >>= mapM \f ->
   case map toLower $ takeExtension f of
     ".yml" -> Just <$> Y.decodeFileThrow (root </> f)
     _      -> return Nothing
 
-loadLanguage :: FilePath -> Language -> IO L
+loadLanguage :: FilePath -> Language -> IO Fluent
 loadLanguage root lang = do
   ftls <- forM lang.fluent \f -> loadFTL $ root </> T.unpack f
   return Fluent
