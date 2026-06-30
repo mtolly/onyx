@@ -4,7 +4,15 @@
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-module Onyx.Localization where
+module Onyx.Localization
+( L, Identifier, MessageOutput(..)
+, getAttribute
+, l10n, l10nArgs, l10nFull
+, vString, vNumber, vBool
+, Language(..)
+, loadLanguages
+, loadLanguage
+) where
 
 import           Control.Monad       (forM)
 import           Data.Aeson.Types    (prependFailure, typeMismatch)
@@ -27,12 +35,10 @@ l10n :: (?loc :: L) => Identifier -> T.Text
 l10n k = l10nArgs k []
 
 l10nArgs :: (?loc :: L) => Identifier -> [(Identifier, Value)] -> T.Text
-l10nArgs k args = fst $ l10nFull k args
+l10nArgs k args = (l10nFull k args).output
 
-l10nFull :: (?loc :: L) => Identifier -> [(Identifier, Value)] -> (T.Text, [(Identifier, T.Text)])
-l10nFull k args = case getMessage k (HM.fromList args) ?loc of
-  Just result -> result
-  Nothing     -> ("{" <> k <> "}", [])
+l10nFull :: (?loc :: L) => Identifier -> [(Identifier, Value)] -> MessageOutput
+l10nFull k args = getMessage k (HM.fromList args) ?loc
 
 vString :: T.Text -> Value
 vString = VString

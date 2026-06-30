@@ -54,7 +54,9 @@ import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.Localization                (L, l10n, l10nArgs, vNumber)
+import           Onyx.Localization                (L, MessageOutput,
+                                                   getAttribute, l10n, l10nArgs,
+                                                   vNumber)
 import           Onyx.MIDI.Track.File             (PartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.PlayStation.PKG             as PKG
@@ -645,7 +647,7 @@ fileLoadWindow
   :: (?loc :: L)
   => Rectangle
   -> (Event -> IO ())
-  -> (T.Text, [(T.Text, T.Text)]) -- ^ localized file type attributes
+  -> MessageOutput -- ^ localized file type attributes
   -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
@@ -659,16 +661,14 @@ fileLoadWindow'
   :: (?loc :: L)
   => Rectangle
   -> (Event -> IO ())
-  -> (T.Text, [(T.Text, T.Text)]) -- ^ localized file type attributes
+  -> MessageOutput -- ^ localized file type attributes
   -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (Ptr Fl_Group, IO ())
 fileLoadWindow' rect sink locType modifyFiles startFiles step display = mdo
-  let getLocAttr k = case lookup k $ snd locType of
-        Just attr -> attr
-        Nothing   -> "{." <> k <> "}"
+  let getLocAttr k = getAttribute k locType
   group <- withRect rect \gx gy gw gh ->
     [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   let (labelRect, belowLabel) = chopTop 40 rect

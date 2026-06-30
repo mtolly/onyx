@@ -43,6 +43,13 @@ instance Monoid FTL where
     , terms    = mempty
     }
 
+data MessageOutput = MessageOutput
+  { matched    :: Bool
+  , identifier :: Identifier
+  , output     :: T.Text
+  , attributes :: [(Identifier, T.Text)]
+  }
+
 loadFTL :: (MonadIO m, MonadFail m) => FilePath -> m FTL
 loadFTL f = do
   t <- liftIO $ TE.decodeUtf8 <$> B.readFile f
@@ -53,13 +60,27 @@ loadFTL f = do
       , terms    = HM.fromList [ (i, x) | Entry (ETerm    i x) <- res ]
       }
 
-getMessage :: Identifier -> HM.HashMap Identifier Value -> Fluent -> Maybe (T.Text, [(Identifier, T.Text)])
-getMessage k args fluent = HM.lookup k fluent.ftl.messages >>= \(Message pat attrs) -> let
-  result = runPattern args (fromMaybe [] pat) fluent
-  attrResults = do
-    Attribute attr attrPat <- attrs
-    return (attr, runPattern args attrPat fluent)
-  in Just (result, attrResults)
+getMessage :: Identifier -> HM.HashMap Identifier Value -> Fluent -> MessageOutput
+getMessage k args fluent = case HM.lookup k fluent.ftl.messages of
+  Nothing -> MessageOutput
+    { matched    = False
+    , identifier = k
+    , output     = "{" <> k <> "}"
+    , attributes = []
+    }
+  Just (Message pat attrs) -> MessageOutput
+    { matched = True
+    , identifier = k
+    , output = runPattern args (fromMaybe [] pat) fluent
+    , attributes = do
+      Attribute attr attrPat <- attrs
+      return (attr, runPattern args attrPat fluent)
+    }
+
+getAttribute :: Identifier -> MessageOutput -> T.Text
+getAttribute attr output = case lookup attr output.attributes of
+  Nothing  -> "{" <> output.identifier <> "." <> attr <> "}"
+  Just res -> res
 
 runPattern :: HM.HashMap Identifier Value -> Pattern -> Fluent -> T.Text
 runPattern args pat fluent = T.concat $ zip [0 :: Int ..] pat >>= \(i, pe) -> case pe of
@@ -85,13 +106,9 @@ runExpressionValue args x fluent = case x of
         _         -> "other"
       -- TODO: NUMBER, DATETIME
       _ -> VString $ "{" <> fun <> "()" <> "}"
-    IMessage msg maybeAttr -> VString $ case getMessage msg args fluent of
-      Nothing -> "{" <> msg <> "}"
-      Just (res, attrs) -> case maybeAttr of
-        Nothing -> res
-        Just attr -> case lookup attr attrs of
-          Nothing        -> "{" <> msg <> "." <> attr <> "}"
-          Just attrValue -> attrValue
+    IMessage msg maybeAttr -> VString $ let
+      result = getMessage msg args fluent
+      in maybe result.output (`getAttribute` result) maybeAttr
     ITerm t maybeAttr termArgs -> VString $ case HM.lookup t fluent.ftl.terms of
       Nothing -> "{-" <> t <> "}"
       Just (Term pat attrs) -> let

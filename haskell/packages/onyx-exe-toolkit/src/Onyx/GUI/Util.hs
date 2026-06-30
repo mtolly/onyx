@@ -5,6 +5,7 @@
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE TemplateHaskell       #-}
@@ -29,7 +30,7 @@ import           Foreign
 import           Foreign.C
 import qualified Language.C.Inline.Cpp    as C
 import           Onyx.GUI.Binding
-import           Onyx.Localization        (L, l10n)
+import           Onyx.Localization        (L, MessageOutput (..), l10n)
 
 C.context flContext
 
@@ -142,9 +143,9 @@ askFolderResult initial = maybe ($ nullPtr) withUTF8 initial \s ->
 askFolder :: (?loc :: L) => Maybe FilePath -> (FilePath -> IO ()) -> IO ()
 askFolder initial fn = askFolderResult initial >>= mapM_ fn
 
-setLabelTooltip :: (Cast a Fl_Widget) => (T.Text, [(T.Text, T.Text)]) -> Ptr a -> IO ()
-setLabelTooltip (label, attrs) ptr = do
+setLabelTooltip :: (Cast a Fl_Widget) => MessageOutput -> Ptr a -> IO ()
+setLabelTooltip mo ptr = do
   let widget = cast ptr
-  withUTF8 label \s -> [C.block| void { $(Fl_Widget* widget)->copy_label($(char* s)); } |]
-  forM_ (lookup "tooltip" attrs) \t -> withUTF8 t \s ->
+  withUTF8 mo.output \s -> [C.block| void { $(Fl_Widget* widget)->copy_label($(char* s)); } |]
+  forM_ (lookup "tooltip" mo.attributes) \t -> withUTF8 t \s ->
     [C.block| void { $(Fl_Widget* widget)->copy_tooltip($(char* s)); } |]

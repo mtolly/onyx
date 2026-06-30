@@ -688,9 +688,21 @@ qc-ch-warning-encore =
   WARNING: This will convert Encore-format songs into CH-compatible ones, removing the original files.
   Select a different mode if you want to keep them.
 qc-ch-ops-header = Based on the filename template, these operations will be performed:
-qc-ch-op-overwrite = - {$songs} will be overwritten with new versions
-qc-ch-op-convert = - {$songs} will be converted to new versions
-qc-ch-op-convert-delete = - {$songs} will be converted to new versions, and the old versions will be deleted
+qc-ch-op-overwrite =
+  {$songs ->
+    [one] - {$songs} song will be overwritten with a new version
+   *[other] - {$songs} songs will be overwritten with new versions
+  }
+qc-ch-op-convert =
+  {$songs ->
+    [one] - {$songs} song will be converted to a new version
+   *[other] - {$songs} songs will be converted to new versions
+  }
+qc-ch-op-convert-delete =
+  {$songs ->
+    [one] - {$songs} song will be converted to a new version, and the old version will be deleted
+   *[other] - {$songs} songs will be converted to new versions, and the old versions will be deleted
+  }
 qc-ch-ops-encore = WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones
 
 qc-delete-originals = Delete original files
@@ -729,20 +741,44 @@ task-status = {$done}/{$total} tasks complete: {$succeeded} succeeded, {$failed}
 task-number = Task {$number}
 task-created-files = Created files:
 
-mogg-btn-ogg = Ogg to MOGG, no re-encode ({$channels} channels)
-mogg-btn-combine = Combine into MOGG ({$channels} channels)
-mogg-btn-vgs = Combine into VGS ({$channels} channels)
-mogg-btn-fsb3 = Make FSB3-XMA1 ({$streams} streams, {$channels} channels total)
-mogg-btn-fsb4 = Make FSB4-XMA2 ({$channels} channels)
+mogg-btn-ogg = Ogg to MOGG, no re-encode ({
+  $channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
+  })
+mogg-btn-combine = Combine into MOGG ({
+  $channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
+  })
+mogg-btn-vgs = Combine into VGS ({
+  $channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
+  })
+mogg-btn-fsb3 = Make FSB3-XMA1 ({
+  $streams ->
+    [one] {$streams} stream
+   *[other] {$streams} streams
+  }, {
+  $channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
+  } total)
+mogg-btn-fsb4 = Make FSB4-XMA2 ({
+  $channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
+  })
 mogg-task-ogg = Ogg to MOGG
 mogg-task-mogg = MOGG file creation
 mogg-task-vgs = VGS file creation
 mogg-task-fsb3 = FSB3 file creation
 mogg-task-fsb4 = FSB4 file creation
 audio-format-channels =
-  {$format}, {$count ->
-    [one] {$count} channel
-   *[other] {$count} channels
+  {$format}, {$channels ->
+    [one] {$channels} channel
+   *[other] {$channels} channels
   }
 audio-duration =
   {$duration} ({$frames ->

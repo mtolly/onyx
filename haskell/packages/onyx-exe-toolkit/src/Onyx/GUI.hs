@@ -118,8 +118,9 @@ import           Onyx.Harmonix.RockBand.SongCache  (hardcodeSongCacheIDs)
 import           Onyx.Image.DXT                    (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.Keys.Ranges                  (closeShiftsFile)
-import           Onyx.Localization                 (L, l10n, l10nArgs, l10nFull,
-                                                    vBool, vNumber, vString)
+import           Onyx.Localization                 (L, MessageOutput, l10n,
+                                                    l10nArgs, l10nFull, vBool,
+                                                    vNumber, vString)
 import           Onyx.MIDI.Common                  (RB3Instrument (..))
 import qualified Onyx.MIDI.Common                  as RB
 import qualified Onyx.MIDI.Track.File              as F
@@ -1979,7 +1980,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
       procFolder f qsong = do
         newFiles <- f qsong.quickSongFiles
         return qsong { quickSongFiles = newFiles }
-      processors :: [((T.Text, [(T.Text, T.Text)]), QuickSong -> Onyx QuickSong)]
+      processors :: [(MessageOutput, QuickSong -> Onyx QuickSong)]
       processors =
         [ (,) (l10nFull "qc-proc-black-venue" [])
           \qsong -> do
@@ -2718,12 +2719,11 @@ pageQuickConvertCH sink rect tab startTasks = mdo
           guard $ qfof.format == FoFEncore
           guard $ elem taskType [QFoFInPlace, QFoFDeleteOriginal]
           return ()
-        numSongs n = l10nArgs "song-count" [("count", vNumber $ fromIntegral n)]
         warningText = T.unlines $ concat
           [ [l10n "qc-ch-ops-header"]
-          , guard (numInPlace /= 0) >> [l10nArgs "qc-ch-op-overwrite" [("songs", vString $ numSongs numInPlace)]]
-          , guard (numKeepOriginal /= 0) >> [l10nArgs "qc-ch-op-convert" [("songs", vString $ numSongs numKeepOriginal)]]
-          , guard (numDeleteOriginal /= 0) >> [l10nArgs "qc-ch-op-convert-delete" [("songs", vString $ numSongs numDeleteOriginal)]]
+          , guard (numInPlace /= 0) >> [l10nArgs "qc-ch-op-overwrite" [("songs", vNumber $ fromIntegral numInPlace)]]
+          , guard (numKeepOriginal /= 0) >> [l10nArgs "qc-ch-op-convert" [("songs", vNumber $ fromIntegral numKeepOriginal)]]
+          , guard (numDeleteOriginal /= 0) >> [l10nArgs "qc-ch-op-convert-delete" [("songs", vNumber $ fromIntegral numDeleteOriginal)]]
           , do
             guard $ numDeleteEncore /= 0
             ["", l10n "qc-ch-ops-encore"]
@@ -2832,7 +2832,7 @@ miscPageMOGG sink rect tab startTasks = mdo
       sublines =
         [ l10nArgs "audio-format-channels"
           [ ("format", vString info.format)
-          , ("count", vNumber $ fromIntegral info.channels)
+          , ("channels", vNumber $ fromIntegral info.channels)
           ]
         , let
           time = realToFrac info.frames / realToFrac info.rate :: Double
