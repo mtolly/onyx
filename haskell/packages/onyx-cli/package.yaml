@@ -1,0 +1,24 @@
+name: onyx-cli
+version: '20251011'
+github: mtolly/onyx
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: ../../LICENSE.txt
+
+ghc-options: -Wall
+
+executables:
+  onyx-cli:
+    main: CLI.hs
+    dependencies:
+    - base
+    - onyx-lib
+    - resourcet
+    - directory
+    - filepath
+    - yaml
+    - containers
+    - text
+    - bytestring
+    - data-default-class

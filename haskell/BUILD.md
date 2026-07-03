@@ -63,6 +63,12 @@ Finally, pull the repo using Git Bash (and **not** GitHub GUI) with the followin
 
 Your OS-specific package should be created.
 
+To build only the headless CLI (no GUI dependencies):
+
+1. `./stack-local build onyx-cli`
+
+See [CLI.md](CLI.md) for command-line usage, including the `from-audio` command.
+
 # Docker
 
 1. Install Docker (or, install Podman and edit `build-docker`)

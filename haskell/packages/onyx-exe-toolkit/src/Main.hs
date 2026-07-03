@@ -27,7 +27,7 @@ main = do
 #endif
   argv <- getArgs
   case argv of
-    []          -> launchGUI []
+    "gui"  : xs -> launchGUI xs
     "open" : xs -> launchGUI xs
     _           -> do
       res <- logStdout $ do
