@@ -1340,10 +1340,89 @@ commands =
     }
 
   , Command
+    { commandWord = "from-audio"
+    , commandDesc = "Create a Guitar Hero / Clone Hero song package from an audio file."
+    , commandUsage = T.unlines
+      [ "onyx from-audio song.wav [--to output] [--target ps|gh5]"
+      , "# ps (default): Clone Hero folder or .zip"
+      , "# gh5: Guitar Hero Warriors of Rock .pkg or STFS folder"
+      ]
+    , commandList = True
+    , commandRun = \files opts -> case files of
+      [audioPath] -> do
+        let titleName = T.pack
+              $ map (\c -> if c == '_' || c == '-' then ' ' else c)
+              $ dropExtension $ takeFileName audioPath
+            defaultProj = dropExtension audioPath <> "_gh"
+        out <- outputFile opts $ return $ defaultProj <> ".zip"
+        targetName <- case [ t | OptTarget t <- opts ] of
+          []    -> return "ps"
+          t : _ -> return t
+        unless (targetName `elem` ["ps", "gh5"]) $
+          fatal $ "from-audio --target must be ps or gh5, not " <> show targetName
+        let projDir = case map toLower $ takeExtension out of
+              ".zip" -> takeDirectory out </> takeFileName defaultProj
+              ".sng" -> takeDirectory out </> takeFileName defaultProj
+              ".pkg" -> takeDirectory out </> takeFileName defaultProj
+              _      -> out
+        stackIO $ Dir.createDirectoryIfMissing False projDir
+        destAudio <- stackIO $ Dir.makeAbsolute $ projDir </> takeFileName audioPath
+        unless (audioPath == destAudio) $ stackIO $ Dir.copyFile audioPath destAudio
+        md5 <- audioMD5 destAudio >>= maybe (fatal "Couldn't compute audio hash") return
+        len <- audioLength destAudio >>= maybe (fatal "Couldn't compute audio length") return
+        let audioKey = "song"
+            songYaml = SongYaml
+              { metadata = def { title = Just titleName, artist = Just "Unknown", author = Just "Onyx" }
+              , global   = def
+              , audio    = HM.singleton audioKey $ AudioFile AudioInfo
+                  { md5      = Just $ T.pack md5
+                  , frames   = Just len
+                  , filePath = Nothing
+                  , commands = []
+                  , rate     = Nothing
+                  , channels = 2
+                  }
+              , jammit   = HM.empty
+              , plans    = HM.singleton "plan" $ StandardPlan StandardPlanInfo
+                  { song        = Just $ Input $ Named audioKey
+                  , parts       = Parts HM.empty
+                  , crowd       = Nothing
+                  , comments    = []
+                  , tuningCents = 0
+                  , fileTempo   = Nothing
+                  }
+              , targets  = HM.singleton targetName $ case targetName of
+                  "ps"  -> PS def
+                  "gh5" -> GH5 def
+                  _     -> PS def
+              , parts    = Parts HM.empty
+              } :: SongYaml FilePath
+        stackIO $ yamlEncodeFile (projDir </> "song.yml") $ toJSON songYaml
+        let yamlPath = projDir </> "song.yml"
+            builtOut = case targetName of
+              "ps" -> case map toLower $ takeExtension out of
+                ".zip" -> projDir </> "ps.zip"
+                ".sng" -> projDir </> "ps.sng"
+                _      -> projDir
+              "gh5" -> case map toLower $ takeExtension out of
+                ".pkg" -> projDir </> "ps3.pkg"
+                _      -> projDir </> "ghworlive"
+            buildOpts = OptTarget targetName : opts
+        (_, built) <- buildTarget yamlPath builtOut buildOpts
+        finalOut <- case map toLower $ takeExtension out of
+          ".zip" -> stackIO (Dir.copyFile built out) >> return out
+          ".sng" -> stackIO (Dir.copyFile built out) >> return out
+          ".pkg" -> stackIO (Dir.copyFile built out) >> return out
+          _      -> return built
+        return [finalOut, projDir]
+      _ -> fatal "Expected 1 argument (wav, flac, ogg, or mp3 audio file)"
+    }
+
+  , Command
     { commandWord = "import-audio"
-    , commandDesc = ""
-    , commandUsage = ""
-    , commandList = False
+    , commandDesc = "Create an Onyx project folder from one or more audio files."
+    , commandUsage = "onyx import-audio song.wav [song2.wav ...] [--to project_dir]"
+    , commandList = True
     , commandRun = \args opts -> case args of
       audios@(_ : _) -> do
         pairs <- forM audios $ \audio -> inside ("audio file: " <> audio) $ do
@@ -1861,6 +1940,7 @@ commandLine args = let
     , "Usage: onyx [command] [files] [options]"
     , "Commands: " <> T.unwords (map commandWord $ filter commandList commands)
     , "Run `onyx [command] --help` for further instructions."
+    , "Run `onyx gui` for the graphical interface."
     , ""
     ]
   in case errors of

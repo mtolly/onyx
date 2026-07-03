@@ -1,0 +1,38 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           onyx-cli
+version:        20251011
+category:       Distribution
+homepage:       https://github.com/mtolly/onyx#readme
+bug-reports:    https://github.com/mtolly/onyx/issues
+author:         Michael Tolly <miketolly@gmail.com>
+maintainer:     Michael Tolly <miketolly@gmail.com>
+license:        GPL-3
+license-file:   ../../LICENSE.txt
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/mtolly/onyx
+
+executable onyx-cli
+  main-is: CLI.hs
+  other-modules:
+      Paths_onyx_cli
+  ghc-options: -Wall
+  build-depends:
+      base
+    , bytestring
+    , containers
+    , data-default-class
+    , directory
+    , filepath
+    , onyx-lib
+    , resourcet
+    , text
+    , yaml
+  default-language: Haskell2010

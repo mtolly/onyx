@@ -2,6 +2,7 @@ packages:
 - packages/onyx-lib
 - packages/onyx-lib-game
 - packages/onyx-exe-toolkit
+- packages/onyx-cli
 - packages/onyx-ffmpeg
 - packages/onyx-handle
 extra-deps:
