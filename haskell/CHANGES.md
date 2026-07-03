@@ -1,5 +1,13 @@
 # Version history
 
+# Unreleased
+
+* CLI is now the default when running `onyx` with no arguments; use `onyx gui`
+  or `onyx open` to launch the graphical toolkit
+* New standalone `onyx-cli` stack package for headless builds without FLTK
+* New `from-audio` command to create Clone Hero / GH5 packages from audio files
+* See [CLI.md](CLI.md) for command-line documentation
+
 # 20251011
 
 * Improvements to 3D preview
