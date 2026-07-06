@@ -270,6 +270,7 @@ importAmpPS2Ark src folder = do
         , fileBackgroundImage = Nothing
         , fileSongAnim = Nothing
         , fileMidi = SoftFile "notes.mid" $ SoftChart newMidi
+        , fileMidiOriginal = Nothing -- could import this
         }
       , audio = sampleAudio <> sampleTracks
       , jammit = HM.empty

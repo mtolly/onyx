@@ -1019,6 +1019,7 @@ instance Default (Metadata f) where
 
 data Global f = Global
   { fileMidi            :: f
+  , fileMidiOriginal    :: Maybe f
   , fileSongAnim        :: Maybe f -- ^ venue format found in RB3 milos
   , autogenTheme        :: Maybe Magma.AutogenTheme -- ^ 'Nothing' means black venue
   , animTempo           :: Either AnimTempo Integer
@@ -1029,6 +1030,7 @@ data Global f = Global
 instance (Eq f, IsString f, StackJSON f) => StackJSON (Global f) where
   stackJSON = asStrictObject "Global" do
     fileMidi            <- (.fileMidi           ) =. opt "notes.mid"         "file-midi"             stackJSON
+    fileMidiOriginal    <- (.fileMidiOriginal   ) =. opt Nothing             "file-midi-original"    stackJSON
     fileSongAnim        <- (.fileSongAnim       ) =. opt Nothing             "file-song-anim"        stackJSON
     autogenTheme        <- (.autogenTheme       ) =. opt (Just Magma.DefaultTheme) "autogen-theme"   stackJSON
     animTempo           <- (.animTempo          ) =. opt (Left KTempoMedium) "anim-tempo"            parseAnimTempo

@@ -52,7 +52,8 @@ import qualified Onyx.MIDI.Track.Vocal                as RB
 import           Onyx.Mode
 import           Onyx.Overdrive                       (removeNotelessOD)
 import           Onyx.Project
-import           Onyx.Reductions                      (completeFiveResult)
+import           Onyx.Reductions                      (FretLimit,
+                                                       completeFiveResult)
 import           Onyx.Sections                        (makeGH2Section,
                                                        sectionBody)
 import           Onyx.StackTrace
@@ -207,10 +208,11 @@ midiRB3toGH2
   => SongYaml f
   -> TargetGH2 f
   -> GH2Audio
+  -> FretLimit
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH2File U.Beats), Int)
-midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength = do
+midiRB3toGH2 song target audio fretLimit inputMid@(F.Song tmap mmap onyx) getAudioLength = do
   timing <- basicTiming False inputMid getAudioLength
   let makeMoods origMoods gems = let
         moods = if RTB.null origMoods
@@ -225,7 +227,7 @@ midiRB3toGH2 song target audio inputMid@(F.Song tmap mmap onyx) getAudioLength =
           Mood_intense       -> True
           Mood_play_solo     -> True
         in (void $ RTB.filter not bools, void $ RTB.filter id bools) -- (idle, play)
-      makeGRYBO fpart = case completeFiveResult False mmap <$> getFive' fpart of
+      makeGRYBO fpart = case completeFiveResult fretLimit False mmap <$> getFive' fpart of
         Nothing -> return mempty
         Just result -> do
           let gap = fromIntegral result.settings.sustainGap / 480

@@ -713,8 +713,8 @@ guitarifyFull threshold pgd = computeSlides pgd.slide $ guitarifyHOPO threshold 
 
 -- | Ensures that frets do not go above the given maximum,
 -- first by lowering marked sections one octave and then by muting high notes.
-fretLimit :: (NNC.C t) => Int -> ProGuitarTrack t -> ProGuitarTrack t
-fretLimit maxFret pg = let
+pgFretLimit :: (NNC.C t) => Int -> ProGuitarTrack t -> ProGuitarTrack t
+pgFretLimit maxFret pg = let
   shouldLower = fmap (>= maxFret) pg.onyxOctave
   doLower _    0 = 0
   doLower down n = if down && n >= 12 then n - 12 else n

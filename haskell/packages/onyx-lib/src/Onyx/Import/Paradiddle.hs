@@ -150,6 +150,7 @@ importParadiddle diffs level = do
             }
           }
         ImportQuick -> emptyChart
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ songAudio <> drumAudio

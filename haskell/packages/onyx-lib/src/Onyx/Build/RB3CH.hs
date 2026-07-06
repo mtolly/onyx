@@ -371,17 +371,18 @@ buildFive
   -> SharedTarget f
   -> F.Song (F.OnyxFile U.Beats)
   -> BasicTiming
+  -> FretLimit
   -> Bool
   -> SongYaml f
   -> Maybe (FiveTrack U.Beats)
-buildFive fivePart target (F.Song tempos mmap trks) timing toKeys songYaml = case getPart fivePart songYaml >>= anyFiveFret of
+buildFive fivePart target (F.Song tempos mmap trks) timing fretLimit toKeys songYaml = case getPart fivePart songYaml >>= anyFiveFret of
   Nothing -> Nothing
   Just getFive -> Just let
     gtrType = case (target, toKeys) of
       (_               , True ) -> FiveTypeKeys
       (SharedTargetRB{}, False) -> FiveTypeGuitar
       (SharedTargetPS{}, False) -> FiveTypeGuitarExt
-    result = completeFiveResult toKeys mmap $ getFive gtrType ModeInput
+    result = completeFiveResult fretLimit toKeys mmap $ getFive gtrType ModeInput
       { tempo  = tempos
       , events = trks.onyxEvents
       , part   = F.getFlexPart fivePart trks
@@ -459,6 +460,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         SharedTargetPS ps | not ps.bigRockEnding -> deleteBRE origInput
         _                                        -> origInput
   timing@BasicTiming{..} <- basicTiming True input getAudioLength
+  fretLimit <- loadFretLimit
   let targetPS = case target of
         SharedTargetPS ps    -> ps
         SharedTargetRB rb3 _ -> TargetPS
@@ -516,7 +518,7 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
             , ED.footing      = RTB.empty
             }
           in (setDrumMix mixMode dt, mtd')
-      makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing toKeys songYaml
+      makeGRYBOTrack toKeys fpart = fromMaybe mempty $ buildFive fpart target input timing fretLimit toKeys songYaml
 
       guitarPart = case target of
         SharedTargetRB rb3 _ -> rb3.guitar
@@ -562,8 +564,8 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
                   (True, False, _    ) -> convertRStoPG tempos srcRSG
                   (True, True , False) -> convertRStoPG tempos srcRSB
                   (_   , _    , _    ) -> src22
-            let mustang = f $ fretLimit 17 if nullPG src17  then src22' else src17
-                squier  = f $ fretLimit 22 if nullPG src22' then src17  else src22'
+            let mustang = f $ pgFretLimit 17 if nullPG src17  then src22' else src17
+                squier  = f $ pgFretLimit 22 if nullPG src22' then src17  else src22'
             return (mustang, if mustang == squier then mempty else squier)
 
   (proGtr , proGtr22 ) <- makeProGtrTracks TypeGuitar guitarPart

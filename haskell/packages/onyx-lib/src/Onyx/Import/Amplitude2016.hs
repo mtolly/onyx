@@ -117,6 +117,7 @@ importAmplitudeSong songFolder moggSongName level = do
       , fileBackgroundImage = Nothing
       , fileSongAnim = Nothing
       , fileMidi = SoftFile "notes.mid" $ SoftChart midi
+      , fileMidiOriginal = Nothing -- could import this
       }
     , audio = HM.empty
     , jammit = HM.empty

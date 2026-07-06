@@ -179,8 +179,8 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
       else mempty
     }
 
-gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> F.Song (F.OnyxFile U.Beats) -> SongYaml SoftFile
-gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
+gh2SongYaml :: ImportMode -> SongPackage -> Maybe GH2DXExtra -> Song -> Readable -> F.Song (F.OnyxFile U.Beats) -> SongYaml SoftFile
+gh2SongYaml mode pkg extra songChunk origMidi onyxMidi = SongYaml
   { metadata = def'
     { title  = Just $ pkg.name <> case mode of
       ImportSolo -> ""
@@ -198,6 +198,7 @@ gh2SongYaml mode pkg extra songChunk onyxMidi = SongYaml
     }
   , global = def'
     { fileMidi            = SoftFile "notes.mid" $ SoftChart onyxMidi
+    , fileMidiOriginal    = Just $ SoftFile "original.mid" $ SoftReadable origMidi
     , fileSongAnim        = Nothing
     , backgroundVideo     = Nothing
     , fileBackgroundImage = Nothing
@@ -317,7 +318,7 @@ importGH2Song mode songChunk pkg displayPath folder level = do
           ImportFull  -> HM.singleton "mogg" $ MoggPlan $ getGH2MoggPlan mogg songChunk
         in return (audio, plans)
       (Nothing, Nothing) -> fail $ "Couldn't find .vgs or .mogg audio for " <> show songChunk.songName
-  return (gh2SongYaml mode pkg Nothing songChunk onyxMidi)
+  return (gh2SongYaml mode pkg Nothing songChunk midi onyxMidi)
     { audio = audio
     , plans = plans
     }
@@ -388,7 +389,7 @@ importGH2DLC src folder = do
         onyxMidi <- case level of
           ImportFull  -> importGH2MIDI mode songChunk <$> F.loadMIDIReadable midi
           ImportQuick -> return emptyChart
-        let yaml = gh2SongYaml mode pkg (Just extra) songChunk onyxMidi
+        let yaml = gh2SongYaml mode pkg (Just extra) songChunk midi onyxMidi
         return yaml
           { plans = HM.singleton "mogg" $ MoggPlan $ getGH2MoggPlan mogg songChunk
           , metadata = yaml.metadata

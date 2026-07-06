@@ -51,7 +51,9 @@ import qualified Onyx.MIDI.Track.Vocal                as RB
 import           Onyx.Mode
 import           Onyx.Overdrive                       (removeNotelessOD)
 import           Onyx.Project
-import           Onyx.Reductions                      (completeFiveResult)
+import           Onyx.Reductions                      (FretLimit (..),
+                                                       completeFiveResult,
+                                                       loadFretLimit)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                      as U
 
@@ -117,10 +119,11 @@ midiRB3toGH1
   :: (SendMessage m)
   => SongYaml f
   -> GH1Audio
+  -> FretLimit
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH1File U.Beats), Int)
-midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
+midiRB3toGH1 song audio fretLimit inputMid@(F.Song tmap mmap onyx) getAudioLen = do
   timing <- basicTiming False inputMid getAudioLen
   let makePlayBools origMoods gems = let
         moods = if RTB.null origMoods
@@ -170,7 +173,7 @@ midiRB3toGH1 song audio inputMid@(F.Song tmap mmap onyx) getAudioLen = do
           }
       getLeadData fpart = case getFive fpart of
         Nothing     -> fatal "No guitar-compatible mode set up for lead guitar part"
-        Just result -> return $ completeFiveResult False mmap result
+        Just result -> return $ completeFiveResult fretLimit False mmap result
       fiveResultMoods :: FiveResult -> RTB.T U.Beats Bool
       fiveResultMoods result
         = makePlayBools result.other.mood
@@ -317,7 +320,8 @@ gh1Rules buildInfo dir gh1 = do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH1Audio songYaml gh1 hasAudio
-    (mid, padSeconds) <- midiRB3toGH1 songYaml audio
+    fretLimit <- loadFretLimit
+    (mid, padSeconds) <- midiRB3toGH1 songYaml audio fretLimit
       (applyTargetMIDI gh1.common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDILatin1 out mid

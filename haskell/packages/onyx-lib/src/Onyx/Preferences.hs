@@ -51,7 +51,7 @@ data Preferences = Preferences
   , prefArtistSort    :: Bool -- in gh2/gh3, sort by artist then title
   , prefThreads       :: Maybe Int
   , prefDetectMuted   :: Bool
-  , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modfiy tempos to be in Magma-legal range
+  , prefLegalTempos   :: Bool -- for RB3/RB2 export, try to modify tempos to be in Magma-legal range
   , prefEliteLayout   :: [EliteDrumLayoutHint]
   , prefPreviewFPS    :: Int
   , prefCHDownmix     :: Bool
@@ -60,6 +60,7 @@ data Preferences = Preferences
   , prefPackEncoding  :: Maybe RBEncoding -- should quick convert packs enforce a single encoding
   , prefWaveform      :: Bool -- display audio waveform in None or Venue preview backgrounds
   , prefLeftyFlip     :: Bool
+  , prefReduceFrets   :: Bool -- should auto 5-fret reductions use only 3 frets on Easy and 4 frets on Medium
   }
 
 instance StackJSON Preferences where
@@ -98,6 +99,7 @@ instance StackJSON Preferences where
     prefPackEncoding  <- (.prefPackEncoding ) =. fill (Just Latin1)    "pack-encoding"   stackJSON
     prefWaveform      <- (.prefWaveform     ) =. opt  True             "waveform"        stackJSON
     prefLeftyFlip     <- (.prefLeftyFlip    ) =. opt  False            "lefty-flip"      stackJSON
+    prefReduceFrets   <- (.prefReduceFrets  ) =. opt  False            "reduce-frets"    stackJSON
     return Preferences{..}
 
 instance Default Preferences where

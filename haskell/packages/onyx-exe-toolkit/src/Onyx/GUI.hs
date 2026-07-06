@@ -140,7 +140,7 @@ import           Onyx.QuickConvert.FretsOnFire     as QCH
 import           Onyx.QuickConvert.RockBand        as QRB
 import qualified Onyx.QuickConvert.RockRevolution  as RR
 import           Onyx.Reaper.Build                 (TuningInfo (..), makeReaper)
-import           Onyx.Reductions                   (simpleReduce)
+import           Onyx.Reductions                   (loadFretLimit, simpleReduce)
 import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Files                   (commonDir, copyDirRecursive,
@@ -273,7 +273,7 @@ continueImport makeMenuBar hasAudio imp = do
         song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> planMidi'
         void $ forkOnyx $ projectAudio k proj >>= withAudio song
       withNoPlan = do
-        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> "notes.mid"
+        song <- loadTracks proj.projectSongYaml $ takeDirectory proj.projectLocation </> proj.projectSongYaml.global.fileMidi
         withAudio song Nothing
       withAudio song maybeAudio = stackIO $ sink $ EventOnyx do
         prefs <- readPreferences
@@ -1122,7 +1122,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
     [C.block| void { $(Fl_Pack* pack)->end(); } |]
     sink $ EventOnyx $ void $ forkOnyx do
-      let input = takeDirectory proj.projectLocation </> "notes.mid"
+      let input = takeDirectory proj.projectLocation </> proj.projectSongYaml.global.fileMidi
       mid <- F.loadMIDI input
       let fixed = F.onyxToFixed mid.tracks
           foundTracksRB3 = getScoreTracks    fixed
@@ -1421,8 +1421,6 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                 copyDirRecursive tmp f
                 return [f]
           sink $ EventOnyx $ startTasks [(T.unpack $ l10n "util-btn-preview", task)]
-    -- TODO this needs to somehow start from a pre-import midi file if present
-    -- so we don't mess up things like encore pad tracks
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
         withUTF8 (l10n "util-btn-reduce") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
@@ -1447,8 +1445,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
             when (not $ null f) do
               let ext = map toLower $ takeExtension f
                   f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
+                  -- start from pre-import midi file if present
+                  input = fromMaybe proj.projectSongYaml.global.fileMidi
+                    proj.projectSongYaml.global.fileMidiOriginal
               sink $ EventOnyx $ startTasks [(f', do
-                simpleReduce (takeDirectory proj.projectLocation </> "notes.mid") f'
+                fretLimit <- loadFretLimit
+                simpleReduce fretLimit (takeDirectory proj.projectLocation </> input) f'
                 return [f'])]
     padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
       btn <- withRect rect' \bx by bw bh ->
@@ -2975,7 +2977,8 @@ miscPageMIDI sink rect tab startTasks = do
           f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
           in sink $ EventOnyx let
             task = do
-              simpleReduce input f'
+              fretLimit <- loadFretLimit
+              simpleReduce fretLimit input f'
               return [f']
             in startTasks [(T.unpack $ l10nArgs "midi-task-reduce" [("path", vString $ T.pack input)], task)]
       return btn
@@ -3949,6 +3952,15 @@ launchPreferences sink makeMenuBar = do
             [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
             return btn
           return $ (\b prefs -> prefs { prefDetectMuted = b }) <$> checkValue check
+        , do
+          check <- lineBox \box -> do
+            btn <- withRect box \bx by bw bh ->
+              [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+            setLabelTooltip (l10nFull "pref-limit-reduced-frets" []) btn
+            let v = if loadedPrefs.prefReduceFrets then 1 else 0 :: CInt
+            [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
+            return btn
+          return $ (\b prefs -> prefs { prefReduceFrets = b }) <$> checkValue check
         ]
       [C.block| void { $(Fl_Pack* pack)->end(); } |]
       return (tab, fn)

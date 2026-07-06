@@ -227,6 +227,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
             }
           }
         ImportQuick -> emptyChart
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList do

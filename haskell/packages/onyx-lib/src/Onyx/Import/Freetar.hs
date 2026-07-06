@@ -160,6 +160,7 @@ importFreetar sng level = do
       , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
         ImportFull  -> songToMidi song
         ImportQuick -> emptyChart
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ toList $ props.musicFileName <&> \f -> let

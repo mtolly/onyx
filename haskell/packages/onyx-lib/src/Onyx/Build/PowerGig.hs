@@ -36,7 +36,8 @@ import           Onyx.PowerGig.Crypt              (buildHeader, encryptE2,
 import qualified Onyx.PowerGig.GEV                as PG
 import qualified Onyx.PowerGig.Songs              as PG
 import           Onyx.Project                     hiding (Difficulty)
-import           Onyx.Reductions                  (completeFiveResult)
+import           Onyx.Reductions                  (completeFiveResult,
+                                                   loadFretLimit)
 import           Onyx.Resources                   (getResourcesPath,
                                                    powerGigThumbnail,
                                                    powerGigTitleThumbnail)
@@ -127,6 +128,7 @@ pgRules buildInfo dir pg = do
 
   objGEV %> \out -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    fretLimit <- loadFretLimit
     let _ = mid :: F.Song (F.OnyxFile U.Beats)
         (strh, strs, mapping) = PG.makeStringBank
           [ "guitar_1_expert"
@@ -142,7 +144,7 @@ pgRules buildInfo dir pg = do
             }
           , gevGELH = PG.GELH $ V.fromList $ catMaybes
             [ (getPart pg.guitar songYaml >>= anyFiveFret) <&> \builder -> let
-              result = completeFiveResult False mid.timesigs $ builder FiveTypeGuitar ModeInput
+              result = completeFiveResult fretLimit False mid.timesigs $ builder FiveTypeGuitar ModeInput
                 { tempo = mid.tempos
                 , events = mid.tracks.onyxEvents
                 , part = F.getFlexPart pg.guitar mid.tracks

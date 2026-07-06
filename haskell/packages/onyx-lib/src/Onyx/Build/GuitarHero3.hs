@@ -53,7 +53,9 @@ import           Onyx.PlayStation.NPData           (gh3CustomMidEdatConfig,
                                                     npdContentID, packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Project                      hiding (Difficulty)
-import           Onyx.Reductions                   (completeFiveResult)
+import           Onyx.Reductions                   (FretLimit,
+                                                    completeFiveResult,
+                                                    loadFretLimit)
 import           Onyx.Resources                    (getResourcesPath,
                                                     gh3Thumbnail)
 import           Onyx.Sections                     (makeDisplaySection,
@@ -292,6 +294,7 @@ gh3Rules buildInfo dir gh3 = do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let midApplied = applyTargetMIDI gh3.common mid
     timing <- basicTiming False midApplied $ getAudioLength buildInfo planName plan
+    fretLimit <- loadFretLimit
     let (gh3Mid, padSeconds) = makeGH3MidQB
           songYaml
           midApplied
@@ -299,6 +302,7 @@ gh3Rules buildInfo dir gh3 = do
           gh3.guitar
           coopPart
           gh3.drums
+          fretLimit
         nodes =
           [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = 0, nodeFilenameKey = key1, nodeFilenameCRC = key2, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , putQB $ makeMidQB key1 dlcID gh3Mid
@@ -437,8 +441,9 @@ makeGH3MidQB
   -> F.PartName
   -> F.PartName
   -> F.PartName
+  -> FretLimit
   -> (GH3MidQB, Int)
-makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
+makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer fretLimit = let
 
   -- first, pad input midi if needed
   firstEvent rtb = case RTB.viewL rtb of
@@ -463,7 +468,7 @@ makeGH3MidQB songYaml origSong timing partLead partRhythm partDrummer = let
     in case getPart fpart songYaml >>= anyFiveFret of
       Nothing -> (mempty, GH3Part emptyTrack emptyTrack emptyTrack emptyTrack)
       Just builder -> let
-        result = completeFiveResult False song.timesigs $ builder FiveTypeGuitar ModeInput
+        result = completeFiveResult fretLimit False song.timesigs $ builder FiveTypeGuitar ModeInput
           { tempo  = song.tempos
           , events = song.tracks.onyxEvents
           , part   = F.getFlexPart fpart song.tracks

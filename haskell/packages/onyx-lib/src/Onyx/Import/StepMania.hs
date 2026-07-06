@@ -326,6 +326,7 @@ importSM src level = do
       }
     , global = Global
       { fileMidi = SoftFile "notes.mid" $ SoftChart mid
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       , autogenTheme = Nothing
       , animTempo = Left KTempoMedium

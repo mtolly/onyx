@@ -524,6 +524,7 @@ importPowerGigSong key song folder level = do
       }
     , global = def'
       { fileMidi = SoftFile "notes.mid" $ SoftChart onyxMid
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       , backgroundVideo = Nothing
       , fileBackgroundImage = Nothing

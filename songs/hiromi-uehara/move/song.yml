@@ -1,0 +1,39 @@
+parts:
+  drums:
+    drums:
+      mode: elite
+      kicks: both
+      elite-layout: [open-hand]
+audio:
+  album-track:
+    md5: 26f6f2d9bee4deead8c3bf1318c1d440
+    frames: 22694448
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      pad: [1.655, flip: album-track]
+  dev:
+    song:
+      pad: [1.655, flip: album-track]
+    parts:
+      bass:
+        pad: [1.655, flip: {channels: [[0, 1], stems]}]
+      drums:
+        pad: [1.655, flip: {channels: [[2, 3], stems]}]
+      vocal:
+        pad: [1.655, flip: {channels: [[4, 5], stems]}]
+      other:
+        pad: [1.655, flip: {channels: [[6, 7], stems]}]
+metadata:
+  title: Move
+  artist: "Hiromi: The Trio Project"
+  album: Move
+  track-number: 1
+  author: Onyxite
+  genre: jazz
+  year: 2012

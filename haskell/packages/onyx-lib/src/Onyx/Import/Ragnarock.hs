@@ -198,6 +198,7 @@ importRagnarock pathInfo level = do
       , fileMidi = SoftFile "notes.mid" $ SoftChart case level of
         ImportFull  -> ragnarockToDrums info maps
         ImportQuick -> emptyChart
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = HM.singleton "song" let

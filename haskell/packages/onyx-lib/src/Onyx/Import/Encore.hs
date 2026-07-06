@@ -48,9 +48,12 @@ importEncore dir level = do
 
   info <- fixFileCase (dir </> "info.json") >>= loadEncoreInfo
 
-  mid <- case level of
-    ImportQuick -> return emptyChart
-    ImportFull  -> fixFileCase info.midi >>= F.loadMIDIReadable @EncoreFile . fileReadable
+  origMidi <- case level of
+    ImportQuick -> return Nothing
+    ImportFull  -> Just . fileReadable <$> fixFileCase info.midi
+  mid <- case origMidi of
+    Nothing -> return emptyChart
+    Just m  -> F.loadMIDIReadable @EncoreFile m
 
   let existingPaths :: [FilePath] -> IO [FilePath]
       existingPaths paths = flip mapMaybeM paths \p -> do
@@ -128,6 +131,7 @@ importEncore dir level = do
       }
     , global = let Global{..} = def' in Global
       { fileMidi = SoftFile "notes.mid" $ SoftChart $ encoreToOnyxMIDI mid
+      , fileMidiOriginal = SoftFile "original.mid" . SoftReadable <$> origMidi
       , fileSongAnim = Nothing
       , backgroundVideo = Nothing
       , fileBackgroundImage = Nothing

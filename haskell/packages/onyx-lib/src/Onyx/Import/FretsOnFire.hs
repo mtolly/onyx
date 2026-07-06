@@ -184,12 +184,13 @@ importFoF src dir level = do
         FB.Note 67 _ -> True
         FB.Note 68 _ -> True
         _            -> False
+      origMidi = findFileCI (pure "notes.mid") dir
   (song, parsed, isChart, chartWithCymbals) <- case findFileCI (pure "song.ini") dir of
     Just rIni -> do
       ini <- FoF.loadSong rIni
       case level of
         ImportQuick -> return (ini, emptyChart, False, False)
-        ImportFull  -> case findFileCI (pure "notes.mid") dir of
+        ImportFull  -> case origMidi of
           Just rMidi -> do
             lg "Found song.ini and notes.mid"
             mid <- loadFoFMIDI ini rMidi
@@ -531,6 +532,7 @@ importFoF src dir level = do
       { backgroundVideo = videoInfo
       , fileBackgroundImage = backgroundImage
       , fileMidi = midi
+      , fileMidiOriginal = SoftFile "original.mid" . SoftReadable <$> origMidi
       , fileSongAnim = Nothing
       }
     , audio = HM.fromList $ audioFilesWithChannels <&> \(pair@(template, _srcPath), chans) ->

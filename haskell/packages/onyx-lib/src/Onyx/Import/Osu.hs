@@ -202,6 +202,7 @@ importOsu separateSongs f = do
               }
             }
           ImportQuick -> emptyChart
+        , fileMidiOriginal = Nothing
         , fileSongAnim = Nothing
         }
       , jammit = HM.empty

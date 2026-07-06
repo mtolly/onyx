@@ -201,6 +201,7 @@ importGH1Song pkg path folder level = do
       }
     , global = def'
       { fileMidi            = SoftFile "notes.mid" $ SoftChart convmid
+      , fileMidiOriginal    = Just $ SoftFile "original.mid" $ SoftReadable midi
       , fileSongAnim        = Nothing
       , backgroundVideo     = Nothing
       , fileBackgroundImage = Nothing

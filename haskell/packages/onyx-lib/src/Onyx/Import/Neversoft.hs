@@ -210,6 +210,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
               }
             , global = def'
               { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+              , fileMidiOriginal = Nothing
               , fileSongAnim = Nothing
               , backgroundVideo = Nothing
               , fileBackgroundImage = Nothing
@@ -600,6 +601,7 @@ importGH4Song ghi level = do
       }
     , global = def'
       { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       , backgroundVideo = Nothing
       , fileBackgroundImage = Nothing
@@ -862,6 +864,7 @@ importGH3Song ghi = let
         }
       , global = def'
         { fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+        , fileMidiOriginal = Nothing
         , fileSongAnim = Nothing
         , backgroundVideo = Nothing
         , fileBackgroundImage = Nothing

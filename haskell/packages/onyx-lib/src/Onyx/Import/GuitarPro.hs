@@ -295,6 +295,7 @@ importGPIF gpif level = do
     , targets = HM.empty
     , global = def'
       { fileMidi            = SoftFile "notes.mid" $ SoftChart mid
+      , fileMidiOriginal    = Nothing
       , fileSongAnim        = Nothing
       , backgroundVideo     = Nothing
       , fileBackgroundImage = Nothing

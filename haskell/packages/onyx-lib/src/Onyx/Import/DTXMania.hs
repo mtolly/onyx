@@ -385,6 +385,7 @@ importSetDef setDefPath song level = do
           { backgroundVideo = video
           , fileBackgroundImage = Nothing
           , fileMidi = SoftFile "notes.mid" $ SoftChart midiOnyx
+          , fileMidiOriginal = Nothing
           , fileSongAnim = Nothing
           }
         , audio = HM.empty

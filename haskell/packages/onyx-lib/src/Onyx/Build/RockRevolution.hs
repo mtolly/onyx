@@ -76,7 +76,8 @@ import           Onyx.PlayStation.NPData           (npdContentID, packNPData,
 import           Onyx.PlayStation.PKG
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (completeDrumResult,
-                                                    completeFiveResult)
+                                                    completeFiveResult,
+                                                    loadFretLimit)
 import           Onyx.Resources                    (getResourcesPath)
 import           Onyx.RockRevolution.MIDI
 import           Onyx.StackTrace
@@ -179,15 +180,16 @@ rrRules buildInfo dir rr = do
     endTime <- case mid.tracks.onyxEvents.end of
       Wait dt _ _ -> return dt
       RNil        -> fatal "panic! no [end] in processed midi"
+    fretLimit <- loadFretLimit
     let input partName = ModeInput
           { tempo  = mid.tempos
           , events = mid.tracks.onyxEvents
           , part   = F.getFlexPart partName mid.tracks
           }
         guitar = rrPartGuitar <&> \builder ->
-          completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.guitar
+          completeFiveResult fretLimit False mid.timesigs $ builder FiveTypeGuitar $ input rr.guitar
         bass   = rrPartBass <&> \builder ->
-          completeFiveResult False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
+          completeFiveResult fretLimit False mid.timesigs $ builder FiveTypeGuitar $ input rr.bass
         drums  = rrPartDrums <&> \builder ->
           completeDrumResult mid.timesigs mid.tracks.onyxEvents.sections $ builder drumTarget $ input rr.drums
         drumTarget = if rr.is2xBassPedal then DrumTargetRB1x else DrumTargetRB2x

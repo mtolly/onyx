@@ -215,6 +215,7 @@ importMagma fin level = do
       }
     , global = Global
       { fileMidi = midi
+      , fileMidiOriginal = Nothing -- don't need this, not editing midi on import
       , fileSongAnim = Nothing
       , autogenTheme = Just case rbproj.midi.autogenTheme of
         Left theme -> theme

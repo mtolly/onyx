@@ -3,50 +3,76 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
-module Onyx.Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult) where
+module Onyx.Reductions (pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult, FretLimit(..), loadFretLimit) where
 
-import           Control.Monad                    (guard, void)
-import           Control.Monad.IO.Class           (MonadIO)
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Function                    ((&))
-import           Data.Functor                     ((<&>))
-import           Data.List.Extra                  (nubOrd, sort, sortOn)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isNothing)
-import qualified Data.Set                         as Set
-import           Numeric.NonNegative.Class        ((-|))
-import qualified Numeric.NonNegative.Class        as NNC
-import           Onyx.FeedBack.Load               (loadMIDIOrChart)
+import           Control.Monad                     (forM, guard, void, (<=<))
+import           Control.Monad.Codec               (codecIn, codecOut)
+import           Control.Monad.IO.Class            (MonadIO)
+import           Control.Monad.Trans.State.Strict  (runStateT)
+import           Control.Monad.Trans.Writer.Strict (execWriter)
+import           Data.Bifunctor                    (first)
+import qualified Data.EventList.Absolute.TimeBody  as ATB
+import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Function                     ((&))
+import           Data.Functor                      ((<&>))
+import           Data.List.Extra                   (nubOrd, sort, sortOn)
+import           Data.List.NonEmpty                (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty                as NE
+import qualified Data.Map                          as Map
+import           Data.Maybe                        (fromMaybe, isNothing,
+                                                    mapMaybe)
+import qualified Data.Set                          as Set
+import qualified Data.Text                         as T
+import qualified Data.Text.Encoding                as TE
+import           Numeric.NonNegative.Class         ((-|))
+import qualified Numeric.NonNegative.Class         as NNC
+import           Onyx.AutoChart                    (autoChart)
+import           Onyx.FeedBack.Load                (loadRawMIDIOrChart)
 import           Onyx.Guitar
-import           Onyx.Keys.Ranges                 (completeRanges)
-import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
-                                                   Key (..), StrumHOPOTap (..),
-                                                   blipEdgesRB_, edgeBlips_,
-                                                   minSustainLengthRB,
-                                                   trackGlue)
-import qualified Onyx.MIDI.Track.Drums            as D
-import           Onyx.MIDI.Track.Events           (sections)
-import qualified Onyx.MIDI.Track.File             as F
-import           Onyx.MIDI.Track.FiveFret         as Five
+import           Onyx.Keys.Ranges                  (completeRanges)
+import           Onyx.MIDI.Common                  (Difficulty (..), Edge (..),
+                                                    Key (..), StrumHOPOTap (..),
+                                                    blipEdgesRB_, edgeBlips_,
+                                                    minSustainLengthRB,
+                                                    trackGlue)
+import           Onyx.MIDI.Read                    (ParseTrack)
+import qualified Onyx.MIDI.Track.Drums             as D
+import           Onyx.MIDI.Track.Events            (EventsTrack, sections)
+import qualified Onyx.MIDI.Track.File              as F
+import           Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.MIDI.Track.ProGuitar
-import           Onyx.MIDI.Track.ProKeys          as PK
+import           Onyx.MIDI.Track.ProKeys           as PK
 import           Onyx.Mode
-import           Onyx.Sections                    (Section)
+import           Onyx.Preferences                  (Preferences (..),
+                                                    readPreferences)
+import           Onyx.Sections                     (Section)
 import           Onyx.StackTrace
-import           Optics                           ((.~))
-import qualified Sound.MIDI.Util                  as U
+import           Optics                            ((.~))
+import qualified Sound.MIDI.File.Event             as E
+import qualified Sound.MIDI.File.Save              as Save
+import qualified Sound.MIDI.Util                   as U
 
-completeFiveResult :: Bool -> U.MeasureMap -> FiveResult -> FiveResult
-completeFiveResult isKeys mmap result = let
+data FretLimit = AnyFrets | LimitedFrets
+
+applyLimit :: FretLimit -> (a -> a) -> a -> a
+applyLimit AnyFrets     _ x = x
+applyLimit LimitedFrets f x = f x
+
+loadFretLimit :: (SendMessage m, MonadIO m) => StackTraceT m FretLimit
+loadFretLimit = readPreferences <&> \prefs ->
+  if prefs.prefReduceFrets then LimitedFrets else AnyFrets
+
+completeFiveResult :: FretLimit -> Bool -> U.MeasureMap -> FiveResult -> FiveResult
+completeFiveResult limit isKeys mmap result = let
   od        = result.other.overdrive
   getDiff d = fromMaybe RTB.empty $ Map.lookup d result.notes
   trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1) <= 5 then trk2 else trk1
   expert    = getDiff Expert
-  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
-  medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
-  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   isKeys mmap od medium
+  hard      = getDiff Hard   `orIfNull` gryboReduce Hard isKeys mmap od expert
+  medium    = getDiff Medium `orIfNull` applyLimit limit (limitFrets 4) (gryboReduce Medium isKeys mmap od hard  )
+  easy      = getDiff Easy   `orIfNull` applyLimit limit (limitFrets 3) (gryboReduce Easy   isKeys mmap od medium)
   in result & #notes .~ Map.fromList
     [ (Easy  , easy  )
     , (Medium, medium)
@@ -54,17 +80,61 @@ completeFiveResult isKeys mmap result = let
     , (Expert, expert)
     ]
 
+limitFrets
+  :: Int
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+limitFrets maxFrets input = let
+  autoInput = input <&> \((mc, _), _) -> maybe 0 fromEnum mc
+  maxUsedFret = foldr max 0 autoInput
+  autoOutput
+    = autoChart maxFrets
+    $ map (first realToFrac)
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0 autoInput
+  autoMap = foldr (Map.unionWith (<>)) Map.empty $ map
+    (\(pos, fret) -> Map.singleton (realToFrac pos) [fret])
+    autoOutput
+  outputGems
+    = RTB.fromAbsoluteEventList
+    $ ATB.fromPairList
+    $ concatMap (\(posn, (sht, len)) -> let
+      frets = fromMaybe [0] $ Map.lookup posn autoMap
+      in [ (posn, ((Just $ toEnum fret, sht), len)) | fret <- frets ]
+      )
+    $ ATB.toPairList
+    $ RTB.toAbsoluteEventList 0
+    $ fmap (\notes ->
+      ( maximum [ sht | ((_, sht), _  ) <- notes ]
+      , minimum [ len | ((_, _  ), len) <- notes ]
+      ))
+    $ RTB.collectCoincident input
+  in if maxUsedFret < maxFrets
+    then input
+    else outputGems
+
+limitFretsDifficulty :: Int -> Maybe Int -> FiveDifficulty U.Beats -> FiveDifficulty U.Beats
+limitFretsDifficulty maxFrets hopoThres fd
+  = (\result -> result { forceStrum = RTB.empty, forceHOPO = RTB.empty, tap = RTB.empty })
+  $ emitGuitar5
+  $ limitFrets maxFrets
+  $ (case hopoThres of
+    Nothing -> fmap (\(col, len) -> ((col, Strum), len))
+    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
+    )
+  $ computeFiveFretNotes fd
+
 -- | Fills out a GRYBO chart by generating difficulties if needed.
-gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
-gryboComplete hopoThres mmap trk = let
+gryboComplete :: FretLimit -> Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
+gryboComplete limit hopoThres mmap trk = let
   od        = trk.overdrive
   getDiff d = fromMaybe mempty $ Map.lookup d trk.difficulties
   orIfNull :: FiveDifficulty U.Beats -> FiveDifficulty U.Beats -> FiveDifficulty U.Beats
   trk1 `orIfNull` trk2 = if length (RTB.collectCoincident trk1.gems) <= 5 then trk2 else trk1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduceDifficulty Hard   hopoThres mmap od expert
-  medium    = getDiff Medium `orIfNull` gryboReduceDifficulty Medium hopoThres mmap od hard
-  easy      = getDiff Easy   `orIfNull` gryboReduceDifficulty Easy   hopoThres mmap od medium
+  medium    = getDiff Medium `orIfNull` applyLimit limit (limitFretsDifficulty 4 hopoThres) (gryboReduceDifficulty Medium hopoThres mmap od hard  )
+  easy      = getDiff Easy   `orIfNull` applyLimit limit (limitFretsDifficulty 3 hopoThres) (gryboReduceDifficulty Easy   hopoThres mmap od medium)
   in trk & #difficulties .~ Map.fromList
     [ (Easy, easy)
     , (Medium, medium)
@@ -534,36 +604,82 @@ drumsReduce diff   mmap od sections trk = let
       in foldr f keptAll sectionBounds
   in ensureODNotes od trk $ RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
 
--- TODO this should be fixed to not write everything as a new onyx midi,
--- but only modify the appropriate tracks and don't touch anything else
-simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
-simpleReduce fin fout = do
-  F.Song tempos mmap onyx <- loadMIDIOrChart fin
-  let sections = onyx.onyxEvents.sections
-  stackIO $ F.saveMIDIUtf8 fout $ F.Song tempos mmap onyx
-    { F.onyxParts = onyx.onyxParts <&> \trks -> let
-      pkX = trks.onyxPartRealKeysX
-      pkH = trks.onyxPartRealKeysH `pkOr` pkReduce Hard   mmap od pkX
-      pkM = trks.onyxPartRealKeysM `pkOr` pkReduce Medium mmap od pkH
-      pkE = trks.onyxPartRealKeysE `pkOr` pkReduce Easy   mmap od pkM
-      od = pkX.overdrive
-      trkX `pkOr` trkY
-        | nullPK pkX  = mempty
-        | nullPK trkX = trkY
-        | otherwise   = trkX
-      in trks
-      { F.onyxPartGuitar = gryboComplete (Just 170) mmap trks.onyxPartGuitar
-      , F.onyxPartKeys = gryboComplete Nothing mmap trks.onyxPartKeys
-      , F.onyxPartDrums
-        = D.fillDrumAnimation (0.25 :: U.Seconds) tempos
-        $ drumsComplete mmap sections
-        $ trks.onyxPartDrums
-      , F.onyxPartRealKeysX = pkX
-      , F.onyxPartRealKeysH = pkH
-      , F.onyxPartRealKeysM = pkM
-      , F.onyxPartRealKeysE = pkE
-      }
-    }
+-- | Parses a single named track out of the file-parser state (removing it from
+-- the leftover tracks), applies a reduction, and returns the re-emitted MIDI
+-- events. If the track is absent, nothing is consumed and nothing is emitted.
+reduceOneTrack
+  :: (SendMessage m, ParseTrack trk)
+  => NonEmpty T.Text                                       -- ^ track name (and aliases) to match
+  -> (trk U.Beats -> trk U.Beats)                          -- ^ reduction to apply
+  -> F.FileParser m U.Beats [RTB.T U.Beats (E.T T.Text)]
+reduceOneTrack names f = do
+  trk <- codecIn $ F.fileTrack names
+  return $ execWriter $ codecOut (F.fileId $ F.fileTrack names) $ f trk
+
+-- (mostly as-is Claude output)
+-- Adds lower difficulties (Easy/Medium/Hard) to the note charts in an Onyx
+-- MIDI that don't already have them. Only the specific instrument tracks we
+-- reduce are parsed and rewritten; every other track (comments, vocals, venue,
+-- unrecognized tracks, etc.) is passed through untouched.
+simpleReduce :: (SendMessage m, MonadIO m) => FretLimit -> FilePath -> FilePath -> StackTraceT m ()
+simpleReduce fretLimit fin fout = do
+  F.Song tempos mmap rawTrks <- loadRawMIDIOrChart fin >>= F.readMIDIFile
+  -- Sections drive the Easy drum reduction; parse EVENTS without consuming it,
+  -- since we want to leave that track in the output verbatim.
+  events <- F.parseTracks rawTrks "EVENTS"
+  let sections = (events :: EventsTrack U.Beats).sections
+      -- Which flex parts are present in the file (guitar, bass, keys, ...).
+      partNames = nubOrd $ mapMaybe (F.identifyFlexTrack <=< U.trackName) rawTrks
+      -- Resolve the raw + part-adorned track names the way Onyx's file parser
+      -- does, so we match whatever naming the input happens to use.
+      trackNames partName pairs = let
+        raws = fmap snd $ NE.filter ((== partName) . fst) pairs
+        adorn (_, n) = "[" <> F.getPartName partName <> "] " <> n
+        in foldr NE.cons (fmap adorn pairs) raws
+      emitPK names v = execWriter $ codecOut (F.fileId $ F.fileTrack names) v
+      reduceParts = fmap concat $ forM partNames \partName -> do
+        let guitarNames = trackNames partName
+              $ (F.PartGuitar            , "PART GUITAR"     ) :|
+              [ (F.PartBass              , "PART BASS"       )
+              , (F.PartName "rhythm"     , "PART RHYTHM"     )
+              , (F.PartName "guitar-coop", "PART GUITAR COOP")
+              ]
+            keysNames  = trackNames partName $ pure (F.PartKeys , "PART KEYS"           )
+            drumsNames = trackNames partName $ pure (F.PartDrums, "PART DRUMS"          )
+            rkNames d  = trackNames partName $ pure (F.PartKeys , "PART REAL_KEYS_" <> d)
+        emGuitar <- reduceOneTrack guitarNames $ gryboComplete fretLimit (Just 170) mmap
+        emKeys   <- reduceOneTrack keysNames   $ gryboComplete fretLimit Nothing    mmap
+        emDrums  <- reduceOneTrack drumsNames
+          $ D.fillDrumAnimation (0.25 :: U.Seconds) tempos . drumsComplete mmap sections
+        -- Pro Keys difficulties live in four separate tracks that reduce off
+        -- each other, so parse all four together before rewriting them.
+        pkX <- codecIn $ F.fileTrack $ rkNames "X"
+        pkH <- codecIn $ F.fileTrack $ rkNames "H"
+        pkM <- codecIn $ F.fileTrack $ rkNames "M"
+        pkE <- codecIn $ F.fileTrack $ rkNames "E"
+        let od = pkX.overdrive
+            trkX `pkOr` trkY
+              | nullPK pkX  = mempty
+              | nullPK trkX = trkY
+              | otherwise   = trkX
+            pkH' = pkH `pkOr` pkReduce Hard   mmap od pkX
+            pkM' = pkM `pkOr` pkReduce Medium mmap od pkH'
+            pkE' = pkE `pkOr` pkReduce Easy   mmap od pkM'
+        return $ concat
+          [ emGuitar, emKeys, emDrums
+          , emitPK (rkNames "X") pkX
+          , emitPK (rkNames "H") pkH'
+          , emitPK (rkNames "M") pkM'
+          , emitPK (rkNames "E") pkE'
+          ]
+  -- Run the reduction over the raw track list, keeping whatever tracks weren't
+  -- consumed so we can pass them through unchanged.
+  (emitted, leftover) <- flip mapStackTraceT reduceParts \f ->
+    runStateT f rawTrks <&> \case
+      (Left  err  , _   ) -> Left err
+      (Right added, rest) -> Right (added, rest)
+  stackIO $ Save.toFile fout $ fmap TE.encodeUtf8
+    $ F.showMIDIFile $ F.Song tempos mmap $ leftover ++ emitted
 
 -- | Currently just fills empty lower difficulties with dummy data
 protarComplete :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats

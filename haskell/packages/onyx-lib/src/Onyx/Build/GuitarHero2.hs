@@ -49,6 +49,7 @@ import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read                   (mapTrack)
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.Project                     hiding (Difficulty)
+import           Onyx.Reductions                  (loadFretLimit)
 import           Onyx.StackTrace
 import           Onyx.Xbox.STFS                   (gh2pkg)
 import           Optics                           (set)
@@ -91,7 +92,8 @@ gh2Rules buildInfo dir gh2 = do
     input <- F.shakeMIDI $ planDir </> "processed.mid"
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 True hasAudio -- "is 360" parameter here doesn't matter
-    (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio
+    fretLimit <- loadFretLimit
+    (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio fretLimit
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDILatin1 out mid

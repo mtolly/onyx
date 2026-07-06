@@ -62,7 +62,8 @@ import           Onyx.PlayStation.NPData          (ghworCustomMidEdatConfig,
 import           Onyx.PlayStation.PKG             (loadPKG, makePKG, pkgFolder,
                                                    tryDecryptEDAT)
 import           Onyx.Project
-import           Onyx.Reductions                  (completeFiveResult)
+import           Onyx.Reductions                  (FretLimit,
+                                                   completeFiveResult)
 import           Onyx.Resources                   (getResourcesPath,
                                                    ghWoRThumbnail)
 import           Onyx.Sections                    (makeDisplaySection,
@@ -236,9 +237,10 @@ makeGHWoRNote
   => SongYaml f
   -> TargetGH5 f
   -> F.Song (F.OnyxFile U.Beats)
+  -> FretLimit
   -> StackTraceT m U.Seconds -- ^ get longest audio length
   -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text, [Word32])
-makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
+makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) fretLimit getAudioLength = let
   secondsToMS :: U.Seconds -> Word32
   secondsToMS = floor . (* 1000)
   beatsToMS :: U.Beats -> Word32
@@ -251,7 +253,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) getAudioLength = let
         end   = beatsToMS $ t + len
     return $ Single start (fromIntegral $ end - start)
   resultGB fpart = getPart fpart songYaml >>= anyFiveFret >>= \builder ->
-    return $ completeFiveResult False mmap $ builder FiveTypeGuitarExt ModeInput
+    return $ completeFiveResult fretLimit False mmap $ builder FiveTypeGuitarExt ModeInput
       { tempo  = tmap
       , events = ofile.onyxEvents
       , part   = F.getFlexPart fpart ofile

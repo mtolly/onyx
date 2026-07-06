@@ -247,6 +247,7 @@ importBMS bmsPath level = do
       { backgroundVideo = background >>= either (const Nothing) Just
       , fileBackgroundImage = background >>= either Just (const Nothing)
       , fileMidi = SoftFile "notes.mid" $ SoftChart midi
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = case level of

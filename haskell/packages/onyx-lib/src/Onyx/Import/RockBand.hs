@@ -600,6 +600,7 @@ importRB rbi level = do
     , global = def'
       { animTempo           = D.animTempo pkg
       , fileMidi            = SoftFile "notes.mid" $ SoftChart midiOnyxWithAnim
+      , fileMidiOriginal    = Just $ SoftFile "original.mid" $ SoftReadable rbi.midi
       -- disabled now that we're importing it to midi
       , fileSongAnim        = Nothing -- fst <$> songAnim
       , backgroundVideo     = video <&> \videoFile -> VideoInfo

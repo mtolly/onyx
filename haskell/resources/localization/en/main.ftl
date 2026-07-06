@@ -528,6 +528,7 @@ pref-unlimited-cores = Unlimited cores
 pref-core-limit = Core limit
 pref-detect-muted = For non-open-note games, convert "muted strums" to Harmonix style
   .tooltip = When checked, sequences of the form "chord, strummed open notes, strummed chord" are assumed to represent muted strums. Instead of always becoming green, these open notes will become the lowest note of the following chord, or of the preceding chord if it is closer to the open notes.
+pref-limit-reduced-frets = When generating lower difficulty 5-fret tracks, limit Medium to 4 frets and Easy to 3 frets
 
 pref-magma-require = Magma required
 pref-magma-try = Magma optional

@@ -704,6 +704,7 @@ importRSSong folder song level = do
       }
     , global = def'
       { fileMidi            = SoftFile "notes.mid" $ SoftChart midiWithVox
+      , fileMidiOriginal    = Nothing
       , fileSongAnim        = Nothing
       , backgroundVideo     = Nothing
       , fileBackgroundImage = Nothing

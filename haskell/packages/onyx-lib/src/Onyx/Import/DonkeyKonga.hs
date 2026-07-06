@@ -308,6 +308,7 @@ importDKSong chartName isMidi chartFile dsp level = do
           , F.onyxSamples = Map.singleton "bongos" bongoSampleTrack
           }
         }
+      , fileMidiOriginal = Nothing
       , fileSongAnim = Nothing
       }
     , audio = case audio of

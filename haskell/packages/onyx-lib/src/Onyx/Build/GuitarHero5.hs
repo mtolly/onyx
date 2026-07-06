@@ -62,6 +62,7 @@ import           Onyx.PlayStation.NPData           (ghworCustomMidEdatConfig,
                                                     npdContentID, packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Project                      hiding (Difficulty)
+import           Onyx.Reductions                   (loadFretLimit)
 import           Onyx.Resources                    (getResourcesPath,
                                                     ghWoRThumbnail)
 import           Onyx.StackTrace
@@ -311,8 +312,10 @@ gh5Rules buildInfo dir gh5 = do
 
   (dir </> "ghwor.note", dir </> "ghwor.qs", dir </> "drum-anims.txt") %> \(outNote, outQS, outDrumAnims) -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
+    fretLimit <- loadFretLimit
     (note, qs, drumAnims) <- makeGHWoRNote songYaml gh5
       (applyTargetMIDI gh5.common mid)
+      fretLimit
       $ getAudioLength buildInfo planName plan
     stackIO $ BL.writeFile outNote $ runPut $
       putNote songKeyQB $ makeWoRNoteFile note
