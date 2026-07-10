@@ -94,6 +94,7 @@ import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
 import           Onyx.Preferences                     (RBEncoding (..))
+import           Onyx.QuickConvert.FretsOnFire        (limitEasyMediumFretsMIDI)
 import           Onyx.Resources                       (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                     (runGetM)
@@ -1152,6 +1153,12 @@ noteShuffle :: (SendMessage m, MonadIO m) => QuickSong -> StackTraceT m QuickSon
 noteShuffle qsong = do
   let hopoThreshold = fromIntegral (fromMaybe 170 qsong.quickSongDTA.qdtaHOPOThreshold) / 480
   newFiles <- applyToMIDI (noteShuffleMIDI hopoThreshold) qsong.quickSongFiles
+  return qsong { quickSongFiles = newFiles }
+
+limitEasyMediumFrets :: (SendMessage m, MonadIO m) => QuickSong -> StackTraceT m QuickSong
+limitEasyMediumFrets qsong = do
+  let hopoThreshold = fromIntegral (fromMaybe 170 qsong.quickSongDTA.qdtaHOPOThreshold) / 480
+  newFiles <- applyToMIDI (limitEasyMediumFretsMIDI hopoThreshold) qsong.quickSongFiles
   return qsong { quickSongFiles = newFiles }
 
 -- Gives a new random song ID and file naming structure.

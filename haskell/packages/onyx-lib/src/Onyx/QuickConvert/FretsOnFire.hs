@@ -33,6 +33,7 @@ import qualified Data.HashSet                     as HS
 import           Data.List.Extra                  (nubOrd, partition)
 import           Data.List.HT                     (partitionMaybe)
 import qualified Data.List.NonEmpty               as NE
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    mapMaybe)
 import qualified Data.Text                        as T
@@ -68,6 +69,7 @@ import qualified Onyx.MIDI.Track.SixFret          as G6
 import           Onyx.PhaseShift.Message          (PSMessage (..),
                                                    PhraseID (..), parsePSSysEx,
                                                    unparsePSSysEx)
+import           Onyx.Reductions                  (limitFretsDifficulty)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Files                  (fixFileCase)
@@ -303,6 +305,18 @@ removeOpenNotes hopoThreshold detectMuted = modifyFiveFretTracks \dvn trk -> let
         -- TODO we probably need to remove all extended sustains here
         . G.computeFiveFretSHT G.HOPOsRBGuitar hopoThreshold
       in #difficulties % mapped %~ eachDiff
+
+limitEasyMediumFrets :: (SendMessage m, MonadIO m) => QuickFoF -> StackTraceT m QuickFoF
+limitEasyMediumFrets q = applyToMIDI (limitEasyMediumFretsMIDI $ quickHOPOThreshold q) q
+
+limitEasyMediumFretsMIDI :: (SendMessage m) => U.Beats -> File.T B.ByteString -> StackTraceT m (File.T B.ByteString)
+limitEasyMediumFretsMIDI hopoThreshold
+  = modifyFiveFretTracks \dvn trk ->
+    flip (overParsedFiveFret dvn) trk
+      $ #difficulties %~ Map.mapWithKey \diff fd -> case diff of
+        Easy   -> limitFretsDifficulty 3 (Just hopoThreshold) fd
+        Medium -> limitFretsDifficulty 4 (Just hopoThreshold) fd
+        _      -> fd
 
 overParsedFiveFret
   :: (SendMessage m)

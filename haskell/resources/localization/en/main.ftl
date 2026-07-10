@@ -419,6 +419,9 @@ quick-convert-ch-audio-opus = Audio to .opus
 quick-convert-ch-real-drums-to-elite = Real Drums to Elite
   .tooltip = If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums.
 
+quick-convert-limit-easy-medium-frets = Limit Easy/Medium frets
+  .tooltip = For all five-fret tracks, ensures Easy and Medium difficulties only use 3 and 4 frets respectively.
+
 ## misc tools
 
 misc-tab-midi-stuff = MIDI stuff

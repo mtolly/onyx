@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TupleSections         #-}
-module Onyx.Reductions (pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult, FretLimit(..), loadFretLimit) where
+module Onyx.Reductions (pkReduce, drumsComplete, protarComplete, simpleReduce, completeFiveResult, completeDrumResult, FretLimit(..), loadFretLimit, limitFretsDifficulty) where
 
 import           Control.Monad                     (forM, guard, void, (<=<))
 import           Control.Monad.Codec               (codecIn, codecOut)
@@ -80,11 +80,11 @@ completeFiveResult limit isKeys mmap result = let
     , (Expert, expert)
     ]
 
-limitFrets
+limitFretsMaybe
   :: Int
   -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
-  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
-limitFrets maxFrets input = let
+  -> Maybe (RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats))
+limitFretsMaybe maxFrets input = let
   autoInput = input <&> \((mc, _), _) -> maybe 0 fromEnum mc
   maxUsedFret = foldr max 0 autoInput
   autoOutput
@@ -110,22 +110,32 @@ limitFrets maxFrets input = let
       ))
     $ RTB.collectCoincident input
   in if maxUsedFret < maxFrets
-    then input
-    else outputGems
+    then Nothing
+    else Just outputGems
 
-limitFretsDifficulty :: Int -> Maybe Int -> FiveDifficulty U.Beats -> FiveDifficulty U.Beats
-limitFretsDifficulty maxFrets hopoThres fd
-  = (\result -> result { forceStrum = RTB.empty, forceHOPO = RTB.empty, tap = RTB.empty })
-  $ emitGuitar5
-  $ limitFrets maxFrets
-  $ (case hopoThres of
-    Nothing -> fmap (\(col, len) -> ((col, Strum), len))
-    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
-    )
-  $ computeFiveFretNotes fd
+limitFrets
+  :: Int
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+  -> RTB.T U.Beats ((Maybe Five.Color, StrumHOPOTap), Maybe U.Beats)
+limitFrets maxFrets input = fromMaybe input $ limitFretsMaybe maxFrets input
+
+limitFretsDifficulty :: Int -> Maybe U.Beats -> FiveDifficulty U.Beats -> FiveDifficulty U.Beats
+limitFretsDifficulty maxFrets hopoThres fd = let
+  maybeLimited
+    = limitFretsMaybe maxFrets
+    $ noExtendedSustains' standardBlipThreshold standardSustainGap
+    $ (case hopoThres of
+      Nothing -> fmap (\(col, len) -> ((col, Strum), len))
+      Just ht -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar ht
+      )
+    $ computeFiveFretNotes fd
+  in case maybeLimited of
+    Nothing  -> fd
+    Just new -> (emitGuitar5 new)
+      { forceStrum = RTB.empty, forceHOPO = RTB.empty, tap = RTB.empty }
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
-gryboComplete :: FretLimit -> Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
+gryboComplete :: FretLimit -> Maybe U.Beats -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
 gryboComplete limit hopoThres mmap trk = let
   od        = trk.overdrive
   getDiff d = fromMaybe mempty $ Map.lookup d trk.difficulties
@@ -144,7 +154,7 @@ gryboComplete limit hopoThres mmap trk = let
 
 gryboReduceDifficulty
   :: Difficulty
-  -> Maybe Int              -- ^ HOPO threshold if guitar or bass, Nothing if keys
+  -> Maybe U.Beats          -- ^ HOPO threshold if guitar or bass, Nothing if keys
   -> U.MeasureMap
   -> RTB.T U.Beats Bool     -- ^ Overdrive phrases
   -> FiveDifficulty U.Beats -- ^ The source difficulty, one level up
@@ -158,7 +168,7 @@ gryboReduceDifficulty diff hopoThres mmap od fd
   $ gryboReduce diff (isNothing hopoThres) mmap od
   $ (case hopoThres of
     Nothing -> fmap (\(col, len) -> ((col, Strum), len))
-    Just i  -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
+    Just ht -> applyForces (getForces5 fd) . strumHOPOTap HOPOsRBGuitar ht
     )
   $ computeFiveFretNotes fd
 
@@ -647,8 +657,8 @@ simpleReduce fretLimit fin fout = do
             keysNames  = trackNames partName $ pure (F.PartKeys , "PART KEYS"           )
             drumsNames = trackNames partName $ pure (F.PartDrums, "PART DRUMS"          )
             rkNames d  = trackNames partName $ pure (F.PartKeys , "PART REAL_KEYS_" <> d)
-        emGuitar <- reduceOneTrack guitarNames $ gryboComplete fretLimit (Just 170) mmap
-        emKeys   <- reduceOneTrack keysNames   $ gryboComplete fretLimit Nothing    mmap
+        emGuitar <- reduceOneTrack guitarNames $ gryboComplete fretLimit (Just (170/480)) mmap
+        emKeys   <- reduceOneTrack keysNames   $ gryboComplete fretLimit Nothing          mmap
         emDrums  <- reduceOneTrack drumsNames
           $ D.fillDrumAnimation (0.25 :: U.Seconds) tempos . drumsComplete mmap sections
         -- Pro Keys difficulties live in four separate tracks that reduce off

@@ -2013,6 +2013,8 @@ pageQuickConvertRB sink rect tab startTasks = mdo
             shuffled <- noteShuffle qsong
             seed <- randomIO
             return $ addTitleTag "(Shuffle)" $ refreshSong seed shuffled
+        , (,) (l10nFull "quick-convert-limit-easy-medium-frets" [])
+          QRB.limitEasyMediumFrets
         ]
   processorGetters <- forM processors \(locResult, processor) -> do
     check <- withRect processorBox \cx cy cw ch ->
@@ -2604,6 +2606,17 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       return if checked then psTapOpenFormats else return
       )
 
+  processorLimitEasyMediumFrets <- do
+    check <- withRect processorBox \cx cy cw ch ->
+      [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    setLabelTooltip (l10nFull "quick-convert-limit-easy-medium-frets" []) check
+    setCallback check do
+      checked <- checkValue check
+      when checked [C.block| void { $(Fl_Check_Button* checkMIDI)->value(1); } |]
+    return do
+      checked <- checkValue check
+      return if checked then QCH.limitEasyMediumFrets else return
+
   (checkOgg, processorOgg) <- do
     check <- withRect processorBox \cx cy cw ch ->
       [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
@@ -2636,7 +2649,7 @@ pageQuickConvertCH sink rect tab startTasks = mdo
       return if checked then fillEliteFromPSReal else return
 
   let getTransform = do
-        procs <- sequence [processorMIDI, processorPSTapOpen, processorOgg, processorOpus, processorRealToElite]
+        procs <- sequence [processorMIDI, processorPSTapOpen, processorLimitEasyMediumFrets, processorOgg, processorOpus, processorRealToElite]
         return $ foldr (>=>) return procs
   [C.block| void { $(Fl_Pack* packProcessors)->end(); } |]
 
