@@ -1505,11 +1505,11 @@ commands =
           js <- TE.decodeUtf8 <$> B.readFile f
           print f
           print js
-          v <- JS.js_Eval_Catch ctx js (T.pack f) 0
+          v <- JS.js_Eval_Catch ctx js (T.pack f) JS.js_EVAL_TYPE_MODULE
           print v
           case v of
             Left e -> do
-              JS.jsValueToJSON ctx e >>= print
+              JS.getJSException ctx e >>= print
               JS.js_FreeValue ctx e
             Right x -> do
               JS.jsValueToJSON ctx x >>= print

@@ -1,9 +1,13 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE QuasiQuotes           #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Onyx.JS where
 
 import           Control.Exception         (bracket, bracket_, finally)
@@ -42,8 +46,8 @@ C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
     [ (C.TypeName "JSRuntime", [t| JSRuntime |])
     , (C.TypeName "JSContext", [t| JSContext |])
-    , (C.TypeName "JSValue", [t| JSValue |])
     , (C.TypeName "JSPropertyEnum", [t| JSPropertyEnum |])
+    , (C.TypeName "JSValue", [t| JSValue |])
     ]
   }
 
@@ -188,6 +192,25 @@ jsValueToObject ctx v = withJSValue v \pv -> do
             return (key, value)
     else return Nothing
 
+data JSException = JSException
+  { message :: T.Text
+  , stack   :: T.Text
+  } deriving (Show)
+
+getJSException :: Ptr JSContext -> JSValue -> IO JSException
+getJSException ctx v = withJSValue v \pv -> do
+  message <- makeJSValue (\plen -> [C.exp| void {
+    *$(JSValue* plen) = JS_GetPropertyStr($(JSContext* ctx), *$(JSValue* pv), "message");
+  } |]) >>= jsValueToText ctx >>= \case
+    Nothing -> return "<none>"
+    Just x  -> return x
+  stack <- makeJSValue (\plen -> [C.exp| void {
+    *$(JSValue* plen) = JS_GetPropertyStr($(JSContext* ctx), *$(JSValue* pv), "stack");
+  } |]) >>= jsValueToText ctx >>= \case
+    Nothing -> return "<none>"
+    Just x  -> return x
+  return JSException{..}
+
 -- Anything with no JSON equivalent (undefined, null, functions, symbols,
 -- NaN/Infinity) becomes Null, at any depth. The subvalues we retrieve from
 -- arrays and objects are freed here, so the caller's reference counts are
@@ -223,7 +246,7 @@ jsonToJSValue ctx = \case
       *$(JSValue* p) = JS_NewBool($(JSContext* ctx), $(int cb));
     } |]
   A.Number n -> do
-    let cd = realToFrac (S.toRealFloat n :: Double) :: CDouble
+    let cd = coerce (S.toRealFloat n :: Double) :: CDouble
     makeJSValue \p -> [C.block| void {
       *$(JSValue* p) = JS_NewFloat64($(JSContext* ctx), $(double cd));
     } |]
@@ -342,12 +365,18 @@ js_std_import_modules ctx = do
   v <- js_Eval_Text ctx
     "import * as std from 'std';\nimport * as os from 'os';\nglobalThis.std = std;\nglobalThis.os = os;\n"
     "<input>"
-    jS_EVAL_TYPE_MODULE
+    js_EVAL_TYPE_MODULE
   js_FreeValue ctx v
 
-jS_EVAL_TYPE_GLOBAL, jS_EVAL_TYPE_MODULE :: CInt
-jS_EVAL_TYPE_GLOBAL = [C.pure| int { JS_EVAL_TYPE_GLOBAL } |]
-jS_EVAL_TYPE_MODULE = [C.pure| int { JS_EVAL_TYPE_MODULE } |]
+js_EVAL_TYPE_GLOBAL, js_EVAL_TYPE_MODULE :: CInt
+js_EVAL_TYPE_GLOBAL = [C.pure| int { JS_EVAL_TYPE_GLOBAL } |]
+js_EVAL_TYPE_MODULE = [C.pure| int { JS_EVAL_TYPE_MODULE } |]
+
+setModuleLoader :: Ptr JSRuntime -> IO ()
+setModuleLoader rt =
+  [C.block| void {
+    JS_SetModuleLoaderFunc2($(JSRuntime* rt), NULL, js_module_loader, js_module_check_attributes, NULL);
+  } |]
 
 -- 'input' must be zero terminated i.e. input[input_len] = '\0'.
 js_Eval :: Ptr JSContext -> CString -> CSize -> CString -> CInt -> IO JSValue
@@ -384,6 +413,7 @@ js_Eval_Catch ctx src filename eval_flags = do
 
 withJSContext :: (Ptr JSContext -> IO a) -> IO a
 withJSContext f = bracket js_NewRuntime js_FreeRuntime \rt -> do
+  setModuleLoader rt
   bracket_ (js_std_init_handlers rt) (js_std_free_handlers rt) do
     bracket (js_NewContext rt) js_FreeContext \ctx -> do
       js_std_add_helpers ctx
