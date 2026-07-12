@@ -123,6 +123,7 @@ import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Image.DXT                       (readRBImageMaybe)
 import           Onyx.Import
 import           Onyx.ISO                             (folderISO)
+import qualified Onyx.JS                              as JS
 import           Onyx.Keys.Ranges                     (closeShiftsFile)
 import           Onyx.MIDI.Common                     (Difficulty (..),
                                                        showPosition)
@@ -1491,6 +1492,29 @@ commands =
                 _      -> QCH.saveQuickFoFFolder fout combined
               return [fout]
       _ -> fatal "Expected 2 arguments: song-base song-new"
+    }
+
+  , Command
+    { commandWord = "js"
+    , commandDesc = "Test execution of .js files"
+    , commandUsage = "onyx js f1.js f2.js ..."
+    , commandList = False
+    , commandRun = \args _opts -> do
+      forM_ args \f -> do
+        stackIO $ JS.withJSContext \ctx -> do
+          js <- TE.decodeUtf8 <$> B.readFile f
+          print f
+          print js
+          v <- JS.js_Eval_Catch ctx js (T.pack f) 0
+          print v
+          case v of
+            Left e -> do
+              JS.jsValueToJSON ctx e >>= print
+              JS.js_FreeValue ctx e
+            Right x -> do
+              JS.jsValueToJSON ctx x >>= print
+              JS.js_FreeValue ctx x
+      return []
     }
 
   ]

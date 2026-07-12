@@ -28,3 +28,6 @@
 [submodule "haskell/dependencies/libs/SDL"]
 	path = haskell/dependencies/libs/SDL
 	url = https://github.com/libsdl-org/SDL
+[submodule "haskell/packages/onyx-js/quickjs"]
+	path = haskell/packages/onyx-js/quickjs
+	url = https://github.com/bellard/quickjs

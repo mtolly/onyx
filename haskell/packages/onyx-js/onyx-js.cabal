@@ -1,0 +1,59 @@
+cabal-version:  2.2
+name:           onyx-js
+version:        0.1
+build-type:     Custom
+
+extra-source-files:
+  quickjs/Changelog
+  quickjs/cutils.c
+  quickjs/cutils.h
+  quickjs/dtoa.c
+  quickjs/dtoa.h
+  quickjs/libregexp-opcode.h
+  quickjs/libregexp.c
+  quickjs/libregexp.h
+  quickjs/libunicode-table.h
+  quickjs/libunicode.c
+  quickjs/libunicode.h
+  quickjs/LICENSE
+  quickjs/list.h
+  quickjs/Makefile
+  quickjs/qjs.c
+  quickjs/qjsc.c
+  quickjs/quickjs-atom.h
+  quickjs/quickjs-libc.c
+  quickjs/quickjs-libc.h
+  quickjs/quickjs-opcode.h
+  quickjs/quickjs.c
+  quickjs/quickjs.h
+  quickjs/readme-cosmo.txt
+  quickjs/readme.txt
+  quickjs/release.sh
+  quickjs/repl.js
+  quickjs/run-test262.c
+  quickjs/test262.conf
+  quickjs/test262_errors.txt
+  quickjs/test262o.conf
+  quickjs/test262o_errors.txt
+  quickjs/TODO
+  quickjs/unicode_download.sh
+  quickjs/unicode_gen.c
+  quickjs/unicode_gen_def.h
+  quickjs/VERSION
+
+custom-setup
+  setup-depends:
+      Cabal
+    , base
+    , process
+    , directory
+
+library
+  exposed-modules:
+    Onyx.JS
+  hs-source-dirs:
+    src
+  ghc-options: -Wall -O
+  build-depends: base, inline-c, containers, bytestring, text, aeson, unordered-containers, vector, scientific
+  default-language: Haskell2010
+  extra-libraries: quickjs
