@@ -6,7 +6,7 @@
 	url = https://github.com/xiph/ogg
 [submodule "haskell/dependencies/libs/vorbis"]
 	path = haskell/dependencies/libs/vorbis
-	url = https://github.com/xiph/vorbis
+	url = https://github.com/mtolly/vorbis-patch
 [submodule "haskell/dependencies/libs/FFmpeg"]
 	path = haskell/dependencies/libs/FFmpeg
 	url = https://github.com/FFmpeg/FFmpeg
@@ -24,7 +24,7 @@
 	url = https://github.com/kcat/openal-soft
 [submodule "haskell/dependencies/libs/rubberband"]
 	path = haskell/dependencies/libs/rubberband
-	url = https://github.com/breakfastquay/rubberband
+	url = https://github.com/mtolly/rubberband-patch
 [submodule "haskell/dependencies/libs/SDL"]
 	path = haskell/dependencies/libs/SDL
 	url = https://github.com/libsdl-org/SDL

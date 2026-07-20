@@ -17,6 +17,7 @@ extra-deps:
 - caerbannog-1.0.0.2
 - RtMidi-0.5.0.2
 - async-2.2.6 # override to get Control.Concurrent.Stream
+- storable-offset-0.1.0.0 # need for fixed freetype2
 # local folders
 - packages/onyx-arktool
 - packages/onyx-kakasi
@@ -47,5 +48,7 @@ extra-deps:
   commit: 9102bf0ba460bb0d74fde8da42800fea48ed666e
   subdirs:
   - conduit-audio-lame
+- git: https://github.com/dagit/freetype2
+  commit: 14cd409a496299c3938994b9bbfc7681c4bc3dd8
 resolver: lts-22.34
 allow-newer: true

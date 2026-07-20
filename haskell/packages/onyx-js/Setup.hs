@@ -37,14 +37,17 @@ staticLibOutputDir copyDest' packageDescription localBuildInfo
 myPreConf :: Args -> ConfigFlags -> IO HookedBuildInfo
 myPreConf _ _ = do
   let buildDir = "quickjs"
-  -- We end up inside a shared object, so the whole library has to be position
-  -- independent; without this, pulling quickjs-libc.o out of the archive fails
-  -- to link ("requires dynamic R_X86_64_PC32 reloc against 'stdout'"). The
-  -- Makefile appends to CFLAGS, so taking it from the environment adds to its
-  -- own flags rather than replacing them.
+  -- library needs to be position-independent, otherwise pulling quickjs-libc.o
+  -- out of the archive fails to link
   existing <- lookupEnv "CFLAGS"
   setEnv "CFLAGS" $ maybe "-fPIC" (<> " -fPIC") existing
   void $ readCreateProcess (proc "make" ["libquickjs.a"]) { cwd = Just buildDir } ""
+  -- copy only the .hs-referenced headers; if we add the whole quickjs root
+  -- directory then e.g. VERSION can clobber other random C/C++ files
+  -- downstream that #include <version> on case-insensitive systems
+  createDirectoryIfMissing True "quickjs-include"
+  mapM_ (\h -> copyFile ("quickjs/" <> h) ("quickjs-include/" <> h))
+    ["quickjs.h", "quickjs-libc.h"]
   -- Return empty HookedBuildInfo as we are not modifying build info here.
   return emptyHookedBuildInfo
 
@@ -65,7 +68,7 @@ myConfHook (description, buildInfo) flags = do
       { PD.library = Just library
         { PD.libBuildInfo = libraryBuildInfo
           { PD.includeDirs
-            = (dir ++ "/quickjs")
+            = (dir ++ "/quickjs-include")
             : PD.includeDirs libraryBuildInfo
           , PD.extraLibDirs
             = (dir ++ "/quickjs") -- this is needed while building this package
