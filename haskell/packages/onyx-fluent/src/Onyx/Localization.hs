@@ -23,7 +23,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe          (catMaybes, fromMaybe)
 import           Data.Scientific     (Scientific)
 import qualified Data.Text           as T
-import           Data.Yaml           ((.:))
+import           Data.Yaml           ((.:), (.:?))
 import qualified Data.Yaml           as Y
 import           System.Directory    (listDirectory)
 import           System.FilePath     (takeExtension, (</>))
@@ -33,7 +33,7 @@ import           Text.Fluent.Syntax
 
 data L = L
   { localizationRoot :: FilePath
-  , loadedCode       :: T.Text
+  , loadedLanguage   :: Language
   , loadedFluent     :: Fluent
   , allLanguages     :: [Language]
   }
@@ -57,11 +57,12 @@ vBool :: Bool -> Value
 vBool b = vString $ if b then "true" else "false"
 
 data Language = Language
-  { code   :: T.Text
-  , name   :: T.Text
-  , nameEn :: T.Text
-  , plural :: T.Text
-  , fluent :: [T.Text]
+  { code         :: T.Text
+  , name         :: T.Text
+  , nameEn       :: T.Text
+  , plural       :: T.Text
+  , stretchWidth :: Double
+  , fluent       :: [T.Text]
   } deriving (Show)
 
 instance Y.FromJSON Language where
@@ -70,6 +71,7 @@ instance Y.FromJSON Language where
     <*> v .: "name"
     <*> v .: "name-en"
     <*> v .: "plural"
+    <*> fmap (fromMaybe 1) (v .:? "stretch-width")
     <*> v .: "fluent"
   parseJSON invalid = prependFailure "parsing language file failed, " $ typeMismatch "Object" invalid
 
@@ -77,14 +79,14 @@ loadL :: FilePath -> T.Text -> IO L
 loadL root desiredCode = do
   langs <- loadLanguages root
   let tryLanguage code = case filter (\lang -> lang.code == code) langs of
-        lang : _ -> Just . (code,) <$> loadLanguage root lang
+        lang : _ -> Just . (lang,) <$> loadLanguage root lang
         []       -> return Nothing
-  (code, fluent) <- (tryLanguage desiredCode <|> tryLanguage "en") >>= \case
+  (lang, fluent) <- (tryLanguage desiredCode <|> tryLanguage "en") >>= \case
     Nothing  -> fail "Couldn't load localization data"
     Just loc -> return loc
   return L
     { localizationRoot = root
-    , loadedCode = code
+    , loadedLanguage = lang
     , loadedFluent = fluent
     , allLanguages = langs
     }

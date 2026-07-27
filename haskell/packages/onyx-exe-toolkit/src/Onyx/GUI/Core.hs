@@ -54,9 +54,9 @@ import           Onyx.GUI.Util                    (askFolder, checkValue,
                                                    withUTF8)
 import           Onyx.Harmonix.Ark.GH2            (GH2InstallLocation (..))
 import           Onyx.Import
-import           Onyx.Localization                (L, MessageOutput,
-                                                   getAttribute, l10n, l10nArgs,
-                                                   vNumber)
+import           Onyx.Localization                (L (..), Language (..),
+                                                   MessageOutput, getAttribute,
+                                                   l10n, l10nArgs, vNumber)
 import           Onyx.MIDI.Track.File             (PartName (..))
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.PlayStation.PKG             as PKG
@@ -80,6 +80,7 @@ C.context flContext
 
 C.include "FL/Fl.H"
 C.include "FL/Fl_Group.H"
+C.include "FL/Fl_Window.H"
 C.include "FL/Fl_Box.H"
 C.include "FL/Fl_Button.H"
 C.include "FL/Fl_Check_Button.H"
@@ -114,11 +115,30 @@ fl_rgb_color r g b =
     fl_rgb_color($(unsigned char r), $(unsigned char g), $(unsigned char b))
   } |]
 
-withRect :: Rectangle -> (CInt -> CInt -> CInt -> CInt -> a) -> a
-withRect (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) f = f x y w h
+-- All widget layout is done by default in coordinates for English text,
+-- then we use a per-language "stretch-width" parameter to scale if needed
 
-withSize :: Size -> (CInt -> CInt -> a) -> a
-withSize (Size (Width w) (Height h)) f = f w h
+-- | Scales an X position (or a width measured from the left edge of a window).
+stretchX :: (?loc :: L) => CInt -> CInt
+stretchX x = round $ fromIntegral x * ?loc.loadedLanguage.stretchWidth
+
+-- | Scales the width of something starting at the given X position.
+-- Computed from the scaled edges, so rectangles that were adjacent or
+-- exactly filled their parent still do after scaling.
+stretchW :: (?loc :: L) => CInt -> CInt -> CInt
+stretchW x w = stretchX (x + w) - stretchX x
+
+withRect :: (?loc :: L) => Rectangle -> (CInt -> CInt -> CInt -> CInt -> a) -> a
+withRect (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) f =
+  f (stretchX x) y (stretchW x w) h
+
+withSize :: (?loc :: L) => Size -> (CInt -> CInt -> a) -> a
+withSize (Size (Width w) (Height h)) f = f (stretchX w) h
+
+-- | Sets a window's minimum size, scaling the width like everything else.
+setSizeRange :: (?loc :: L) => Ptr Fl_Window -> Size -> IO ()
+setSizeRange window size = withSize size \w h ->
+  [C.block| void { $(Fl_Window* window)->size_range($(int w), $(int h)); } |]
 
 --------------------------------------------------------------------------------
 
@@ -339,14 +359,14 @@ setTabColor tab color =
   } |]
 
 padded
-  :: (MonadIO m)
+  :: (MonadIO m, ?loc :: L)
   => CInt -> CInt -> CInt -> CInt
   -> Size
   -> (Rectangle -> m a)
   -> m a
 padded t r b l size@(Size (Width w) (Height h)) fn = do
   group <- liftIO do
-    let gw = w + fromIntegral l + fromIntegral r
+    let gw = stretchX $ w + fromIntegral l + fromIntegral r
         gh = h + fromIntegral t + fromIntegral b
     [C.exp| Fl_Group* { new Fl_Group(0, 0, $(int gw), $(int gh)) } |]
   let rect = Rectangle (Position (X $ fromIntegral l) (Y $ fromIntegral t)) size
@@ -359,7 +379,7 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   liftIO [C.block| void { $(Fl_Group* group)->end(); } |]
   return x
 
-centerFixed :: Rectangle -> IO a -> IO a
+centerFixed :: (?loc :: L) => Rectangle -> IO a -> IO a
 centerFixed rect makeChildren = do
   center <- withRect rect \cx cy cw ch ->
     [C.exp| Fl_Center* { new Fl_Center($(int cx), $(int cy), $(int cw), $(int ch)) } |]
@@ -367,7 +387,7 @@ centerFixed rect makeChildren = do
   [C.block| void { $(Fl_Center* center)->end(); } |]
   return x
 
-makeTab :: Rectangle -> T.Text -> (Rectangle -> Ptr Fl_Group -> IO a) -> IO a
+makeTab :: (?loc :: L) => Rectangle -> T.Text -> (Rectangle -> Ptr Fl_Group -> IO a) -> IO a
 makeTab rect name fn = do
   let tabHeight = 25
       (_, innerRect) = chopTop tabHeight rect
@@ -379,7 +399,7 @@ makeTab rect name fn = do
   [C.block| void { $(Fl_Group* group)->end(); } |]
   return res
 
-horizRadio' :: Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio' :: (?loc :: L) => Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio' _    _  []   = error "horizRadio: empty option list"
 horizRadio' rect cb opts = do
   let rects = splitHorizN (fromIntegral $ length opts) rect
@@ -403,7 +423,7 @@ horizRadio' rect cb opts = do
       return (v /= 0)
     return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
 
-horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio :: (?loc :: L) => Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio rect = horizRadio' rect Nothing
 
 speedPercent' :: (?loc :: L) => Bool -> Rectangle -> IO (IO Double, Ptr Fl_Counter)
@@ -438,7 +458,7 @@ speedPercent' isConverter rect = do
 speedPercent :: (?loc :: L) => Bool -> Rectangle -> IO (IO Double)
 speedPercent isConverter rect = fst <$> speedPercent' isConverter rect
 
-makePresetDropdown :: Rectangle -> [(T.Text, a)] -> IO (IO a)
+makePresetDropdown :: (?loc :: L) => Rectangle -> [(T.Text, a)] -> IO (IO a)
 makePresetDropdown rect opts = do
   let (initialLabel, initialOpt) = head opts
   menu <- withRect rect \mx my mw mh ->
@@ -459,7 +479,7 @@ makePresetDropdown rect opts = do
       } |]
   return $ readIORef ref
 
-makeDropdown :: Rectangle -> NE.NonEmpty (T.Text, a, Bool) -> IO (IO a)
+makeDropdown :: (?loc :: L) => Rectangle -> NE.NonEmpty (T.Text, a, Bool) -> IO (IO a)
 makeDropdown rect opts = do
   let (initialLabel, initialOpt, _) = case NE.filter (\(_, _, b) -> b) opts of
         opt : _ -> opt
@@ -952,7 +972,7 @@ songIDBox rect f = do
         else SongIDAutoSymbol
 
 numberBox
-  :: (?preferences :: Preferences)
+  :: (?preferences :: Preferences, ?loc :: L)
   => Rectangle
   -> T.Text
   -> (Maybe Int -> tgt -> tgt)

@@ -315,12 +315,14 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   scroll <- withRect songsArea \sx sy sw sh ->
     [C.exp| Fl_Scroll* { new Fl_Scroll($(int sx), $(int sy), $(int sw), $(int sh)) } |]
   let barSize = 15 :: CInt
+      -- scaled, so it lines up with the space reserved for it below
+      barSizeScaled = stretchX barSize
   -- NOTE: skipping custom resize handler for scrollbar width adjustment
   [C.block| void {
     Fl_Scroll* s = $(Fl_Scroll* scroll);
     s->box(FL_ENGRAVED_BOX);
     s->type(Fl_Scroll::VERTICAL_ALWAYS);
-    s->scrollbar_size($(int barSize));
+    s->scrollbar_size($(int barSizeScaled));
     s->color(fl_rgb_color(255, 255, 255));
   } |]
   let (songsInnerArea, _) = chopRight (fromIntegral barSize) songsArea
@@ -336,7 +338,9 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
           , ("has-artist", vBool $ isJust imp.impArtist)
           , ("is-2x", vBool imp.imp2x)
           ]
-    check <- [C.exp| Fl_Check_Button* { new Fl_Check_Button(0, 0, 400, 25) } |]
+    check <- withRect (Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25)))
+      \cx cy cw ch ->
+        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
     withUTF8 entry \clabel ->
       [C.block| void {
         $(Fl_Check_Button* check)->copy_label($(char* clabel));
@@ -387,7 +391,9 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
   [C.block| void {
     $(Fl_Window* window)->end();
     $(Fl_Window* window)->resizable($(Fl_Group* scrollGroup));
-    $(Fl_Window* window)->size_range(500, 400);
+  } |]
+  setSizeRange window windowSize
+  [C.block| void {
     $(Fl_Window* window)->show();
   } |]
 
@@ -468,8 +474,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
         windowSize
   [C.block| void {
     $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-    $(Fl_Window* window)->size_range(800, 500);
   } |]
+  setSizeRange window windowSize
 
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
@@ -539,7 +545,9 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               b <- checkValue input
               return $ Endo $ #metadata %~ setter b
       liftIO do
-        _ <- [C.exp| Fl_Box* { new Fl_Box(0, 0, 800, 5) } |]
+        _ <- withRect (Rectangle (Position (X 0) (Y 0)) (Size (Width 800) (Height 5)))
+          \bx by bw bh ->
+            [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
         return ()
       fullWidth $ simpleTextGet (l10n "label-title") (.title) (#title .~)
       fullWidth \rect' -> do
@@ -1551,7 +1559,7 @@ makePS3PackPresetDropdown _sink rect = do
                 [C.block| void { $(Fl_Menu_Button* menu)->copy_label($(char* newLabel)); } |]
   return $ readIORef ref
 
-makeModeDropdown :: Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
+makeModeDropdown :: (?loc :: L) => Rectangle -> [(T.Text, a)] -> (a -> IO ()) -> IO ()
 makeModeDropdown rect opts withOpt = do
   let (initialLabel, initialOpt) = head opts
   menu <- withRect rect \mx my mw mh ->
@@ -3177,8 +3185,8 @@ launchQuickConvert sink makeMenuBar = mdo
         windowSize
   [C.block| void {
     $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-    $(Fl_Window* window)->size_range(1000, 600);
   } |]
+  setSizeRange window windowSize
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
   functionTabs <- sequence
@@ -3242,8 +3250,8 @@ launchMisc sink makeMenuBar = mdo
         windowSize
   [C.block| void {
     $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-    $(Fl_Window* window)->size_range(900, 600);
   } |]
+  setSizeRange window windowSize
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
   functionTabs <- sequence
@@ -3495,8 +3503,8 @@ launchBatch sink makeMenuBar startFiles = mdo
         windowSize
   [C.block| void {
     $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-    $(Fl_Window* window)->size_range(800, 500);
   } |]
+  setSizeRange window windowSize
   tabs <- withRect windowRect \tx ty tw th ->
     [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
 
@@ -3907,12 +3915,10 @@ launchPreferences sink makeMenuBar = do
     let (tabsRect, bottomRect) = chopBottom bottomHeight $ snd $ chopTop menuHeight $ Rectangle
           (Position (X 0) (Y 0))
           windowSize
-    let Width windowW = windowWidth
-        Height windowH = windowHeight
     [C.block| void {
       $(Fl_Window* window)->resizable($(Fl_Window* window));
-      $(Fl_Window* window)->size_range($(int windowW), $(int windowH));
     } |]
+    setSizeRange window windowSize
     tabs <- withRect tabsRect \tx ty tw th ->
       [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
     (tab1, pref1) <- makeTab tabsRect (l10n "pref-tab-general") \rect tab -> do
@@ -4409,7 +4415,7 @@ configureLanguageMenu sink menu = do
           [C.block| void {
             fl_choice("%s", $(char* ok), 0, 0, $(char* msg));
           } |]
-    let isSelected = if lang.code == ?loc.loadedCode then 1 else 0
+    let isSelected = if lang.code == ?loc.loadedLanguage.code then 1 else 0
     withUTF8 label \s -> [C.block| void {
       int flags = FL_MENU_RADIO | ($(int isSelected) ? FL_MENU_VALUE : 0);
       $(Fl_Menu_Button* menu)->add($(char* s), 0, $(Fl_Callback cb), nullptr, flags);
@@ -4429,21 +4435,24 @@ launchGUI initSongs = withAL \hasAudio -> do
         [C.block| void { Fl::awake(); } |]
 
   -- terminal
-  let consoleWidth = 650
-      consoleHeight = 480
-  termWindow <- withUTF8 (l10n "console") \s -> [C.exp| Fl_Window* {
-    new Fl_Double_Window($(int consoleWidth), $(int consoleHeight), fl_strdup($(char* s)))
-  } |]
+  let consoleWidth = Width 650
+      consoleHeight = Height 480
+      consoleSize = Size consoleWidth consoleHeight
+  termWindow <- withUTF8 (l10n "console") \s -> withSize consoleSize \w h ->
+    [C.exp| Fl_Window* {
+      new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s)))
+    } |]
   [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
   -- TODO set icon
+  setSizeRange termWindow consoleSize
   [C.block| void {
-    $(Fl_Window* termWindow)->size_range($(int consoleWidth), $(int consoleHeight));
     $(Fl_Window* termWindow)->color($(Fl_Color globalLogColor));
   } |]
-  let makeMenuBar (Width menuWidth) includeConsole = do
+  let makeMenuBar (Width fullWidth) includeConsole = do
         let menuHeight = if macOS then 0 else 30
             menuX = 0
             menuY = 0
+            menuWidth = stretchX fullWidth
             menuCrumbs = T.intercalate "/" . map (T.replace "/" "\\/")
             menuOptions =
               [ ( menuCrumbs [l10n "menu-file", l10n "menu-file-load"]
@@ -4541,15 +4550,23 @@ launchGUI initSongs = withAL \hasAudio -> do
               $(Fl_Menu_Bar* menu)->down_color(fl_rgb_color(0x32, 0x30, 0x30));
             } |]
         return menuHeight
-  menuHeight <- makeMenuBar (Width consoleWidth) macOS
+  menuHeight <- makeMenuBar consoleWidth macOS
   cbGithub <- makeCallback \_ _ ->
     osOpenFile "https://github.com/mtolly/onyx/releases"
-  withUTF8 (l10n "homepage") \s -> [C.block| void {
-    Fl_Button* buttonGithub = new Fl_Button(10, 10 + $(int menuHeight), 100, 25, fl_strdup($(char* s)));
+  let topBar = Rectangle
+        (Position (X 10) (Y $ 10 + menuHeight))
+        (Size (Width 630) (Height 25))
+      (areaGithub, trimClock 0 0 0 10 -> topBarRest) = chopLeft 100 topBar
+      (areaLatest, trimClock 0 0 0 10 -> areaLanguage) = chopRight 70 topBarRest
+      termRect = Rectangle
+        (Position (X 10) (Y $ 45 + menuHeight))
+        (Size (Width 630) (Height $ 345 - menuHeight))
+  withUTF8 (l10n "homepage") \s -> withRect areaGithub \x y w h -> [C.block| void {
+    Fl_Button* buttonGithub = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
     buttonGithub->callback($(Fl_Callback cbGithub));
   } |]
-  labelLatest <- withUTF8 (l10n "version-checking") \s ->
-    [C.exp| Fl_Box* { new Fl_Box(120, 10 + $(int menuHeight), 450, 25, fl_strdup($(char* s))) } |]
+  labelLatest <- withUTF8 (l10n "version-checking") \s -> withRect areaLatest \x y w h ->
+    [C.exp| Fl_Box* { new Fl_Box($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
   _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO $ case comp of
     LT -> withUTF8 (l10n "version-new") \s ->
       [C.block| void {
@@ -4565,16 +4582,17 @@ launchGUI initSongs = withAL \hasAudio -> do
         $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
       } |]
-  languageMenu <- withUTF8 ("🌏" :: T.Text) \s -> [C.exp| Fl_Menu_Button* {
-    new Fl_Menu_Button(580, 10 + $(int menuHeight), 60, 25, fl_strdup($(char* s)))
-  } |]
+  languageMenu <- withUTF8 ("🌏" :: T.Text) \s -> withRect areaLanguage \x y w h ->
+    [C.exp| Fl_Menu_Button* {
+      new Fl_Menu_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)))
+    } |]
   configureLanguageMenu sink languageMenu
-  term <- [C.block| Fl_Simple_Terminal* {
+  term <- withRect termRect \x y w h -> [C.block| Fl_Simple_Terminal* {
     Fl_Simple_Terminal* term = new Fl_Simple_Terminal
-      ( 10
-      , 45 + $(int menuHeight)
-      , 630
-      , 345 - $(int menuHeight)
+      ( $(int x)
+      , $(int y)
+      , $(int w)
+      , $(int h)
       );
     term->history_lines(-1);
     term->ansi(true);
