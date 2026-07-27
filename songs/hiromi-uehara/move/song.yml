@@ -4,10 +4,18 @@ parts:
       mode: elite
       kicks: both
       elite-layout: [open-hand]
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-6
 audio:
   album-track:
     md5: 26f6f2d9bee4deead8c3bf1318c1d440
     frames: 22694448
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
   stems:
     file-path: audio-stems.wav
     commands:

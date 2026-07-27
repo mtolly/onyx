@@ -146,46 +146,51 @@ nav a {
 <nav class="table-of-contents">
 
 <ul>
-<li><a href="#requirements">Requirements</a></li>
-<li><a href="#setup-instructions">Setup Instructions</a></li>
-<ul>
-<li><a href="#instructions-for-macos">Instructions for macOS</a></li>
-</ul>
-<li><a href="#supported-input-formats">Supported Input Formats</a></li>
-<li><a href="#basic-usage">Basic Usage</a></li>
-<ul>
-<li><a href="#single-song-mode">Single Song Mode</a></li>
-<li><a href="#batch-mode">Batch Mode</a></li>
-</ul>
-<li><a href="#game-specific-info">Game-Specific Info</a></li>
-<ul>
-<li><a href="#rock-band-3">Rock Band 3</a></li>
-<li><a href="#rock-band-2">Rock Band 2</a></li>
-<li><a href="#clone-hero-phase-shift">Clone Hero & Phase Shift</a></li>
-<li><a href="#guitar-hero-guitar-hero-ii">Guitar Hero & Guitar Hero II</a></li>
-<li><a href="#guitar-hero-iii">Guitar Hero III</a></li>
-<li><a href="#guitar-hero-warriors-of-rock">Guitar Hero: Warriors of Rock</a></li>
-<li><a href="#rock-revolution">Rock Revolution</a></li>
-</ul>
-<li><a href="#preview-tools">Preview Tools</a></li>
-<ul>
-<li><a href="#3d-preview">3D Preview</a></li>
-<li><a href="#web-preview">Web Preview</a></li>
-</ul>
-<li><a href="#quick-convert">Quick Convert</a></li>
-<li><a href="#other-tools">Other Tools</a></li>
-<ul>
-<li><a href="#stars-calculator">Stars Calculator</a></li>
-<li><a href="#midi-chart-functions">MIDI/.chart Functions</a></li>
-<li><a href="#mogg-vgs-fsb-creator">MOGG/VGS/FSB Creator</a></li>
-<li><a href="#lipsync-generation">Lipsync Generation</a></li>
-<li><a href="#lipsync-dry-vocals">Lipsync Dry Vocals</a></li>
-<li><a href="#milo-unpack-repack">.milo Unpack/Repack</a></li>
-<li><a href="#rb3-song-cache-id-application">RB3 Song Cache ID Application</a></li>
-<li><a href="#gh-song-cache-generation">GH Song Cache Generation</a></li>
-<li><a href="#autocharter">EFHIII's Autocharter</a></li>
-</ul>
-<li><a href="#command-line-interface">Command Line Interface</a></li>
+  <li><a href="#requirements">Requirements</a></li>
+  <li><a href="#setup-instructions">Setup Instructions</a>
+    <ul>
+      <li><a href="#instructions-for-macos">Instructions for macOS</a></li>
+    </ul>
+  </li>
+  <li><a href="#supported-input-formats">Supported Input Formats</a></li>
+  <li><a href="#basic-usage">Basic Usage</a>
+    <ul>
+      <li><a href="#single-song-mode">Single Song Mode</a></li>
+      <li><a href="#batch-mode">Batch Mode</a></li>
+    </ul>
+  </li>
+  <li><a href="#game-specific-info">Game-Specific Info</a>
+    <ul>
+      <li><a href="#rock-band-3">Rock Band 3</a></li>
+      <li><a href="#rock-band-2">Rock Band 2</a></li>
+      <li><a href="#clone-hero-phase-shift">Clone Hero & Phase Shift</a></li>
+      <li><a href="#guitar-hero-guitar-hero-ii">Guitar Hero & Guitar Hero II</a></li>
+      <li><a href="#guitar-hero-iii">Guitar Hero III</a></li>
+      <li><a href="#guitar-hero-warriors-of-rock">Guitar Hero: Warriors of Rock</a></li>
+      <li><a href="#rock-revolution">Rock Revolution</a></li>
+    </ul>
+  </li>
+  <li><a href="#preview-tools">Preview Tools</a>
+    <ul>
+      <li><a href="#3d-preview">3D Preview</a></li>
+      <li><a href="#web-preview">Web Preview</a></li>
+    </ul>
+  </li>
+  <li><a href="#quick-convert">Quick Convert</a></li>
+  <li><a href="#other-tools">Other Tools</a>
+    <ul>
+      <li><a href="#stars-calculator">Stars Calculator</a></li>
+      <li><a href="#midi-chart-functions">MIDI/.chart Functions</a></li>
+      <li><a href="#mogg-vgs-fsb-creator">MOGG/VGS/FSB Creator</a></li>
+      <li><a href="#lipsync-generation">Lipsync Generation</a></li>
+      <li><a href="#lipsync-dry-vocals">Lipsync Dry Vocals</a></li>
+      <li><a href="#milo-unpack-repack">.milo Unpack/Repack</a></li>
+      <li><a href="#rb3-song-cache-id-application">RB3 Song Cache ID Application</a></li>
+      <li><a href="#gh-song-cache-generation">GH Song Cache Generation</a></li>
+      <li><a href="#autocharter">EFHIII's Autocharter</a></li>
+    </ul>
+  </li>
+  <li><a href="#command-line-interface">Command Line Interface</a></li>
 </ul>
 
 
@@ -212,19 +217,16 @@ nav a {
 <ul>
 <li>Windows 10</li>
 <li>macOS Monterey</li>
-<li>Linux kernel 4.4 (Ubuntu 16.04)</li>
+<li>Ubuntu 20.04</li>
 </ul>
-<p>It may work on previous versions (such as Windows 7) but this is not certain.</p>
+<p>It may work on older operating systems (such as Windows 7) but this is not certain.</p>
 <p>By default, an embedded copy of Magma v2 is used to generate RB3 or RB2 files. This requires the Visual C++ runtime, and if on Mac or Linux, Wine.</p>
 <ul>
-<li><p>On Mac, you can use the official installer, or you can use Homebrew (<code>brew install wine</code>).</p>
-<p>However, macOS Catalina (10.15) does not support running Magma in Wine due to its lack of support for 32-bit programs. To produce Rock Band files on this OS you’ll need to turn Magma compilation off.</p></li>
+<li><p>On older Mac systems, you can use the official installer, or you can use Homebrew (<code>brew install wine</code>).</p>
+<p>However newer macOS systems don't support this. To produce Rock Band files there you’ll need to turn Magma compilation off.</p></li>
 <li><p>To bypass Magma compilation, go to <code>Edit &gt; Preferences</code> in the top menu, and change the Magma selection to an option other than “Magma required”. Please make sure and test any resulting files! If you’re on Windows I recommend leaving it on “Magma optional”, so you can see any error messages; they’ll be converted to warnings and you’ll still get the resulting song file.</p></li>
 </ul>
-<p>The Linux build is produced via an Ubuntu 16.04 Docker container, and should work on most any modern distribution. Older distributions might require additional installations:</p>
-<ul>
-<li>On CentOS 7, <code>yum install mesa-libGL fontconfig</code> is required.</li>
-</ul>
+<p>The Linux build is produced via an Ubuntu 20.04 Docker container, and should work on most any recent distribution.</p>
 
 
 <h2 id="setup-instructions">Setup Instructions</h2>
@@ -264,7 +266,7 @@ nav a {
 <li>Encrypted audio is supported.</li>
 </ul>
 </li>
-<li><p>Magma (v1 or v2) RBA files</p></li>
+<li><p>Magma (v1 or v2) RBA/RBS files</p></li>
 <li><p>Frets on Fire / Phase Shift / Clone Hero formats</p>
 <ul>
 <li>Both <code>notes.mid</code> and <code>notes.chart</code> are supported.</li>
@@ -273,7 +275,7 @@ nav a {
 <li>Audio files must be named according to PS/CH conventions.</li>
 <li>Unencrypted Clone Hero <code>.sng</code> files are also supported. (The songs that come with the game are a different format and are not supported.)</li>
 </ul></li>
-<li><p>Encore format (<code>info.json</code>)</p>
+<li><p>Encore format (<code>info.json</code>)</p></li>
 <li><p>Magma (v1 or v2) projects (<code>.rbproj</code>)</p></li>
 <li>
   <p>The following Guitar Hero game discs for Xbox 360:</p>
@@ -323,11 +325,11 @@ nav a {
 <li><p>Guitar Hero Three Control Panel <code>.sgh</code> setlists</p></li>
 <li><p>Rocksmith 2014 (<code>.psarc</code>, PC/Mac/Xbox/PlayStation format)</p>
 <ul>
-<li><p>Translates to Pro Guitar / Pro Bass in Rock Band 3 and Phase Shift formats.
+<li>Translates to Pro Guitar / Pro Bass in Rock Band 3 and Phase Shift formats.
 <ul>
 <li>Handshapes and chord names try to translate to the appropriate Pro Guitar conventions, but in some cases there may be odd results due to different functionality.</li>
 <li>Mustang-compatible charts currently just apply the muted status to notes over fret 17. In a future version, this will be improved to try to find sections of notes to move an octave down, as official charts do.</li>
-</ul></p>
+</ul>
 </li>
 <li>The Guitar slot imports the first present chart of: Lead, Combo Lead, Combo Rhythm, Rhythm.</li>
 <li>5-fret charts are generated with <a href="#autocharter">EFHIII's Autocharter</a>.</li>
@@ -347,11 +349,11 @@ nav a {
 </ul>
 <li><p>osu! (<code>.osz</code>)</p>
 <ul>
-<li><p>The following chart types are supported:
+<li>The following chart types are supported:
 <ul>
 <li>osu!mania charts are labeled as a Keys part, and can be converted to 5-fret, drums, or Pro Keys, with down-conversion performed via <a href="#autocharter">EFHIII's Autocharter</a>.</li>
 <li>osu!taiko charts are converted to 4-lane drums, and include an audio sample track.</li>
-</ul></p></li>
+</ul></li>
 <li><p>Each difficulty is imported as a separate song, with the difficulty names as labels.</p></li>
 </ul>
 <li><p>StepMania (<code>.sm</code>, <code>.dwi</code>)</p>
@@ -533,7 +535,7 @@ nav a {
 <h2 id="preview-tools">Preview Tools</h2>
 <h3 id="3d-preview">3D Preview</h3>
 <p class="screenshot"><img src="images/3d-preview.png" style="width: 800px;"></p>
-<p>The <em>Preview</em> tab of a single-song window lets you view and listen to supported gameplay tracks in a full 3D graphical display. Currently 5-fret guitar/bass/keys (including tap/open notes), 4-lane drums (including cymbals), and Mania are supported, with more to come. Background images and videos from certain input formats are also supported.</p>
+<p>The <em>Preview</em> tab of a single-song window lets you view and listen to supported gameplay tracks in a full 3D graphical display. Currently 5-fret guitar/bass/keys (including tap/open notes), 4-lane drums (including cymbals), vocal lyrics, and key/mania tracks (including dance, Festival, others) are supported, with more to come. Background images and videos from certain input formats are also supported.</p>
 <p>By default, the preview targets 60 frames per second. You can configure this in <code>Edit &gt; Preferences</code>. Antialiasing (MSAA and FXAA) can also be configured.</p>
 <p>Gem models and textures created by Inventor211. Most textures, models, and shaders are customizable, inside the <code>onyx-resources</code> folder.</p>
 <ul>
@@ -605,7 +607,7 @@ nav a {
 <li>Otherwise, the pack will fail to create.</li>
 </ul>
 <p>The game information (name, title ID, thumbnail) are taken from the first input package in the list.</p></li>
-<li><p><em>Direct CON-&gt;PKG</em></p>
+<li><p><em>Legacy CON-&gt;PKG</em></p>
 <p>This is an older method of converting Xbox 360 (CON/LIVE) files directly to PS3 .pkg files. This can usually be done by the main Quick Convert window with more options; this tool is preserved because it can also work on things that are not valid standalone songs, such as Pro Guitar/Bass upgrades.</p></li>
 </ul>
 

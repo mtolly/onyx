@@ -780,11 +780,11 @@ miscPageCONtoPKG sink rect tab startTasks = do
           in (input, task)
   btn1 <- withRect rb2Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-con-to-pkg-rb2" []) btn1
+  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb2" []) btn1
   [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ callback False
   btn2 <- withRect rb3Rect \bx by bw bh ->
     [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-con-to-pkg-rb3" []) btn2
+  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb3" []) btn2
   [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ callback True
