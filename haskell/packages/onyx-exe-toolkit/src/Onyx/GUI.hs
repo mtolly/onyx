@@ -66,6 +66,7 @@ import           Data.Monoid                       (Endo (..))
 import qualified Data.Set                          as Set
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
+import           Data.Text.UTF8Proc                (utf8proc_charwidth)
 import           Data.Time.Clock.System            (SystemTime (..))
 import qualified Data.Vector.Storable              as VS
 import           Data.Version                      (showVersion)
@@ -4380,11 +4381,12 @@ terminalMarkup txt = let
 
 terminalWelcome :: (?loc :: L) => [T.Text]
 terminalWelcome = let
-  fixLeadingSpace s = case span (== ' ') $ T.unpack s of
-    -- leading space on a terminal line doesn't work for some reason.
-    -- just replace with black characters on black background
+  -- leading space on a terminal line doesn't work for some reason.
+  -- just replace with black characters on black background
+  fixLeadingSpaceGeneral c1 c2 s = case span (== c1) $ T.unpack s of
     (""    , _   ) -> s
-    (spaces, rest) -> T.pack $ "\ESC[30m" <> ('.' <$ spaces) <> "\ESC[0m" <> rest
+    (spaces, rest) -> T.pack $ "\ESC[30m" <> (c2 <$ spaces) <> "\ESC[0m" <> rest
+  fixLeadingSpace = fixLeadingSpaceGeneral ' ' '.' . fixLeadingSpaceGeneral '\x3000' '、'
   render = snd . terminalMarkup
   header = T.lines $ render $ l10nArgs "welcome-header"
     [("version", vString $ T.pack $ showVersion version)]
@@ -4394,11 +4396,18 @@ terminalWelcome = let
     , (terminalMarkup $ "<color=yellow>" <> l10n "function-quick" <> "</color>", map render $ T.lines $ l10n "welcome-quick")
     , (terminalMarkup $ "<color=cyan>"   <> l10n "function-other" <> "</color>", map render $ T.lines $ l10n "welcome-other")
     ]
+  -- hack for CJK language alignment
+  detectedWideChars = case T.uncons $ l10n "function-load" of
+    Just (c, _) -> utf8proc_charwidth c >= 2
+    Nothing     -> False
+  (initialTab, paddingSpace, divider) = if detectedWideChars
+    then ("\x3000", "\x3000", "\x3000")
+    else ("  "    , " "     , " | "   )
   longestNameLength = maximum [ len | ((len, _), _) <- functions ]
   renderedFunctions = functions <&> \((len, name), tasks) -> let
-    nameWithPadding = name <> T.replicate (longestNameLength - len) " "
-    leftSides = nameWithPadding : repeat (T.replicate longestNameLength " ")
-    in zipWith (\l r -> "  " <> l <> " | " <> r) leftSides tasks
+    nameWithPadding = name <> T.replicate (longestNameLength - len) paddingSpace
+    leftSides = nameWithPadding : repeat (T.replicate longestNameLength paddingSpace)
+    in zipWith (\l r -> initialTab <> l <> divider <> r) leftSides tasks
   in map fixLeadingSpace $ intercalate [""] (header : renderedFunctions) <> [""]
 
 configureLanguageMenu :: (?loc :: L) => (Event -> IO ()) -> Ptr Fl_Menu_Button -> IO ()

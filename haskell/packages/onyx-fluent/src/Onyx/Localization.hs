@@ -94,8 +94,9 @@ loadL root desiredCode = do
 loadLanguages :: FilePath -> IO [Language]
 loadLanguages root = fmap catMaybes $ listDirectory root >>= mapM \f ->
   case map toLower $ takeExtension f of
-    ".yml" -> Just <$> Y.decodeFileThrow (root </> f)
-    _      -> return Nothing
+    ".yml"  -> Just <$> Y.decodeFileThrow (root </> f)
+    ".yaml" -> Just <$> Y.decodeFileThrow (root </> f)
+    _       -> return Nothing
 
 loadLanguage :: FilePath -> Language -> IO Fluent
 loadLanguage root lang = do

@@ -89,6 +89,7 @@ executables:
     # my libraries
     - midi-util
     - conduit-audio
+    - utf8proc
     # local
     - onyx-lib
     - onyx-lib-game
