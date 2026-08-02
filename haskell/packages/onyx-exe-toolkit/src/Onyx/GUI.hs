@@ -103,7 +103,8 @@ import           Onyx.Genre                        (FullGenre (..),
 import           Onyx.GUI.Batch
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
-import           Onyx.GUI.Fluid                    (adaptWindow, lockMinimumSize,
+import           Onyx.GUI.Fluid                    (adaptWindow, inGroup,
+                                                    lockMinimumSize,
                                                     menuBarHeight)
 import           Onyx.GUI.Misc
 import           Onyx.GUI.Song
@@ -212,6 +213,7 @@ C.include "FL/fl_string_functions.h"
 -- FLUID-generated from the layouts in fluid, see Setup.hs
 C.include "multiple_songs.h"
 C.include "console.h"
+C.include "misc.h"
 
 promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -375,9 +377,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
 
   menuHeight <- adaptWindow window
   when (menuHeight /= 0) do
-    [C.block| void { $(Fl_Window* window)->begin(); } |]
-    _ <- makeMenuBar (Width 500) True
-    [C.block| void { $(Fl_Window* window)->end(); } |]
+    inGroup (windowGroup window) $ void $ makeMenuBar (Width 500) True
   lockMinimumSize window
   [C.block| void {
     $(Fl_Window* window)->show();
@@ -3223,81 +3223,59 @@ launchQuickConvert sink makeMenuBar = mdo
   } |]
 
 launchMisc :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchMisc sink makeMenuBar = mdo
-  let windowWidth = Width 900
-      windowHeight = Height 600
-      windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    withUTF8 (l10n "window-tools") \s ->
-      [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-  [C.block| void {
-    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-  } |]
-  setSizeRange window windowSize
-  tabs <- withRect windowRect \tx ty tw th ->
-    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
-  functionTabs <- sequence
-    [ makeTab windowRect (l10n "misc-tab-midi-stuff") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMIDI sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-mogg-vgs-fsb") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMOGG sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-lipsync") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageLipsync sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-dry-vox") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageDryVox sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-milo") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMilo sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-rb3-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageHardcodeSongCache sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-gh3-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageGH3SongCache sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-ghwor-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageWoRSongCache sink rect tab startTasks
-      return tab
-    ]
-  (startTasks, cancelTasks) <- makeTab windowRect (l10n "tab-task") \rect tab -> do
-    setTabColor tab taskColor
-    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
-    let cbStart = do
-          [C.block| void { $(Fl_Group* tab)->activate(); } |]
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
-          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
-          updateTabsColor tabs
-        cbEnd = do
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
-    taskOutputPage rect tab sink cbStart cbEnd
+launchMisc sink makeMenuBar = do
+  -- Window, tabs and tab groups come from fluid/misc.fl; the pages inside each
+  -- tab are still built here. Those page builders apply the horizontal stretch
+  -- themselves via withRect, so adaptWindow has to run before they do, and they
+  -- get handed the tab's pre-stretch rectangle.
+  ui <- [C.exp| void* { new MiscWindow() } |]
+  let window      = [C.pure| Fl_Window* { ((MiscWindow*)$(void* ui))->window } |]
+      tabs        = [C.pure| Fl_Tabs*   { ((MiscWindow*)$(void* ui))->tabs } |]
+      tabTask     = [C.pure| Fl_Group*  { ((MiscWindow*)$(void* ui))->tabTask } |]
+      functionTabs =
+        [ ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMIDI } |]
+          , miscPageMIDI )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMOGG } |]
+          , miscPageMOGG )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabLipsync } |]
+          , miscPageLipsync )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabDryVox } |]
+          , miscPageDryVox )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
+          , miscPageMilo )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
+          , miscPageHardcodeSongCache )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabGH3Cache } |]
+          , miscPageGH3SongCache )
+        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabWoRCache } |]
+          , miscPageWoRSongCache )
+        ]
 
-  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  -- read the layout's own coordinates before adaptWindow rewrites them
+  windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
+  Rectangle (Position (X tabX) (Y tabY)) tabSize <- layoutRect tabTask
+
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    inGroup (windowGroup window) $ void $ makeMenuBar windowWidth True
+  lockMinimumSize window
+  let tabRect = Rectangle (Position (X tabX) (Y $ tabY + menuHeight)) tabSize
+
+  -- task tab first, since the function pages need startTasks
+  (startTasks, cancelTasks) <- inGroup tabTask do
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tabTask)->activate(); } |]
+          forM_ functionTabs \(t, _) -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tabTask)); } |]
+          updateTabsColor tabs
+        cbEnd = forM_ functionTabs \(t, _) -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage tabRect tabTask sink cbStart cbEnd
+  forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
+
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs
-  let firstTab = head functionTabs
-  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
-
   setCallback window $ windowCloser cancelTasks window
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->show();
-  } |]
+  [C.block| void { $(Fl_Window* window)->show(); } |]
 
 -- _watchSong, _launchTimeServer
 
@@ -3786,6 +3764,21 @@ launchBatch sink makeMenuBar startFiles = mdo
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
     $(Fl_Window* window)->show();
   } |]
+
+-- | A FLUID widget's rectangle in the layout's own coordinates. Only
+-- meaningful before 'adaptWindow' runs, which is exactly what hand-written
+-- page builders want: they apply the horizontal stretch themselves.
+layoutRect :: Ptr Fl_Group -> IO Rectangle
+layoutRect g = do
+  x <- [C.exp| int { $(Fl_Group* g)->x() } |]
+  y <- [C.exp| int { $(Fl_Group* g)->y() } |]
+  w <- [C.exp| int { $(Fl_Group* g)->w() } |]
+  h <- [C.exp| int { $(Fl_Group* g)->h() } |]
+  return $ Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))
+
+-- | Every window is a group; needed to add widgets back into one.
+windowGroup :: Ptr Fl_Window -> Ptr Fl_Group
+windowGroup w = [C.pure| Fl_Group* { $(Fl_Window* w) } |]
 
 updateTabsColor :: Ptr Fl_Tabs -> IO ()
 updateTabsColor tabs = do
@@ -4554,9 +4547,7 @@ launchGUI initSongs = withAL \hasAudio -> do
         return menuHeight
   -- reserve the menu bar space the layout was authored without, then fill it
   _ <- adaptWindow termWindow
-  [C.block| void { $(Fl_Window* termWindow)->begin(); } |]
-  _ <- makeMenuBar consoleWidth macOS
-  [C.block| void { $(Fl_Window* termWindow)->end(); } |]
+  inGroup (windowGroup termWindow) $ void $ makeMenuBar consoleWidth macOS
   lockMinimumSize termWindow
 
   setCallback buttonGithub $ osOpenFile "https://github.com/mtolly/onyx/releases"

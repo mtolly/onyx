@@ -1,0 +1,74 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+i18n_type 1
+i18n_include {"onyx_l10n.h"}
+i18n_conditional {}
+i18n_gnu_function {onyx_l10n}
+i18n_gnu_static_function {onyx_l10n_noop}
+comment {The "other tools" window: a tab per utility, plus the shared task tab.
+
+Only the window, the Fl_Tabs and the tab groups themselves live here. Each
+tab's contents are still built in Haskell (Onyx.GUI.Misc and taskOutputPage),
+which lay themselves out with withRect and so apply the horizontal stretch
+on their own. launchMisc therefore runs adaptWindow *before* filling the
+tabs, and hands each page the tab's pre-stretch rectangle.
+
+Colours are packed fl_rgb_color values:
+  1583242752 = behindTabsColor  rgb(94,94,94)
+  3771904256 = functionTabColor rgb(224,210,177)
+  3017652992 = taskColor        rgb(179,221,187)} {in_source not_in_header
+}
+
+class MiscWindow {open
+} {
+  Function {MiscWindow()} {open
+  } {
+    Fl_Window window {
+      label {{window-tools}} open
+      xywh {100 100 900 600} type Double color 1583242752 resizable visible
+    } {
+      Fl_Tabs tabs {open
+        xywh {0 0 900 600} resizable
+      } {
+        Fl_Group tabMIDI {
+          label {{misc-tab-midi-stuff}} open
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 resizable
+        } {}
+        Fl_Group tabMOGG {
+          label {{misc-tab-mogg-vgs-fsb}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabLipsync {
+          label {{misc-tab-lipsync}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabDryVox {
+          label {{misc-tab-dry-vox}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabMilo {
+          label {{misc-tab-milo}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabRB3Cache {
+          label {{misc-tab-rb3-cache}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabGH3Cache {
+          label {{misc-tab-gh3-cache}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabWoRCache {
+          label {{misc-tab-ghwor-cache}}
+          xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
+        } {}
+        Fl_Group tabTask {
+          label {{tab-task}}
+          xywh {0 25 900 575} color 3017652992 selection_color 3017652992 deactivate hide
+        } {}
+      }
+    }
+  }
+}

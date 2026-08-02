@@ -76,3 +76,11 @@ extern "C" void onyx_adapt_window(Fl_Window* win, double stretch, int menu_heigh
 extern "C" void onyx_lock_minimum_size(Fl_Window* win) {
   if (win) win->size_range(win->w(), win->h());
 }
+
+extern "C" void onyx_group_begin(Fl_Group* group) {
+  if (group) group->begin();
+}
+
+extern "C" void onyx_group_end(Fl_Group* group) {
+  if (group) group->end();
+}

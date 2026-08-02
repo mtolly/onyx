@@ -19,9 +19,11 @@ module Onyx.GUI.Fluid
 ( setGlobalL
 , adaptWindow
 , lockMinimumSize
+, inGroup
 , menuBarHeight
 ) where
 
+import           Control.Exception        (bracket_)
 import qualified Data.ByteString          as B
 import           Data.IORef               (IORef, newIORef, readIORef,
                                            writeIORef)
@@ -30,7 +32,7 @@ import qualified Data.Text.Encoding       as TE
 import           Data.Text.Encoding.Error (lenientDecode)
 import           Foreign
 import           Foreign.C
-import           Onyx.GUI.Binding         (Fl_Window)
+import           Onyx.GUI.Binding         (Fl_Group, Fl_Window)
 import           Onyx.Localization        (L (..), Language (..), getAttribute,
                                            l10n, l10nFull)
 import           System.Info              (os)
@@ -94,6 +96,18 @@ foreign import ccall "onyx_adapt_window"
 
 foreign import ccall "onyx_lock_minimum_size"
   lockMinimumSize :: Ptr Fl_Window -> IO ()
+
+foreign import ccall "onyx_group_begin"
+  groupBegin :: Ptr Fl_Group -> IO ()
+
+foreign import ccall "onyx_group_end"
+  groupEnd :: Ptr Fl_Group -> IO ()
+
+-- | Build widgets into a group whose FLUID constructor already called @end()@.
+-- Used for the parts of a layout that stay hand-written: menu bars, and tab
+-- or panel contents that are generated from data.
+inGroup :: Ptr Fl_Group -> IO a -> IO a
+inGroup group = bracket_ (groupBegin group) (groupEnd group)
 
 -- | Apply the language's horizontal stretch and reserve menu bar space. Call
 -- once, after the FLUID constructor and before adding the menu bar.

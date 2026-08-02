@@ -26,4 +26,9 @@ extern "C" void onyx_adapt_window(Fl_Window* win, double stretch, int menu_heigh
 // without either being spelled out a second time.
 extern "C" void onyx_lock_minimum_size(Fl_Window* win);
 
+// Reopen a group that FLUID's constructor already closed, so that widgets
+// built the hand-written way can be added to it.
+extern "C" void onyx_group_begin(Fl_Group* group);
+extern "C" void onyx_group_end(Fl_Group* group);
+
 #endif
