@@ -1,0 +1,75 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+i18n_type 1
+i18n_include {"onyx_l10n.h"}
+i18n_conditional {}
+i18n_gnu_function {onyx_l10n}
+i18n_gnu_static_function {onyx_l10n_noop}
+comment {The main window: log terminal plus the four top-level function buttons.
+
+Authored at natural English width with no menu bar; Onyx.GUI.Fluid.adaptWindow
+applies the per-language horizontal stretch and reserves the menu bar space,
+which launchGUI then fills via makeMenuBar.
+
+Colours here mirror the palette in Onyx.GUI.Core, as packed fl_rgb_color
+values, so that the editor preview matches the running app:
+  1917484032 = globalLogColor    rgb(114,74,124)
+  3135616256 = loadSongColor     rgb(186,229,181)
+  3987587328 = batchProcessColor rgb(237,173,193)
+  3906311680 = quickConvertColor rgb(232,213,150)
+  2980967424 = miscColor         rgb(177,173,244)} {in_source not_in_header
+}
+
+decl {\#include "hs_dnd_button.h"} {public global
+}
+
+decl {\#include "Fl_Simple_Terminal.h"} {public global
+}
+
+class ConsoleWindow {open
+} {
+  Function {ConsoleWindow()} {open
+  } {
+    Fl_Window window {
+      label {{console}} open
+      xywh {100 100 650 480} type Double color 1917484032 xclass Onyx resizable visible
+    } {
+      Fl_Button buttonGithub {
+        label {{homepage}}
+        xywh {10 10 100 25}
+      }
+      Fl_Box labelLatest {
+        label {{version-checking}}
+        xywh {120 10 450 25}
+      }
+      Fl_Menu_Button languageMenu {
+        label {🌏} open
+        xywh {580 10 60 25}
+      } {}
+      Fl_Text_Display term {
+        xywh {10 45 630 345} color 56 selection_color 95 resizable
+        class Fl_Simple_Terminal
+      }
+      Fl_Button buttonOpen {
+        label {{function-load}}
+        xywh {10 400 310 30} color 3135616256 labelsize 13
+        class HsDndButton
+      }
+      Fl_Button buttonBatch {
+        label {{function-batch}}
+        xywh {330 400 310 30} color 3987587328 labelsize 13
+        class HsDndButton
+      }
+      Fl_Button buttonQuick {
+        label {{function-quick}}
+        xywh {10 440 310 30} color 3906311680 labelsize 13
+      }
+      Fl_Button buttonMisc {
+        label {{function-other}}
+        xywh {330 440 310 30} color 2980967424 labelsize 13
+      }
+    }
+  }
+}

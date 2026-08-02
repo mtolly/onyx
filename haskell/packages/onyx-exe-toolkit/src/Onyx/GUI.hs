@@ -209,8 +209,9 @@ C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
--- FLUID-generated, see fluid/multiple_songs.fl and Setup.hs
+-- FLUID-generated from the layouts in fluid, see Setup.hs
 C.include "multiple_songs.h"
+C.include "console.h"
 
 promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -4428,18 +4429,26 @@ launchGUI initSongs = withAL \hasAudio -> do
         [C.block| void { Fl::awake(); } |]
 
   -- terminal
+  -- Layout lives in fluid/console.fl; see Onyx.GUI.Fluid. That file also owns
+  -- the window colour, the button colours and the terminal's box, which FLUID
+  -- always re-emits for a subclassed widget and would otherwise clobber.
   let consoleWidth = Width 650
-      consoleHeight = Height 480
-      consoleSize = Size consoleWidth consoleHeight
-  termWindow <- withUTF8 (l10n "console") \s -> withSize consoleSize \w h ->
-    [C.exp| Fl_Window* {
-      new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s)))
-    } |]
-  [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
+  ui <- [C.exp| void* { new ConsoleWindow() } |]
+  let termWindow   = [C.pure| Fl_Window*           { ((ConsoleWindow*)$(void* ui))->window } |]
+      term         = [C.pure| Fl_Simple_Terminal*  { ((ConsoleWindow*)$(void* ui))->term } |]
+      buttonGithub = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonGithub } |]
+      labelLatest  = [C.pure| Fl_Box*              { ((ConsoleWindow*)$(void* ui))->labelLatest } |]
+      languageMenu = [C.pure| Fl_Menu_Button*      { ((ConsoleWindow*)$(void* ui))->languageMenu } |]
+      buttonOpen   = [C.pure| HsDndButton*         { ((ConsoleWindow*)$(void* ui))->buttonOpen } |]
+      buttonBatch  = [C.pure| HsDndButton*         { ((ConsoleWindow*)$(void* ui))->buttonBatch } |]
+      buttonQuick  = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonQuick } |]
+      buttonMisc   = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonMisc } |]
   -- TODO set icon
-  setSizeRange termWindow consoleSize
   [C.block| void {
-    $(Fl_Window* termWindow)->color($(Fl_Color globalLogColor));
+    Fl_Simple_Terminal* t = $(Fl_Simple_Terminal* term);
+    t->history_lines(-1);
+    t->ansi(true);
+    t->stay_at_bottom(true);
   } |]
   let makeMenuBar (Width fullWidth) includeConsole = do
         let menuHeight = menuBarHeight
@@ -4543,23 +4552,14 @@ launchGUI initSongs = withAL \hasAudio -> do
               $(Fl_Menu_Bar* menu)->down_color(fl_rgb_color(0x32, 0x30, 0x30));
             } |]
         return menuHeight
-  menuHeight <- makeMenuBar consoleWidth macOS
-  cbGithub <- makeCallback \_ _ ->
-    osOpenFile "https://github.com/mtolly/onyx/releases"
-  let topBar = Rectangle
-        (Position (X 10) (Y $ 10 + menuHeight))
-        (Size (Width 630) (Height 25))
-      (areaGithub, trimClock 0 0 0 10 -> topBarRest) = chopLeft 100 topBar
-      (areaLatest, trimClock 0 0 0 10 -> areaLanguage) = chopRight 70 topBarRest
-      termRect = Rectangle
-        (Position (X 10) (Y $ 45 + menuHeight))
-        (Size (Width 630) (Height $ 345 - menuHeight))
-  withUTF8 (l10n "homepage") \s -> withRect areaGithub \x y w h -> [C.block| void {
-    Fl_Button* buttonGithub = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonGithub->callback($(Fl_Callback cbGithub));
-  } |]
-  labelLatest <- withUTF8 (l10n "version-checking") \s -> withRect areaLatest \x y w h ->
-    [C.exp| Fl_Box* { new Fl_Box($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
+  -- reserve the menu bar space the layout was authored without, then fill it
+  _ <- adaptWindow termWindow
+  [C.block| void { $(Fl_Window* termWindow)->begin(); } |]
+  _ <- makeMenuBar consoleWidth macOS
+  [C.block| void { $(Fl_Window* termWindow)->end(); } |]
+  lockMinimumSize termWindow
+
+  setCallback buttonGithub $ osOpenFile "https://github.com/mtolly/onyx/releases"
   _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO $ case comp of
     LT -> withUTF8 (l10n "version-new") \s ->
       [C.block| void {
@@ -4575,71 +4575,19 @@ launchGUI initSongs = withAL \hasAudio -> do
         $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
       } |]
-  languageMenu <- withUTF8 ("🌏" :: T.Text) \s -> withRect areaLanguage \x y w h ->
-    [C.exp| Fl_Menu_Button* {
-      new Fl_Menu_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)))
-    } |]
   configureLanguageMenu sink languageMenu
-  term <- withRect termRect \x y w h -> [C.block| Fl_Simple_Terminal* {
-    Fl_Simple_Terminal* term = new Fl_Simple_Terminal
-      ( $(int x)
-      , $(int y)
-      , $(int w)
-      , $(int h)
-      );
-    term->history_lines(-1);
-    term->ansi(true);
-    term->stay_at_bottom(true);
-    return term;
-  } |]
 
-  let bottomBar1 = Rectangle (Position (X 5) (Y 400)) (Size (Width 640) (Height 30))
-      bottomBar2 = Rectangle (Position (X 5) (Y 440)) (Size (Width 640) (Height 30))
-      [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
-      [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
-
-  cbButtonOpen <- makeCallback \_ _ -> promptLoad sink makeMenuBar hasAudio
-  buttonOpen <- withUTF8 (l10n "function-load") \s -> withRect areaOpen \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
-  [C.block| void {
-    $(HsDndButton* buttonOpen)->color($(Fl_Color loadSongColor));
-    $(HsDndButton* buttonOpen)->callback($(Fl_Callback cbButtonOpen));
-    $(HsDndButton* buttonOpen)->labelsize(13);
-  } |]
+  setCallback buttonOpen $ promptLoad sink makeMenuBar hasAudio
   setDndButtonCallback buttonOpen (sink . EventOnyx . startLoad makeMenuBar hasAudio)
 
-  cbButtonBatch <- makeCallback \_ _ -> launchBatch' sink makeMenuBar []
-  buttonBatch <- withUTF8 (l10n "function-batch") \s -> withRect areaBatch \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
-  [C.block| void {
-    $(HsDndButton* buttonBatch)->color($(Fl_Color batchProcessColor));
-    $(HsDndButton* buttonBatch)->callback($(Fl_Callback cbButtonBatch));
-    $(HsDndButton* buttonBatch)->labelsize(13);
-  } |]
+  setCallback buttonBatch $ launchBatch' sink makeMenuBar []
   setDndButtonCallback buttonBatch (launchBatch' sink makeMenuBar)
 
-  cbButtonQuick <- makeCallback \_ _ -> launchQuickConvert' sink makeMenuBar
-  withUTF8 (l10n "function-quick") \s -> withRect areaQuick \x y w h -> [C.block| void {
-    Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonQuick->color($(Fl_Color quickConvertColor));
-    buttonQuick->callback($(Fl_Callback cbButtonQuick));
-    buttonQuick->labelsize(13);
-  } |]
-
-  cbButtonMisc <- makeCallback \_ _ -> launchMisc sink makeMenuBar
-  withUTF8 (l10n "function-other") \s -> withRect areaMisc \x y w h -> [C.block| void {
-    Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonMisc->color($(Fl_Color miscColor));
-    buttonMisc->callback($(Fl_Callback cbButtonMisc));
-    buttonMisc->labelsize(13);
-  } |]
+  setCallback buttonQuick $ launchQuickConvert' sink makeMenuBar
+  setCallback buttonMisc $ launchMisc sink makeMenuBar
 
   setCallback termWindow $ windowCloser (return ()) termWindow
-  [C.block| void {
-    $(Fl_Window* termWindow)->end();
-    $(Fl_Window* termWindow)->resizable($(Fl_Simple_Terminal* term));
-    $(Fl_Window* termWindow)->show();
-  } |]
+  [C.block| void { $(Fl_Window* termWindow)->show(); } |]
 
   -- Support drag and drop onto mac app icon
   when macOS do
