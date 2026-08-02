@@ -100,6 +100,8 @@ C.include "hs_dnd_group.h"
 C.include "hs_dnd_box.h"
 C.include "hs_tree.h"
 C.include "FL/fl_string_functions.h"
+-- FLUID-generated, see fluid/file_load_panel.fl and Setup.hs
+C.include "file_load_panel.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -663,6 +665,37 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
 
+-- | The widgets making up a file-load panel. Either created by hand
+-- ('fileLoadWindow'') or supplied by a FLUID @FileLoadPanel@
+-- ('fileLoadPanel'); 'fileLoadBehavior' drives them either way.
+data FileLoadWidgets = FileLoadWidgets
+  { flwCountLabel  :: Ptr Fl_Box
+  , flwTree        :: Ptr HsTree
+  , flwAddButton   :: Ptr Fl_Button
+  , flwClearButton :: Ptr Fl_Button
+  , flwDndOverlay  :: Ptr HsDndBox
+  }
+
+-- | Attach file-loading behaviour to a panel laid out in FLUID. The panel's
+-- placeholder labels are replaced with the wording from @locType@.
+fileLoadPanel
+  :: (?loc :: L)
+  => Ptr FileLoadPanel
+  -> (Event -> IO ())
+  -> MessageOutput -- ^ localized file type attributes
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (IO ()) -- ^ action that clears the loaded files
+fileLoadPanel panel = fileLoadBehavior FileLoadWidgets
+  { flwCountLabel  = [C.pure| Fl_Box*    { $(FileLoadPanel* panel)->countLabel } |]
+  , flwTree        = [C.pure| HsTree*    { $(FileLoadPanel* panel)->tree } |]
+  , flwAddButton   = [C.pure| Fl_Button* { $(FileLoadPanel* panel)->addButton } |]
+  , flwClearButton = [C.pure| Fl_Button* { $(FileLoadPanel* panel)->clearButton } |]
+  , flwDndOverlay  = [C.pure| HsDndBox*  { $(FileLoadPanel* panel)->dndOverlay } |]
+  }
+
 fileLoadWindow
   :: (?loc :: L)
   => Rectangle
@@ -677,6 +710,9 @@ fileLoadWindow rect sink locType modifyFiles startFiles step display
   = fmap fst
   $ fileLoadWindow' rect sink locType modifyFiles startFiles step display
 
+-- | Build a file-load panel the hand-written way, for windows that haven't
+-- moved to FLUID yet. New code should place a @FileLoadPanel@ in the layout
+-- and use 'fileLoadPanel' instead.
 fileLoadWindow'
   :: (?loc :: L)
   => Rectangle
@@ -687,8 +723,7 @@ fileLoadWindow'
   -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (Ptr Fl_Group, IO ())
-fileLoadWindow' rect sink locType modifyFiles startFiles step display = mdo
-  let getLocAttr k = getAttribute k locType
+fileLoadWindow' rect sink locType modifyFiles startFiles step display = do
   group <- withRect rect \gx gy gw gh ->
     [C.exp| Fl_Group* { new Fl_Group($(int gx), $(int gy), $(int gw), $(int gh)) } |]
   let (labelRect, belowLabel) = chopTop 40 rect
@@ -703,11 +738,44 @@ fileLoadWindow' rect sink locType modifyFiles startFiles step display = mdo
     [C.exp| Fl_Box* { new Fl_Box($(int lx), $(int ly), $(int lw), $(int lh)) } |]
   hsTree <- withRect treeRect' \tx ty tw th ->
     [C.exp| HsTree* { new HsTree($(int tx), $(int ty), $(int tw), $(int th)) } |]
-  let tree = [C.pure| Fl_Tree* { (Fl_Tree*)$(HsTree* hsTree) } |]
   [C.block| void {
     $(HsTree* hsTree)->end();
     $(Fl_Group* group)->resizable($(HsTree* hsTree));
   } |]
+  addButton <- withRect btnRectA' \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  clearButton <- withRect btnRectB' \bx by bw bh ->
+    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  -- Invisible box overlay on tree rect for drag-and-drop.
+  -- Placed last so it's on top; returns 0 for non-DnD events so they pass through.
+  dndBox <- withRect treeRect' \dx dy dw dh ->
+    [C.exp| HsDndBox* { new HsDndBox($(int dx), $(int dy), $(int dw), $(int dh)) } |]
+  clearFiles <- fileLoadBehavior FileLoadWidgets
+    { flwCountLabel  = label
+    , flwTree        = hsTree
+    , flwAddButton   = addButton
+    , flwClearButton = clearButton
+    , flwDndOverlay  = dndBox
+    } sink locType modifyFiles startFiles step display
+  [C.block| void { $(Fl_Group* group)->end(); } |]
+  return (group, clearFiles)
+
+fileLoadBehavior
+  :: (?loc :: L)
+  => FileLoadWidgets
+  -> (Event -> IO ())
+  -> MessageOutput -- ^ localized file type attributes
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], [a])) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (IO ()) -- ^ action that clears the loaded files
+fileLoadBehavior widgets sink locType modifyFiles startFiles step display = do
+  let getLocAttr k = getAttribute k locType
+      label   = widgets.flwCountLabel
+      hsTree  = widgets.flwTree
+      dndBox  = widgets.flwDndOverlay
+      tree    = [C.pure| Fl_Tree* { (Fl_Tree*)$(HsTree* hsTree) } |]
   let updateLabel fs = do
         let msg = l10nArgs "load-files-counter"
               [("count", vNumber $ fromIntegral $ length fs)]
@@ -827,34 +895,27 @@ fileLoadWindow' rect sink locType modifyFiles startFiles step display = mdo
   } |]
   clearFiles
   sink $ EventOnyx $ forkSearch startFiles
-  withRect btnRectA' \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (getLocAttr "add") \clbl -> do
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    setCallback btn $ sink $ EventIO $ withNativeFileChooser
-      [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
-      \picker -> do
-        withUTF8 (getLocAttr "load") \ctitle ->
-          [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
-        when (result == 0) do
-          n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
-          fs <- forM [0 .. n - 1] \i -> do
-            cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
-            peekUTF8 cstr
-          sink $ EventOnyx $ forkSearch fs
-  withRect btnRectB' \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (getLocAttr "clear") \clbl -> do
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    setCallback btn $ sink $ EventIO $ void clearFiles
-  -- Invisible box overlay on tree rect for drag-and-drop.
-  -- Placed last so it's on top; returns 0 for non-DnD events so they pass through.
-  dndBox <- withRect treeRect' \dx dy dw dh ->
-    [C.exp| HsDndBox* { new HsDndBox($(int dx), $(int dy), $(int dw), $(int dh)) } |]
+  let addButton = widgets.flwAddButton
+  withUTF8 (getLocAttr "add") \clbl -> do
+    [C.block| void { $(Fl_Button* addButton)->copy_label($(char* clbl)); } |]
+  setCallback addButton $ sink $ EventIO $ withNativeFileChooser
+    [C.pure| int { Fl_Native_File_Chooser::BROWSE_MULTI_FILE } |]
+    \picker -> do
+      withUTF8 (getLocAttr "load") \ctitle ->
+        [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* ctitle)); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
+      when (result == 0) do
+        n <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->count() } |]
+        fs <- forM [0 .. n - 1] \i -> do
+          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename($(int i)) } |]
+          peekUTF8 cstr
+        sink $ EventOnyx $ forkSearch fs
+  let clearButton = widgets.flwClearButton
+  withUTF8 (getLocAttr "clear") \clbl -> do
+    [C.block| void { $(Fl_Button* clearButton)->copy_label($(char* clbl)); } |]
+  setCallback clearButton $ sink $ EventIO $ void clearFiles
   setDndBoxCallback dndBox (sink . EventOnyx . forkSearch)
-  [C.block| void { $(Fl_Group* group)->end(); } |]
-  return (group, void clearFiles)
+  return $ void clearFiles
 
 -- | Parse the text from an FLTK DnD paste event into file paths.
 -- Linux X11 uses URL encoding: file:///path/to/file with percent-encoded non-ASCII.

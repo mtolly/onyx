@@ -1,0 +1,62 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+comment {Reusable "drop files here" panel: a count label, a tree of loaded files,
+add/clear buttons, and an invisible drag-and-drop overlay sitting on top of
+the tree.
+
+Place it in another .fl with an Fl_Group node whose class is FileLoadPanel,
+plus a global decl including this header. Behaviour is attached from Haskell
+by Onyx.GUI.Core.fileLoadPanel.
+
+The labels here are plain English placeholders so the editor stays readable.
+They are not {keys}: each host tab supplies its own wording from a different
+Fluent message, so Haskell overwrites all three at wire-up time.
+
+The tree is the resizable child, so hosts can place this at any size and the
+label and buttons keep their heights while the tree absorbs the slack.
+
+Designed at 900x525, the size a Misc tab places it at, so that the common
+case needs no scaling at all. Fl_Group::resize scales proportionally, which
+would otherwise widen the gap between the two buttons along with everything
+else; at other sizes that is what happens, and it is only cosmetic.} {in_source not_in_header
+}
+
+decl {\#include "hs_tree.h"} {public global
+}
+
+decl {\#include "hs_dnd_box.h"} {public global
+}
+
+widget_class FileLoadPanel {open
+  xywh {0 0 900 525} box FLAT_BOX
+} {
+  Fl_Box countLabel {
+    label {0 files}
+    xywh {10 10 880 25}
+  }
+  Fl_Tree tree {
+    xywh {10 45 880 425} resizable
+    class HsTree
+  }
+  Fl_Button addButton {
+    label Add
+    xywh {10 480 435 35}
+  }
+  Fl_Button clearButton {
+    label Clear
+    xywh {455 480 435 35}
+  }
+  Fl_Box dndOverlay {
+    xywh {10 45 880 425}
+    class HsDndBox
+  }
+  code {// FLUID builds the children at their design coordinates, which assume this
+// group sits at the origin at its design size. Restate that, then resize
+// into the frame we were actually constructed with, so that Fl_Group::resize
+// maps the children across. Keep the numbers below in step with the xywh of
+// the widget_class itself.
+Fl_Widget::resize(0, 0, 900, 525);
+resize(X, Y, W, H);} {}
+}

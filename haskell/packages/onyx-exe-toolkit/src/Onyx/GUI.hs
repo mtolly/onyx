@@ -3245,11 +3245,19 @@ launchMisc sink makeMenuBar = do
           , miscPageMilo )
         , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
           , miscPageHardcodeSongCache )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabGH3Cache } |]
-          , miscPageGH3SongCache )
         , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabWoRCache } |]
           , miscPageWoRSongCache )
         ]
+      -- fully laid out in the .fl, so it takes its widgets rather than a rect
+      tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabGH3Cache } |]
+      gh3CacheTab = GH3CacheTab
+        { gh3Files       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Files } |]
+        , gh3Button360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Button360 } |]
+        , gh3ButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3ButtonPS3 } |]
+        , gh3ButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3ButtonRPCS3 } |]
+        }
+      -- every tab that must be locked out while a task is running
+      allFunctionTabs = map fst functionTabs <> [tabGH3Cache]
 
   -- read the layout's own coordinates before adaptWindow rewrites them
   windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
@@ -3265,12 +3273,13 @@ launchMisc sink makeMenuBar = do
   (startTasks, cancelTasks) <- inGroup tabTask do
     let cbStart = do
           [C.block| void { $(Fl_Group* tabTask)->activate(); } |]
-          forM_ functionTabs \(t, _) -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
           [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tabTask)); } |]
           updateTabsColor tabs
-        cbEnd = forM_ functionTabs \(t, _) -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+        cbEnd = forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
     taskOutputPage tabRect tabTask sink cbStart cbEnd
   forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
+  miscPageGH3SongCache sink gh3CacheTab startTasks
 
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs

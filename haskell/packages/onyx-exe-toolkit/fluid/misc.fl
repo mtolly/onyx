@@ -21,6 +21,9 @@ Colours are packed fl_rgb_color values:
   3017652992 = taskColor        rgb(179,221,187)} {in_source not_in_header
 }
 
+decl {\#include "file_load_panel.h"} {public global
+}
+
 class MiscWindow {open
 } {
   Function {MiscWindow()} {open
@@ -57,9 +60,23 @@ class MiscWindow {open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
         } {}
         Fl_Group tabGH3Cache {
-          label {{misc-tab-gh3-cache}}
+          label {{misc-tab-gh3-cache}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
-        } {}
+        } {
+          Fl_Group gh3Files {
+            xywh {0 25 900 525} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button gh3Button360 {
+            xywh {10 555 288 35} color 3017652992
+          }
+          Fl_Button gh3ButtonPS3 {
+            xywh {308 555 283 35} color 3017652992
+          }
+          Fl_Button gh3ButtonRPCS3 {
+            xywh {601 555 289 35} color 3017652992
+          }
+        }
         Fl_Group tabWoRCache {
           label {{misc-tab-ghwor-cache}}
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
