@@ -11,8 +11,8 @@ class HsTree : public Fl_Tree {
   HsTreeHandleCallback handle_cb;
   void* handle_data;
 public:
-  HsTree(int X, int Y, int W, int H)
-    : Fl_Tree(X, Y, W, H),
+  HsTree(int X, int Y, int W, int H, const char* L = 0)
+    : Fl_Tree(X, Y, W, H, L),
       handle_cb(nullptr), handle_data(nullptr) {}
   void set_handle_callback(HsTreeHandleCallback cb, void* data) {
     handle_cb = cb;

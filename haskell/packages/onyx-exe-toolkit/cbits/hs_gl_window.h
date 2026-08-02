@@ -9,7 +9,7 @@ class HsGlWindow : public Fl_Gl_Window {
   HsDrawCallback draw_cb;
   void* draw_data;
 public:
-  HsGlWindow(int x, int y, int w, int h);
+  HsGlWindow(int x, int y, int w, int h, const char* l = 0);
   void set_draw_callback(HsDrawCallback cb, void* data);
   void draw() override;
 };

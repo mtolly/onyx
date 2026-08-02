@@ -103,6 +103,8 @@ import           Onyx.Genre                        (FullGenre (..),
 import           Onyx.GUI.Batch
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
+import           Onyx.GUI.Fluid                    (adaptWindow, lockMinimumSize,
+                                                    menuBarHeight)
 import           Onyx.GUI.Misc
 import           Onyx.GUI.Song
 import           Onyx.GUI.Util                     (askFolder, checkValue,
@@ -207,6 +209,8 @@ C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
+-- FLUID-generated, see fluid/multiple_songs.fl and Setup.hs
+C.include "multiple_songs.h"
 
 promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -300,35 +304,23 @@ multipleSongsWindow
   -> [Importable OnyxInner]
   -> IO ()
 multipleSongsWindow sink makeMenuBar hasAudio imps = do
-  let windowWidth = Width 500
-      windowHeight = Height 400
-      windowSize = Size windowWidth windowHeight
-  window <- withUTF8 (l10n "song-list-title") \s -> withSize windowSize \w h ->
-    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-      (songsArea, trimClock 10 0 0 0 -> buttonsArea) =
-        chopBottom 40 $ trimClock 10 10 10 10 windowRect
-      [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
+  -- Layout lives in fluid/multiple_songs.fl; see Onyx.GUI.Fluid. Everything
+  -- built here is in the layout's own (unstretched, menu-bar-less)
+  -- coordinates, and adaptWindow scales and shifts it along with the rest.
+  ui <- [C.exp| void* { new MultipleSongsWindow() } |]
+  let window       = [C.pure| Fl_Window* { ((MultipleSongsWindow*)$(void* ui))->window } |]
+      scroll       = [C.pure| Fl_Scroll* { ((MultipleSongsWindow*)$(void* ui))->scroll } |]
+      pack         = [C.pure| Fl_Pack*   { ((MultipleSongsWindow*)$(void* ui))->pack } |]
+      selectButton = [C.pure| Fl_Button* { ((MultipleSongsWindow*)$(void* ui))->selectButton } |]
+      openButton   = [C.pure| Fl_Button* { ((MultipleSongsWindow*)$(void* ui))->openButton } |]
 
-  scroll <- withRect songsArea \sx sy sw sh ->
-    [C.exp| Fl_Scroll* { new Fl_Scroll($(int sx), $(int sy), $(int sw), $(int sh)) } |]
-  let barSize = 15 :: CInt
-      -- scaled, so it lines up with the space reserved for it below
-      barSizeScaled = stretchX barSize
+  -- scrollbar_size is an internal property rather than a widget rectangle, so
+  -- adaptWindow can't scale it; it has to match the gap the layout leaves
+  let barSizeScaled = stretchX 15
   -- NOTE: skipping custom resize handler for scrollbar width adjustment
-  [C.block| void {
-    Fl_Scroll* s = $(Fl_Scroll* scroll);
-    s->box(FL_ENGRAVED_BOX);
-    s->type(Fl_Scroll::VERTICAL_ALWAYS);
-    s->scrollbar_size($(int barSizeScaled));
-    s->color(fl_rgb_color(255, 255, 255));
-  } |]
-  let (songsInnerArea, _) = chopRight (fromIntegral barSize) songsArea
-  pack <- withRect songsInnerArea \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  [C.block| void { $(Fl_Scroll* scroll)->scrollbar_size($(int barSizeScaled)); } |]
+
+  [C.block| void { $(Fl_Pack* pack)->begin(); } |]
   checks <- forM imps \imp -> do
     -- TODO ampersands in the label text here turn into "underline next character".
     -- need to figure out how to escape
@@ -339,9 +331,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
           , ("has-artist", vBool $ isJust imp.impArtist)
           , ("is-2x", vBool imp.imp2x)
           ]
-    check <- withRect (Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25)))
-      \cx cy cw ch ->
-        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    check <- [C.exp| Fl_Check_Button* { new Fl_Check_Button(0, 0, 400, 25) } |]
     withUTF8 entry \clabel ->
       [C.block| void {
         $(Fl_Check_Button* check)->copy_label($(char* clabel));
@@ -349,12 +339,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
       } |]
     return check
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
-  [C.block| void { $(Fl_Scroll* scroll)->end(); } |]
 
-  selectButton <- withRect areaSelect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  openButton <- withRect areaOpen \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
   let updateButtons = do
         bools <- mapM checkValue checks
         let newValue = not $ and bools
@@ -387,13 +372,12 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
     [C.block| void { $(Fl_Window* window)->hide(); } |]
   forM_ checks \check -> setCallback check updateButtons
 
-  let scrollAsGroup = [C.exp| Fl_Group* { (Fl_Group*)$(Fl_Scroll* scroll) } |]
-  scrollGroup <- scrollAsGroup
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Group* scrollGroup));
-  } |]
-  setSizeRange window windowSize
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    [C.block| void { $(Fl_Window* window)->begin(); } |]
+    _ <- makeMenuBar (Width 500) True
+    [C.block| void { $(Fl_Window* window)->end(); } |]
+  lockMinimumSize window
   [C.block| void {
     $(Fl_Window* window)->show();
   } |]
@@ -4458,7 +4442,7 @@ launchGUI initSongs = withAL \hasAudio -> do
     $(Fl_Window* termWindow)->color($(Fl_Color globalLogColor));
   } |]
   let makeMenuBar (Width fullWidth) includeConsole = do
-        let menuHeight = if macOS then 0 else 30
+        let menuHeight = menuBarHeight
             menuX = 0
             menuY = 0
             menuWidth = stretchX fullWidth

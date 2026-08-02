@@ -15,8 +15,8 @@ class HsScrubber : public Fl_Slider {
   HsScrubberHandleCallback handle_cb;
   void* handle_data;
 public:
-  HsScrubber(int X, int Y, int W, int H)
-    : Fl_Slider(X, Y, W, H),
+  HsScrubber(int X, int Y, int W, int H, const char* L = 0)
+    : Fl_Slider(X, Y, W, H, L),
       filled_color_(FL_CYAN), empty_color_(FL_DARK3),
       song_length_(0),
       handle_cb(nullptr), handle_data(nullptr) {

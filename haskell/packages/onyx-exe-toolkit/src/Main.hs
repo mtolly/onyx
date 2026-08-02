@@ -14,6 +14,7 @@ import           Data.Functor                 ((<&>))
 import           Data.Maybe                   (fromMaybe)
 import           Onyx.CommandLine             (commandLine)
 import           Onyx.GUI                     (launchGUI)
+import           Onyx.GUI.Fluid               (setGlobalL)
 import           Onyx.Localization
 import           Onyx.Preferences             (Preferences (prefLanguageCode),
                                                readPreferences)
@@ -41,6 +42,9 @@ main = do
     Left _      -> Nothing
   loc <- getResourcesPath "localization" >>= \root -> loadL root code
   let ?loc = loc
+  -- FLUID-generated windows localize their text from C++, which can't see the
+  -- implicit parameter
+  setGlobalL loc
 
   argv <- getArgs
   case argv of

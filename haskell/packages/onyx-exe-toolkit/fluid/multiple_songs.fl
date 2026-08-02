@@ -1,0 +1,40 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+i18n_type 1
+i18n_include {"onyx_l10n.h"}
+i18n_conditional {}
+i18n_gnu_function {onyx_l10n}
+i18n_gnu_static_function {onyx_l10n_noop}
+comment {Song list shown when an import produces more than one song.
+
+Authored at natural English width with no menu bar; Onyx.GUI.Fluid.adaptWindow
+applies the per-language horizontal stretch and reserves the menu bar space.
+The song rows inside `pack` are created from Haskell, one per import.} {in_source not_in_header
+}
+
+class MultipleSongsWindow {open
+} {
+  Function {MultipleSongsWindow()} {open
+  } {
+    Fl_Window window {
+      label {{song-list-title}} open
+      xywh {100 100 500 400} type Double resizable visible
+    } {
+      Fl_Scroll scroll {open
+        xywh {10 10 480 340} type VERTICAL_ALWAYS box ENGRAVED_BOX color 255 resizable
+      } {
+        Fl_Pack pack {open
+          xywh {10 10 465 340}
+        } {}
+      }
+      Fl_Button selectButton {
+        xywh {10 360 240 30}
+      }
+      Fl_Button openButton {
+        xywh {260 360 230 30}
+      }
+    }
+  }
+}
