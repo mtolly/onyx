@@ -47,13 +47,93 @@ class MiscWindow {open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
         } {}
         Fl_Group tabLipsync {
-          label {{misc-tab-lipsync}}
+          label {{misc-tab-lipsync}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
-        } {}
+        } {
+          Fl_Group lsMidiFile {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Round_Button lsLang0 {
+            label English
+            xywh {10 77 201 35}
+          }
+          Fl_Round_Button lsLang1 {
+            label German
+            xywh {211 77 201 35}
+          }
+          Fl_Round_Button lsLang2 {
+            label Spanish
+            xywh {412 77 203 35}
+          }
+          Fl_Counter lsTransition {
+            label {Transition (ms)}
+            xywh {725 77 165 35} align 4 labelsize 13
+          }
+          Fl_Button lsMakeVoc {
+            xywh {10 124 880 35} color 3017652992
+          }
+          Fl_Button lsMakeMilo {
+            xywh {10 179 287 35} color 3017652992
+          }
+          Fl_Button lsUpdateMilo {
+            xywh {308 179 282 35} color 3017652992
+          }
+          Fl_Button lsRawLipsync {
+            xywh {601 179 289 35} color 3017652992
+          }
+          Fl_Button lsTracksRB3 {
+            xywh {10 234 880 35} color 3017652992
+          }
+          Fl_Button lsTracksTBRB {
+            xywh {10 289 880 35} color 3017652992
+          }
+          Fl_Box lsFill {
+            xywh {10 329 880 266} resizable
+          }
+        }
         Fl_Group tabDryVox {
-          label {{misc-tab-dry-vox}}
+          label {{misc-tab-dry-vox}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
-        } {}
+        } {
+          Fl_Group dvMidiFile {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Round_Button dvVox0 {
+            label {PART VOCALS}
+            xywh {10 77 176 35}
+          }
+          Fl_Round_Button dvVox1 {
+            label {HARM1}
+            xywh {186 77 176 35}
+          }
+          Fl_Round_Button dvVox2 {
+            label {HARM2}
+            xywh {362 77 176 35}
+          }
+          Fl_Round_Button dvVox3 {
+            label {HARM3}
+            xywh {538 77 176 35}
+          }
+          Fl_Round_Button dvVox4 {
+            label {(blank)}
+            xywh {714 77 176 35}
+          }
+          Fl_Button dvSine {
+            xywh {10 119 880 35} color 3017652992
+          }
+          Fl_Group dvAudioFile {
+            xywh {0 164 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Button dvClipped {
+            xywh {10 219 880 35} color 3017652992
+          }
+          Fl_Box dvFill {
+            xywh {10 259 880 336} resizable
+          }
+        }
         Fl_Group tabMilo {
           label {{misc-tab-milo}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide

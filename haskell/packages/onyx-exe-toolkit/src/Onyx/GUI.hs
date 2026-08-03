@@ -3200,15 +3200,41 @@ launchMisc sink makeMenuBar = do
           , miscPageMIDI )
         , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMOGG } |]
           , miscPageMOGG )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabLipsync } |]
-          , miscPageLipsync )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabDryVox } |]
-          , miscPageDryVox )
         ]
       tabMilo = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
       miloTab = MiloTabWidgets
         { mtExtract = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloExtract } |]
         , mtRepack  = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloRepack } |]
+        }
+      tabLipsync = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabLipsync } |]
+      lipsyncTab = LipsyncTabWidgets
+        { lsMidiFile   = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->lsMidiFile } |]
+        , lsLanguages  =
+          [ [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang0 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang1 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang2 } |]
+          ]
+        , lsTransition = [C.pure| Fl_Counter*    { ((MiscWindow*)$(void* ui))->lsTransition } |]
+        , lsMakeVoc    = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsMakeVoc } |]
+        , lsMakeMilo   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsMakeMilo } |]
+        , lsUpdateMilo = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsUpdateMilo } |]
+        , lsRawLipsync = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsRawLipsync } |]
+        , lsTracksRB3  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsTracksRB3 } |]
+        , lsTracksTBRB = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsTracksTBRB } |]
+        }
+      tabDryVox = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabDryVox } |]
+      dryVoxTab = DryVoxTabWidgets
+        { dvMidiFile    = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->dvMidiFile } |]
+        , dvVocalTracks =
+          [ [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox0 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox1 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox2 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox3 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox4 } |]
+          ]
+        , dvSine        = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->dvSine } |]
+        , dvAudioFile   = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->dvAudioFile } |]
+        , dvClipped     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->dvClipped } |]
         }
       tabRB3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
       rb3CacheTab = RB3CacheTabWidgets
@@ -3234,7 +3260,8 @@ launchMisc sink makeMenuBar = do
         }
       -- every tab that must be locked out while a task is running
       allFunctionTabs = map fst functionTabs
-        <> [tabMilo, tabRB3Cache, tabGH3Cache, tabWoRCache]
+        <> [ tabLipsync, tabDryVox, tabMilo
+           , tabRB3Cache, tabGH3Cache, tabWoRCache ]
 
   -- read the layout's own coordinates before adaptWindow rewrites them
   windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
@@ -3256,6 +3283,8 @@ launchMisc sink makeMenuBar = do
         cbEnd = forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
     taskOutputPage tabRect tabTask sink cbStart cbEnd
   forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
+  miscPageLipsync           sink lipsyncTab  startTasks
+  miscPageDryVox            sink dryVoxTab   startTasks
   miscPageMilo              sink miloTab     startTasks
   miscPageHardcodeSongCache sink rb3CacheTab startTasks
   miscPageGH3SongCache      sink gh3CacheTab startTasks

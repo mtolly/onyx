@@ -406,14 +406,24 @@ horizRadio' :: (?loc :: L) => Rectangle -> Maybe (IO ()) -> [(T.Text, a, Bool)] 
 horizRadio' _    _  []   = error "horizRadio: empty option list"
 horizRadio' rect cb opts = do
   let rects = splitHorizN (fromIntegral $ length opts) rect
-  btns <- forM (zip opts rects) \((label, _, b), rectButton) -> do
-    btn <- withRect rectButton \bx by bw bh ->
-      [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  btns <- forM rects \rectButton -> withRect rectButton \bx by bw bh ->
+    [C.exp| Fl_Round_Button* { new Fl_Round_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  horizRadioWidgets btns cb opts
+
+-- | Turn a row of round buttons that a FLUID layout already placed into a
+-- radio group: label them, set the initial selection, and make them mutually
+-- exclusive. There must be exactly one button per option.
+horizRadioWidgets
+  :: [Ptr Fl_Round_Button] -> Maybe (IO ()) -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadioWidgets _ _ [] = error "horizRadio: empty option list"
+horizRadioWidgets btns cb opts = do
+  when (length btns /= length opts)
+    $ error "horizRadio: wrong number of buttons for the option list"
+  forM_ (zip btns opts) \(btn, (label, _, b)) -> do
     withUTF8 label \clabel ->
       [C.block| void { $(Fl_Round_Button* btn)->copy_label($(char* clabel)); } |]
     let bval = if b then 1 else 0 :: CInt
     [C.block| void { $(Fl_Round_Button* btn)->value($(int bval)); } |]
-    return btn
   forM_ btns \opt -> do
     setCallback opt do
       forM_ btns \opt' -> do

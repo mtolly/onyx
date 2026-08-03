@@ -15,7 +15,6 @@ import           Control.Concurrent           (modifyMVar_, newMVar, readMVar)
 import           Control.Monad                (forM, guard, join, when)
 import           Data.Bifunctor               (first)
 import           Data.Binary.Put              (runPut)
-import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Functor                 ((<&>))
 import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
@@ -136,31 +135,28 @@ miscPageMilo sink tab startTasks = do
               return [fout]
             in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
 
+-- | Widgets for the lipsync tab, laid out in fluid/misc.fl.
+data LipsyncTabWidgets = LipsyncTabWidgets
+  { lsMidiFile    :: Ptr FilePickerRow
+  , lsLanguages   :: [Ptr Fl_Round_Button] -- ^ one per vowel-set option
+  , lsTransition  :: Ptr Fl_Counter
+  , lsMakeVoc     :: Ptr Fl_Button
+  , lsMakeMilo    :: Ptr Fl_Button
+  , lsUpdateMilo  :: Ptr Fl_Button
+  , lsRawLipsync  :: Ptr Fl_Button
+  , lsTracksRB3   :: Ptr Fl_Button
+  , lsTracksTBRB  :: Ptr Fl_Button
+  }
+
 miscPageLipsync
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> LipsyncTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageLipsync sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+miscPageLipsync sink tab startTasks = do
+  pickedFile <- filePickerRow tab.lsMidiFile (l10n "label-midi-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -169,24 +165,15 @@ miscPageLipsync sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
-    getVowels <- horizRadio langArea
+          peekUTF8 cstr >>= useResult
+  (getVowels, getTransition) <- do
+    getVowels <- horizRadioWidgets tab.lsLanguages Nothing
       [ (l10n "language-english", englishSyllables, True)
       , (l10n "language-german", germanVowels, False)
       , (l10n "language-spanish", spanishVowels, False)
       ]
-    counter <- withRect transArea \cx cy cw ch ->
-      [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    let counter = tab.lsTransition
     [C.block| void {
-      $(Fl_Counter* counter)->labelsize(13);
-      $(Fl_Counter* counter)->align(FL_ALIGN_LEFT);
       $(Fl_Counter* counter)->step(1);
       $(Fl_Counter* counter)->lstep(5);
       $(Fl_Counter* counter)->minimum(0);
@@ -216,12 +203,10 @@ miscPageLipsync sink rect tab startTasks = do
             fout <- peekUTF8 cstr
             go fout
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  do
+    let btn = tab.lsMakeVoc
     withUTF8 (l10n "misc-button-make-voc") \clbl ->
       [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
@@ -276,12 +261,11 @@ miscPageLipsync sink rect tab startTasks = do
           else do
             lg "Updating milo from vocal chart tracks."
             return False
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let [trimClock 0 5 0 0 -> makeArea, trimClock 0 5 0 5 -> updateArea, trimClock 0 0 0 5 -> rawArea] = splitHorizN 3 rect'
-    makeButton <- withRect makeArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  do
+    let makeButton   = tab.lsMakeMilo
+        updateButton = tab.lsUpdateMilo
+        rawButton    = tab.lsRawLipsync
     setLabelTooltip (l10nFull "misc-button-make-milo" []) makeButton
-    [C.block| void { $(Fl_Button* makeButton)->color($(Fl_Color taskColor)); } |]
     setCallback makeButton $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
@@ -322,10 +306,7 @@ miscPageLipsync sink rect tab startTasks = do
               _                             -> MagmaLipsync1 (fromMaybe empty lip1)
           return [milo]
         in startTasks [(T.unpack $ l10nArgs "misc-task-make-milo" [("path", vString $ T.pack milo)], task)]
-    updateButton <- withRect updateArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     setLabelTooltip (l10nFull "misc-button-update-milo" []) updateButton
-    [C.block| void { $(Fl_Button* updateButton)->color($(Fl_Color taskColor)); } |]
     setCallback updateButton $ sink $ EventIO do
       input <- pickedFile
       vowels <- getVowels
@@ -372,10 +353,7 @@ miscPageLipsync sink rect tab startTasks = do
           stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
           return [milo]
         in startTasks [(T.unpack $ l10nArgs "misc-task-update-milo" [("path", vString $ T.pack milo)], task)]
-    rawButton <- withRect rawArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     setLabelTooltip (l10nFull "misc-button-create-lipsync" []) rawButton
-    [C.block| void { $(Fl_Button* rawButton)->color($(Fl_Color taskColor)); } |]
     setCallback rawButton $ sink $ EventIO do
       input <- pickedFile
       askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
@@ -447,50 +425,35 @@ miscPageLipsync sink rect tab startTasks = do
             return [input]
           in startTasks [(T.unpack $ l10nArgs "misc-task-vocal-to-lipsync" [("path", vString $ T.pack input)], task)]
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  do
+    let btn = tab.lsTracksRB3
     setLabelTooltip (l10nFull "misc-button-vocal-lipsync-rb3" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  do
+    let btn = tab.lsTracksTBRB
     setLabelTooltip (l10nFull "misc-button-vocal-lipsync-tbrb" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+
+-- | Widgets for the dry vox tab, laid out in fluid/misc.fl.
+data DryVoxTabWidgets = DryVoxTabWidgets
+  { dvMidiFile     :: Ptr FilePickerRow
+  , dvVocalTracks  :: [Ptr Fl_Round_Button] -- ^ one per vocal track option
+  , dvSine         :: Ptr Fl_Button
+  , dvAudioFile    :: Ptr FilePickerRow
+  , dvClipped      :: Ptr Fl_Button
+  }
 
 miscPageDryVox
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> DryVoxTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageDryVox sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+miscPageDryVox sink tab startTasks = do
+  pickedFile <- filePickerRow tab.dvMidiFile (l10n "label-midi-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -499,14 +462,9 @@ miscPageDryVox sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
-    fn <- horizRadio rect'
+          peekUTF8 cstr >>= useResult
+  getVocalTrack <- do
+    fn <- horizRadioWidgets tab.dvVocalTracks Nothing
       [ ("PART VOCALS", Just Nothing, True)
       , ("[PART] HARM1", Just $ Just Vocal1, False)
       , ("[PART] HARM2", Just $ Just Vocal2, False)
@@ -526,14 +484,9 @@ miscPageDryVox sink rect tab startTasks = do
         Just (Just Vocal1) -> "-harm1"
         Just (Just Vocal2) -> "-harm2"
         Just (Just Vocal3) -> "-harm3"
-  let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-        btn <- withRect rect' \bx by bw bh ->
-          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  let dryvoxButton btn label fn = do
         withUTF8 (label :: T.Text) \clbl ->
-          [C.block| void {
-            $(Fl_Button* btn)->copy_label($(char* clbl));
-            $(Fl_Button* btn)->color($(Fl_Color taskColor));
-          } |]
+          [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
         setCallback btn $ sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
@@ -557,22 +510,9 @@ miscPageDryVox sink rect tab startTasks = do
                   runAudio src f
                   return [f]
                 in startTasks [(T.unpack $ l10nArgs "misc-task-dryvox" [("name", vString label), ("path", vString $ T.pack input)], task)]
-  dryvoxButton (l10n "misc-button-dryvox-sine") $ return . sineDryVox
-  pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-audio-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+  dryvoxButton tab.dvSine (l10n "misc-button-dryvox-sine") $ return . sineDryVox
+  pickedAudio <- filePickerRow tab.dvAudioFile (l10n "label-audio-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-dryvox-source-audio") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -581,20 +521,11 @@ miscPageDryVox sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  dryvoxButton (l10n "misc-button-dryvox-clipped") \trk -> do
+          peekUTF8 cstr >>= useResult
+  dryvoxButton tab.dvClipped (l10n "misc-button-dryvox-clipped") \trk -> do
     audio <- stackIO pickedAudio
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
 
 -- | The widgets of a FLUID @CacheTab@: a file-load panel over a row of three
 -- task buttons. Shared by the GH3 and GH:WoR cache tabs, which differ only in
