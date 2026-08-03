@@ -676,6 +676,11 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
 
+-- | The text field of a FLUID @FilePickerRow@, for the few callers that need
+-- to hang their own callback on it rather than just read it.
+filePickerInput :: Ptr FilePickerRow -> Ptr Fl_Input
+filePickerInput row = [C.pure| Fl_Input* { $(FilePickerRow* row)->input } |]
+
 -- | Wire up a FLUID @FilePickerRow@: set the label shown to the left of the
 -- text field, hook up the browse button, and hand back a read of the field.
 -- The row's geometry lives in the layout that placed it.

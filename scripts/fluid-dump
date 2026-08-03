@@ -1,0 +1,110 @@
+#!/bin/bash
+#
+# Print the real, laid-out widget geometry of one or more Misc window tabs.
+#
+#   scripts/fluid-dump 2 3        # Lipsync and Dry vox
+#
+# Why this exists: when migrating hand-written FLTK layout into a .fl file, the
+# coordinates you need are the ones on screen, not the ones in the source. Any
+# page built inside an Fl_Pack has had its rows resized, and children of a
+# `padded` group get scaled proportionally against that group's invisible
+# resizable box. Deriving those numbers by hand is a good way to be seven
+# pixels wrong; reading them off a running app is not.
+#
+# It works by temporarily patching Onyx.GUI to (a) open the Tools window at
+# startup and (b) dump the widget tree of the requested tab, then rebuilding.
+# GUI.hs is restored on exit, including on failure.
+#
+# The dump runs from an Fl::add_timeout rather than straight after show():
+# Fl_Pack does its layout in draw(), so dumping any earlier reports the
+# pre-layout coordinates and quietly tells you the wrong thing.
+#
+# Assumes the insertion points in launchGUI/launchMisc still look the way they
+# did when this was written; if the patch stops applying, the greps below fail
+# loudly rather than building something misleading.
+
+set -euo pipefail
+
+HERE=$(cd "$(dirname "$0")" && pwd -P)
+ROOT=$HERE/../haskell
+GUI=$ROOT/packages/onyx-exe-toolkit/src/Onyx/GUI.hs
+
+if [ $# -eq 0 ]; then
+  echo "usage: $(basename "$0") <tab-index>..." >&2
+  echo "  Misc tabs are 0-based in .fl order: MIDI, MOGG, Lipsync, Dry vox," >&2
+  echo "  .milo, RB3 cache, GH3 cache, GH:WoR cache, Task" >&2
+  exit 2
+fi
+
+BAK=$(mktemp)
+cp "$GUI" "$BAK"
+trap 'cp "$BAK" "$GUI"; rm -f "$BAK"' EXIT
+
+python3 - "$GUI" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+
+verbatim = '''C.include "<typeinfo>"
+C.include "<cstdio>"
+
+C.verbatim "\\n\\
+static void onyx_dump(Fl_Widget* w, int d) {\\n\\
+  for (int i = 0; i < d; i++) fprintf(stderr, \\"  \\");\\n\\
+  fprintf(stderr, \\"%-20s x=%4d y=%4d w=%4d h=%4d  label=%s\\\\n\\",\\n\\
+    typeid(*w).name(), w->x(), w->y(), w->w(), w->h(), w->label() ? w->label() : \\"\\");\\n\\
+  Fl_Group* g = w->as_group();\\n\\
+  if (g) for (int i = 0; i < g->children(); i++) onyx_dump(g->child(i), d + 1);\\n\\
+}\\n\\
+static Fl_Widget* onyx_dump_target = 0;\\n\\
+static void onyx_dump_cb(void*) {\\n\\
+  if (onyx_dump_target) onyx_dump(onyx_dump_target, 0);\\n\\
+  fflush(stderr);\\n\\
+  exit(0);\\n\\
+}\\n"
+'''
+
+call = '''  [C.block| void { $(Fl_Window* window)->show(); } |]
+  __dumpTab <- System.Environment.lookupEnv "ONYX_DUMP"
+  forM_ __dumpTab \\__s -> do
+    let __n = read __s :: CInt
+    [C.block| void {
+      Fl_Tabs* t = (Fl_Tabs*)$(Fl_Tabs* tabs);
+      t->value(t->child($(int __n)));
+      onyx_dump_target = t->child($(int __n));
+      Fl::add_timeout(1.5, onyx_dump_cb, 0);
+    } |]
+
+-- _watchSong'''
+
+edits = [
+    ('C.include "misc.h"', 'C.include "misc.h"\n' + verbatim),
+    ('  [C.block| void { $(Fl_Window* window)->show(); } |]\n\n-- _watchSong', call),
+    ('\nimport           System.Info',
+     '\nimport qualified System.Environment\nimport           System.Info'),
+    ('\n  -- Support drag and drop onto mac app icon',
+     '\n  launchMisc sink makeMenuBar\n\n  -- Support drag and drop onto mac app icon'),
+]
+for old, new in edits:
+    if old not in s:
+        sys.exit("fluid-dump: patch point not found, GUI.hs has moved on:\n  %s" % old.strip()[:70])
+    s = s.replace(old, new, 1)
+open(p, 'w').write(s)
+PYEOF
+
+cd "$ROOT"
+# A failed build must stop us: otherwise the app that gets run below is a stale
+# binary from an earlier build, and every result after that is a quiet lie.
+BUILD_LOG=$(mktemp)
+if ! ./stack-local build >"$BUILD_LOG" 2>&1; then
+  echo "build failed:" >&2
+  grep -E "error" -A 6 "$BUILD_LOG" | head -40 >&2
+  rm -f "$BUILD_LOG"
+  exit 1
+fi
+rm -f "$BUILD_LOG"
+
+for tab in "$@"; do
+  echo "===== tab $tab ====="
+  ONYX_DUMP=$tab timeout 25 ./stack-local exec onyx 2>&1 | grep -E "x=" || true
+done

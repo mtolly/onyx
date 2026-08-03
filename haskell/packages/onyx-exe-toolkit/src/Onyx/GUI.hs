@@ -2798,19 +2798,27 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
+-- | Widgets for the MOGG/VGS/FSB tab, laid out in fluid/misc.fl.
+data MoggTabWidgets = MoggTabWidgets
+  { mgFiles   :: Ptr FileLoadPanel
+  , mgMogg    :: Ptr Fl_Button
+  , mgVgs     :: Ptr Fl_Button
+  , mgFsb3    :: Ptr Fl_Button
+  , mgFsb4    :: Ptr Fl_Button
+  }
+
 miscPageMOGG
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MoggTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMOGG sink rect tab startTasks = mdo
+miscPageMOGG sink tab startTasks = do
   loadedAudio <- newMVar []
-  let (filesRect, startRect) = chopBottom 95 rect
-      (startRect1, startRect2) = chopBottom 50 startRect
-      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
-      [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
+  let btnMogg = tab.mgMogg
+      btnVgs  = tab.mgVgs
+      btnFsb3 = tab.mgFsb3
+      btnFsb4 = tab.mgFsb4
       isSingleOgg = \case
         [aud] | aud.format == "Ogg Vorbis" -> Just aud
         _                                  -> Nothing
@@ -2837,7 +2845,7 @@ miscPageMOGG sink rect tab startTasks = mdo
               [C.block| void { $(Fl_Button* b)->deactivate(); } |]
             else forM_ [btnMogg, btnVgs, btnFsb3, btnFsb4] \b ->
               [C.block| void { $(Fl_Button* b)->activate(); } |]
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-audio" []) modifyAudio []
+  _ <- fileLoadPanel tab.mgFiles sink (l10nFull "file-type-audio" []) modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     \info -> let
       entry = T.pack info.path
@@ -2861,10 +2869,10 @@ miscPageMOGG sink rect tab startTasks = mdo
         ]
       in (entry, sublines)
 
-  let makeSaveAudioButton rect' filterStr defaultExt task' = do
-        btn <- withRect rect' \bx by bw bh ->
-          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+  let makeSaveAudioButton
+        :: Ptr Fl_Button -> String -> T.Text
+        -> ([AudioSpec] -> FilePath -> Onyx ()) -> IO ()
+      makeSaveAudioButton btn filterStr defaultExt task' = do
         setCallback btn $ sink $ EventIO do
           audio <- readMVar loadedAudio
           let title = l10nArgs "file-picker-save-multitrack-audio"
@@ -2876,9 +2884,8 @@ miscPageMOGG sink rect tab startTasks = mdo
               ext = map toLower $ takeExtension f
               f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
               in sink $ EventOnyx $ task' audio f'
-        return btn
 
-  btnMogg <- makeSaveAudioButton moggRect "*.mogg" "mogg" \audio f' ->
+  makeSaveAudioButton btnMogg "*.mogg" "mogg" \audio f' ->
     startTasks case isSingleOgg audio of
       Just aud -> [(T.unpack $ l10n "mogg-task-ogg", oggToMoggFiles aud.path f' >> return [f'])]
       Nothing  -> let
@@ -2895,7 +2902,7 @@ miscPageMOGG sink rect tab startTasks = mdo
           return [f']
         in [(T.unpack $ l10n "mogg-task-mogg", task)]
 
-  btnVgs <- makeSaveAudioButton vgsRect "*.vgs" "vgs" \audio f' ->
+  makeSaveAudioButton btnVgs "*.vgs" "vgs" \audio f' ->
     startTasks let
       task = do
         srcs <- mapM (buildSource' . Input . (.path)) audio
@@ -2903,7 +2910,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-vgs", task)]
 
-  btnFsb3 <- makeSaveAudioButton fsb3Rect "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb3 "*.fsb" "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb3" \tmp -> do
         wavs <- forM (zip [0..] audio) \(i, aud) -> do
@@ -2915,7 +2922,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb3", task)]
 
-  btnFsb4 <- makeSaveAudioButton fsb4Rect "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb4 "*.fsb" "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb4" \tmp -> do
         let wav = tmp </> "audio.wav"
@@ -2927,33 +2934,27 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb4", task)]
 
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+
+-- | Widgets for the MIDI stuff tab, laid out in fluid/misc.fl.
+data MidiTabWidgets = MidiTabWidgets
+  { mpMidiFile    :: Ptr FilePickerRow
+  , mpReduce      :: Ptr Fl_Button
+  , mpProKeys     :: Ptr Fl_Button
+  , mpReaper      :: Ptr Fl_Button
+  , mpChartToMidi :: Ptr Fl_Button
+  , mpBatch       :: Ptr Fl_Button
+  }
 
 miscPageMIDI
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MidiTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMIDI sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 120 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-or-chart") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+miscPageMIDI sink tab startTasks = do
+  let pathInput = filePickerInput tab.mpMidiFile
+  pickedFile <- filePickerRow tab.mpMidiFile (l10n "label-midi-or-chart")
+    \useResult -> sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker -> do
         withUTF8 (l10n "midi-load-dialog") \cs ->
@@ -2964,20 +2965,16 @@ miscPageMIDI sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: String) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-          [C.block| void { $(Fl_Input* input)->do_callback(); } |]
-    return (input, do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr)
+          peekUTF8 cstr >>= useResult
+          -- refreshes which of the buttons below are enabled
+          [C.block| void { $(Fl_Input* pathInput)->do_callback(); } |]
 
   midiButtons <- sequence
 
-    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-reduce") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    [ do
+      let btn = tab.mpReduce
+      withUTF8 (l10n "midi-button-reduce") \cs ->
+        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reduced-midi") "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
@@ -2991,10 +2988,10 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-reduce" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-prokeys") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn = tab.mpProKeys
+      withUTF8 (l10n "midi-button-prokeys") \cs ->
+        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         sink $ EventOnyx let
@@ -3005,10 +3002,10 @@ miscPageMIDI sink rect tab startTasks = do
           in startTasks [(T.unpack $ l10nArgs "midi-task-prokeys" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-reaper") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn = tab.mpReaper
+      withUTF8 (l10n "midi-button-reaper") \cs ->
+        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reaper") "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
@@ -3021,11 +3018,10 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-reaper" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
-      btn1 <- withRect rectLeft \bx by bw bh ->
-        withUTF8 (l10n "midi-button-chart-to-midi") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn1 = tab.mpChartToMidi
+      withUTF8 (l10n "midi-button-chart-to-midi") \cs ->
+        [C.block| void { $(Fl_Button* btn1)->copy_label($(char* cs)); } |]
       setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-midi") "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
@@ -3039,9 +3035,9 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-chart-to-midi" [("path", vString $ T.pack input)], task)]
 
       -- note, this button doesn't disable when path box is empty since it doesn't use it
-      btn2 <- withRect rectRight \bx by bw bh ->
-        withUTF8 (l10n "midi-button-batch") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
+      let btn2 = tab.mpBatch
+      withUTF8 (l10n "midi-button-batch") \cs ->
+        [C.block| void { $(Fl_Button* btn2)->copy_label($(char* cs)); } |]
       setCallback btn2 $ sink $ EventIO $ askFolder Nothing \dir ->
         sink $ EventOnyx let
           task = do
@@ -3064,11 +3060,6 @@ miscPageMIDI sink rect tab startTasks = do
   updatePathInput
   setCallback pathInput $ sink $ EventIO updatePathInput
   [C.block| void { $(Fl_Input* pathInput)->when(FL_WHEN_CHANGED); } |]
-
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
 
 -- | Widgets for the RB3 cache tab, laid out in fluid/misc.fl.
 data RB3CacheTabWidgets = RB3CacheTabWidgets
@@ -3195,16 +3186,27 @@ launchMisc sink makeMenuBar = do
   let window      = [C.pure| Fl_Window* { ((MiscWindow*)$(void* ui))->window } |]
       tabs        = [C.pure| Fl_Tabs*   { ((MiscWindow*)$(void* ui))->tabs } |]
       tabTask     = [C.pure| Fl_Group*  { ((MiscWindow*)$(void* ui))->tabTask } |]
-      functionTabs =
-        [ ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMIDI } |]
-          , miscPageMIDI )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMOGG } |]
-          , miscPageMOGG )
-        ]
       tabMilo = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
       miloTab = MiloTabWidgets
         { mtExtract = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloExtract } |]
         , mtRepack  = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloRepack } |]
+        }
+      tabMIDI = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMIDI } |]
+      midiTab = MidiTabWidgets
+        { mpMidiFile    = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->midiFile } |]
+        , mpReduce      = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiReduce } |]
+        , mpProKeys     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiProKeys } |]
+        , mpReaper      = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiReaper } |]
+        , mpChartToMidi = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiChartToMidi } |]
+        , mpBatch       = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiBatch } |]
+        }
+      tabMOGG = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMOGG } |]
+      moggTab = MoggTabWidgets
+        { mgFiles = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->moggFiles } |]
+        , mgMogg  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->moggCombine } |]
+        , mgVgs   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->vgsCombine } |]
+        , mgFsb3  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->fsb3Make } |]
+        , mgFsb4  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->fsb4Make } |]
         }
       tabLipsync = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabLipsync } |]
       lipsyncTab = LipsyncTabWidgets
@@ -3259,9 +3261,9 @@ launchMisc sink makeMenuBar = do
         , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonRPCS3 } |]
         }
       -- every tab that must be locked out while a task is running
-      allFunctionTabs = map fst functionTabs
-        <> [ tabLipsync, tabDryVox, tabMilo
-           , tabRB3Cache, tabGH3Cache, tabWoRCache ]
+      allFunctionTabs =
+        [ tabMIDI, tabMOGG, tabLipsync, tabDryVox, tabMilo
+        , tabRB3Cache, tabGH3Cache, tabWoRCache ]
 
   -- read the layout's own coordinates before adaptWindow rewrites them
   windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
@@ -3282,7 +3284,8 @@ launchMisc sink makeMenuBar = do
           updateTabsColor tabs
         cbEnd = forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
     taskOutputPage tabRect tabTask sink cbStart cbEnd
-  forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
+  miscPageMIDI              sink midiTab     startTasks
+  miscPageMOGG              sink moggTab     startTasks
   miscPageLipsync           sink lipsyncTab  startTasks
   miscPageDryVox            sink dryVoxTab   startTasks
   miscPageMilo              sink miloTab     startTasks

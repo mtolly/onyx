@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# Compare two fluid-probe screenshots and report how many pixels differ.
+#
+#   scripts/fluid-compare before_5.png after_5.png
+#
+# The two runs are separate processes, so the window manager may well have put
+# the window somewhere else the second time. Comparing at fixed offsets then
+# reports thousands of differing pixels that are really just the desktop
+# behind the window -- that happened twice during the Misc migration and looked
+# alarming both times. So each shot is aligned on its own window content first,
+# by finding the top-left of the tab body colour, and the crop is kept strictly
+# inside the window: a crop one row or column too large picks up the background
+# and reports a difference that isn't there.
+#
+# The anchor defaults to functionTabColor rgb(224,210,177), the Misc tab body.
+# Override for a window with different chrome:
+#
+#   FLUID_ANCHOR=724A7C scripts/fluid-compare a.png b.png   # globalLogColor
+
+set -euo pipefail
+
+if [ $# -ne 2 ]; then
+  echo "usage: $(basename "$0") <before.png> <after.png>" >&2
+  exit 2
+fi
+
+ANCHOR=${FLUID_ANCHOR:-E0D2B1}
+# how much of the window to compare, from the anchor; stays inside the frame
+CROP_W=${FLUID_CROP_W:-890}
+CROP_H=${FLUID_CROP_H:-555}
+
+origin() {
+  convert "$1" txt:- 2>/dev/null \
+    | awk -F'[,:]' -v c="#$ANCHOR" '$0 ~ c {print $1" "$2}' \
+    | awk 'NR==1 {mx=$1; my=$2}
+           {if ($1 < mx) mx=$1; if ($2 < my) my=$2}
+           END {if (NR == 0) exit 1; print mx, my}'
+}
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+for side in 1 2; do
+  eval "img=\$$side"
+  if ! read -r x y <<<"$(origin "$img")"; then
+    echo "no anchor colour #$ANCHOR found in $img" >&2
+    exit 1
+  fi
+  echo "  $(basename "$img"): window content at ($x,$y)"
+  convert "$img" -crop "${CROP_W}x${CROP_H}+$x+$y" +repage "$TMP/$side.png"
+done
+
+diff=$(compare -metric AE "$TMP/1.png" "$TMP/2.png" null: 2>&1 || true)
+echo "differing pixels: $diff"
+[ "$diff" = "0" ] || {
+  compare "$TMP/1.png" "$TMP/2.png" -compose src \
+    -highlight-color white -lowlight-color black "$TMP/mask.png" 2>/dev/null || true
+  echo "difference bounding box: $(convert "$TMP/mask.png" -format '%@' info:)"
+}

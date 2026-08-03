@@ -1,0 +1,85 @@
+#!/bin/bash
+#
+# Screenshot one or more Misc window tabs, for before/after comparison when
+# moving a tab's layout into a .fl file.
+#
+#   scripts/fluid-probe after 2 3          # -> $TMPDIR/.../after_2.png, after_3.png
+#   FLUID_PROBE_OUT=/tmp/shots scripts/fluid-probe before 2 3
+#
+# Typical use: run it once with the migration applied, once with it stashed,
+# then hand both to fluid-compare. Tabs are selected from $ONYX_TAB rather than
+# by name so a single build covers every tab.
+#
+# Onyx.GUI is patched temporarily to open the Tools window at startup and
+# select the requested tab, then restored on exit, including on failure.
+
+set -euo pipefail
+
+HERE=$(cd "$(dirname "$0")" && pwd -P)
+ROOT=$HERE/../haskell
+GUI=$ROOT/packages/onyx-exe-toolkit/src/Onyx/GUI.hs
+
+if [ $# -lt 2 ]; then
+  echo "usage: $(basename "$0") <name-prefix> <tab-index>..." >&2
+  exit 2
+fi
+PREFIX=$1; shift
+
+OUT=${FLUID_PROBE_OUT:-$(mktemp -d)}
+mkdir -p "$OUT"
+
+BAK=$(mktemp)
+cp "$GUI" "$BAK"
+trap 'cp "$BAK" "$GUI"; rm -f "$BAK"' EXIT
+
+python3 - "$GUI" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+
+select = '''  [C.block| void { $(Fl_Window* window)->show(); } |]
+  __probeTab <- System.Environment.lookupEnv "ONYX_TAB"
+  forM_ __probeTab \\__s -> do
+    let __n = read __s :: CInt
+    [C.block| void {
+      Fl_Tabs* t = (Fl_Tabs*)$(Fl_Tabs* tabs);
+      t->value(t->child($(int __n)));
+    } |]
+
+-- _watchSong'''
+
+edits = [
+    ('  [C.block| void { $(Fl_Window* window)->show(); } |]\n\n-- _watchSong', select),
+    ('\nimport           System.Info',
+     '\nimport qualified System.Environment\nimport           System.Info'),
+    ('\n  -- Support drag and drop onto mac app icon',
+     '\n  launchMisc sink makeMenuBar\n\n  -- Support drag and drop onto mac app icon'),
+]
+for old, new in edits:
+    if old not in s:
+        sys.exit("fluid-probe: patch point not found, GUI.hs has moved on:\n  %s" % old.strip()[:70])
+    s = s.replace(old, new, 1)
+open(p, 'w').write(s)
+PYEOF
+
+cd "$ROOT"
+# A failed build must stop us: otherwise the app that gets run below is a stale
+# binary from an earlier build, and every result after that is a quiet lie.
+BUILD_LOG=$(mktemp)
+if ! ./stack-local build >"$BUILD_LOG" 2>&1; then
+  echo "build failed:" >&2
+  grep -E "error" -A 6 "$BUILD_LOG" | head -40 >&2
+  rm -f "$BUILD_LOG"
+  exit 1
+fi
+rm -f "$BUILD_LOG"
+
+for tab in "$@"; do
+  ( ONYX_TAB=$tab timeout 22 ./stack-local exec onyx >"$OUT/${PREFIX}_$tab.log" 2>&1 ) &
+  sleep 11
+  import -window root "$OUT/${PREFIX}_$tab.png"
+  sleep 1
+  kill %1 2>/dev/null || true
+  echo "$OUT/${PREFIX}_$tab.png"
+  sleep 1
+done
