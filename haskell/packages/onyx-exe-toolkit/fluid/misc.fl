@@ -24,6 +24,9 @@ Colours are packed fl_rgb_color values:
 decl {\#include "cache_tab.h"} {public global
 }
 
+decl {\#include "file_picker_row.h"} {public global
+}
+
 class MiscWindow {open
 } {
   Function {MiscWindow()} {open
@@ -52,13 +55,38 @@ class MiscWindow {open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
         } {}
         Fl_Group tabMilo {
-          label {{misc-tab-milo}}
+          label {{misc-tab-milo}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
-        } {}
+        } {
+          Fl_Button miloExtract {
+            xywh {10 30 880 35} color 3017652992
+          }
+          Fl_Button miloRepack {
+            xywh {10 75 880 35} color 3017652992
+          }
+          Fl_Box miloFill {
+            xywh {10 115 880 480} resizable
+          }
+        }
         Fl_Group tabRB3Cache {
-          label {{misc-tab-rb3-cache}}
+          label {{misc-tab-rb3-cache}} open
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide
-        } {}
+        } {
+          Fl_Group rb3ConFolder {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Group rb3CacheFile {
+            xywh {0 75 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Button rb3Apply {
+            xywh {10 130 880 35} color 3017652992
+          }
+          Fl_Box rb3Fill {
+            xywh {10 170 880 425} resizable
+          }
+        }
         Fl_Group gh3Cache {
           label {{misc-tab-gh3-cache}}
           xywh {0 25 900 575} color 3771904256 selection_color 3771904256 hide

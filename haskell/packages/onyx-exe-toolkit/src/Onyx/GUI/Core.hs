@@ -100,8 +100,9 @@ C.include "hs_dnd_group.h"
 C.include "hs_dnd_box.h"
 C.include "hs_tree.h"
 C.include "FL/fl_string_functions.h"
--- FLUID-generated, see fluid/file_load_panel.fl and Setup.hs
+-- FLUID-generated, see the layouts in fluid and Setup.hs
 C.include "file_load_panel.h"
+C.include "file_picker_row.h"
 
 newtype X = X CInt deriving (Eq, Show, Ord)
 newtype Y = Y CInt deriving (Eq, Show, Ord)
@@ -664,6 +665,27 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
     Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
     Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
     Nothing          -> return Nothing
+
+-- | Wire up a FLUID @FilePickerRow@: set the label shown to the left of the
+-- text field, hook up the browse button, and hand back a read of the field.
+-- The row's geometry lives in the layout that placed it.
+filePickerRow
+  :: (?loc :: L)
+  => Ptr FilePickerRow
+  -> T.Text -- ^ label for the text field
+  -> ((FilePath -> IO ()) -> IO ()) -- ^ browse; calls back with the chosen path
+  -> IO (IO FilePath) -- ^ read the field's current value
+filePickerRow row lbl browse = do
+  let input = [C.pure| Fl_Input*  { $(FilePickerRow* row)->input } |]
+      pick  = [C.pure| Fl_Button* { $(FilePickerRow* row)->pick } |]
+  withUTF8 lbl \clbl ->
+    [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
+  setCallback pick $ browse \f ->
+    withUTF8 f \cf ->
+      [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
+  return do
+    cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
+    peekUTF8 cstr
 
 -- | The widgets making up a file-load panel. Either created by hand
 -- ('fileLoadWindow'') or supplied by a FLUID @FileLoadPanel@

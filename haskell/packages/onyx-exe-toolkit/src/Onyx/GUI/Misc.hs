@@ -68,21 +68,22 @@ C.include "FL/Fl_Counter.H"
 C.include "FL/Fl_Pack.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 
+-- | Widgets for the .milo tab, laid out in fluid/misc.fl.
+data MiloTabWidgets = MiloTabWidgets
+  { mtExtract :: Ptr Fl_Button
+  , mtRepack  :: Ptr Fl_Button
+  }
+
 miscPageMilo
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MiloTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMilo sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+miscPageMilo sink tab startTasks = do
+  do
+    let btn = tab.mtExtract
     setLabelTooltip (l10nFull "misc-button-extract-milo" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker1 -> do
@@ -110,11 +111,9 @@ miscPageMilo sink rect tab startTasks = do
                   unpackMilo fin dout
                   return [dout]
                 in startTasks [(T.unpack $ l10nArgs "misc-task-extract-milo" [("path", vString $ T.pack fin)], task)]
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  do
+    let btn = tab.mtRepack
     setLabelTooltip (l10nFull "misc-button-repack-milo" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
     setCallback btn $ askFolder Nothing \din -> do
       let dinText = T.pack din
           presetFile = case T.stripSuffix "-extract" dinText of
@@ -136,10 +135,6 @@ miscPageMilo sink rect tab startTasks = do
               packMilo din fout
               return [fout]
             in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
 
 miscPageLipsync
   :: (?loc :: L)

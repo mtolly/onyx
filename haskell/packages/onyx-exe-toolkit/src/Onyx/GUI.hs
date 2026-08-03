@@ -3070,51 +3070,24 @@ miscPageMIDI sink rect tab startTasks = do
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
   } |]
 
+-- | Widgets for the RB3 cache tab, laid out in fluid/misc.fl.
+data RB3CacheTabWidgets = RB3CacheTabWidgets
+  { rcConFolder :: Ptr FilePickerRow
+  , rcCacheFile :: Ptr FilePickerRow
+  , rcApply     :: Ptr Fl_Button
+  }
+
 miscPageHardcodeSongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> RB3CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageHardcodeSongCache sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFolder <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-con-folder") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ askFolder Nothing \f ->
-      withUTF8 f \cf ->
-        [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-song-cache") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+miscPageHardcodeSongCache sink tab startTasks = do
+  pickedFolder <- filePickerRow tab.rcConFolder (l10n "label-con-folder")
+    \useResult -> sink $ EventIO $ askFolder Nothing useResult
+  pickedCache <- filePickerRow tab.rcCacheFile (l10n "label-song-cache")
+    \useResult -> sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker -> do
         withUTF8 (l10n "cache-load-dialog") \cs ->
@@ -3125,31 +3098,21 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: String) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      withUTF8 (l10n "cache-button-apply") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ sink $ EventIO do
-      dir <- pickedFolder
-      cache <- pickedCache
-      let cache' = case cache of
-            "" -> dir </> "songcache"
-            _  -> cache
-      sink $ EventOnyx let
-        task = do
-          hardcodeSongCacheIDs cache' dir
-          return []
-        in startTasks [(T.unpack $ l10nArgs "cache-task" [("path", vString $ T.pack dir)], task)]
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+          peekUTF8 cstr >>= useResult
+  let btn = tab.rcApply
+  withUTF8 (l10n "cache-button-apply") \cs ->
+    [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
+  setCallback btn $ sink $ EventIO do
+    dir <- pickedFolder
+    cache <- pickedCache
+    let cache' = case cache of
+          "" -> dir </> "songcache"
+          _  -> cache
+    sink $ EventOnyx let
+      task = do
+        hardcodeSongCacheIDs cache' dir
+        return []
+      in startTasks [(T.unpack $ l10nArgs "cache-task" [("path", vString $ T.pack dir)], task)]
 
 launchQuickConvert' :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
@@ -3241,11 +3204,18 @@ launchMisc sink makeMenuBar = do
           , miscPageLipsync )
         , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabDryVox } |]
           , miscPageDryVox )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
-          , miscPageMilo )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
-          , miscPageHardcodeSongCache )
         ]
+      tabMilo = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
+      miloTab = MiloTabWidgets
+        { mtExtract = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloExtract } |]
+        , mtRepack  = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloRepack } |]
+        }
+      tabRB3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
+      rb3CacheTab = RB3CacheTabWidgets
+        { rcConFolder = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->rb3ConFolder } |]
+        , rcCacheFile = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->rb3CacheFile } |]
+        , rcApply     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->rb3Apply } |]
+        }
       -- The two cache tabs are FLUID CacheTab instances, laid out entirely in
       -- the .fl, so they take their widgets rather than a rectangle.
       tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->gh3Cache } |]
@@ -3263,7 +3233,8 @@ launchMisc sink makeMenuBar = do
         , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonRPCS3 } |]
         }
       -- every tab that must be locked out while a task is running
-      allFunctionTabs = map fst functionTabs <> [tabGH3Cache, tabWoRCache]
+      allFunctionTabs = map fst functionTabs
+        <> [tabMilo, tabRB3Cache, tabGH3Cache, tabWoRCache]
 
   -- read the layout's own coordinates before adaptWindow rewrites them
   windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
@@ -3285,8 +3256,10 @@ launchMisc sink makeMenuBar = do
         cbEnd = forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
     taskOutputPage tabRect tabTask sink cbStart cbEnd
   forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
-  miscPageGH3SongCache sink gh3CacheTab startTasks
-  miscPageWoRSongCache sink worCacheTab startTasks
+  miscPageMilo              sink miloTab     startTasks
+  miscPageHardcodeSongCache sink rb3CacheTab startTasks
+  miscPageGH3SongCache      sink gh3CacheTab startTasks
+  miscPageWoRSongCache      sink worCacheTab startTasks
 
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs
