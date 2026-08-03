@@ -1,0 +1,43 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+comment {A song-cache tab: a FileLoadPanel filling most of the tab, with a row of
+three task buttons underneath (make cache for 360, make cache for PS3,
+install to RPCS3). The GH3 and GH:WoR tabs have exactly this shape and differ
+only in wording and what the buttons do, so both use this class and set
+labels and callbacks from Haskell (Onyx.GUI.Misc).
+
+The button colour is taskColor from Onyx.GUI.Core, rgb(179,221,187).
+
+Designed at 900x575, the inner size of a Misc tab, so placement there is a
+pure translation with no scaling. The FileLoadPanel is the resizable child,
+so the button row keeps its height if a host uses a different size.} {in_source not_in_header
+}
+
+decl {\#include "file_load_panel.h"} {public global
+}
+
+widget_class CacheTab {open
+  xywh {0 0 900 575} box FLAT_BOX
+} {
+  Fl_Group files {open
+    xywh {0 0 900 525} resizable
+    class FileLoadPanel
+  } {}
+  Fl_Button button360 {
+    xywh {10 530 288 35} color 3017652992
+  }
+  Fl_Button buttonPS3 {
+    xywh {308 530 283 35} color 3017652992
+  }
+  Fl_Button buttonRPCS3 {
+    xywh {601 530 289 35} color 3017652992
+  }
+  code {// FLUID builds the children at their design coordinates, which assume this
+// group sits at the origin at its design size. Restate that, then resize
+// into the frame we were actually constructed with. Keep the numbers below
+// in step with the xywh of the widget_class itself.
+Fl_Widget::resize(0, 0, 900, 575);
+resize(X, Y, W, H);} {}
+}

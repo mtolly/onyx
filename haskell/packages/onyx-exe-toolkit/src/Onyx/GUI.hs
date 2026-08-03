@@ -3245,19 +3245,25 @@ launchMisc sink makeMenuBar = do
           , miscPageMilo )
         , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
           , miscPageHardcodeSongCache )
-        , ( [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabWoRCache } |]
-          , miscPageWoRSongCache )
         ]
-      -- fully laid out in the .fl, so it takes its widgets rather than a rect
-      tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabGH3Cache } |]
-      gh3CacheTab = GH3CacheTab
-        { gh3Files       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Files } |]
-        , gh3Button360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Button360 } |]
-        , gh3ButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3ButtonPS3 } |]
-        , gh3ButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3ButtonRPCS3 } |]
+      -- The two cache tabs are FLUID CacheTab instances, laid out entirely in
+      -- the .fl, so they take their widgets rather than a rectangle.
+      tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->gh3Cache } |]
+      tabWoRCache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->worCache } |]
+      gh3CacheTab = CacheTabWidgets
+        { ctFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Cache->files } |]
+        , ctButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->button360 } |]
+        , ctButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->buttonPS3 } |]
+        , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->buttonRPCS3 } |]
+        }
+      worCacheTab = CacheTabWidgets
+        { ctFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->worCache->files } |]
+        , ctButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->button360 } |]
+        , ctButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonPS3 } |]
+        , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonRPCS3 } |]
         }
       -- every tab that must be locked out while a task is running
-      allFunctionTabs = map fst functionTabs <> [tabGH3Cache]
+      allFunctionTabs = map fst functionTabs <> [tabGH3Cache, tabWoRCache]
 
   -- read the layout's own coordinates before adaptWindow rewrites them
   windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
@@ -3280,6 +3286,7 @@ launchMisc sink makeMenuBar = do
     taskOutputPage tabRect tabTask sink cbStart cbEnd
   forM_ functionTabs \(tab, page) -> inGroup tab $ page sink tabRect tab startTasks
   miscPageGH3SongCache sink gh3CacheTab startTasks
+  miscPageWoRSongCache sink worCacheTab startTasks
 
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs

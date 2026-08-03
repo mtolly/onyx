@@ -601,27 +601,29 @@ miscPageDryVox sink rect tab startTasks = do
     $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
   } |]
 
--- | Widgets for the GH3 cache tab, laid out in fluid/misc.fl.
-data GH3CacheTab = GH3CacheTab
-  { gh3Files       :: Ptr FileLoadPanel
-  , gh3Button360   :: Ptr Fl_Button
-  , gh3ButtonPS3   :: Ptr Fl_Button
-  , gh3ButtonRPCS3 :: Ptr Fl_Button
+-- | The widgets of a FLUID @CacheTab@: a file-load panel over a row of three
+-- task buttons. Shared by the GH3 and GH:WoR cache tabs, which differ only in
+-- wording and in what the buttons do.
+data CacheTabWidgets = CacheTabWidgets
+  { ctFiles       :: Ptr FileLoadPanel
+  , ctButton360   :: Ptr Fl_Button
+  , ctButtonPS3   :: Ptr Fl_Button
+  , ctButtonRPCS3 :: Ptr Fl_Button
   }
 
 miscPageGH3SongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> GH3CacheTab
+  -> CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
 miscPageGH3SongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  _ <- fileLoadPanel tab.gh3Files sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
+  _ <- fileLoadPanel tab.ctFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  let btn1 = tab.gh3Button360
+  let btn1 = tab.ctButton360
   setLabelTooltip (l10nFull "misc-button-gh3-cache-360" []) btn1
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -642,7 +644,7 @@ miscPageGH3SongCache sink tab startTasks = do
             combineGH3SongCache360 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  let btn2 = tab.gh3ButtonPS3
+  let btn2 = tab.ctButtonPS3
   setLabelTooltip (l10nFull "misc-button-gh3-cache-ps3" []) btn2
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
@@ -663,7 +665,7 @@ miscPageGH3SongCache sink tab startTasks = do
             combineGH3SongCachePS3 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  let btn3 = tab.gh3ButtonRPCS3
+  let btn3 = tab.ctButtonRPCS3
   setLabelTooltip (l10nFull "misc-button-gh3-cache-install-rpcs3" []) btn3
   setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
@@ -680,23 +682,17 @@ miscPageGH3SongCache sink tab startTasks = do
 miscPageWoRSongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageWoRSongCache sink rect tab startTasks = do
+miscPageWoRSongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
+  _ <- fileLoadPanel tab.ctFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
-  btn1 <- withRect xboxRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  let btn1 = tab.ctButton360
   setLabelTooltip (l10nFull "misc-button-ghwor-cache-360" []) btn1
-  [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
   setCallback btn1 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
@@ -716,10 +712,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
             makeMetadataLIVE inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  btn2 <- withRect ps3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  let btn2 = tab.ctButtonPS3
   setLabelTooltip (l10nFull "misc-button-ghwor-cache-ps3" []) btn2
-  [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
   setCallback btn2 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
@@ -739,10 +733,8 @@ miscPageWoRSongCache sink rect tab startTasks = do
             makeMetadataPKG inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  btn3 <- withRect looseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
+  let btn3 = tab.ctButtonRPCS3
   setLabelTooltip (l10nFull "misc-button-ghwor-cache-install-rpcs3" []) btn3
-  [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
   setCallback btn3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
