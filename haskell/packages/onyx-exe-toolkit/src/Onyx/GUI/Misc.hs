@@ -80,60 +80,54 @@ miscPageMilo
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
 miscPageMilo sink tab startTasks = do
-  do
-    let btn = tab.mtExtract
-    setLabelTooltip (l10nFull "misc-button-extract-milo" []) btn
-    setCallback btn $ withNativeFileChooser
-      [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
-      \picker1 -> do
-        withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
-          $(Fl_Native_File_Chooser* picker1)->title($(char* s));
-          $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
-        when (result1 == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
-          fin <- peekUTF8 cstr
-          withNativeFileChooser
-            [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
-            \picker2 -> do
-            withUTF8 (l10n "file-picker-create-folder") \s ->
-              [C.block| void { $(Fl_Native_File_Chooser* picker2)->title($(char* s)); } |]
-            withUTF8 (fin <> "-extract") \cpreset ->
-              [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
-            result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
-            when (result2 == 0) do
-              cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
-              dout <- peekUTF8 cstr2
-              sink $ EventOnyx let
-                task = do
-                  unpackMilo fin dout
-                  return [dout]
-                in startTasks [(T.unpack $ l10nArgs "misc-task-extract-milo" [("path", vString $ T.pack fin)], task)]
-  do
-    let btn = tab.mtRepack
-    setLabelTooltip (l10nFull "misc-button-repack-milo" []) btn
-    setCallback btn $ askFolder Nothing \din -> do
-      let dinText = T.pack din
-          presetFile = case T.stripSuffix "-extract" dinText of
-            Just stripped -> stripped
-            Nothing       -> dinText <> ".milo"
-      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
-        withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
-          $(Fl_Native_File_Chooser* miloPicker)->title($(char* s));
-          $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        withUTF8 presetFile \cpreset ->
-          [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
-          fout <- peekUTF8 cstr
-          sink $ EventOnyx let
-            task = do
-              packMilo din fout
-              return [fout]
-            in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
+  setCallback tab.mtExtract $ withNativeFileChooser
+    [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+    \picker1 -> do
+      withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
+        $(Fl_Native_File_Chooser* picker1)->title($(char* s));
+        $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+      } |]
+      result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
+      when (result1 == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
+        fin <- peekUTF8 cstr
+        withNativeFileChooser
+          [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+          \picker2 -> do
+          withUTF8 (l10n "file-picker-create-folder") \s ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker2)->title($(char* s)); } |]
+          withUTF8 (fin <> "-extract") \cpreset ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
+          result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
+          when (result2 == 0) do
+            cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
+            dout <- peekUTF8 cstr2
+            sink $ EventOnyx let
+              task = do
+                unpackMilo fin dout
+                return [dout]
+              in startTasks [(T.unpack $ l10nArgs "misc-task-extract-milo" [("path", vString $ T.pack fin)], task)]
+  setCallback tab.mtRepack $ askFolder Nothing \din -> do
+    let dinText = T.pack din
+        presetFile = case T.stripSuffix "-extract" dinText of
+          Just stripped -> stripped
+          Nothing       -> dinText <> ".milo"
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
+      withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
+        $(Fl_Native_File_Chooser* miloPicker)->title($(char* s));
+        $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+      } |]
+      withUTF8 presetFile \cpreset ->
+        [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
+        fout <- peekUTF8 cstr
+        sink $ EventOnyx let
+          task = do
+            packMilo din fout
+            return [fout]
+          in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
 
 -- | Widgets for the lipsync tab, laid out in fluid/misc.fl.
 data LipsyncTabWidgets = LipsyncTabWidgets
@@ -167,10 +161,10 @@ miscPageLipsync sink tab startTasks = do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
           peekUTF8 cstr >>= useResult
   (getVowels, getTransition) <- do
-    getVowels <- horizRadioWidgets tab.lsLanguages Nothing
-      [ (l10n "language-english", englishSyllables, True)
-      , (l10n "language-german", germanVowels, False)
-      , (l10n "language-spanish", spanishVowels, False)
+    getVowels <- horizRadioSelect tab.lsLanguages Nothing
+      [ (englishSyllables, True)
+      , (germanVowels, False)
+      , (spanishVowels, False)
       ]
     let counter = tab.lsTransition
     [C.block| void {
@@ -178,8 +172,6 @@ miscPageLipsync sink tab startTasks = do
       $(Fl_Counter* counter)->lstep(5);
       $(Fl_Counter* counter)->minimum(0);
     } |]
-    withUTF8 (l10n "label-transition-ms") \clbl ->
-      [C.block| void { $(Fl_Counter* counter)->copy_label($(char* clbl)); } |]
     let defVal = realToFrac (round (defaultTransition * 1000) :: Integer) :: C.CDouble
     [C.block| void { $(Fl_Counter* counter)->value($(double defVal)); } |]
     return
@@ -203,25 +195,21 @@ miscPageLipsync sink tab startTasks = do
             fout <- peekUTF8 cstr
             go fout
 
-  do
-    let btn = tab.lsMakeVoc
-    withUTF8 (l10n "misc-button-make-voc") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    setCallback btn $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      saveVoc input \voc -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          let _ = mid :: F.Song (F.FixedFile U.Beats)
-          stackIO
-            $ BL.writeFile voc
-            $ runPut $ putVocFile
-            $ gh2Lipsync vowels
-            $ mapTrack (U.applyTempoTrack mid.tempos)
-            $ mid.tracks.fixedPartVocals
-          return [voc]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-make-voc" [("path", vString $ T.pack voc)], task)]
+  setCallback tab.lsMakeVoc $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    saveVoc input \voc -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        let _ = mid :: F.Song (F.FixedFile U.Beats)
+        stackIO
+          $ BL.writeFile voc
+          $ runPut $ putVocFile
+          $ gh2Lipsync vowels
+          $ mapTrack (U.applyTempoTrack mid.tempos)
+          $ mid.tracks.fixedPartVocals
+        return [voc]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-make-voc" [("path", vString $ T.pack voc)], task)]
 
   let pickMilo go = do
         withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
@@ -261,128 +249,122 @@ miscPageLipsync sink tab startTasks = do
           else do
             lg "Updating milo from vocal chart tracks."
             return False
-  do
-    let makeButton   = tab.lsMakeMilo
-        updateButton = tab.lsUpdateMilo
-        rawButton    = tab.lsRawLipsync
-    setLabelTooltip (l10nFull "misc-button-make-milo" []) makeButton
-    setCallback makeButton $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      trans <- getTransition
-      saveMilo input \milo -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          vmapRB3 <- loadVisemesRB3
-          useLipsyncTracks <- hasLipsyncTracks mid
-          stackIO $ BL.writeFile milo $ magmaMilo let
-            lip1 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync1)
-              else getVocal [(.fixedHarm1), (.fixedPartVocals)]
-            lip2 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync2)
-              else getVocal [(.fixedHarm2)]
-            lip3 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync3)
-              else getVocal [(.fixedHarm3)]
-            lip4 = getLipsync (.fixedLipsync4)
-            empty = lipsyncFromStates []
-            getVocal getTracks = do
-              trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+
+  setCallback tab.lsMakeMilo $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    trans <- getTransition
+    saveMilo input \milo -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        vmapRB3 <- loadVisemesRB3
+        useLipsyncTracks <- hasLipsyncTracks mid
+        stackIO $ BL.writeFile milo $ magmaMilo let
+          lip1 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync1)
+            else getVocal [(.fixedHarm1), (.fixedPartVocals)]
+          lip2 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync2)
+            else getVocal [(.fixedHarm2)]
+          lip3 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync3)
+            else getVocal [(.fixedHarm3)]
+          lip4 = getLipsync (.fixedLipsync4)
+          empty = lipsyncFromStates []
+          getVocal getTracks = do
+            trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+            Just
+              $ autoLipsync trans vmapRB3 vowels
+              $ mapTrack (U.applyTempoTrack mid.tempos) trk
+          getLipsync getTrack = let
+            trk = getTrack mid.tracks
+            in do
+              guard $ trk /= mempty
               Just
+                $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
+                $ mapTrack (U.applyTempoTrack mid.tempos) trk
+          in case (lip1, lip2, lip3, lip4) of
+            (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
+            (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
+            (_, Just _, Nothing, Nothing) -> MagmaLipsync2 (fromMaybe empty lip1) (fromMaybe empty lip2)
+            _                             -> MagmaLipsync1 (fromMaybe empty lip1)
+        return [milo]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-make-milo" [("path", vString $ T.pack milo)], task)]
+  setCallback tab.lsUpdateMilo $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    trans <- getTransition
+    pickMilo \milo -> sink $ EventOnyx let
+      task = do
+        stackIO $ Dir.copyFile milo $ milo <> ".bak"
+        mid <- F.loadMIDI input
+        topDir <- loadMilo milo
+        vmapBeatles <- loadVisemesTBRB
+        vmapRB3 <- loadVisemesRB3
+        useLipsyncTracks <- hasLipsyncTracks mid
+        let editDir dir = dir
+              { miloFiles = do
+                ((_, name), contents) <- zip dir.miloEntryNames dir.miloFiles
+                return case name of
+                  "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
+                  "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
+                  "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
+                  "ringo.lipsync"  -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
+                  "song.lipsync"   -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync1)
+                    else getVocal [(.fixedHarm1), (.fixedPartVocals)]
+                  "part2.lipsync"  -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync2)
+                    else getVocal [(.fixedHarm2)]
+                  "part3.lipsync"  -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync3)
+                    else getVocal [(.fixedHarm3)]
+                  "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
+                  _                -> contents
+              , miloSubdirs = map editDir dir.miloSubdirs
+              }
+            getVocal getTracks = let
+              trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+              in runPut $ putLipsync
                 $ autoLipsync trans vmapRB3 vowels
                 $ mapTrack (U.applyTempoTrack mid.tempos) trk
-            getLipsync getTrack = let
+            getLipsync tgt vmap getTrack = let
+              trk = getTrack mid.tracks
+              in runPut $ putLipsync
+                $ lipsyncFromMIDITrack' tgt vmap
+                $ mapTrack (U.applyTempoTrack mid.tempos) trk
+        stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
+        return [milo]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-update-milo" [("path", vString $ T.pack milo)], task)]
+  setCallback tab.lsRawLipsync $ sink $ EventIO do
+    input <- pickedFile
+    askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        let _ = mid :: F.Song (F.FixedFile U.Beats)
+        vmapBeatles <- loadVisemesTBRB
+        vmapRB3 <- loadVisemesRB3
+        let tracks = catMaybes
+              [ makeFixed "john.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
+              , makeFixed "paul.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
+              , makeFixed "george.lipsync" Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
+              , makeFixed "ringo.lipsync"  Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
+              , makeFixed "song.lipsync"   Milo.LipsyncRB3  vmapRB3     (.fixedLipsync1     )
+              , makeFixed "part2.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync2     )
+              , makeFixed "part3.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync3     )
+              , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync4     )
+              ]
+            makeFixed name tgt vmap getTrack = let
               trk = getTrack mid.tracks
               in do
                 guard $ trk /= mempty
-                Just
-                  $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-            in case (lip1, lip2, lip3, lip4) of
-              (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
-              (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
-              (_, Just _, Nothing, Nothing) -> MagmaLipsync2 (fromMaybe empty lip1) (fromMaybe empty lip2)
-              _                             -> MagmaLipsync1 (fromMaybe empty lip1)
-          return [milo]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-make-milo" [("path", vString $ T.pack milo)], task)]
-    setLabelTooltip (l10nFull "misc-button-update-milo" []) updateButton
-    setCallback updateButton $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      trans <- getTransition
-      pickMilo \milo -> sink $ EventOnyx let
-        task = do
-          stackIO $ Dir.copyFile milo $ milo <> ".bak"
-          mid <- F.loadMIDI input
-          topDir <- loadMilo milo
-          vmapBeatles <- loadVisemesTBRB
-          vmapRB3 <- loadVisemesRB3
-          useLipsyncTracks <- hasLipsyncTracks mid
-          let editDir dir = dir
-                { miloFiles = do
-                  ((_, name), contents) <- zip dir.miloEntryNames dir.miloFiles
-                  return case name of
-                    "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
-                    "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
-                    "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
-                    "ringo.lipsync"  -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
-                    "song.lipsync"   -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync1)
-                      else getVocal [(.fixedHarm1), (.fixedPartVocals)]
-                    "part2.lipsync"  -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync2)
-                      else getVocal [(.fixedHarm2)]
-                    "part3.lipsync"  -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync3)
-                      else getVocal [(.fixedHarm3)]
-                    "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
-                    _                -> contents
-                , miloSubdirs = map editDir dir.miloSubdirs
-                }
-              getVocal getTracks = let
-                trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
-                in runPut $ putLipsync
-                  $ autoLipsync trans vmapRB3 vowels
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-              getLipsync tgt vmap getTrack = let
-                trk = getTrack mid.tracks
-                in runPut $ putLipsync
+                Just (dout </> name, runPut $ putLipsync
                   $ lipsyncFromMIDITrack' tgt vmap
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-          stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
-          return [milo]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-update-milo" [("path", vString $ T.pack milo)], task)]
-    setLabelTooltip (l10nFull "misc-button-create-lipsync" []) rawButton
-    setCallback rawButton $ sink $ EventIO do
-      input <- pickedFile
-      askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          let _ = mid :: F.Song (F.FixedFile U.Beats)
-          vmapBeatles <- loadVisemesTBRB
-          vmapRB3 <- loadVisemesRB3
-          let tracks = catMaybes
-                [ makeFixed "john.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
-                , makeFixed "paul.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
-                , makeFixed "george.lipsync" Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
-                , makeFixed "ringo.lipsync"  Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
-                , makeFixed "song.lipsync"   Milo.LipsyncRB3  vmapRB3     (.fixedLipsync1     )
-                , makeFixed "part2.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync2     )
-                , makeFixed "part3.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync3     )
-                , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync4     )
-                ]
-              makeFixed name tgt vmap getTrack = let
-                trk = getTrack mid.tracks
-                in do
-                  guard $ trk /= mempty
-                  Just (dout </> name, runPut $ putLipsync
-                    $ lipsyncFromMIDITrack' tgt vmap
-                    $ mapTrack (U.applyTempoTrack mid.tempos) trk)
-          forM tracks \(path, bs) -> do
-            stackIO $ BL.writeFile path bs
-            return path
-        in startTasks [(T.unpack $ l10n "misc-task-export-lipsync", task)]
+                  $ mapTrack (U.applyTempoTrack mid.tempos) trk)
+        forM tracks \(path, bs) -> do
+          stackIO $ BL.writeFile path bs
+          return path
+      in startTasks [(T.unpack $ l10n "misc-task-export-lipsync", task)]
 
   let makeLipsyncTracks loadVisemes toEvents = do
         input <- pickedFile
@@ -425,16 +407,8 @@ miscPageLipsync sink tab startTasks = do
             return [input]
           in startTasks [(T.unpack $ l10nArgs "misc-task-vocal-to-lipsync" [("path", vString $ T.pack input)], task)]
 
-  do
-    let btn = tab.lsTracksRB3
-    setLabelTooltip (l10nFull "misc-button-vocal-lipsync-rb3" []) btn
-    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
-
-  do
-    let btn = tab.lsTracksTBRB
-    setLabelTooltip (l10nFull "misc-button-vocal-lipsync-tbrb" []) btn
-    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
-
+  setCallback tab.lsTracksRB3  $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3  autoLipsync'
+  setCallback tab.lsTracksTBRB $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
 -- | Widgets for the dry vox tab, laid out in fluid/misc.fl.
 data DryVoxTabWidgets = DryVoxTabWidgets
@@ -464,12 +438,12 @@ miscPageDryVox sink tab startTasks = do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
           peekUTF8 cstr >>= useResult
   getVocalTrack <- do
-    fn <- horizRadioWidgets tab.dvVocalTracks Nothing
-      [ ("PART VOCALS", Just Nothing, True)
-      , ("[PART] HARM1", Just $ Just Vocal1, False)
-      , ("[PART] HARM2", Just $ Just Vocal2, False)
-      , ("[PART] HARM3", Just $ Just Vocal3, False)
-      , (l10n "dryvox-blank", Nothing, False)
+    fn <- horizRadioSelect tab.dvVocalTracks Nothing
+      [ (Just Nothing, True)
+      , (Just $ Just Vocal1, False)
+      , (Just $ Just Vocal2, False)
+      , (Just $ Just Vocal3, False)
+      , (Nothing, False)
       ]
     return $ join <$> fn
   let getSelectedVox = \case
@@ -485,9 +459,7 @@ miscPageDryVox sink tab startTasks = do
         Just (Just Vocal2) -> "-harm2"
         Just (Just Vocal3) -> "-harm3"
   let dryvoxButton btn label fn = do
-        withUTF8 (label :: T.Text) \clbl ->
-          [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-        setCallback btn $ sink $ EventIO do
+        setCallback (btn :: Ptr Fl_Button) $ sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
           withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
@@ -509,7 +481,7 @@ miscPageDryVox sink tab startTasks = do
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
                   return [f]
-                in startTasks [(T.unpack $ l10nArgs "misc-task-dryvox" [("name", vString label), ("path", vString $ T.pack input)], task)]
+                in startTasks [(T.unpack $ l10nArgs "misc-task-dryvox" [("name", vString (label :: T.Text)), ("path", vString $ T.pack input)], task)]
   dryvoxButton tab.dvSine (l10n "misc-button-dryvox-sine") $ return . sineDryVox
   pickedAudio <- filePickerRow tab.dvAudioFile (l10n "label-audio-file")
     \useResult -> sink $ EventIO do
@@ -527,31 +499,28 @@ miscPageDryVox sink tab startTasks = do
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src
 
--- | The widgets of a FLUID @CacheTab@: a file-load panel over a row of three
--- task buttons. Shared by the GH3 and GH:WoR cache tabs, which differ only in
--- wording and in what the buttons do.
-data CacheTabWidgets = CacheTabWidgets
-  { ctFiles       :: Ptr FileLoadPanel
-  , ctButton360   :: Ptr Fl_Button
-  , ctButtonPS3   :: Ptr Fl_Button
-  , ctButtonRPCS3 :: Ptr Fl_Button
+-- | The widgets of the GH3 song cache tab: a file-load panel over a row of
+-- three task buttons.
+data GH3CacheTabWidgets = GH3CacheTabWidgets
+  { gcFiles       :: Ptr FileLoadPanel
+  , gcButton360   :: Ptr Fl_Button
+  , gcButtonPS3   :: Ptr Fl_Button
+  , gcButtonRPCS3 :: Ptr Fl_Button
   }
 
 miscPageGH3SongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> CacheTabWidgets
+  -> GH3CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
 miscPageGH3SongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  _ <- fileLoadPanel tab.ctFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
+  _ <- fileLoadPanel tab.gcFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  let btn1 = tab.ctButton360
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-360" []) btn1
-  setCallback btn1 $ sink $ EventIO do
+  setCallback tab.gcButton360 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-gh3-cache-360") \s ->
@@ -570,9 +539,7 @@ miscPageGH3SongCache sink tab startTasks = do
             combineGH3SongCache360 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  let btn2 = tab.ctButtonPS3
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-ps3" []) btn2
-  setCallback btn2 $ sink $ EventIO do
+  setCallback tab.gcButtonPS3 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-gh3-cache-ps3") \s ->
@@ -591,9 +558,7 @@ miscPageGH3SongCache sink tab startTasks = do
             combineGH3SongCachePS3 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  let btn3 = tab.ctButtonRPCS3
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-install-rpcs3" []) btn3
-  setCallback btn3 $ sink $ EventOnyx do
+  setCallback tab.gcButtonRPCS3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
@@ -605,21 +570,28 @@ miscPageGH3SongCache sink tab startTasks = do
         stackIO $ installPS3Folder gameID (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
       in [(T.unpack $ l10n "misc-task-install-gh3-cache", task)]
 
+-- | The widgets of the GH:WoR song cache tab. Same shape as
+-- 'GH3CacheTabWidgets', but a separate tab in the layout with its own wording.
+data WoRCacheTabWidgets = WoRCacheTabWidgets
+  { wcFiles       :: Ptr FileLoadPanel
+  , wcButton360   :: Ptr Fl_Button
+  , wcButtonPS3   :: Ptr Fl_Button
+  , wcButtonRPCS3 :: Ptr Fl_Button
+  }
+
 miscPageWoRSongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> CacheTabWidgets
+  -> WoRCacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
 miscPageWoRSongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  _ <- fileLoadPanel tab.ctFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
+  _ <- fileLoadPanel tab.wcFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  let btn1 = tab.ctButton360
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-360" []) btn1
-  setCallback btn1 $ sink $ EventIO do
+  setCallback tab.wcButton360 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-wor-cache-360") \s ->
@@ -638,9 +610,7 @@ miscPageWoRSongCache sink tab startTasks = do
             makeMetadataLIVE inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  let btn2 = tab.ctButtonPS3
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-ps3" []) btn2
-  setCallback btn2 $ sink $ EventIO do
+  setCallback tab.wcButtonPS3 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-wor-cache-ps3") \s ->
@@ -659,9 +629,7 @@ miscPageWoRSongCache sink tab startTasks = do
             makeMetadataPKG inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  let btn3 = tab.ctButtonRPCS3
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-install-rpcs3" []) btn3
-  setCallback btn3 $ sink $ EventOnyx do
+  setCallback tab.wcButtonRPCS3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let

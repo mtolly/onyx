@@ -2973,8 +2973,6 @@ miscPageMIDI sink tab startTasks = do
 
     [ do
       let btn = tab.mpReduce
-      withUTF8 (l10n "midi-button-reduce") \cs ->
-        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reduced-midi") "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
@@ -2990,8 +2988,6 @@ miscPageMIDI sink tab startTasks = do
 
     , do
       let btn = tab.mpProKeys
-      withUTF8 (l10n "midi-button-prokeys") \cs ->
-        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         sink $ EventOnyx let
@@ -3004,8 +3000,6 @@ miscPageMIDI sink tab startTasks = do
 
     , do
       let btn = tab.mpReaper
-      withUTF8 (l10n "midi-button-reaper") \cs ->
-        [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reaper") "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
@@ -3020,8 +3014,6 @@ miscPageMIDI sink tab startTasks = do
 
     , do
       let btn1 = tab.mpChartToMidi
-      withUTF8 (l10n "midi-button-chart-to-midi") \cs ->
-        [C.block| void { $(Fl_Button* btn1)->copy_label($(char* cs)); } |]
       setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-midi") "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
@@ -3036,8 +3028,6 @@ miscPageMIDI sink tab startTasks = do
 
       -- note, this button doesn't disable when path box is empty since it doesn't use it
       let btn2 = tab.mpBatch
-      withUTF8 (l10n "midi-button-batch") \cs ->
-        [C.block| void { $(Fl_Button* btn2)->copy_label($(char* cs)); } |]
       setCallback btn2 $ sink $ EventIO $ askFolder Nothing \dir ->
         sink $ EventOnyx let
           task = do
@@ -3091,8 +3081,6 @@ miscPageHardcodeSongCache sink tab startTasks = do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
           peekUTF8 cstr >>= useResult
   let btn = tab.rcApply
-  withUTF8 (l10n "cache-button-apply") \cs ->
-    [C.block| void { $(Fl_Button* btn)->copy_label($(char* cs)); } |]
   setCallback btn $ sink $ EventIO do
     dir <- pickedFolder
     cache <- pickedCache
@@ -3244,21 +3232,19 @@ launchMisc sink makeMenuBar = do
         , rcCacheFile = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->rb3CacheFile } |]
         , rcApply     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->rb3Apply } |]
         }
-      -- The two cache tabs are FLUID CacheTab instances, laid out entirely in
-      -- the .fl, so they take their widgets rather than a rectangle.
       tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->gh3Cache } |]
-      tabWoRCache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->worCache } |]
-      gh3CacheTab = CacheTabWidgets
-        { ctFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Cache->files } |]
-        , ctButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->button360 } |]
-        , ctButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->buttonPS3 } |]
-        , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache->buttonRPCS3 } |]
+      gh3CacheTab = GH3CacheTabWidgets
+        { gcFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Files } |]
+        , gcButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache360 } |]
+        , gcButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3CachePS3 } |]
+        , gcButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3CacheRPCS3 } |]
         }
-      worCacheTab = CacheTabWidgets
-        { ctFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->worCache->files } |]
-        , ctButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->button360 } |]
-        , ctButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonPS3 } |]
-        , ctButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache->buttonRPCS3 } |]
+      tabWoRCache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->worCache } |]
+      worCacheTab = WoRCacheTabWidgets
+        { wcFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->worFiles } |]
+        , wcButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache360 } |]
+        , wcButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCachePS3 } |]
+        , wcButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCacheRPCS3 } |]
         }
       -- every tab that must be locked out while a task is running
       allFunctionTabs =
