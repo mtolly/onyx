@@ -12,7 +12,7 @@ module Onyx.GUI.Misc where
 
 import           Control.Applicative          ((<|>))
 import           Control.Concurrent           (modifyMVar_, newMVar, readMVar)
-import           Control.Monad                (forM, guard, join, when)
+import           Control.Monad                (forM, guard, join, void, when)
 import           Data.Bifunctor               (first)
 import           Data.Binary.Put              (runPut)
 import qualified Data.ByteString.Lazy         as BL
@@ -31,7 +31,6 @@ import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
 import           Onyx.GUI.Util                (askFolder, peekUTF8, setCallback,
-                                               setLabelTooltip,
                                                withNativeFileChooser, withUTF8)
 import           Onyx.Harmonix.RockBand.Milo  as Milo
 import           Onyx.Import                  (installPS3Folder)
@@ -638,22 +637,25 @@ miscPageWoRSongCache sink tab startTasks = do
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
       in [(T.unpack $ l10n "misc-task-install-ghwor-cache", task)]
 
+-- | Widgets for the legacy CON->PKG tab, laid out in fluid/quick_convert.fl.
+data CONtoPKGTabWidgets = CONtoPKGTabWidgets
+  { cpFiles :: Ptr FileLoadPanel
+  , cpRB2   :: Ptr Fl_Button
+  , cpRB3   :: Ptr Fl_Button
+  }
+
 miscPageCONtoPKG
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> CONtoPKGTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageCONtoPKG sink rect tab startTasks = do
+miscPageCONtoPKG sink widgets startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
+  void $ fileLoadPanel widgets.cpFiles sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
     entry = T.pack $ stfsPath info
     sublines = take 1 info.stfsMeta.md_DisplayName
     in (entry, sublines)
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
   let callback isRB3 = sink $ EventIO do
         inputs <- map stfsPath <$> readMVar loadedFiles
         sink $ EventOnyx $ startTasks $ inputs <&> \input -> let
@@ -662,13 +664,5 @@ miscPageCONtoPKG sink rect tab startTasks = do
             conToPkg isRB3 input pkg
             return [pkg]
           in (input, task)
-  btn1 <- withRect rb2Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb2" []) btn1
-  [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  setCallback btn1 $ callback False
-  btn2 <- withRect rb3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb3" []) btn2
-  [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  setCallback btn2 $ callback True
+  setCallback widgets.cpRB2 $ callback False
+  setCallback widgets.cpRB3 $ callback True

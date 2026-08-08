@@ -23,8 +23,10 @@ haskell/packages/onyx-exe-toolkit/
   cbits/onyx_l10n.*       localization hook the generated code calls
   src/Onyx/GUI/Fluid.hs   Haskell side of the above
 scripts/fluid-dump        read real widget geometry off a running app
-scripts/fluid-probe       screenshot Misc tabs
+scripts/fluid-probe       screenshot a window's tabs
 scripts/fluid-compare     diff two screenshots
+scripts/fluid_patch.py    the GUI.hs patching the first two share
+scripts/fluid-build.sh    the build step the first two share
 ```
 
 ---
@@ -79,7 +81,8 @@ as arguments.
 Each migrated page takes a small record of its widgets instead of a `Rectangle`
 and a `Ptr Fl_Group` — `MidiTabWidgets`, `MoggTabWidgets`, `LipsyncTabWidgets`,
 `DryVoxTabWidgets`, `MiloTabWidgets`, `RB3CacheTabWidgets`,
-`GH3CacheTabWidgets`, `WoRCacheTabWidgets`.
+`GH3CacheTabWidgets`, `WoRCacheTabWidgets`, `RenumberRRTabWidgets`,
+`PackTabWidgets`, `CONtoPKGTabWidgets`.
 
 ---
 
@@ -238,7 +241,7 @@ Current library:
 
 | Class | File | Used by |
 | --- | --- | --- |
-| `FileLoadPanel` | `file_load_panel.fl` | 3 instances: MOGG, GH3 cache, GH:WoR cache |
+| `FileLoadPanel` | `file_load_panel.fl` | 6 instances: MOGG, GH3 cache, GH:WoR cache, RR renumber, GH2 packs, CON→PKG |
 | `FilePickerRow` | `file_picker_row.fl` | 6 instances: MIDI ×1, RB3 cache ×2, Lipsync ×1, Dry vox ×2 |
 
 A `widget_class` earns its place when the same *contents* recur. The GH3 and
@@ -357,15 +360,20 @@ that haven't migrated yet. They can be swept once everything is in FLUID.
 
 ## Tooling
 
-Three scripts in `scripts/`. All three temporarily patch `Onyx.GUI`, build, and
-restore it via an `EXIT` trap. They fail loudly if a patch anchor no longer
+Three scripts in `scripts/`. The first two temporarily patch `Onyx.GUI`, build,
+and restore it via an `EXIT` trap. They fail loudly if a patch anchor no longer
 matches, and abort if the build fails.
 
 | Script | Purpose |
 | --- | --- |
-| `fluid-dump <tab>…` | Print real, laid-out widget geometry for Misc tabs |
-| `fluid-probe <prefix> <tab>…` | Screenshot tabs (one build covers all, via `$ONYX_TAB`) |
+| `fluid-dump [-w window] <tab>…` | Print real, laid-out widget geometry |
+| `fluid-probe [-w window] <prefix> <tab>…` | Screenshot tabs (one build covers all, via `$ONYX_TAB`) |
 | `fluid-compare <a.png> <b.png>` | Align two shots on window content and diff them |
+
+`-w` picks which window to open at startup — `misc` (the default) or `quick`.
+Adding another means one more entry in `fluid_patch.py`'s `WINDOWS`: the call
+that opens it, and the text following its `show()`, which is where the
+tab-selecting code gets spliced in.
 
 ### Why `fluid-dump` exists
 
@@ -386,7 +394,14 @@ event loop starts is not enough.
 For each migrated tab: screenshot it before and after, and diff. Nearly every
 migration so far has come out at **0 differing pixels**.
 
-Two traps, both of which produced alarming false positives:
+A window whose content is all top-anchored can be diffed in one go. Where a tab
+has content pinned to its *bottom*, the extra 30px of height (see *Menu bar
+space*) moves that content down, and the two halves have to be compared
+separately: the top of the tab at a shared offset, and the bottom of the tab
+with `FLUID_SKIP_1`/`FLUID_SKIP_2` set 30px (60 screenshot px on a 2× display)
+apart so the same band lines up. Overlap the two bands and every row is covered.
+
+Three traps, all of which produced alarming false positives:
 
 * Comparing at fixed offsets. The two runs are separate processes and the window
   manager may place the window elsewhere; the diff then reports thousands of
@@ -394,10 +409,20 @@ Two traps, both of which produced alarming false positives:
   `fluid-compare` anchors each shot on its own window content.
 * Cropping one row or column too large, which picks up background outside the
   window frame.
+* Comparing top-anchored content inside a bottom-aligned crop. The Quick Convert
+  processor checkboxes are top-anchored and 40px apart, so in a band shifted by
+  30px each row very nearly lines up with the *next* one — the diff looks like a
+  layout bug rather than the crop it is.
 
-And one trap that produced a false *negative*: a `grep`-based build check that
+And two traps that produced false *negatives*: a `grep`-based build check that
 missed a compile error, so the probe screenshotted a stale binary and reported
-success. The scripts now check the build's exit status.
+success; and the app dying at startup for want of an `onyx-resources` directory
+next to the executable, so the probe photographed the bare desktop. The scripts
+now check the build's exit status, symlink the resources into place, and check
+the app is still alive at the moment the screenshot is taken.
+
+`fluid-compare`'s crop sizes are in screenshot pixels, so they depend on the
+display's scale factor. `FLUID_CROP_W`/`FLUID_CROP_H` override them.
 
 ---
 
@@ -410,10 +435,18 @@ success. The scripts now check the build's exit status.
 | Song list (multi-song import) | `multiple_songs.fl` | Rows still built in Haskell into an `Fl_Pack` |
 | Main console | `console.fl` | `Fl_Simple_Terminal`, real `makeMenuBar` path |
 | Tools / Misc | `misc.fl` | All 8 function tabs; Task tab still hand-built |
+| Quick Convert | `quick_convert.fl` | RR renumber, GH2 pack and CON→PKG tabs; RB, CH and Task still hand-built |
 
 **Not yet migrated:** `launchWindow` (the song window, including the GL
-preview), `launchBatch`, `launchQuickConvert`, `launchPreferences`, and the
-shared `taskOutputPage`.
+preview), `launchBatch`, `launchPreferences`, the Quick Convert RB and CH tabs,
+and the shared `taskOutputPage`.
+
+The RB and CH tabs are being left in Haskell on purpose for now, since they are
+still being changed by hand. RB is also the most awkward one to move: its five
+mode groups (`inPlace`, `oneToOne`, `makePacks`, `makeSongs`, `makeDolphin`) all
+occupy the same rectangle and are shown and hidden by the mode dropdown, and its
+processor column is an `Fl_Pack` generated from a list of twelve MIDI transforms
+that belongs in code.
 
 `taskOutputPage` is deliberately last: it's shared between the Misc, song, batch
 and quick-convert windows, so migrating it before those would need the same
@@ -424,6 +457,15 @@ dual-path treatment `fileLoadWindow` got.
 Everything is pixel-identical except:
 
 * Migrated windows are 30px taller on Windows/Linux (see *Menu bar space*).
+* The three migrated Quick Convert tabs place a `FileLoadPanel` at 1000px wide,
+  100px over its design width, and its Add button comes out 484px instead of
+  485 — the gap between Add and Clear is 11px rather than 10. `Fl_Group::resize`
+  maps an edge inside the resizable box with `L += dw * (L-RL) / (RR-RL)`,
+  truncating; 100 × 435 / 880 is 49.43, so the button's right edge lands one
+  pixel short. Nothing else in those three tabs moved — every other widget is at
+  the same coordinates as before, confirmed with `fluid-dump`. Redesigning the
+  panel at 1000 would only move the rounding error onto the three Misc tabs that
+  place it at 900, and no single design width is exact for both.
 * The MIDI tab's picker label column narrowed from 132px to the shared 110px, so
   its label and the input's left edge moved 22px left and the input got 22px
   wider. It was the only picker row using `chopLeft 120` instead of `100`; the

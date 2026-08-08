@@ -1,0 +1,117 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+i18n_type 1
+i18n_include {"onyx_l10n.h"}
+i18n_conditional {}
+i18n_gnu_function onyx_l10n
+i18n_gnu_static_function onyx_l10n_noop
+header_name {.h}
+code_name {.cxx}
+include_guard {}
+comment {The Quick Convert window: a tab per conversion mode, plus the shared task
+tab.
+
+The RR renumber, GH2 pack and CON->PKG tabs are laid out here. The RB and CH
+tabs and the task tab are still built in Haskell, which lays them out with
+withRect and so applies the horizontal stretch on its own. launchQuickConvert
+therefore runs adaptWindow *before* filling those, and hands each one the
+tab's pre-stretch rectangle.
+
+Colours are packed fl_rgb_color values:
+  1583242752 = behindTabsColor  rgb(94,94,94)
+  3771904256 = functionTabColor rgb(224,210,177)
+  3017652992 = taskColor        rgb(179,221,187)} {in_source not_in_header
+}
+
+decl {\#include "file_load_panel.h"} {public global
+}
+
+class QuickConvertWindow {open
+} {
+  Function {QuickConvertWindow()} {open
+  } {
+    Fl_Window window {
+      label {{window-quick-convert}} open
+      xywh {139 249 1000 600} type Double color 1583242752 hide resizable
+    } {
+      Fl_Tabs tabs {open
+        xywh {0 0 1000 600} resizable
+      } {
+        Fl_Group tabRB {
+          label {{quick-convert-tab-rb}} open
+          xywh {0 25 1000 575} color -523063040 selection_color -523063040 resizable
+        } {}
+        Fl_Group tabCH {
+          label {{quick-convert-tab-ch}} open
+          xywh {0 25 1000 575} color -523063040 selection_color -523063040 hide
+        } {}
+        Fl_Group tabRenumberRR {
+          label {{quick-convert-tab-rr-renumber}} open
+          xywh {0 25 1000 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group rrFiles {
+            xywh {0 25 1000 528} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button rrStart {
+            label {{button-start}}
+            xywh {10 558 980 32} color -1277314304
+          }
+        }
+        Fl_Group tabPacks {
+          label {{quick-convert-tab-gh2-pack}} open
+          xywh {0 25 1000 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group pkFiles {
+            xywh {0 25 1000 435} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Box pkGame {
+            xywh {10 460 235 85}
+          }
+          Fl_Input pkName {
+            label {{pack-name}}
+            xywh {355 460 635 40} align 4
+          }
+          Fl_Input pkDesc {
+            label {{pack-description}}
+            xywh {355 505 635 40} align 4
+          }
+          Fl_Button pkCON {
+            label {{pack-make-con}}
+            xywh {10 555 321 35} color -1277314304
+          }
+          Fl_Button pkLIVE {
+            label {{pack-make-live}}
+            xywh {341 555 317 35} color -1277314304
+          }
+          Fl_Button pkRaw {
+            label {{pack-make-extracted}}
+            xywh {668 555 322 35} color -1277314304
+          }
+        }
+        Fl_Group tabCONtoPKG {
+          label {{quick-convert-tab-rb-legacy-pkg}} open
+          xywh {0 25 1000 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group cpFiles {
+            xywh {0 25 1000 525} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button cpRB2 {
+            label {{task-legacy-con-to-pkg-rb2}}
+            xywh {10 555 485 35} color -1277314304
+          }
+          Fl_Button cpRB3 {
+            label {{task-legacy-con-to-pkg-rb3}}
+            xywh {505 555 485 35} color -1277314304
+          }
+        }
+        Fl_Group tabTask {
+          label {{tab-task}}
+          xywh {0 25 1000 575} color -1277314304 selection_color -1277314304 hide deactivate
+        } {}
+      }
+    }
+  }
+}

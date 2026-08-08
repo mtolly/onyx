@@ -214,6 +214,7 @@ C.include "FL/fl_string_functions.h"
 C.include "multiple_songs.h"
 C.include "console.h"
 C.include "misc.h"
+C.include "quick_convert.h"
 
 promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -1758,21 +1759,31 @@ getAudioSpec f = audioChannels f >>= \case
           ".opus" -> withFormat "Opus"
           _       -> return Nothing
 
+-- | Widgets for the GH2 pack creator tab, laid out in fluid/quick_convert.fl.
+data PackTabWidgets = PackTabWidgets
+  { pkFiles :: Ptr FileLoadPanel
+  , pkGame  :: Ptr Fl_Box
+  , pkName  :: Ptr Fl_Input
+  , pkDesc  :: Ptr Fl_Input
+  , pkCON   :: Ptr Fl_Button
+  , pkLIVE  :: Ptr Fl_Button
+  , pkRaw   :: Ptr Fl_Button
+  }
+
 miscPagePacks
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> PackTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPagePacks sink rect tab startTasks = mdo
+miscPagePacks sink widgets startTasks = do
   loadedSTFS <- newMVar []
-  let (filesRect, bottomRect) = chopBottom 140 rect
-      (metaRect, startRect) = chopBottom 50 bottomRect
-      (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
-      [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
-      [chopRight 5 -> (conRect, _), trimClock 0 5 0 5 -> liveRect, chopLeft 5 -> (_, rawRect)]
-        = splitHorizN 3 $ trimClock 5 10 10 10 startRect
+  let btnCON  = widgets.pkCON
+      btnLIVE = widgets.pkLIVE
+      btnRaw  = widgets.pkRaw
+      gameBox = widgets.pkGame
+      nameInput = widgets.pkName
+      descInput = widgets.pkDesc
       modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
       modifyButtons f = do
         newSTFS <- modifyMVar loadedSTFS \stfs -> (\x -> (x, x)) <$> f stfs
@@ -1795,7 +1806,7 @@ miscPagePacks sink rect tab startTasks = mdo
                 []       -> ""
           withUTF8 gameLabel \clbl ->
             [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
+  void $ fileLoadPanel widgets.pkFiles sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
     \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
@@ -1848,52 +1859,9 @@ miscPagePacks sink rect tab startTasks = mdo
                 PackLIVE      -> l10nArgs "pack-task-live" [("path", vString $ T.pack f)]
               in [(taskLabel, task)]
 
-  gameBox <- withRect gameRect \bx by bw bh ->
-    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
-
-  nameInput <- withRect nameRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-  withUTF8 (l10n "pack-name") \clbl ->
-    [C.block| void { $(Fl_Input* nameInput)->copy_label($(char* clbl)); } |]
-  descInput <- withRect descRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-  withUTF8 (l10n "pack-description") \clbl ->
-    [C.block| void { $(Fl_Input* descInput)->copy_label($(char* clbl)); } |]
-
-  cbCON <- makeCallback \_ _ -> doPrompt PackCON
-  btnCON <- withRect conRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-con") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbCON));
-    } |]
-    return btn
-
-  cbLIVE <- makeCallback \_ _ -> doPrompt PackLIVE
-  btnLIVE <- withRect liveRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-live") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbLIVE));
-    } |]
-    return btn
-
-  cbRaw <- makeCallback \_ _ -> doPrompt PackExtracted
-  btnRaw <- withRect rawRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-extracted") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbRaw));
-    } |]
-    return btn
-
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+  setCallback btnCON  $ doPrompt PackCON
+  setCallback btnLIVE $ doPrompt PackLIVE
+  setCallback btnRaw  $ doPrompt PackExtracted
 
 data Pack360Output
   = PackCON
@@ -2491,25 +2459,30 @@ pageQuickConvertRB sink rect tab startTasks = mdo
 
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
+-- | Widgets for the Rock Revolution renumber tab, laid out in
+-- fluid/quick_convert.fl.
+data RenumberRRTabWidgets = RenumberRRTabWidgets
+  { rrFiles :: Ptr FileLoadPanel
+  , rrStart :: Ptr Fl_Button
+  }
+
 pageRenumberRR
   :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> RenumberRRTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-pageRenumberRR sink rect tab startTasks = mdo
+pageRenumberRR sink widgets startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
-      updateFiles = modifyMVar_ loadedFiles
-  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10nFull "file-type-rr-song" []) updateFiles [] searchRockRevolution
+  let updateFiles = modifyMVar_ loadedFiles
+  clearFiles <- fileLoadPanel widgets.rrFiles sink (l10nFull "file-type-rr-song" []) updateFiles [] searchRockRevolution
     \(path, songs) -> let
       entry = T.pack path
       subline = l10nArgs "song-count"
         [("count", vNumber $ fromIntegral $ length songs)]
       in (entry, [subline])
 
-  cbGo <- makeCallback \_ _ -> do
+  setCallback widgets.rrStart do
     songsOld <- readMVar loadedFiles
     sink $ EventOnyx do
       stackIO clearFiles
@@ -2534,14 +2507,6 @@ pageRenumberRR sink rect tab startTasks = mdo
                 Dir.renameFile tmp f
             return f
         in (name, task)
-  withRect bottomRect \bx by bw bh -> do
-    btn <- withUTF8 (l10n "button-start") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
-    } |]
-
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
 data QuickFoFTask
   = QFoFInPlace
@@ -3100,69 +3065,70 @@ launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
   stackIO $ launchQuickConvert sink makeMenuBar
 
 launchQuickConvert :: (?preferences :: Preferences, ?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchQuickConvert sink makeMenuBar = mdo
-  let windowWidth = Width 1000
-      windowHeight = Height 600
-      windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    withUTF8 (l10n "window-quick-convert") \s ->
-      [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-  [C.block| void {
-    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-  } |]
-  setSizeRange window windowSize
-  tabs <- withRect windowRect \tx ty tw th ->
-    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
-  functionTabs <- sequence
-    [ makeTab windowRect (l10n "quick-convert-tab-rb") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageQuickConvertRB sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-ch") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageQuickConvertCH sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-rr-renumber") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageRenumberRR sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-gh2-pack") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPagePacks sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-rb-legacy-pkg") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageCONtoPKG sink rect tab startTasks
-      return tab
-    ]
-  (startTasks, cancelTasks) <- makeTab windowRect (l10n "tab-task") \rect tab -> do
-    setTabColor tab taskColor
-    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
-    let cbStart = do
-          [C.block| void { $(Fl_Group* tab)->activate(); } |]
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
-          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
-          updateTabsColor tabs
-        cbEnd = do
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
-    taskOutputPage rect tab sink cbStart cbEnd
+launchQuickConvert sink makeMenuBar = do
+  -- Window, tabs and tab groups come from fluid/quick_convert.fl; the pages
+  -- inside each tab are still built here. Those page builders apply the
+  -- horizontal stretch themselves via withRect, so adaptWindow has to run
+  -- before they do, and they get handed the tab's pre-stretch rectangle.
+  ui <- [C.exp| void* { new QuickConvertWindow() } |]
+  let window        = [C.pure| Fl_Window* { ((QuickConvertWindow*)$(void* ui))->window } |]
+      tabs          = [C.pure| Fl_Tabs*   { ((QuickConvertWindow*)$(void* ui))->tabs } |]
+      tabRB         = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabRB } |]
+      tabCH         = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabCH } |]
+      tabRenumberRR = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabRenumberRR } |]
+      renumberRRTab = RenumberRRTabWidgets
+        { rrFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->rrFiles } |]
+        , rrStart = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->rrStart } |]
+        }
+      tabPacks      = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabPacks } |]
+      packTab = PackTabWidgets
+        { pkFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->pkFiles } |]
+        , pkGame  = [C.pure| Fl_Box*        { ((QuickConvertWindow*)$(void* ui))->pkGame } |]
+        , pkName  = [C.pure| Fl_Input*      { ((QuickConvertWindow*)$(void* ui))->pkName } |]
+        , pkDesc  = [C.pure| Fl_Input*      { ((QuickConvertWindow*)$(void* ui))->pkDesc } |]
+        , pkCON   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkCON } |]
+        , pkLIVE  = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkLIVE } |]
+        , pkRaw   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkRaw } |]
+        }
+      tabCONtoPKG   = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabCONtoPKG } |]
+      conToPKGTab = CONtoPKGTabWidgets
+        { cpFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->cpFiles } |]
+        , cpRB2   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->cpRB2 } |]
+        , cpRB3   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->cpRB3 } |]
+        }
+      tabTask       = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabTask } |]
+      -- every tab that must be locked out while a task is running
+      functionTabs = [tabRB, tabCH, tabRenumberRR, tabPacks, tabCONtoPKG]
 
-  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  -- read the layout's own coordinates before adaptWindow rewrites them
+  windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
+  Rectangle (Position (X tabX) (Y tabY)) tabSize <- layoutRect tabTask
+
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    inGroup (windowGroup window) $ void $ makeMenuBar windowWidth True
+  lockMinimumSize window
+  let tabRect = Rectangle (Position (X tabX) (Y $ tabY + menuHeight)) tabSize
+
+  -- task tab first, since the function pages need startTasks
+  (startTasks, cancelTasks) <- inGroup tabTask do
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tabTask)->activate(); } |]
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tabTask)); } |]
+          updateTabsColor tabs
+        cbEnd = forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage tabRect tabTask sink cbStart cbEnd
+  inGroup tabRB $ pageQuickConvertRB sink tabRect tabRB startTasks
+  inGroup tabCH $ pageQuickConvertCH sink tabRect tabCH startTasks
+  pageRenumberRR   sink renumberRRTab startTasks
+  miscPagePacks    sink packTab       startTasks
+  miscPageCONtoPKG sink conToPKGTab   startTasks
+
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs
-  let firstTab = head functionTabs
-  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
-
   setCallback window $ windowCloser cancelTasks window
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->show();
-  } |]
+  [C.block| void { $(Fl_Window* window)->show(); } |]
 
 launchMisc :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchMisc sink makeMenuBar = do

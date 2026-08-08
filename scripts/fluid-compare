@@ -17,6 +17,16 @@
 # Override for a window with different chrome:
 #
 #   FLUID_ANCHOR=724A7C scripts/fluid-compare a.png b.png   # globalLogColor
+#
+# Migrating a window makes it 30px taller on PC (see doc/fluid-gui.md), so
+# anything anchored to the bottom of a tab lands 30px lower afterwards and is
+# not comparable at the same offset. Line those parts up by cropping a band
+# from each shot at its own depth:
+#
+#   FLUID_CROP_H=100 FLUID_SKIP_1=445 FLUID_SKIP_2=475 \
+#     scripts/fluid-compare before_0.png after_0.png
+#
+# FLUID_SKIP_n moves side n's crop down from its own anchor.
 
 set -euo pipefail
 
@@ -30,12 +40,19 @@ ANCHOR=${FLUID_ANCHOR:-E0D2B1}
 CROP_W=${FLUID_CROP_W:-890}
 CROP_H=${FLUID_CROP_H:-555}
 
+# Top-left corner of the anchor colour's bounding box. Done by painting every
+# other pixel black and asking for the trim box: reading the pixels out as text
+# instead means six million lines of awk per screenshot, which takes minutes.
 origin() {
-  convert "$1" txt:- 2>/dev/null \
-    | awk -F'[,:]' -v c="#$ANCHOR" '$0 ~ c {print $1" "$2}' \
-    | awk 'NR==1 {mx=$1; my=$2}
-           {if ($1 < mx) mx=$1; if ($2 < my) my=$2}
-           END {if (NR == 0) exit 1; print mx, my}'
+  local box
+  box=$(convert "$1" -fuzz 0 \
+    -fill black +opaque "#$ANCHOR" -fill white -opaque "#$ANCHOR" \
+    -format '%@' info: 2>/dev/null)
+  # WxH+X+Y, and W=0 when the colour isn't in the image at all
+  case $box in
+    0x0+*|'') return 1 ;;
+  esac
+  echo "${box#*+}" | tr '+' ' '
 }
 
 TMP=$(mktemp -d)
@@ -43,12 +60,13 @@ trap 'rm -rf "$TMP"' EXIT
 
 for side in 1 2; do
   eval "img=\$$side"
+  eval "skip=\${FLUID_SKIP_$side:-0}"
   if ! read -r x y <<<"$(origin "$img")"; then
     echo "no anchor colour #$ANCHOR found in $img" >&2
     exit 1
   fi
-  echo "  $(basename "$img"): window content at ($x,$y)"
-  convert "$img" -crop "${CROP_W}x${CROP_H}+$x+$y" +repage "$TMP/$side.png"
+  echo "  $(basename "$img"): window content at ($x,$y), cropping from +$skip"
+  convert "$img" -crop "${CROP_W}x${CROP_H}+$x+$((y + skip))" +repage "$TMP/$side.png"
 done
 
 diff=$(compare -metric AE "$TMP/1.png" "$TMP/2.png" null: 2>&1 || true)
