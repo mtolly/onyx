@@ -80,12 +80,12 @@ magmaMiloDir ml = MiloDir
   { miloVersion = 28
   , miloType = "ObjectDir"
   , miloName = "lipsync"
-  , miloU1 = case ml of
+  , miloHashReserve = case ml of
     MagmaLipsync1{} -> 4
     MagmaLipsync2{} -> 6
     MagmaLipsync3{} -> 8
     MagmaLipsync4{} -> 10 -- not verified!
-  , miloU2 = case ml of
+  , miloStringReserve = case ml of
     MagmaLipsync1{} -> 0x15
     MagmaLipsync2{} -> 0x23
     MagmaLipsync3{} -> 0x31
@@ -103,21 +103,27 @@ magmaMiloDir ml = MiloDir
       _               -> []
     , [("CharLipSync", "song.lipsync")]
     ]
-  , miloU3 = 0x1B
-  , miloU4 = Just 2
-  , miloSubname = Just ""
-  , miloU5 = Just 0
-  , miloU6 = Just 0
-  , miloMatrices = dummyMatrices
-  , miloU7 = 0
-  , miloU8 = 1
-  , miloU9 = 0
-  , miloParents = []
-  , miloU10 = 0
-  , miloChildren = []
-  , miloU11 = Nothing
-  , miloSubdirs = []
-  , miloUnknownBytes = BL.replicate 13 0
+  , miloExtResources = Nothing
+  , miloObjectDir = ObjectDirInfo
+    { odVersion = 27
+    , odObjectType = Just (2, "")
+    , odAlwaysInlined = Just 0
+    , odAlwaysInlineHash = Just ""
+    , odViewports = dummyMatrices
+    , odCurViewport = 0
+    , odInlineProxy = Just 1
+    , odProxyPath = ""
+    , odExtSubdirPaths = []
+    , odRev23Ints = Nothing
+    , odInlineSubdirType = Just 0
+    , odSubdirs = []
+    , odRev18Int = Nothing
+    , odUnknownString = ""
+    , odCurCamera = ""
+    , odObjectTypePost = Nothing
+    , odReserved = Just ""
+    , odRemainder = ""
+    }
   , miloFiles = map (runPut . putLipsync) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]
@@ -132,12 +138,12 @@ rb2MiloDir ml = MiloDir
   { miloVersion = 25
   , miloType = "ObjectDir"
   , miloName = "lipsync"
-  , miloU1 = case ml of
+  , miloHashReserve = case ml of
     MagmaLipsync1{} -> 4
     MagmaLipsync2{} -> 6
     MagmaLipsync3{} -> 8
     MagmaLipsync4{} -> 10
-  , miloU2 = case ml of
+  , miloStringReserve = case ml of
     MagmaLipsync1{} -> 0x15
     MagmaLipsync2{} -> 0x23
     MagmaLipsync3{} -> 0x31
@@ -155,21 +161,27 @@ rb2MiloDir ml = MiloDir
       _               -> []
     , [("CharLipSync", "song.lipsync")]
     ]
-  , miloU3 = 20
-  , miloU4 = Nothing
-  , miloSubname = Nothing
-  , miloU5 = Nothing
-  , miloU6 = Nothing
-  , miloMatrices = dummyMatrices
-  , miloU7 = 0
-  , miloU8 = 1
-  , miloU9 = 0
-  , miloParents = []
-  , miloU10 = 0
-  , miloChildren = []
-  , miloU11 = Nothing
-  , miloSubdirs = []
-  , miloUnknownBytes = "\NUL\NUL\NUL\NUL\NUL\NUL\STX\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL\NUL"
+  , miloExtResources = Nothing
+  , miloObjectDir = ObjectDirInfo
+    { odVersion = 20
+    , odObjectType = Nothing
+    , odAlwaysInlined = Nothing
+    , odAlwaysInlineHash = Nothing
+    , odViewports = dummyMatrices
+    , odCurViewport = 0
+    , odInlineProxy = Just 1
+    , odProxyPath = ""
+    , odExtSubdirPaths = []
+    , odRev23Ints = Nothing
+    , odInlineSubdirType = Nothing
+    , odSubdirs = []
+    , odRev18Int = Nothing
+    , odUnknownString = ""
+    , odCurCamera = ""
+    , odObjectTypePost = Just (2, "")
+    , odReserved = Just ""
+    , odRemainder = ""
+    }
   , miloFiles = map (runPut . putLipsync . setRB2) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]

@@ -362,7 +362,11 @@ miscPageLipsync sink rect tab startTasks = do
                       else getVocal [(.fixedHarm3)]
                     "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
                     _                -> contents
-                , miloSubdirs = map editDir dir.miloSubdirs
+                , miloObjectDir = dir.miloObjectDir
+                  { odSubdirs = do
+                    sd <- dir.miloObjectDir.odSubdirs
+                    return sd { sdDir = fmap editDir sd.sdDir }
+                  }
                 }
               getVocal getTracks = let
                 trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks

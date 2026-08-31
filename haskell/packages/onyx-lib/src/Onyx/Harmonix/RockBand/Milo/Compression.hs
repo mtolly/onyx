@@ -44,7 +44,9 @@ decompressBlock comp bs = case comp of
   MILO_A -> bs
   MILO_B -> zlibTruncate $ zlib_info <> bs
   MILO_C -> GZ.decompress bs
-  MILO_D -> zlibTruncate $ zlib_info <> BL.drop 4 (BL.take (BL.length bs - 1) bs)
+  -- first 4 bytes are the uncompressed length (little endian), then raw deflate
+  -- (ChunkStream::DecompressChunk / DecompressMemHelper in RB3)
+  MILO_D -> zlibTruncate $ zlib_info <> BL.drop 4 bs
   where zlib_info = BL.pack [0x78, 0x9C]
 
 decompressMilo :: Get BL.ByteString

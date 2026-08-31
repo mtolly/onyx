@@ -18,7 +18,7 @@ module Onyx.Harmonix.RockBand.Milo
 , miloToFolder
 ) where
 
-import           Control.Monad                           (forM_)
+import           Control.Monad                           (forM, forM_)
 import           Control.Monad.IO.Class
 import           Data.Bifunctor                          (bimap)
 import           Data.Binary.Get                         (runGetOrFail)
@@ -57,7 +57,7 @@ loadMilo fin = do
 miloToFolder :: MiloDir -> (B.ByteString, Folder B.ByteString BL.ByteString)
 miloToFolder dir = (dir.miloName, Folder
   { folderFiles      = zip (map snd dir.miloEntryNames) dir.miloFiles
-  , folderSubfolders = map miloToFolder dir.miloSubdirs
+  , folderSubfolders = map miloToFolder $ miloSubdirs dir
   })
 
 -- | Decompresses a milo and tries to parse the directory structure inside.
@@ -79,9 +79,12 @@ unpackMilo fin dout = do
           folder' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) folder
       stackIO $ saveHandleFolder folder' $ dout </> B8.unpack topname
       let removeFiles dir = dir
-            { miloSubdirs = map removeFiles dir.miloSubdirs
+            { miloObjectDir = dir.miloObjectDir
+              { odSubdirs = map removeFilesSubdir dir.miloObjectDir.odSubdirs
+              }
             , miloFiles = map (const "(file contents)") dir.miloFiles
             }
+          removeFilesSubdir sd = sd { sdDir = fmap removeFiles sd.sdDir }
       stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
       lg "Recognized and extracted milo contents."
 
@@ -108,10 +111,14 @@ packMilo din fout = do
                 newFiles <- mapM
                   (BL.readFile . (thisout </>) . B8.unpack . snd)
                   milodir.miloEntryNames
-                newDirs <- mapM (reload thisout) milodir.miloSubdirs
+                newSubdirs <- forM milodir.miloObjectDir.odSubdirs \sd -> do
+                  newDir <- mapM (reload thisout) sd.sdDir
+                  return sd { sdDir = newDir }
                 return milodir
                   { miloFiles = newFiles
-                  , miloSubdirs = newDirs
+                  , miloObjectDir = milodir.miloObjectDir
+                    { odSubdirs = newSubdirs
+                    }
                   }
           topdir' <- stackIO $ reload din topdir
           return $ makeMiloFile topdir'
