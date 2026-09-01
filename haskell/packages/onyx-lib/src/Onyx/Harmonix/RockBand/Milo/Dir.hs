@@ -400,6 +400,24 @@ data DirClassInfo
 getMaybe :: Bool -> Get a -> Get (Maybe a)
 getMaybe b g = if b then Just <$> g else return Nothing
 
+-- | A dir's data always ends at an ADDE barrier (its remainder is empty in
+-- every file seen so far), which lets us check that we read the right amount.
+endsAtBarrier :: Get ()
+endsAtBarrier = do
+  magic <- lookAhead $ getByteString 4
+  unless (magic == B.pack magicBarrier) $ fail
+    "dir data doesn't end at an ADDE barrier"
+
+-- | Choose between two possible layouts for a dir class's data, preferring
+-- the first, by seeing which one ends where the dir's data should end.
+-- Falls back to the preferred one, so an unrecognized layout still reports
+-- its own parse error rather than this one.
+chooseVariant :: (Get a, Get a) -> Get a
+chooseVariant (preferred, other)
+  =   (preferred <* endsAtBarrier)
+  <|> (other     <* endsAtBarrier)
+  <|> preferred
+
 -- | RndAnimatable::Load: animation frame state
 data AnimInfo = AnimInfo
   { animVersion :: Word32 -- ^ 4 in RB3
@@ -651,23 +669,34 @@ parseCharacterExtras :: Bool -> Word32 -> RndDirInfo -> Get CharacterInfo
 parseCharacterExtras isProxy charVersion charRnd = do
   when (charVersion < 9 || charVersion > 17) $ fail $
     "Unsupported Character version " <> show charVersion
-  charStandalone <- getMaybe (not isProxy) do
-    charLods <- getArrayBE do
-      screenSize <- getFloatbe
-      grp <- getStringBE
-      transGrp <- getMaybe (charVersion > 13) getStringBE
-      return (screenSize, grp, transGrp)
-    charShadow <- getStringBE
-    charSelfShadow <- getMaybe (charVersion > 2) getWord8
-    charSphereBase <- getMaybe (charVersion > 4) getStringBE
-    charBounding <- getMaybe (charVersion > 10) $ replicateM 4 getFloatbe
-    charFrozen <- getMaybe (charVersion > 12) getWord8
-    charMinLod <- getMaybe (charVersion > 14) getWord32be
-    charTransGroup <- getMaybe (charVersion > 16) getStringBE
-    charTest <- getMaybe (charVersion > 9) parseCharacterTest
-    return CharacterExtras{..}
-  charProxyTest <- getMaybe (isProxy && charVersion > 15) parseCharacterTest
-  return CharacterInfo{..}
+  let standalone = do
+        charStandalone <- fmap Just do
+          charLods <- getArrayBE do
+            screenSize <- getFloatbe
+            grp <- getStringBE
+            transGrp <- getMaybe (charVersion > 13) getStringBE
+            return (screenSize, grp, transGrp)
+          charShadow <- getStringBE
+          charSelfShadow <- getMaybe (charVersion > 2) getWord8
+          charSphereBase <- getMaybe (charVersion > 4) getStringBE
+          charBounding <- getMaybe (charVersion > 10) $ replicateM 4 getFloatbe
+          charFrozen <- getMaybe (charVersion > 12) getWord8
+          charMinLod <- getMaybe (charVersion > 14) getWord32be
+          charTransGroup <- getMaybe (charVersion > 16) getStringBE
+          charTest <- getMaybe (charVersion > 9) parseCharacterTest
+          return CharacterExtras{..}
+        return CharacterInfo{ charProxyTest = Nothing, .. }
+      proxyForm = do
+        charProxyTest <- getMaybe (charVersion > 15) parseCharacterTest
+        return CharacterInfo{ charStandalone = Nothing, .. }
+  -- Character::PostLoad only saves the lods and the rest when the dir isn't
+  -- a proxy, but which form was used isn't recorded in the file, and a dir
+  -- can be saved in proxy form even at the top level of a milo (e.g.
+  -- char/main/gen/skeleton.milo_xbox). Try the likely form for where this dir
+  -- came from, and check that the dir data ends where it should.
+  chooseVariant $ if isProxy
+    then (proxyForm, standalone)
+    else (standalone, proxyForm)
 
 putCharacterExtras :: CharacterInfo -> Put
 putCharacterExtras char = do
