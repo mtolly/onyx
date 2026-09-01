@@ -55,10 +55,24 @@ loadMilo fin = do
   inside ("Parsing milo file: " <> fin) $ runGetM parseMiloFile dec
 
 miloToFolder :: MiloDir -> (B.ByteString, Folder B.ByteString BL.ByteString)
-miloToFolder dir = (dir.miloName, Folder
-  { folderFiles      = zip (map snd dir.miloEntryNames) dir.miloFiles
-  , folderSubfolders = map miloToFolder $ miloSubdirs dir
-  })
+miloToFolder dir = (dir.miloName, miloDirFolder dir)
+
+miloDirFolder :: MiloDir -> Folder B.ByteString BL.ByteString
+miloDirFolder dir = Folder
+  { folderFiles      = zip (map snd dir.miloEntryNames) $ map (.entryData) dir.miloFiles
+  , folderSubfolders = concat
+    [ map miloToFolder $ miloSubdirs dir
+    -- an entry's inlined dir goes in a folder beside the entry's own file,
+    -- named after it, since the entry name is already taken by that file
+    , [ (name <> inlineDirSuffix, miloDirFolder inline)
+      | ((_, name), entry) <- zip dir.miloEntryNames dir.miloFiles
+      , Just inline <- [entry.entryInlineDir]
+      ]
+    ]
+  }
+
+inlineDirSuffix :: B.ByteString
+inlineDirSuffix = "_inline_dir"
 
 -- | Decompresses a milo and tries to parse the directory structure inside.
 -- Extracts either the parsed structure and its files, or the raw split pieces.
@@ -82,7 +96,12 @@ unpackMilo fin dout = do
             { miloObjectDir = dir.miloObjectDir
               { odSubdirs = map removeFilesSubdir dir.miloObjectDir.odSubdirs
               }
-            , miloFiles = map (const "(file contents)") dir.miloFiles
+            , miloFiles = do
+              entry <- dir.miloFiles
+              return entry
+                { entryData = "(file contents)"
+                , entryInlineDir = fmap removeFiles entry.entryInlineDir
+                }
             }
           removeFilesSubdir sd = sd { sdDir = fmap removeFiles sd.sdDir }
       stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
@@ -106,11 +125,15 @@ packMilo din fout = do
         Left (_, pos, err) -> inside "Re-parsing milo decompressed.bin"
           $ inside ("position " <> show pos) $ fatal err
         Right (_, _, topdir) -> do
-          let reload parent milodir = do
-                let thisout = parent </> B8.unpack milodir.miloName
-                newFiles <- mapM
-                  (BL.readFile . (thisout </>) . B8.unpack . snd)
-                  milodir.miloEntryNames
+          let reload parent milodir
+                = reloadIn (parent </> B8.unpack milodir.miloName) milodir
+              reloadIn thisout milodir = do
+                newFiles <- forM (zip milodir.miloEntryNames milodir.miloFiles)
+                  \((_, name), entry) -> do
+                    newData <- BL.readFile $ thisout </> B8.unpack name
+                    newInline <- forM entry.entryInlineDir $ reloadIn
+                      $ thisout </> B8.unpack (name <> inlineDirSuffix)
+                    return entry { entryData = newData, entryInlineDir = newInline }
                 newSubdirs <- forM milodir.miloObjectDir.odSubdirs \sd -> do
                   newDir <- mapM (reload thisout) sd.sdDir
                   return sd { sdDir = newDir }

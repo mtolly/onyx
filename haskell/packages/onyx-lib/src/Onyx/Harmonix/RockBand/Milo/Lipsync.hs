@@ -121,10 +121,12 @@ magmaMiloDir ml = MiloDir
     , odUnknownString = ""
     , odCurCamera = ""
     , odObjectTypePost = Nothing
+    , odTypeProps = Nothing
     , odReserved = Just ""
-    , odRemainder = ""
     }
-  , miloFiles = map (runPut . putLipsync) case ml of
+  , miloClassInfo = InfoObjectDir
+  , miloRemainder = ""
+  , miloFiles = map (\l -> MiloEntry (runPut $ putLipsync l) Nothing) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]
     MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]
@@ -179,10 +181,12 @@ rb2MiloDir ml = MiloDir
     , odUnknownString = ""
     , odCurCamera = ""
     , odObjectTypePost = Just (2, "")
+    , odTypeProps = Nothing
     , odReserved = Just ""
-    , odRemainder = ""
     }
-  , miloFiles = map (runPut . putLipsync . setRB2) case ml of
+  , miloClassInfo = InfoObjectDir
+  , miloRemainder = ""
+  , miloFiles = map (\l -> MiloEntry (runPut $ putLipsync $ setRB2 l) Nothing) case ml of
     MagmaLipsync1 h1          -> [h1]
     MagmaLipsync2 h1 h2       -> [h2, h1]
     MagmaLipsync3 h1 h2 h3    -> [h2, h3, h1]

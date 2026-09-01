@@ -345,8 +345,9 @@ miscPageLipsync sink rect tab startTasks = do
           useLipsyncTracks <- hasLipsyncTracks mid
           let editDir dir = dir
                 { miloFiles = do
-                  ((_, name), contents) <- zip dir.miloEntryNames dir.miloFiles
-                  return case name of
+                  ((_, name), entry) <- zip dir.miloEntryNames dir.miloFiles
+                  let contents = entry.entryData
+                  return $ (\d -> entry { entryData = d }) case name of
                     "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
                     "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
                     "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)

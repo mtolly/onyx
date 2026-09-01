@@ -63,8 +63,8 @@ main = do
   forM_ bad \(f, r) -> putStrLn $ f <> "\n  " <> show r
 
 remainderBytes :: MiloDir -> Int
-remainderBytes dir = fromIntegral (BL.length dir.miloObjectDir.odRemainder)
-  + sum (map remainderBytes $ miloSubdirs dir)
+remainderBytes dir = fromIntegral (BL.length dir.miloRemainder)
+  + sum (map remainderBytes $ miloSubdirs dir <> miloInlineDirs dir)
 
 firstDiff :: BL.ByteString -> BL.ByteString -> Maybe Int64
 firstDiff a b = go 0 (BL.unpack a) (BL.unpack b) where
