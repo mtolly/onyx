@@ -40,6 +40,9 @@ newtype HsDndButton = HsDndButton (Ptr HsDndButton)
 newtype HsDndGroup = HsDndGroup (Ptr HsDndGroup)
 newtype HsDndBox = HsDndBox (Ptr HsDndBox)
 newtype HsTree = HsTree (Ptr HsTree)
+-- FLUID widget_classes, generated from the layouts in fluid
+newtype FileLoadPanel = FileLoadPanel (Ptr FileLoadPanel)
+newtype FilePickerRow = FilePickerRow (Ptr FilePickerRow)
 
 type Callback = Ptr Fl_Widget -> Ptr () -> IO ()
 type DrawCallback = Ptr () -> IO ()
@@ -86,6 +89,8 @@ flContext = C.cppCtx <> C.cppTypePairs
   , ("HsDndGroup", [t| HsDndGroup |])
   , ("HsDndBox", [t| HsDndBox |])
   , ("HsTree", [t| HsTree |])
+  , ("FileLoadPanel", [t| FileLoadPanel |])
+  , ("FilePickerRow", [t| FilePickerRow |])
   , ("Fl_Callback", [t| FunPtr Callback |])
   , ("Fl_Color", [t| Fl_Color |])
   ]

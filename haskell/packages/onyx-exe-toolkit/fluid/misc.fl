@@ -1,0 +1,280 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+i18n_type 1
+i18n_include {"onyx_l10n.h"}
+i18n_conditional {}
+i18n_gnu_function onyx_l10n
+i18n_gnu_static_function onyx_l10n_noop
+header_name {.h}
+code_name {.cxx}
+include_guard {}
+comment {The "other tools" window: a tab per utility, plus the shared task tab.
+
+Only the window, the Fl_Tabs and the tab groups themselves live here. Each
+tab's contents are still built in Haskell (Onyx.GUI.Misc and taskOutputPage),
+which lay themselves out with withRect and so apply the horizontal stretch
+on their own. launchMisc therefore runs adaptWindow *before* filling the
+tabs, and hands each page the tab's pre-stretch rectangle.
+
+Colours are packed fl_rgb_color values:
+  1583242752 = behindTabsColor  rgb(94,94,94)
+  3771904256 = functionTabColor rgb(224,210,177)
+  3017652992 = taskColor        rgb(179,221,187)} {in_source not_in_header
+}
+
+decl {\#include "file_load_panel.h"} {public global
+}
+
+decl {\#include "file_picker_row.h"} {public global
+}
+
+class MiscWindow {open
+} {
+  Function {MiscWindow()} {open
+  } {
+    Fl_Window window {
+      label {{window-tools}} open
+      xywh {139 249 900 600} type Double color 1583242752 hide resizable
+    } {
+      Fl_Tabs tabs {open
+        xywh {0 0 900 600} resizable
+      } {
+        Fl_Group tabMIDI {
+          label {{misc-tab-midi-stuff}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 resizable
+        } {
+          Fl_Group midiFile {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Button midiReduce {
+            label {{midi-button-reduce}}
+            xywh {10 80 880 35} color -1277314304
+          }
+          Fl_Button midiProKeys {
+            label {{midi-button-prokeys}}
+            xywh {10 130 880 35} color -1277314304
+          }
+          Fl_Button midiReaper {
+            label {{midi-button-reaper}}
+            xywh {10 180 880 35} color -1277314304
+          }
+          Fl_Button midiChartToMidi {
+            label {{midi-button-chart-to-midi}}
+            xywh {10 230 715 35} color -1277314304
+          }
+          Fl_Button midiBatch {
+            label {{midi-button-batch}}
+            xywh {736 230 154 35} color -1277314304
+          }
+          Fl_Box midiFill {selected
+            xywh {10 270 880 325} resizable
+          }
+        }
+        Fl_Group tabMOGG {
+          label {{misc-tab-mogg-vgs-fsb}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group moggFiles {
+            xywh {0 25 900 480} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button moggCombine {
+            label {(labeled in code) mogg}
+            xywh {10 510 435 35} color -1277314304
+          }
+          Fl_Button vgsCombine {
+            label {(labeled in code) vgs}
+            xywh {455 510 435 35} color -1277314304
+          }
+          Fl_Button fsb3Make {
+            label {(labeled in code) fsb3-xma1}
+            xywh {10 555 435 35} color -1277314304
+          }
+          Fl_Button fsb4Make {
+            label {(labeled in code) fsb4-xma2}
+            xywh {455 555 435 35} color -1277314304
+          }
+        }
+        Fl_Group tabLipsync {
+          label {{misc-tab-lipsync}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group lsMidiFile {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Round_Button lsLang0 {
+            label {{language-english}}
+            xywh {10 77 201 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button lsLang1 {
+            label {{language-german}}
+            xywh {211 77 201 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button lsLang2 {
+            label {{language-spanish}}
+            xywh {412 77 203 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Counter lsTransition {
+            label {{label-transition-ms}}
+            xywh {725 77 165 35} labelsize 13 align 4
+          }
+          Fl_Button lsMakeVoc {
+            label {{misc-button-make-voc}}
+            xywh {10 124 880 35} color -1277314304
+          }
+          Fl_Button lsMakeMilo {
+            label {{misc-button-make-milo}}
+            tooltip {{misc-button-make-milo.tooltip}} xywh {10 179 287 35} color -1277314304
+          }
+          Fl_Button lsUpdateMilo {
+            label {{misc-button-update-milo}}
+            tooltip {{misc-button-update-milo.tooltip}} xywh {308 179 282 35} color -1277314304
+          }
+          Fl_Button lsRawLipsync {
+            label {{misc-button-create-lipsync}}
+            tooltip {{misc-button-create-lipsync.tooltip}} xywh {601 179 289 35} color -1277314304
+          }
+          Fl_Button lsTracksRB3 {
+            label {{misc-button-vocal-lipsync-rb3}}
+            tooltip {{misc-button-vocal-lipsync-rb3.tooltip}} xywh {10 234 880 35} color -1277314304
+          }
+          Fl_Button lsTracksTBRB {
+            label {{misc-button-vocal-lipsync-tbrb}}
+            tooltip {{misc-button-vocal-lipsync-tbrb.tooltip}} xywh {10 289 880 35} color -1277314304
+          }
+          Fl_Box lsFill {
+            xywh {10 329 880 266} resizable
+          }
+        }
+        Fl_Group tabDryVox {
+          label {{misc-tab-dry-vox}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group dvMidiFile {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Round_Button dvVox0 {
+            label {PART VOCALS}
+            xywh {10 77 176 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button dvVox1 {
+            label {[PART] HARM1}
+            xywh {186 77 176 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button dvVox2 {
+            label {[PART] HARM2}
+            xywh {362 77 176 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button dvVox3 {
+            label {[PART] HARM3}
+            xywh {538 77 176 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Round_Button dvVox4 {
+            label {{dryvox-blank}}
+            xywh {714 77 176 35} down_box ROUND_DOWN_BOX
+          }
+          Fl_Button dvSine {
+            label {{misc-button-dryvox-sine}}
+            xywh {10 119 880 35} color -1277314304
+          }
+          Fl_Group dvAudioFile {
+            xywh {0 164 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Button dvClipped {
+            label {{misc-button-dryvox-clipped}}
+            xywh {10 219 880 35} color -1277314304
+          }
+          Fl_Box dvFill {
+            xywh {10 259 880 336} resizable
+          }
+        }
+        Fl_Group tabMilo {
+          label {{misc-tab-milo}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Button miloExtract {
+            label {{misc-button-extract-milo}}
+            xywh {10 30 880 35} color -1277314304
+          }
+          Fl_Button miloRepack {
+            label {{misc-button-repack-milo}}
+            xywh {10 75 880 35} color -1277314304
+          }
+          Fl_Box miloFill {
+            xywh {10 115 880 480} resizable
+          }
+        }
+        Fl_Group tabRB3Cache {
+          label {{misc-tab-rb3-cache}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group rb3ConFolder {
+            xywh {0 25 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Group rb3CacheFile {
+            xywh {0 75 900 50}
+            class FilePickerRow
+          } {}
+          Fl_Button rb3Apply {
+            label {{cache-button-apply}}
+            xywh {10 130 880 35} color -1277314304
+          }
+          Fl_Box rb3Fill {
+            xywh {10 170 880 425} resizable
+          }
+        }
+        Fl_Group gh3Cache {
+          label {{misc-tab-gh3-cache}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group gh3Files {
+            xywh {0 25 900 525} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button gh3Cache360 {
+            label {{misc-button-gh3-cache-360}}
+            xywh {10 555 288 35} color -1277314304
+          }
+          Fl_Button gh3CachePS3 {
+            label {{misc-button-gh3-cache-ps3}}
+            xywh {308 555 283 35} color -1277314304
+          }
+          Fl_Button gh3CacheRPCS3 {
+            label {{misc-button-gh3-cache-install-rpcs3}}
+            xywh {601 555 289 35} color -1277314304
+          }
+        }
+        Fl_Group worCache {
+          label {{misc-tab-ghwor-cache}} open
+          xywh {0 25 900 575} color -523063040 selection_color -523063040 hide
+        } {
+          Fl_Group worFiles {
+            xywh {0 25 900 525} resizable
+            class FileLoadPanel
+          } {}
+          Fl_Button worCache360 {
+            label {{misc-button-ghwor-cache-360}}
+            xywh {10 555 288 35} color -1277314304
+          }
+          Fl_Button worCachePS3 {
+            label {{misc-button-ghwor-cache-ps3}}
+            xywh {308 555 283 35} color -1277314304
+          }
+          Fl_Button worCacheRPCS3 {
+            label {{misc-button-ghwor-cache-install-rpcs3}}
+            xywh {601 555 289 35} color -1277314304
+          }
+        }
+        Fl_Group tabTask {
+          label {{tab-task}}
+          xywh {0 25 900 575} color -1277314304 selection_color -1277314304 hide deactivate
+        } {}
+      }
+    }
+  }
+}

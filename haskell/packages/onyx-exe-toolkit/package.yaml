@@ -11,6 +11,7 @@ extra-source-files:
 - ../../icon/icon.*
 - cbits/*.h
 - cbits/*.cpp
+- fluid/*.fl
 
 ghc-options: -Wall
 
@@ -18,6 +19,8 @@ custom-setup:
   dependencies:
   - Cabal
   - base
+  - bytestring
+  - directory
   - process
   - filepath
 
@@ -31,6 +34,7 @@ executables:
     - Onyx.GUI.Batch
     - Onyx.GUI.Binding
     - Onyx.GUI.Core
+    - Onyx.GUI.Fluid
     - Onyx.GUI.Misc
     - Onyx.GUI.Song
     - Onyx.GUI.Util
@@ -46,8 +50,12 @@ executables:
     - cbits/hs_dnd_box.cpp
     - cbits/hs_tree.cpp
     - cbits/Fl_Simple_Terminal.cpp
+    - cbits/onyx_l10n.cpp
+    - cbits/onyx_fluid.cpp
     include-dirs:
     - cbits
+    # FLUID-generated sources are added by Setup.hs, along with the gen/
+    # include dir; see fluid/*.fl
 
     dependencies:
     - base

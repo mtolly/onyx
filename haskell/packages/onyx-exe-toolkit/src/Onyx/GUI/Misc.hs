@@ -12,10 +12,9 @@ module Onyx.GUI.Misc where
 
 import           Control.Applicative          ((<|>))
 import           Control.Concurrent           (modifyMVar_, newMVar, readMVar)
-import           Control.Monad                (forM, guard, join, when)
+import           Control.Monad                (forM, guard, join, void, when)
 import           Data.Bifunctor               (first)
 import           Data.Binary.Put              (runPut)
-import qualified Data.ByteString              as B
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Functor                 ((<&>))
 import           Data.Maybe                   (catMaybes, fromMaybe, isJust,
@@ -32,7 +31,6 @@ import           Onyx.Build.GuitarHero5.Logic (getAllMetadata, makeMetadataLIVE,
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
 import           Onyx.GUI.Util                (askFolder, peekUTF8, setCallback,
-                                               setLabelTooltip,
                                                withNativeFileChooser, withUTF8)
 import           Onyx.Harmonix.RockBand.Milo  as Milo
 import           Onyx.Import                  (installPS3Folder)
@@ -68,104 +66,90 @@ C.include "FL/Fl_Counter.H"
 C.include "FL/Fl_Pack.H"
 C.include "FL/Fl_Native_File_Chooser.H"
 
+-- | Widgets for the .milo tab, laid out in fluid/misc.fl.
+data MiloTabWidgets = MiloTabWidgets
+  { mtExtract :: Ptr Fl_Button
+  , mtRepack  :: Ptr Fl_Button
+  }
+
 miscPageMilo
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MiloTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMilo sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-extract-milo" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ withNativeFileChooser
-      [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
-      \picker1 -> do
-        withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
-          $(Fl_Native_File_Chooser* picker1)->title($(char* s));
-          $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
-        when (result1 == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
-          fin <- peekUTF8 cstr
-          withNativeFileChooser
-            [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
-            \picker2 -> do
-            withUTF8 (l10n "file-picker-create-folder") \s ->
-              [C.block| void { $(Fl_Native_File_Chooser* picker2)->title($(char* s)); } |]
-            withUTF8 (fin <> "-extract") \cpreset ->
-              [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
-            result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
-            when (result2 == 0) do
-              cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
-              dout <- peekUTF8 cstr2
-              sink $ EventOnyx let
-                task = do
-                  unpackMilo fin dout
-                  return [dout]
-                in startTasks [(T.unpack $ l10nArgs "misc-task-extract-milo" [("path", vString $ T.pack fin)], task)]
-  padded 5 10 5 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-repack-milo" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ askFolder Nothing \din -> do
-      let dinText = T.pack din
-          presetFile = case T.stripSuffix "-extract" dinText of
-            Just stripped -> stripped
-            Nothing       -> dinText <> ".milo"
-      withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
-        withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
-          $(Fl_Native_File_Chooser* miloPicker)->title($(char* s));
-          $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
-        } |]
-        withUTF8 presetFile \cpreset ->
-          [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
-        result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
-        when (result == 0) do
-          cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
-          fout <- peekUTF8 cstr
-          sink $ EventOnyx let
-            task = do
-              packMilo din fout
-              return [fout]
-            in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+miscPageMilo sink tab startTasks = do
+  setCallback tab.mtExtract $ withNativeFileChooser
+    [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
+    \picker1 -> do
+      withUTF8 (l10n "file-picker-load-milo") \s -> [C.block| void {
+        $(Fl_Native_File_Chooser* picker1)->title($(char* s));
+        $(Fl_Native_File_Chooser* picker1)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+      } |]
+      result1 <- [C.exp| int { $(Fl_Native_File_Chooser* picker1)->show() } |]
+      when (result1 == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker1)->filename() } |]
+        fin <- peekUTF8 cstr
+        withNativeFileChooser
+          [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
+          \picker2 -> do
+          withUTF8 (l10n "file-picker-create-folder") \s ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker2)->title($(char* s)); } |]
+          withUTF8 (fin <> "-extract") \cpreset ->
+            [C.block| void { $(Fl_Native_File_Chooser* picker2)->preset_file($(char* cpreset)); } |]
+          result2 <- [C.exp| int { $(Fl_Native_File_Chooser* picker2)->show() } |]
+          when (result2 == 0) do
+            cstr2 <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker2)->filename() } |]
+            dout <- peekUTF8 cstr2
+            sink $ EventOnyx let
+              task = do
+                unpackMilo fin dout
+                return [dout]
+              in startTasks [(T.unpack $ l10nArgs "misc-task-extract-milo" [("path", vString $ T.pack fin)], task)]
+  setCallback tab.mtRepack $ askFolder Nothing \din -> do
+    let dinText = T.pack din
+        presetFile = case T.stripSuffix "-extract" dinText of
+          Just stripped -> stripped
+          Nothing       -> dinText <> ".milo"
+    withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \miloPicker -> do
+      withUTF8 (l10n "file-picker-save-milo") \s -> [C.block| void {
+        $(Fl_Native_File_Chooser* miloPicker)->title($(char* s));
+        $(Fl_Native_File_Chooser* miloPicker)->filter("*.{milo_xbox,milo_ps3,milo_wii}");
+      } |]
+      withUTF8 presetFile \cpreset ->
+        [C.block| void { $(Fl_Native_File_Chooser* miloPicker)->preset_file($(char* cpreset)); } |]
+      result <- [C.exp| int { $(Fl_Native_File_Chooser* miloPicker)->show() } |]
+      when (result == 0) do
+        cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* miloPicker)->filename() } |]
+        fout <- peekUTF8 cstr
+        sink $ EventOnyx let
+          task = do
+            packMilo din fout
+            return [fout]
+          in startTasks [(T.unpack $ l10nArgs "misc-task-repack-milo" [("path", vString $ T.pack din)], task)]
+
+-- | Widgets for the lipsync tab, laid out in fluid/misc.fl.
+data LipsyncTabWidgets = LipsyncTabWidgets
+  { lsMidiFile    :: Ptr FilePickerRow
+  , lsLanguages   :: [Ptr Fl_Round_Button] -- ^ one per vowel-set option
+  , lsTransition  :: Ptr Fl_Counter
+  , lsMakeVoc     :: Ptr Fl_Button
+  , lsMakeMilo    :: Ptr Fl_Button
+  , lsUpdateMilo  :: Ptr Fl_Button
+  , lsRawLipsync  :: Ptr Fl_Button
+  , lsTracksRB3   :: Ptr Fl_Button
+  , lsTracksTBRB  :: Ptr Fl_Button
+  }
 
 miscPageLipsync
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> LipsyncTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageLipsync sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+miscPageLipsync sink tab startTasks = do
+  pickedFile <- filePickerRow tab.lsMidiFile (l10n "label-midi-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -174,30 +158,19 @@ miscPageLipsync sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  (getVowels, getTransition) <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (trimClock 0 100 0 0 -> langArea, transArea) = chopRight 150 rect'
-    getVowels <- horizRadio langArea
-      [ (l10n "language-english", englishSyllables, True)
-      , (l10n "language-german", germanVowels, False)
-      , (l10n "language-spanish", spanishVowels, False)
+          peekUTF8 cstr >>= useResult
+  (getVowels, getTransition) <- do
+    getVowels <- horizRadioSelect tab.lsLanguages Nothing
+      [ (englishSyllables, True)
+      , (germanVowels, False)
+      , (spanishVowels, False)
       ]
-    counter <- withRect transArea \cx cy cw ch ->
-      [C.exp| Fl_Counter* { new Fl_Counter($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    let counter = tab.lsTransition
     [C.block| void {
-      $(Fl_Counter* counter)->labelsize(13);
-      $(Fl_Counter* counter)->align(FL_ALIGN_LEFT);
       $(Fl_Counter* counter)->step(1);
       $(Fl_Counter* counter)->lstep(5);
       $(Fl_Counter* counter)->minimum(0);
     } |]
-    withUTF8 (l10n "label-transition-ms") \clbl ->
-      [C.block| void { $(Fl_Counter* counter)->copy_label($(char* clbl)); } |]
     let defVal = realToFrac (round (defaultTransition * 1000) :: Integer) :: C.CDouble
     [C.block| void { $(Fl_Counter* counter)->value($(double defVal)); } |]
     return
@@ -221,27 +194,21 @@ miscPageLipsync sink rect tab startTasks = do
             fout <- peekUTF8 cstr
             go fout
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "misc-button-make-voc") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      saveVoc input \voc -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          let _ = mid :: F.Song (F.FixedFile U.Beats)
-          stackIO
-            $ BL.writeFile voc
-            $ runPut $ putVocFile
-            $ gh2Lipsync vowels
-            $ mapTrack (U.applyTempoTrack mid.tempos)
-            $ mid.tracks.fixedPartVocals
-          return [voc]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-make-voc" [("path", vString $ T.pack voc)], task)]
+  setCallback tab.lsMakeVoc $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    saveVoc input \voc -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        let _ = mid :: F.Song (F.FixedFile U.Beats)
+        stackIO
+          $ BL.writeFile voc
+          $ runPut $ putVocFile
+          $ gh2Lipsync vowels
+          $ mapTrack (U.applyTempoTrack mid.tempos)
+          $ mid.tracks.fixedPartVocals
+        return [voc]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-make-voc" [("path", vString $ T.pack voc)], task)]
 
   let pickMilo go = do
         withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
@@ -281,140 +248,127 @@ miscPageLipsync sink rect tab startTasks = do
           else do
             lg "Updating milo from vocal chart tracks."
             return False
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let [trimClock 0 5 0 0 -> makeArea, trimClock 0 5 0 5 -> updateArea, trimClock 0 0 0 5 -> rawArea] = splitHorizN 3 rect'
-    makeButton <- withRect makeArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-make-milo" []) makeButton
-    [C.block| void { $(Fl_Button* makeButton)->color($(Fl_Color taskColor)); } |]
-    setCallback makeButton $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      trans <- getTransition
-      saveMilo input \milo -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          vmapRB3 <- loadVisemesRB3
-          useLipsyncTracks <- hasLipsyncTracks mid
-          stackIO $ BL.writeFile milo $ magmaMilo let
-            lip1 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync1)
-              else getVocal [(.fixedHarm1), (.fixedPartVocals)]
-            lip2 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync2)
-              else getVocal [(.fixedHarm2)]
-            lip3 = if useLipsyncTracks
-              then getLipsync (.fixedLipsync3)
-              else getVocal [(.fixedHarm3)]
-            lip4 = getLipsync (.fixedLipsync4)
-            empty = lipsyncFromStates []
-            getVocal getTracks = do
-              trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+
+  setCallback tab.lsMakeMilo $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    trans <- getTransition
+    saveMilo input \milo -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        vmapRB3 <- loadVisemesRB3
+        useLipsyncTracks <- hasLipsyncTracks mid
+        stackIO $ BL.writeFile milo $ magmaMilo let
+          lip1 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync1)
+            else getVocal [(.fixedHarm1), (.fixedPartVocals)]
+          lip2 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync2)
+            else getVocal [(.fixedHarm2)]
+          lip3 = if useLipsyncTracks
+            then getLipsync (.fixedLipsync3)
+            else getVocal [(.fixedHarm3)]
+          lip4 = getLipsync (.fixedLipsync4)
+          empty = lipsyncFromStates []
+          getVocal getTracks = do
+            trk <- listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+            Just
+              $ autoLipsync trans vmapRB3 vowels
+              $ mapTrack (U.applyTempoTrack mid.tempos) trk
+          getLipsync getTrack = let
+            trk = getTrack mid.tracks
+            in do
+              guard $ trk /= mempty
               Just
+                $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
+                $ mapTrack (U.applyTempoTrack mid.tempos) trk
+          in case (lip1, lip2, lip3, lip4) of
+            (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
+            (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
+            (_, Just _, Nothing, Nothing) -> MagmaLipsync2 (fromMaybe empty lip1) (fromMaybe empty lip2)
+            _                             -> MagmaLipsync1 (fromMaybe empty lip1)
+        return [milo]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-make-milo" [("path", vString $ T.pack milo)], task)]
+  setCallback tab.lsUpdateMilo $ sink $ EventIO do
+    input <- pickedFile
+    vowels <- getVowels
+    trans <- getTransition
+    pickMilo \milo -> sink $ EventOnyx let
+      task = do
+        stackIO $ Dir.copyFile milo $ milo <> ".bak"
+        mid <- F.loadMIDI input
+        topDir <- loadMilo milo
+        vmapBeatles <- loadVisemesTBRB
+        vmapRB3 <- loadVisemesRB3
+        useLipsyncTracks <- hasLipsyncTracks mid
+        let editDir dir = dir
+              { files = do
+                ((_, name), entry) <- zip dir.entryNames dir.files
+                let contents = entry.data_
+                return $ (\d -> entry { data_ = d }) case name of
+                  "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
+                  "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
+                  "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
+                  "ringo.lipsync"  -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
+                  "song.lipsync"   -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync1)
+                    else getVocal [(.fixedHarm1), (.fixedPartVocals)]
+                  "part2.lipsync"  -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync2)
+                    else getVocal [(.fixedHarm2)]
+                  "part3.lipsync"  -> if useLipsyncTracks
+                    then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync3)
+                    else getVocal [(.fixedHarm3)]
+                  "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
+                  _                -> contents
+              , objectDir = dir.objectDir
+                { subdirs = do
+                  sd <- dir.objectDir.subdirs
+                  return sd { dir = fmap editDir sd.dir }
+                }
+              }
+            getVocal getTracks = let
+              trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
+              in runPut $ putLipsync
                 $ autoLipsync trans vmapRB3 vowels
                 $ mapTrack (U.applyTempoTrack mid.tempos) trk
-            getLipsync getTrack = let
+            getLipsync tgt vmap getTrack = let
+              trk = getTrack mid.tracks
+              in runPut $ putLipsync
+                $ lipsyncFromMIDITrack' tgt vmap
+                $ mapTrack (U.applyTempoTrack mid.tempos) trk
+        stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
+        return [milo]
+      in startTasks [(T.unpack $ l10nArgs "misc-task-update-milo" [("path", vString $ T.pack milo)], task)]
+  setCallback tab.lsRawLipsync $ sink $ EventIO do
+    input <- pickedFile
+    askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
+      task = do
+        mid <- F.loadMIDI input
+        let _ = mid :: F.Song (F.FixedFile U.Beats)
+        vmapBeatles <- loadVisemesTBRB
+        vmapRB3 <- loadVisemesRB3
+        let tracks = catMaybes
+              [ makeFixed "john.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
+              , makeFixed "paul.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
+              , makeFixed "george.lipsync" Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
+              , makeFixed "ringo.lipsync"  Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
+              , makeFixed "song.lipsync"   Milo.LipsyncRB3  vmapRB3     (.fixedLipsync1     )
+              , makeFixed "part2.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync2     )
+              , makeFixed "part3.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync3     )
+              , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync4     )
+              ]
+            makeFixed name tgt vmap getTrack = let
               trk = getTrack mid.tracks
               in do
                 guard $ trk /= mempty
-                Just
-                  $ lipsyncFromMIDITrack' Milo.LipsyncRB3 vmapRB3
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-            in case (lip1, lip2, lip3, lip4) of
-              (_, _     , _      , Just _ ) -> MagmaLipsync4 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3) (fromMaybe empty lip4)
-              (_, _     , Just _ , Nothing) -> MagmaLipsync3 (fromMaybe empty lip1) (fromMaybe empty lip2) (fromMaybe empty lip3)
-              (_, Just _, Nothing, Nothing) -> MagmaLipsync2 (fromMaybe empty lip1) (fromMaybe empty lip2)
-              _                             -> MagmaLipsync1 (fromMaybe empty lip1)
-          return [milo]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-make-milo" [("path", vString $ T.pack milo)], task)]
-    updateButton <- withRect updateArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-update-milo" []) updateButton
-    [C.block| void { $(Fl_Button* updateButton)->color($(Fl_Color taskColor)); } |]
-    setCallback updateButton $ sink $ EventIO do
-      input <- pickedFile
-      vowels <- getVowels
-      trans <- getTransition
-      pickMilo \milo -> sink $ EventOnyx let
-        task = do
-          stackIO $ Dir.copyFile milo $ milo <> ".bak"
-          mid <- F.loadMIDI input
-          topDir <- loadMilo milo
-          vmapBeatles <- loadVisemesTBRB
-          vmapRB3 <- loadVisemesRB3
-          useLipsyncTracks <- hasLipsyncTracks mid
-          let editDir dir = dir
-                { files = do
-                  ((_, name), entry) <- zip dir.entryNames dir.files
-                  let contents = entry.data_
-                  return $ (\d -> entry { data_ = d }) case name of
-                    "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
-                    "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
-                    "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
-                    "ringo.lipsync"  -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
-                    "song.lipsync"   -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync1)
-                      else getVocal [(.fixedHarm1), (.fixedPartVocals)]
-                    "part2.lipsync"  -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync2)
-                      else getVocal [(.fixedHarm2)]
-                    "part3.lipsync"  -> if useLipsyncTracks
-                      then getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync3)
-                      else getVocal [(.fixedHarm3)]
-                    "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
-                    _                -> contents
-                , objectDir = dir.objectDir
-                  { subdirs = do
-                    sd <- dir.objectDir.subdirs
-                    return sd { dir = fmap editDir sd.dir }
-                  }
-                }
-              getVocal getTracks = let
-                trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
-                in runPut $ putLipsync
-                  $ autoLipsync trans vmapRB3 vowels
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-              getLipsync tgt vmap getTrack = let
-                trk = getTrack mid.tracks
-                in runPut $ putLipsync
+                Just (dout </> name, runPut $ putLipsync
                   $ lipsyncFromMIDITrack' tgt vmap
-                  $ mapTrack (U.applyTempoTrack mid.tempos) trk
-          stackIO $ BL.writeFile milo $ addMiloHeader $ makeMiloFile $ editDir topDir
-          return [milo]
-        in startTasks [(T.unpack $ l10nArgs "misc-task-update-milo" [("path", vString $ T.pack milo)], task)]
-    rawButton <- withRect rawArea \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-create-lipsync" []) rawButton
-    [C.block| void { $(Fl_Button* rawButton)->color($(Fl_Color taskColor)); } |]
-    setCallback rawButton $ sink $ EventIO do
-      input <- pickedFile
-      askFolder (Just $ takeDirectory input) \dout -> sink $ EventOnyx let
-        task = do
-          mid <- F.loadMIDI input
-          let _ = mid :: F.Song (F.FixedFile U.Beats)
-          vmapBeatles <- loadVisemesTBRB
-          vmapRB3 <- loadVisemesRB3
-          let tracks = catMaybes
-                [ makeFixed "john.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
-                , makeFixed "paul.lipsync"   Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
-                , makeFixed "george.lipsync" Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
-                , makeFixed "ringo.lipsync"  Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncRingo )
-                , makeFixed "song.lipsync"   Milo.LipsyncRB3  vmapRB3     (.fixedLipsync1     )
-                , makeFixed "part2.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync2     )
-                , makeFixed "part3.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync3     )
-                , makeFixed "part4.lipsync"  Milo.LipsyncRB3  vmapRB3     (.fixedLipsync4     )
-                ]
-              makeFixed name tgt vmap getTrack = let
-                trk = getTrack mid.tracks
-                in do
-                  guard $ trk /= mempty
-                  Just (dout </> name, runPut $ putLipsync
-                    $ lipsyncFromMIDITrack' tgt vmap
-                    $ mapTrack (U.applyTempoTrack mid.tempos) trk)
-          forM tracks \(path, bs) -> do
-            stackIO $ BL.writeFile path bs
-            return path
-        in startTasks [(T.unpack $ l10n "misc-task-export-lipsync", task)]
+                  $ mapTrack (U.applyTempoTrack mid.tempos) trk)
+        forM tracks \(path, bs) -> do
+          stackIO $ BL.writeFile path bs
+          return path
+      in startTasks [(T.unpack $ l10n "misc-task-export-lipsync", task)]
 
   let makeLipsyncTracks loadVisemes toEvents = do
         input <- pickedFile
@@ -457,50 +411,27 @@ miscPageLipsync sink rect tab startTasks = do
             return [input]
           in startTasks [(T.unpack $ l10nArgs "misc-task-vocal-to-lipsync" [("path", vString $ T.pack input)], task)]
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-vocal-lipsync-rb3" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3 autoLipsync'
+  setCallback tab.lsTracksRB3  $ sink $ EventIO $ makeLipsyncTracks loadVisemesRB3  autoLipsync'
+  setCallback tab.lsTracksTBRB $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
 
-  padded 10 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    setLabelTooltip (l10nFull "misc-button-vocal-lipsync-tbrb" []) btn
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ sink $ EventIO $ makeLipsyncTracks loadVisemesTBRB beatlesLipsync'
-
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+-- | Widgets for the dry vox tab, laid out in fluid/misc.fl.
+data DryVoxTabWidgets = DryVoxTabWidgets
+  { dvMidiFile     :: Ptr FilePickerRow
+  , dvVocalTracks  :: [Ptr Fl_Round_Button] -- ^ one per vocal track option
+  , dvSine         :: Ptr Fl_Button
+  , dvAudioFile    :: Ptr FilePickerRow
+  , dvClipped      :: Ptr Fl_Button
+  }
 
 miscPageDryVox
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> DryVoxTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageDryVox sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+miscPageDryVox sink tab startTasks = do
+  pickedFile <- filePickerRow tab.dvMidiFile (l10n "label-midi-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-midi") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -509,19 +440,14 @@ miscPageDryVox sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  getVocalTrack <- padded 2 10 2 10 (Size (Width 800) (Height 35)) \rect' -> do
-    fn <- horizRadio rect'
-      [ ("PART VOCALS", Just Nothing, True)
-      , ("[PART] HARM1", Just $ Just Vocal1, False)
-      , ("[PART] HARM2", Just $ Just Vocal2, False)
-      , ("[PART] HARM3", Just $ Just Vocal3, False)
-      , (l10n "dryvox-blank", Nothing, False)
+          peekUTF8 cstr >>= useResult
+  getVocalTrack <- do
+    fn <- horizRadioSelect tab.dvVocalTracks Nothing
+      [ (Just Nothing, True)
+      , (Just $ Just Vocal1, False)
+      , (Just $ Just Vocal2, False)
+      , (Just $ Just Vocal3, False)
+      , (Nothing, False)
       ]
     return $ join <$> fn
   let getSelectedVox = \case
@@ -536,15 +462,8 @@ miscPageDryVox sink rect tab startTasks = do
         Just (Just Vocal1) -> "-harm1"
         Just (Just Vocal2) -> "-harm2"
         Just (Just Vocal3) -> "-harm3"
-  let dryvoxButton label fn = padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-        btn <- withRect rect' \bx by bw bh ->
-          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        withUTF8 (label :: T.Text) \clbl ->
-          [C.block| void {
-            $(Fl_Button* btn)->copy_label($(char* clbl));
-            $(Fl_Button* btn)->color($(Fl_Color taskColor));
-          } |]
-        setCallback btn $ sink $ EventIO do
+  let dryvoxButton btn label fn = do
+        setCallback (btn :: Ptr Fl_Button) $ sink $ EventIO do
           input <- pickedFile
           voc <- getVocalTrack
           withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
@@ -566,23 +485,10 @@ miscPageDryVox sink rect tab startTasks = do
                   src <- toDryVoxFormat <$> fn trk
                   runAudio src f
                   return [f]
-                in startTasks [(T.unpack $ l10nArgs "misc-task-dryvox" [("name", vString label), ("path", vString $ T.pack input)], task)]
-  dryvoxButton (l10n "misc-button-dryvox-sine") $ return . sineDryVox
-  pickedAudio <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-audio-file") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO do
+                in startTasks [(T.unpack $ l10nArgs "misc-task-dryvox" [("name", vString (label :: T.Text)), ("path", vString $ T.pack input)], task)]
+  dryvoxButton tab.dvSine (l10n "misc-button-dryvox-sine") $ return . sineDryVox
+  pickedAudio <- filePickerRow tab.dvAudioFile (l10n "label-audio-file")
+    \useResult -> sink $ EventIO do
       withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |] \picker -> do
         withUTF8 (l10n "file-picker-load-dryvox-source-audio") \s -> [C.block| void {
           $(Fl_Native_File_Chooser* picker)->title($(char* s));
@@ -591,42 +497,34 @@ miscPageDryVox sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: B.ByteString) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  dryvoxButton (l10n "misc-button-dryvox-clipped") \trk -> do
+          peekUTF8 cstr >>= useResult
+  dryvoxButton tab.dvClipped (l10n "misc-button-dryvox-clipped") \trk -> do
     audio <- stackIO pickedAudio
     src <- buildSource' $ Input audio
     return $ clipDryVox (isJust <$> vocalTubes trk) src
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+
+-- | The widgets of the GH3 song cache tab: a file-load panel over a row of
+-- three task buttons.
+data GH3CacheTabWidgets = GH3CacheTabWidgets
+  { gcFiles       :: Ptr FileLoadPanel
+  , gcButton360   :: Ptr Fl_Button
+  , gcButtonPS3   :: Ptr Fl_Button
+  , gcButtonRPCS3 :: Ptr Fl_Button
+  }
 
 miscPageGH3SongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> GH3CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageGH3SongCache sink rect tab startTasks = do
+miscPageGH3SongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
+  _ <- fileLoadPanel tab.gcFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchGH3Cachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
-  btn1 <- withRect xboxRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-360" []) btn1
-  [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  setCallback btn1 $ sink $ EventIO do
+  setCallback tab.gcButton360 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-gh3-cache-360") \s ->
@@ -645,11 +543,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
             combineGH3SongCache360 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  btn2 <- withRect ps3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-ps3" []) btn2
-  [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  setCallback btn2 $ sink $ EventIO do
+  setCallback tab.gcButtonPS3 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-gh3-cache-ps3") \s ->
@@ -668,11 +562,7 @@ miscPageGH3SongCache sink rect tab startTasks = do
             combineGH3SongCachePS3 inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-gh3-cache", task)]
-  btn3 <- withRect looseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-gh3-cache-install-rpcs3" []) btn3
-  [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
-  setCallback btn3 $ sink $ EventOnyx do
+  setCallback tab.gcButtonRPCS3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
@@ -684,27 +574,28 @@ miscPageGH3SongCache sink rect tab startTasks = do
         stackIO $ installPS3Folder gameID (Just "pkg-contents/gh3") (first TE.decodeLatin1 folder) dout
       in [(T.unpack $ l10n "misc-task-install-gh3-cache", task)]
 
+-- | The widgets of the GH:WoR song cache tab. Same shape as
+-- 'GH3CacheTabWidgets', but a separate tab in the layout with its own wording.
+data WoRCacheTabWidgets = WoRCacheTabWidgets
+  { wcFiles       :: Ptr FileLoadPanel
+  , wcButton360   :: Ptr Fl_Button
+  , wcButtonPS3   :: Ptr Fl_Button
+  , wcButtonRPCS3 :: Ptr Fl_Button
+  }
+
 miscPageWoRSongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> WoRCacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageWoRSongCache sink rect tab startTasks = do
+miscPageWoRSongCache sink tab startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (xboxRect, _), trimClock 0 5 0 5 -> ps3Rect, chopLeft 5 -> (_, looseRect)] = splitHorizN 3 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
+  _ <- fileLoadPanel tab.wcFiles sink (l10nFull "file-type-package" []) (modifyMVar_ loadedFiles) [] searchWoRCachable \info -> let
     entry = T.pack $ fst info
     sublines = filter (not . T.null) [snd info]
     in (entry, sublines)
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
-  btn1 <- withRect xboxRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-360" []) btn1
-  [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  setCallback btn1 $ sink $ EventIO do
+  setCallback tab.wcButton360 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-wor-cache-360") \s ->
@@ -723,11 +614,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
             makeMetadataLIVE inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  btn2 <- withRect ps3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-ps3" []) btn2
-  [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  setCallback btn2 $ sink $ EventIO do
+  setCallback tab.wcButtonPS3 $ sink $ EventIO do
     inputs <- map fst <$> readMVar loadedFiles
     withNativeFileChooser [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |] \picker -> do
       withUTF8 (l10n "file-picker-save-wor-cache-ps3") \s ->
@@ -746,11 +633,7 @@ miscPageWoRSongCache sink rect tab startTasks = do
             makeMetadataPKG inputs f
             return [f]
           in [(T.unpack $ l10n "misc-task-make-ghwor-cache", task)]
-  btn3 <- withRect looseRect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "misc-button-ghwor-cache-install-rpcs3" []) btn3
-  [C.block| void { $(Fl_Button* btn3)->color($(Fl_Color taskColor)); } |]
-  setCallback btn3 $ sink $ EventOnyx do
+  setCallback tab.wcButtonRPCS3 $ sink $ EventOnyx do
     inputs <- stackIO $ map fst <$> readMVar loadedFiles
     defDir <- getDefaultPS3Dir
     stackIO $ askFolder defDir \dout -> sink $ EventOnyx $ startTasks let
@@ -759,22 +642,25 @@ miscPageWoRSongCache sink rect tab startTasks = do
         stackIO $ installPS3Folder "BLUS30487" (Just "pkg-contents/ghwor") (first TE.decodeLatin1 folder) dout
       in [(T.unpack $ l10n "misc-task-install-ghwor-cache", task)]
 
+-- | Widgets for the legacy CON->PKG tab, laid out in fluid/quick_convert.fl.
+data CONtoPKGTabWidgets = CONtoPKGTabWidgets
+  { cpFiles :: Ptr FileLoadPanel
+  , cpRB2   :: Ptr Fl_Button
+  , cpRB3   :: Ptr Fl_Button
+  }
+
 miscPageCONtoPKG
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> CONtoPKGTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageCONtoPKG sink rect tab startTasks = do
+miscPageCONtoPKG sink widgets startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, startRect) = chopBottom 50 rect
-      [chopRight 5 -> (rb2Rect, _), chopLeft 5 -> (_, rb3Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
+  void $ fileLoadPanel widgets.cpFiles sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
     entry = T.pack $ stfsPath info
     sublines = take 1 info.stfsMeta.md_DisplayName
     in (entry, sublines)
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
   let callback isRB3 = sink $ EventIO do
         inputs <- map stfsPath <$> readMVar loadedFiles
         sink $ EventOnyx $ startTasks $ inputs <&> \input -> let
@@ -783,13 +669,5 @@ miscPageCONtoPKG sink rect tab startTasks = do
             conToPkg isRB3 input pkg
             return [pkg]
           in (input, task)
-  btn1 <- withRect rb2Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb2" []) btn1
-  [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
-  setCallback btn1 $ callback False
-  btn2 <- withRect rb3Rect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  setLabelTooltip (l10nFull "task-legacy-con-to-pkg-rb3" []) btn2
-  [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
-  setCallback btn2 $ callback True
+  setCallback widgets.cpRB2 $ callback False
+  setCallback widgets.cpRB3 $ callback True

@@ -10,8 +10,8 @@ class HsDndBox : public Fl_Box {
   HsDndCallback dnd_cb;
   void* dnd_data;
 public:
-  HsDndBox(int X, int Y, int W, int H)
-    : Fl_Box(X, Y, W, H),
+  HsDndBox(int X, int Y, int W, int H, const char* L = 0)
+    : Fl_Box(X, Y, W, H, L),
       dnd_cb(nullptr), dnd_data(nullptr) {}
   void set_dnd_callback(HsDndCallback cb, void* data) {
     dnd_cb = cb;

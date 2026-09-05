@@ -1,6 +1,9 @@
 // From Greg Ercolano's FLTK Cheat Page
 // https://www.seriss.com/people/erco/fltk/#Fl_Center
 
+#ifndef FL_CENTER_H
+#define FL_CENTER_H
+
 #include <stdio.h>
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -25,3 +28,5 @@ public:
     resize(x(), y(), w(), h());                       // force resize of child
   }
 };
+
+#endif

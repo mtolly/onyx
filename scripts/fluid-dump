@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# Print the real, laid-out widget geometry of one or more tabs of a window.
+#
+#   scripts/fluid-dump 2 3                 # Misc: Lipsync and Dry vox
+#   scripts/fluid-dump -w quick 0          # Quick Convert: RB tab
+#
+# Why this exists: when migrating hand-written FLTK layout into a .fl file, the
+# coordinates you need are the ones on screen, not the ones in the source. Any
+# page built inside an Fl_Pack has had its rows resized, and children of a
+# `padded` group get scaled proportionally against that group's invisible
+# resizable box. Deriving those numbers by hand is a good way to be seven
+# pixels wrong; reading them off a running app is not.
+#
+# It works by temporarily patching Onyx.GUI (see fluid_patch.py) to open the
+# window at startup and dump the widget tree of the requested tab, then
+# rebuilding. GUI.hs is restored on exit, including on failure.
+
+set -euo pipefail
+
+HERE=$(cd "$(dirname "$0")" && pwd -P)
+ROOT=$HERE/../haskell
+GUI=$ROOT/packages/onyx-exe-toolkit/src/Onyx/GUI.hs
+
+WINDOW=misc
+while getopts "w:" opt; do
+  case $opt in
+    w) WINDOW=$OPTARG ;;
+    *) exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [ $# -eq 0 ]; then
+  echo "usage: $(basename "$0") [-w misc|quick] <tab-index>..." >&2
+  echo "  Tabs are 0-based in .fl order." >&2
+  echo "  misc:  MIDI, MOGG, Lipsync, Dry vox, .milo, RB3 cache, GH3 cache," >&2
+  echo "         GH:WoR cache, Task" >&2
+  echo "  quick: RB, CH, RR renumber, GH2 packs, CON->PKG, Task" >&2
+  exit 2
+fi
+
+BAK=$(mktemp)
+cp "$GUI" "$BAK"
+trap 'cp "$BAK" "$GUI"; rm -f "$BAK"' EXIT
+
+python3 "$HERE/fluid_patch.py" dump "$WINDOW" "$GUI"
+
+# shellcheck source=fluid-build.sh
+. "$HERE/fluid-build.sh"
+fluid_build
+cd "$ROOT"
+
+for tab in "$@"; do
+  echo "===== tab $tab ====="
+  ONYX_DUMP=$tab timeout 25 ./stack-local exec onyx 2>&1 | grep -E "x=" || true
+done

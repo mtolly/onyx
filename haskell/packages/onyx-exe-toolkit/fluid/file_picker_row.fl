@@ -1,0 +1,32 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0500
+header_name {.h}
+code_name {.cxx}
+comment {One row of "label, text field, browse button", the shape repeated all over
+the Misc window. The label text and what the browse button does are supplied
+per instance from Haskell (Onyx.GUI.Core.filePickerRow), so the label here is
+only a placeholder for the editor.
+
+Designed at 900x50, the width of a Misc tab, so placement there is a pure
+translation. The input is the resizable child, so the browse button keeps its
+width and stays pinned to the right edge at other sizes.} {in_source not_in_header
+}
+
+widget_class FilePickerRow {open
+  xywh {0 0 900 50}
+} {
+  Fl_Input input {
+    label File
+    xywh {120 5 715 35} align 4 labelsize 13 resizable
+  }
+  Fl_Button pick {
+    label {@fileopen}
+    xywh {846 5 44 35}
+  }
+  code {// FLUID builds the children at their design coordinates, which assume this
+// group sits at the origin at its design size. Restate that, then resize
+// into the frame we were actually constructed with. Keep the numbers below
+// in step with the xywh of the widget_class itself.
+Fl_Widget::resize(0, 0, 900, 50);
+resize(X, Y, W, H);} {}
+}

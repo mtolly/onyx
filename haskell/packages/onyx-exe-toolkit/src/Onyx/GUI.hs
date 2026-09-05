@@ -103,6 +103,9 @@ import           Onyx.Genre                        (FullGenre (..),
 import           Onyx.GUI.Batch
 import           Onyx.GUI.Binding
 import           Onyx.GUI.Core
+import           Onyx.GUI.Fluid                    (adaptWindow, inGroup,
+                                                    lockMinimumSize,
+                                                    menuBarHeight)
 import           Onyx.GUI.Misc
 import           Onyx.GUI.Song
 import           Onyx.GUI.Util                     (askFolder, checkValue,
@@ -207,6 +210,11 @@ C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
+-- FLUID-generated from the layouts in fluid, see Setup.hs
+C.include "multiple_songs.h"
+C.include "console.h"
+C.include "misc.h"
+C.include "quick_convert.h"
 
 promptLoad :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> Bool -> IO ()
 promptLoad sink makeMenuBar hasAudio = withNativeFileChooser
@@ -300,35 +308,23 @@ multipleSongsWindow
   -> [Importable OnyxInner]
   -> IO ()
 multipleSongsWindow sink makeMenuBar hasAudio imps = do
-  let windowWidth = Width 500
-      windowHeight = Height 400
-      windowSize = Size windowWidth windowHeight
-  window <- withUTF8 (l10n "song-list-title") \s -> withSize windowSize \w h ->
-    [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-      (songsArea, trimClock 10 0 0 0 -> buttonsArea) =
-        chopBottom 40 $ trimClock 10 10 10 10 windowRect
-      [areaSelect, trimClock 0 0 0 10 -> areaOpen] = splitHorizN 2 buttonsArea
+  -- Layout lives in fluid/multiple_songs.fl; see Onyx.GUI.Fluid. Everything
+  -- built here is in the layout's own (unstretched, menu-bar-less)
+  -- coordinates, and adaptWindow scales and shifts it along with the rest.
+  ui <- [C.exp| void* { new MultipleSongsWindow() } |]
+  let window       = [C.pure| Fl_Window* { ((MultipleSongsWindow*)$(void* ui))->window } |]
+      scroll       = [C.pure| Fl_Scroll* { ((MultipleSongsWindow*)$(void* ui))->scroll } |]
+      pack         = [C.pure| Fl_Pack*   { ((MultipleSongsWindow*)$(void* ui))->pack } |]
+      selectButton = [C.pure| Fl_Button* { ((MultipleSongsWindow*)$(void* ui))->selectButton } |]
+      openButton   = [C.pure| Fl_Button* { ((MultipleSongsWindow*)$(void* ui))->openButton } |]
 
-  scroll <- withRect songsArea \sx sy sw sh ->
-    [C.exp| Fl_Scroll* { new Fl_Scroll($(int sx), $(int sy), $(int sw), $(int sh)) } |]
-  let barSize = 15 :: CInt
-      -- scaled, so it lines up with the space reserved for it below
-      barSizeScaled = stretchX barSize
+  -- scrollbar_size is an internal property rather than a widget rectangle, so
+  -- adaptWindow can't scale it; it has to match the gap the layout leaves
+  let barSizeScaled = stretchX 15
   -- NOTE: skipping custom resize handler for scrollbar width adjustment
-  [C.block| void {
-    Fl_Scroll* s = $(Fl_Scroll* scroll);
-    s->box(FL_ENGRAVED_BOX);
-    s->type(Fl_Scroll::VERTICAL_ALWAYS);
-    s->scrollbar_size($(int barSizeScaled));
-    s->color(fl_rgb_color(255, 255, 255));
-  } |]
-  let (songsInnerArea, _) = chopRight (fromIntegral barSize) songsArea
-  pack <- withRect songsInnerArea \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
+  [C.block| void { $(Fl_Scroll* scroll)->scrollbar_size($(int barSizeScaled)); } |]
+
+  [C.block| void { $(Fl_Pack* pack)->begin(); } |]
   checks <- forM imps \imp -> do
     -- TODO ampersands in the label text here turn into "underline next character".
     -- need to figure out how to escape
@@ -339,9 +335,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
           , ("has-artist", vBool $ isJust imp.impArtist)
           , ("is-2x", vBool imp.imp2x)
           ]
-    check <- withRect (Rectangle (Position (X 0) (Y 0)) (Size (Width 400) (Height 25)))
-      \cx cy cw ch ->
-        [C.exp| Fl_Check_Button* { new Fl_Check_Button($(int cx), $(int cy), $(int cw), $(int ch)) } |]
+    check <- [C.exp| Fl_Check_Button* { new Fl_Check_Button(0, 0, 400, 25) } |]
     withUTF8 entry \clabel ->
       [C.block| void {
         $(Fl_Check_Button* check)->copy_label($(char* clabel));
@@ -349,12 +343,7 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
       } |]
     return check
   [C.block| void { $(Fl_Pack* pack)->end(); } |]
-  [C.block| void { $(Fl_Scroll* scroll)->end(); } |]
 
-  selectButton <- withRect areaSelect \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-  openButton <- withRect areaOpen \bx by bw bh ->
-    [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
   let updateButtons = do
         bools <- mapM checkValue checks
         let newValue = not $ and bools
@@ -387,13 +376,10 @@ multipleSongsWindow sink makeMenuBar hasAudio imps = do
     [C.block| void { $(Fl_Window* window)->hide(); } |]
   forM_ checks \check -> setCallback check updateButtons
 
-  let scrollAsGroup = [C.exp| Fl_Group* { (Fl_Group*)$(Fl_Scroll* scroll) } |]
-  scrollGroup <- scrollAsGroup
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Group* scrollGroup));
-  } |]
-  setSizeRange window windowSize
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    inGroup (windowGroup window) $ void $ makeMenuBar (Width 500) True
+  lockMinimumSize window
   [C.block| void {
     $(Fl_Window* window)->show();
   } |]
@@ -1773,21 +1759,31 @@ getAudioSpec f = audioChannels f >>= \case
           ".opus" -> withFormat "Opus"
           _       -> return Nothing
 
+-- | Widgets for the GH2 pack creator tab, laid out in fluid/quick_convert.fl.
+data PackTabWidgets = PackTabWidgets
+  { pkFiles :: Ptr FileLoadPanel
+  , pkGame  :: Ptr Fl_Box
+  , pkName  :: Ptr Fl_Input
+  , pkDesc  :: Ptr Fl_Input
+  , pkCON   :: Ptr Fl_Button
+  , pkLIVE  :: Ptr Fl_Button
+  , pkRaw   :: Ptr Fl_Button
+  }
+
 miscPagePacks
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> PackTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPagePacks sink rect tab startTasks = mdo
+miscPagePacks sink widgets startTasks = do
   loadedSTFS <- newMVar []
-  let (filesRect, bottomRect) = chopBottom 140 rect
-      (metaRect, startRect) = chopBottom 50 bottomRect
-      (trimClock 0 5 5 10 -> gameRect, chopLeft 100 -> (_, nameDescRect)) = chopLeft 250 metaRect
-      [trimClock 0 10 5 5 -> nameRect, trimClock 0 10 5 5 -> descRect] = splitVertN 2 nameDescRect
-      [chopRight 5 -> (conRect, _), trimClock 0 5 0 5 -> liveRect, chopLeft 5 -> (_, rawRect)]
-        = splitHorizN 3 $ trimClock 5 10 10 10 startRect
+  let btnCON  = widgets.pkCON
+      btnLIVE = widgets.pkLIVE
+      btnRaw  = widgets.pkRaw
+      gameBox = widgets.pkGame
+      nameInput = widgets.pkName
+      descInput = widgets.pkDesc
       modifyButtons :: ([STFSSpec] -> IO [STFSSpec]) -> IO ()
       modifyButtons f = do
         newSTFS <- modifyMVar loadedSTFS \stfs -> (\x -> (x, x)) <$> f stfs
@@ -1810,7 +1806,7 @@ miscPagePacks sink rect tab startTasks = mdo
                 []       -> ""
           withUTF8 gameLabel \clbl ->
             [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
+  void $ fileLoadPanel widgets.pkFiles sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
     \info -> let
       entry = T.pack $ stfsPath info
       sublines = concat
@@ -1863,52 +1859,9 @@ miscPagePacks sink rect tab startTasks = mdo
                 PackLIVE      -> l10nArgs "pack-task-live" [("path", vString $ T.pack f)]
               in [(taskLabel, task)]
 
-  gameBox <- withRect gameRect \bx by bw bh ->
-    [C.exp| Fl_Box* { new Fl_Box($(int bx), $(int by), $(int bw), $(int bh)) } |]
-
-  nameInput <- withRect nameRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-  withUTF8 (l10n "pack-name") \clbl ->
-    [C.block| void { $(Fl_Input* nameInput)->copy_label($(char* clbl)); } |]
-  descInput <- withRect descRect \ix iy iw ih ->
-    [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-  withUTF8 (l10n "pack-description") \clbl ->
-    [C.block| void { $(Fl_Input* descInput)->copy_label($(char* clbl)); } |]
-
-  cbCON <- makeCallback \_ _ -> doPrompt PackCON
-  btnCON <- withRect conRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-con") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbCON));
-    } |]
-    return btn
-
-  cbLIVE <- makeCallback \_ _ -> doPrompt PackLIVE
-  btnLIVE <- withRect liveRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-live") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbLIVE));
-    } |]
-    return btn
-
-  cbRaw <- makeCallback \_ _ -> doPrompt PackExtracted
-  btnRaw <- withRect rawRect \bx by bw bh -> do
-    btn <- [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-    withUTF8 (l10n "pack-make-extracted") \clbl ->
-      [C.block| void { $(Fl_Button* btn)->copy_label($(char* clbl)); } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbRaw));
-    } |]
-    return btn
-
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+  setCallback btnCON  $ doPrompt PackCON
+  setCallback btnLIVE $ doPrompt PackLIVE
+  setCallback btnRaw  $ doPrompt PackExtracted
 
 data Pack360Output
   = PackCON
@@ -2506,25 +2459,30 @@ pageQuickConvertRB sink rect tab startTasks = mdo
 
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
+-- | Widgets for the Rock Revolution renumber tab, laid out in
+-- fluid/quick_convert.fl.
+data RenumberRRTabWidgets = RenumberRRTabWidgets
+  { rrFiles :: Ptr FileLoadPanel
+  , rrStart :: Ptr Fl_Button
+  }
+
 pageRenumberRR
   :: (?preferences :: Preferences, ?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> RenumberRRTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-pageRenumberRR sink rect tab startTasks = mdo
+pageRenumberRR sink widgets startTasks = do
   loadedFiles <- newMVar []
-  let (filesRect, trimClock 5 10 10 10 -> bottomRect) = chopBottom 47 rect
-      updateFiles = modifyMVar_ loadedFiles
-  (filesGroup, clearFiles) <- fileLoadWindow' filesRect sink (l10nFull "file-type-rr-song" []) updateFiles [] searchRockRevolution
+  let updateFiles = modifyMVar_ loadedFiles
+  clearFiles <- fileLoadPanel widgets.rrFiles sink (l10nFull "file-type-rr-song" []) updateFiles [] searchRockRevolution
     \(path, songs) -> let
       entry = T.pack path
       subline = l10nArgs "song-count"
         [("count", vNumber $ fromIntegral $ length songs)]
       in (entry, [subline])
 
-  cbGo <- makeCallback \_ _ -> do
+  setCallback widgets.rrStart do
     songsOld <- readMVar loadedFiles
     sink $ EventOnyx do
       stackIO clearFiles
@@ -2549,14 +2507,6 @@ pageRenumberRR sink rect tab startTasks = mdo
                 Dir.renameFile tmp f
             return f
         in (name, task)
-  withRect bottomRect \bx by bw bh -> do
-    btn <- withUTF8 (l10n "button-start") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-    [C.block| void {
-      $(Fl_Button* btn)->color($(Fl_Color taskColor));
-      $(Fl_Button* btn)->callback($(Fl_Callback cbGo));
-    } |]
-
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
 data QuickFoFTask
   = QFoFInPlace
@@ -2813,19 +2763,27 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
   [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* filesGroup)); } |]
 
+-- | Widgets for the MOGG/VGS/FSB tab, laid out in fluid/misc.fl.
+data MoggTabWidgets = MoggTabWidgets
+  { mgFiles   :: Ptr FileLoadPanel
+  , mgMogg    :: Ptr Fl_Button
+  , mgVgs     :: Ptr Fl_Button
+  , mgFsb3    :: Ptr Fl_Button
+  , mgFsb4    :: Ptr Fl_Button
+  }
+
 miscPageMOGG
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MoggTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMOGG sink rect tab startTasks = mdo
+miscPageMOGG sink tab startTasks = do
   loadedAudio <- newMVar []
-  let (filesRect, startRect) = chopBottom 95 rect
-      (startRect1, startRect2) = chopBottom 50 startRect
-      [chopRight 5 -> (moggRect, _), chopLeft 5 -> (_, vgsRect)] = splitHorizN 2 $ trimClock 5 10 5 10 startRect1
-      [chopRight 5 -> (fsb3Rect, _), chopLeft 5 -> (_, fsb4Rect)] = splitHorizN 2 $ trimClock 5 10 10 10 startRect2
+  let btnMogg = tab.mgMogg
+      btnVgs  = tab.mgVgs
+      btnFsb3 = tab.mgFsb3
+      btnFsb4 = tab.mgFsb4
       isSingleOgg = \case
         [aud] | aud.format == "Ogg Vorbis" -> Just aud
         _                                  -> Nothing
@@ -2852,7 +2810,7 @@ miscPageMOGG sink rect tab startTasks = mdo
               [C.block| void { $(Fl_Button* b)->deactivate(); } |]
             else forM_ [btnMogg, btnVgs, btnFsb3, btnFsb4] \b ->
               [C.block| void { $(Fl_Button* b)->activate(); } |]
-  group <- fileLoadWindow filesRect sink (l10nFull "file-type-audio" []) modifyAudio []
+  _ <- fileLoadPanel tab.mgFiles sink (l10nFull "file-type-audio" []) modifyAudio []
     (\f -> liftIO $ ([],) . toList <$> getAudioSpec f)
     \info -> let
       entry = T.pack info.path
@@ -2876,10 +2834,10 @@ miscPageMOGG sink rect tab startTasks = mdo
         ]
       in (entry, sublines)
 
-  let makeSaveAudioButton rect' filterStr defaultExt task' = do
-        btn <- withRect rect' \bx by bw bh ->
-          [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
-        [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+  let makeSaveAudioButton
+        :: Ptr Fl_Button -> String -> T.Text
+        -> ([AudioSpec] -> FilePath -> Onyx ()) -> IO ()
+      makeSaveAudioButton btn filterStr defaultExt task' = do
         setCallback btn $ sink $ EventIO do
           audio <- readMVar loadedAudio
           let title = l10nArgs "file-picker-save-multitrack-audio"
@@ -2891,9 +2849,8 @@ miscPageMOGG sink rect tab startTasks = mdo
               ext = map toLower $ takeExtension f
               f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
               in sink $ EventOnyx $ task' audio f'
-        return btn
 
-  btnMogg <- makeSaveAudioButton moggRect "*.mogg" "mogg" \audio f' ->
+  makeSaveAudioButton btnMogg "*.mogg" "mogg" \audio f' ->
     startTasks case isSingleOgg audio of
       Just aud -> [(T.unpack $ l10n "mogg-task-ogg", oggToMoggFiles aud.path f' >> return [f'])]
       Nothing  -> let
@@ -2910,7 +2867,7 @@ miscPageMOGG sink rect tab startTasks = mdo
           return [f']
         in [(T.unpack $ l10n "mogg-task-mogg", task)]
 
-  btnVgs <- makeSaveAudioButton vgsRect "*.vgs" "vgs" \audio f' ->
+  makeSaveAudioButton btnVgs "*.vgs" "vgs" \audio f' ->
     startTasks let
       task = do
         srcs <- mapM (buildSource' . Input . (.path)) audio
@@ -2918,7 +2875,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-vgs", task)]
 
-  btnFsb3 <- makeSaveAudioButton fsb3Rect "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb3 "*.fsb" "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb3" \tmp -> do
         wavs <- forM (zip [0..] audio) \(i, aud) -> do
@@ -2930,7 +2887,7 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb3", task)]
 
-  btnFsb4 <- makeSaveAudioButton fsb4Rect "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb4 "*.fsb" "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb4" \tmp -> do
         let wav = tmp </> "audio.wav"
@@ -2942,33 +2899,27 @@ miscPageMOGG sink rect tab startTasks = mdo
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb4", task)]
 
-  [C.block| void { $(Fl_Group* tab)->resizable($(Fl_Group* group)); } |]
+
+-- | Widgets for the MIDI stuff tab, laid out in fluid/misc.fl.
+data MidiTabWidgets = MidiTabWidgets
+  { mpMidiFile    :: Ptr FilePickerRow
+  , mpReduce      :: Ptr Fl_Button
+  , mpProKeys     :: Ptr Fl_Button
+  , mpReaper      :: Ptr Fl_Button
+  , mpChartToMidi :: Ptr Fl_Button
+  , mpBatch       :: Ptr Fl_Button
+  }
 
 miscPageMIDI
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> MidiTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageMIDI sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  (pathInput, pickedFile) <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 120 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-midi-or-chart") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+miscPageMIDI sink tab startTasks = do
+  let pathInput = filePickerInput tab.mpMidiFile
+  pickedFile <- filePickerRow tab.mpMidiFile (l10n "label-midi-or-chart")
+    \useResult -> sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker -> do
         withUTF8 (l10n "midi-load-dialog") \cs ->
@@ -2979,20 +2930,14 @@ miscPageMIDI sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: String) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-          [C.block| void { $(Fl_Input* input)->do_callback(); } |]
-    return (input, do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr)
+          peekUTF8 cstr >>= useResult
+          -- refreshes which of the buttons below are enabled
+          [C.block| void { $(Fl_Input* pathInput)->do_callback(); } |]
 
   midiButtons <- sequence
 
-    [ padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-reduce") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    [ do
+      let btn = tab.mpReduce
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reduced-midi") "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
@@ -3006,10 +2951,8 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-reduce" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-prokeys") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn = tab.mpProKeys
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         sink $ EventOnyx let
@@ -3020,10 +2963,8 @@ miscPageMIDI sink rect tab startTasks = do
           in startTasks [(T.unpack $ l10nArgs "midi-task-prokeys" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      btn <- withRect rect' \bx by bw bh ->
-        withUTF8 (l10n "midi-button-reaper") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn = tab.mpReaper
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-reaper") "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
@@ -3036,11 +2977,8 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-reaper" [("path", vString $ T.pack input)], task)]
       return btn
 
-    , padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-      let (rectLeft, trimClock 0 0 0 10 -> rectRight) = chopRight 150 rect'
-      btn1 <- withRect rectLeft \bx by bw bh ->
-        withUTF8 (l10n "midi-button-chart-to-midi") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn1)->color($(Fl_Color taskColor)); } |]
+    , do
+      let btn1 = tab.mpChartToMidi
       setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
         saveFileChooser (l10n "file-picker-save-midi") "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
@@ -3054,9 +2992,7 @@ miscPageMIDI sink rect tab startTasks = do
             in startTasks [(T.unpack $ l10nArgs "midi-task-chart-to-midi" [("path", vString $ T.pack input)], task)]
 
       -- note, this button doesn't disable when path box is empty since it doesn't use it
-      btn2 <- withRect rectRight \bx by bw bh ->
-        withUTF8 (l10n "midi-button-batch") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-      [C.block| void { $(Fl_Button* btn2)->color($(Fl_Color taskColor)); } |]
+      let btn2 = tab.mpBatch
       setCallback btn2 $ sink $ EventIO $ askFolder Nothing \dir ->
         sink $ EventOnyx let
           task = do
@@ -3080,56 +3016,24 @@ miscPageMIDI sink rect tab startTasks = do
   setCallback pathInput $ sink $ EventIO updatePathInput
   [C.block| void { $(Fl_Input* pathInput)->when(FL_WHEN_CHANGED); } |]
 
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+-- | Widgets for the RB3 cache tab, laid out in fluid/misc.fl.
+data RB3CacheTabWidgets = RB3CacheTabWidgets
+  { rcConFolder :: Ptr FilePickerRow
+  , rcCacheFile :: Ptr FilePickerRow
+  , rcApply     :: Ptr Fl_Button
+  }
 
 miscPageHardcodeSongCache
   :: (?loc :: L)
   => (Event -> IO ())
-  -> Rectangle
-  -> Ptr Fl_Group
+  -> RB3CacheTabWidgets
   -> ([(String, Onyx [FilePath])] -> Onyx ())
   -> IO ()
-miscPageHardcodeSongCache sink rect tab startTasks = do
-  pack <- withRect rect \px py pw ph ->
-    [C.exp| Fl_Pack* { new Fl_Pack($(int px), $(int py), $(int pw), $(int ph)) } |]
-  pickedFolder <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-con-folder") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ askFolder Nothing \f ->
-      withUTF8 f \cf ->
-        [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  pickedCache <- padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    let (_, rectA) = chopLeft 100 rect'
-        (inputRect, rectB) = chopRight 50 rectA
-        (_, pickRect) = chopRight 40 rectB
-    input <- withRect inputRect \ix iy iw ih ->
-      [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
-    [C.block| void {
-      $(Fl_Input* input)->labelsize(13);
-      $(Fl_Input* input)->align(FL_ALIGN_LEFT);
-    } |]
-    withUTF8 (l10n "label-song-cache") \clbl ->
-      [C.block| void { $(Fl_Input* input)->copy_label($(char* clbl)); } |]
-    pick <- withRect pickRect \bx by bw bh ->
-      [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), "@fileopen") } |]
-    setCallback pick $ sink $ EventIO $ withNativeFileChooser
+miscPageHardcodeSongCache sink tab startTasks = do
+  pickedFolder <- filePickerRow tab.rcConFolder (l10n "label-con-folder")
+    \useResult -> sink $ EventIO $ askFolder Nothing useResult
+  pickedCache <- filePickerRow tab.rcCacheFile (l10n "label-song-cache")
+    \useResult -> sink $ EventIO $ withNativeFileChooser
       [C.pure| int { Fl_Native_File_Chooser::BROWSE_FILE } |]
       \picker -> do
         withUTF8 (l10n "cache-load-dialog") \cs ->
@@ -3140,31 +3044,19 @@ miscPageHardcodeSongCache sink rect tab startTasks = do
         result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
         when (result == 0) do
           cstr <- [C.exp| const char* { $(Fl_Native_File_Chooser* picker)->filename() } |]
-          f <- peekUTF8 cstr
-          withUTF8 (f :: String) \cf ->
-            [C.block| void { $(Fl_Input* input)->value($(char* cf)); } |]
-    return do
-      cstr <- [C.exp| const char* { $(Fl_Input* input)->value() } |]
-      peekUTF8 cstr
-  padded 5 10 10 10 (Size (Width 800) (Height 35)) \rect' -> do
-    btn <- withRect rect' \bx by bw bh ->
-      withUTF8 (l10n "cache-button-apply") \cs -> [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh), fl_strdup($(char* cs))) } |]
-    [C.block| void { $(Fl_Button* btn)->color($(Fl_Color taskColor)); } |]
-    setCallback btn $ sink $ EventIO do
-      dir <- pickedFolder
-      cache <- pickedCache
-      let cache' = case cache of
-            "" -> dir </> "songcache"
-            _  -> cache
-      sink $ EventOnyx let
-        task = do
-          hardcodeSongCacheIDs cache' dir
-          return []
-        in startTasks [(T.unpack $ l10nArgs "cache-task" [("path", vString $ T.pack dir)], task)]
-  [C.block| void {
-    $(Fl_Pack* pack)->end();
-    $(Fl_Group* tab)->resizable($(Fl_Pack* pack));
-  } |]
+          peekUTF8 cstr >>= useResult
+  let btn = tab.rcApply
+  setCallback btn $ sink $ EventIO do
+    dir <- pickedFolder
+    cache <- pickedCache
+    let cache' = case cache of
+          "" -> dir </> "songcache"
+          _  -> cache
+    sink $ EventOnyx let
+      task = do
+        hardcodeSongCacheIDs cache' dir
+        return []
+      in startTasks [(T.unpack $ l10nArgs "cache-task" [("path", vString $ T.pack dir)], task)]
 
 launchQuickConvert' :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
 launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
@@ -3173,146 +3065,190 @@ launchQuickConvert' sink makeMenuBar = sink $ EventOnyx do
   stackIO $ launchQuickConvert sink makeMenuBar
 
 launchQuickConvert :: (?preferences :: Preferences, ?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchQuickConvert sink makeMenuBar = mdo
-  let windowWidth = Width 1000
-      windowHeight = Height 600
-      windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    withUTF8 (l10n "window-quick-convert") \s ->
-      [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-  [C.block| void {
-    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-  } |]
-  setSizeRange window windowSize
-  tabs <- withRect windowRect \tx ty tw th ->
-    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
-  functionTabs <- sequence
-    [ makeTab windowRect (l10n "quick-convert-tab-rb") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageQuickConvertRB sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-ch") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageQuickConvertCH sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-rr-renumber") \rect tab -> do
-      setTabColor tab functionTabColor
-      pageRenumberRR sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-gh2-pack") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPagePacks sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "quick-convert-tab-rb-legacy-pkg") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageCONtoPKG sink rect tab startTasks
-      return tab
-    ]
-  (startTasks, cancelTasks) <- makeTab windowRect (l10n "tab-task") \rect tab -> do
-    setTabColor tab taskColor
-    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
-    let cbStart = do
-          [C.block| void { $(Fl_Group* tab)->activate(); } |]
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
-          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
-          updateTabsColor tabs
-        cbEnd = do
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
-    taskOutputPage rect tab sink cbStart cbEnd
+launchQuickConvert sink makeMenuBar = do
+  -- Window, tabs and tab groups come from fluid/quick_convert.fl; the pages
+  -- inside each tab are still built here. Those page builders apply the
+  -- horizontal stretch themselves via withRect, so adaptWindow has to run
+  -- before they do, and they get handed the tab's pre-stretch rectangle.
+  ui <- [C.exp| void* { new QuickConvertWindow() } |]
+  let window        = [C.pure| Fl_Window* { ((QuickConvertWindow*)$(void* ui))->window } |]
+      tabs          = [C.pure| Fl_Tabs*   { ((QuickConvertWindow*)$(void* ui))->tabs } |]
+      tabRB         = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabRB } |]
+      tabCH         = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabCH } |]
+      tabRenumberRR = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabRenumberRR } |]
+      renumberRRTab = RenumberRRTabWidgets
+        { rrFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->rrFiles } |]
+        , rrStart = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->rrStart } |]
+        }
+      tabPacks      = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabPacks } |]
+      packTab = PackTabWidgets
+        { pkFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->pkFiles } |]
+        , pkGame  = [C.pure| Fl_Box*        { ((QuickConvertWindow*)$(void* ui))->pkGame } |]
+        , pkName  = [C.pure| Fl_Input*      { ((QuickConvertWindow*)$(void* ui))->pkName } |]
+        , pkDesc  = [C.pure| Fl_Input*      { ((QuickConvertWindow*)$(void* ui))->pkDesc } |]
+        , pkCON   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkCON } |]
+        , pkLIVE  = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkLIVE } |]
+        , pkRaw   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->pkRaw } |]
+        }
+      tabCONtoPKG   = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabCONtoPKG } |]
+      conToPKGTab = CONtoPKGTabWidgets
+        { cpFiles = [C.pure| FileLoadPanel* { ((QuickConvertWindow*)$(void* ui))->cpFiles } |]
+        , cpRB2   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->cpRB2 } |]
+        , cpRB3   = [C.pure| Fl_Button*     { ((QuickConvertWindow*)$(void* ui))->cpRB3 } |]
+        }
+      tabTask       = [C.pure| Fl_Group*  { ((QuickConvertWindow*)$(void* ui))->tabTask } |]
+      -- every tab that must be locked out while a task is running
+      functionTabs = [tabRB, tabCH, tabRenumberRR, tabPacks, tabCONtoPKG]
 
-  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  -- read the layout's own coordinates before adaptWindow rewrites them
+  windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
+  Rectangle (Position (X tabX) (Y tabY)) tabSize <- layoutRect tabTask
+
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    inGroup (windowGroup window) $ void $ makeMenuBar windowWidth True
+  lockMinimumSize window
+  let tabRect = Rectangle (Position (X tabX) (Y $ tabY + menuHeight)) tabSize
+
+  -- task tab first, since the function pages need startTasks
+  (startTasks, cancelTasks) <- inGroup tabTask do
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tabTask)->activate(); } |]
+          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tabTask)); } |]
+          updateTabsColor tabs
+        cbEnd = forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage tabRect tabTask sink cbStart cbEnd
+  inGroup tabRB $ pageQuickConvertRB sink tabRect tabRB startTasks
+  inGroup tabCH $ pageQuickConvertCH sink tabRect tabCH startTasks
+  pageRenumberRR   sink renumberRRTab startTasks
+  miscPagePacks    sink packTab       startTasks
+  miscPageCONtoPKG sink conToPKGTab   startTasks
+
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs
-  let firstTab = head functionTabs
-  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
-
   setCallback window $ windowCloser cancelTasks window
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->show();
-  } |]
+  [C.block| void { $(Fl_Window* window)->show(); } |]
 
 launchMisc :: (?loc :: L) => (Event -> IO ()) -> (Width -> Bool -> IO CInt) -> IO ()
-launchMisc sink makeMenuBar = mdo
-  let windowWidth = Width 900
-      windowHeight = Height 600
-      windowSize = Size windowWidth windowHeight
-  window <- withSize windowSize \w h ->
-    withUTF8 (l10n "window-tools") \s ->
-      [C.exp| Fl_Window* { new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s))) } |]
-  menuHeight <- if macOS then return 0 else makeMenuBar windowWidth True
-  let (_, windowRect) = chopTop menuHeight $ Rectangle
-        (Position (X 0) (Y 0))
-        windowSize
-  [C.block| void {
-    $(Fl_Window* window)->color($(Fl_Color behindTabsColor));
-  } |]
-  setSizeRange window windowSize
-  tabs <- withRect windowRect \tx ty tw th ->
-    [C.exp| Fl_Tabs* { new Fl_Tabs($(int tx), $(int ty), $(int tw), $(int th)) } |]
-  functionTabs <- sequence
-    [ makeTab windowRect (l10n "misc-tab-midi-stuff") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMIDI sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-mogg-vgs-fsb") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMOGG sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-lipsync") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageLipsync sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-dry-vox") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageDryVox sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-milo") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageMilo sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-rb3-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageHardcodeSongCache sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-gh3-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageGH3SongCache sink rect tab startTasks
-      return tab
-    , makeTab windowRect (l10n "misc-tab-ghwor-cache") \rect tab -> do
-      setTabColor tab functionTabColor
-      miscPageWoRSongCache sink rect tab startTasks
-      return tab
-    ]
-  (startTasks, cancelTasks) <- makeTab windowRect (l10n "tab-task") \rect tab -> do
-    setTabColor tab taskColor
-    [C.block| void { $(Fl_Group* tab)->deactivate(); } |]
-    let cbStart = do
-          [C.block| void { $(Fl_Group* tab)->activate(); } |]
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
-          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tab)); } |]
-          updateTabsColor tabs
-        cbEnd = do
-          forM_ functionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
-    taskOutputPage rect tab sink cbStart cbEnd
+launchMisc sink makeMenuBar = do
+  -- Window, tabs and tab groups come from fluid/misc.fl; the pages inside each
+  -- tab are still built here. Those page builders apply the horizontal stretch
+  -- themselves via withRect, so adaptWindow has to run before they do, and they
+  -- get handed the tab's pre-stretch rectangle.
+  ui <- [C.exp| void* { new MiscWindow() } |]
+  let window      = [C.pure| Fl_Window* { ((MiscWindow*)$(void* ui))->window } |]
+      tabs        = [C.pure| Fl_Tabs*   { ((MiscWindow*)$(void* ui))->tabs } |]
+      tabTask     = [C.pure| Fl_Group*  { ((MiscWindow*)$(void* ui))->tabTask } |]
+      tabMilo = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMilo } |]
+      miloTab = MiloTabWidgets
+        { mtExtract = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloExtract } |]
+        , mtRepack  = [C.pure| Fl_Button* { ((MiscWindow*)$(void* ui))->miloRepack } |]
+        }
+      tabMIDI = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMIDI } |]
+      midiTab = MidiTabWidgets
+        { mpMidiFile    = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->midiFile } |]
+        , mpReduce      = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiReduce } |]
+        , mpProKeys     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiProKeys } |]
+        , mpReaper      = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiReaper } |]
+        , mpChartToMidi = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiChartToMidi } |]
+        , mpBatch       = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->midiBatch } |]
+        }
+      tabMOGG = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabMOGG } |]
+      moggTab = MoggTabWidgets
+        { mgFiles = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->moggFiles } |]
+        , mgMogg  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->moggCombine } |]
+        , mgVgs   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->vgsCombine } |]
+        , mgFsb3  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->fsb3Make } |]
+        , mgFsb4  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->fsb4Make } |]
+        }
+      tabLipsync = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabLipsync } |]
+      lipsyncTab = LipsyncTabWidgets
+        { lsMidiFile   = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->lsMidiFile } |]
+        , lsLanguages  =
+          [ [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang0 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang1 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->lsLang2 } |]
+          ]
+        , lsTransition = [C.pure| Fl_Counter*    { ((MiscWindow*)$(void* ui))->lsTransition } |]
+        , lsMakeVoc    = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsMakeVoc } |]
+        , lsMakeMilo   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsMakeMilo } |]
+        , lsUpdateMilo = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsUpdateMilo } |]
+        , lsRawLipsync = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsRawLipsync } |]
+        , lsTracksRB3  = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsTracksRB3 } |]
+        , lsTracksTBRB = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->lsTracksTBRB } |]
+        }
+      tabDryVox = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabDryVox } |]
+      dryVoxTab = DryVoxTabWidgets
+        { dvMidiFile    = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->dvMidiFile } |]
+        , dvVocalTracks =
+          [ [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox0 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox1 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox2 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox3 } |]
+          , [C.pure| Fl_Round_Button* { ((MiscWindow*)$(void* ui))->dvVox4 } |]
+          ]
+        , dvSine        = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->dvSine } |]
+        , dvAudioFile   = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->dvAudioFile } |]
+        , dvClipped     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->dvClipped } |]
+        }
+      tabRB3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->tabRB3Cache } |]
+      rb3CacheTab = RB3CacheTabWidgets
+        { rcConFolder = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->rb3ConFolder } |]
+        , rcCacheFile = [C.pure| FilePickerRow* { ((MiscWindow*)$(void* ui))->rb3CacheFile } |]
+        , rcApply     = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->rb3Apply } |]
+        }
+      tabGH3Cache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->gh3Cache } |]
+      gh3CacheTab = GH3CacheTabWidgets
+        { gcFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->gh3Files } |]
+        , gcButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3Cache360 } |]
+        , gcButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3CachePS3 } |]
+        , gcButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->gh3CacheRPCS3 } |]
+        }
+      tabWoRCache = [C.pure| Fl_Group* { ((MiscWindow*)$(void* ui))->worCache } |]
+      worCacheTab = WoRCacheTabWidgets
+        { wcFiles       = [C.pure| FileLoadPanel* { ((MiscWindow*)$(void* ui))->worFiles } |]
+        , wcButton360   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCache360 } |]
+        , wcButtonPS3   = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCachePS3 } |]
+        , wcButtonRPCS3 = [C.pure| Fl_Button*     { ((MiscWindow*)$(void* ui))->worCacheRPCS3 } |]
+        }
+      -- every tab that must be locked out while a task is running
+      allFunctionTabs =
+        [ tabMIDI, tabMOGG, tabLipsync, tabDryVox, tabMilo
+        , tabRB3Cache, tabGH3Cache, tabWoRCache ]
 
-  [C.block| void { $(Fl_Tabs* tabs)->end(); } |]
+  -- read the layout's own coordinates before adaptWindow rewrites them
+  windowWidth <- Width <$> [C.exp| int { $(Fl_Window* window)->w() } |]
+  Rectangle (Position (X tabX) (Y tabY)) tabSize <- layoutRect tabTask
+
+  menuHeight <- adaptWindow window
+  when (menuHeight /= 0) do
+    inGroup (windowGroup window) $ void $ makeMenuBar windowWidth True
+  lockMinimumSize window
+  let tabRect = Rectangle (Position (X tabX) (Y $ tabY + menuHeight)) tabSize
+
+  -- task tab first, since the function pages need startTasks
+  (startTasks, cancelTasks) <- inGroup tabTask do
+    let cbStart = do
+          [C.block| void { $(Fl_Group* tabTask)->activate(); } |]
+          forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->deactivate(); } |]
+          [C.block| void { ((Fl_Tabs*)$(Fl_Tabs* tabs))->value($(Fl_Group* tabTask)); } |]
+          updateTabsColor tabs
+        cbEnd = forM_ allFunctionTabs \t -> [C.block| void { $(Fl_Group* t)->activate(); } |]
+    taskOutputPage tabRect tabTask sink cbStart cbEnd
+  miscPageMIDI              sink midiTab     startTasks
+  miscPageMOGG              sink moggTab     startTasks
+  miscPageLipsync           sink lipsyncTab  startTasks
+  miscPageDryVox            sink dryVoxTab   startTasks
+  miscPageMilo              sink miloTab     startTasks
+  miscPageHardcodeSongCache sink rb3CacheTab startTasks
+  miscPageGH3SongCache      sink gh3CacheTab startTasks
+  miscPageWoRSongCache      sink worCacheTab startTasks
+
   updateTabsColor tabs
   setCallback tabs $ updateTabsColor tabs
-  let firstTab = head functionTabs
-  [C.block| void { $(Fl_Tabs* tabs)->resizable($(Fl_Group* firstTab)); } |]
-
   setCallback window $ windowCloser cancelTasks window
-  [C.block| void {
-    $(Fl_Window* window)->end();
-    $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
-    $(Fl_Window* window)->show();
-  } |]
+  [C.block| void { $(Fl_Window* window)->show(); } |]
 
 -- _watchSong, _launchTimeServer
 
@@ -3801,6 +3737,21 @@ launchBatch sink makeMenuBar startFiles = mdo
     $(Fl_Window* window)->resizable($(Fl_Tabs* tabs));
     $(Fl_Window* window)->show();
   } |]
+
+-- | A FLUID widget's rectangle in the layout's own coordinates. Only
+-- meaningful before 'adaptWindow' runs, which is exactly what hand-written
+-- page builders want: they apply the horizontal stretch themselves.
+layoutRect :: Ptr Fl_Group -> IO Rectangle
+layoutRect g = do
+  x <- [C.exp| int { $(Fl_Group* g)->x() } |]
+  y <- [C.exp| int { $(Fl_Group* g)->y() } |]
+  w <- [C.exp| int { $(Fl_Group* g)->w() } |]
+  h <- [C.exp| int { $(Fl_Group* g)->h() } |]
+  return $ Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))
+
+-- | Every window is a group; needed to add widgets back into one.
+windowGroup :: Ptr Fl_Window -> Ptr Fl_Group
+windowGroup w = [C.pure| Fl_Group* { $(Fl_Window* w) } |]
 
 updateTabsColor :: Ptr Fl_Tabs -> IO ()
 updateTabsColor tabs = do
@@ -4444,21 +4395,29 @@ launchGUI initSongs = withAL \hasAudio -> do
         [C.block| void { Fl::awake(); } |]
 
   -- terminal
+  -- Layout lives in fluid/console.fl; see Onyx.GUI.Fluid. That file also owns
+  -- the window colour, the button colours and the terminal's box, which FLUID
+  -- always re-emits for a subclassed widget and would otherwise clobber.
   let consoleWidth = Width 650
-      consoleHeight = Height 480
-      consoleSize = Size consoleWidth consoleHeight
-  termWindow <- withUTF8 (l10n "console") \s -> withSize consoleSize \w h ->
-    [C.exp| Fl_Window* {
-      new Fl_Double_Window($(int w), $(int h), fl_strdup($(char* s)))
-    } |]
-  [C.block| void { $(Fl_Window* termWindow)->xclass("Onyx"); } |]
+  ui <- [C.exp| void* { new ConsoleWindow() } |]
+  let termWindow   = [C.pure| Fl_Window*           { ((ConsoleWindow*)$(void* ui))->window } |]
+      term         = [C.pure| Fl_Simple_Terminal*  { ((ConsoleWindow*)$(void* ui))->term } |]
+      buttonGithub = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonGithub } |]
+      labelLatest  = [C.pure| Fl_Box*              { ((ConsoleWindow*)$(void* ui))->labelLatest } |]
+      languageMenu = [C.pure| Fl_Menu_Button*      { ((ConsoleWindow*)$(void* ui))->languageMenu } |]
+      buttonOpen   = [C.pure| HsDndButton*         { ((ConsoleWindow*)$(void* ui))->buttonOpen } |]
+      buttonBatch  = [C.pure| HsDndButton*         { ((ConsoleWindow*)$(void* ui))->buttonBatch } |]
+      buttonQuick  = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonQuick } |]
+      buttonMisc   = [C.pure| Fl_Button*           { ((ConsoleWindow*)$(void* ui))->buttonMisc } |]
   -- TODO set icon
-  setSizeRange termWindow consoleSize
   [C.block| void {
-    $(Fl_Window* termWindow)->color($(Fl_Color globalLogColor));
+    Fl_Simple_Terminal* t = $(Fl_Simple_Terminal* term);
+    t->history_lines(-1);
+    t->ansi(true);
+    t->stay_at_bottom(true);
   } |]
   let makeMenuBar (Width fullWidth) includeConsole = do
-        let menuHeight = if macOS then 0 else 30
+        let menuHeight = menuBarHeight
             menuX = 0
             menuY = 0
             menuWidth = stretchX fullWidth
@@ -4559,23 +4518,12 @@ launchGUI initSongs = withAL \hasAudio -> do
               $(Fl_Menu_Bar* menu)->down_color(fl_rgb_color(0x32, 0x30, 0x30));
             } |]
         return menuHeight
-  menuHeight <- makeMenuBar consoleWidth macOS
-  cbGithub <- makeCallback \_ _ ->
-    osOpenFile "https://github.com/mtolly/onyx/releases"
-  let topBar = Rectangle
-        (Position (X 10) (Y $ 10 + menuHeight))
-        (Size (Width 630) (Height 25))
-      (areaGithub, trimClock 0 0 0 10 -> topBarRest) = chopLeft 100 topBar
-      (areaLatest, trimClock 0 0 0 10 -> areaLanguage) = chopRight 70 topBarRest
-      termRect = Rectangle
-        (Position (X 10) (Y $ 45 + menuHeight))
-        (Size (Width 630) (Height $ 345 - menuHeight))
-  withUTF8 (l10n "homepage") \s -> withRect areaGithub \x y w h -> [C.block| void {
-    Fl_Button* buttonGithub = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonGithub->callback($(Fl_Callback cbGithub));
-  } |]
-  labelLatest <- withUTF8 (l10n "version-checking") \s -> withRect areaLatest \x y w h ->
-    [C.exp| Fl_Box* { new Fl_Box($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
+  -- reserve the menu bar space the layout was authored without, then fill it
+  _ <- adaptWindow termWindow
+  inGroup (windowGroup termWindow) $ void $ makeMenuBar consoleWidth macOS
+  lockMinimumSize termWindow
+
+  setCallback buttonGithub $ osOpenFile "https://github.com/mtolly/onyx/releases"
   _ <- forkIO $ isNewestRelease \comp -> sink $ EventIO $ case comp of
     LT -> withUTF8 (l10n "version-new") \s ->
       [C.block| void {
@@ -4591,71 +4539,19 @@ launchGUI initSongs = withAL \hasAudio -> do
         $(Fl_Box* labelLatest)->copy_label($(char* s));
         $(Fl_Box* labelLatest)->labelcolor(FL_WHITE);
       } |]
-  languageMenu <- withUTF8 ("🌏" :: T.Text) \s -> withRect areaLanguage \x y w h ->
-    [C.exp| Fl_Menu_Button* {
-      new Fl_Menu_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)))
-    } |]
   configureLanguageMenu sink languageMenu
-  term <- withRect termRect \x y w h -> [C.block| Fl_Simple_Terminal* {
-    Fl_Simple_Terminal* term = new Fl_Simple_Terminal
-      ( $(int x)
-      , $(int y)
-      , $(int w)
-      , $(int h)
-      );
-    term->history_lines(-1);
-    term->ansi(true);
-    term->stay_at_bottom(true);
-    return term;
-  } |]
 
-  let bottomBar1 = Rectangle (Position (X 5) (Y 400)) (Size (Width 640) (Height 30))
-      bottomBar2 = Rectangle (Position (X 5) (Y 440)) (Size (Width 640) (Height 30))
-      [areaOpen, areaBatch] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar1
-      [areaQuick, areaMisc] = map (trimClock 0 5 0 5) $ splitHorizN 2 bottomBar2
-
-  cbButtonOpen <- makeCallback \_ _ -> promptLoad sink makeMenuBar hasAudio
-  buttonOpen <- withUTF8 (l10n "function-load") \s -> withRect areaOpen \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
-  [C.block| void {
-    $(HsDndButton* buttonOpen)->color($(Fl_Color loadSongColor));
-    $(HsDndButton* buttonOpen)->callback($(Fl_Callback cbButtonOpen));
-    $(HsDndButton* buttonOpen)->labelsize(13);
-  } |]
+  setCallback buttonOpen $ promptLoad sink makeMenuBar hasAudio
   setDndButtonCallback buttonOpen (sink . EventOnyx . startLoad makeMenuBar hasAudio)
 
-  cbButtonBatch <- makeCallback \_ _ -> launchBatch' sink makeMenuBar []
-  buttonBatch <- withUTF8 (l10n "function-batch") \s -> withRect areaBatch \x y w h ->
-    [C.exp| HsDndButton* { new HsDndButton($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s))) } |]
-  [C.block| void {
-    $(HsDndButton* buttonBatch)->color($(Fl_Color batchProcessColor));
-    $(HsDndButton* buttonBatch)->callback($(Fl_Callback cbButtonBatch));
-    $(HsDndButton* buttonBatch)->labelsize(13);
-  } |]
+  setCallback buttonBatch $ launchBatch' sink makeMenuBar []
   setDndButtonCallback buttonBatch (launchBatch' sink makeMenuBar)
 
-  cbButtonQuick <- makeCallback \_ _ -> launchQuickConvert' sink makeMenuBar
-  withUTF8 (l10n "function-quick") \s -> withRect areaQuick \x y w h -> [C.block| void {
-    Fl_Button* buttonQuick = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonQuick->color($(Fl_Color quickConvertColor));
-    buttonQuick->callback($(Fl_Callback cbButtonQuick));
-    buttonQuick->labelsize(13);
-  } |]
-
-  cbButtonMisc <- makeCallback \_ _ -> launchMisc sink makeMenuBar
-  withUTF8 (l10n "function-other") \s -> withRect areaMisc \x y w h -> [C.block| void {
-    Fl_Button* buttonMisc = new Fl_Button($(int x), $(int y), $(int w), $(int h), fl_strdup($(char* s)));
-    buttonMisc->color($(Fl_Color miscColor));
-    buttonMisc->callback($(Fl_Callback cbButtonMisc));
-    buttonMisc->labelsize(13);
-  } |]
+  setCallback buttonQuick $ launchQuickConvert' sink makeMenuBar
+  setCallback buttonMisc $ launchMisc sink makeMenuBar
 
   setCallback termWindow $ windowCloser (return ()) termWindow
-  [C.block| void {
-    $(Fl_Window* termWindow)->end();
-    $(Fl_Window* termWindow)->resizable($(Fl_Simple_Terminal* term));
-    $(Fl_Window* termWindow)->show();
-  } |]
+  [C.block| void { $(Fl_Window* termWindow)->show(); } |]
 
   -- Support drag and drop onto mac app icon
   when macOS do
