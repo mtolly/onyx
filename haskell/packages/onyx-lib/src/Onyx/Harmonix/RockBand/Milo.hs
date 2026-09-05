@@ -1,11 +1,12 @@
 {-
 Thanks to PyMilo, LibForge, and MiloMod for information on these structures.
 -}
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NoFieldSelectors    #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Harmonix.RockBand.Milo
 ( module Onyx.Harmonix.RockBand.Milo.Compression
 , module Onyx.Harmonix.RockBand.Milo.Dir
@@ -55,18 +56,18 @@ loadMilo fin = do
   inside ("Parsing milo file: " <> fin) $ runGetM parseMiloFile dec
 
 miloToFolder :: MiloDir -> (B.ByteString, Folder B.ByteString BL.ByteString)
-miloToFolder dir = (dir.miloName, miloDirFolder dir)
+miloToFolder dir = (dir.name, miloDirFolder dir)
 
 miloDirFolder :: MiloDir -> Folder B.ByteString BL.ByteString
 miloDirFolder dir = Folder
-  { folderFiles      = zip (map snd dir.miloEntryNames) $ map (.entryData) dir.miloFiles
+  { folderFiles      = zip (map snd dir.entryNames) $ map (.data_) dir.files
   , folderSubfolders = concat
     [ map miloToFolder $ miloSubdirs dir
     -- an entry's inlined dir goes in a folder beside the entry's own file,
     -- named after it, since the entry name is already taken by that file
     , [ (name <> inlineDirSuffix, miloDirFolder inline)
-      | ((_, name), entry) <- zip dir.miloEntryNames dir.miloFiles
-      , Just inline <- [entry.entryInlineDir]
+      | ((_, name), entry) <- zip dir.entryNames dir.files
+      , Just inline <- [entry.inlineDir]
       ]
     ]
   }
@@ -93,17 +94,17 @@ unpackMilo fin dout = do
           folder' = bimap TE.decodeLatin1 (makeHandle "" . byteStringSimpleHandle) folder
       stackIO $ saveHandleFolder folder' $ dout </> B8.unpack topname
       let removeFiles dir = dir
-            { miloObjectDir = dir.miloObjectDir
-              { odSubdirs = map removeFilesSubdir dir.miloObjectDir.odSubdirs
+            { objectDir = dir.objectDir
+              { subdirs = map removeFilesSubdir dir.objectDir.subdirs
               }
-            , miloFiles = do
-              entry <- dir.miloFiles
+            , files = do
+              entry <- dir.files
               return entry
-                { entryData = "(file contents)"
-                , entryInlineDir = fmap removeFiles entry.entryInlineDir
+                { data_ = "(file contents)"
+                , inlineDir = fmap removeFiles entry.inlineDir
                 }
             }
-          removeFilesSubdir sd = sd { sdDir = fmap removeFiles sd.sdDir }
+          removeFilesSubdir sd = sd { dir = fmap removeFiles sd.dir }
       stackIO $ writeFile (dout </> "parsed.txt") $ show $ removeFiles topdir
       lg "Recognized and extracted milo contents."
 
@@ -126,21 +127,21 @@ packMilo din fout = do
           $ inside ("position " <> show pos) $ fatal err
         Right (_, _, topdir) -> do
           let reload parent milodir
-                = reloadIn (parent </> B8.unpack milodir.miloName) milodir
+                = reloadIn (parent </> B8.unpack milodir.name) milodir
               reloadIn thisout milodir = do
-                newFiles <- forM (zip milodir.miloEntryNames milodir.miloFiles)
+                newFiles <- forM (zip milodir.entryNames milodir.files)
                   \((_, name), entry) -> do
                     newData <- BL.readFile $ thisout </> B8.unpack name
-                    newInline <- forM entry.entryInlineDir $ reloadIn
+                    newInline <- forM entry.inlineDir $ reloadIn
                       $ thisout </> B8.unpack (name <> inlineDirSuffix)
-                    return entry { entryData = newData, entryInlineDir = newInline }
-                newSubdirs <- forM milodir.miloObjectDir.odSubdirs \sd -> do
-                  newDir <- mapM (reload thisout) sd.sdDir
-                  return sd { sdDir = newDir }
+                    return entry { data_ = newData, inlineDir = newInline }
+                newSubdirs <- forM milodir.objectDir.subdirs \sd -> do
+                  newDir <- mapM (reload thisout) sd.dir
+                  return sd { dir = newDir }
                 return milodir
-                  { miloFiles = newFiles
-                  , miloObjectDir = milodir.miloObjectDir
-                    { odSubdirs = newSubdirs
+                  { files = newFiles
+                  , objectDir = milodir.objectDir
+                    { subdirs = newSubdirs
                     }
                   }
           topdir' <- stackIO $ reload din topdir

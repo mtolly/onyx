@@ -1,8 +1,9 @@
-{-# LANGUAGE BangPatterns        #-}
-{-# LANGUAGE BlockArguments      #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
 -- Round-trip test: for each .milo_* file, decompress, parse the dir
 -- structure, re-serialize, and compare against the decompressed bytes.
 module Main (main) where
@@ -63,7 +64,7 @@ main = do
   forM_ bad \(f, r) -> putStrLn $ f <> "\n  " <> show r
 
 remainderBytes :: MiloDir -> Int
-remainderBytes dir = fromIntegral (BL.length dir.miloRemainder)
+remainderBytes dir = fromIntegral (BL.length dir.remainder)
   + sum (map remainderBytes $ miloSubdirs dir <> miloInlineDirs dir)
 
 firstDiff :: BL.ByteString -> BL.ByteString -> Maybe Int64
