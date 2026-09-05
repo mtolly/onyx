@@ -77,8 +77,8 @@ fromLipsyncPS4 lip = do
   return do
     (i, player) <- zip [0..] lip.players
     return (player, emptyLipsync
-      { lipsyncVisemes = lip.visemes
-      , lipsyncKeyframes = map
+      { visemes = lip.visemes
+      , keyframes = map
         (\group -> case drop i group of
           []     -> Keyframe []
           kf : _ -> kf

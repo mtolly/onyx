@@ -367,7 +367,7 @@ getRBSongLipsync res = let
     True -> return $ reverse prev
     False -> do
       eventCount <- getWord8
-      keyframeEvents <- replicateM (fromIntegral eventCount) do
+      events <- replicateM (fromIntegral eventCount) do
         visemeKey <- fromIntegral <$> getWord8
         visemeWeight <- getWord8
         let visemeGraph = ()
@@ -375,7 +375,7 @@ getRBSongLipsync res = let
       parseKeyframes $ Keyframe{..} : prev
   in forM lipsyncList \(lipsyncName, visemes, keyframeData) -> do
     keyframes <- runGetM (parseKeyframes []) keyframeData
-    return (lipsyncName, emptyLipsync { lipsyncVisemes = visemes, lipsyncKeyframes = keyframes })
+    return (lipsyncName, emptyLipsync { visemes = visemes, keyframes = keyframes })
 
 -- positions in PropAnim are given in BEAT events. see gimmechocolate which has half-note BEATs
 beatTrackTempoMap :: BeatTrack U.Seconds -> U.TempoMap

@@ -344,9 +344,10 @@ miscPageLipsync sink rect tab startTasks = do
           vmapRB3 <- loadVisemesRB3
           useLipsyncTracks <- hasLipsyncTracks mid
           let editDir dir = dir
-                { miloFiles = do
-                  ((_, name), contents) <- zip dir.miloEntryNames dir.miloFiles
-                  return case name of
+                { files = do
+                  ((_, name), entry) <- zip dir.entryNames dir.files
+                  let contents = entry.data_
+                  return $ (\d -> entry { data_ = d }) case name of
                     "john.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncJohn  )
                     "paul.lipsync"   -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncPaul  )
                     "george.lipsync" -> getLipsync Milo.LipsyncTBRB vmapBeatles (.fixedLipsyncGeorge)
@@ -362,7 +363,11 @@ miscPageLipsync sink rect tab startTasks = do
                       else getVocal [(.fixedHarm3)]
                     "part4.lipsync"  -> getLipsync Milo.LipsyncRB3 vmapRB3 (.fixedLipsync4)
                     _                -> contents
-                , miloSubdirs = map editDir dir.miloSubdirs
+                , objectDir = dir.objectDir
+                  { subdirs = do
+                    sd <- dir.objectDir.subdirs
+                    return sd { dir = fmap editDir sd.dir }
+                  }
                 }
               getVocal getTracks = let
                 trk = fromMaybe mempty $ listToMaybe $ filter (/= mempty) $ map ($ mid.tracks) getTracks
