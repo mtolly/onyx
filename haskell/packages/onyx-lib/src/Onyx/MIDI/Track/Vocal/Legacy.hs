@@ -120,7 +120,10 @@ fixGHVocals
       notLyrics = filter (\case Lyric _ -> False; _ -> True) evts
       in case (lyrics, noteOn) of
         (s : _, []) -> let
-          evts' = Lyric (s <> "^") : Note True (Octave60 C) : notLyrics
+          lyric = if any (`T.isSuffixOf` s) ["#", "^"]
+            then s
+            else s <> "^"
+          evts' = Lyric lyric : Note True (Octave60 C) : notLyrics
           rtb'' = RTB.insert (1/16) [Note False (Octave60 C)] rtb'
           in RTB.cons dt evts' $ fixTalkies rtb''
         _ -> RTB.cons dt evts $ fixTalkies rtb'
