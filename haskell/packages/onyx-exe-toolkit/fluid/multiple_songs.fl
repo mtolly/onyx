@@ -7,12 +7,7 @@ i18n_include {"onyx_l10n.h"}
 i18n_conditional {}
 i18n_gnu_function {onyx_l10n}
 i18n_gnu_static_function {onyx_l10n_noop}
-comment {Song list shown when an import produces more than one song.
-
-Authored at natural English width with no menu bar; Onyx.GUI.Fluid.adaptWindow
-applies the per-language horizontal stretch and reserves the menu bar space.
-The song rows inside `pack` are created from Haskell, one per import.} {in_source not_in_header
-}
+comment {} {in_source not_in_header}
 
 class MultipleSongsWindow {open
 } {

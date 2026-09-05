@@ -7,20 +7,7 @@ i18n_include {"onyx_l10n.h"}
 i18n_conditional {}
 i18n_gnu_function {onyx_l10n}
 i18n_gnu_static_function {onyx_l10n_noop}
-comment {The main window: log terminal plus the four top-level function buttons.
-
-Authored at natural English width with no menu bar; Onyx.GUI.Fluid.adaptWindow
-applies the per-language horizontal stretch and reserves the menu bar space,
-which launchGUI then fills via makeMenuBar.
-
-Colours here mirror the palette in Onyx.GUI.Core, as packed fl_rgb_color
-values, so that the editor preview matches the running app:
-  1917484032 = globalLogColor    rgb(114,74,124)
-  3135616256 = loadSongColor     rgb(186,229,181)
-  3987587328 = batchProcessColor rgb(237,173,193)
-  3906311680 = quickConvertColor rgb(232,213,150)
-  2980967424 = miscColor         rgb(177,173,244)} {in_source not_in_header
-}
+comment {} {in_source not_in_header}
 
 decl {\#include "hs_dnd_button.h"} {public global
 }

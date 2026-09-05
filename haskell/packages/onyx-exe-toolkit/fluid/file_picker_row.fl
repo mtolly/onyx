@@ -2,15 +2,7 @@
 version 1.0500
 header_name {.h}
 code_name {.cxx}
-comment {One row of "label, text field, browse button", the shape repeated all over
-the Misc window. The label text and what the browse button does are supplied
-per instance from Haskell (Onyx.GUI.Core.filePickerRow), so the label here is
-only a placeholder for the editor.
-
-Designed at 900x50, the width of a Misc tab, so placement there is a pure
-translation. The input is the resizable child, so the browse button keeps its
-width and stays pinned to the right edge at other sizes.} {in_source not_in_header
-}
+comment {} {in_source not_in_header}
 
 widget_class FilePickerRow {open
   xywh {0 0 900 50}

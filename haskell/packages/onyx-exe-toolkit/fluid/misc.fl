@@ -8,19 +8,7 @@ i18n_gnu_static_function onyx_l10n_noop
 header_name {.h}
 code_name {.cxx}
 include_guard {}
-comment {The "other tools" window: a tab per utility, plus the shared task tab.
-
-Only the window, the Fl_Tabs and the tab groups themselves live here. Each
-tab's contents are still built in Haskell (Onyx.GUI.Misc and taskOutputPage),
-which lay themselves out with withRect and so apply the horizontal stretch
-on their own. launchMisc therefore runs adaptWindow *before* filling the
-tabs, and hands each page the tab's pre-stretch rectangle.
-
-Colours are packed fl_rgb_color values:
-  1583242752 = behindTabsColor  rgb(94,94,94)
-  3771904256 = functionTabColor rgb(224,210,177)
-  3017652992 = taskColor        rgb(179,221,187)} {in_source not_in_header
-}
+comment {} {in_source not_in_header}
 
 decl {\#include "file_load_panel.h"} {public global
 }

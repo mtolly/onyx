@@ -2,26 +2,7 @@
 version 1.0500
 header_name {.h}
 code_name {.cxx}
-comment {Reusable "drop files here" panel: a count label, a tree of loaded files,
-add/clear buttons, and an invisible drag-and-drop overlay sitting on top of
-the tree.
-
-Place it in another .fl with an Fl_Group node whose class is FileLoadPanel,
-plus a global decl including this header. Behaviour is attached from Haskell
-by Onyx.GUI.Core.fileLoadPanel.
-
-The labels here are plain English placeholders so the editor stays readable.
-They are not {keys}: each host tab supplies its own wording from a different
-Fluent message, so Haskell overwrites all three at wire-up time.
-
-The tree is the resizable child, so hosts can place this at any size and the
-label and buttons keep their heights while the tree absorbs the slack.
-
-Designed at 900x525, the size a Misc tab places it at, so that the common
-case needs no scaling at all. Fl_Group::resize scales proportionally, which
-would otherwise widen the gap between the two buttons along with everything
-else; at other sizes that is what happens, and it is only cosmetic.} {in_source not_in_header
-}
+comment {} {in_source not_in_header}
 
 decl {\#include "hs_tree.h"} {public global
 }
