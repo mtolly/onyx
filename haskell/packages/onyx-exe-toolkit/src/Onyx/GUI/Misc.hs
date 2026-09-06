@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE ViewPatterns          #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 module Onyx.GUI.Misc where
 
@@ -130,15 +129,15 @@ miscPageMilo sink tab startTasks = do
 
 -- | Widgets for the lipsync tab, laid out in fluid/misc.fl.
 data LipsyncTabWidgets = LipsyncTabWidgets
-  { lsMidiFile    :: Ptr FilePickerRow
-  , lsLanguages   :: [Ptr Fl_Round_Button] -- ^ one per vowel-set option
-  , lsTransition  :: Ptr Fl_Counter
-  , lsMakeVoc     :: Ptr Fl_Button
-  , lsMakeMilo    :: Ptr Fl_Button
-  , lsUpdateMilo  :: Ptr Fl_Button
-  , lsRawLipsync  :: Ptr Fl_Button
-  , lsTracksRB3   :: Ptr Fl_Button
-  , lsTracksTBRB  :: Ptr Fl_Button
+  { lsMidiFile   :: Ptr FilePickerRow
+  , lsLanguages  :: [Ptr Fl_Round_Button] -- ^ one per vowel-set option
+  , lsTransition :: Ptr Fl_Counter
+  , lsMakeVoc    :: Ptr Fl_Button
+  , lsMakeMilo   :: Ptr Fl_Button
+  , lsUpdateMilo :: Ptr Fl_Button
+  , lsRawLipsync :: Ptr Fl_Button
+  , lsTracksRB3  :: Ptr Fl_Button
+  , lsTracksTBRB :: Ptr Fl_Button
   }
 
 miscPageLipsync
@@ -416,11 +415,11 @@ miscPageLipsync sink tab startTasks = do
 
 -- | Widgets for the dry vox tab, laid out in fluid/misc.fl.
 data DryVoxTabWidgets = DryVoxTabWidgets
-  { dvMidiFile     :: Ptr FilePickerRow
-  , dvVocalTracks  :: [Ptr Fl_Round_Button] -- ^ one per vocal track option
-  , dvSine         :: Ptr Fl_Button
-  , dvAudioFile    :: Ptr FilePickerRow
-  , dvClipped      :: Ptr Fl_Button
+  { dvMidiFile    :: Ptr FilePickerRow
+  , dvVocalTracks :: [Ptr Fl_Round_Button] -- ^ one per vocal track option
+  , dvSine        :: Ptr Fl_Button
+  , dvAudioFile   :: Ptr FilePickerRow
+  , dvClipped     :: Ptr Fl_Button
   }
 
 miscPageDryVox

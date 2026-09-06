@@ -2765,11 +2765,11 @@ pageQuickConvertCH sink rect tab startTasks = mdo
 
 -- | Widgets for the MOGG/VGS/FSB tab, laid out in fluid/misc.fl.
 data MoggTabWidgets = MoggTabWidgets
-  { mgFiles   :: Ptr FileLoadPanel
-  , mgMogg    :: Ptr Fl_Button
-  , mgVgs     :: Ptr Fl_Button
-  , mgFsb3    :: Ptr Fl_Button
-  , mgFsb4    :: Ptr Fl_Button
+  { mgFiles :: Ptr FileLoadPanel
+  , mgMogg  :: Ptr Fl_Button
+  , mgVgs   :: Ptr Fl_Button
+  , mgFsb3  :: Ptr Fl_Button
+  , mgFsb4  :: Ptr Fl_Button
   }
 
 miscPageMOGG

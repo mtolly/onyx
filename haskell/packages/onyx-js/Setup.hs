@@ -16,6 +16,7 @@ import           System.Directory                   (copyFile,
                                                      createDirectoryIfMissing,
                                                      getCurrentDirectory)
 import           System.Environment                 (lookupEnv, setEnv)
+import           System.Info                        (os)
 import           System.Process                     (CreateProcess (..),
                                                      callProcess, proc,
                                                      readCreateProcess)
@@ -41,7 +42,9 @@ myPreConf _ _ = do
   -- out of the archive fails to link
   existing <- lookupEnv "CFLAGS"
   setEnv "CFLAGS" $ maybe "-fPIC" (<> " -fPIC") existing
-  void $ readCreateProcess (proc "make" ["libquickjs.a"]) { cwd = Just buildDir } ""
+  -- Windows needs to be set to use Clang, otherwise it tries gcc and fails
+  let makeConfig = ["CONFIG_CLANG=y" | os == "mingw32"]
+  void $ readCreateProcess (proc "make" ("libquickjs.a" : makeConfig)) { cwd = Just buildDir } ""
   -- copy only the .hs-referenced headers; if we add the whole quickjs root
   -- directory then e.g. VERSION can clobber other random C/C++ files
   -- downstream that #include <version> on case-insensitive systems
