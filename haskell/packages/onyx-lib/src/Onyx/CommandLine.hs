@@ -148,6 +148,7 @@ import           Onyx.Neversoft.PS2                   (hedFolder, hookUpWAD,
                                                        parseHed)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
                                                        lookupQS, parseQB, putQB)
+import           Onyx.Nintendo.CISO                   (cisoReadable)
 import           Onyx.Nintendo.GCM                    (loadGCM)
 import           Onyx.Nintendo.U8                     (packU8, readU8)
 import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
@@ -265,6 +266,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".chart" -> return $ FileType FileChart fp
     ".psarc" -> return $ FileType FilePSARC fp
     ".iso" -> return $ FileType FileISO fp
+    ".ciso" -> return $ FileType FileISO fp
     ".blob" -> return $ FileType FileBlob fp
     ".iga" -> return $ FileType FileIGA fp
     ".hdr" -> return $ FileType FileHdrOrArk fp
@@ -1050,8 +1052,10 @@ commands =
       (FileISO, iso) -> do
         out <- outputFile opts $ return $ iso <> "_extract"
         dir <- stackIO do
-          magic <- IO.withBinaryFile iso IO.ReadMode \h -> BL.hGet h 1
-          if magic == "G" -- maybe not foolproof
+          magic <- IO.withBinaryFile iso IO.ReadMode \h -> BL.hGet h 4
+          if magic == "CISO"
+            then loadGCM $ cisoReadable $ fileReadable iso
+          else if BL.take 1 magic == "G" -- maybe not foolproof
             then loadGCM $ fileReadable iso
             else loadXboxISO (fileReadable iso) >>= \case
               Just xiso -> return xiso

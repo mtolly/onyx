@@ -56,13 +56,7 @@ import           Onyx.Import.Amplitude2016    (importAmplitude,
                                                importAmplitudeArk)
 import           Onyx.Import.Base             (ImportLevel (..), saveImport)
 import           Onyx.Import.BMS              (importBMS)
-import           Onyx.MIDI.Common             (Difficulty (..))
-import           Onyx.Neversoft.PS2           (HedFormat (..),
-                                               identifyHedFormat, parseHed)
-import           Onyx.Util.Files              (fixFileCase)
-import           Onyx.Zip.Load                (loadZipReadables)
-import           Optics                       ((.~))
--- import           Onyx.Import.DonkeyKonga      (supportedDKGames)
+import           Onyx.Import.DonkeyKonga      (supportedDKGames)
 import           Onyx.Import.DTXMania         (importDTX, importSet)
 import           Onyx.Import.Encore           (importEncore)
 import           Onyx.Import.Freetar          (importFreetar)
@@ -85,6 +79,10 @@ import           Onyx.Import.RockRevolution   (importRR)
 import           Onyx.Import.Rocksmith        as RS
 import           Onyx.Import.StepMania        (importSM)
 import           Onyx.ISO                     (folderISO)
+import           Onyx.MIDI.Common             (Difficulty (..))
+import           Onyx.Neversoft.PS2           (HedFormat (..),
+                                               identifyHedFormat, parseHed)
+import           Onyx.Nintendo.CISO           (cisoReadable)
 import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
                                                pkgFolder, tryDecryptEDAT)
 import           Onyx.Preferences
@@ -92,6 +90,7 @@ import           Onyx.Project
 import           Onyx.Resources               (getResourcesPath)
 import           Onyx.StackTrace
 import           Onyx.Util.Binary             (runGetM)
+import           Onyx.Util.Files              (fixFileCase)
 import           Onyx.Util.Handle             (Folder (..), Readable,
                                                crawlFolder, fileReadable,
                                                findFile, findFileCI, findFolder,
@@ -100,6 +99,8 @@ import           Onyx.Util.Handle             (Folder (..), Readable,
                                                singleFolder, useHandle)
 import           Onyx.Xbox.ISO                (loadXboxISO)
 import           Onyx.Xbox.STFS               (getSTFSFolder)
+import           Onyx.Zip.Load                (loadZipReadables)
+import           Optics                       ((.~))
 import qualified Sound.Jammit.Base            as J
 import qualified System.Directory             as Dir
 import           System.FilePath              (dropExtension,
@@ -360,7 +361,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             return ([], [])
       foundISO iso = do
         magic <- stackIO $ IO.withBinaryFile iso IO.ReadMode \h -> B.hGet h 6
-        case lookup magic [] {- supportedDKGames -} of
+        case lookup magic supportedDKGames of
           Just importDK -> do
             imps <- importDK $ fileReadable iso
             foundImports "Donkey Konga" iso imps
@@ -505,6 +506,12 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               foundImport "Clone Hero SNG" fp $ importFoF fp $ getSNGFolder True hdr r
             _        -> foundFreetar fp
         ".iso" -> foundISO fp
+        ".ciso" -> do
+          let disc = cisoReadable $ fileReadable fp
+          magic <- stackIO $ useHandle disc \h -> B.hGet h 6
+          case lookup magic supportedDKGames of
+            Just importDK -> importDK disc >>= foundImports "Donkey Konga" fp
+            Nothing       -> return ([], [])
         ".osz" -> importOsu True fp >>= foundImports "osu!" fp
         ".sgh" -> foundSGH fp
         ".rlrr" -> foundParadiddle fp

@@ -20,7 +20,6 @@ import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.List.NonEmpty   (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty   as NE
-import qualified Data.Vector          as V
 import           Data.Word
 import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
@@ -90,25 +89,28 @@ loadGCM gcm = useHandle gcm \h -> do
         file_size = file_size_or_next_fst_index
         in FileEntry File{..}
 
-  let entryArray = V.fromList entries
-      makeFile path off size = (path, subHandle (<> (" : " <> show path)) off (Just size) gcm)
-      -- TODO for files, there may be another indicator as to which directory they're in
-      -- (not just last directory seen). order seems to be weird in .nkit.iso files
-      makeFiles currentParents = \case
-        [] -> []
-        DirEntry dir : rest -> let
-          getNewParents d = case d.file_index of
-            0 -> []
-            _ -> case entryArray V.!? fromIntegral d.parent_fst_index of
-              Just (DirEntry parent) -> getNewParents parent <> [d.name]
-              _                      -> ["broken-path"]
-          in makeFiles (getNewParents dir) rest
-        FileEntry file : rest -> let
-          newFile = makeFile
-            (NE.prependList currentParents $ pure file.name)
-            (fromIntegral file.file_data_offset)
-            (fromIntegral file.file_size)
-          in newFile : makeFiles currentParents rest
+  let makeFile path off size = (path, subHandle (<> (" : " <> show path)) off (Just size) gcm)
+      -- A directory's next_fst_index is one past the index of its last
+      -- descendant. So an entry belongs to the innermost open directory whose
+      -- range still contains it; entries after a subfolder's range go back to
+      -- the parent (e.g. files sorted after "CVS" are not inside CVS).
+      -- The stack holds (next_fst_index, name) for open directories, innermost first.
+      makeFiles _ [] = []
+      makeFiles openDirs (entry : rest) = let
+        index = case entry of
+          DirEntry  dir  -> dir.file_index
+          FileEntry file -> file.file_index
+        openDirs' = dropWhile (\(end, _) -> index >= end) openDirs
+        in case entry of
+          DirEntry dir -> if dir.file_index == 0
+            then makeFiles openDirs' rest -- root
+            else makeFiles ((dir.next_fst_index, dir.name) : openDirs') rest
+          FileEntry file -> let
+            newFile = makeFile
+              (NE.prependList (reverse $ map snd openDirs') $ pure file.name)
+              (fromIntegral file.file_data_offset)
+              (fromIntegral file.file_size)
+            in newFile : makeFiles openDirs' rest
       normalFiles = makeFiles [] entries
 
   -- read_system_data
