@@ -5,6 +5,14 @@ But, also supports dual layer ISOs (RB1/RB2, probably later GHs).
 
 Mostly implemented using the ECMA-119 version of the spec:
 https://www.ecma-international.org/wp-content/uploads/ECMA-119_4th_edition_june_2019.pdf
+
+Also supports .bin/.cue images (PS1 and PS2 CDs). These contain the same
+ISO 9660 filesystem, but each 2048-byte logical sector is stored inside a raw
+sector (2352 bytes for MODE1/2352 and MODE2/2352) along with sync, header,
+subheader and error correction data. Files marked in their CD-XA attributes
+as Form 2 or interleaved (XA audio, STR video) can't be represented as 2048
+bytes per sector, so those are extracted as 2336 bytes per sector
+(subheader + data + EDC/ECC), the same as dumpsxiso/jPSXdec expect.
 -}
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -16,22 +24,34 @@ https://www.ecma-international.org/wp-content/uploads/ECMA-119_4th_edition_june_
 {-# LANGUAGE StrictData            #-}
 module Onyx.ISO where
 
-import           Control.Monad        (forM, unless, when)
-import           Data.Bifunctor       (bimap)
+import           Control.Monad            (forM, guard, unless, when)
+import           Data.Bifunctor           (bimap)
 import           Data.Binary.Get
-import           Data.Bits            (testBit)
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.Functor         ((<&>))
-import           Data.List.NonEmpty   (NonEmpty (..))
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Map             as Map
-import           Data.Maybe           (fromMaybe)
+import           Data.Bits                (shiftL, testBit, (.&.), (.|.))
+import qualified Data.ByteString          as B
+import qualified Data.ByteString.Lazy     as BL
+import           Data.Char                (isSpace, toLower, toUpper)
+import           Data.Functor             ((<&>))
+import           Data.IORef
+import           Data.List                (find)
+import           Data.List.NonEmpty       (NonEmpty (..))
+import qualified Data.List.NonEmpty       as NE
+import qualified Data.Map                 as Map
+import           Data.Maybe               (fromMaybe)
+import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as TE
+import           Data.Text.Encoding.Error (lenientDecode)
 import           Data.Word
-import           Onyx.Util.Binary     (runGetM)
-import           Onyx.Util.Handle     (Folder (..), Readable, fromFiles,
-                                       subHandle, useHandle)
-import           System.IO            (Handle, SeekMode (..), hFileSize, hSeek)
+import           Onyx.Util.Binary         (runGetM)
+import           Onyx.Util.Handle         (Folder (..), Readable (..),
+                                           SimpleHandle (..), fileReadable,
+                                           fromFiles, handleLabel,
+                                           openSimpleHandle, subHandle,
+                                           useHandle)
+import qualified System.Directory         as Dir
+import           System.FilePath          (takeDirectory, takeFileName, (</>))
+import           System.IO                (Handle, SeekMode (..), hClose,
+                                           hFileSize, hSeek)
 
 data PrimaryVolumeDescriptor = PrimaryVolumeDescriptor
   -- byte 1, string "CD001"
@@ -76,6 +96,7 @@ data DirectoryRecord = DirectoryRecord
   , interleaveGapSize             :: Word8
   , volumeSequenceNumber          :: Word16
   , fileIdentifier                :: B.ByteString
+  , systemUse                     :: B.ByteString -- CD-XA info on PlayStation discs
   } deriving (Show)
 
 data PathTableRecord = PathTableRecord
@@ -99,7 +120,7 @@ folderISO :: Readable -> IO (Folder B.ByteString Readable)
 folderISO r = isISO r >>= \case
   False -> return mempty
   True  -> do
-    (layer, nextLayer) <- folderISOLayer r
+    (layer, nextLayer) <- folderISOLayer (const Nothing) r
     rest <- folderISO $ subHandle id nextLayer Nothing r
     return $ layer <> rest
 
@@ -113,22 +134,27 @@ isISO r = useHandle r \h -> do
       bs <- B.hGet h 5
       return $ bs == "CD001"
 
-folderISOLayer :: Readable -> IO (Folder B.ByteString Readable, Integer)
-folderISOLayer r = do
+-- | The first argument can supply a different handle for a file,
+-- instead of the default of reading its extent from the given handle.
+folderISOLayer :: (DirectoryRecord -> Maybe Readable) -> Readable -> IO (Folder B.ByteString Readable, Integer)
+folderISOLayer special r = do
   (pvd, recs) <- useHandle r \h -> do
     hSeek h AbsoluteSeek 0x8000
     pvd <- B.hGet h 0x800 >>= runGetM getPrimaryVolumeDescriptor . BL.fromStrict
     hSeek h AbsoluteSeek $ fromIntegral pvd.locationTypeMPathTable * 0x800
-    ptrs <- B.hGet h 0x800 >>= runGetM (getMany getPathTableRecordBE) . BL.fromStrict
+    ptrs <- B.hGet h (fromIntegral pvd.pathTableSize) >>= runGetM (getMany getPathTableRecordBE) . BL.fromStrict
     recs <- fromFiles <$> getFileTree h ptrs
     return (pvd, recs)
   return (bimap
     (\name -> fromMaybe name $ B.stripSuffix ";1" name)
-    (\dr -> subHandle
-      id -- TODO add label
-      (fromIntegral dr.locationOfExtent * 0x800)
-      (Just $ fromIntegral dr.dataLength)
-      r
+    (\dr -> fromMaybe
+      (subHandle
+        id -- TODO add label
+        (fromIntegral dr.locationOfExtent * 0x800)
+        (Just $ fromIntegral dr.dataLength)
+        r
+      )
+      (special dr)
     )
     recs, fromIntegral pvd.volumeSpaceSize * 0x800 - 0x8000)
 
@@ -150,8 +176,15 @@ getFileTree h ptrs = do
 getFolderFiles :: Handle -> PathTableRecord -> IO [DirectoryRecord]
 getFolderFiles h ptr = do
   hSeek h AbsoluteSeek $ fromIntegral ptr.locationOfExtent * 0x800
-  bs <- B.hGet h 0x800
-  recs <- runGetM (getMany getDirectoryRecord) $ BL.fromStrict bs
+  firstSector <- B.hGet h 0x800
+  -- the first record (".") tells us the size of the whole directory
+  self <- runGetM getDirectoryRecord $ BL.fromStrict firstSector
+  let sectorCount = maybe 1 (\dr -> max 1 $ (dr.dataLength + 0x7FF) `quot` 0x800) self
+  moreSectors <- B.hGet h $ fromIntegral (sectorCount - 1) * 0x800
+  -- records don't cross sector boundaries; each sector is padded with zeroes
+  let splitSectors bs = if B.null bs then [] else B.take 0x800 bs : splitSectors (B.drop 0x800 bs)
+  recs <- fmap concat $ forM (firstSector : splitSectors moreSectors) $
+    runGetM (getMany getDirectoryRecord) . BL.fromStrict
   -- bit 1 is true if directory (including special . and .. entries)
   return $ filter (\rec -> not $ testBit rec.fileFlags 1) recs
 
@@ -190,9 +223,11 @@ getPrimaryVolumeDescriptor = do
   return PrimaryVolumeDescriptor{..}
 
 getMany :: Get (Maybe a) -> Get [a]
-getMany g = g >>= \case
-  Just x  -> (x :) <$> getMany g
-  Nothing -> return []
+getMany g = isEmpty >>= \case
+  True  -> return []
+  False -> g >>= \case
+    Just x  -> (x :) <$> getMany g
+    Nothing -> return []
 
 getDirectoryRecord :: Get (Maybe DirectoryRecord)
 getDirectoryRecord = lookAhead getWord8 >>= \case
@@ -212,7 +247,7 @@ getDirectoryRecord = lookAhead getWord8 >>= \case
     fileIdentifier                <- getByteString $ fromIntegral lenFileIdentifier
     when (even lenFileIdentifier) $ skip 1
     posn2                         <- bytesRead
-    skip $ fromIntegral len - fromIntegral (posn2 - posn1)
+    systemUse                     <- getByteString $ max 0 $ fromIntegral len - fromIntegral (posn2 - posn1)
     return DirectoryRecord{..}
 
 getPathTableRecordBE :: Get (Maybe PathTableRecord)
@@ -226,3 +261,118 @@ getPathTableRecordBE = lookAhead getWord8 >>= \case
     directoryIdentifier           <- getByteString $ fromIntegral lenDI
     when (odd lenDI) $ skip 1
     return PathTableRecord{..}
+
+-- .bin/.cue support
+
+data CueTrack = CueTrack
+  { file   :: FilePath
+  , number :: Int
+  , mode   :: String -- uppercased, e.g. "MODE2/2352" or "AUDIO"
+  } deriving (Show)
+
+parseCue :: T.Text -> [CueTrack]
+parseCue = go Nothing . map (cueWords . T.unpack) . T.lines where
+  go _ [] = []
+  go curFile (line : rest) = case line of
+    cmd : name : _ | map toUpper cmd == "FILE" -> go (Just name) rest
+    cmd : num : trackMode : _ | map toUpper cmd == "TRACK", Just f <- curFile, [(n, "")] <- reads num
+      -> CueTrack { file = f, number = n, mode = map toUpper trackMode } : go curFile rest
+    _ -> go curFile rest
+  cueWords s = case dropWhile isSpace s of
+    ""         -> []
+    '"' : str  -> let (w, after) = break (== '"') str in w : cueWords (drop 1 after)
+    str        -> let (w, after) = break isSpace str in w : cueWords after
+
+-- | Returns (raw sector size, offset of 2048 bytes of user data within sector)
+cueSectorLayout :: (MonadFail m) => String -> m (Integer, Integer)
+cueSectorLayout = \case
+  "MODE1/2048" -> return (2048, 0)
+  "MODE1/2352" -> return (2352, 16)
+  "MODE2/2352" -> return (2352, 24)
+  "MODE2/2336" -> return (2336, 8)
+  m            -> fail $ "Unsupported cue track mode: " <> m
+
+-- | Given raw sector size, and the offset and size of a slice of each sector,
+-- presents those slices as one contiguous stream.
+-- With a 2048-byte slice of user data, this can be read like a normal .iso.
+sectorSlices :: Integer -> Integer -> Integer -> Readable -> Readable
+sectorSlices sectorSize 0           sliceSize r | sectorSize == sliceSize = r
+sectorSlices sectorSize sliceOffset sliceSize r = Readable
+  { rFilePath = Nothing
+  , rOpen = do
+    h <- rOpen r
+    rawSize <- hFileSize h
+    posn <- newIORef 0
+    let size = (rawSize `quot` sectorSize) * sliceSize
+    openSimpleHandle (handleLabel h <> " | sector slices") SimpleHandle
+      { shSize  = size
+      , shSeek  = writeIORef posn
+      , shTell  = readIORef posn
+      , shClose = hClose h
+      , shRead  = \n -> do
+        p <- readIORef posn
+        let n' = max 0 $ min n $ size - p
+        if n' == 0
+          then return B.empty
+          else do
+            let firstSector = p `quot` sliceSize
+                lastSector = (p + n' - 1) `quot` sliceSize
+                sectorCount = lastSector - firstSector + 1
+            hSeek h AbsoluteSeek $ firstSector * sectorSize
+            raw <- B.hGet h $ fromIntegral $ sectorCount * sectorSize
+            let slices = B.concat
+                  [ B.take (fromIntegral sliceSize) $ B.drop (fromIntegral $ i * sectorSize + sliceOffset) raw
+                  | i <- [0 .. sectorCount - 1]
+                  ]
+                result = B.take (fromIntegral n') $ B.drop (fromIntegral $ p `rem` sliceSize) slices
+            writeIORef posn $ p + fromIntegral (B.length result)
+            return result
+      }
+  }
+
+-- | CD-XA attributes from the system use area of a directory record, if present.
+xaAttributes :: DirectoryRecord -> Maybe Word16
+xaAttributes dr = do
+  let su = dr.systemUse
+  guard $ B.length su >= 8 && B.take 2 (B.drop 6 su) == "XA"
+  return $ (fromIntegral (B.index su 4) `shiftL` 8) .|. fromIntegral (B.index su 5)
+
+folderCueBin :: FilePath -> IO (Folder B.ByteString Readable)
+folderCueBin cue = do
+  tracks <- parseCue . TE.decodeUtf8With lenientDecode . dropBOM <$> B.readFile cue
+  track <- case filter (\t -> t.mode /= "AUDIO") tracks of
+    t : _ -> return t
+    []    -> fail $ "No data track found in cue sheet: " <> cue
+  (sectorSize, dataOffset) <- cueSectorLayout track.mode
+  bin <- findCueFile (takeDirectory cue) track.file
+  let binReadable = fileReadable bin
+      cooked = sectorSlices sectorSize dataOffset 0x800 binReadable
+      -- subheader (8 bytes) through end of sector
+      mode2Raw = sectorSlices sectorSize (dataOffset - 8) 2336 binReadable
+      -- 0x1000 = Form 2, 0x2000 = interleaved (mixed Form 1 and 2 sectors)
+      special dr = do
+        guard $ dataOffset >= 8
+        attrs <- xaAttributes dr
+        guard $ attrs .&. 0x3000 /= 0
+        let sectors = (fromIntegral dr.dataLength + 0x7FF) `quot` 0x800
+        return $ subHandle id
+          (fromIntegral dr.locationOfExtent * 2336)
+          (Just $ sectors * 2336)
+          mode2Raw
+  isISO cooked >>= \case
+    False -> fail $ "Data track does not contain an ISO 9660 filesystem: " <> bin
+    True  -> fst <$> folderISOLayer special cooked
+  where dropBOM bs = fromMaybe bs $ B.stripPrefix "\xEF\xBB\xBF" bs
+
+-- | Finds a file referenced by a cue sheet, falling back to a case-insensitive search.
+findCueFile :: FilePath -> FilePath -> IO FilePath
+findCueFile dir name = do
+  let path = dir </> name
+  Dir.doesFileExist path >>= \case
+    True  -> return path
+    False -> do
+      let base = takeFileName name
+      ents <- Dir.listDirectory dir
+      case find (\ent -> map toLower ent == map toLower base) ents of
+        Just ent -> return $ dir </> ent
+        Nothing  -> fail $ "Couldn't find file referenced by cue sheet: " <> path

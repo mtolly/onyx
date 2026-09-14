@@ -78,7 +78,7 @@ import           Onyx.Import.RockBand         (importRB4, importRBA,
 import           Onyx.Import.RockRevolution   (importRR)
 import           Onyx.Import.Rocksmith        as RS
 import           Onyx.Import.StepMania        (importSM)
-import           Onyx.ISO                     (folderISO)
+import           Onyx.ISO                     (folderCueBin, folderISO)
 import           Onyx.MIDI.Common             (Difficulty (..))
 import           Onyx.Neversoft.PS2           (HedFormat (..),
                                                identifyHedFormat, parseHed)
@@ -367,13 +367,14 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
             foundImports "Donkey Konga" iso imps
           Nothing -> stackIO (loadXboxISO $ fileReadable iso) >>= \case
             Just xiso -> found360Game iso $ first TE.decodeLatin1 xiso
-            Nothing   -> do
-              contents <- stackIO $ fmap (first TE.decodeLatin1) $ folderISO $ fileReadable iso
-              case findFolder ["GEN"] contents of
-                Just gen -> foundGEN iso gen
-                Nothing  -> case findFileCI (pure "DATAP.HED") contents of
-                  Just hed -> foundHED iso contents hed
-                  Nothing  -> return ([], [])
+            Nothing   -> stackIO (folderISO $ fileReadable iso) >>= foundISOContents iso
+      foundISOContents loc folder = do
+        let contents = first TE.decodeLatin1 folder
+        case findFolder ["GEN"] contents of
+          Just gen -> foundGEN loc gen
+          Nothing  -> case findFileCI (pure "DATAP.HED") contents of
+            Just hed -> foundHED loc contents hed
+            Nothing  -> return ([], [])
       foundSGH sgh = do
         dir <- stackIO $ loadZipReadables (Just "SGH9ZIP2PASS4MXKR") sgh
         imps <- importGH3SGHFolder sgh dir
@@ -506,6 +507,7 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
               foundImport "Clone Hero SNG" fp $ importFoF fp $ getSNGFolder True hdr r
             _        -> foundFreetar fp
         ".iso" -> foundISO fp
+        ".cue" -> stackIO (folderCueBin fp) >>= foundISOContents fp
         ".ciso" -> do
           let disc = cisoReadable $ fileReadable fp
           magic <- stackIO $ useHandle disc \h -> B.hGet h 6

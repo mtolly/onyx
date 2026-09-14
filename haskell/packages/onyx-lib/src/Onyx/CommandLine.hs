@@ -122,7 +122,7 @@ import           Onyx.Harmonix.RockBand.Milo          (autoLipsync,
 import           Onyx.Harmonix.RockBand.Score
 import           Onyx.Image.DXT                       (readRBImageMaybe)
 import           Onyx.Import
-import           Onyx.ISO                             (folderISO)
+import           Onyx.ISO                             (folderCueBin, folderISO)
 import qualified Onyx.JS                              as JS
 import           Onyx.Keys.Ranges                     (closeShiftsFile)
 import           Onyx.MIDI.Common                     (Difficulty (..),
@@ -267,6 +267,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".psarc" -> return $ FileType FilePSARC fp
     ".iso" -> return $ FileType FileISO fp
     ".ciso" -> return $ FileType FileISO fp
+    ".cue" -> return $ FileType FileISO fp
     ".blob" -> return $ FileType FileBlob fp
     ".iga" -> return $ FileType FileIGA fp
     ".hdr" -> return $ FileType FileHdrOrArk fp
@@ -978,7 +979,7 @@ commands =
       , "- Magma (v1/v2) .rba"
       , "- Rock Band .milo_*"
       , "- Power Gig .hdr.e.2"
-      , "- Standard (PS2) and Xbox 360 .iso"
+      , "- Standard (PS1/PS2) .iso, .bin/.cue, and Xbox 360 .iso"
       , "- FMOD Sample Bank v3/v4 (extracts to individual streams)"
       , "- Wii U8 archive"
       , "- Harmonix PS2 .vgs (extracts each channel to WAV)"
@@ -1053,13 +1054,15 @@ commands =
         out <- outputFile opts $ return $ iso <> "_extract"
         dir <- stackIO do
           magic <- IO.withBinaryFile iso IO.ReadMode \h -> BL.hGet h 4
-          if magic == "CISO"
-            then loadGCM $ cisoReadable $ fileReadable iso
-          else if BL.take 1 magic == "G" -- maybe not foolproof
-            then loadGCM $ fileReadable iso
-            else loadXboxISO (fileReadable iso) >>= \case
-              Just xiso -> return xiso
-              Nothing   -> folderISO $ fileReadable iso
+          if  | map toLower (takeExtension iso) == ".cue"
+                -> folderCueBin iso
+              | magic == "CISO"
+                -> loadGCM $ cisoReadable $ fileReadable iso
+              | BL.take 1 magic == "G" -- maybe not foolproof
+                -> loadGCM $ fileReadable iso
+              | otherwise -> loadXboxISO (fileReadable iso) >>= \case
+                Just xiso -> return xiso
+                Nothing   -> folderISO $ fileReadable iso
         stackIO $ saveHandleFolder (first TE.decodeLatin1 dir) out
         return out
       (FileFSB, fin) -> do
