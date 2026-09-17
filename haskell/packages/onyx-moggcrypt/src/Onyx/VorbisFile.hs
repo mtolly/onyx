@@ -15,11 +15,10 @@ import qualified Language.C.Inline            as C
 import qualified Language.C.Inline.Context    as C
 import qualified Language.C.Inline.Unsafe     as CU
 import qualified Language.C.Types             as C
-import           Onyx.Harmonix.MOGG.Crypt     (OVCallbacks (..),
-                                               handleOVCallbacks)
+import           Onyx.Harmonix.MOGG.Crypt     (OVCallbacks, handleOVCallbacks)
 import           System.IO                    (Handle)
 
-newtype OggVorbis_File = OggVorbis_File (Ptr OggVorbis_File)
+data OggVorbis_File
 
 C.context $ C.baseCtx <> mempty
   { C.ctxTypesTable = Map.fromList
@@ -32,28 +31,28 @@ C.include "<stdint.h>"
 C.include "vorbis/codec.h"
 C.include "vorbis/vorbisfile.h"
 
-ov_fopen :: CString -> OggVorbis_File -> IO CInt
-ov_fopen path (OggVorbis_File vf) =
+ov_fopen :: CString -> Ptr OggVorbis_File -> IO CInt
+ov_fopen path vf =
   [C.exp| int { ov_fopen($(char* path), $(OggVorbis_File* vf)) } |]
 
-ov_raw_seek :: OggVorbis_File -> CLong -> IO CInt
-ov_raw_seek (OggVorbis_File vf) pos =
+ov_raw_seek :: Ptr OggVorbis_File -> CLong -> IO CInt
+ov_raw_seek vf pos =
   [C.exp| int { ov_raw_seek($(OggVorbis_File* vf), $(long pos)) } |]
 
-ov_pcm_seek :: OggVorbis_File -> Int64 -> IO CInt
-ov_pcm_seek (OggVorbis_File vf) pos =
+ov_pcm_seek :: Ptr OggVorbis_File -> Int64 -> IO CInt
+ov_pcm_seek vf pos =
   [C.exp| int { ov_pcm_seek($(OggVorbis_File* vf), $(int64_t pos)) } |]
 
-ov_pcm_total :: OggVorbis_File -> CInt -> IO Int64
-ov_pcm_total (OggVorbis_File vf) i =
+ov_pcm_total :: Ptr OggVorbis_File -> CInt -> IO Int64
+ov_pcm_total vf i =
   [C.exp| int64_t { ov_pcm_total($(OggVorbis_File* vf), $(int i)) } |]
 
-ov_pcm_tell :: OggVorbis_File -> IO Int64
-ov_pcm_tell (OggVorbis_File vf) =
+ov_pcm_tell :: Ptr OggVorbis_File -> IO Int64
+ov_pcm_tell vf =
   [C.exp| int64_t { ov_pcm_tell($(OggVorbis_File* vf)) } |]
 
-ov_read_float :: OggVorbis_File -> Ptr (Ptr (Ptr CFloat)) -> CInt -> Ptr CInt -> IO CLong
-ov_read_float (OggVorbis_File vf) pcm_channels samples bitstream =
+ov_read_float :: Ptr OggVorbis_File -> Ptr (Ptr (Ptr CFloat)) -> CInt -> Ptr CInt -> IO CLong
+ov_read_float vf pcm_channels samples bitstream =
   [C.exp| long {
     ov_read_float
       ( $(OggVorbis_File* vf)
@@ -63,12 +62,12 @@ ov_read_float (OggVorbis_File vf) pcm_channels samples bitstream =
       )
   } |]
 
-ov_clear :: OggVorbis_File -> IO CInt
-ov_clear (OggVorbis_File vf) =
+ov_clear :: Ptr OggVorbis_File -> IO CInt
+ov_clear vf =
   [C.exp| int { ov_clear($(OggVorbis_File* vf)) } |]
 
-getChannelsRate :: OggVorbis_File -> IO (CInt, CLong)
-getChannelsRate (OggVorbis_File vf) =
+getChannelsRate :: Ptr OggVorbis_File -> IO (CInt, CLong)
+getChannelsRate vf =
   alloca \prate -> do
     chans <- [C.block| int {
       vorbis_info *info = ov_info($(OggVorbis_File* vf), -1);
@@ -78,8 +77,8 @@ getChannelsRate (OggVorbis_File vf) =
     rate <- peek prate
     return (chans, rate)
 
-ov_open_callbacks :: Ptr a -> OggVorbis_File -> CString -> CLong -> OVCallbacks -> IO CInt
-ov_open_callbacks (castPtr -> datasource) (OggVorbis_File vf) initial ibytes (OVCallbacks callbacks) =
+ov_open_callbacks :: Ptr a -> Ptr OggVorbis_File -> CString -> CLong -> Ptr OVCallbacks -> IO CInt
+ov_open_callbacks (castPtr -> datasource) vf initial ibytes callbacks =
   [C.exp| int {
     ov_open_callbacks
       ( $(void* datasource)
@@ -90,12 +89,11 @@ ov_open_callbacks (castPtr -> datasource) (OggVorbis_File vf) initial ibytes (OV
       )
   } |]
 
-loadVorbisHandle :: (MonadResource m) => Handle -> m (Maybe (m (), OggVorbis_File))
+loadVorbisHandle :: (MonadResource m) => Handle -> m (Maybe (m (), Ptr OggVorbis_File))
 loadVorbisHandle h = do
   vfSize <- fromIntegral <$> liftIO [CU.exp| int { sizeof(OggVorbis_File) } |]
-  (pkey, p) <- allocate (mallocBytes vfSize) free
+  (pkey, ov) <- allocate (mallocBytes vfSize) free
   (cbkey, (cb, _)) <- allocate (handleOVCallbacks h) snd
-  let ov = OggVorbis_File p
   -- can't just pass nullPtr as first arg; in libvorbisfile,
   -- ov_open_callbacks calls _ov_open1 which errors weirdly on null data source
   (reskey, res) <- allocate (ov_open_callbacks (intPtrToPtr 1) ov nullPtr 0 cb)

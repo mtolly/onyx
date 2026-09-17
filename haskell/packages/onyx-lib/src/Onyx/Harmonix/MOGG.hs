@@ -51,7 +51,7 @@ decryptMOGG enc = makeHandle "decrypted mogg" do
   shOgg <- rOpen enc >>= moggToOggHandles
   appendSimpleHandle shHeader shOgg
 
-runVorbisReadable :: Readable -> (Maybe OggVorbis_File -> IO a) -> IO a
+runVorbisReadable :: Readable -> (Maybe (Ptr OggVorbis_File) -> IO a) -> IO a
 runVorbisReadable r fn = useHandle r \h -> do
   runResourceT $ loadVorbisHandle h >>= liftIO . fn . fmap snd
 

@@ -18,6 +18,5 @@ library
   extra-libraries:
     m
   build-depends:
-    base, bytestring, binary, vector
-  build-tools: c2hs
+    base, bytestring, binary, vector, inline-c, containers
   default-language: Haskell2010

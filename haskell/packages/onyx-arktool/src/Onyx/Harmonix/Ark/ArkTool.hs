@@ -7,14 +7,13 @@ module Onyx.Harmonix.Ark.ArkTool where
 import           Control.Exception     (bracket, bracket_)
 import           Control.Monad         (unless)
 import qualified Data.ByteString       as B
-import           Data.Monoid           ((<>))
 import           Foreign
 import           Foreign.C
 import qualified Language.C.Inline.Cpp as C
 
-newtype ArkHdrPair       = ArkHdrPair       (Ptr ArkHdrPair      )
-newtype FileEntrySetIter = FileEntrySetIter (Ptr FileEntrySetIter)
-newtype FileEntry        = FileEntry        (Ptr FileEntry       )
+data ArkHdrPair
+data FileEntrySetIter
+data FileEntry
 
 C.context $ C.cppCtx <> C.cppTypePairs
   [ ("ArkHdrPair"      , [t| ArkHdrPair       |])
@@ -25,20 +24,20 @@ C.context $ C.cppCtx <> C.cppTypePairs
 C.include "ArkTool_v6.1/ArkHdrPair.h"
 C.include "ArkTool_v6.1/SongCrypt.h"
 
-ark_new :: IO ArkHdrPair
-ark_new = ArkHdrPair <$>
+ark_new :: IO (Ptr ArkHdrPair)
+ark_new =
   [C.exp| ArkHdrPair* { new ArkHdrPair } |]
 
-ark_delete :: ArkHdrPair -> IO ()
-ark_delete (ArkHdrPair p) =
+ark_delete :: Ptr ArkHdrPair -> IO ()
+ark_delete p =
   [C.block| void { delete $(ArkHdrPair* p); } |]
 
-ark_new_iterator :: IO FileEntrySetIter
-ark_new_iterator = FileEntrySetIter <$>
+ark_new_iterator :: IO (Ptr FileEntrySetIter)
+ark_new_iterator =
   [C.exp| FileEntrySetIter* { new FileEntrySetIter } |]
 
-ark_delete_iterator :: FileEntrySetIter -> IO ()
-ark_delete_iterator (FileEntrySetIter p) =
+ark_delete_iterator :: Ptr FileEntrySetIter -> IO ()
+ark_delete_iterator p =
   [C.block| void { delete $(FileEntrySetIter* p); } |]
 
 arkCheck :: String -> IO CBool -> IO ()
@@ -47,28 +46,28 @@ arkCheck err f = do
   unless (b /= 0) $ fail $ "ARK operation failed: " <> err
 
 ark_Open
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> FilePath -- ^ ark directory
   -> IO ()
-ark_Open (ArkHdrPair p) arkDirpath = withCString arkDirpath \p_arkDirpath ->
+ark_Open p arkDirpath = withCString arkDirpath \p_arkDirpath ->
   arkCheck ("opening ark from " <> arkDirpath)
     [C.exp| bool { $(ArkHdrPair* p)->Open($(char* p_arkDirpath)) } |]
 
-ark_Save :: ArkHdrPair -> IO ()
-ark_Save (ArkHdrPair p) =
+ark_Save :: Ptr ArkHdrPair -> IO ()
+ark_Save p =
   arkCheck "saving ark" [C.exp| bool { $(ArkHdrPair* p)->Save() } |]
 
-ark_Close :: ArkHdrPair -> IO ()
-ark_Close (ArkHdrPair p) =
+ark_Close :: Ptr ArkHdrPair -> IO ()
+ark_Close p =
   [C.block| void { $(ArkHdrPair* p)->Close(); } |]
 
 ark_TryGetFile
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> FilePath -- ^ destination filepath
   -> B.ByteString -- ^ filename in ark
   -> Bool -- ^ whether to perform decryption
   -> IO Bool
-ark_TryGetFile (ArkHdrPair p) destFilepath arkFilename performDecrypts =
+ark_TryGetFile p destFilepath arkFilename performDecrypts =
   withCString destFilepath \p_destFilepath -> do
     B.useAsCString arkFilename \p_arkFilename -> do
       let c_performDecrypts = fromBool performDecrypts
@@ -81,7 +80,7 @@ ark_TryGetFile (ArkHdrPair p) destFilepath arkFilename performDecrypts =
         } |]
 
 ark_GetFile
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> FilePath -- ^ destination filepath
   -> B.ByteString -- ^ filename in ark
   -> Bool -- ^ whether to perform decryption
@@ -91,12 +90,12 @@ ark_GetFile p destFilepath arkFilename performDecrypts = do
   unless b $ fail $ "ARK operation failed: extracting file " <> show arkFilename <> " to " <> show destFilepath
 
 ark_AddFile
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> FilePath -- ^ source filepath
   -> B.ByteString -- ^ filename in ark
   -> Bool -- ^ whether to perform encryption
   -> IO ()
-ark_AddFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
+ark_AddFile p srcFilepath arkFilename performEncrypts =
   withCString srcFilepath \p_srcFilepath -> do
     B.useAsCString arkFilename \p_arkFilename -> do
       let c_performEncrypts = fromBool performEncrypts
@@ -110,21 +109,21 @@ ark_AddFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
         } |]
 
 ark_RemoveFile
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> B.ByteString -- ^ filename in ark
   -> IO ()
-ark_RemoveFile (ArkHdrPair p) arkFilename =
+ark_RemoveFile p arkFilename =
   B.useAsCString arkFilename \p_arkFilename -> do
     arkCheck ("removing file " <> show arkFilename)
       [C.exp| bool { $(ArkHdrPair* p)->RemoveFile($(char* p_arkFilename)) } |]
 
 ark_ReplaceAFile
-  :: ArkHdrPair
+  :: Ptr ArkHdrPair
   -> FilePath -- ^ source filepath
   -> B.ByteString -- ^ filename in ark
   -> Bool -- ^ whether to perform encryption
   -> IO ()
-ark_ReplaceAFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
+ark_ReplaceAFile p srcFilepath arkFilename performEncrypts =
   withCString srcFilepath \p_srcFilepath -> do
     B.useAsCString arkFilename \p_arkFilename -> do
       let c_performEncrypts = fromBool performEncrypts
@@ -138,43 +137,41 @@ ark_ReplaceAFile (ArkHdrPair p) srcFilepath arkFilename performEncrypts =
         } |]
 
 ark_First
-  :: ArkHdrPair
-  -> FileEntrySetIter
+  :: Ptr ArkHdrPair
+  -> Ptr FileEntrySetIter
   -> B.ByteString -- ^ search filepath
-  -> IO FileEntry
-ark_First (ArkHdrPair p) (FileEntrySetIter rIter) searchFilepath = do
+  -> IO (Ptr FileEntry)
+ark_First p rIter searchFilepath = do
   B.useAsCString searchFilepath \c_searchFilepath -> do
-    FileEntry <$>
-      [C.exp| const FileEntry* {
-        $(ArkHdrPair* p)->First
-          ( *$(FileEntrySetIter* rIter)
-          , $(char* c_searchFilepath)
-          )
-      } |]
+    [C.exp| const FileEntry* {
+      $(ArkHdrPair* p)->First
+        ( *$(FileEntrySetIter* rIter)
+        , $(char* c_searchFilepath)
+        )
+    } |]
 
 ark_Next
-  :: ArkHdrPair
-  -> FileEntrySetIter
+  :: Ptr ArkHdrPair
+  -> Ptr FileEntrySetIter
   -> B.ByteString -- ^ search filepath
-  -> IO FileEntry
-ark_Next (ArkHdrPair p) (FileEntrySetIter rIter) searchFilepath = do
-  B.useAsCString searchFilepath \c_searchFilepath -> do
-    FileEntry <$>
-      [C.exp| const FileEntry* {
-        $(ArkHdrPair* p)->Next
-          ( *$(FileEntrySetIter* rIter)
-          , $(char* c_searchFilepath)
-          )
-      } |]
+  -> IO (Ptr FileEntry)
+ark_Next p rIter searchFilepath = do
+  B.useAsCString searchFilepath \c_searchFilepath ->
+    [C.exp| const FileEntry* {
+      $(ArkHdrPair* p)->Next
+        ( *$(FileEntrySetIter* rIter)
+        , $(char* c_searchFilepath)
+        )
+    } |]
 
-ark_Arkname :: FileEntry -> IO B.ByteString
-ark_Arkname (FileEntry p) = do
+ark_Arkname :: Ptr FileEntry -> IO B.ByteString
+ark_Arkname p = do
   s <- [C.exp| const char* { $(FileEntry* p)->Arkname() } |]
   B.packCString s
 
-searchFiles :: ArkHdrPair -> B.ByteString -> IO [FileEntry]
+searchFiles :: Ptr ArkHdrPair -> B.ByteString -> IO [Ptr FileEntry]
 searchFiles ark pat = bracket ark_new_iterator ark_delete_iterator \iter -> do
-  let go entry@(FileEntry p) = if p == nullPtr
+  let go entry = if entry == nullPtr
         then return []
         else (entry :) <$> (ark_Next ark iter pat >>= go)
   ark_First ark iter pat >>= go
@@ -184,7 +181,7 @@ wrapArk s f = do
   b <- f
   unless b $ fail $ "ARK operation failed: " <> s
 
-withArk :: FilePath -> (ArkHdrPair -> IO a) -> IO a
+withArk :: FilePath -> (Ptr ArkHdrPair -> IO a) -> IO a
 withArk gen act = bracket ark_new ark_delete \ark -> do
   bracket_ (ark_Open ark gen) (ark_Close ark) do
     act ark
