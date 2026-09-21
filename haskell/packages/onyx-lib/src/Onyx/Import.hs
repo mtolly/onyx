@@ -78,6 +78,8 @@ import           Onyx.Import.RockBand         (importRB4, importRBA,
 import           Onyx.Import.RockRevolution   (importRR)
 import           Onyx.Import.Rocksmith        as RS
 import           Onyx.Import.StepMania        (importSM)
+import           Onyx.Import.Taiko            (importTaikoImage,
+                                               importTaikoListBin)
 import           Onyx.ISO                     (folderCueBin, folderISO)
 import           Onyx.MIDI.Common             (Difficulty (..))
 import           Onyx.Neversoft.PS2           (HedFormat (..),
@@ -374,7 +376,16 @@ findSongs fp' = inside ("searching: " <> fp') $ fmap (fromMaybe ([], [])) $ erro
           Just gen -> foundGEN loc gen
           Nothing  -> case findFileCI (pure "DATAP.HED") contents of
             Just hed -> foundHED loc contents hed
-            Nothing  -> return ([], [])
+            Nothing
+              | isJust (findFileCI (pure "LIST.BIN") contents)
+                && isJust (findFileCI (pure "DATA.000") contents)
+                -> importTaikoListBin loc contents
+                  >>= foundImports "Taiko no Tatsujin (PS2)" loc
+              | isJust (findFileCI (pure "IMAGE00.TBL") contents)
+                && isJust (findFileCI (pure "IMAGE00.DAT") contents)
+                -> importTaikoImage loc contents
+                  >>= foundImports "Taiko no Tatsujin (PS2)" loc
+              | otherwise -> return ([], [])
       foundSGH sgh = do
         dir <- stackIO $ loadZipReadables (Just "SGH9ZIP2PASS4MXKR") sgh
         imps <- importGH3SGHFolder sgh dir

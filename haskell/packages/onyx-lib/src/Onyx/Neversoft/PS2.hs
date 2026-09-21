@@ -20,7 +20,6 @@ import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (find, toList)
 import           Data.Functor          ((<&>))
 import qualified Data.HashMap.Strict   as HM
-import           Data.Int
 import qualified Data.List.NonEmpty    as NE
 import           Data.List.Split       (chunksOf)
 import qualified Data.Map.Strict       as Map
@@ -29,7 +28,7 @@ import qualified Data.Text.Encoding    as TE
 import           Data.Word
 import           Onyx.Neversoft.CRC
 import           Onyx.Nintendo.WAD     (skipToMultiple)
-import           Onyx.Util.Binary      (runGetM)
+import           Onyx.Util.Binary      (runGetM, splitEvery)
 import           Onyx.Util.Handle
 
 #if MIN_VERSION_base(4,18,0)
@@ -171,11 +170,6 @@ applyHDP hdp entries = let
 
 -- .IMF + .ISF, main audio files (XA, like VGS but different interleaving)
 -- note: SOUNDS/SFX.WAD also contains XA but looks like some differences
-
-splitEvery :: Int64 -> BL.ByteString -> [BL.ByteString]
-splitEvery n bs = if BL.null bs
-  then []
-  else let (x, y) = BL.splitAt n bs in x : splitEvery n y
 
 detectChannels :: BL.ByteString -> Int
 detectChannels = length . takeWhile ("MSVp" `BL.isPrefixOf`) . splitEvery 0x20000

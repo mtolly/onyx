@@ -13,3 +13,8 @@ runGetMOffset :: (MonadFail m) => Int64 -> Get a -> BL.ByteString -> m a
 runGetMOffset offset g bs = case runGetOrFail g bs of
   Left (_, pos, err) -> fail $ "Binary parse error at position 0x" <> showHex (pos + offset) ": " <> err
   Right (_, _, x) -> return x
+
+splitEvery :: Int64 -> BL.ByteString -> [BL.ByteString]
+splitEvery n bs = if BL.null bs
+  then []
+  else let (x, y) = BL.splitAt n bs in x : splitEvery n y
