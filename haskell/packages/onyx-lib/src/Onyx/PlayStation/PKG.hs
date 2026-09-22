@@ -22,46 +22,51 @@ module Onyx.PlayStation.PKG
 , getDecryptedUSRDIR
 ) where
 
-import           Control.Applicative     ((<|>))
-import           Control.Monad           (forM, forM_, guard, replicateM,
-                                          unless, void, when)
+import           Control.Applicative      ((<|>))
+import           Control.Concurrent.Async (mapConcurrently)
+import           Control.Exception        (evaluate)
+import           Control.Monad            (forM, forM_, guard, replicateM,
+                                           unless, void, when)
 import           Control.Monad.Codec
-import           Control.Monad.IO.Class  (MonadIO)
+import           Control.Monad.IO.Class   (MonadIO)
 import           Crypto.Cipher.AES
 import           Crypto.Cipher.Types
 import           Crypto.Error
-import           Crypto.Hash             (Context, Digest, SHA1, hash, hashInit,
-                                          hashUpdates)
-import qualified Crypto.Hash.SHA1        as SHA1
+import           Crypto.Hash              (Context, Digest, SHA1, hash,
+                                           hashInit, hashUpdate, hashUpdates)
+import qualified Crypto.Hash.SHA1         as SHA1
 import           Crypto.MAC.CMAC
 import           Data.Binary.Codec
 import           Data.Bits
-import           Data.ByteArray          (convert)
-import qualified Data.ByteString         as B
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Char8   as B8
-import qualified Data.ByteString.Lazy    as BL
-import           Data.Char               (toUpper)
-import           Data.Functor            ((<&>))
-import           Data.List               (inits)
-import qualified Data.List.NonEmpty      as NE
-import           Data.Maybe              (isJust)
-import           Data.Profunctor         (dimap)
-import           Numeric                 (showHex)
+import           Data.ByteArray           (convert)
+import qualified Data.ByteString          as B
+import qualified Data.ByteString.Char8    as B8
+import qualified Data.ByteString.Internal as BI
+import qualified Data.ByteString.Lazy     as BL
+import qualified Data.ByteString.Unsafe   as BU
+import           Data.Char                (toUpper)
+import           Data.IORef               (modifyIORef', newIORef, readIORef,
+                                           writeIORef)
+import qualified Data.List.NonEmpty       as NE
+import           Data.Maybe               (isJust)
+import           Data.Profunctor          (dimap)
+import           Foreign                  (castPtr, copyBytes, plusPtr,
+                                           pokeByteOff)
+import           Numeric                  (showHex)
 import           Onyx.Codec.Binary
-import           Onyx.PlayStation.NPData (NPDecryptConfig (..), decryptNPData,
-                                          ghworKLIC, rockBandKLIC, rs2014KLIC)
-import           Onyx.Resources          (getResourcesPath)
-import           Onyx.StackTrace         (SendMessage, StackTraceT,
-                                          errorToWarning, lg, stackIO, warn)
-import           Onyx.Util.Binary        (runGetM)
-import           Onyx.Util.Files         (fixFileCase)
+import           Onyx.PlayStation.NPData  (NPDecryptConfig (..), decryptNPData,
+                                           ghworKLIC, rockBandKLIC, rs2014KLIC)
+import           Onyx.Resources           (getResourcesPath)
+import           Onyx.StackTrace          (SendMessage, StackTraceT,
+                                           errorToWarning, lg, stackIO, warn)
+import           Onyx.Util.Binary         (runGetM)
+import           Onyx.Util.Files          (fixFileCase)
 import           Onyx.Util.Handle
-import           System.Directory        (doesFileExist)
-import           System.FilePath         ((<.>), (</>))
-import           System.IO               (Handle, IOMode (..), SeekMode (..),
-                                          hFileSize, hSeek, withBinaryFile)
-import           System.IO.Temp          (withSystemTempDirectory)
+import           System.Directory         (doesFileExist)
+import           System.FilePath          ((<.>), (</>))
+import           System.IO                (Handle, IOMode (..), SeekMode (..),
+                                           hFileSize, hSeek, withBinaryFile)
+import           System.IO.Temp           (withSystemTempDirectory)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
 nullPadded n = dimap
@@ -192,34 +197,64 @@ cryptFinalizedPKG header = do
   key <- makeKey $ B.pack [0x2E,0x7B,0x71,0xD7,0xC9,0xC9,0xA1,0x4E,0xA3,0x22,0x1F,0x18,0x88,0x28,0xB8,0xF8]
   return \startIndex enc -> ctrCombine key (ivAdd iv $ fromIntegral startIndex) enc
 
+-- The 0x38 bytes that are hashed before the 8-byte block index
+-- to make each 0x10-byte block of the non-finalized keystream
+nonFinalizedKeyPrefix :: Bool -> B.ByteString -> B.ByteString
+nonFinalizedKeyPrefix isArcade keySource = B.concat
+  [ B.take 8 keySource
+  , B.take 8 keySource
+  , (if isArcade then B.take else B.drop) 8 keySource
+  , B.drop 8 keySource
+  , B.replicate 0x18 if isArcade then 0xA0 else 0
+  ]
+
+-- Keystream for the given number of blocks starting at a block index.
+-- The index wraps around after 0xFFFFFFFFFFFFFFFF
+nonFinalizedKeystream :: B.ByteString -> Word64 -> Int -> B.ByteString
+nonFinalizedKeystream prefix startIndex count = BI.unsafeCreate (count * 0x10) \out -> do
+  forM_ [0 .. count - 1] \i -> do
+    let index = startIndex + fromIntegral i
+        msg = BI.unsafeCreate (prefixLen + 8) \p -> do
+          BU.unsafeUseAsCString prefix \pre -> copyBytes p (castPtr pre) prefixLen
+          forM_ [0 .. 7] \j -> pokeByteOff p (prefixLen + j)
+            (fromIntegral (index `shiftR` (8 * (7 - j))) :: Word8)
+    BU.unsafeUseAsCString (SHA1.hash msg) \sha ->
+      copyBytes (out `plusPtr` (i * 0x10)) (castPtr sha) 0x10
+  where prefixLen = B.length prefix
+
+-- Encrypts/decrypts a chunk that starts at the given block index,
+-- plus a byte offset (0 to 0xF) within that block
+nonFinalizedCryptStrict :: B.ByteString -> Word64 -> Int -> B.ByteString -> B.ByteString
+nonFinalizedCryptStrict prefix index offset bs = let
+  blocks = (offset + B.length bs + 0xF) `quot` 0x10
+  in B.packZipWith xor bs $ B.drop offset $ nonFinalizedKeystream prefix index blocks
+
+-- Encrypts/decrypts a chunk at a position (in bytes) in the data section.
+-- Large chunks are split up and processed in parallel.
+nonFinalizedCryptParallel :: B.ByteString -> Word64 -> B.ByteString -> IO B.ByteString
+nonFinalizedCryptParallel prefix posn bs = let
+  pieceSize = 0x10000
+  pieces = takeWhile (not . B.null) $ map (\i -> B.take pieceSize $ B.drop i bs) [0, pieceSize ..]
+  cryptPiece i piece = let
+    piecePosn = posn + fromIntegral (i * pieceSize)
+    (index, offset) = piecePosn `quotRem` 0x10
+    in evaluate $ nonFinalizedCryptStrict prefix index (fromIntegral offset) piece
+  in case pieces of
+    [piece] -> cryptPiece 0 piece
+    _       -> B.concat <$> mapConcurrently (uncurry cryptPiece) (zip [0 ..] pieces)
+
 nonFinalizedCrypt :: Bool -> Word64 -> B.ByteString -> BL.ByteString -> BL.ByteString
-nonFinalizedCrypt isArcade startIndex keySource bs = let
-  shaInit = SHA1.start $ B.concat
-    [ B.take 8 keySource
-    , B.take 8 keySource
-    , (if isArcade then B.take else B.drop) 8 keySource
-    , B.drop 8 keySource
-    , B.replicate 0x18 if isArcade then 0xA0 else 0
-    ]
-  indexStream = [startIndex ..] <> [0 ..]
-  keyStream = BB.toLazyByteString $ mconcat $ indexStream <&> \i -> let
-    key = runPut $ putWord64be i
-    sha1 = SHA1.finalize $ SHA1.update shaInit $ BL.toStrict key
-    in BB.byteString $ B.take 16 sha1
-  in BL.packZipWith xor bs keyStream
+nonFinalizedCrypt isArcade startIndex keySource = let
+  prefix = nonFinalizedKeyPrefix isArcade keySource
+  go _    []             = []
+  go posn (chunk : rest) = let
+    (index, offset) = posn `quotRem` 0x10
+    in nonFinalizedCryptStrict prefix (startIndex + index) (fromIntegral offset) chunk
+      : go (posn + fromIntegral (B.length chunk)) rest
+  in BL.fromChunks . go (0 :: Word64) . BL.toChunks
 
 cryptNonFinalizedPKG :: Bool -> Word64 -> PKGHeader -> BL.ByteString -> BL.ByteString
 cryptNonFinalizedPKG isArcade startIndex = nonFinalizedCrypt isArcade startIndex . (.pkgQADigest)
-
-cryptNonFinalizedPKG' :: Bool -> Word64 -> PKGHeader -> [(Int, Readable)] -> [Readable]
-cryptNonFinalizedPKG' isArcade startIndex header pieces = do
-  (before, (_, this)) <- zip (inits pieces) pieces
-  return case sum (map fst before) `quotRem` 0x10 of
-    (hexes, 0) -> let
-      newIndex = startIndex + fromIntegral hexes
-      withBytes = nonFinalizedCrypt isArcade newIndex header.pkgQADigest
-      in transformBytes withBytes this
-    _ -> error "Contents start at a position not divisble by 0x10"
 
 readPKGName :: B.ByteString -> IO (NE.NonEmpty B.ByteString)
 readPKGName name = let
@@ -476,19 +511,17 @@ makePKGBank = go "" [] where
     entry = (x, BL.length bank, B.length new)
     in go bank' (entry : entries) rest
 
+-- Output bank is (padded size, unpadded data)
 makePKGBank' :: [((Int, Readable), a)] -> ([(Int, Readable)], [(a, Int, Int)])
-makePKGBank' = go [] [] where
-  go bank entries [] = (reverse bank, reverse entries)
-  go bank entries (((newSize, newData), x) : rest) = let
-    newPair = case newSize `rem` 0x10 of
-      0 -> (newSize, newData)
-      n -> let
-        paddingSize = 0x10 - fromIntegral n
-        padding     = BL.replicate (fromIntegral paddingSize) 0
-        in (newSize + paddingSize, transformBytes (<> padding) newData)
-    bank' = newPair : bank
-    entry = (x, sum $ map fst bank, newSize)
-    in go bank' (entry : entries) rest
+makePKGBank' = go 0 [] [] where
+  go _ bank entries [] = (reverse bank, reverse entries)
+  go !bankSize bank entries (((newSize, newData), x) : rest) = let
+    paddedSize = case newSize `rem` 0x10 of
+      0 -> newSize
+      n -> newSize + 0x10 - n
+    bank' = (paddedSize, newData) : bank
+    entry = (x, bankSize, newSize)
+    in go (bankSize + paddedSize) bank' (entry : entries) rest
 
 -- Returns (number of file/folder entries, records and filenames section, data section)
 makePKGContents :: [(B.ByteString, (Int, Readable), Word32)] -> (Int, BL.ByteString, [(Int, Readable)])
@@ -514,18 +547,27 @@ makePKGContents records = let
 makePKG :: B.ByteString -> Folder B.ByteString Readable -> FilePath -> IO ()
 makePKG contentID folder fout = do
   records <- makePKGRecords folder
-  let goHash :: Context SHA1 -> [(Int, Readable)] -> IO (Context SHA1)
+  let chunkSize = 0x400000 -- multiple of 0x10 so reads stay block-aligned
+      -- calls the function on each chunk of the file, returning total bytes read
+      forChunks :: Readable -> (B.ByteString -> IO ()) -> IO Int
+      forChunks r f = useHandle r \h -> let
+        go !total = do
+          chunk <- B.hGet h chunkSize
+          if B.null chunk
+            then return total
+            else f chunk >> go (total + B.length chunk)
+        in go 0
+      goHash :: Context SHA1 -> [(Int, Readable)] -> IO (Context SHA1)
       goHash !ctx = \case
         [] -> return ctx
         (_, r) : rest -> do
-          bs <- useHandle r handleToByteString
-          goHash (hashUpdates ctx $ BL.toChunks bs) rest
+          ref <- newIORef ctx
+          _ <- forChunks r \chunk -> modifyIORef' ref (`hashUpdate` chunk)
+          ctx' <- readIORef ref
+          goHash ctx' rest
   fileContentsHash <- goHash hashInit $ map (\(_, fileContents, _) -> fileContents) records
   let (numEntries, pkgEntriesNames, pkgFileContents) = makePKGContents records
       pkgContentsLength = fromIntegral (BL.length pkgEntriesNames) + fromIntegral (sum $ map fst pkgFileContents) :: Word64
-      pkgContents
-        = (fromIntegral $ BL.length pkgEntriesNames, makeHandle "" $ byteStringSimpleHandle pkgEntriesNames)
-        : pkgFileContents
       fakeHeader = PKGHeader 0 0 0 0 0 0 0 0 0 0 (B.replicate 0x30 0) (B.replicate 0x10 0) (B.replicate 0x10 0)
       metadataOffset = BL.length (runPut $ void $ codecOut bin fakeHeader) + 0x40
       metadataAndDigestsSize = BL.length (runPut $ mapM_ (codecOut bin) metadata) + 0x40
@@ -563,12 +605,21 @@ makePKG contentID folder fout = do
         , pkgDataRIV        = B.take 0x10 $ B.take (B.length contentID) klicensee <> B.replicate 0x10 0
         }
       (digest1, digest2) = nonFinalizedDigests header metadata
-      encrypted = cryptNonFinalizedPKG' False 0 header pkgContents
+      keyPrefix = nonFinalizedKeyPrefix False header.pkgQADigest
   withBinaryFile fout WriteMode \h -> do
     BL.hPut h $ runPut $ void $ codecOut bin header
     B.hPut h digest1
     forM_ metadata \meta -> do
       BL.hPut h $ runPut $ void $ codecOut bin meta
     B.hPut h digest2
-    forM_ encrypted \piece -> copyReadableToHandle piece h
+    posnRef <- newIORef (0 :: Word64)
+    let writeEncrypted chunk = do
+          posn <- readIORef posnRef
+          nonFinalizedCryptParallel keyPrefix posn chunk >>= B.hPut h
+          writeIORef posnRef $ posn + fromIntegral (B.length chunk)
+    writeEncrypted $ BL.toStrict pkgEntriesNames
+    forM_ pkgFileContents \(paddedSize, r) -> do
+      size <- forChunks r writeEncrypted
+      when (size > paddedSize) $ fail "File contents changed size while making PKG"
+      writeEncrypted $ B.replicate (paddedSize - size) 0
     B.hPut h $ B.replicate 0x60 0 -- this is needed to install ok, but why?
