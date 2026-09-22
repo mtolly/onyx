@@ -2270,9 +2270,18 @@ pageQuickConvertRB sink rect tab startTasks = mdo
               stackIO $ askFolder defDir \dout -> do
                 sink $ EventOnyx $ startTasks $ zip [1..] packs <&> \(i, qsongs) -> let
                   task = do
+                    newPreferences <- readPreferences
                     mapM_ (lg . T.unpack . artistTitle) qsongs
                     qsongs' <- mapM songTransform qsongs
                     let isRB3 = any (.quickSongDTA.qdtaRB3) qsongs'
+                        maybeEncoding = if isRB3
+                          then newPreferences.prefPackEncoding
+                          else Just Latin1
+                        qsongsReencode = case maybeEncoding of
+                          Nothing          -> qsongs'
+                          Just newEncoding -> qsongs' <&> \qsong -> qsong
+                            { quickSongDTA = enforceEncoding newEncoding qsong.quickSongDTA
+                            }
                         ps3Folder' = case ps3Folder of
                           QCCustomFolder bs -> QCCustomFolder $ bs <> packNumberUSRDIR i
                           _                 -> ps3Folder
@@ -2282,7 +2291,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                           , qcPS3EncryptMOGG = not decryptMOGGs
                           , qcPS3RB3         = isRB3
                           }
-                    saveQuickSongsPS3Folder qsongs' ps3Settings dout
+                    saveQuickSongsPS3Folder qsongsReencode ps3Settings dout
                   in (T.unpack $ l10nArgs "quick-convert-pack-number" [("number", vNumber $ fromIntegral (i :: Int))], task)
             QCOutputTwoWay fmt -> stackIO $ withNativeFileChooser
               [C.pure| int { Fl_Native_File_Chooser::BROWSE_SAVE_FILE } |]
@@ -2332,7 +2341,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
                         case fmt of
                           QCFormatCON  -> xboxSettings False >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
                           QCFormatLIVE -> xboxSettings True  >>= \opts -> saveQuickSongsSTFS decryptMOGGs qsongsReencode opts fout
-                          QCFormatPKG  -> saveQuickSongsPKG qsongs' ps3Settings fout
+                          QCFormatPKG  -> saveQuickSongsPKG qsongsReencode ps3Settings fout
                         return [fout]
                       in (T.unpack $ l10nArgs "quick-convert-pack-number" [("number", vNumber $ fromIntegral (i :: Int))], task)
     btnGo <- withRect goArea \bx by bw bh -> do

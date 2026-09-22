@@ -141,15 +141,13 @@ importSTFSFolder src folder = do
       Just ("dlc" :| [_, _, "content", "songs", x, y]) -> return (x, y) -- wii dlc
       _ -> fatal $ "Unrecognized `name` field in songs.dta: " <> show (D.songName $ D.song pkg)
 
-    let need p = case findFileCI p folder of
-          Just r  -> return r
-          Nothing -> fatal $ "Required file not found: " <> T.unpack (T.intercalate "/" $ toList p)
+    let showPath p = T.unpack $ T.intercalate "/" $ toList p
         moggPath = "songs" :| [baseX, baseY <> ".mogg"]
         binkPath = "songs" :| [baseX, baseY <> ".bik"]
         pssPath = "songs" :| [baseX, baseY <> ".pss"]
         -- TODO can midi_file in songs.dta override this?
-        -- TODO we should support .mid.edat here with HMX0756 key for loose c3-ps3-format songs
         midiPath = "songs" :| [baseX, baseY <> ".mid"]
+        edatPath = "songs" :| [baseX, baseY <> ".mid.edat"]
 
     let mogg = SoftReadable <$> findFileCI moggPath folder
         bink = findFileCI binkPath folder <&> \r -> SoftReadable
@@ -168,7 +166,16 @@ importSTFSFolder src folder = do
               splitOutVGSChannels [i] vgs
             return (SoftFile "video.m2v" rVideo, chans)
 
-    midi <- need midiPath
+    midi <- case findFileCI midiPath folder of
+      Just r -> return r
+      Nothing -> case findFileCI edatPath folder of
+        Just r  -> do
+          -- See if it's unencrypted
+          magic <- stackIO $ useHandle r \h -> B.hGet h 4
+          if magic == "MThd"
+            then return r
+            else fatal $ "Found .mid.edat but it's encrypted (unsupported for folder import): " <> showPath edatPath
+        Nothing -> fatal $ "Couldn't find MIDI (or .mid.edat): " <> showPath midiPath
     let missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
         updateMid = updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
     art <- if fromMaybe False (D.albumArt pkg) || D.gameOrigin pkg == Just "beatles"
