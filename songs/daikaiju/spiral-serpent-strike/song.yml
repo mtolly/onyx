@@ -1,0 +1,61 @@
+metadata:
+  title: Spiral Serpent Strike
+  artist: Daikaiju
+  album: Phase 3
+  year: 2023
+  author: Onyxite
+  genre: rock
+  subgenre: surf
+  track-number: 2
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: elite
+  bass:
+    pro-guitar:
+      tuning:
+        # drop D
+        base: bass-4
+        offsets: [-2, 0, 0, 0]
+      # not sure if this is picked on recording!
+      # live bassist in tVkaJknSgzQ (2023) uses fingers
+      # astro-girl (who I saw in 2026) uses pick
+audio:
+  album-track:
+    frames: 8140272
+    md5: 44b6e4175f97c37f0c52969f9bbf1d31
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [1.445, album-track]
+  dev:
+    song:
+      pad: [1.445, album-track]
+    parts:
+      bass:
+        pad: [1.445, channels: [[0, 1], stems]]
+      drums:
+        pad: [1.445, channels: [[2, 3], stems]]
+      vocal:
+        pad: [1.445, channels: [[4, 5], stems]]
+      other:
+        pad: [1.445, channels: [[6, 7], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album

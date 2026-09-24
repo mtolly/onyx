@@ -154,7 +154,8 @@ import           Onyx.Nintendo.U8                     (packU8, readU8)
 import           Onyx.Nintendo.WAD                    (getWAD, hackSplitU8s)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG                 (PKG (..), loadPKG,
-                                                       makePKG, tryDecryptEDATs)
+                                                       makePKG, tryDecryptEDAT,
+                                                       tryDecryptEDATs)
 import qualified Onyx.PowerGig.Crypt                  as PG
 import           Onyx.Project
 import qualified Onyx.QuickConvert.FretsOnFire        as QCH
@@ -276,6 +277,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".fsb" -> return $ FileType FileFSB fp
     ".wad" -> return $ FileType FileWAD fp
     ".hed" -> return $ FileType FileHED fp
+    ".edat" -> return $ FileType FileEDAT fp -- may not actually be edat if unencrypted midi
     ".app" -> return $ FileType FileU8 fp -- note, we check both extension and "U.8-" magic since official rb u8 don't actually start with that
     ".2" | ".hdr.e.2" `T.isSuffixOf` T.toLower (T.pack $ takeFileName fp) -> return $ FileType FileHdrE2 fp
     ext | any (`isPrefixOf` ext) [".png_", ".bmp_"] -> return $ FileType FileHarmonixImage fp -- assume this is .png_xbox, .bmp_ps2, etc.
@@ -365,6 +367,7 @@ data FileType
   | FileHarmonixImage
   | FileSNG
   | FileHED
+  | FileEDAT
   deriving (Eq, Ord, Show)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
@@ -1194,6 +1197,7 @@ commands =
       , "onyx unwrap in.mogg --to out.ogg     # unwrap/decrypt MOGG"
       , "onyx unwrap in.bik --to out.bik      # decrypt encrypted Bink"
       , "onyx unwrap in.png_xbox --to out.png # decode Harmonix image format"
+      , "onyx unwrap in.mid.edat --to out.mid # decrypt supported PS3 .edat"
       ]
     , commandList = True
     , commandRun = \files opts -> forM files \f -> identifyFile' f >>= \case
@@ -1221,6 +1225,18 @@ commands =
             stackIO $ writePng fout img
             return fout
           Nothing -> fatal "Couldn't decode image file"
+      (FileEDAT, fin) -> do
+        fout <- outputFile opts $ return case stripSuffix ".edat" fin <|> stripSuffix ".EDAT" fin of
+          Just root -> root
+          Nothing   -> fin <.> "dec"
+        absolute <- stackIO $ Dir.makeAbsolute fin
+        -- from [USRDIR/]packagename/songs/songname/songname.mid.edat, we want packagename
+        let rbPackageDir = takeFileName $ takeDirectory $ takeDirectory $ takeDirectory absolute
+            filename = takeFileName fin
+        tryDecryptEDAT (B8.pack rbPackageDir) (B8.pack filename) (fileReadable fin) >>= \case
+          Nothing -> fatal "Couldn't decode .edat"
+          Just r  -> stackIO $ saveReadable r fout
+        return fout
       p -> fatal $ "Unexpected file type given to unwrap: " <> show p
     }
 

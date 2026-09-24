@@ -1,0 +1,57 @@
+metadata:
+  title: Daikaiju Die!
+  artist: Daikaiju
+  album: Daikaiju
+  year: 2005
+  author: Onyxite
+  genre: rock
+  subgenre: surf
+  track-number: 1
+parts:
+  drums:
+    drums:
+      kicks: 1
+      mode: elite
+  bass:
+    # reference that's close to the album: https://youtu.be/B3vI33_yqWc?si=Y7pfiynOusQJ7Kwf&t=3543
+    # older version with pick bassist who plays it differently: https://www.youtube.com/watch?v=7mVggEiWlrc
+    pro-guitar:
+      tuning:
+        base: bass-4
+audio:
+  album-track:
+    frames: 7729260
+    md5: db96784ac9915bce542be2f763f1ee51
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  countin:
+    samples: {}
+  stems:
+    file-path: audio-stems.wav
+    commands:
+    - ../../../scripts/stems AUDIO(album-track) audio-stems.wav
+    channels: 8
+plans:
+  album:
+    song:
+      mix:
+      - countin
+      - pad: [3.458, album-track]
+  dev:
+    song:
+      pad: [3.458, album-track]
+    parts:
+      bass:
+        pad: [3.458, channels: [[1, 0], stems]]
+      drums:
+        pad: [3.458, channels: [[3, 2], stems]]
+      # no vocal
+      other:
+        pad: [3.458, channels: [[7, 6], stems]]
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album
