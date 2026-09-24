@@ -270,6 +270,18 @@ importTaikoSong tree infos chartFor sid level = do
     ImportFull  -> loadTaikoSamples
   return $ taikoSongYaml title diff (info >>= (.preview)) samples chart audioVGS
 
+-- first game is 48000 kHz, rest of the early games are 44100 kHz
+taikoImageAudioRate :: Folder T.Text Readable -> IO Int
+taikoImageAudioRate folder = case findFileCI (pure "SYSTEM.CNF") folder of
+  Nothing  -> return 44100
+  Just cnf -> do
+    bs <- BL.toStrict <$> useHandle cnf handleToByteString
+    -- "BOOT2 = cdrom0:\SLPS_202.21;1"
+    return $ if any (`B.isInfixOf` bs) taikoDiscs48kHz then 48000 else 44100
+
+taikoDiscs48kHz :: [B.ByteString]
+taikoDiscs48kHz = ["SLPS_202.21"] -- Tatacon de Dodon ga Don
+
 -- songs from disc using IMAGE00.TBL + IMAGE00.DAT
 importTaikoImage
   :: (SendMessage m, MonadIO m)
@@ -298,19 +310,22 @@ importTaikoImage _src folder = do
         base <- toList $ T.stripSuffix ".VAG" $ T.toUpper name
         return (TE.encodeUtf8 base, r)
   when (Map.null charts) $ fatal "Couldn't find any charts in IMAGE00.DAT"
+  rate <- stackIO $ taikoImageAudioRate folder
   return $ flip map (taikoSongIDs $ Map.keys charts) \sid ->
     importTaikoImageSong
+      rate
       (\suffix -> Map.lookup (sid, suffix) charts)
       (Map.lookup sid audios)
       sid
 
 importTaikoImageSong
   :: (SendMessage m, MonadIO m)
-  => (B.ByteString -> Maybe Readable) -- ^ chart by difficulty letter
+  => Int -- ^ audio sample rate
+  -> (B.ByteString -> Maybe Readable) -- ^ chart by difficulty letter
   -> Maybe Readable -- ^ song audio
   -> B.ByteString
   -> Import m
-importTaikoImageSong chartFor audio sid level = do
+importTaikoImageSong rate chartFor audio sid level = do
   (diff, chartFile) <- case mapMaybe
     (\(suffix, name, tier) -> (,) (name, tier) <$> chartFor suffix) taikoDifficulties of
     x : _ -> return x
@@ -325,7 +340,7 @@ importTaikoImageSong chartFor audio sid level = do
       bs <- stackIO $ useHandle r handleToByteString
       -- headerless stereo, same 0x8000 interleave as the later games
       return $ makeHandle "taiko audio"
-        $ byteStringSimpleHandle $ taikoADPCMtoVGS 44100 2 0x8000 bs
+        $ byteStringSimpleHandle $ taikoADPCMtoVGS rate 2 0x8000 bs
     _ -> return Nothing
   samples <- case level of
     ImportQuick -> return []
