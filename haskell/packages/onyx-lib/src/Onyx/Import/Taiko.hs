@@ -345,8 +345,9 @@ importTaikoImageSong rate chartFor audio sid level = do
   samples <- case level of
     ImportQuick -> return []
     ImportFull  -> loadTaikoSamples
-  -- this generation has no song title table on disc; the chart name is all we have
-  return $ taikoSongYaml (T.toLower $ TE.decodeLatin1 sid) diff Nothing samples chart audioVGS
+  -- no song title table on disc; use hardcoded table, fall back on lookup key
+  let title = fromMaybe (T.toLower $ TE.decodeLatin1 sid) $ Map.lookup sid taikoImageSongTitles
+  return $ taikoSongYaml title diff Nothing samples chart audioVGS
 
 taikoSongYaml
   :: T.Text
