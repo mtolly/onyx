@@ -12,6 +12,7 @@ public:
   HsGlWindow(int x, int y, int w, int h, const char* l = 0);
   void set_draw_callback(HsDrawCallback cb, void* data);
   void draw() override;
+  int handle(int event) override;
 };
 
 #endif

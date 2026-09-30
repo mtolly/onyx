@@ -46,6 +46,7 @@ executables:
     - cbits/Fl_Center.cpp
     - cbits/hs_scrubber.cpp
     - cbits/hs_dnd_button.cpp
+    - cbits/hs_sticky_menu_button.cpp
     - cbits/hs_dnd_group.cpp
     - cbits/hs_dnd_box.cpp
     - cbits/hs_tree.cpp

@@ -208,6 +208,7 @@ C.include "FL/fl_draw.H"
 C.include "hs_gl_window.h"
 C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
+C.include "hs_sticky_menu_button.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
 -- FLUID-generated from the layouts in fluid, see Setup.hs
@@ -3291,7 +3292,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
 
   -- Track selection menu
   trackMenu <- withRect partSelectArea \mx my mw mh ->
-    withUTF8 (l10n "preview-view-tracks") \cs -> [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), fl_strdup($(char* cs))) } |]
+    withUTF8 (l10n "preview-view-tracks") \cs -> [C.exp| Fl_Menu_Button* { new_sticky_menu_button($(int mx), $(int my), $(int mw), $(int mh), fl_strdup($(char* cs))) } |]
   currentParts <- newIORef ([] :: [[T.Text]])
   let updateParts doRedraw names = sink $ EventIO do
         cur <- readIORef currentParts
@@ -3314,14 +3315,10 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
 
   initSong <- getSong
   updateParts False $ map (map fst) $ previewTracks initSong
-  setCallback trackMenu do
-    sink $ EventIO [C.block| void { Fl::redraw(); } |]
-    -- reopen menu (TODO find a way to not close it at all)
-    sink $ EventIO [C.block| void { $(Fl_Menu_Button* trackMenu)->popup(); } |]
 
   -- Audio selection menu
   audioMenu <- withRect audioSelectArea \mx my mw mh ->
-    withUTF8 (l10n "preview-audio") \cs -> [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), fl_strdup($(char* cs))) } |]
+    withUTF8 (l10n "preview-audio") \cs -> [C.exp| Fl_Menu_Button* { new_sticky_menu_button($(int mx), $(int my), $(int mw), $(int mh), fl_strdup($(char* cs))) } |]
   initialAudio <- getAudio
   forM_ audioParts \t -> do
     let isSelected = Set.member t initialAudio
@@ -3332,8 +3329,6 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
       setAudio if Set.member t currentAudio
         then Set.delete t currentAudio
         else Set.insert t currentAudio
-      -- reopen menu (TODO find a way to not close it at all)
-      sink $ EventIO [C.block| void { $(Fl_Menu_Button* audioMenu)->popup(); } |]
     withUTF8 t \ct ->
       [C.block| void {
         $(Fl_Menu_Button* audioMenu)->add($(char* ct), 0, $(Fl_Callback cbAudio), 0, $(int flags));
@@ -3372,6 +3367,8 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   [C.block| void {
     $(HsGlWindow* glwindow)->mode(FL_OPENGL3 | FL_DEPTH | FL_RGB8 | FL_ALPHA | FL_MULTISAMPLE);
     $(HsGlWindow* glwindow)->end();
+    // move to front of group so it comes before bottom menus in keyboard focus order
+    $(Fl_Group* wholeGroup)->insert(*$(HsGlWindow* glwindow), 0);
   } |]
   drawCb <- makeDrawCallback \_ -> do
     mstuff <- modifyMVar varStuff \case
@@ -3406,6 +3403,10 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
           _          -> return ()
         -- TODO: delete glwindow widget
       redrawGL = [C.block| void { $(HsGlWindow* glwindow)->redraw(); } |]
+
+  -- redraw directly (sink processing not triggered until menu closes)
+  -- + only redraw GL window to not flicker the menu
+  setCallback trackMenu redrawGL
 
   [C.block| void { $(Fl_Group* wholeGroup)->end(); } |]
   [C.block| void { $(Fl_Group* wholeGroup)->resizable((Fl_Gl_Window*)$(HsGlWindow* glwindow)); } |]
