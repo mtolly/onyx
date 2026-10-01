@@ -123,7 +123,7 @@ data GH2DXExtra = GH2DXExtra
 --   songs for each possible combination of egg flag variables
 readSongListGH2Extra :: (SendMessage m) => D.DTA T.Text -> StackTraceT m [(T.Text, GH2.SongPackage, GH2DXExtra)]
 readSongListGH2Extra (D.DTA _ (D.Tree _ chunks)) = do
-  preproc <- Run.runPreprocess chunks
+  preproc <- map snd <$> Run.runPreprocess (Run.noPosn chunks)
   let isIgnore = \case
         -- this uses 'TRUE' in the .dta, but we preprocessed it to 1
         D.Parens (D.Tree _ [D.Sym "validate_ignore", D.Int 1]) -> True

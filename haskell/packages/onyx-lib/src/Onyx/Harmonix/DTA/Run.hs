@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE StrictData            #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Harmonix.DTA.Run where
 
 import           Control.Monad.Extra       (concatMapM, forM_, mapMaybeM, void,
@@ -29,34 +30,41 @@ newtype DTAPreprocess s = DTAPreprocess
   { defines :: HM.HashMap s (Chunk s)
   }
 
-splitIfDef :: (SendMessage m, Show s) => String -> [Chunk s] -> Eval (DTAPreprocess s) m ([Chunk s], [Chunk s], [Chunk s])
+-- allow keeping things like source positions during preprocessing
+type PosnChunk p s = (p, Chunk s)
+
+-- for preprocessing chunks that don't have positions attached
+noPosn :: [Chunk s] -> [PosnChunk () s]
+noPosn = map ((),)
+
+splitIfDef :: (SendMessage m, Show s) => String -> [PosnChunk p s] -> Eval (DTAPreprocess s) m ([PosnChunk p s], [PosnChunk p s], [PosnChunk p s])
 splitIfDef type_ xs = do
   let getBranch = go (0 :: Int) []
-      go 0 past future@(Else  : _) = return (reverse past, future)
-      go 0 past future@(EndIf : _) = return (reverse past, future)
+      go 0 past future@((_, Else ) : _) = return (reverse past, future)
+      go 0 past future@((_, EndIf) : _) = return (reverse past, future)
       go level past future = case future of
-        x : rest -> if (case x of EndIf -> True; _ -> False)
+        x : rest -> if (case snd x of EndIf -> True; _ -> False)
           then go (level - 1) (x : past) rest
-          else if (case x of IfDef{} -> True; IfNDef{} -> True; _ -> False)
+          else if (case snd x of IfDef{} -> True; IfNDef{} -> True; _ -> False)
             then go (level + 1) (x : past) rest
             else go level (x : past) rest
         [] -> return (reverse past, future) -- will be an error
   (true, xs1) <- getBranch xs
   case xs1 of
-    Else : xs2 -> do
+    (_, Else) : xs2 -> do
       (false, xs3) <- getBranch xs2
       case xs3 of
-        EndIf : xs4 -> return (true, false, xs4)
-        _ -> fatal $ "Couldn't parse " <> type_ <> " structure: " <> show xs
-    EndIf : xs2 -> return (true, [], xs2)
-    _ -> fatal $ "Couldn't parse " <> type_ <> " structure: " <> show xs
+        (_, EndIf) : xs4 -> return (true, false, xs4)
+        _ -> fatal $ "Couldn't parse " <> type_ <> " structure: " <> show (map snd xs)
+    (_, EndIf) : xs2 -> return (true, [], xs2)
+    _ -> fatal $ "Couldn't parse " <> type_ <> " structure: " <> show (map snd xs)
 
-preprocessDTA :: (SendMessage m, Show s, Hashable s) => [Chunk s] -> Eval (DTAPreprocess s) m [Chunk s]
-preprocessDTA (x : xs) = case x of
+preprocessDTA :: (SendMessage m, Show s, Hashable s) => [PosnChunk p s] -> Eval (DTAPreprocess s) m [PosnChunk p s]
+preprocessDTA ((p, x) : xs) = case x of
 
   Sym s -> lift (gets $ HM.lookup s . (.defines)) >>= \case
-    Just s' -> preprocessDTA $ s' : xs
-    Nothing -> (x :) <$> preprocessDTA xs
+    Just s' -> preprocessDTA $ (p, s') : xs
+    Nothing -> ((p, x) :) <$> preprocessDTA xs
 
   Undef s -> do
     lift $ modify \pp -> pp
@@ -82,7 +90,7 @@ preprocessDTA (x : xs) = case x of
     [] -> do
       warn $ "#define does not have a value following it: " <> show x
       return []
-    next : rest -> do
+    (_, next) : rest -> do
       lift $ modify \pp -> pp
         { defines = HM.insert s next pp.defines }
       preprocessDTA rest
@@ -99,21 +107,24 @@ preprocessDTA (x : xs) = case x of
   Autorun -> preprocessDTA xs
 
   Parens (Tree n tree) -> do
-    y  <- Parens . Tree n <$> preprocessDTA tree
+    y  <- Parens . Tree n <$> preprocessSub tree
     ys <- preprocessDTA xs
-    return $ y : ys
+    return $ (p, y) : ys
   Braces (Tree n tree) -> do
-    y  <- Braces . Tree n <$> preprocessDTA tree
+    y  <- Braces . Tree n <$> preprocessSub tree
     ys <- preprocessDTA xs
-    return $ y : ys
+    return $ (p, y) : ys
   Brackets (Tree n tree) -> do
-    y  <- Brackets . Tree n <$> preprocessDTA tree
+    y  <- Brackets . Tree n <$> preprocessSub tree
     ys <- preprocessDTA xs
-    return $ y : ys
+    return $ (p, y) : ys
 
-  _ -> (x :) <$> preprocessDTA xs
+  _ -> ((p, x) :) <$> preprocessDTA xs
 
 preprocessDTA [] = return []
+
+preprocessSub :: (SendMessage m, Show s, Hashable s) => [Chunk s] -> Eval (DTAPreprocess s) m [Chunk s]
+preprocessSub = fmap (map snd) . preprocessDTA . noPosn
 
 initPreprocess :: (IsString s, Hashable s) => DTAPreprocess s
 initPreprocess = DTAPreprocess
@@ -123,7 +134,7 @@ initPreprocess = DTAPreprocess
     ]
   }
 
-runPreprocess :: (SendMessage m, IsString s, Hashable s, Show s) => [Chunk s] -> StackTraceT m [Chunk s]
+runPreprocess :: (SendMessage m, IsString s, Hashable s, Show s) => [PosnChunk p s] -> StackTraceT m [PosnChunk p s]
 runPreprocess chunks = inside "DTA preprocessing" do
   mapStackTraceT (`evalStateT` initPreprocess) $ preprocessDTA chunks
 
@@ -403,5 +414,5 @@ initDTAState = DTAState
 testRun :: T.Text -> IO (Either Messages [Chunk T.Text])
 testRun txt = logStdout do
   DTA _ (Tree _ chunks) <- scanStack txt >>= parseStack
-  prep <- mapStackTraceT (`evalStateT` initPreprocess) $ preprocessDTA chunks
-  mapStackTraceT (`evalStateT` initDTAState) $ concatMapM evaluateDTA prep
+  prep <- mapStackTraceT (`evalStateT` initPreprocess) $ preprocessDTA $ noPosn chunks
+  mapStackTraceT (`evalStateT` initDTAState) $ concatMapM (evaluateDTA . snd) prep

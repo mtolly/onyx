@@ -30,7 +30,7 @@ import           Data.Version                         (showVersion)
 import           Onyx.Codec.Common                    (makeValue)
 import qualified Onyx.Harmonix.DTA                    as D
 import qualified Onyx.Harmonix.DTA.Crypt              as D
-import           Onyx.Harmonix.DTA.Run
+import           Onyx.Harmonix.DTA.Run                (noPosn, runPreprocess)
 import           Onyx.Harmonix.DTA.Serialize
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Project
@@ -172,14 +172,14 @@ readDTASingle :: (SendMessage m) => (B.ByteString, D.Chunk B.ByteString) -> Stac
 readDTASingle (bytes, chunk) = do
   let readTextChunk = \case
         D.Parens (D.Tree _ (D.Sym k : chunks)) -> do
-          -- run dta preprocessing so we don't choke on Deluxe custom sources.
+          -- dta preprocessing is needed for RB3 Deluxe custom sources,
+          -- but we now do that earlier in readDTASections + readDTBSingles.
           -- currently we do not then run full dta evaluation.
           -- if we did, we could maybe remove skipScripting below.
-          chunks' <- runPreprocess chunks
           let missingChunks = fromMaybe [] $ HM.lookup k missingMapping
           pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
             $ removeOldDTAKeys $ fixTracksCount $ skipScripting
-            $ applyUpdate chunks' missingChunks
+            $ applyUpdate chunks missingChunks
           return (k, pkg)
         _ -> fatal "Not a valid song chunk in the format (topkey ...)"
   (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
@@ -210,7 +210,8 @@ readDTBSingles bs = do
   dta <- D.decodeDTB if B.take 1 bs == "\x01"
     then BL.fromStrict bs
     else D.decrypt D.newCrypt $ BL.fromStrict bs
-  let songs = dta.topTree.treeChunks
+  -- run preprocess here, needed for Lego RB #ifdefs
+  songs <- map snd <$> runPreprocess (noPosn dta.topTree.treeChunks)
   fmap catMaybes $ forM (zip [1..] songs) \(i, chunk) -> do
     inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") do
       errorToWarning $ readDTASingle (B.empty, chunk)
