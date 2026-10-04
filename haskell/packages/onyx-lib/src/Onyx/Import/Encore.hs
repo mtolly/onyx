@@ -29,6 +29,7 @@ import           Onyx.Encore
 import           Onyx.Import.Base
 import           Onyx.MIDI.Track.Events           (EventsTrack (..))
 import qualified Onyx.MIDI.Track.File             as F
+import           Onyx.MIDI.Track.Mania            (ManiaTrack (..))
 import           Onyx.Project                     hiding (Difficulty)
 import qualified Onyx.Project                     as P
 import           Onyx.StackTrace                  (SendMessage, lg, stackIO)
@@ -168,7 +169,7 @@ importEncore dir level = do
     }
 
 encoreToOnyxMIDI :: F.Song (EncoreFile U.Beats) -> F.Song (F.OnyxFile U.Beats)
-encoreToOnyxMIDI = fmap \encore -> mempty
+encoreToOnyxMIDI = fmap (\encore -> mempty
   { F.onyxParts    = Map.fromList
     [ (F.PartGuitar, mempty
       { F.onyxPartGuitar = encore.plasticGuitar
@@ -195,14 +196,16 @@ encoreToOnyxMIDI = fmap \encore -> mempty
     then encore.events & #sections .~ convertEncoreSections encore.section
     else encore.events
   , F.onyxBeat     = encore.beat
-  }
+  }) . checkEnableDynamicsEncore
 
 importPadMania :: P.Difficulty -> EncorePart U.Beats -> Maybe ModeMania
 importPadMania tier part = do
   convertedDiffs <- NE.nonEmpty $ encorePart part
-  return $ ModeMania $ convertedDiffs <&> \(name, _) -> ManiaChart
+  return $ ModeMania $ convertedDiffs <&> \(name, diff) -> ManiaChart
     { name = name
-    , keys = if name == "expert" then 5 else 4
+    , keys = if name == "expert" || elem 4 [ k | edge <- toList diff.notes, (k, _) <- toList edge ]
+      then 5
+      else 4
     , style = ManiaEncore
     , difficulty = tier
     }

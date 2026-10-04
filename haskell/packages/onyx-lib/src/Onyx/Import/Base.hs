@@ -22,6 +22,7 @@ import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.Audio                       (audioIO)
 import           Onyx.Codec.JSON                  (toJSON, yamlEncodeFile)
+import           Onyx.Encore                      (EncoreFile (..))
 import           Onyx.MIDI.Track.Drums
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
@@ -125,15 +126,24 @@ emptyChart = F.Song
 checkEnableDynamics
   :: F.Song (F.FixedFile U.Beats)
   -> F.Song (F.FixedFile U.Beats)
-checkEnableDynamics (F.Song tmap mmap ps) = let
-  checkTrack trk = if RTB.null trk.enableDynamics
-    then trk { difficulties = noDynamics <$> trk.difficulties }
-    else trk
+checkEnableDynamics (F.Song tmap mmap trks) = F.Song tmap mmap trks
+  { F.fixedPartDrums       = checkEnableDynamicsTrack trks.fixedPartDrums
+  , F.fixedPartDrums2x     = checkEnableDynamicsTrack trks.fixedPartDrums2x
+  , F.fixedPartRealDrumsPS = checkEnableDynamicsTrack trks.fixedPartRealDrumsPS
+  }
+
+checkEnableDynamicsEncore
+  :: F.Song (EncoreFile U.Beats)
+  -> F.Song (EncoreFile U.Beats)
+checkEnableDynamicsEncore (F.Song tmap mmap trks) = F.Song tmap mmap trks
+  { plasticDrums = checkEnableDynamicsTrack trks.plasticDrums
+  }
+
+checkEnableDynamicsTrack :: DrumTrack t -> DrumTrack t
+checkEnableDynamicsTrack trk = let
   noDynamics dd = dd
     { gems = (\(gem, _) -> (gem, VelocityNormal)) <$> dd.gems
     }
-  in F.Song tmap mmap ps
-    { F.fixedPartDrums       = checkTrack ps.fixedPartDrums
-    , F.fixedPartDrums2x     = checkTrack ps.fixedPartDrums2x
-    , F.fixedPartRealDrumsPS = checkTrack ps.fixedPartRealDrumsPS
-    }
+  in if RTB.null trk.enableDynamics
+    then trk { difficulties = noDynamics <$> trk.difficulties }
+    else trk
