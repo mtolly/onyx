@@ -108,9 +108,9 @@ main = getArgs >>= \args -> case args of
 
     _ <- section "Onyx" [Required] do
       setOutPath "$INSTDIR"
-      -- delete existing resource folder and older resource locations
+      -- delete older resource locations, but now we're leaving an existing current one
+      -- to preserve user-added things like localizations or RAP files
       rmdir [Recursive] "$INSTDIR/onyx-resource"
-      rmdir [Recursive] "$INSTDIR/onyx-resources"
       rmdir [Recursive] "$INSTDIR/magma-v1"
       rmdir [Recursive] "$INSTDIR/magma-v2"
       rmdir [Recursive] "$INSTDIR/magma-ogg2mogg"

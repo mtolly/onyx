@@ -338,7 +338,7 @@ importTaikoImageSong rate chartFor audio sid level = do
   audioVGS <- case (level, audio) of
     (ImportFull, Just r) -> errorToWarning do
       bs <- stackIO $ useHandle r handleToByteString
-      -- headerless stereo, same 0x8000 interleave as the later games
+      -- headerless, always same interleave
       return $ makeHandle "taiko audio"
         $ byteStringSimpleHandle $ taikoADPCMtoVGS rate 2 0x8000 bs
     _ -> return Nothing

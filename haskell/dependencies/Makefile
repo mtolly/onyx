@@ -69,9 +69,9 @@ openal:
 ffmpeg:
 	# disabling AVX-512, AVX-512ICL, XOP, FMA4, and optionally AVX2, FMA3,
 	# were recommended by Claude Code for CPU compatibility.
-	# for encoders/muxers we only need ogg vorbis, ogg opus, and wav
+	# for encoders/muxers we only need ogg opus and wav
 	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers \
-		--enable-encoder=vorbis --enable-encoder=opus --enable-encoder=pcm_s16le \
+		--enable-encoder=opus --enable-encoder=pcm_s16le \
 		--enable-muxer=ogg --enable-muxer=wav \
 		--disable-avx512 --disable-avx512icl --disable-xop --disable-fma4 --disable-avx2 --disable-fma3 \
 		--prefix=$(current_dir)/root $(ffmpeg_cc)

@@ -209,6 +209,7 @@ C.include "hs_gl_window.h"
 C.include "hs_scrubber.h"
 C.include "hs_dnd_button.h"
 C.include "hs_sticky_menu_button.h"
+C.include "hs_value_slider.h"
 C.include "FL/platform.H"
 C.include "FL/fl_string_functions.h"
 -- FLUID-generated from the layouts in fluid, see Setup.hs
@@ -1128,11 +1129,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       stackIO $ sink $ EventIO $ mdo
         [C.block| void { $(Fl_Pack* pack)->begin(); } |]
 
-        -- TODO when we add localization support, need to support different separators
-        -- (e.g. Spanish should use periods)
+        -- this should get real locale-based formatting eventually
         let commafy n = T.pack $ reverse $ go $ reverse $ show n
             go (x : y : z : rest@(_ : _))
-              = [x, y, z, ','] ++ go rest
+              = [x, y, z] <> reverse (T.unpack $ l10n "thousands-separator") <> go rest
             go xs = xs
 
         -- RB3
@@ -4243,11 +4243,13 @@ launchPreferences sink makeMenuBar = do
             sliderQuality <- lineBox \box -> do
               let sliderRect = leaveLeftLabelSpace box
               slider <- withRect sliderRect \sx sy sw sh ->
-                [C.exp| Fl_Value_Slider* { new Fl_Value_Slider($(int sx), $(int sy), $(int sw), $(int sh)) } |]
+                withUTF8 (l10n "decimal-separator") \csep ->
+                  [C.exp| Fl_Value_Slider* { new_value_slider($(int sx), $(int sy), $(int sw), $(int sh), $(char* csep)) } |]
               let initQ = coerce $ loadedPrefs.prefOGGQuality * 10 :: CDouble
               [C.block| void {
                 Fl_Value_Slider* s = $(Fl_Value_Slider* slider);
                 s->labelsize(13);
+                s->value_width(45);
                 s->align(FL_ALIGN_LEFT);
                 s->type(FL_HOR_NICE_SLIDER);
                 s->minimum(0);

@@ -1,5 +1,5 @@
 name: onyx-exe-toolkit
-version: '20251011'
+version: '20261011'
 github: mtolly/onyx
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
@@ -47,6 +47,7 @@ executables:
     - cbits/hs_scrubber.cpp
     - cbits/hs_dnd_button.cpp
     - cbits/hs_sticky_menu_button.cpp
+    - cbits/hs_value_slider.cpp
     - cbits/hs_dnd_group.cpp
     - cbits/hs_dnd_box.cpp
     - cbits/hs_tree.cpp

@@ -1,3 +1,10 @@
+## numeric formatting (temporary, will be replaced with locale-based system)
+
+# used in e.g. ogg vorbis quality
+decimal-separator = .
+# used in e.g. score cutoffs
+thousands-separator = ,
+
 ## main console window
 
 console = Onyx Console
