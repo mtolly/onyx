@@ -752,7 +752,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 === JuicyPixels-stbir [Haskell] ===
 
-Copyright 2014 - 2017 Jorge L Rodriguez, Michael Tolly
+Copyright 2014 - 2017 Jorge L Rodriguez, Melody Tolly
 
 All rights reserved.
 
@@ -2333,7 +2333,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 === conduit-audio [Haskell] ===
 
-Copyright (c)2016, Michael Tolly
+Copyright (c)2016, Melody Tolly
 
 All rights reserved.
 
@@ -2348,7 +2348,7 @@ modification, are permitted provided that the following conditions are met:
       disclaimer in the documentation and/or other materials provided
       with the distribution.
 
-    * Neither the name of Michael Tolly nor the names of other
+    * Neither the name of Melody Tolly nor the names of other
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -2366,7 +2366,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 === conduit-audio-lame [Haskell] ===
 
-Copyright (c)2016, Michael Tolly
+Copyright (c)2016, Melody Tolly
 
 All rights reserved.
 
@@ -2381,7 +2381,7 @@ modification, are permitted provided that the following conditions are met:
       disclaimer in the documentation and/or other materials provided
       with the distribution.
 
-    * Neither the name of Michael Tolly nor the names of other
+    * Neither the name of Melody Tolly nor the names of other
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -2399,7 +2399,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 === conduit-audio-samplerate [Haskell] ===
 
-Copyright (c)2016, Michael Tolly
+Copyright (c)2016, Melody Tolly
 
 All rights reserved.
 
@@ -2414,7 +2414,7 @@ modification, are permitted provided that the following conditions are met:
       disclaimer in the documentation and/or other materials provided
       with the distribution.
 
-    * Neither the name of Michael Tolly nor the names of other
+    * Neither the name of Melody Tolly nor the names of other
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -2432,7 +2432,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 === conduit-audio-sndfile [Haskell] ===
 
-Copyright (c)2016, Michael Tolly
+Copyright (c)2016, Melody Tolly
 
 All rights reserved.
 
@@ -2447,7 +2447,7 @@ modification, are permitted provided that the following conditions are met:
       disclaimer in the documentation and/or other materials provided
       with the distribution.
 
-    * Neither the name of Michael Tolly nor the names of other
+    * Neither the name of Melody Tolly nor the names of other
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -4668,7 +4668,7 @@ SUCH DAMAGE.
 
 === midi-util [Haskell] ===
 
-Copyright (c)2016, Michael Tolly
+Copyright (c)2016, Melody Tolly
 
 All rights reserved.
 
@@ -4683,7 +4683,7 @@ modification, are permitted provided that the following conditions are met:
       disclaimer in the documentation and/or other materials provided
       with the distribution.
 
-    * Neither the name of Michael Tolly nor the names of other
+    * Neither the name of Melody Tolly nor the names of other
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
