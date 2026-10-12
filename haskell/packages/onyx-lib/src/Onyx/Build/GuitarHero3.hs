@@ -219,7 +219,10 @@ gh3Rules buildInfo dir gh3 = do
         ["f", "g", "i", "s"]
       pathSongPak = dir </> "xbox" </> (B8.unpack dlcID <> "_song.pak.xen")
   pathDL %> \out -> gh3MysteryScript (B8.pack dl) Nothing >>= stackIO . BL.writeFile out
-  pathText %> \out -> do
+  -- being lazy and writing english file for all languages; should swap out some translated strings.
+  -- this used to copy the english file to the other 4 but this broke on Windows?
+  -- when upgrading Windows to GHC 9.6, now concurrent copyFile from one source fails with "file is locked", wtf!
+  (pathText : pathTextLangs) %> \outs -> do
     -- section names would also go in here, but we'll try to use the embedded section name format
     let metadata = getTargetMetadata songYaml $ GH3 gh3
         nodes =
@@ -286,10 +289,8 @@ gh3Rules buildInfo dir gh3 = do
         -- also ps3 appears to have different names. but they probably don't matter anyway
         unk1 = qbKeyCRC $ "1o99lm\\" <> B8.pack dl <> ".qb" -- in dl15_text.pak it's 1945578562. in disc qb.pak.xen it's 0x0b761ea7 "scripts\\guitar\\songlist.qb"
         unk2 = qbKeyCRC $ "7buqvk" <> B8.pack dl -- in dl15_text.pak it's 480172672. in disc qb.pak.xen it's 3114035354 "songlist"
-    stackIO $ BL.writeFile out $ buildPak nodes
-  forM_ pathTextLangs \lang -> lang %> \out -> do
-    -- being lazy and copying english file. really we ought to swap out some translated strings
-    shk $ copyFile' pathText out
+    let pak = buildPak nodes
+    stackIO $ forM_ outs \out -> BL.writeFile out pak
   [pathSongPak, pathPad] %> \_ -> do
     mid <- F.shakeMIDI $ planDir </> "processed.mid"
     let midApplied = applyTargetMIDI gh3.common mid
