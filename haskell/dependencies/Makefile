@@ -69,8 +69,9 @@ openal:
 ffmpeg:
 	# disabling AVX-512, AVX-512ICL, XOP, FMA4, and optionally AVX2, FMA3,
 	# were recommended by Claude Code for CPU compatibility.
-	# for encoders/muxers we only need ogg opus and wav
-	cd libs/FFmpeg && ./configure --enable-shared --disable-encoders --disable-muxers \
+	# for encoders/muxers we only need ogg opus and wav.
+	# disabling docs for now because newer texinfo (7.3+) causes an error with our current ffmpeg
+	cd libs/FFmpeg && ./configure --enable-shared --disable-doc --disable-encoders --disable-muxers \
 		--enable-encoder=opus --enable-encoder=pcm_s16le \
 		--enable-muxer=ogg --enable-muxer=wav \
 		--disable-avx512 --disable-avx512icl --disable-xop --disable-fma4 --disable-avx2 --disable-fma3 \

@@ -2,15 +2,13 @@
 set -e
 set -u
 
-# TODO: arch, macos need meson, can probably drop python
-
 case $(uname) in
   Linux )
     echo "linux detected"
     if which pacman > /dev/null; then
       echo "arch detected"
       pacman -Sy --needed rubberband \
-        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu pango
+        cmake autogen autoconf libtool pkg-config nasm unzip make automake glu pango meson
       # Manjaro was good with everything but `glu`, which was added for Arch
     elif which apt-get > /dev/null; then
       echo "debian/ubuntu detected"
@@ -38,7 +36,7 @@ case $(uname) in
     ;;
   Darwin )
     echo "macos detected"
-    brew install autoconf automake dylibbundler m4 nasm pkg-config rubberband libtool autogen python cmake meson
+    brew install autoconf automake dylibbundler m4 nasm pkg-config libtool autogen python cmake meson
     ;;
   * )
     echo "unknown"
