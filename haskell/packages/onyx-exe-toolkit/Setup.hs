@@ -151,12 +151,10 @@ myConfHook (description, buildInfo) flags = do
     { localPkgDescr = packageDescription
       { PD.executables = flip map (PD.executables packageDescription) $ \exe -> exe
         { PD.buildInfo
-          -- only the GUI executable has FLUID layouts to compile in
-          = (if PD.unUnqualComponentName (PD.exeName exe) == "onyx"
-              then addFluidSources fluidNames
-              else id)
-          $ applyFlags allFlags
-          $ PD.buildInfo exe
+          -- only apply to the GUI executable, not CLI
+          = if PD.unUnqualComponentName (PD.exeName exe) == "onyx"
+            then addFluidSources fluidNames $ applyFlags allFlags $ PD.buildInfo exe
+            else PD.buildInfo exe
         }
       }
     }
