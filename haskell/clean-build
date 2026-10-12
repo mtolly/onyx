@@ -10,9 +10,6 @@ done
 
 git clean -fdx dependencies/root/
 
-shopt -s globstar nullglob
-for f in packages/**/.stack-work; do
-  rm -r "$f"
-done
+find packages -type d -name .stack-work -prune -exec rm -r {} +
 
 ./build-dependencies && ./stack-local build && ./copy-resources && ./package

@@ -216,7 +216,7 @@ nav a {
 <p>Onyx is currently compiled on:</p>
 <ul>
 <li>Windows 10</li>
-<li>macOS Monterey</li>
+<li>macOS Tahoe (Apple Silicon), Monterey (Intel)</li>
 <li>Ubuntu 20.04</li>
 </ul>
 <p>It may work on older operating systems (such as Windows 7) but this is not certain.</p>
@@ -239,9 +239,9 @@ nav a {
 <p>Follow these instructions to allow Onyx to run correctly on macOS.</p>
 <ol type="1">
 <li><p>Extract the contents of the zip file, and move the Onyx app to the Applications folder, or wherever else you want to keep it.</p></li>
-<li><p>Run the following command in Terminal (replace the location if you moved it somewhere other than Applications)</p>
-<pre><code>xattr -r -d com.apple.quarantine /Applications/Onyx.app</code></pre></li>
-<li><p>The app should now run, but may have problems loading files due to permissions errors. To fix this, take a song file that is in a location such as your Downloads folder, and drag and drop it onto the “Load a song” button. This seems to tell macOS to give the app normal permissions to your user folders, so after that you should then also be able to use the open file dialog and batch mode to load songs.</p></li>
+<li><p>Run the following commands in Terminal (replace the location if you moved it somewhere other than Applications)</p>
+<pre><code>codesign --force --deep --sign - /Applications/Onyx.app
+xattr -r -d com.apple.quarantine /Applications/Onyx.app</code></pre></li>
 </ol>
 
 
