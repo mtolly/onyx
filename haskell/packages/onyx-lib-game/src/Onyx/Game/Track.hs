@@ -379,7 +379,9 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
 
   vocalTrack :: (SendMessage m) => F.PartName -> ModeVocal FilePath -> StackTraceT m (Map.Map Double (PNF.CommonState (PNF.VocalState Double)))
   vocalTrack fpart _mv = do
-    let thisSrc = maybe mempty (.onyxPartVocals) $ Map.lookup fpart song.tracks.onyxParts
+    let thisSrc
+          = maybe mempty (\p -> if nullVox p.onyxPartVocals then p.onyxHarm1 else p.onyxPartVocals)
+          $ Map.lookup fpart song.tracks.onyxParts
     lyricNotes <- fmap (fromMaybe RTB.empty) $ errorToWarning $ getLyricNotes song.timesigs thisSrc
     let beatsToDouble = secondsToDouble . U.applyTempoMap song.tempos
 

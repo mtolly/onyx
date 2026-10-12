@@ -11,6 +11,10 @@ parts:
       tuning:
         base: bass-4
       picked-bass: true
+  vocal:
+    vocal:
+      count: 2
+      gender: male
 audio:
   album-track:
     frames: 10270596
