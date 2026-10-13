@@ -1,0 +1,7 @@
+code: es
+name: Español
+name-en: Spanish
+plural: es
+fluent:
+- es/main.ftl
+stretch-width: 1
