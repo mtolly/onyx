@@ -9,7 +9,7 @@ thousands-separator = .
 
 console = Terminal de Onyx
 
-homepage = Página
+homepage = Página principal
 
 version-checking = Buscando actualizaciones…
 version-new = ¡Nueva versión disponible!
@@ -211,136 +211,136 @@ label-author = Autor
 label-genre = Género
 label-subgenre = Subgénero
 
-file-picker-create-diy-folder = Create DIY folder
-file-picker-create-folder = Create folder
-file-picker-load-album-art = Select album art
-file-picker-load-dryvox-source-audio = Load song or vocals audio
-file-picker-load-hdr = Select .HDR file
-file-picker-load-midi = Load MIDI file
-file-picker-load-milo = Load .milo
-file-picker-load-song = Load song
-file-picker-save-ch-folder = Save CH/PS song folder
-file-picker-save-ch-sng = Save CH/PS .sng file
-file-picker-save-ch-zip = Save CH/PS zip file
-file-picker-save-gh2-live = Save GH2 LIVE file
-file-picker-save-gh3-cache-360 = Save GH3 cache file (360)
-file-picker-save-gh3-cache-ps3 = Save GH3 cache file (PS3)
-file-picker-save-gh3-live = Save GH3 LIVE file
-file-picker-save-gh3-pkg = Save GH3 PKG file
-file-picker-save-ghwor-live = Save GH:WoR LIVE file
-file-picker-save-ghwor-pkg = Save GH:WoR PKG file
-file-picker-save-lipsync-audio = Save lipsync audio
-file-picker-save-magma-v2 = Save Magma v2 project
-file-picker-save-midi = Save MIDI file
-file-picker-save-milo = Save .milo
-file-picker-save-multitrack-audio = Save .{$extension} file
-file-picker-save-rb2-con = Save RB2 CON file
-file-picker-save-rb2-pkg = Save RB2 PKG file
-file-picker-save-rb3-con = Save RB3 CON file
-file-picker-save-rb3-pkg = Save RB3 PKG file
-file-picker-save-reaper = Save REAPER project
-file-picker-save-reduced-midi = Save reduced MIDI file
-file-picker-save-rr-live = Save RR LIVE file
-file-picker-save-rr-pkg = Save RR PKG file
-file-picker-save-voc = Save .voc file
-file-picker-save-web-preview = Save web preview folder
-file-picker-save-wor-cache-360 = Save WoR cache file (360)
-file-picker-save-wor-cache-ps3 = Save WoR cache file (PS3)
-file-picker-select-folder = Select folder
+file-picker-create-diy-folder = Crear carpeta manual
+file-picker-create-folder = Crear carpeta
+file-picker-load-album-art = Elegir portada
+file-picker-load-dryvox-source-audio = Cargar canción o audio de vocales
+file-picker-load-hdr = Elegir archivo .HDR
+file-picker-load-midi = Elegir archivo MIDI
+file-picker-load-milo = Elegir archivo .milo
+file-picker-load-song = Cargar canción
+file-picker-save-ch-folder = Guardar carpeta de canción de CH/PS
+file-picker-save-ch-sng = Guardar archivo .sng de CH/PS
+file-picker-save-ch-zip = Guardar archivo .zip de CH/PS
+file-picker-save-gh2-live = Guardar archivo LIVE de GH2
+file-picker-save-gh3-cache-360 = Guardar archivo de caché para GH3 (360)
+file-picker-save-gh3-cache-ps3 = Guardar archivo de caché para GH3 (PS3)
+file-picker-save-gh3-live = Guardar archivo LIVE de GH3
+file-picker-save-gh3-pkg = Guardar archivo PKG de GH2
+file-picker-save-ghwor-live = Guardar archivo LIVE de GH:WoR
+file-picker-save-ghwor-pkg = Guardar archivo PKG de GH:WoR
+file-picker-save-lipsync-audio = Guardar audio de 'lipsync'
+file-picker-save-magma-v2 = Guardar proyecto de MAGMA v2
+file-picker-save-midi = Guardar archivo MIDI
+file-picker-save-milo = Guardar .milo
+file-picker-save-multitrack-audio = Guardar archivo .{$extension}
+file-picker-save-rb2-con = Guardar archivo CON de RB2
+file-picker-save-rb2-pkg = Guardar archivo PKG de RB2
+file-picker-save-rb3-con = Guardar archivo CON de RB3
+file-picker-save-rb3-pkg = Guardar archivo PKG de RB3
+file-picker-save-reaper = Guardar proyecto de REAPER
+file-picker-save-reduced-midi = Guardar MIDI reducido
+file-picker-save-rr-live = Guardar archivo LIVE de RR
+file-picker-save-rr-pkg = Guardar archivo PKG de RR
+file-picker-save-voc = Guardar archivo .voc
+file-picker-save-web-preview = Guardar previsualización de web
+file-picker-save-wor-cache-360 = Guardar archivo de caché para WoR (360)
+file-picker-save-wor-cache-ps3 = Guardar archivo de caché para WoR (PS3)
+file-picker-select-folder = Elegir carpeta
 
 file-type-package =
-  .tree-root = Packages
-  .add = Add package
-  .load = Load package
-  .clear = Clear packages
+  .tree-root = Paquetes
+  .add = Agregar paquete
+  .load = Cargar paquete
+  .clear = Borrar paquetes
 file-type-rb-con-live =
-  .tree-root = Rock Band CON/LIVE
-  .add = Add Rock Band CON/LIVE
-  .load = Load Rock Band CON/LIVE
-  .clear = Clear Rock Band CON/LIVE
+  .tree-root = CON/LIVE de Rock Band
+  .add = Agregar CON/LIVE de Rock Band
+  .load = Cargar CON/LIVE de Rock Band
+  .clear = Borrar CON/LIVE de Rock Band
 file-type-con-live =
   .tree-root = CON/LIVE
-  .add = Add CON/LIVE
-  .load = Load CON/LIVE
-  .clear = Clear CON/LIVE
+  .add = Agregar CON/LIVE
+  .load = Cargar CON/LIVE
+  .clear = Borrar CON/LIVE
 file-type-rb-song =
-  .tree-root = Rock Band songs
-  .add = Add Rock Band song
-  .load = Load Rock Band song
-  .clear = Clear Rock Band songs
+  .tree-root = Canciones de Rock Band
+  .add = Agregar canción de Rock Band
+  .load = Cargar canción de Rock Band
+  .clear = Borrar canciones de Rock Band
 file-type-rr-song =
-  .tree-root = RR songs
-  .add = Add RR song
-  .load = Load RR song
-  .clear = Clear RR songs
+  .tree-root = Canciones de RR
+  .add = Agregar canción de RR
+  .load = Cargar canción de RR
+  .clear = Borrar canciones de RR
 file-type-ch-song =
-  .tree-root = CH songs
-  .add = Add CH song
-  .load = Load CH song
-  .clear = Clear CH songs
+  .tree-root = Canciones de CH
+  .add = Agregar canción de CH
+  .load = Cargar canción de CH
+  .clear = Borrar canciones de CH
 file-type-audio =
   .tree-root = Audio
-  .add = Add audio
-  .load = Load audio
-  .clear = Clear audio
+  .add = Agregar audio
+  .load = Cargar audio
+  .clear = Borrar audio
 file-type-song =
-  .tree-root = Songs
-  .add = Add song
-  .load = Load song
-  .clear = Clear songs
+  .tree-root = Canciones
+  .add = Agregar canción
+  .load = Cargar canción
+  .clear = Borrar canciones
 
-drums-mode-4lane = 4-Lane Drums
-drums-mode-5lane = 5-Lane Drums
-drums-mode-pro = Pro Drums
-drums-mode-real = Phase Shift Real Drums
-drums-mode-elite = Elite Drums
+drums-mode-4lane = Batería de 4 lineas
+drums-mode-5lane = Batería de 5 lineas
+drums-mode-pro = Batería PRO
+drums-mode-real = Batería 'Real' de Phase Shift
+drums-mode-elite = Batería 'Elite'
 
-drums-rb3-kit-hard-rock = Hard Rock Kit
-drums-rb3-kit-arena = Arena Kit
-drums-rb3-kit-vintage = Vintage Kit
-drums-rb3-kit-trashy = Trashy Kit
-drums-rb3-kit-electronic = Electronic Kit
+drums-rb3-kit-hard-rock = Batería de Hard Rock
+drums-rb3-kit-arena = Batería de estadio
+drums-rb3-kit-vintage = Batería clásica
+drums-rb3-kit-trashy = Batería cutre
+drums-rb3-kit-electronic = Batería electrónica
 
-mode-5fret = 5-Fret
-mode-6fret = 6-Fret
-mode-pro-keys = Pro Keys
-mode-pro-guitar = Pro Guitar
-mode-drums = Drums
-mode-vocals = Vocals
+mode-5fret = 5 trastes
+mode-6fret = 6 trastes
+mode-pro-keys = Teclado PRO
+mode-pro-guitar = Guitarra PRO
+mode-drums = Batería
+mode-vocals = Vocales
 mode-mania = Mania
 
-gender-female = Female
-gender-male = Male
-gender-unspecified = Unspecified Gender
+gender-female = Femenino
+gender-male = Masculino
+gender-unspecified = Género no especificado
 
-language-english = English
-language-french = French
-language-italian = Italian
-language-spanish = Spanish
-language-german = German
-language-japanese = Japanese
+language-english = Ingles
+language-french = Francés
+language-italian = Italiano
+language-spanish = Español
+language-german = Alemán
+language-japanese = Japones
 
 vocals-solo = Solo
-vocals-harmonies-2 = Harmonies (2)
-vocals-harmonies-3 = Harmonies (3)
+vocals-harmonies-2 = Armonías (2)
+vocals-harmonies-3 = Armonías (3)
 
-toggle-ps2-practice-audio = Make practice mode audio for PS2
+toggle-ps2-practice-audio = Generar sonido de modo practica para PS2
 
 template-runner-tooltip =
-  Template for where to create new files.
-    %input_dir% - folder containing the input
-    %input_base% - input filename by itself, extension removed
-    %modifiers% - added distinguishing features e.g. speed modifier
-    %title% - title from song's metadata (including modifiers)
-    %artist% - artist from song's metadata
-    %album% - album from song's metadata
-    %author% - author from song's metadata
-    %song_id% - unique song ID
+  Estructura de ubicación para archivos nuevos.
+    %input_dir% - carpeta que contiene la entrada
+    %input_base% - nombre de archivo de entrada sin extensión
+    %modifiers% - características distintivas e.g. modificador de velocidad
+    %title% - titulo desde los metadatos de la canción (incluyendo modificadores)
+    %artist% - artista desde los metadatos de la canción
+    %album% - album desde los metadatos de la canción
+    %author% - autor desde los metadatos de la canción
+    %song_id% - ID único de canción
 
 terminal-task-start = <color=cyan>{$task-name}</color>: {$task-path}
 terminal-task-warning = <color=yellow>Warning</color>: {$message}
-terminal-task-error = <color=red>ERROR!</color> {$message}
-terminal-task-success = <color=green>Success!</color> {$message}
+terminal-task-error = <color=red>¡ERROR!</color> {$message}
+terminal-task-success = <color=green>¡Éxito!</color> {$message}
 
 ## batch recompile
 
