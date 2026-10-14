@@ -58,7 +58,7 @@ import           Onyx.FFMPEG                          (ffSourceFrom)
 import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
                                                        Tree (..), readDTABytes,
-                                                       readDTASections,
+                                                       readDTASectionsNoPreprocess,
                                                        readDTA_latin1, showDTA)
 import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        DTASingle (..),
@@ -183,7 +183,7 @@ splitSongsDTA :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [QuickD
 splitSongsDTA r = do
   bs <- fmap BL.toStrict $ stackIO $ useHandle r handleToByteString
   let noBOM = fromMaybe bs $ B.stripPrefix "\xEF\xBB\xBF" bs
-  sections <- readDTASections noBOM
+  sections <- readDTASectionsNoPreprocess noBOM
   fmap catMaybes $ forM sections \(bytes, chunk) -> do
     case chunk of
       Parens (Tree _ data1) -> errorToWarning do
