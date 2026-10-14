@@ -344,12 +344,12 @@ terminal-task-success = <color=green>¡Éxito!</color> {$message}
 
 ## batch recompile
 
-batch-tab-songs = Songs
-batch-tab-songs-import-label = Import:
+batch-tab-songs = Canciones
+batch-tab-songs-import-label = Importar:
 
 batch-tab-song-entry =
   {$has-title ->
-    [false] Untitled
+    [false] Sin título
    *[true] {$title}
   }{$has-artist ->
     [false] {""}
@@ -359,104 +359,104 @@ batch-tab-song-entry =
    *[false] {""}
   }
 batch-tab-songs-data-author =
-  Author: {$author}
+  Autor: {$author}
 batch-tab-songs-data-format =
-  Format: {$format}
+  Formato: {$format}
 batch-tab-songs-data-path =
-  Path: {$path}{
+  Ubicación: {$path}{
     $index ->
       [none] {""}
      *[some] {" "}(#{$index})
   }
 
-batch-tab-rb3-all-toms = Convert non-Pro Drums to all toms
-  .tooltip = When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked.
-batch-tab-gh-drums-5lane = Pro Drums to 5 lane
-batch-tab-gh-drums-4lane = Pro Drums to 4 lane
-batch-tab-rr-drums-6pad = Pro Drums to 6 pad
-batch-tab-rr-drums-4pad = Pro Drums to 4 pad
+batch-tab-rb3-all-toms = Convertir todas las notas de batería sin pro a Toms
+  .tooltip = Si activas esta opción, se agregarán marcadores de Tom a todas las notas al importar un chart de FoF/PS/CH donde no se detecte Batería Pro.
+batch-tab-gh-drums-5lane = Batería Pro a 5 lineas
+batch-tab-gh-drums-4lane = Batería Pro a 4 lineas
+batch-tab-rr-drums-6pad = Batería Pro a 6 pads
+batch-tab-rr-drums-4pad = Batería Pro a 4 pads
 
-batch-configuration-default = Default part configuration
+batch-configuration-default = Configuración de partes por defecto
 batch-configuration-rb3-fill-guitar-drums =
-  Fill empty parts with first guitar, then drums
+  Rellenar partes vacías primero con guitarra y luego con batería
 batch-configuration-rb3-fill-guitar =
-  Copy guitar to bass/keys/drums
+  Copiar guitarra a bajo/teclado/batería
 batch-configuration-rb3-fill-drums =
-  Copy drums/dance to guitar/bass/keys
+  Copiar batería/baile a guitarra/bajo/teclado
 batch-configuration-rb2-guitar-to-bass-empty =
-  Copy guitar to bass if empty
+  Copiar guitarra a bajo si bajo esta vació
 batch-configuration-rb2-guitar-to-bass =
-  Copy guitar to bass
+  Copiar guitarra a bajo
 batch-configuration-rb2-keys-to-guitar-bass-empty =
-  Keys on guitar/bass if empty
+  Teclado en guitarra/bajo si están vacíos
 batch-configuration-rb2-keys-to-guitar =
-  Keys on guitar
+  Teclado en guitarra
 batch-configuration-rb2-keys-to-bass =
-  Keys on bass
+  Teclado en bajo
 batch-configuration-rb2-drums-to-guitar-bass-empty =
-  Copy drums/dance to guitar/bass if empty
+  Copiar batería/baile a guitarra/bajo si están vacíos
 batch-configuration-rb2-drums-to-guitar-bass =
-  Copy drums/dance to guitar/bass
+  Copiar batería/baile a guitarra/bajo
 batch-configuration-ch-drums-to-guitar-empty =
-  Copy drums/dance to guitar if empty
+  Copiar batería/baile a guitarra si guitarra esta vacía
 batch-configuration-ch-drums-to-guitar =
-  Copy drums/dance to guitar
+  Copiar batería/baile a guitarra
 batch-configuration-ch-drums-to-rhythm-empty =
-  Copy drums/dance to rhythm if empty
+  Copiar batería/baile a ritmo si ritmo esta vació
 batch-configuration-ch-drums-to-rhythm =
-  Copy drums/dance to rhythm
+  Copiar batería/baile a ritmo
 batch-configuration-ch-guitar-drums-fill =
-  Copy guitar and drums to each other if one is missing
+  Copiar guitarra a batería o viceversa si falta alguna
 
-batch-task-360-con = Create Xbox 360 CON files
-batch-task-ps3-pkg = Create PS3 PKG files
-batch-task-rpcs3-pkg = Create RPCS3 PKG files
-batch-task-ps3-folder = Create PS3/RPCS3 folders
-batch-task-magma = Create Magma projects
-batch-task-ch-folder = Create CH folders
-batch-task-ch-sng = Create CH .sng files
-batch-task-ch-zip = Create CH zips
-batch-task-ps2-diy = Create PS2 DIY folders
-batch-task-ps2-add = Add to PS2 ARK as Bonus Songs
-batch-task-360-live = Create Xbox 360 LIVE files
-batch-task-preview = Build web previews
+batch-task-360-con = Crear archivos CON de Xbox 360
+batch-task-ps3-pkg = Crear archivos PKG de PS3
+batch-task-rpcs3-pkg = Crear archivos PKG de RPCS3
+batch-task-ps3-folder = Crear carpetas para PS3/RPCS3
+batch-task-magma = Crear proyectos de Magma
+batch-task-ch-folder = Crear carpetas de CH
+batch-task-ch-sng = Crear archivos .sng de CH
+batch-task-ch-zip = Crear zips de CH
+batch-task-ps2-diy = Crear carpeta manual de PS2
+batch-task-ps2-add = Agregar al ARK de canciones Bonus para PS2
+batch-task-360-live = Crear archivos LIVE para Xbox 360
+batch-task-preview = Crear vistas previas de web
 
 ## single song view
 
-song-toggle-2x-bass-pedal = 2x Bass Pedal drums
+song-toggle-2x-bass-pedal = Batería de 2x pedal de bombo
 
-part-guitar = Guitar
-part-bass = Bass
-part-keys = Keys
-part-drums = Drums
-part-vocal = Vocal
-part-rhythm = Rhythm
-part-guitar-coop = Guitar Coop
-part-vocal-animation = Vocal (animation)
+part-guitar = Guitarra
+part-bass = Bajo
+part-keys = Teclado
+part-drums = Batería
+part-vocal = Vocales
+part-rhythm = Ritmo
+part-guitar-coop = Guitarra Coop
+part-vocal-animation = Vocal (animaciones)
 
-coop-bass = Coop: Bass
-coop-rhythm = Coop: Rhythm
+coop-bass = Coop: Bajo
+coop-rhythm = Coop: Ritmo
 
 numberbox-gh5-song-id = Custom Song ID (dlc)
 numberbox-gh5-cdl = Custom Package ID (cdl)
 numberbox-rr-song-id = Custom Song ID
 numberbox-rr-leaderboard-id = Custom Leaderboard ID
 
-create-360-con = Create Xbox 360 CON file
-create-ps3-pkg = Create PS3 PKG file
-create-magma = Create Magma project
-create-ps3-folder = Create PS3/RPCS3 folder
-create-360-live = Create Xbox 360 LIVE file
-create-rpcs3-pkg = Create RPCS3 PKG file
-create-ch-folder = Create CH/PS song folder
-create-ch-sng = Create CH .sng file
-create-ch-zip = Create CH/PS zip file
-create-ps2-add-bonus = Add to PS2 ARK as Bonus Song
-create-ps2-diy = Create PS2 DIY folder
+create-360-con = Crear archivo CON de Xbox 360
+create-ps3-pkg = Crear archivo PKG de PS3
+create-magma = Crear proyecto de Magma
+create-ps3-folder = Crear carpeta para PS3/RPCS3
+create-360-live = Crear archivo LIVE de Xbox 360
+create-rpcs3-pkg = Crear archivo PKG de RPCS3
+create-ch-folder = Crear carpeta de canción para CH/PS
+create-ch-sng = Crear archivo .song de CH
+create-ch-zip = Crear zip de CH/PS
+create-ps2-add-bonus = Agregar al ARK de canciones Bonus para PS2
+create-ps2-diy = Crear carpeta manual de PS2
 
-stars-rb3-title = Rock Band 3 Star Cutoffs
-stars-gh-title = Guitar Hero 1/2 Star Cutoffs
-stars-lead = Lead
+stars-rb3-title = Umbral de estrellas para Rock Band 3
+stars-gh-title = Umbral de estrellas para Guitar Hero 1/2
+stars-lead = Principal
 stars-coop = Coop
 stars-1 = 1*: {$score}
 stars-2 = 2*: {$score}
@@ -469,78 +469,78 @@ stars-gh-4 = 4*: {$score}
 stars-gh2-5 = 5* (GH2): {$score}
 stars-gh1-5 = 5* (GH1): {$score}
 
-diff-easy = (E)
+diff-easy = (F)
 diff-medium = (M)
-diff-hard = (H)
+diff-hard = (D)
 diff-expert = (X)
 
-meta-convert = Convert
-meta-rhythm-keys = Rhythm Keys
-meta-rhythm-bass = Rhythm Bass
-meta-auto-emh = Auto EMH
-meta-expert-only = Expert Only
-meta-cover = Cover
+meta-convert = Convertir
+meta-rhythm-keys = Teclado rítmico
+meta-rhythm-bass = Bajo rítmico
+meta-auto-emh = Reducciones automáticas
+meta-expert-only = Solo experto
+meta-cover = 'Cover'
 label-track-number = #
-default-song-title = Song
+default-song-title = Canción
 
-tier = Tier {$number}
-rank = Rank
+tier = Nivel {$number}
+rank = Grado
 
-audio-plan-select = Select an audio plan
-loading-image = Loading image: {$path}
+audio-plan-select = Elegir plan de audio
+loading-image = Cargando imagen: {$path}
 
-preview-view-tracks = View Tracks
-preview-audio = Audio
-preview-background = Background
-preview-bg-none = None
+preview-view-tracks = Ver pistas
+preview-audio = Sonido
+preview-background = Fondo
+preview-bg-none = Ninguno
 
-build-rb3-con = Building RB3 CON (360)
-build-rb3-pkg = Building RB3 PKG (PS3)
-build-magma = Building Magma project
-build-rb3-ps3 = Building RB3 PS3 folders
-build-rb2-con = Building RB2 CON (360)
-build-rb2-pkg = Building RB2 PKG (PS3)
-build-rb2-ps3 = Building RB2 PS3 folders
-build-ch-folder = Building CH/PS song folder
-build-ch-zip = Building CH/PS zip file
-build-ch-sng = Building CH/PS .sng file
-build-gh1-ark = Adding to GH1 ARK file
-build-gh1-diy = Creating GH1 DIY folder (PS2)
-build-gh2-live = Building GH2 LIVE file
-build-gh2-ark = Adding to GH2 ARK file
-build-gh2-diy = Creating GH2 DIY folder (PS2)
-build-gh3-live = Building GH3 LIVE file
-build-gh3-pkg = Building GH3 PKG file
-build-gh3-ps3 = Building GH3 PS3 folders
-build-ghwor-live = Building GH:WoR LIVE file
-build-ghwor-pkg = Building GH:WoR PKG file
-build-ghwor-ps3 = Building GH:WoR PS3 folders
-build-rr-live = Building RR LIVE file
-build-rr-pkg = Building RR PKG file
+build-rb3-con = Construyendo archivo CON para RB3 (360)
+build-rb3-pkg = Construyendo archivo PKG para RB3 (PS3)
+build-magma = Construyendo proyecto de Magma
+build-rb3-ps3 = Creando carpetas de RB3 para PS3
+build-rb2-con = Construyendo archivo CON para RB2 (360)
+build-rb2-pkg = Construyendo archivo PKG para RB2 (PS3)
+build-rb2-ps3 = Creando carpetas de RB2 para PS3
+build-ch-folder = Creando carpetas para CH/PS
+build-ch-zip = Construyendo archivo zip para CH/PS
+build-ch-sng = Construyendo archivo .sng para CH/PS
+build-gh1-ark = Agregando al archivo ARK de GH1
+build-gh1-diy = Creando carpeta manual para GH1 (PS2)
+build-gh2-live = Construyendo archivo LIVE para GH2
+build-gh2-ark = Agregando al archivo ARK de GH2
+build-gh2-diy = Creando carpeta manual para GH2 (PS2)
+build-gh3-live = Construyendo archivo LIVE para GH3
+build-gh3-pkg = Construyendo archivo PKG para GH3
+build-gh3-ps3 = Creando carpetas de GH3 para PS3
+build-ghwor-live = Construyendo archivo LIVE para GH:WoR
+build-ghwor-pkg = Construyendo archivo PKG para GH:WoR
+build-ghwor-ps3 = Creando carpetas de GH:WoR para PS3
+build-rr-live = Construyendo archivo LIVE para RR
+build-rr-pkg = Construyendo archivo PKG para RR
 
 ## quick convert
 
-quick-convert-tab-rb = RB quick convert + pack creator
-quick-convert-tab-ch = CH quick convert
-quick-convert-tab-rr-renumber = RR renumber
-quick-convert-tab-gh2-pack = GH2 pack creator
-quick-convert-tab-rb-legacy-pkg = RB legacy CON->PKG
+quick-convert-tab-rb = Conversión rápida + creador de paquetes RB
+quick-convert-tab-ch = Conversión rápida CH
+quick-convert-tab-rr-renumber = Reorganizar RR
+quick-convert-tab-gh2-pack = Creador de paquetes GH2
+quick-convert-tab-rb-legacy-pkg = CON->PKG de legado RB
 
-quick-convert-limit-easy-medium-frets = Limit Easy/Medium frets
-  .tooltip = For all five-fret tracks, ensures Easy and Medium difficulties only use 3 and 4 frets respectively.
+quick-convert-limit-easy-medium-frets = Limitar trastes de Fácil/Medio
+  .tooltip = Asegura que fácil/medio usen 3/4 trastes respectivamente en cinco lineas.
 
-quick-convert-rb-black-venue = Black VENUE
-  .tooltip = Replaces the VENUE track with one that tries to provide as close to a black background as possible. Currently works on pre-RB3 songs, and songs in RBN2 format; does not work with RB3 songs using .milo venue format.
-quick-convert-rb-no-overdrive = No Overdrive
-  .tooltip = Removes overdrive phrases from all instruments.
-quick-convert-rb-no-lanes-gbk = No lanes (G/B/K)
-  .tooltip = Removes trill and tremolo lanes from Guitar/Bass/Keys and their Pro versions. Does not remove glissandos from Pro Keys.
-quick-convert-rb-no-lanes-drums = No lanes (drums)
-  .tooltip = Removes one-pad and two-pad rolls/swells from Drums.
-quick-convert-rb-no-drum-fills = No drum fills
-  .tooltip = Removes all activation fills from Drums. Does not remove a Big Rock Ending. This function is mostly useful for recording videos.
-quick-convert-rb-force-22-protar = Force 22-fret protar
-  .tooltip = For Pro Guitar/Bass with separate Mustang and Squier versions, removes the Mustang version, so all controllers will play the Squier version. This function is mostly useful for recording videos.
+quick-convert-rb-black-venue = VENUE negra
+  .tooltip = Reemplaza la pista de VENUE con una que intenta imitar un fondo negro. Funciona en canciones previas a RB3 o canciones en formato RBN2; no funciona con canciones de RB3 en formato .milo.
+quick-convert-rb-no-overdrive = Sin sobrecargar
+  .tooltip = Elimina todas las frases de sobrecargar en todos los instrumentos.
+quick-convert-rb-no-lanes-gbk = Sin carriles (G/B/K)
+  .tooltip = Elimina carriles de tremolo y trino de guitarra/bajo/teclado y sus versiones de Pro. No elimina glissandos de Teclado Pro.
+quick-convert-rb-no-lanes-drums = Sin carriles (batería)
+  .tooltip = Elimina carriles de redobles de uno o dos parches de Batería.
+quick-convert-rb-no-drum-fills = Sin rellenos en batería
+  .tooltip = Elimina los rellenos de activación de batería. No elimina los finales apoteósicos. Esta función es principalmente para grabar vídeos.
+quick-convert-rb-force-22-protar = Forzar Protarra de 22 trastes
+  .tooltip = En canciones con Guitarra/Bajo que tienen versiones distintas para Mustang y Squier, se elimina la versión de Mustang, lo cual deja solo la versión de Squier. Esta función es principalmente para grabar vídeos.
 quick-convert-rb-unmute-22-protar = Unmute >22-fret protar
   .tooltip = Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input.
 quick-convert-rb-decompress-milo = Decompress .milo_*
@@ -551,7 +551,7 @@ quick-convert-rb-strip-title-tags = Strip title tags
   .tooltip = Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc.
 quick-convert-rb-note-shuffle = Note shuffle
   .tooltip = Shuffles notes on 5-fret and drum parts.
-quick-convert-rb-decrypt-moggs = Decrypt MOGGs
+quick-convert-rb-decrypt-moggs = Desencriptar MOGGs
   .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
 
 quick-convert-ch-chart-to-midi = .chart to MIDI
@@ -574,9 +574,9 @@ quick-convert-mode-make-dolphin = Make Dolphin (Wii) pack
 quick-convert-format-con = CON (360)
 quick-convert-format-live = LIVE (360)
 quick-convert-format-pkg = PKG (PS3)
-quick-convert-format-folders = Folders (PS3)
+quick-convert-format-folders = Carpetas (PS3)
 
-quick-convert-encrypt-edat = Encrypt .mid.edat
+quick-convert-encrypt-edat = Encriptar .mid.edat
 quick-convert-for-ps3-files = For PS3 files:
 
 quick-convert-folder-keep = Keep original USRDIR subfolders
