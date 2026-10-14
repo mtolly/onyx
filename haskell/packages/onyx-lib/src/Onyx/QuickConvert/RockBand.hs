@@ -50,6 +50,7 @@ import qualified Data.Text                            as T
 import qualified Data.Text.Encoding                   as TE
 import           Data.Text.Encoding.Error             (lenientDecode)
 import           Data.Tuple.Extra                     (fst3, snd3, thd3)
+import           Data.Word                            (Word32)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
@@ -90,6 +91,7 @@ import           Onyx.MIDI.Track.File                 (parseTrackReport,
 import           Onyx.MIDI.Track.FiveFret             (FiveTrack)
 import           Onyx.Mode                            (drumNoteShuffle,
                                                        fiveNoteShuffle)
+import           Onyx.Neversoft.CRC                   (crc32)
 import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
@@ -569,13 +571,19 @@ makePS3DTA = adjustChunk where
   adjustTree (Tree nid chunks) = Tree nid $ adjustChunks chunks
   adjustChunks = \case
     [Sym "rating" , Int 4] -> [Sym "rating" , Int 2]
-    [Sym "song_id", Sym s] -> [Sym "song_id", Int $ quickSongID $ hash s]
+    [Sym "song_id", Sym s] -> [Sym "song_id", Int $ correctSongID s]
     xs                     -> map adjustChunk xs
   adjustChunk = \case
     Parens   tree -> Parens   $ adjustTree tree
     Braces   tree -> Braces   $ adjustTree tree
     Brackets tree -> Brackets $ adjustTree tree
     x             -> x
+
+-- matching CorrectSongID from RBEnhanced
+correctSongID :: B.ByteString -> Int32
+correctSongID str = let
+  w32 = (rem (crc32 str) 9999999) + 2130000000 :: Word32
+  in fromIntegral w32 :: Int32
 
 quickSongID :: Int -> Int32
 quickSongID orig = let
