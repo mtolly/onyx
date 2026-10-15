@@ -15,8 +15,11 @@ case $(uname) in
     cp org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/share/metainfo/
     stack exec -- onyx-package changes
     stack exec -- onyx-package version-write Onyx.AppDir/usr/share/metainfo/org.onyxite.onyx.appdata.xml Onyx.AppDir/usr/bin/onyx-resources/README.html
+    # first 4 excludes fix segfault on some distros due to newer fontconfig with older pango.
+    # libXft exclude is since ubuntu 20.04's lacks color emoji
     stack exec -- onyx-package version-print \
-      | env LD_LIBRARY_PATH="$(pwd)"/dependencies/root/lib xargs -I{} env VERSION={} linuxdeploy --appdir Onyx.AppDir --output appimage
+      | env LD_LIBRARY_PATH="$(pwd)"/dependencies/root/lib xargs -I{} env VERSION={} linuxdeploy --appdir Onyx.AppDir --output appimage \
+      --exclude-library 'libpango*' --exclude-library 'libcairo*' --exclude-library 'libglib-2.0*' --exclude-library 'libgobject-2.0*' --exclude-library 'libXft*'
     stack exec -- onyx-package version-print | xargs -I{} mv Onyx-{}-x86_64.AppImage onyx-{}-linux-x64.AppImage
     ;;
 
