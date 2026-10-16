@@ -47,6 +47,10 @@ parts:
     drums:
       mode: elite
       kicks: 1
+  bass:
+    pro-guitar:
+      tuning:
+        base: bass-4
 targets:
   rb3:
     game: rb3

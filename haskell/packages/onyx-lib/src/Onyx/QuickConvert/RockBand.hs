@@ -50,6 +50,7 @@ import qualified Data.Text                            as T
 import qualified Data.Text.Encoding                   as TE
 import           Data.Text.Encoding.Error             (lenientDecode)
 import           Data.Tuple.Extra                     (fst3, snd3, thd3)
+import           Data.Word                            (Word32)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
@@ -57,13 +58,14 @@ import           Onyx.FFMPEG                          (ffSourceFrom)
 import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
                                                        Tree (..), readDTABytes,
-                                                       readDTASections,
+                                                       readDTASectionsNoPreprocess,
                                                        readDTA_latin1, showDTA)
 import           Onyx.Harmonix.DTA.C3                 (C3DTAComments (..),
                                                        DTASingle (..),
                                                        insertCommentsBytes,
                                                        readDTASingles,
                                                        writeDTASingle)
+import           Onyx.Harmonix.DTA.Match              (matchFormatDTA)
 import qualified Onyx.Harmonix.DTA.Serialize.RockBand as D
 import           Onyx.Harmonix.Magma                  (RBAFiles (..),
                                                        isReadableBMP,
@@ -90,6 +92,7 @@ import           Onyx.MIDI.Track.File                 (parseTrackReport,
 import           Onyx.MIDI.Track.FiveFret             (FiveTrack)
 import           Onyx.Mode                            (drumNoteShuffle,
                                                        fiveNoteShuffle)
+import           Onyx.Neversoft.CRC                   (crc32)
 import           Onyx.Nintendo.U8                     (packU8Folder)
 import           Onyx.PlayStation.NPData
 import           Onyx.PlayStation.PKG
@@ -121,7 +124,7 @@ data QuickSong = QuickSong
   }
 
 data QuickDTA = QuickDTA
-  { qdtaOriginal      :: B.ByteString -- not used for output anymore, may get out of sync with parsed/comments
+  { qdtaOriginal      :: B.ByteString -- may get out of sync with parsed/comments, but guides formatting when writing result
   , qdtaParsed        :: Chunk B.ByteString
   , qdtaComments      :: [B.ByteString] -- c3 style extra comments
   , qdtaFolder        :: T.Text -- in 'songs/foo/bar.mid', this is 'foo'
@@ -181,7 +184,7 @@ splitSongsDTA :: (SendMessage m, MonadIO m) => Readable -> StackTraceT m [QuickD
 splitSongsDTA r = do
   bs <- fmap BL.toStrict $ stackIO $ useHandle r handleToByteString
   let noBOM = fromMaybe bs $ B.stripPrefix "\xEF\xBB\xBF" bs
-  sections <- readDTASections noBOM
+  sections <- readDTASectionsNoPreprocess noBOM
   fmap catMaybes $ forM sections \(bytes, chunk) -> do
     case chunk of
       Parens (Tree _ data1) -> errorToWarning do
@@ -569,13 +572,19 @@ makePS3DTA = adjustChunk where
   adjustTree (Tree nid chunks) = Tree nid $ adjustChunks chunks
   adjustChunks = \case
     [Sym "rating" , Int 4] -> [Sym "rating" , Int 2]
-    [Sym "song_id", Sym s] -> [Sym "song_id", Int $ quickSongID $ hash s]
+    [Sym "song_id", Sym s] -> [Sym "song_id", Int $ correctSongID s]
     xs                     -> map adjustChunk xs
   adjustChunk = \case
     Parens   tree -> Parens   $ adjustTree tree
     Braces   tree -> Braces   $ adjustTree tree
     Brackets tree -> Brackets $ adjustTree tree
     x             -> x
+
+-- matching CorrectSongID from RBEnhanced
+correctSongID :: B.ByteString -> Int32
+correctSongID str = let
+  w32 = (rem (crc32 str) 9999999) + 2130000000 :: Word32
+  in fromIntegral w32 :: Int32
 
 quickSongID :: Int -> Int32
 quickSongID orig = let
@@ -696,17 +705,17 @@ saveQuickSongsSTFS decrypt qsongs opts fout = do
   xboxFolders <- forM qsongs \qsong -> do
     xboxFolder <- mapMFilesWithName (getXboxFile decrypt . discardSize) qsong.quickSongFiles
     return (qsong.quickSongDTA.qdtaFolder, xboxFolder)
-  let songsFolder = Folder
-        { folderSubfolders = xboxFolders
-        , folderFiles = [("songs.dta", songsDTA)]
-        }
+  glued <- glueDTAMatch $ qsongs <&> \qsong ->
+    (qsong.quickSongDTA.qdtaOriginal, qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
+  let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle glued
       topFolder = Folder
         { folderSubfolders = [("songs", songsFolder)]
         , folderFiles = []
         }
-      songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
-        qsong <- qsongs
-        return (qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
+      songsFolder = Folder
+        { folderSubfolders = xboxFolders
+        , folderFiles = [("songs.dta", songsDTA)]
+        }
   stackIO $ makeCONReadable opts topFolder fout
 
 data QuickPS3Folder
@@ -749,11 +758,10 @@ quickSongsPS3Folder qsongs settings = do
         mcrypt = guard settings.qcPS3EncryptMIDI >> Just (chosenFolder, settings.qcPS3RB3)
     ps3Folder <- mapMFilesWithName (getPS3File mcrypt settings.qcPS3EncryptMOGG . discardSize) qsong.quickSongFiles
     return $ Map.singleton chosenFolder [(qsong, ps3Folder)]
-  return $ mconcat do
-    (usrdirSub, songs) <- Map.toList qsongMapping
-    let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle $ glueDTA do
-          (qsong, _) <- songs
-          return (makePS3DTA qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
+  mconcat <$> forM (Map.toList qsongMapping) \(usrdirSub, songs) -> do
+    glued <- glueDTAMatch $ songs <&> \(qsong, _) ->
+      (qsong.quickSongDTA.qdtaOriginal, makePS3DTA qsong.quickSongDTA.qdtaParsed, qsong.quickSongDTA.qdtaComments)
+    let songsDTA = makeHandle "songs.dta" $ byteStringSimpleHandle glued
     return $ singleFolder (TE.decodeLatin1 usrdirSub) $ singleFolder "songs" Folder
       { folderFiles = [("songs.dta", songsDTA)]
       , folderSubfolders = map (first (.quickSongDTA.qdtaFolder)) songs
@@ -867,6 +875,12 @@ saveQuickSongsDolphin qsongs settings dout = tempDir "onyx-dolphin" \temp -> do
   stackIO $ packU8Folder meta out1
   stackIO $ packU8Folder song out2
   return [out1, out2]
+
+glueDTAMatch :: (SendMessage m) => [(B.ByteString, Chunk B.ByteString, [B.ByteString])] -> StackTraceT m BL.ByteString
+glueDTAMatch songs = BL.intercalate "\n" <$> forM songs \(orig, chunk, comments) -> do
+  errorToWarning (matchFormatDTA orig [chunk]) <&> \case
+    Just new -> new
+    Nothing  -> insertCommentsBytes (DTA 0 $ Tree 0 [chunk]) comments
 
 glueDTA :: [(Chunk B.ByteString, [B.ByteString])] -> BL.ByteString
 glueDTA = let
@@ -1185,7 +1199,8 @@ enforceEncoding enc dta = let
   in if enc == currentEncoding
     then dta -- nothing to do
     else dta
-      { qdtaParsed   = switchEncoding <$> withEncodingSetting
+      { qdtaOriginal = switchEncoding dta.qdtaOriginal
+      , qdtaParsed   = switchEncoding <$> withEncodingSetting
       , qdtaComments = switchEncoding <$> dta.qdtaComments
       }
 

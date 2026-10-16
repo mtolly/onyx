@@ -1,6 +1,16 @@
 # Version history
 
-# 20261011
+## 20261016
+
+* RB Quick Convert fixes
+  * Match RB3Enhanced's algorithm when converting symbol song IDs to integers
+  * Fix unintended DTA preprocessing removing custom source scripting
+  * Attempt to always match emitted `songs.dta` formatting to the original input
+* Fix segfault on some Linux distros due to bundled library mismatch
+* Fix some file save dialogs whose default filenames were messed up
+  during GUI refactoring
+
+## 20261011
 
 * Initial support for GUI localization
 * Apple Silicon build for macOS
@@ -27,7 +37,7 @@
   * Donkey Konga, 1-3 J/U/E
   * Taiko no Tatsujin PS2 games
 
-# 20251011
+## 20251011
 
 * Improvements to 3D preview
   * Track names below highways
@@ -51,7 +61,7 @@
 * Fix drum lanes being split up by different velocity notes
   when importing from CH format
 
-# 20240928
+## 20240928
 
 * Change Clone Hero output to use newer open note encoding
   * Allows open sustains under other notes + fixes handling of "open chords"
@@ -67,7 +77,7 @@
 * Add preferences for selecting encoding of `songs.dta` in RB3 recompile
   and Quick Convert packs
 
-# 20240719
+## 20240719
 
 * Support for encrypted Rock Band MOGG files
   * RB 1-4 (except TBRB)
@@ -111,7 +121,7 @@
 
 Special thanks to Maxton for encrypted MOGG and Bink support.
 
-# 20240202
+## 20240202
 
 * Add a tab under Quick Convert for conversion of CH files
   between folder and `.sng`, plus audio reencoding
@@ -123,7 +133,7 @@ Special thanks to Maxton for encrypted MOGG and Bink support.
 * Fix a few audio processing bugs when importing from GH2 (360) and Neversoft GH
 * Process Neversoft PS2 `.HED` files more correctly
 
-# 20240120
+## 20240120
 
 * Support separate instrument audio for GH:WoR export
 * Support drums using GH-style audio with separated toms and cymbals

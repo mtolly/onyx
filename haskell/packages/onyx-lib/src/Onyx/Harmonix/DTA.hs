@@ -11,7 +11,7 @@ module Onyx.Harmonix.DTA
 , readDTA, showDTA
 , readFileDTA, readFileDTA_latin1, readFileDTA_utf8
 , readFileDTA_latin1', readFileDTA_utf8'
-, readDTABytes, readDTASections, readDTA_latin1
+, readDTABytes, readDTASections, readDTASectionsNoPreprocess, readDTA_latin1
 , writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
 , removeBOM
@@ -89,12 +89,13 @@ readDTA_latin1 bs = scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
 readDTABytes :: (Monad m) => B.ByteString -> StackTraceT m (DTA B.ByteString)
 readDTABytes bs = fmap (B8.pack . T.unpack) <$> readDTA_latin1 bs
 
-readDTASections :: (SendMessage m) => B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
-readDTASections bs = do
+readDTASections' :: (SendMessage m) => Bool -> B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
+readDTASections' preproc bs = do
   sectsOrig <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStackPositions
   -- lego RB needs preprocess before splitting into chunks due to #ifdefs.
-  -- though we'd normally read from .dtb there anyway, but good to be safe
-  sects <- runPreprocess sectsOrig
+  -- though we'd normally read from .dtb there anyway, but good to be safe.
+  -- option to not preprocess is used for quick convert
+  sects <- (if preproc then runPreprocess else return) sectsOrig
   return do
     (sect, next) <- zip sects $ map Just (drop 1 sects) ++ [Nothing]
     let AlexPn startBytes _ _ = fst sect
@@ -103,6 +104,11 @@ readDTASections bs = do
           Just (AlexPn endBytes _ _, _) -> B.take $ endBytes - startBytes
         sectBS = taker $ B.drop startBytes bs
     return (sectBS, B8.pack . T.unpack <$> snd sect)
+
+readDTASections, readDTASectionsNoPreprocess
+  :: (SendMessage m) => B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
+readDTASections             = readDTASections' True
+readDTASectionsNoPreprocess = readDTASections' False
 
 readFileDTA_utf8' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
 readFileDTA_utf8' f = inside ("DTA file: " ++ show f) do

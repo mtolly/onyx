@@ -1,10 +1,11 @@
 {-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE BlockArguments    #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData        #-}
-module Onyx.Harmonix.DTA.Scan (scan, scanEither, scanStack, Token(..), AlexPosn(..)) where
+module Onyx.Harmonix.DTA.Scan (scan, scanEither, scanStack, scanSpansEither, scanSpansStack, Token(..), AlexPosn(..)) where
 
 import           Control.Monad.Trans.State.Strict
 import           Data.Bifunctor                   (first)
@@ -39,14 +40,21 @@ data Token s
   | IfNDef
   | Autorun
   | Undef
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor)
 
 scanEither :: T.Text -> Either String [(AlexPosn, Token T.Text)]
-scanEither t = first showError $ evalState parseAllTokens (alexStartPos, t)
+scanEither = fmap (map \(start, _, tok) -> (start, tok)) . scanSpansEither
+
+-- | Like 'scanEither', but also returns the position just after each token.
+scanSpansEither :: T.Text -> Either String [(AlexPosn, AlexPosn, Token T.Text)]
+scanSpansEither t = first showError $ evalState parseAllTokens (alexStartPos, t)
   where showError (AlexPn _ line column, s) = concat
           [ "DTA token error at line " <> show line <> ", column " <> show column <> ": "
           , s
           ]
+
+scanSpansStack :: (Monad m) => T.Text -> StackTraceT m [(AlexPosn, AlexPosn, Token T.Text)]
+scanSpansStack = either fatal return . scanSpansEither
 
 scan :: T.Text -> [(AlexPosn, Token T.Text)]
 scan = either error id . scanEither
@@ -89,12 +97,15 @@ data TokenResult
   | ParseError AlexPosn String
   | ParseSuccess AlexPosn (Token T.Text)
 
-parseAllTokens :: Parse (Either (AlexPosn, String) [(AlexPosn, Token T.Text)])
+parseAllTokens :: Parse (Either (AlexPosn, String) [(AlexPosn, AlexPosn, Token T.Text)])
 parseAllTokens = go Seq.empty where
   go cur = parseToken >>= \case
     EOF              -> return $ Right $ toList cur
     ParseError   p s -> return $ Left (p, s)
-    ParseSuccess p t -> go $ cur Seq.|> (p, t)
+    ParseSuccess p t -> do
+      -- parseToken leaves the state just past the end of the token
+      (end, _) <- get
+      go $ cur Seq.|> (p, end, t)
 
 parseToken :: Parse TokenResult
 parseToken = do

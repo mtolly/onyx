@@ -8,6 +8,12 @@ for f in dependencies/libs/*; do
   (cd "$f" && git clean -fdx .)
 done
 
+for f in packages/*; do
+  (cd "$f" && git clean -fdx .)
+done
+
+(cd packages/onyx-js/quickjs && git clean -fdx .)
+
 git clean -fdx dependencies/root/
 
 find packages -type d -name .stack-work -prune -exec rm -r {} +

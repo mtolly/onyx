@@ -21,5 +21,7 @@ RUN wget -qO- https://get.haskellstack.org/ | sh
 
 COPY . /onyx
 RUN cd /onyx && ./stack-local setup
+RUN cd /onyx && ./stack-local build onyx-lib
+RUN cd /onyx && ./stack-local build onyx-lib-game
 RUN cd /onyx && ./stack-local build
 RUN cd /onyx && ./package
