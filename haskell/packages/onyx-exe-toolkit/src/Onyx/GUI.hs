@@ -2845,22 +2845,25 @@ miscPageMOGG sink tab startTasks = do
       in (entry, sublines)
 
   let makeSaveAudioButton
-        :: Ptr Fl_Button -> String -> T.Text
+        :: Ptr Fl_Button -> T.Text
         -> ([AudioSpec] -> FilePath -> Onyx ()) -> IO ()
-      makeSaveAudioButton btn filterStr defaultExt task' = do
+      makeSaveAudioButton btn defaultExt task' = do
         setCallback btn $ sink $ EventIO do
           audio <- readMVar loadedAudio
           let title = l10nArgs "file-picker-save-multitrack-audio"
                 [("extension", vString defaultExt)]
               preset = case audio of
-                [aud] -> Just $ T.pack $ takeFileName aud.path -<.> T.unpack defaultExt
-                _     -> Just $ "out." <> defaultExt
-          saveFileChooser title (T.pack filterStr) preset \f -> let
-              ext = map toLower $ takeExtension f
-              f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
-              in sink $ EventOnyx $ task' audio f'
+                [aud] -> T.pack $ takeFileName aud.path -<.> T.unpack defaultExt
+                _     -> "out." <> defaultExt
+              dir = case audio of
+                aud : _ -> Just $ T.pack $ takeDirectory aud.path
+                []      -> Nothing
+          saveFileChooser title preset dir \f -> let
+            ext = map toLower $ takeExtension f
+            f' = if ext == "." ++ T.unpack defaultExt then f else f <.> T.unpack defaultExt
+            in sink $ EventOnyx $ task' audio f'
 
-  makeSaveAudioButton btnMogg "*.mogg" "mogg" \audio f' ->
+  makeSaveAudioButton btnMogg "mogg" \audio f' ->
     startTasks case isSingleOgg audio of
       Just aud -> [(T.unpack $ l10n "mogg-task-ogg", oggToMoggFiles aud.path f' >> return [f'])]
       Nothing  -> let
@@ -2877,7 +2880,7 @@ miscPageMOGG sink tab startTasks = do
           return [f']
         in [(T.unpack $ l10n "mogg-task-mogg", task)]
 
-  makeSaveAudioButton btnVgs "*.vgs" "vgs" \audio f' ->
+  makeSaveAudioButton btnVgs "vgs" \audio f' ->
     startTasks let
       task = do
         srcs <- mapM (buildSource' . Input . (.path)) audio
@@ -2885,7 +2888,7 @@ miscPageMOGG sink tab startTasks = do
         return [f']
       in [(T.unpack $ l10n "mogg-task-vgs", task)]
 
-  makeSaveAudioButton btnFsb3 "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb3 "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb3" \tmp -> do
         wavs <- forM (zip [0..] audio) \(i, aud) -> do
@@ -2897,7 +2900,7 @@ miscPageMOGG sink tab startTasks = do
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb3", task)]
 
-  makeSaveAudioButton btnFsb4 "*.fsb" "fsb" \audio f' ->
+  makeSaveAudioButton btnFsb4 "fsb" \audio f' ->
     startTasks let
       task = tempDir "makefsb4" \tmp -> do
         let wav = tmp </> "audio.wav"
@@ -2950,7 +2953,7 @@ miscPageMIDI sink tab startTasks = do
       let btn = tab.mpReduce
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser (l10n "file-picker-save-reduced-midi") "*.mid" (Just $ T.pack $ input -<.> "reduced.mid") \f -> let
+        saveFileChooser (l10n "file-picker-save-reduced-midi") (T.pack $ takeFileName input -<.> "reduced.mid") (Just $ T.pack $ takeDirectory input) \f -> let
           ext = map toLower $ takeExtension f
           f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
           in sink $ EventOnyx let
@@ -2977,7 +2980,7 @@ miscPageMIDI sink tab startTasks = do
       let btn = tab.mpReaper
       setCallback btn $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser (l10n "file-picker-save-reaper") "*.RPP" (Just $ T.pack $ input -<.> "RPP") \f -> let
+        saveFileChooser (l10n "file-picker-save-reaper") (T.pack $ takeFileName input -<.> "RPP") (Just $ T.pack $ takeDirectory input) \f -> let
           ext = map toUpper $ takeExtension f
           f' = if ext == ".RPP" then f else f <.> "RPP"
           in sink $ EventOnyx let
@@ -2991,7 +2994,7 @@ miscPageMIDI sink tab startTasks = do
       let btn1 = tab.mpChartToMidi
       setCallback btn1 $ sink $ EventIO do
         input <- pickedFile
-        saveFileChooser (l10n "file-picker-save-midi") "*.mid" (Just $ T.pack $ input -<.> ".mid") \f -> let
+        saveFileChooser (l10n "file-picker-save-midi") (T.pack $ takeFileName input -<.> "mid") (Just $ T.pack $ takeDirectory input) \f -> let
           ext = map toLower $ takeExtension f
           f' = if elem ext [".mid", ".midi"] then f else f <.> "mid"
           in sink $ EventOnyx let
