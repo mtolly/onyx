@@ -378,7 +378,7 @@ maniaToProKeys part = do
       _ -> (RangeC, [RedYellow C, RedYellow D, RedYellow E, RedYellow F, RedYellow G, RedYellow A, RedYellow B, BlueGreen C, BlueGreen D, BlueGreen E])
     in ProKeysResult
       { settings = ModeProKeys
-        { difficulty  = Tier 1
+        { difficulty  = Nothing
         , fixFreeform = False
         }
       , difficulties = Map.singleton Expert mempty

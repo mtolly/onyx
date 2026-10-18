@@ -183,7 +183,7 @@ importMagma fin level = do
       , fileAlbumArt = Just art
       , trackNumber  = Just $ fromIntegral rbproj.metadata.trackNumber
       , comments     = []
-      , difficulty   = Tier rbproj.gamedata.rankBand
+      , difficulty   = Just $ Tier rbproj.gamedata.rankBand
       , key          = fmap (`SongKey` Major) $ c3 >>= (.tonicNote)
       , author       = Just rbproj.metadata.author
       , rating       = case fmap (.songRating) c3 of
@@ -258,7 +258,7 @@ importMagma fin level = do
           let mode = DrumsPro -- TODO set to Drums4 for magma v1?
               kicks = if is2x then Kicks2x else Kicks1x
           Just $ emptyPartDrums mode kicks
-            & do set #difficulty $ Tier rbproj.gamedata.rankDrum
+            & do set #difficulty $ Just $ Tier rbproj.gamedata.rankDrum
             &    set #kit do
               case fmap (.drumKitSFX) c3 of
                 Nothing -> HardRockKit
@@ -271,7 +271,7 @@ importMagma fin level = do
         )
       , ( PartGuitar, emptyPart
         { grybo = guard (isJust gtr) >> Just ModeFive
-          { difficulty = Tier rbproj.gamedata.rankGuitar
+          { difficulty = Just $ Tier rbproj.gamedata.rankGuitar
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -281,7 +281,7 @@ importMagma fin level = do
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= (.proGuitarDiff)
           Just ModeProGuitar
-            { difficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
+            { difficulty = Just $ Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
               { gtrBase = Guitar6
@@ -298,7 +298,7 @@ importMagma fin level = do
         })
       , ( PartBass, emptyPart
         { grybo = guard (isJust bass) >> Just ModeFive
-          { difficulty = Tier rbproj.gamedata.rankBass
+          { difficulty = Just $ Tier rbproj.gamedata.rankBass
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -308,7 +308,7 @@ importMagma fin level = do
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= (.proBassDiff)
           Just ModeProGuitar
-            { difficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
+            { difficulty = Just $ Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
               { gtrBase = bassBase
@@ -325,7 +325,7 @@ importMagma fin level = do
         })
       , ( PartKeys, emptyPart
         { grybo = guard (isJust keys) >> Just ModeFive
-          { difficulty = Tier rbproj.gamedata.rankKeys
+          { difficulty = Just $ Tier rbproj.gamedata.rankKeys
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -333,13 +333,13 @@ importMagma fin level = do
           , detectMutedOpens = True
           }
         , proKeys = guard (isJust keys && maybe False (not . (.disableProKeys)) c3) >> Just ModeProKeys
-          { difficulty = Tier rbproj.gamedata.rankProKeys
+          { difficulty = Just $ Tier rbproj.gamedata.rankProKeys
           , fixFreeform = False
           }
         })
       , ( PartVocal, emptyPart & #vocal .~ do
           guard (isJust vox) >> Just ModeVocal
-            { difficulty = Tier rbproj.gamedata.rankVocals
+            { difficulty = Just $ Tier rbproj.gamedata.rankVocals
             , count = if
               | rbproj.dryVox.part2.dryVoxEnabled -> Vocal3
               | rbproj.dryVox.part1.dryVoxEnabled -> Vocal2

@@ -150,7 +150,7 @@ importAmplitudeSong songFolder moggSongName level = do
           { name = diff
           , keys = 3
           , style = ManiaAmplitude inst
-          , difficulty = Tier 1 -- ?
+          , difficulty = Nothing -- ?
           }
         })
     }

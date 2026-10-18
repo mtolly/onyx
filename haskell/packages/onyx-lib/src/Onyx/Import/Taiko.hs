@@ -435,5 +435,5 @@ taikoSongYaml title (diffName, tier) preview samples chart audio = let
     , targets = HM.empty
     , parts = Parts $ HM.singleton F.PartDrums
       $ (emptyPart :: Part SoftFile)
-      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ Tier (fromIntegral tier))
+      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ Just (Tier $ fromIntegral tier))
     }

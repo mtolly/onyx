@@ -300,7 +300,7 @@ importDKSong info rating isMidi chartFile dsp level = do
     , targets = HM.empty
     , parts = Parts $ HM.singleton F.PartDrums
       $ (emptyPart :: Part SoftFile)
-      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ maybe (Tier 1) Tier rating)
+      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ fmap Tier rating)
     }
 
 convertDKDrums :: RTB.T U.Seconds (DKEvent U.Seconds) -> DrumTrack U.Seconds

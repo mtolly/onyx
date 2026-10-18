@@ -505,7 +505,7 @@ importPowerGigSong key song folder level = do
       , catEMH = False
       , expertOnly = False
       , cover = False
-      , difficulty = Tier 1
+      , difficulty = Nothing
       , loadingPhrase = Nothing
       }
     , jammit = HM.empty
@@ -532,13 +532,13 @@ importPowerGigSong key song folder level = do
     , parts = Parts $ HM.fromList
       -- do all songs have all instruments?
       [ (F.PartGuitar, emptyPart & #grybo .~ Just do
-        (def :: ModeFive) & #difficulty .~ Tier 1 -- TODO
+        (def :: ModeFive) -- TODO difficulty
         )
       , (F.PartDrums, (emptyPart :: Part SoftFile)
         & #drums .~ Just (emptyPartDrums Drums4 Kicks1x) -- TODO difficulty
         )
       , (F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
-          { difficulty = Tier 1 -- TODO
+          { difficulty = Nothing -- TODO
           , gender = song.song_info.info_singer_gender >>= \case
             "male"   -> Just Male
             "female" -> Just Female

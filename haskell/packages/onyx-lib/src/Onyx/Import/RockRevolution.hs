@@ -257,17 +257,17 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
     , parts = Parts $ HM.fromList $ concat
       [ case skullsToTier $ getSkulls "GuitarDifficulty" of
         Just tier -> [(F.PartGuitar, emptyPart & #grybo .~ Just do
-          (def :: ModeFive) & #difficulty .~ tier
+          (def :: ModeFive) & #difficulty .~ Just tier
           )]
         Nothing -> []
       , case skullsToTier $ getSkulls "BassDifficulty" of
         Just tier -> [(F.PartBass, emptyPart & #grybo .~ Just do
-          (def :: ModeFive) & #difficulty .~ tier
+          (def :: ModeFive) & #difficulty .~ Just tier
           )]
         Nothing -> []
       , case skullsToTier $ getSkulls "DrumDifficulty" of
         Just tier -> [(F.PartDrums, emptyPart & #drums .~ Just do
-          emptyPartDrums DrumsElite Kicks1x & #difficulty .~ tier
+          emptyPartDrums DrumsElite Kicks1x & #difficulty .~ Just tier
           )]
         Nothing -> []
       {-

@@ -398,15 +398,15 @@ importSetDef setDefPath song level = do
               then KicksBoth
               else Kicks1x
             in (emptyPartDrums DrumsElite kicks :: ModeDrums SoftFile)
-              & #difficulty .~ translateDifficulty diff.dtx_DLEVEL diff.dtx_DLVDEC
+              & #difficulty .~ Just (translateDifficulty diff.dtx_DLEVEL diff.dtx_DLVDEC)
             )
           , topGuitarDiff <&> \diff -> (F.PartGuitar, emptyPart & #grybo .~ Just do
             (def :: ModeFive)
-              & #difficulty .~ translateDifficulty diff.dtx_GLEVEL diff.dtx_GLVDEC
+              & #difficulty .~ Just (translateDifficulty diff.dtx_GLEVEL diff.dtx_GLVDEC)
             )
           , topBassDiff <&> \diff -> (F.PartBass, emptyPart & #grybo .~ Just do
             (def :: ModeFive)
-              & #difficulty .~ translateDifficulty diff.dtx_BLEVEL diff.dtx_BLVDEC
+              & #difficulty .~ Just (translateDifficulty diff.dtx_BLEVEL diff.dtx_BLVDEC)
             )
           ]
         }

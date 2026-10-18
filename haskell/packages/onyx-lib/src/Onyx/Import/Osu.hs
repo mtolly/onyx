@@ -216,7 +216,7 @@ importOsu separateSongs f = do
               { name = "chart"
               , keys = fromIntegral $ maniaColumnCount osu
               , style = if osu.general.specialStyle then ManiaTurntable else ManiaDefault
-              , difficulty = Tier 1 -- ?
+              , difficulty = Nothing -- ?
               }
             )
       }

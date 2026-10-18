@@ -113,7 +113,7 @@ importEncore dir level = do
         SoftFile ("album" <.> takeExtension f) $ SoftReadable $ fileReadable f
       , trackNumber   = Nothing
       , comments      = []
-      , difficulty    = Tier 1
+      , difficulty    = Nothing
       , key           = Nothing
       , author        = case info.charters of
         [] -> Nothing
@@ -198,7 +198,7 @@ encoreToOnyxMIDI = fmap (\encore -> mempty
   , F.onyxBeat     = encore.beat
   }) . checkEnableDynamicsEncore
 
-importPadMania :: P.Difficulty -> EncorePart U.Beats -> Maybe ModeMania
+importPadMania :: Maybe P.Difficulty -> EncorePart U.Beats -> Maybe ModeMania
 importPadMania tier part = do
   convertedDiffs <- NE.nonEmpty $ encorePart part
   return $ ModeMania $ convertedDiffs <&> \(name, diff) -> ManiaChart
@@ -226,7 +226,7 @@ encorePartData diffs mid = let
       & #grybo .~ do
         tier <- getTier ["pg", "plastic_guitar"]
         Just ModeFive
-          { difficulty = tier
+          { difficulty = Just tier
           , hopoThreshold = 170
           , fixFreeform = False
           , smoothFrets = False
@@ -235,13 +235,13 @@ encorePartData diffs mid = let
           }
       & #mania .~ do
         tier <- getTier ["gr", "guitar"]
-        importPadMania tier mid.tracks.partGuitar.part
+        importPadMania (Just tier) mid.tracks.partGuitar.part
       )
     , (F.PartKeys, emptyPart
       & #grybo .~ do
         tier <- getTier ["pk", "plastic_keys"] -- pk not seen but just in case
         Just ModeFive
-          { difficulty = tier
+          { difficulty = Just tier
           , hopoThreshold = 170
           , fixFreeform = False
           , smoothFrets = False
@@ -250,13 +250,13 @@ encorePartData diffs mid = let
           }
       & #mania .~ do
         tier <- getTier ["keys"]
-        importPadMania tier mid.tracks.partKeys.part
+        importPadMania (Just tier) mid.tracks.partKeys.part
       )
     , (F.PartBass, emptyPart
       & #grybo .~ do
         tier <- getTier ["pb", "plastic_bass"]
         Just ModeFive
-          { difficulty = tier
+          { difficulty = Just tier
           , hopoThreshold = 170
           , fixFreeform = False
           , smoothFrets = False
@@ -265,25 +265,25 @@ encorePartData diffs mid = let
           }
       & #mania .~ do
         tier <- getTier ["ba", "bass"]
-        importPadMania tier mid.tracks.partBass.part
+        importPadMania (Just tier) mid.tracks.partBass.part
       )
     , (F.PartDrums, emptyPart
       & #drums .~ do
         tier <- getTier ["pd", "plastic_drums"]
         Just $ emptyPartDrums DrumsPro Kicks1x
-          & #difficulty .~ tier
+          & #difficulty .~ Just tier
       & #mania .~ do
         tier <- getTier ["ds", "drums"]
-        importPadMania tier mid.tracks.partDrums.part
+        importPadMania (Just tier) mid.tracks.partDrums.part
       )
     , (F.PartVocal, emptyPart
       & #mania .~ do
         tier <- getTier ["vl", "vocals"]
-        importPadMania tier mid.tracks.partVocals
+        importPadMania (Just tier) mid.tracks.partVocals
       & #vocal .~ do
         tier <- getTier ["pv", "pitched_vocals", "pro_vocals"]
         Just ModeVocal
-          { difficulty = tier
+          { difficulty = Just tier
           , count      = Vocal1
           , gender     = Nothing
           , key        = Nothing

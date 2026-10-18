@@ -54,8 +54,9 @@ computeDrumRank flex songYaml dmap = case getPart flex songYaml >>= anyDrums of
       , part   = mempty
       }
     in case result.settings.difficulty of
-      Rank r -> r
-      Tier t -> tierToRank dmap t
+      Nothing       -> 1
+      Just (Rank r) -> r
+      Just (Tier t) -> tierToRank dmap t
 
 computeFiveRank :: PartName -> SongYaml f -> DiffMap -> Integer
 computeFiveRank flex songYaml dmap = case getPart flex songYaml >>= anyFiveFret of
@@ -67,8 +68,9 @@ computeFiveRank flex songYaml dmap = case getPart flex songYaml >>= anyFiveFret 
       , part   = mempty
       }
     in case result.settings.difficulty of
-      Rank r -> r
-      Tier t -> tierToRank dmap t
+      Nothing       -> 1
+      Just (Rank r) -> r
+      Just (Tier t) -> tierToRank dmap t
 
 computeProKeysRank :: PartName -> SongYaml f -> DiffMap -> Integer
 computeProKeysRank flex songYaml dmap = case getPart flex songYaml >>= anyProKeys of
@@ -80,8 +82,9 @@ computeProKeysRank flex songYaml dmap = case getPart flex songYaml >>= anyProKey
       , part   = mempty
       }
     in case result.settings.difficulty of
-      Rank r -> r
-      Tier t -> tierToRank dmap t
+      Nothing       -> 1
+      Just (Rank r) -> r
+      Just (Tier t) -> tierToRank dmap t
 
 difficultyRB3 :: TargetRB3 f -> SongYaml f -> DifficultyRB3
 difficultyRB3 rb3 songYaml = let
@@ -89,8 +92,9 @@ difficultyRB3 rb3 songYaml = let
   simpleRank flex getMode dmap = case getPart flex songYaml >>= getMode of
     Nothing -> 0
     Just mode -> case mode.difficulty of
-      Rank r -> r
-      Tier t -> tierToRank dmap t
+      Nothing       -> 1
+      Just (Rank r) -> r
+      Just (Tier t) -> tierToRank dmap t
 
   rb3DrumsRank     = computeDrumRank rb3.drums  songYaml drumsDiffMap
   rb3BassRank'     = computeFiveRank rb3.bass   songYaml bassDiffMap
@@ -104,9 +108,9 @@ difficultyRB3 rb3 songYaml = let
   rb3GuitarRank    = if rb3GuitarRank' == 0 then rb3ProGuitarRank else rb3GuitarRank'
   rb3BassRank      = if rb3BassRank' == 0 then rb3ProBassRank else rb3BassRank'
   rb3BandRank      = case songYaml.metadata.difficulty of
-    Tier t -> tierToRank bandDiffMap t
-    Rank r -> r
-    -- TODO if no band difficulty, should default to average of instrument difficulties
+    Nothing       -> 1 -- TODO this could default to average of instrument difficulties
+    Just (Rank r) -> r
+    Just (Tier t) -> tierToRank bandDiffMap t
 
   rb3DrumsTier     = rankToTier drumsDiffMap     rb3DrumsRank
   rb3BassTier      = rankToTier bassDiffMap      rb3BassRank
@@ -150,8 +154,9 @@ difficultyPS ps songYaml = let
   simpleTier flex getMode dmap = case getPart flex songYaml >>= getMode of
     Nothing -> 0
     Just mode -> case mode.difficulty of
-      Tier t -> t
-      Rank r -> rankToTier dmap r
+      Nothing       -> 1
+      Just (Rank r) -> r
+      Just (Tier t) -> tierToRank dmap t
   psRhythmTier     = simpleTier ps.rhythm     (.grybo)     guitarDiffMap
   psGuitarCoopTier = simpleTier ps.guitarCoop (.grybo)     guitarDiffMap
   psDanceTier      = simpleTier ps.dance      getLastMania drumsDiffMap

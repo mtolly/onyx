@@ -683,7 +683,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
       [C.block| void { $(Fl_Tree* tree)->root_label($(char* cs)); } |]
     root <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->root() } |]
     let dummyRect = Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height 100))
-        makeDifficulty :: Ptr Fl_Tree_Item -> Difficulty -> IO (IO Difficulty)
+        makeDifficulty :: Ptr Fl_Tree_Item -> (Maybe Difficulty) -> IO (IO (Maybe Difficulty))
         makeDifficulty itemParent diff = do
           itemGroup <- [C.exp| Fl_Tree_Item* { $(Fl_Tree* tree)->add($(Fl_Tree_Item* itemParent), "") } |]
           group <- withRect dummyRect \gx gy gw gh ->
@@ -698,6 +698,8 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
               [C.block| void { $(Fl_Choice* choice)->add($(char* clabel)); } |]
           withUTF8 (l10n "rank") \crank ->
             [C.block| void { $(Fl_Choice* choice)->add($(char* crank)); } |]
+          withUTF8 (l10n "no-difficulty") \crank ->
+            [C.block| void { $(Fl_Choice* choice)->add($(char* crank)); } |]
           input <- withRect textArea \ix iy iw ih ->
             [C.exp| Fl_Input* { new Fl_Input($(int ix), $(int iy), $(int iw), $(int ih)) } |]
           let flNormalInput = [C.pure| int { FL_NORMAL_INPUT } |]
@@ -709,11 +711,12 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
                   then [C.block| void { $(Fl_Input* input)->activate(); } |]
                   else [C.block| void { $(Fl_Input* input)->deactivate(); } |]
           case diff of
-            Tier i -> setChoice $ max 0 (min (tierCount - 1) (fromIntegral i - 1))
-            Rank r -> do
+            Just (Tier i) -> setChoice $ max 0 (min (tierCount - 1) (fromIntegral i - 1))
+            Just (Rank r) -> do
               setChoice tierCount
               withUTF8 (show r) \cval ->
                 [C.block| void { $(Fl_Input* input)->value($(char* cval)); } |]
+            Nothing -> setChoice $ tierCount + 1
           controlRank
           setCallback choice controlRank
           [C.block| void { $(Fl_Group* group)->end(); } |]
@@ -723,8 +726,10 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
           return do
             i <- [C.exp| int { $(Fl_Choice* choice)->value() } |]
             if i == tierCount
-              then Rank . fromMaybe 0 . readMaybe . T.unpack <$> peekInputValue input
-              else return $ Tier $ fromIntegral i + 1
+              then Just . Rank . fromMaybe 0 . readMaybe . T.unpack <$> peekInputValue input
+              else return $ if i >= tierCount + 1
+                then Nothing
+                else Just $ Tier $ fromIntegral i + 1
     getBandDiff <- makeDifficulty root proj.projectSongYaml.metadata.difficulty
     getNewParts <- fmap catMaybes $ forM (HM.toList proj.projectSongYaml.parts.getParts) \(fpart, part) ->
       if part == emptyPart

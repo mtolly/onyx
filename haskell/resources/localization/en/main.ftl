@@ -485,6 +485,7 @@ default-song-title = Song
 
 tier = Tier {$number}
 rank = Rank
+no-difficulty = (none)
 
 audio-plan-select = Select an audio plan
 loading-image = Loading image: {$path}

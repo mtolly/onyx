@@ -213,28 +213,28 @@ gh2SongYaml mode pkg extra songChunk origMidi onyxMidi = SongYaml
       return (F.PartGuitar, emptyPart
         { grybo = Just $ def
           & do set #hopoThreshold $ maybe 170 fromIntegral songChunk.hopoThreshold
-          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
+          & do set #difficulty    $ Just $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songguitarrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "bass" songChunk.tracks.fromDictList
       return (F.PartBass, emptyPart
         { grybo = Just $ def
           & do set #hopoThreshold $ maybe 170 fromIntegral songChunk.hopoThreshold
-          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
+          & do set #difficulty    $ Just $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songbassrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "rhythm" songChunk.tracks.fromDictList
       return (F.PartName "rhythm", emptyPart
         { grybo = Just $ def
           & do set #hopoThreshold $ maybe 170 fromIntegral songChunk.hopoThreshold
-          & do set #difficulty    $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
+          & do set #difficulty    $ Just $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songrhythmrank)
         })
     , do
       guard $ maybe False (not . null) $ lookup "drum" songChunk.tracks.fromDictList
       -- TODO should probably save kicks 1x/2x so we can reimport here
       return (F.PartDrums, emptyPart & #drums .~ Just do
         emptyPartDrums Drums4 Kicks1x & #difficulty .~ do
-          Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
+          Just $ Tier $ min 1 $ maybe 1 fromIntegral $ extra >>= (.songdrumrank)
         )
     ]
   }

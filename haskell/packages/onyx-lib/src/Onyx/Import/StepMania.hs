@@ -287,7 +287,7 @@ importSM src level = do
       , keys = keyCount
       , style = if keyCount == 4 then ManiaArrows else ManiaDefault
       -- hack difficulty rating so e.g. 10 becomes 6
-      , difficulty = Tier $ fromIntegral $ max 1 $ smn.smn_NumericalMeter - 4
+      , difficulty = Just $ Tier $ fromIntegral $ max 1 $ smn.smn_NumericalMeter - 4
       }
 
   return SongYaml

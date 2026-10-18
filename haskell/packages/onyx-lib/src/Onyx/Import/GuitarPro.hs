@@ -313,7 +313,7 @@ importGPIF gpif level = do
       (name, tuning, _) <- imported
       let part = emptyPart
             { proGuitar = Just ModeProGuitar
-              { difficulty    = Tier 1
+              { difficulty    = Nothing
               , hopoThreshold = 170
               , tuning        = tuning
               , tuningRSBass  = Nothing

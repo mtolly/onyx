@@ -589,7 +589,7 @@ importRB rbi level = do
       , fileAlbumArt = art
       , trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , comments     = []
-      , difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
+      , difficulty   = HM.lookup "band" diffMap
       , key          = skey
       , author       = D.author pkg <|> rbi.comments.c3dtaAuthoredBy
       , rating       = toEnum $ fromIntegral $ D.rating pkg - 1
@@ -713,13 +713,13 @@ importRB rbi level = do
       [ ( F.PartDrums, (emptyPart :: Part SoftFile) & #drums .~ do
         guard (hasRankStr "drum")
         Just $ emptyPartDrums DrumsPro hasKicks
-          & #difficulty .~ fromMaybe (Tier 1) (HM.lookup "drum" diffMap)
+          & #difficulty .~ HM.lookup "drum" diffMap
           & #kit        .~ drumkit
           & #layout     .~ StandardLayout -- TODO import this
         )
       , ( F.PartGuitar, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "guitar") >> Just ModeFive
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
+          { difficulty = HM.lookup "guitar" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -727,7 +727,7 @@ importRB rbi level = do
           , detectMutedOpens = True
           }
         , proGuitar = guard (hasRankStr "real_guitar") >> Just ModeProGuitar
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
+          { difficulty = HM.lookup "real_guitar" diffMap
           , hopoThreshold = hopoThresh
           , tuning = GtrTuning
             { gtrBase = Guitar6
@@ -744,7 +744,7 @@ importRB rbi level = do
         })
       , ( F.PartBass, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "bass") >> Just ModeFive
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
+          { difficulty = HM.lookup "bass" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -752,7 +752,7 @@ importRB rbi level = do
           , detectMutedOpens = True
           }
         , proGuitar = guard (hasRankStr "real_bass") >> Just ModeProGuitar
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
+          { difficulty = HM.lookup "real_bass" diffMap
           , hopoThreshold = hopoThresh
           , tuning = GtrTuning
             { gtrBase = bassBase
@@ -769,7 +769,7 @@ importRB rbi level = do
         })
       , ( F.PartKeys, (emptyPart :: Part SoftFile)
         { grybo = guard (hasRankStr "keys") >> Just ModeFive
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
+          { difficulty = HM.lookup "keys" diffMap
           , hopoThreshold = hopoThresh
           , fixFreeform = False
           , smoothFrets = False
@@ -777,13 +777,13 @@ importRB rbi level = do
           , detectMutedOpens = True
           }
         , proKeys = guard (hasRankStr "real_keys") >> Just ModeProKeys
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
+          { difficulty = HM.lookup "real_keys" diffMap
           , fixFreeform = False
           }
         })
       , ( F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ do
         vocalMode <&> \vc -> ModeVocal
-          { difficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
+          { difficulty = HM.lookup "vocals" diffMap
           , count = vc
           , gender = D.vocalGender pkg
           , key = vkey

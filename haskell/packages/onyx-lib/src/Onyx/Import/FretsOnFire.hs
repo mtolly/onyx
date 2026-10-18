@@ -363,7 +363,7 @@ importFoF src dir level = do
           _         -> delayAudio $ Mix $ fmap (Input . Named . T.pack) auds'
 
   -- Used to clamp this at 7, but higher ones should be handled OK now
-  let toTier = maybe (Tier 1) \n -> Tier $ max 1 $ fromIntegral n + 1
+  let toTier = fmap \n -> Tier $ max 1 $ fromIntegral n + 1
 
   let maybe2x = listToMaybe do
         guard $ level == ImportFull

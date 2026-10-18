@@ -579,7 +579,7 @@ instance StackJSON Difficulty where
     }
 
 data ModeFive = ModeFive
-  { difficulty       :: Difficulty
+  { difficulty       :: Maybe Difficulty
   , hopoThreshold    :: Int
   , fixFreeform      :: Bool
   , sustainGap       :: Int -- ticks, 480 per beat
@@ -589,30 +589,30 @@ data ModeFive = ModeFive
 
 instance StackJSON ModeFive where
   stackJSON = asStrictObject "ModeFive" do
-    difficulty       <- (.difficulty      ) =. fill (Tier 1) "difficulty"         stackJSON
-    hopoThreshold    <- (.hopoThreshold   ) =. opt  170      "hopo-threshold"     stackJSON
-    fixFreeform      <- (.fixFreeform     ) =. opt  True     "fix-freeform"       stackJSON
-    sustainGap       <- (.sustainGap      ) =. opt  60       "sustain-gap"        stackJSON
-    smoothFrets      <- (.smoothFrets     ) =. opt  False    "smooth-frets"       stackJSON
-    detectMutedOpens <- (.detectMutedOpens) =. opt  True     "detect-muted-opens" stackJSON
+    difficulty       <- (.difficulty      ) =. opt Nothing "difficulty"         stackJSON
+    hopoThreshold    <- (.hopoThreshold   ) =. opt 170     "hopo-threshold"     stackJSON
+    fixFreeform      <- (.fixFreeform     ) =. opt True    "fix-freeform"       stackJSON
+    sustainGap       <- (.sustainGap      ) =. opt 60      "sustain-gap"        stackJSON
+    smoothFrets      <- (.smoothFrets     ) =. opt False   "smooth-frets"       stackJSON
+    detectMutedOpens <- (.detectMutedOpens) =. opt True    "detect-muted-opens" stackJSON
     return ModeFive{..}
 
 instance Default ModeFive where
   def = fromEmptyObject
 
 data ModeProKeys = ModeProKeys
-  { difficulty  :: Difficulty
+  { difficulty  :: Maybe Difficulty
   , fixFreeform :: Bool
   } deriving (Eq, Ord, Show, Generic)
 
 instance StackJSON ModeProKeys where
   stackJSON = asStrictObject "ModeProKeys" do
-    difficulty  <- (.difficulty ) =. fill (Tier 1) "difficulty"   stackJSON
-    fixFreeform <- (.fixFreeform) =. opt  True     "fix-freeform" stackJSON
+    difficulty  <- (.difficulty ) =. opt Nothing "difficulty"   stackJSON
+    fixFreeform <- (.fixFreeform) =. opt True    "fix-freeform" stackJSON
     return ModeProKeys{..}
 
 data ModeProGuitar f = ModeProGuitar
-  { difficulty    :: Difficulty
+  { difficulty    :: Maybe Difficulty
   , hopoThreshold :: Int
   , tuning        :: GtrTuning
   , tuningRSBass  :: Maybe GtrTuning -- for 5/6-string bass which also has a 4-string arrangement
@@ -654,13 +654,13 @@ tuningFormat = asStrictObject "GtrTuning" do
 
 instance (Eq f, StackJSON f) => StackJSON (ModeProGuitar f) where
   stackJSON = asStrictObject "ModeProGuitar" do
-    difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
-    hopoThreshold <- (.hopoThreshold) =. opt  170      "hopo-threshold" stackJSON
-    tuning        <- (.tuning       ) =. opt  def      "tuning"         tuningFormat
-    tuningRSBass  <- (.tuningRSBass ) =. opt  Nothing  "tuning-rs-bass" (maybeCodec tuningFormat)
-    fixFreeform   <- (.fixFreeform  ) =. opt  True     "fix-freeform"   stackJSON
-    tones         <- (.tones        ) =. opt  Nothing  "tones"          stackJSON
-    pickedBass    <- (.pickedBass   ) =. opt  False    "picked-bass"    stackJSON
+    difficulty    <- (.difficulty   ) =. opt Nothing "difficulty"     stackJSON
+    hopoThreshold <- (.hopoThreshold) =. opt 170     "hopo-threshold" stackJSON
+    tuning        <- (.tuning       ) =. opt def     "tuning"         tuningFormat
+    tuningRSBass  <- (.tuningRSBass ) =. opt Nothing "tuning-rs-bass" (maybeCodec tuningFormat)
+    fixFreeform   <- (.fixFreeform  ) =. opt True    "fix-freeform"   stackJSON
+    tones         <- (.tones        ) =. opt Nothing "tones"          stackJSON
+    pickedBass    <- (.pickedBass   ) =. opt False   "picked-bass"    stackJSON
     return ModeProGuitar{..}
 
 instance (Eq f, StackJSON f) => Default (ModeProGuitar f) where
@@ -684,14 +684,14 @@ instance (Eq f, StackJSON f) => StackJSON (RSTones f) where
     return RSTones{..}
 
 data ModeSix = ModeSix
-  { difficulty    :: Difficulty
+  { difficulty    :: Maybe Difficulty
   , hopoThreshold :: Int
   } deriving (Eq, Ord, Show, Generic)
 
 instance StackJSON ModeSix where
   stackJSON = asStrictObject "ModeSix" do
-    difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
-    hopoThreshold <- (.hopoThreshold) =. opt  170      "hopo-threshold" stackJSON
+    difficulty    <- (.difficulty   ) =. opt Nothing "difficulty"     stackJSON
+    hopoThreshold <- (.hopoThreshold) =. opt 170     "hopo-threshold" stackJSON
     return ModeSix{..}
 
 data DrumKit
@@ -754,7 +754,7 @@ instance StackJSON Kicks where
     KicksBoth -> is "both"
 
 data ModeDrums f = ModeDrums
-  { difficulty    :: Difficulty
+  { difficulty    :: Maybe Difficulty
   , mode          :: DrumMode
   , kicks         :: Kicks
   , fixFreeform   :: Bool
@@ -768,7 +768,7 @@ data ModeDrums f = ModeDrums
 
 instance (Eq f, StackJSON f) => StackJSON (ModeDrums f) where
   stackJSON = asStrictObject "ModeDrums" do
-    difficulty    <- (.difficulty   ) =. fill    (Tier 1)       "difficulty"     stackJSON
+    difficulty    <- (.difficulty   ) =. opt     Nothing        "difficulty"     stackJSON
     mode          <- (.mode         ) =. opt     DrumsPro       "mode"           stackJSON
     kicks         <- (.kicks        ) =. warning Kicks1x        "kicks"          stackJSON
     fixFreeform   <- (.fixFreeform  ) =. opt     True           "fix-freeform"   stackJSON
@@ -782,7 +782,7 @@ instance (Eq f, StackJSON f) => StackJSON (ModeDrums f) where
 
 emptyPartDrums :: DrumMode -> Kicks -> ModeDrums f
 emptyPartDrums mode kicks = ModeDrums
-  { difficulty    = Tier 1
+  { difficulty    = Nothing
   , mode          = mode
   , kicks         = kicks
   , fixFreeform   = False
@@ -804,7 +804,7 @@ instance StackJSON VocalCount where
     Vocal3 -> A.Number 3
 
 data ModeVocal f = ModeVocal
-  { difficulty :: Difficulty
+  { difficulty :: Maybe Difficulty
   , count      :: VocalCount
   , gender     :: Maybe Magma.Gender
   , key        :: Maybe Key
@@ -813,11 +813,11 @@ data ModeVocal f = ModeVocal
 
 instance (Eq f, StackJSON f) => StackJSON (ModeVocal f) where
   stackJSON = asStrictObject "ModeVocal" do
-    difficulty <- (.difficulty) =. fill (Tier 1) "difficulty"  stackJSON
-    count      <- (.count     ) =. opt  Vocal1   "count"       stackJSON
-    gender     <- (.gender    ) =. opt  Nothing  "gender"      (maybeCodec parseGender)
-    key        <- (.key       ) =. opt  Nothing  "key"         (maybeCodec parsePitch)
-    lipsyncRB3 <- (.lipsyncRB3) =. opt  Nothing  "lipsync-rb3" stackJSON
+    difficulty <- (.difficulty) =. opt Nothing "difficulty"  stackJSON
+    count      <- (.count     ) =. opt Vocal1  "count"       stackJSON
+    gender     <- (.gender    ) =. opt Nothing "gender"      (maybeCodec parseGender)
+    key        <- (.key       ) =. opt Nothing "key"         (maybeCodec parsePitch)
+    lipsyncRB3 <- (.lipsyncRB3) =. opt Nothing "lipsync-rb3" stackJSON
     return ModeVocal{..}
 
 newtype ModeMania = ModeMania
@@ -833,7 +833,7 @@ data ManiaChart = ManiaChart
   { name       :: T.Text
   , keys       :: Int
   , style      :: ManiaStyle
-  , difficulty :: Difficulty
+  , difficulty :: Maybe Difficulty
   } deriving (Eq, Ord, Show)
 
 instance StackJSON ManiaChart where
@@ -841,7 +841,7 @@ instance StackJSON ManiaChart where
     name       <- (.name)       =. req              "name"       stackJSON
     keys       <- (.keys)       =. req              "keys"       stackJSON
     style      <- (.style)      =. opt ManiaDefault "style"      stackJSON
-    difficulty <- (.difficulty) =. fill (Tier 1)    "difficulty" stackJSON
+    difficulty <- (.difficulty) =. opt Nothing      "difficulty" stackJSON
     return ManiaChart{..}
 
 data ManiaStyle
@@ -966,7 +966,7 @@ data Metadata f = Metadata
   , catEMH        :: Bool
   , expertOnly    :: Bool
   , cover         :: Bool
-  , difficulty    :: Difficulty
+  , difficulty    :: Maybe Difficulty
   , loadingPhrase :: Maybe T.Text
   } deriving (Eq, Ord, Show, Functor, Foldable, Traversable, Generic, Hashable)
 
@@ -1010,7 +1010,7 @@ parseMetadata warnings = do
   catEMH        <- (.catEMH       ) =. opt  False    "cat-emh"        stackJSON
   expertOnly    <- (.expertOnly   ) =. opt  False    "expert-only"    stackJSON
   cover         <- (.cover        ) =. opt  False    "cover"          stackJSON
-  difficulty    <- (.difficulty   ) =. fill (Tier 1) "difficulty"     stackJSON
+  difficulty    <- (.difficulty   ) =. opt  Nothing  "difficulty"     stackJSON
   loadingPhrase <- (.loadingPhrase) =. opt  Nothing  "loading-phrase" stackJSON
   return Metadata{..}
 

@@ -289,7 +289,7 @@ importBMS bmsPath level = do
                 then False -- shouldn't happen
                 else Set.member BMScratch usedKeys2
             in if turntable then ManiaTurntable else ManiaDefault
-          , difficulty = Tier 1 -- ?
+          , difficulty = Nothing -- ?
           }
         })
     }

@@ -264,10 +264,10 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
             , targets = HM.empty
             , parts = Parts $ HM.fromList
               [ (F.PartGuitar, (emptyPart :: Part SoftFile) & #grybo .~ do
-                  readTier info.songTierGuitar \diff -> (def :: ModeFive) & #difficulty .~ diff
+                  readTier info.songTierGuitar \diff -> (def :: ModeFive) & #difficulty .~ Just diff
                 )
               , (F.PartBass, (emptyPart :: Part SoftFile) & #grybo .~ do
-                  readTier info.songTierBass \diff -> (def :: ModeFive) & #difficulty .~ diff
+                  readTier info.songTierBass \diff -> (def :: ModeFive) & #difficulty .~ Just diff
                 )
               , (F.PartDrums, (emptyPart :: Part SoftFile) & #drums .~ do
                 readTier info.songTierDrums \diff -> let
@@ -278,11 +278,11 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     then Kicks1x
                     else KicksBoth
                   in (emptyPartDrums Drums5 kicks :: ModeDrums SoftFile)
-                    & #difficulty .~ diff
+                    & #difficulty .~ Just diff
                 )
               , (F.PartVocal, (emptyPart :: Part SoftFile) & #vocal .~ do
                 readTier info.songTierVocals \diff -> ModeVocal
-                  { difficulty = diff
+                  { difficulty = Just diff
                   , count      = Vocal1
                   , gender     = info.songSinger
                   , key        = Nothing
@@ -618,7 +618,7 @@ importGH4Song ghi level = do
           in emptyPartDrums Drums5 kicks
         )
       , (F.PartVocal , (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
-          { difficulty = Tier 1
+          { difficulty = Nothing
           , count      = Vocal1
           , gender     = info.gh4Singer
           , key        = Nothing

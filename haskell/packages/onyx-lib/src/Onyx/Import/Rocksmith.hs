@@ -640,7 +640,7 @@ importRSSong folder song level = do
         ((_, partName), Just sng, _, _, isBass, tones) <- namedParts
         let part = emptyPart
               { proGuitar = Just ModeProGuitar
-                { difficulty    = Tier 1
+                { difficulty    = Nothing
                 , hopoThreshold = 170
                 , tuning        = if isBass
                   -- TODO set gtrGlobal smarter (detect number applied to all offsets)
@@ -678,7 +678,7 @@ importRSSong folder song level = do
       partsMapWithVox = if isJust maybeVoxSNG
         then let
           part = (emptyPart :: Part SoftFile) & #vocal .~ Just ModeVocal
-            { difficulty = Tier 1
+            { difficulty = Nothing
             , count      = Vocal1
             , gender     = Nothing
             , key        = Nothing
