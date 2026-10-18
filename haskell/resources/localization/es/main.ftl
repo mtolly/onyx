@@ -13,7 +13,7 @@ homepage = Página principal
 
 version-checking = Buscando actualizaciones…
 version-new = ¡Nueva versión disponible!
-version-latest = Esta es la versión más actual.
+version-latest = Estas en la versión mas actual.
 version-prerelease = Versión beta
 
 function-load = Cargar una canción
@@ -22,12 +22,12 @@ function-quick = Convertidor/empaquetador rápido
 function-other = Otras herramientas
 
 welcome-header =
-  Herramientas <color=magenta>Onyx</color> para juegos de música, versión {$version}
+  Herramientas <color=magenta>Onyx</color> para juegos de ritmo, versión {$version}
   Elige una opción de abajo para empezar.
 
 welcome-load =
   cambiar una canción de un juego a otro
-  cambiar la velocidad de la canción, reasignar instrumentos
+  cambiar velocidad, reasignar instrumentos
   herramienta para previsualizar charts
 welcome-batch =
   "Cargar una canción" pero para varias canciones
@@ -36,7 +36,7 @@ welcome-quick =
   crear paquetes o extraer paquetes
   cambiar formato de consola, e.g. <color=green>360</color> -> <color=cyan>PS3</color>
 welcome-other =
-  herramientas de MIDI/donido
+  herramientas de MIDI/sonido
   herramientas de lipsync/dryvox
 
 language-restart = Reinicia Onyx para cargar otro idioma.
@@ -53,7 +53,7 @@ menu-file-close = Cerrar pantalla
 menu-edit = &Edición
 menu-edit-preferences = Preferencias
 
-menu-help = &Help
+menu-help = &Ayuda
 menu-help-readme = 'Readme'
 menu-help-updates = Historial de actualizaciones
 menu-help-license = Licencia
@@ -328,7 +328,7 @@ toggle-ps2-practice-audio = Generar sonido de modo practica para PS2
 
 template-runner-tooltip =
   Estructura de ubicación para archivos nuevos.
-    %input_dir% - carpeta que contiene la entrada
+    %carp_de_entrad% - carpeta que contiene la entrada
     %input_base% - nombre de archivo de entrada sin extensión
     %modifiers% - características distintivas e.g. modificador de velocidad
     %title% - titulo desde los metadatos de la canción (incluyendo modificadores)
@@ -533,7 +533,7 @@ quick-convert-rb-black-venue = VENUE negra
   .tooltip = Reemplaza la pista de VENUE con una que intenta imitar un fondo negro. Funciona en canciones previas a RB3 o canciones en formato RBN2; no funciona con canciones de RB3 en formato .milo.
 quick-convert-rb-no-overdrive = Sin sobrecargar
   .tooltip = Elimina todas las frases de sobrecargar en todos los instrumentos.
-quick-convert-rb-no-lanes-gbk = Sin carriles (G/B/K)
+quick-convert-rb-no-lanes-gbk = Sin carriles (G/B/T)
   .tooltip = Elimina carriles de tremolo y trino de guitarra/bajo/teclado y sus versiones de Pro. No elimina glissandos de Teclado Pro.
 quick-convert-rb-no-lanes-drums = Sin carriles (batería)
   .tooltip = Elimina carriles de redobles de uno o dos parches de Batería.
@@ -541,35 +541,35 @@ quick-convert-rb-no-drum-fills = Sin rellenos en batería
   .tooltip = Elimina los rellenos de activación de batería. No elimina los finales apoteósicos. Esta función es principalmente para grabar vídeos.
 quick-convert-rb-force-22-protar = Forzar Protarra de 22 trastes
   .tooltip = En canciones con Guitarra/Bajo que tienen versiones distintas para Mustang y Squier, se elimina la versión de Mustang, lo cual deja solo la versión de Squier. Esta función es principalmente para grabar vídeos.
-quick-convert-rb-unmute-22-protar = Unmute >22-fret protar
-  .tooltip = Any muted notes over fret 22 on Pro Guitar/Bass are unmuted. This allows you to pass them through Magma by muting, and then unmute them to record videos. Note, such notes cannot be hit by normal input.
-quick-convert-rb-decompress-milo = Decompress .milo_*
-  .tooltip = Converts any .milo_xbox, etc. files to uncompressed form. ForgeTool may require this step to read the files for RB4 conversion.
-quick-convert-rb-author-to-tag = Author to DTA tag
-  .tooltip = Copies author information from the C3 Magma comment format to the RB2/RB3 Deluxe game-readable format.
-quick-convert-rb-strip-title-tags = Strip title tags
-  .tooltip = Removes the following tags from song titles: (2x Bass Pedal), and author signatures such as (Z) (X) (O) etc.
-quick-convert-rb-note-shuffle = Note shuffle
-  .tooltip = Shuffles notes on 5-fret and drum parts.
+quick-convert-rb-unmute-22-protar = Desmut. traste >22 en Protarra
+  .tooltip = Cualquier nota sobre traste 22 en Guitarra/Bajo PRO no estará silenciada. Esto permite que la chart pase por MAGMA y luego se desmutean al pasar por Onyx para grabar vídeos. Toma en cuenta que estas notas no pueden ser tocadas de maneras legitimas.
+quick-convert-rb-decompress-milo = Descomprimir .milo_*
+  .tooltip = Descomprime cualquier archivo .milo_xbox, etc. Es probable que ForgeTool requiera esto para leer archivos durante el proceso de conversión a RB4.
+quick-convert-rb-author-to-tag = Colocar Autor en DTA
+  .tooltip = Copia la información de autor en formato C3 al DTA para que se pueda usar en proyectos como RB2/RB3 Deluxe.
+quick-convert-rb-strip-title-tags = Eliminar etiquetas de titulo
+  .tooltip = Elimina las siguiente etiquetas de los titulos: (2x Bass Pedal) y sellos de autor (Z) (X) (O) etc.
+quick-convert-rb-note-shuffle = Aleatorizar notas
+  .tooltip = Notas en partes de 5 trastes y batería serán aleatorizadas.
 quick-convert-rb-decrypt-moggs = Desencriptar MOGGs
-  .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
+  .tooltip = Desencripta todos los archivos MOGG. Toma en cuenta que MOGGs desencriptados no funcionan en PS3 sin RB3Enhanced o Rock Band 3 Deluxe.
 
-quick-convert-ch-chart-to-midi = .chart to MIDI
-  .tooltip = Converts all .chart files to .mid.
-quick-convert-ch-ps-tap-open = PS tap/open format
-  .tooltip = Encodes five-fret tap and open notes using the older Phase Shift format (System Exclusive messages). This will pull back open extended sustains to not overlap other notes, and remove open notes in chords.
-quick-convert-ch-audio-ogg = Audio to .ogg
-  .tooltip = Reencode audio files as Ogg Vorbis if they are not already.
-quick-convert-ch-audio-opus = Audio to .opus
-  .tooltip = Reencode audio file as Opus if they are not already.
-quick-convert-ch-real-drums-to-elite = Real Drums to Elite
-  .tooltip = If a song has Phase Shift Real Drums charted, adds a conversion to Elite Drums.
+quick-convert-ch-chart-to-midi = .chart a MIDI
+  .tooltip = Convierte todos los archivos .chart a .mid.
+quick-convert-ch-ps-tap-open = 'Taps'/'opens' en formato PS
+  .tooltip = Codifica notas 'tap' y 'open' usando el formato viejo de Phase Shift (mensajes SYSEX). Esto reducirá el tamaño de las notas extendidas para eliminar notas superpuestas y eliminara notas 'open' en acordes.
+quick-convert-ch-audio-ogg = Audio a .ogg
+  .tooltip = Codifica audio al formato .OGG si es que no lo están ya.
+quick-convert-ch-audio-opus = Audio a .opus
+  .tooltip = Codifica audio al formato Opus si es que no lo están ya.
+quick-convert-ch-real-drums-to-elite = Batería 'Real' a 'Elite'
+  .tooltip = Si la canción tiene una parte de Batería 'Real', agrega una conversión a Batería 'Elite'.
 
-quick-convert-mode-in-place = Transform in place: replace input files with new versions
-quick-convert-mode-one-to-one = One to one: each input file produces a new output file
-quick-convert-mode-make-packs = Make packs: combine songs up to a maximum file size
-quick-convert-mode-make-songs = Make songs: produce a single file for each song
-quick-convert-mode-make-dolphin = Make Dolphin (Wii) pack
+quick-convert-mode-in-place = Reemplazar los archivos originales con versiones nuevas
+quick-convert-mode-one-to-one = Cada archivo de entrada produce un archivo nuevo
+quick-convert-mode-make-packs = Crear paquetes: Unir canciones respetando el tamaño máximo 
+quick-convert-mode-make-songs = Crear canciones: Producir un archivo nueva para cada canción
+quick-convert-mode-make-dolphin = Crear paquete de Dolphin (Wii)
 
 quick-convert-format-con = CON (360)
 quick-convert-format-live = LIVE (360)
@@ -577,279 +577,279 @@ quick-convert-format-pkg = PKG (PS3)
 quick-convert-format-folders = Carpetas (PS3)
 
 quick-convert-encrypt-edat = Encriptar .mid.edat
-quick-convert-for-ps3-files = For PS3 files:
+quick-convert-for-ps3-files = Para archivos de PS3:
 
-quick-convert-folder-keep = Keep original USRDIR subfolders
-quick-convert-folder-keep-any = Keep original USRDIR subfolders (if any)
-quick-convert-folder-combine = Combine into one new USRDIR subfolder
-quick-convert-folder-combine-per-file = Combine into one new USRDIR subfolder per file
-quick-convert-folder-combine-per-pack = Combine into one new USRDIR subfolder per pack
-quick-convert-folder-each = Each song gets a new USRDIR subfolder
-quick-convert-folder-custom-initial = Custom USRDIR subfolder...
-quick-convert-folder-custom = Custom folder: {$folder}
-quick-convert-folder-custom-prompt = Enter custom USRDIR subfolder for your pack. (A number will be appended if creating more than one pack.)
+quick-convert-folder-keep = Preservar sub-carpetas USRDIR originales
+quick-convert-folder-keep-any = Preservar sub-carpetas USRDIR originales (si existen)
+quick-convert-folder-combine = Combinar a una sub-carpeta USRDIR nueva
+quick-convert-folder-combine-per-file = Combinar a una sub-carpeta USRDIR nueva por cada archivo
+quick-convert-folder-combine-per-pack = Combinar a una sub-carpeta USRDIR nueva por cada paquete
+quick-convert-folder-each = Cada canción tiene una sub-carpeta USRDIR nueva
+quick-convert-folder-custom-initial = Nombrar sub-carpeta USRDIR…
+quick-convert-folder-custom = Carpeta personalizada: {$folder}
+quick-convert-folder-custom-prompt = Entra el nombre de la sub-carpeta de USRDIR para tu paquete. (Se agregará un número si se crea mas de un paquete.)
 
-quick-convert-max-pack-size = Max Pack Size (MiB)
-quick-convert-invalid-pack-size = Invalid pack size
-quick-convert-no-songs-added = No songs added
+quick-convert-max-pack-size = Tamaño max. de paq. (MiB)
+quick-convert-invalid-pack-size = Tamaño invalido
+quick-convert-no-songs-added = No hay canciones
 quick-convert-make-packs-count =
   {$count ->
-    [one] Make {$count} pack
-   *[other] Make {$count} packs
+    [one] Crear {$count} paquete
+   *[other] Crear {$count} paquetes
   }
-quick-convert-unsupported-format = Unsupported format: transform in place supports CON/LIVE/PKG
-quick-convert-empty = (empty)
+quick-convert-unsupported-format = Formato no permitido: 'transformar en lugar' solo puede convertir CON/LIVE/PKG
+quick-convert-empty = (vació)
 quick-convert-songs-incl = {$count} songs incl. {$title}
 quick-convert-save-pack-file = Save pack file
 quick-convert-save-pack-template = Select template for packs (a number will be added for each pack)
-quick-convert-pack-number = Pack #{$number}
+quick-convert-pack-number = Paquete #{$number}
 
-quick-convert-fof-folder = folder format
-quick-convert-fof-sng = .sng format
-quick-convert-fof-encore = Encore format
-quick-convert-mode-to-folders = To folders: save each song as a folder
-quick-convert-mode-to-sng = To SNG: save each song as an .sng file
+quick-convert-fof-folder = formato carpeta
+quick-convert-fof-sng = formato .sng
+quick-convert-fof-encore = formato Encore
+quick-convert-mode-to-folders = Cada canción se guardara a su propia carpeta
+quick-convert-mode-to-sng = Cada canción se guardara a un archivo .sng
 
-quick-convert-ch-warning-base = This will modify the selected songs, and the old versions will be deleted.
+quick-convert-ch-warning-base = Esta opción modificara la canciones elegidas y las eliminara las versiones viejas.
 quick-convert-ch-warning-encore =
-  WARNING: This will convert Encore-format songs into CH-compatible ones, removing the original files.
-  Select a different mode if you want to keep them.
-quick-convert-ch-ops-header = Based on the filename template, these operations will be performed:
+  WARNING: Esto formato convertirá canciones a formato CH y eliminara los archivos originales.
+  Elige otro modo para preservarlos.
+quick-convert-ch-ops-header = Según la plantilla de nombres, se cumplirán estas operaciones:
 quick-convert-ch-op-overwrite =
   {$songs ->
-    [one] - {$songs} song will be overwritten with a new version
-   *[other] - {$songs} songs will be overwritten with new versions
+    [one] - {$songs} canción sera sobrescrita con una versión nueva
+   *[other] - {$songs} canciones serán sobrescritas con versiones nuevas
   }
 quick-convert-ch-op-convert =
   {$songs ->
-    [one] - {$songs} song will be converted to a new version
-   *[other] - {$songs} songs will be converted to new versions
+    [one] - {$songs} canción sera convertida a una versión nueva
+   *[other] - {$songs} canciones serán convertidas a versiones nuevas
   }
 quick-convert-ch-op-convert-delete =
   {$songs ->
-    [one] - {$songs} song will be converted to a new version, and the old version will be deleted
-   *[other] - {$songs} songs will be converted to new versions, and the old versions will be deleted
+    [one] - {$songs} canción sera convertida a una versión nueva y se eliminara la versión vieja
+   *[other] - {$songs} canciones serán convertidas a versiones nuevas y se eliminaran la versiones viejas
   }
-quick-convert-ch-ops-encore = WARNING: Some Encore-format songs will be removed/replaced by CH-compatible ones
+quick-convert-ch-ops-encore = ADVERTENCIA: Ciertas canciones en formato Encore serán eliminadas/reemplazadas con versiones compatible con CH
 
-quick-convert-delete-originals = Delete original files
-quick-convert-dolphin-preview-audio = Try to generate preview audio
-quick-convert-task-make-dolphin = Make Dolphin pack
+quick-convert-delete-originals = Eliminar archivos originales
+quick-convert-dolphin-preview-audio = Intenta generar audio de previsualización
+quick-convert-task-make-dolphin = Crear paquete de Dolphin
 
-task-legacy-con-to-pkg-rb2 = Convert to PKG (RB2)
-task-legacy-con-to-pkg-rb3 = Convert to PKG (RB3)
+task-legacy-con-to-pkg-rb2 = Convertir a PKG (RB2)
+task-legacy-con-to-pkg-rb3 = Convertir a PKG (RB3)
 
-pack-game-from-first = Game (from first in list):
-pack-game = Game:
-pack-save-stfs = Save STFS file
-pack-name = Pack name
-pack-description = Pack description
-pack-make-con = Make CON pack (RB3/RB2)
-pack-make-live = Make LIVE pack (all other games)
-pack-make-extracted = Make extracted folder
-pack-save-as = Save pack as…
-pack-task-extracted = Save pack as extracted contents: {$path}
-pack-task-con = Save pack as CON: {$path}
-pack-task-live = Save pack as LIVE: {$path}
+pack-game-from-first = Juego (empezando por el primero):
+pack-game = Juego:
+pack-save-stfs = Guardar archivo STFS
+pack-name = Nombre de paquete
+pack-description = Descripción de paquete
+pack-make-con = Crear paquete CON (RB3/RB2)
+pack-make-live = Crear paquete LIVE (el resto de los juegos)
+pack-make-extracted = Crear carpeta extraída
+pack-save-as = Guardar paquete como…
+pack-task-extracted = Guardar contenido extraído del paquete: {$path}
+pack-task-con = Guardar paquete como CON: {$path}
+pack-task-live = Guardar paquete como LIVE: {$path}
 
-button-select-folder = Select folder…
+button-select-folder = Elegir carpeta…
 
 song-count =
   {$count ->
-    [one] {$count} song
-   *[other] {$count} songs
+    [one] {$count} canción
+   *[other] {$count} canciones
   }
 
 ## misc tools
 
-misc-tab-midi-stuff = MIDI stuff
+misc-tab-midi-stuff = Cosas de MIDI
 misc-tab-mogg-vgs-fsb = MOGG/VGS/FSB
-misc-tab-lipsync = Lipsync
-misc-tab-dry-vox = Dry vox
+misc-tab-lipsync = 'Lipsync'
+misc-tab-dry-vox = 'Dry vox'
 misc-tab-milo = .milo
-misc-tab-rb3-cache = RB3 cache
-misc-tab-gh3-cache = GH3 cache
-misc-tab-ghwor-cache = GH:WoR cache
+misc-tab-rb3-cache = Caché de RB3
+misc-tab-gh3-cache = Caché de GH3
+misc-tab-ghwor-cache = Caché de GH:WoR
 
-misc-button-extract-milo = Extract .milo to folder
-misc-button-repack-milo = Repack .milo from folder
-misc-button-gh3-cache-360 = Create GH3 cache (360)
-misc-button-gh3-cache-ps3 = Create GH3 cache (PS3)
-misc-button-gh3-cache-install-rpcs3 = Install GH3 cache (RPCS3)
-misc-button-ghwor-cache-360 = Create GH:WoR cache (360)
-misc-button-ghwor-cache-ps3 = Create GH:WoR cache (PS3)
-misc-button-ghwor-cache-install-rpcs3 = Install GH:WoR cache (RPCS3)
+misc-button-extract-milo = Extraer .milo a carpeta
+misc-button-repack-milo = Empaquetar .milo de carpeta
+misc-button-gh3-cache-360 = Crear caché de GH3 (360)
+misc-button-gh3-cache-ps3 = Crear caché de GH3 (PS3)
+misc-button-gh3-cache-install-rpcs3 = Instalar caché de GH3 (RPCS3)
+misc-button-ghwor-cache-360 = Crear caché de GH:WoR (360)
+misc-button-ghwor-cache-ps3 = Crear caché de GH:WoR (PS3)
+misc-button-ghwor-cache-install-rpcs3 = Instalar caché de GH:WoR (RPCS3)
 
 misc-task-make-gh3-cache = Make GH3 cache file
 misc-task-install-gh3-cache = Install GH3 cache file
 misc-task-make-ghwor-cache = Make GH:WoR cache file
 misc-task-install-ghwor-cache = Install GH:WoR cache file
 
-label-midi-or-chart = MIDI or .chart
-midi-load-dialog = Load MIDI or .chart file
-midi-button-reduce = Fill in lower difficulties and drum animations
-midi-task-reduce = Reduce MIDI: {$path}
-midi-button-prokeys = Find hanging Pro Keys notes
-midi-task-prokeys = Pro Keys range check: {$path}
-midi-button-reaper = Make REAPER project with RB template
-midi-task-reaper = Make REAPER project: {$path}
-midi-button-chart-to-midi = Clean convert .chart to MIDI
-midi-task-chart-to-midi = Convert to MIDI: {$path}
-midi-button-batch = Batch
-midi-task-chart-batch = Convert .chart to MIDI (batch): {$path}
+label-midi-or-chart = MIDI o .chart
+midi-load-dialog = Cargar MIDI o .chart file
+midi-button-reduce = Rellenar dificultades bajas y animaciones de batería
+midi-task-reduce = Reducir MIDI: {$path}
+midi-button-prokeys = Detectar notas colgadas
+midi-task-prokeys = Revisar rango de Teclado Pro: {$path}
+midi-button-reaper = Crear proyecto de REAPER con plantilla de RB
+midi-task-reaper = Crear proyecto REAPER: {$path}
+midi-button-chart-to-midi = Conversión limpia de .chart a MIDI
+midi-task-chart-to-midi = Convertir a MIDI: {$path}
+midi-button-batch = Procesar por lotes
+midi-task-chart-batch = Convertir .chart a MIDI (por lotes): {$path}
 
-label-con-folder = CON folder
-label-song-cache = Song cache
-cache-load-dialog = Load RB3 song cache
-cache-button-apply = Apply numeric IDs from song cache
-cache-task = Hardcode song cache: {$path}
+label-con-folder = Carpeta CON
+label-song-cache = Caché de canciones
+cache-load-dialog = Cargar caché de canciones para RB3
+cache-button-apply = Aplicar IDs numéricos desde caché de canciones
+cache-task = Caché con IDs de codificación rígida: {$path}
 
-util-button-preview = Build web preview
-util-button-reduce = Produce MIDI with automatic reductions
-util-save-midi-dialog = Save MIDI file
-util-task-prokeys = Pro Keys range check
+util-button-preview = Crear previsualización de web
+util-button-reduce = Producir MIDI con reducciones automáticas
+util-save-midi-dialog = Guardar archivo MIDI
+util-task-prokeys = Verificar rangos de Teclado Pro
 
-mogg-button-ogg = Ogg to MOGG, no re-encode ({
+mogg-button-ogg = Ogg a MOGG, sin re-codificar ({
   $channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   })
-mogg-button-combine = Combine into MOGG ({
+mogg-button-combine = Combinar a MOGG ({
   $channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   })
-mogg-button-vgs = Combine into VGS ({
+mogg-button-vgs = Combinar a VGS ({
   $channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   })
-mogg-button-fsb3 = Make FSB3-XMA1 ({
+mogg-button-fsb3 = Crear FSB3-XMA1 ({
   $streams ->
     [one] {$streams} stream
    *[other] {$streams} streams
   }, {
   $channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   } total)
-mogg-button-fsb4 = Make FSB4-XMA2 ({
+mogg-button-fsb4 = Crear FSB4-XMA2 ({
   $channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   })
-mogg-task-ogg = Ogg to MOGG
-mogg-task-mogg = MOGG file creation
-mogg-task-vgs = VGS file creation
-mogg-task-fsb3 = FSB3 file creation
-mogg-task-fsb4 = FSB4 file creation
+mogg-task-ogg = Ogg a MOGG
+mogg-task-mogg = Creación de archivo MOGG
+mogg-task-vgs = Creación de archivo VGS
+mogg-task-fsb3 = Creación de archivo FSB3
+mogg-task-fsb4 = Creación de archivo FSB4
 audio-format-channels =
   {$format}, {$channels ->
-    [one] {$channels} channel
-   *[other] {$channels} channels
+    [one] {$channels} canal
+   *[other] {$channels} canales
   }
 audio-duration =
   {$duration} ({$frames ->
-    [one] {$frames} frame
-   *[other] {$frames} frames
+    [one] {$frames} fotogramas
+   *[other] {$frames} fotogramas
   } @ {$rate} Hz)
 
-label-midi-file = MIDI file
-label-audio-file = Audio file
-label-transition-ms = Transition (ms)
+label-midi-file = Archivo MIDI
+label-audio-file = Archivo de sonido
+label-transition-ms = Transición (ms)
 
-dryvox-blank = (blank)
+dryvox-blank = (vació)
 
-misc-button-make-voc = Make GH2 .voc from PART VOCALS
-misc-button-make-milo = Make RB3 .milo_*
-  .tooltip = Create a RB3 .milo_* file from the first present out of: LIPSYNC* tracks, HARM* tracks, or PART VOCALS.
-misc-button-update-milo = Update RB3/TBRB .milo_*
-  .tooltip = Update a RB3 .milo_* file from LIPSYNC* tracks, HARM* tracks, or PART VOCALS. Or, update a TBRB .milo_* file from LIPSYNC_[beatle] tracks.
-misc-button-create-lipsync = Create *.lipsync
-  .tooltip = Export all LIPSYNC* and LIPSYNC_[beatle] tracks to .lipsync files, ready to be inserted into .milo_* files.
-misc-button-vocal-lipsync-rb3 = Turn vocal tracks into LIPSYNC* tracks for RB3
-  .tooltip = Uses HARM* or PART VOCALS to produce LIPSYNC{"{"}1-3{"}"} tracks containing viseme information, using the standard RB viseme set.
-misc-button-vocal-lipsync-tbrb = Turn vocal tracks into LIPSYNC* tracks for TBRB
-  .tooltip = Uses HARM* or PART VOCALS to produce LIPSYNC{"{"}1-3{"}"} tracks containing viseme information, using the Beatles RB viseme set.
-misc-button-dryvox-sine = Make sine wave dry vox from MIDI
-misc-button-dryvox-clipped = Make clipped dry vox from MIDI and audio
+misc-button-make-voc = Crear .voc de GH2 .voc de PART VOCALS
+misc-button-make-milo = Crear .milo_* de RB3
+  .tooltip = Crear un archivo .milo_* de RB3 de lo que este presente primero: pistas de LIPSYNC*, pistas de HARM* o PART VOCALS.
+misc-button-update-milo = Actualizar .milo_* de RB3/TBRB
+  .tooltip = Actualiza un archivo .milo_* de RB3 con pistas LIPSYNC*, pistas de HARM* o PART VOCALS. O actualiza archivo .milo_* de TBRB desde pistas LIPSYNC_[beatle].
+misc-button-create-lipsync = Crear *.lipsync
+  .tooltip = Exportar todas las pistas de LIPSYNC* y LIPSYNC_[beatle] a archivos .lipsync, listos para ser importados a archivos .milo_*.
+misc-button-vocal-lipsync-rb3 = Convertir pistas de vocales a pistas LIPSYNC* para RB3
+  .tooltip = Usar HARM* o PART VOCALS para producir pistas de LIPSYNC{"{"}1-3{"}"} que contienen información Viseme, usando el set de expresiones para RB.
+misc-button-vocal-lipsync-tbrb = Convierte pistas de vocales a pistas de LIPSYNC* para TBRB
+  .tooltip = Usa HARM* o PART VOCALS para producir pistas de LIPSYNC{"{"}1-3{"}"} que contienen información Viseme, usando el set de expresiones para TBRB.
+misc-button-dryvox-sine = Crear dryvox de sinusoides de pistas de MIDI
+misc-button-dryvox-clipped = Crear dryvox recortado de la pistas de MIDI y audio
 
-misc-task-extract-milo = Extract {$path}
-misc-task-repack-milo = Repack {$path}
-misc-task-make-voc = Make GH2 .voc: {$path}
-misc-task-make-milo = Create .milo from MIDI lipsync: {$path}
-misc-task-update-milo = Update .milo with MIDI lipsync: {$path}
-misc-task-export-lipsync = Export .lipsync to folder
-misc-task-vocal-to-lipsync = Convert vocal tracks to LIPSYNC tracks: {$path}
+misc-task-extract-milo = Extraer {$path}
+misc-task-repack-milo = Re-empaquetar {$path}
+misc-task-make-voc = Crear .voc de GH2: {$path}
+misc-task-make-milo = Crear .milo con lipsync de MIDI: {$path}
+misc-task-update-milo = Actualizar .milo con lipsync de MIDI: {$path}
+misc-task-export-lipsync = Exportar .lipsync a carpeta
+misc-task-vocal-to-lipsync = Convertir pistas de vocales a pistas de LIPSYNC: {$path}
 misc-task-dryvox = {$name}: {$path}
 
 ## preferences
 
-button-save = Save
-button-start = Start
+button-save = Guardar
+button-start = Iniciar
 
-pref-unlimited-cores = Unlimited cores
-pref-core-limit = Core limit
-pref-detect-muted = For non-open-note games, convert "muted strums" to Harmonix style
-  .tooltip = When checked, sequences of the form "chord, strummed open notes, strummed chord" are assumed to represent muted strums. Instead of always becoming green, these open notes will become the lowest note of the following chord, or of the preceding chord if it is closer to the open notes.
-pref-limit-reduced-frets = When generating lower difficulty 5-fret tracks, limit Medium to 4 frets and Easy to 3 frets
+pref-unlimited-cores = Hilos ilimitados
+pref-core-limit = Limite de hilos
+pref-detect-muted = Para juegos sin notas 'open', convertir rasgueos "muteados" al estilo de Harmonix
+  .tooltip = Si activas esta opción, secuencias en forma de "acorde, 'open' rasgueado, acorde rasgueado" son asumidas que representan rasgueos silenciados. En vez de mover las notas a verde, las notas abiertas serán movidas a ser la nota mas baja del acorde, o el acorde anterior si esta mas cerca a las notas abiertas.
+pref-limit-reduced-frets = Cuando se generan las dificultades bajas de pistas de 5 trastes, asegura que fácil/medio usen 3/4 trastes respectivamente
 
-pref-magma-require = Magma required
-pref-magma-try = Magma optional
-pref-magma-disable = Don't use Magma
-pref-black-venue = Always export black VENUE track
-pref-label-2x = Label 2x kick charts as (2x Bass Pedal) by default
-pref-legal-tempos = Modify tempos in RB export to follow Magma rules
-  .tooltip = Magma requires MIDI files to use tempos in the range of 40 to 300 BPM. This is a more restricted range than the games actually require.
-pref-rb3-encoding-label = RB3 recompile .dta
-pref-pack-encoding-label = RB3 pack .dta
+pref-magma-require = Magma requerido
+pref-magma-try = Magma opcional
+pref-magma-disable = No utilizar Magma
+pref-black-venue = Siempre exportar VENUE negra
+pref-label-2x = Etiquetar canciones de 2x pedal de bombo con (2x Bass Pedal) por defecto
+pref-legal-tempos = Modificar tempos en exportación de RB para seguir las reglas de Magma
+  .tooltip = Magma requiere que los archivos MIDI utilicen tempos en un rango de 40 a 300 BPM. Esto es un rango mas restringido que los juegos permiten.
+pref-rb3-encoding-label = Recompilar .dta de RB3
+pref-pack-encoding-label = Paquete .dta de RB3
 encoding-latin1 = Latin-1
 encoding-utf8 = UTF-8
-encoding-as-is = As is
+encoding-as-is = Tal cual
 
-pref-gh2-offset = GH2 Audio Offset (ms)
-  .tooltip = Adjust audio offset only for Guitar Hero II output, intended to compensate for emulator delay. Positive values mean audio will be pulled earlier, to account for delay. Negative values mean audio will be pushed later.
-pref-sort-gh2 = Sort GH2 bonus songs when adding to .ARK
-pref-artist-sort = For GH2 and GH3, sort by artist first (instead of title)
-  .tooltip = This affects GH2 .ARK bonus songs (when the above box is checked) and GH3 DLC (as sorted in the Song Cache file).
+pref-gh2-offset = Compensación de audio para GH2 (ms)
+  .tooltip = Ajusta la compensación del sonido para exportaciones de Guitar Hero II, principalmente para uso con emulador. Valores positivos apresuran el sonido para compensar por el retraso. Valores negativos mueve el sonido para que suene mas tarde.
+pref-sort-gh2 = Organizar canciones bonus de GH2 en el .ARK
+pref-artist-sort = Para GH2 y GH3, organizar canciones bonus por artista antes que titulo
+  .tooltip = Esto afecta las canciones bonus de GH2 en el .ARK (cuando activas esta opción) y DLC de GH3 (como se organiza en el archivo de caché).
 
-pref-dir-ch = Default CH folder
-pref-ch-downmix = Mix down stems in CH output
-pref-ch-audio-ogg = Output Ogg Vorbis audio
-pref-ch-audio-opus = Output Opus audio
+pref-dir-ch = Carpeta por defecto de CH
+pref-ch-downmix = Reducir multipistas para CH
+pref-ch-audio-ogg = Exportar audio Ogg Vorbis
+pref-ch-audio-opus = Exportar audio Opus
 
-pref-dir-rb = Default CON/LIVE folder
-pref-trim-xbox = Ensure valid filenames for Xbox 360 USB or HDD drives
-  .tooltip = When checked, the filenames of CON or LIVE files will be trimmed to a max of 42 characters, and will also have plus and comma characters replaced (a restriction for files on a 360 hard drive, but not USB).
-pref-rb-number-id = Use true number IDs instead of symbols on Xbox 360 RB files
-  .tooltip = When checked, Rock Band files will use a random integer for song_id. Otherwise, an 'o' is prefixed to form a symbol, and the game will generate a random ID. A true integer is required for some contexts such as RGH online play and PS3 conversion, and also maintains scores even if the song cache is regenerated.
+pref-dir-rb = Carpeta para CON/LIVE
+pref-trim-xbox = Limitar nombre de archivos para USBs o discos duros de Xbox 360
+  .tooltip = Si activas esta opción, los nombres de archivos CON o LIVE files se limitaran 42 caracteres y eliminara caracteres de 'más' y comas (una restricción que existe para discos duros de 360, pero no USB).
+pref-rb-number-id = Usar números validos en vez de símbolos para archivos de RB para Xbox 360
+  .tooltip = Si activas esta opción, archivos de Rock Band files usara un número entero al azar para generar song_id. De lo contrario, una 'o' sera prefija para formar el símbolo y el juego generara un ID aleatoriamente. Un numero entero valido se requiere para jugar online en RGH, para conversión de PS3 y para mantener puntuaciones cuando se regenere el caché de canciones.
 
-pref-ps3-encrypt = Encrypt .mid.edat files for PS3
-  .tooltip = When checked, .mid.edat files for PS3 customs will be encrypted. This is required for a real console, but optional (and can be less convenient) when playing on emulator.
-pref-dir-ps3 = PS3/RPCS3 install folder
+pref-ps3-encrypt = Encriptar archivos .mid.edat para PS3
+  .tooltip = Si activas esta opción, los archivos .mid.edat para customs de PS3 serán encriptadas. Esto se requiere para jugadores de PS3 en vanilla pero opcional y menos conveniente para usuarios de Deluxe o RPCS3.
+pref-dir-ps3 = Carpeta de PS3/RPCS3
 
-pref-dir-wii = Default Wii .app folder
+pref-dir-wii = Carpeta de .app para Wii
 
-pref-msaa-none = No MSAA
+pref-msaa-none = Sin MSAA
 pref-msaa-2x = MSAA 2x
 pref-msaa-4x = MSAA 4x
 pref-msaa-8x = MSAA 8x
 pref-msaa-16x = MSAA 16x
 pref-fxaa = FXAA
-pref-fps = Frames per second
-pref-elite-hihat-default = Elite drums hihat side: default
-pref-elite-hihat-cross = Elite drums hihat side: cross hand
-pref-elite-hihat-open = Elite drums hihat side: open hand
-pref-elite-ride-default = Elite drums ride side: default
-pref-elite-ride-far = Elite drums ride side: far crash
-pref-elite-ride-near = Elite drums ride side: near crash
-pref-waveform = Audio waveform
-pref-lefty-flip = Lefty flip
+pref-fps = FPS
+pref-elite-hihat-default = Lado de Hi-Hat en Batería 'Elite': por defecto
+pref-elite-hihat-cross = Lado de Hi-Hat en Batería 'Elite': mano cruzada
+pref-elite-hihat-open = Lado de Hi-Hat en Batería 'Elite': mano abierta
+pref-elite-ride-default = Lado de Ride en Batería 'Elite': por defecto
+pref-elite-ride-far = Lado de Ride en Batería 'Elite': crash lejano
+pref-elite-ride-near = Lado de Ride en Batería 'Elite': crash cercano
+pref-waveform = Forma de onda
+pref-lefty-flip = Modo zurdo
 
-pref-ogg-quality = OGG Vorbis quality
-pref-decrypt-silent = Treat undecryptable MOGGs as silent instead of an error
+pref-ogg-quality = Calidad de OGG Vorbis
+pref-decrypt-silent = Interpretar MOGGs con errores de desencriptación como silenciosos en lugar de errores
 
 pref-magma-warning =
-  Warning! Disabling Magma can result in Rock Band files that crash the game,
-  as Onyx does not yet check all of the error cases that Magma does.
-  Please test any charts thoroughly before distributing to others!
+  ¡Advertencia! Desactivando Magma puede resultar en archivos de Rock Band que crashean el juego,
+  porque Onyx no verifica todos los errores como lo hace Magma.
+  ¡Por favor verifica que tus charts funcionan antes de distribuir!
