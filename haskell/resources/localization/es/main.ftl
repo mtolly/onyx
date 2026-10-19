@@ -328,7 +328,7 @@ toggle-ps2-practice-audio = Generar sonido de modo práctica para PS2
 
 template-runner-tooltip =
   Estructura de ubicación para archivos nuevos.
-    %carp_de_entrad% - carpeta que contiene la entrada
+    %input_dir% - carpeta que contiene la entrada
     %input_base% - nombre de archivo de entrada sin extensión
     %modifiers% - características distintivas e.g. modificador de velocidad
     %title% - título desde los metadatos de la canción (incluyendo modificadores)
