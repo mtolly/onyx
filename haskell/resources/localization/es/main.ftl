@@ -597,7 +597,7 @@ quick-convert-make-packs-count =
     [one] Crear {$count} paquete
    *[other] Crear {$count} paquetes
   }
-quick-convert-unsupported-format = Formato no permitido: 'transformar en lugar' solo puede convertir CON/LIVE/PKG
+quick-convert-unsupported-format = Solo se pueden reemplazar los archivos originales con archivos CON/LIVE/PKG.
 quick-convert-empty = (vacio)
 quick-convert-songs-incl = {$count} canciones inclu. {$title}
 quick-convert-save-pack-file = Guardar archivo de paquete
