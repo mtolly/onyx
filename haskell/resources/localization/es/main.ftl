@@ -440,7 +440,7 @@ coop-rhythm = Coop: Ritmo
 numberbox-gh5-song-id = Custom Song ID (dlc)
 numberbox-gh5-cdl = Custom Package ID (cdl)
 numberbox-rr-song-id = Custom Song ID
-numberbox-rr-leaderboard-id = Custom Leaderboard ID
+numberbox-rr-leaderboard-id = ID para puntuaciones
 
 create-360-con = Crear archivo CON de Xbox 360
 create-ps3-pkg = Crear archivo PKG de PS3
