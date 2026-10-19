@@ -850,6 +850,6 @@ pref-ogg-quality = Calidad de OGG Vorbis
 pref-decrypt-silent = Interpretar MOGGs con errores de desencriptación como silenciosos en lugar de errores
 
 pref-magma-warning =
-  ¡Advertencia! Desactivando Magma puede resultar en archivos de Rock Band que crashean el juego,
+  ¡Advertencia! Desactivar Magma puede resultar en archivos de Rock Band que crasheen el juego,
   porque Onyx no verifica todos los errores como lo hace Magma.
   ¡Por favor verifica que tus charts funcionan antes de distribuir!
