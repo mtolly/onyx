@@ -702,7 +702,7 @@ label-con-folder = Carpeta CON
 label-song-cache = Caché de canciones
 cache-load-dialog = Cargar caché de canciones para RB3
 cache-button-apply = Aplicar IDs numéricos desde caché de canciones
-cache-task = Caché con IDs de codificación rígida: {$path}
+cache-task = Caché con IDs de codificación fija: {$path}
 
 util-button-preview = Crear previsualización de web
 util-button-reduce = Producir MIDI con reducciones automáticas
