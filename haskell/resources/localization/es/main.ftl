@@ -524,7 +524,7 @@ quick-convert-tab-rb = Conversión rápida + creador de paquetes RB
 quick-convert-tab-ch = Conversión rápida CH
 quick-convert-tab-rr-renumber = Reorganizar RR
 quick-convert-tab-gh2-pack = Creador de paquetes GH2
-quick-convert-tab-rb-legacy-pkg = CON->PKG de legado RB
+quick-convert-tab-rb-legacy-pkg = CON->PKG legacy de RB
 
 quick-convert-limit-easy-medium-frets = Limitar trastes de Fácil/Medio
   .tooltip = Asegura que fácil/medio usen 3/4 trastes respectivamente en cinco líneas.
