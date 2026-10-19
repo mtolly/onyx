@@ -7,6 +7,7 @@ module Onyx.Background where
 
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard)
+import           Control.Monad.Random             (StdGen, evalRand)
 import qualified Control.Monad.Random.Class       as R
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -32,6 +33,7 @@ import qualified Onyx.MIDI.Track.SixFret
 import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.VenueGen
 import qualified Onyx.MIDI.Track.Vocal
+import           Onyx.StackTrace                  (SendMessage, StackTraceT)
 import qualified Sound.MIDI.Util                  as U
 
 -- character moods
@@ -110,27 +112,29 @@ data VenueTarget
   | VenueTargetRB3
 
 getVenue
-  :: (R.MonadRandom m)
-  => VenueTarget
+  :: (SendMessage m)
+  => StdGen
+  -> VenueTarget
   -> Map.Map RB3Instrument F.PartName -- map of target parts to project parts
   -> U.TempoMap
   -> U.Beats
   -> F.Song (F.OnyxFile U.Beats)
-  -> m (VenueTrack U.Beats)
-getVenue target partMap tmap endTime ofile = do
-  camera <- buildCamera (Map.keys partMap) ofile.tracks.onyxCamera
+  -> StackTraceT m (VenueTrack U.Beats)
+getVenue stdGen target partMap tmap endTime ofile = let
+  runRandom f = evalRand f stdGen
+  camera = runRandom $ buildCamera (Map.keys partMap) ofile.tracks.onyxCamera
   -- cut off at end mostly since new blips introduced in rb3->rb2 can go past the end event
-  let trimEnd = mapTrack $ U.trackTake endTime
-      gen = mconcat
-        [ ofile.tracks.onyxVenue
-        , buildLighting ofile.tracks.onyxLighting
-        , camera
-        ]
+  trimEnd = mapTrack $ U.trackTake endTime
+  gen = mconcat
+    [ ofile.tracks.onyxVenue
+    , buildLighting ofile.tracks.onyxLighting
+    , camera
+    ]
   -- TODO lighting autogen
-  withCamera <- if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directedRB2
+  withCamera = runRandom $ if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directedRB2
     then (\cam -> gen { cameraRB3 = cam }) <$> autoCamera partMap tmap endTime ofile
     else return gen
-  return $ trimEnd
+  in fmap trimEnd
     $ (case target of VenueTargetRB2 -> compileVenueRB2; VenueTargetRB3 -> compileVenueRB3)
     $ withCamera
 

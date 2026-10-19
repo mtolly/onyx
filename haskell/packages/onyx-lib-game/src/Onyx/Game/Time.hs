@@ -14,6 +14,7 @@
 {-# LANGUAGE NoFieldSelectors           #-}
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedRecordDot        #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE StrictData                 #-}
@@ -278,8 +279,11 @@ data LightState t a
 class LightDefault a where
   lightDefault :: a
 
+newtype Lighting = Lighting T.Text
+  deriving (Eq, Show)
+
 instance LightDefault Lighting where
-  lightDefault = Lighting_
+  lightDefault = Lighting ""
 
 instance LightDefault PostProcess3 where
   lightDefault = V3_ProFilm_a

@@ -460,7 +460,7 @@ changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
 changeToVenueGen dir = do
   let midPath = dir </> "notes.mid"
   mid <- F.loadMIDI midPath
-  stackIO $ F.saveMIDIUtf8 midPath $ F.convertToVenueGen mid
+  F.convertToVenueGen mid >>= stackIO . F.saveMIDIUtf8 midPath
 
 commands :: [Command]
 commands =

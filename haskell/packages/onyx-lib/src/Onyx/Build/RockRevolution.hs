@@ -248,17 +248,19 @@ rrRules buildInfo dir rr = do
             { rrdSolo = maybe RTB.empty (\res -> res.other.solo) drums
             }, length rrDiff.rrdGems)
 
-        venue = flip evalRand (mkStdGen $ hash key) $ getVenue
-          VenueTargetRB3
-          (Map.fromList $ concat
-            [ [ (Guitar, rr.guitar) | isJust guitar ]
-            , [ (Bass  , rr.bass  ) | isJust bass   ]
-            , [ (Drums , rr.drums ) | isJust drums  ]
-            ])
-          mid.tempos
-          endTime
-          mid
-        camera = RTB.mapMaybe (listToMaybe . catMaybes)
+    venue <- getVenue
+      (mkStdGen $ hash key)
+      VenueTargetRB3
+      (Map.fromList $ concat
+        [ [ (Guitar, rr.guitar) | isJust guitar ]
+        , [ (Bass  , rr.bass  ) | isJust bass   ]
+        , [ (Drums , rr.drums ) | isJust drums  ]
+        ])
+      mid.tempos
+      endTime
+      mid
+
+    let camera = RTB.mapMaybe (listToMaybe . catMaybes)
           $ flip evalRand (mkStdGen $ hash key)
           $ mapM (\cuts -> mapM rrCameraCut $ reverse $ sort cuts)
           $ RTB.collectCoincident venue.cameraRB3

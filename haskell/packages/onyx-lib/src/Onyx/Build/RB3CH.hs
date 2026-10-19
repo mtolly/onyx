@@ -785,14 +785,14 @@ processMIDI target songYaml origInput mixMode getAudioLength = inside "Processin
         -- "otherwise new blips introduced in rb3->rb2 can go past the end event"
         -- now replaced with chopTake, but I don't think it actually prevents
         -- blip note-off from going past [end]?
-        SharedTargetRB _rb3 (Just _rb2) -> chopTake timingEnd . compileVenueRB2
+        SharedTargetRB _rb3 (Just _rb2) -> fmap (chopTake timingEnd) . compileVenueRB2
         _                               -> compileVenueRB3
-      venue = compileVenue $ mconcat
-        [ trks.onyxVenue
-        , buildLighting trks.onyxLighting
-        , camera
-        ]
-      editRanks = case editCount of
+  venue <- compileVenue $ mconcat
+    [ trks.onyxVenue
+    , buildLighting trks.onyxLighting
+    , camera
+    ]
+  let editRanks = case editCount of
         Nothing -> originalRanks
           { psDifficultyRB3 = originalRanks.psDifficultyRB3
             { rb3VocalRank = 0

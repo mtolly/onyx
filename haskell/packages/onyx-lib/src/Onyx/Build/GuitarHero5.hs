@@ -7,7 +7,7 @@ module Onyx.Build.GuitarHero5 (gh5Rules, onyxGH5PackageTitle, hashGH5) where
 
 import           Control.Monad.Extra               (allM)
 import           Control.Monad.IO.Class
-import           Control.Monad.Random.Strict       (evalRand, mkStdGen)
+import           Control.Monad.Random.Strict       (mkStdGen)
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Put                   (runPut)
 import qualified Data.ByteString                   as B
@@ -224,12 +224,6 @@ gh5Rules buildInfo dir gh5 = do
       RNil        -> fatal "panic! no [end] in processed midi"
 
     let tmap = mid.tempos
-        rbCamera = (.cameraRB3) $ flip evalRand (mkStdGen hashed) $ getVenue
-          VenueTargetRB3
-          partMap
-          tmap
-          endTime
-          mid
         partMap = Map.fromList $ concat
           -- TODO filter based on charted instruments
           [ [(Guitar, gh5.guitar)]
@@ -237,6 +231,14 @@ gh5Rules buildInfo dir gh5 = do
           , [(Drums , gh5.drums )]
           , [(Vocal , gh5.vocal )]
           ]
+
+    rbCamera <- (.cameraRB3) <$> getVenue
+      (mkStdGen hashed)
+      VenueTargetRB3
+      partMap
+      tmap
+      endTime
+      mid
 
     drumAnims <- stackIO (B.readFile $ dir </> "drum-anims.txt") >>= \bs -> case readMaybe $ B8.unpack bs of
       Nothing -> fatal "panic! couldn't read back drums_notes WoR array"

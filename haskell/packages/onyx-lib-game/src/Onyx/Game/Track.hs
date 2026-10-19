@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TupleSections         #-}
 module Onyx.Game.Track where
 
 import           Control.Applicative              ((<|>))
@@ -697,33 +698,36 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
       vocal <- getVocal
       return $ concat [mania, fiveNative, drums, vocal, pg, rs, fiveAuto]
 
-  bgs = concat
-    [ case songYaml.global.backgroundVideo of
-      Nothing -> []
-      Just vi -> [("Background Video", PreviewBGVideo vi)]
-    , case songYaml.global.fileBackgroundImage of
-      Nothing -> []
-      Just f  -> [("Background Image", PreviewBGImage f)]
-    , do
-      guard $ song.tracks.onyxVenue /= mempty
-      let rb3 = compileVenueRB3 song.tracks.onyxVenue
-      return $ ("Venue Track", PreviewBGVenue
-        $ (\(a, b) -> PNF.VenueState a b) <$> do
-          PNF.makeLightStates (rtbToMap rb3.lighting)
-            `PNF.zipStateMaps` PNF.makeLightStates (rtbToMap rb3.postProcessRB3)
-        )
-    ]
+  in do
 
-  in tracks >>= \trk -> return $ PreviewSong
-    { previewTempo    = song.tempos
-    , previewMeasures = song.timesigs
-    , previewTiming   = timing
-    , previewTracks   = trk
-    , previewBG       = bgs
-    , previewSections = rtbToMap
-      $ fmap (sectionBody . makeDisplaySection)
-      $ song.tracks.onyxEvents.sections
-    }
+    trks <- tracks
+
+    maybeVenue <- if song.tracks.onyxVenue /= mempty
+      then do
+        rb3 <- compileVenueRB3 song.tracks.onyxVenue
+        return $ Just $ PreviewBGVenue $ (\(a, b) -> PNF.VenueState a b) <$> do
+          PNF.makeLightStates (rtbToMap $ PNF.Lighting <$> rb3.lighting)
+            `PNF.zipStateMaps` PNF.makeLightStates (rtbToMap rb3.postProcessRB3)
+      else return Nothing
+
+    return PreviewSong
+      { previewTempo    = song.tempos
+      , previewMeasures = song.timesigs
+      , previewTiming   = timing
+      , previewTracks   = trks
+      , previewBG       = concat
+        [ case songYaml.global.backgroundVideo of
+          Nothing -> []
+          Just vi -> [("Background Video", PreviewBGVideo vi)]
+        , case songYaml.global.fileBackgroundImage of
+          Nothing -> []
+          Just f  -> [("Background Image", PreviewBGImage f)]
+        , ("Venue Track",) <$> toList maybeVenue
+        ]
+      , previewSections = rtbToMap
+        $ fmap (sectionBody . makeDisplaySection)
+        $ song.tracks.onyxEvents.sections
+      }
 
 loadTracks
   :: (SendMessage m, MonadIO m)

@@ -29,11 +29,12 @@ import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
 import           Onyx.MIDI.Track.Venue
+import           Onyx.StackTrace                  (SendMessage, StackTraceT)
 import qualified Sound.MIDI.Util                  as U
 
 data LightingTrack t = LightingTrack
   { lightingPostProcess     :: RTB.T t (PostProcess3, Bool)
-  , lightingTypes           :: RTB.T t (Lighting, Bool)
+  , lightingTypes           :: RTB.T t (LightingRB, Bool)
   , lightingStrobe          :: RTB.T t (Maybe StrobeSpeed)
   , lightingCommands        :: RTB.T t LightingCommand
   , lightingBonusFX         :: RTB.T t ()
@@ -185,7 +186,7 @@ data StrobeInput
   | OtherLighting
   deriving (Eq, Ord)
 
-applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats Lighting
+applyStrobeNotes :: LightingTrack U.Beats -> RTB.T U.Beats LightingRB
 applyStrobeNotes lt = let
   input = RTB.normalize $ RTB.merge
     (RTB.mapMaybe (\(_, b) -> guard b >> Just OtherLighting) lt.lightingTypes)
@@ -220,7 +221,8 @@ buildLighting lt = mempty
     lightingInput = RTB.merge
       (first Just <$> lt.lightingTypes)
       ((\speed -> (Nothing, isJust speed)) <$> lt.lightingStrobe)
-    in  RTB.merge (applyStrobeNotes lt)
+    in  fmap getLightingString
+      $ RTB.merge (applyStrobeNotes lt)
       $ RTB.mapMaybe id
       $ venue_generate lightingInput
   , lightingCommands = (\cmd -> (cmd, RBN2)) <$> lt.lightingCommands
@@ -228,15 +230,17 @@ buildLighting lt = mempty
   , bonusFXOptional  = lt.lightingBonusFXOptional
   }
 
-unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
-unbuildLighting lastLen vt = LightingTrack
-  { lightingPostProcess     = venue_ungenerate lastLen vt.postProcessRB3
-  , lightingTypes           = venue_ungenerate lastLen vt.lighting
-  , lightingStrobe          = RTB.empty
-  , lightingCommands        = fst <$> vt.lightingCommands
-  , lightingBonusFX         = vt.bonusFX
-  , lightingBonusFXOptional = vt.bonusFXOptional
-  }
+unbuildLighting :: (NNC.C t, SendMessage m) => t -> VenueTrack t -> StackTraceT m (LightingTrack t)
+unbuildLighting lastLen vt = do
+  lighting <- selectFadingVisual $ matchLightingRB <$> vt.lighting
+  return LightingTrack
+    { lightingPostProcess     = venue_ungenerate lastLen vt.postProcessRB3
+    , lightingTypes           = venue_ungenerate lastLen lighting
+    , lightingStrobe          = RTB.empty
+    , lightingCommands        = fst <$> vt.lightingCommands
+    , lightingBonusFX         = vt.bonusFX
+    , lightingBonusFXOptional = vt.bonusFXOptional
+    }
 
 data CameraTrack t = CameraTrack
   { cameraCuts   :: RTB.T t (Camera3, Bool)

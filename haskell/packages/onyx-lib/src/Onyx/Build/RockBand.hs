@@ -367,7 +367,7 @@ rbRules buildInfo dir rb3 mrb2 = do
   let blackVenueTrack = mempty
         { cameraRB3        = RTB.singleton 0 V3_coop_all_far
         , postProcessRB3   = RTB.singleton 0 V3_film_b_w
-        , lighting         = RTB.singleton 0 Lighting_blackout_fast
+        , lighting         = RTB.singleton 0 "blackout_fast"
         }
       magmaErrorMessage = unwords
         [ "Magma returned an error; check the log above for what caused"
@@ -977,7 +977,7 @@ rbRules buildInfo dir rb3 mrb2 = do
                         , NoClose
                         ]
                       , postProcessRB2 = RTB.singleton 0 V2_video_security
-                      , lighting       = RTB.singleton 0 Lighting_
+                      , lighting       = RTB.singleton 0 ""
                       , lightingMode   = RTB.singleton 0 ModeVerse
                       }
                     Just magmaTracks -> magmaTracks.fixedVenue

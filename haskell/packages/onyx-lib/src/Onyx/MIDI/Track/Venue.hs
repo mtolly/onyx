@@ -12,13 +12,18 @@ Pre-RB3 venue format information from:
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.MIDI.Track.Venue where
 
-import           Control.Monad                    (guard, (>=>))
+import           Control.Applicative              ((<|>))
+import           Control.Monad                    (guard, unless, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     ((<&>))
+import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, sortBy)
+import           Data.Maybe                       (catMaybes, fromMaybe,
+                                                   isNothing, listToMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -26,6 +31,8 @@ import           Onyx.DeriveHelpers
 import           Onyx.Guitar                      (applyStatus1)
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
+import           Onyx.StackTrace                  (SendMessage, StackTraceT,
+                                                   warn)
 import qualified Sound.MIDI.Util                  as U
 
 #if MIN_VERSION_base(4,18,0)
@@ -255,7 +262,7 @@ data CutEvent2
   | NoBehind
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-data Lighting
+data LightingRB
   -- manual
   = Lighting_ -- ^ empty parens, only pre-rb3
   | Lighting_verse -- ^ only in rb3 (rb2 uses different format)
@@ -284,6 +291,14 @@ data Lighting
   | Lighting_bre
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+getLightingString :: LightingRB -> T.Text
+getLightingString light = case T.stripPrefix "Lighting_" $ T.pack $ show light of
+  Just s  -> s
+  Nothing -> error $ "panic! couldn't strip Lighting_ from: " <> show light
+
+lightingTable :: HM.HashMap T.Text LightingRB
+lightingTable = HM.fromList [ (T.toCaseFold $ getLightingString x, x) | x <- each ]
+
 data LightingMode2 = ModeVerse | ModeChorus
   deriving (Eq, Ord, Show, Enum, Bounded)
 
@@ -295,6 +310,127 @@ data LightingCommand
   | LightingPrev
   | LightingNext
   deriving (Eq, Ord, Show, Enum, Bounded)
+
+data VisualResult a = VisualResult
+  { match     :: Maybe a -- perfect match
+  , fuzzy     :: [a] -- sort of matches
+  , fallback1 :: a -- generic replacements
+  , fallback2 :: a
+  , fallback3 :: a
+  , original  :: T.Text
+  }
+
+matchLightingRB :: T.Text -> VisualResult LightingRB
+matchLightingRB t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded lightingTable of
+    Just lrb -> (Just lrb, [])
+    Nothing  -> (Nothing,) case folded of
+      -- GH2 other than () and (sweep)
+      "blackout" -> [Lighting_blackout_fast, Lighting_blackout_slow]
+      "chase"    -> [Lighting_searchlights] -- ?
+      "flare"    -> [Lighting_flare_fast, Lighting_flare_slow]
+      "strobe"   -> [Lighting_strobe_fast, Lighting_strobe_slow]
+      "color1"   -> [Lighting_manual_cool]
+      "color2"   -> [Lighting_manual_warm]
+      _          -> []
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = Lighting_manual_cool
+    , fallback2 = Lighting_manual_warm
+    , fallback3 = Lighting_dischord
+    , original  = t
+    }
+
+selectFadingVisual :: (NNC.C t, SendMessage m, Eq a) => RTB.T t (VisualResult a) -> StackTraceT m (RTB.T t a)
+selectFadingVisual input = do
+
+  let unknown = nubOrd $ map (.original) $ filter (isNothing . (.match)) $ RTB.getBodies input
+  unless (null unknown) $ warn $ T.unpack $ "Substituting replacement events for: " <> T.intercalate ", " unknown
+
+  let perTime = RTB.collectCoincident input
+      noStacks = RTB.flatten $ take 1 <$> perTime
+  unless (all (null . drop 1) perTime) $ warn "Simultaneous events found, dropping all but one per timestamp"
+
+  let go :: (Eq a) => Maybe (T.Text, a) -> RTB.T t (VisualResult a) -> RTB.T t a
+      go prev = \case
+        RNil            -> RNil
+        Wait dt vr rest -> let
+          nextResult = listToMaybe $ dropWhile (\r -> vr.original == r.original) $ RTB.getBodies rest
+          this = case vr.match of
+            -- is it an exact match
+            Just match -> match
+            Nothing    -> case prev of
+              -- does this continue the previous setting
+              Just (prevText, x) | prevText == vr.original -> x
+              _ -> let
+                -- fuzzy options need to be different from previous selection + next exact match
+                isGoodFuzzy x = and
+                  [ maybe True (\(_, y) -> x /= y) prev
+                  , case nextResult of
+                    Nothing -> True
+                    Just nr -> maybe True (x /=) nr.match
+                  ]
+                in case filter isGoodFuzzy vr.fuzzy of
+                  x : _ -> x
+                  []    -> let
+                    -- fallback options need to be different from previous selection + next exact/fuzzy match (only first one)
+                    isGoodFallback x = and
+                      [ maybe True (\(_, y) -> x /= y) prev
+                      , case nextResult of
+                        Nothing -> True
+                        Just nr -> maybe True (x /=) $ nr.match <|> listToMaybe nr.fuzzy
+                      ]
+                    in if isGoodFallback vr.fallback1
+                      then vr.fallback1
+                      else if isGoodFallback vr.fallback2
+                        then vr.fallback2
+                        else vr.fallback3
+          in Wait dt this $ go (Just (vr.original, this)) rest
+
+  return $ go Nothing noStacks
+
+bakeLightingModeRB3 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> RTB.T t LightingRB
+bakeLightingModeRB3 modes lights = if RTB.null modes
+  then lights <&> \case
+    Lighting_ -> Lighting_verse
+    x         -> x
+  else let
+    (parens, notParens) = RTB.partition (== Lighting_) lights
+    merged = RTB.collectCoincident $ RTB.merge (Just <$> modes) (Nothing <$ parens)
+    go mode = \case
+      RNil -> RNil
+      Wait dt events rest -> let
+        mode' = fromMaybe mode $ listToMaybe $ catMaybes events
+        in undefined -- TODO
+    in RTB.merge (go ModeVerse merged) notParens
+
+bakeLightingModeRB2 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> (RTB.T t LightingMode2, RTB.T t LightingRB)
+bakeLightingModeRB2 modes lights = undefined
+{-
+TODO
+* replace (verse)/(chorus) with () + mode
+* replace (intro) and (blackout_spot)
+* have to have [verse] at start?
+* noRedundantStatus? dunno
+-}
+
+compileLightingRB3 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t T.Text)
+compileLightingRB3 modes lights = do
+  results <- selectFadingVisual $ matchLightingRB <$> lights
+  return $ getLightingString <$> bakeLightingModeRB3 modes results
+
+compileLightingRB2 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t LightingMode2, RTB.T t T.Text)
+compileLightingRB2 modes lights = do
+  results <- selectFadingVisual $ matchLightingRB <$> lights
+  let (modes', lights') = bakeLightingModeRB2 modes results
+  return (modes', getLightingString <$> lights')
+
+anyLighting :: (Monad m, NNC.C t) => TrackEvent m t T.Text
+anyLighting = commandMatch'
+  isLighting
+  (\s -> ["lighting", "(" <> s <> ")"])
 
 isLighting :: [T.Text] -> Maybe T.Text
 isLighting = let
@@ -330,7 +466,7 @@ data VenueTrack t = VenueTrack
   , postProcessRB3   :: RTB.T t PostProcess3
   , postProcessRB2   :: RTB.T t PostProcess2
 
-  , lighting         :: RTB.T t Lighting
+  , lighting         :: RTB.T t T.Text
   , lightingCommands :: RTB.T t (LightingCommand, VenueFormat)
   , lightingMode     :: RTB.T t LightingMode2
 
@@ -438,11 +574,7 @@ instance ParseTrack VenueTrack where
         V2_film_16mm        -> 98
         V2_contrast_a       -> 97
         V2_Default          -> 96
-    lighting <- (.lighting) =. do
-      condenseMap_ $ eachKey each \light ->
-        specificLighting case T.stripPrefix "Lighting_" $ T.pack $ show light of
-          Just s  -> s
-          Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
+    lighting <- (.lighting) =. anyLighting
     lightingCommands <- (.lightingCommands) =. do
       condenseMap_ $ fatBlips (1/8) $ eachKey (liftA2 (,) each each) \case
         (LightingFirst, RBN2) -> commandMatch ["first"]
@@ -463,149 +595,142 @@ instance ParseTrack VenueTrack where
         False -> ["FogOff"]
     return VenueTrack{..}
 
-compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
-compileVenueRB3 vt = vt
-  { cameraRB3 = let
-    directed = vt.directedRB2 <&> \docut -> let
-      cut = case docut of
-        DoDirectedCut c -> c
-        DoOptionalCut c -> c
-      in case cut of
-        V2_directed_all        -> V3_directed_all
-        V2_directed_all_yeah   -> V3_directed_all_yeah
-        V2_directed_bre        -> V3_directed_bre
-        V2_directed_brej       -> V3_directed_brej
-        V2_directed_drums_np   -> V3_directed_drums_np
-        V2_directed_bass_np    -> V3_directed_bass_np
-        V2_directed_guitar_np  -> V3_directed_guitar_np
-        V2_directed_vocals_np  -> V3_directed_vocals_np
-        V2_directed_drums      -> V3_directed_drums
-        V2_directed_bass       -> V3_directed_bass
-        V2_directed_guitar     -> V3_directed_guitar
-        V2_directed_vocals     -> V3_directed_vocals
-        V2_directed_bass_cam   -> V3_directed_bass_cam
-        V2_directed_guitar_cam -> V3_directed_guitar_cam_pt -- tweak
-        V2_directed_vocals_cam -> V3_directed_vocals_cam_pt -- tweak
-        V2_directed_duo_guitar -> V3_directed_duo_guitar
-        V2_directed_duo_bass   -> V3_directed_duo_bass
-        V2_directed_duo_drums  -> V3_directed_duo_drums
-        V2_directed_drums_pnt  -> V3_directed_drums_pnt
-        V2_directed_guitar_cls -> V3_directed_guitar_cls
-        V2_directed_bass_cls   -> V3_directed_bass_cls
-        V2_directed_vocals_cls -> V3_directed_vocals_cls
-        V2_directed_drums_kd   -> V3_directed_drums_kd
-        V2_directed_stagedive  -> V3_directed_stagedive
-        V2_directed_duo_gb     -> V3_directed_duo_gb
-        V2_directed_all_cam    -> V3_directed_all_cam
-        V2_directed_crowd_g    -> V3_directed_crowd_g
-        V2_directed_crowd_b    -> V3_directed_crowd_b
-        V2_directed_all_lt     -> V3_directed_all_lt
-        V2_directed_drums_lt   -> V3_directed_drums_lt
-        V2_directed_crowdsurf  -> V3_directed_crowdsurf
-    generic = RTB.flatten $ fmap genericInstant $ RTB.collectCoincident vt.cameraRB2
-    genericInstant xs = case elem CameraCut xs of
-      False -> []
-      True -> let
-        closeup = all (`notElem` xs) [NoClose, OnlyFar]
-        behind = all (`notElem` xs) [OnlyClose, OnlyFar, NoBehind]
-        far = notElem OnlyClose xs
-        near = all (`notElem` xs) [OnlyClose, OnlyFar]
-        cuts = case (elem FocusVocal xs, elem FocusGuitar xs, elem FocusBass xs, elem FocusDrums xs) of
-          (True, False, False, False) -> concat
-            [ [V3_coop_v_behind | behind]
-            , [V3_coop_v_near | near]
-            , [V3_coop_v_closeup | closeup]
-            ]
-          (False, True, False, False) -> concat
-            [ [V3_coop_g_behind | behind]
-            , [V3_coop_g_near | near]
-            , [V3_coop_g_closeup_hand | closeup]
-            , [V3_coop_g_closeup_head | closeup]
-            ]
-          (False, False, True, False) -> concat
-            [ [V3_coop_b_behind | behind]
-            , [V3_coop_b_near | near]
-            , [V3_coop_b_closeup_hand | closeup]
-            , [V3_coop_b_closeup_head | closeup]
-            ]
-          (False, False, False, True) -> concat
-            [ [V3_coop_d_behind | behind]
-            , [V3_coop_d_near | near]
-            , [V3_coop_d_closeup_hand | closeup]
-            , [V3_coop_d_closeup_head | closeup]
-            ]
-          (True, True, True, False) -> concat
-            [ [V3_coop_front_behind | behind]
-            , [V3_coop_front_near | near]
-            ]
-          (True, True, False, False) -> concat
-            [ [V3_coop_gv_behind | behind]
-            , [V3_coop_gv_near | near]
-            ]
-          (True, False, True, False) -> concat
-            [ [V3_coop_bv_behind | behind]
-            , [V3_coop_bv_near | near]
-            ]
-          (False, True, True, False) -> concat
-            [ [V3_coop_bg_behind | behind]
-            , [V3_coop_bg_near | near]
-            ]
-          (True, False, False, True) ->
-            [V3_coop_dv_near | near]
-          (False, True, False, True) ->
-            [V3_coop_dg_near | near]
-          (False, False, True, True) ->
-            [V3_coop_bd_near | near]
-          -- all, nothing, or invalid 3-char including drums
-          _ -> concat
-            [ [V3_coop_all_behind | behind]
-            , [V3_coop_all_far | far]
-            , [V3_coop_all_near | near]
-            ]
-        in case cuts of
-          [] -> [V3_coop_all_near] -- some default if we cut but excluded all options
-          _  -> cuts
-    in RTB.merge vt.cameraRB3 $ RTB.merge generic directed
-  , cameraRB2 = RTB.empty
-  , directedRB2 = RTB.empty
-  , postProcessRB3
-    = RTB.merge vt.postProcessRB3
-    $ vt.postProcessRB2 <&> \case
-      -- TODO do we need to remove redundant events to prevent blending from an RB2 source
-      V2_video_trails     -> V3_video_trails
-      V2_video_security   -> V3_video_security
-      V2_video_bw         -> V3_video_bw
-      V2_video_a          -> V3_video_a
-      V2_BlueTint         -> V3_film_blue_filter -- not in rbn2 list
-      V2_ProFilm_mirror_a -> V3_ProFilm_mirror_a
-      V2_ProFilm_b        -> V3_ProFilm_b
-      V2_ProFilm_a        -> V3_ProFilm_a
-      V2_photocopy        -> V3_photocopy
-      V2_photo_negative   -> V3_photo_negative
-      V2_film_silvertone  -> V3_film_silvertone
-      V2_film_sepia_ink   -> V3_film_sepia_ink
-      V2_film_16mm        -> V3_film_16mm
-      V2_contrast_a       -> V3_contrast_a
-      V2_Default          -> V3_ProFilm_a
-      -- not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
-  , postProcessRB2 = RTB.empty
-  , lighting = let
-    -- in RB2, [verse]/[chorus] are a separate mode which affect any lighting setting.
-    -- the docs say they most noticeably affect [lighting ()].
-    -- RB3 just replaces it with [lighting (verse)]/[lighting (chorus)].
-    withMode = applyStatus1 ModeVerse vt.lightingMode vt.lighting
-    noBlend = if RTB.null vt.lightingMode then id else noRedundantStatus
-    in noBlend $ withMode <&> \case
-      (ModeVerse , Lighting_) -> Lighting_verse
-      (ModeChorus, Lighting_) -> Lighting_chorus
-      (_         , light    ) -> light
-  , lightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> vt.lightingCommands
-  , lightingMode = RTB.empty
-  , fog = RTB.empty
-  }
+compileVenueRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (VenueTrack t)
+compileVenueRB3 vt = do
+  lighting <- compileLightingRB3 vt.lightingMode vt.lighting
+  return vt
+    { cameraRB3 = let
+      directed = vt.directedRB2 <&> \docut -> let
+        cut = case docut of
+          DoDirectedCut c -> c
+          DoOptionalCut c -> c
+        in case cut of
+          V2_directed_all        -> V3_directed_all
+          V2_directed_all_yeah   -> V3_directed_all_yeah
+          V2_directed_bre        -> V3_directed_bre
+          V2_directed_brej       -> V3_directed_brej
+          V2_directed_drums_np   -> V3_directed_drums_np
+          V2_directed_bass_np    -> V3_directed_bass_np
+          V2_directed_guitar_np  -> V3_directed_guitar_np
+          V2_directed_vocals_np  -> V3_directed_vocals_np
+          V2_directed_drums      -> V3_directed_drums
+          V2_directed_bass       -> V3_directed_bass
+          V2_directed_guitar     -> V3_directed_guitar
+          V2_directed_vocals     -> V3_directed_vocals
+          V2_directed_bass_cam   -> V3_directed_bass_cam
+          V2_directed_guitar_cam -> V3_directed_guitar_cam_pt -- tweak
+          V2_directed_vocals_cam -> V3_directed_vocals_cam_pt -- tweak
+          V2_directed_duo_guitar -> V3_directed_duo_guitar
+          V2_directed_duo_bass   -> V3_directed_duo_bass
+          V2_directed_duo_drums  -> V3_directed_duo_drums
+          V2_directed_drums_pnt  -> V3_directed_drums_pnt
+          V2_directed_guitar_cls -> V3_directed_guitar_cls
+          V2_directed_bass_cls   -> V3_directed_bass_cls
+          V2_directed_vocals_cls -> V3_directed_vocals_cls
+          V2_directed_drums_kd   -> V3_directed_drums_kd
+          V2_directed_stagedive  -> V3_directed_stagedive
+          V2_directed_duo_gb     -> V3_directed_duo_gb
+          V2_directed_all_cam    -> V3_directed_all_cam
+          V2_directed_crowd_g    -> V3_directed_crowd_g
+          V2_directed_crowd_b    -> V3_directed_crowd_b
+          V2_directed_all_lt     -> V3_directed_all_lt
+          V2_directed_drums_lt   -> V3_directed_drums_lt
+          V2_directed_crowdsurf  -> V3_directed_crowdsurf
+      generic = RTB.flatten $ fmap genericInstant $ RTB.collectCoincident vt.cameraRB2
+      genericInstant xs = case elem CameraCut xs of
+        False -> []
+        True -> let
+          closeup = all (`notElem` xs) [NoClose, OnlyFar]
+          behind = all (`notElem` xs) [OnlyClose, OnlyFar, NoBehind]
+          far = notElem OnlyClose xs
+          near = all (`notElem` xs) [OnlyClose, OnlyFar]
+          cuts = case (elem FocusVocal xs, elem FocusGuitar xs, elem FocusBass xs, elem FocusDrums xs) of
+            (True, False, False, False) -> concat
+              [ [V3_coop_v_behind | behind]
+              , [V3_coop_v_near | near]
+              , [V3_coop_v_closeup | closeup]
+              ]
+            (False, True, False, False) -> concat
+              [ [V3_coop_g_behind | behind]
+              , [V3_coop_g_near | near]
+              , [V3_coop_g_closeup_hand | closeup]
+              , [V3_coop_g_closeup_head | closeup]
+              ]
+            (False, False, True, False) -> concat
+              [ [V3_coop_b_behind | behind]
+              , [V3_coop_b_near | near]
+              , [V3_coop_b_closeup_hand | closeup]
+              , [V3_coop_b_closeup_head | closeup]
+              ]
+            (False, False, False, True) -> concat
+              [ [V3_coop_d_behind | behind]
+              , [V3_coop_d_near | near]
+              , [V3_coop_d_closeup_hand | closeup]
+              , [V3_coop_d_closeup_head | closeup]
+              ]
+            (True, True, True, False) -> concat
+              [ [V3_coop_front_behind | behind]
+              , [V3_coop_front_near | near]
+              ]
+            (True, True, False, False) -> concat
+              [ [V3_coop_gv_behind | behind]
+              , [V3_coop_gv_near | near]
+              ]
+            (True, False, True, False) -> concat
+              [ [V3_coop_bv_behind | behind]
+              , [V3_coop_bv_near | near]
+              ]
+            (False, True, True, False) -> concat
+              [ [V3_coop_bg_behind | behind]
+              , [V3_coop_bg_near | near]
+              ]
+            (True, False, False, True) ->
+              [V3_coop_dv_near | near]
+            (False, True, False, True) ->
+              [V3_coop_dg_near | near]
+            (False, False, True, True) ->
+              [V3_coop_bd_near | near]
+            -- all, nothing, or invalid 3-char including drums
+            _ -> concat
+              [ [V3_coop_all_behind | behind]
+              , [V3_coop_all_far | far]
+              , [V3_coop_all_near | near]
+              ]
+          in case cuts of
+            [] -> [V3_coop_all_near] -- some default if we cut but excluded all options
+            _  -> cuts
+      in RTB.merge vt.cameraRB3 $ RTB.merge generic directed
+    , cameraRB2 = RTB.empty
+    , directedRB2 = RTB.empty
+    , postProcessRB3
+      = RTB.merge vt.postProcessRB3
+      $ vt.postProcessRB2 <&> \case
+        -- TODO do we need to remove redundant events to prevent blending from an RB2 source
+        V2_video_trails     -> V3_video_trails
+        V2_video_security   -> V3_video_security
+        V2_video_bw         -> V3_video_bw
+        V2_video_a          -> V3_video_a
+        V2_BlueTint         -> V3_film_blue_filter -- not in rbn2 list
+        V2_ProFilm_mirror_a -> V3_ProFilm_mirror_a
+        V2_ProFilm_b        -> V3_ProFilm_b
+        V2_ProFilm_a        -> V3_ProFilm_a
+        V2_photocopy        -> V3_photocopy
+        V2_photo_negative   -> V3_photo_negative
+        V2_film_silvertone  -> V3_film_silvertone
+        V2_film_sepia_ink   -> V3_film_sepia_ink
+        V2_film_16mm        -> V3_film_16mm
+        V2_contrast_a       -> V3_contrast_a
+        V2_Default          -> V3_ProFilm_a
+        -- not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
+    , postProcessRB2 = RTB.empty
+    , lighting = lighting
+    , lightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> vt.lightingCommands
+    , lightingMode = RTB.empty
+    , fog = RTB.empty
+    }
 
-compileVenueRB2 :: (NNC.C t) => VenueTrack t -> VenueTrack t
-compileVenueRB2 vt | vt == mempty = vt -- don't add anything (like [verse]) to an empty input
+compileVenueRB2 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (VenueTrack t)
+compileVenueRB2 vt | vt == mempty = return vt -- don't add anything (like [verse]) to an empty input
 compileVenueRB2 vt = let
   cut dist insts = map Left $ CameraCut : (dist ++ insts)
   behind = cut [NoClose]
@@ -701,63 +826,56 @@ compileVenueRB2 vt = let
       V3_directed_duo_gb        -> directed V2_directed_duo_gb
       V3_directed_duo_kb        -> directed V2_directed_duo_gb
       V3_directed_duo_kg        -> directed V2_directed_duo_gb
-  in vt
-    { cameraRB3 = RTB.empty
-    , cameraRB2 = RTB.merge vt.cameraRB2 $ RTB.mapMaybe
-      (\case Left x -> Just x; Right _ -> Nothing)
-      camera
-    , directedRB2 = RTB.merge vt.directedRB2 $ RTB.mapMaybe
-      (\case Left _ -> Nothing; Right x -> Just x)
-      camera
-    , spotlightKeys = RTB.empty
-    , postProcessRB3 = RTB.empty
-    , postProcessRB2
-      = RTB.merge vt.postProcessRB2
-      $ vt.postProcessRB3 <&> \case
-        V3_ProFilm_a                    -> V2_Default
-        V3_ProFilm_b                    -> V2_Default
-        V3_video_a                      -> V2_video_a
-        V3_film_16mm                    -> V2_film_16mm
-        V3_shitty_tv                    -> V2_video_security
-        V3_bloom                        -> V2_ProFilm_a
-        V3_film_sepia_ink               -> V2_film_sepia_ink
-        V3_film_silvertone              -> V2_film_silvertone
-        V3_film_b_w                     -> V2_video_bw
-        V3_video_bw                     -> V2_video_bw
-        V3_contrast_a                   -> V2_contrast_a
-        V3_photocopy                    -> V2_photocopy
-        V3_film_blue_filter             -> V2_BlueTint
-        V3_desat_blue                   -> V2_BlueTint
-        V3_video_security               -> V2_video_security
-        V3_bright                       -> V2_ProFilm_b
-        V3_posterize                    -> V2_ProFilm_a
-        V3_clean_trails                 -> V2_video_trails
-        V3_video_trails                 -> V2_video_trails
-        V3_flicker_trails               -> V2_video_trails
-        V3_desat_posterize_trails       -> V2_film_16mm
-        V3_film_contrast                -> V2_contrast_a
-        V3_film_contrast_blue           -> V2_BlueTint
-        V3_film_contrast_green          -> V2_contrast_a
-        V3_film_contrast_red            -> V2_contrast_a
-        V3_horror_movie_special         -> V2_photo_negative
-        V3_photo_negative               -> V2_photo_negative
-        V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
-        V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
-        V3_space_woosh                  -> V2_video_trails
-    , lighting = noRedundantStatus $ fmap snd lightingWithMode'
-    , lightingCommands
-      = fmap (\cmd -> (cmd, RBN1))
-      -- avoid problems with two simultaneous [next] causing overlapping midi notes
-      $ RTB.flatten . fmap nubOrd . RTB.collectCoincident
-      $ fst <$> vt.lightingCommands
-    , lightingMode = noRedundantStatus $
-      RTB.cons NNC.zero ModeVerse $ fmap fst lightingWithMode'
-      -- have to have [verse] at the start
-    } where
-      lightingWithMode = applyStatus1 ModeVerse vt.lightingMode vt.lighting
-      lightingWithMode' = lightingWithMode <&> \case
-        (_   , Lighting_verse        ) -> (ModeVerse , Lighting_                )
-        (_   , Lighting_chorus       ) -> (ModeChorus, Lighting_                )
-        (mode, Lighting_intro        ) -> (mode      , Lighting_                )
-        (mode, Lighting_blackout_spot) -> (mode      , Lighting_silhouettes_spot)
-        x                              -> x
+  in do
+    (modes, lighting) <- compileLightingRB2 vt.lightingMode vt.lighting
+    return vt
+      { cameraRB3 = RTB.empty
+      , cameraRB2 = RTB.merge vt.cameraRB2 $ RTB.mapMaybe
+        (\case Left x -> Just x; Right _ -> Nothing)
+        camera
+      , directedRB2 = RTB.merge vt.directedRB2 $ RTB.mapMaybe
+        (\case Left _ -> Nothing; Right x -> Just x)
+        camera
+      , spotlightKeys = RTB.empty
+      , postProcessRB3 = RTB.empty
+      , postProcessRB2
+        = RTB.merge vt.postProcessRB2
+        $ vt.postProcessRB3 <&> \case
+          V3_ProFilm_a                    -> V2_Default
+          V3_ProFilm_b                    -> V2_Default
+          V3_video_a                      -> V2_video_a
+          V3_film_16mm                    -> V2_film_16mm
+          V3_shitty_tv                    -> V2_video_security
+          V3_bloom                        -> V2_ProFilm_a
+          V3_film_sepia_ink               -> V2_film_sepia_ink
+          V3_film_silvertone              -> V2_film_silvertone
+          V3_film_b_w                     -> V2_video_bw
+          V3_video_bw                     -> V2_video_bw
+          V3_contrast_a                   -> V2_contrast_a
+          V3_photocopy                    -> V2_photocopy
+          V3_film_blue_filter             -> V2_BlueTint
+          V3_desat_blue                   -> V2_BlueTint
+          V3_video_security               -> V2_video_security
+          V3_bright                       -> V2_ProFilm_b
+          V3_posterize                    -> V2_ProFilm_a
+          V3_clean_trails                 -> V2_video_trails
+          V3_video_trails                 -> V2_video_trails
+          V3_flicker_trails               -> V2_video_trails
+          V3_desat_posterize_trails       -> V2_film_16mm
+          V3_film_contrast                -> V2_contrast_a
+          V3_film_contrast_blue           -> V2_BlueTint
+          V3_film_contrast_green          -> V2_contrast_a
+          V3_film_contrast_red            -> V2_contrast_a
+          V3_horror_movie_special         -> V2_photo_negative
+          V3_photo_negative               -> V2_photo_negative
+          V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
+          V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
+          V3_space_woosh                  -> V2_video_trails
+      , lighting = lighting
+      , lightingCommands
+        = fmap (\cmd -> (cmd, RBN1))
+        -- avoid problems with two simultaneous [next] causing overlapping midi notes
+        $ RTB.flatten . fmap nubOrd . RTB.collectCoincident
+        $ fst <$> vt.lightingCommands
+      , lightingMode = modes
+      }

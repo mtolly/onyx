@@ -282,6 +282,13 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
     cameraGK <- camera "shot_gk"
     crowd <- getCommands "crowd"
 
+    lightingTrack <- unbuildLighting 1 mempty
+      { postProcessRB3 = postProc
+      , lighting = lighting
+      , lightingCommands = lightingCommands
+      , bonusFX = bonusFX
+      }
+
     return mempty
       { F.onyxVenue = mempty
         { singGuitar   = sing2
@@ -295,12 +302,7 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
         , lightingMode = lightingMode
         , fog          = fog
         }
-      , F.onyxLighting = unbuildLighting 1 mempty
-        { postProcessRB3 = postProc
-        , lighting = lighting
-        , lightingCommands = lightingCommands
-        , bonusFX = bonusFX
-        }
+      , F.onyxLighting = lightingTrack
       , F.onyxCamera = camera5
       , F.onyxCameraBG = cameraBG
       , F.onyxCameraBK = cameraBK

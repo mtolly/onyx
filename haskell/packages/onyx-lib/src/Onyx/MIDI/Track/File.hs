@@ -824,19 +824,21 @@ wiiUnmute22 = let
     & #fixedPartRealBass     %~ unmuteTrack
     & #fixedPartRealBass22   %~ unmuteTrack
 
-convertToVenueGen :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
-convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
-  { onyxLighting = trks.onyxLighting <> unbuildLighting 1 trks.onyxVenue
-  , onyxCamera   = trks.onyxCamera   <> unbuildCamera   1 trks.onyxVenue
-  , onyxVenue = trks.onyxVenue
-    { cameraRB3        = RTB.empty
-    , postProcessRB3   = RTB.empty
-    , lighting         = RTB.empty
-    , lightingCommands = RTB.empty
-    , bonusFX          = RTB.empty
-    , bonusFXOptional  = RTB.empty
+convertToVenueGen :: (SendMessage m) => Song (OnyxFile U.Beats) -> StackTraceT m (Song (OnyxFile U.Beats))
+convertToVenueGen (Song temps sigs trks) = do
+  lighting <- unbuildLighting 1 trks.onyxVenue
+  return $ Song temps sigs trks
+    { onyxLighting = trks.onyxLighting <> lighting
+    , onyxCamera   = trks.onyxCamera   <> unbuildCamera   1 trks.onyxVenue
+    , onyxVenue = trks.onyxVenue
+      { cameraRB3        = RTB.empty
+      , postProcessRB3   = RTB.empty
+      , lighting         = RTB.empty
+      , lightingCommands = RTB.empty
+      , bonusFX          = RTB.empty
+      , bonusFXOptional  = RTB.empty
+      }
     }
-  }
 
 instance ChopTrack OnyxFile where
   chopTake t o = OnyxFile
