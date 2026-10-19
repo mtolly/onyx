@@ -432,7 +432,7 @@ part-drums = Batería
 part-vocal = Vocales
 part-rhythm = Ritmo
 part-guitar-coop = Guitarra Coop
-part-vocal-animation = Vocal (animaciones)
+part-vocal-animation = Vocales (animaciones)
 
 coop-bass = Coop: Bajo
 coop-rhythm = Coop: Ritmo
