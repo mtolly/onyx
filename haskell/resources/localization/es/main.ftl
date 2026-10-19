@@ -680,10 +680,10 @@ misc-button-ghwor-cache-360 = Crear caché de GH:WoR (360)
 misc-button-ghwor-cache-ps3 = Crear caché de GH:WoR (PS3)
 misc-button-ghwor-cache-install-rpcs3 = Instalar caché de GH:WoR (RPCS3)
 
-misc-task-make-gh3-cache = Make GH3 cache file
-misc-task-install-gh3-cache = Install GH3 cache file
-misc-task-make-ghwor-cache = Make GH:WoR cache file
-misc-task-install-ghwor-cache = Install GH:WoR cache file
+misc-task-make-gh3-cache = Crear archivo caché de GH3
+misc-task-install-gh3-cache = Instalar archivo caché de GH3
+misc-task-make-ghwor-cache = Crear archivo caché de GH:WoR
+misc-task-install-ghwor-cache = Instalar archivo caché de GH:WoR
 
 label-midi-or-chart = MIDI o .chart
 midi-load-dialog = Cargar MIDI o .chart file
@@ -820,9 +820,9 @@ pref-ch-audio-opus = Exportar audio Opus
 
 pref-dir-rb = Carpeta para CON/LIVE
 pref-trim-xbox = Limitar nombre de archivos para USBs o discos duros de Xbox 360
-  .tooltip = Si activas esta opción, los nombres de archivos CON o LIVE files se limitaran 42 caracteres y eliminará caracteres de 'más' y comas (una restricción que existe para discos duros de 360, pero no USB).
+  .tooltip = Si activas esta opción, los nombres de archivos CON o LIVE se limitaran 42 caracteres y eliminará caracteres de 'más' y comas (una restricción que existe para discos duros de 360, pero no USB).
 pref-rb-number-id = Usar números validos en vez de símbolos para archivos de RB para Xbox 360
-  .tooltip = Si activas esta opción, archivos de Rock Band files usara un número entero al azar para generar song_id. De lo contrario, una 'o' será prefija para formar el símbolo y el juego generara un ID aleatoriamente. Un numero entero valido se requiere para jugar online en RGH, para conversión de PS3 y para mantener puntuaciones cuando se regenere la caché de canciones.
+  .tooltip = Si activas esta opción, archivos de Rock Band usara un número entero al azar para generar song_id. De lo contrario, una 'o' será prefija para formar el símbolo y el juego generara un ID aleatoriamente. Un numero entero valido se requiere para jugar online en RGH, para conversión de PS3 y para mantener puntuaciones cuando se regenere la caché de canciones.
 
 pref-ps3-encrypt = Encriptar archivos .mid.edat para PS3
   .tooltip = Si activas esta opción, los archivos .mid.edat para customs de PS3 serán encriptadas. Esto se requiere para jugadores de PS3 en vanilla pero opcional y menos conveniente para usuarios de Deluxe o RPCS3.
