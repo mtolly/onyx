@@ -438,7 +438,7 @@ coop-bass = Coop: Bajo
 coop-rhythm = Coop: Ritmo
 
 numberbox-gh5-song-id = Custom Song ID (dlc)
-numberbox-gh5-cdl = Custom Package ID (cdl)
+numberbox-gh5-cdl = ID de paquete de customs (cdl)
 numberbox-rr-song-id = Custom Song ID
 numberbox-rr-leaderboard-id = ID para puntuaciones
 
