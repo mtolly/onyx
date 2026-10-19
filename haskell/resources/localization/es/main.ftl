@@ -109,7 +109,7 @@ instrument-other = Otro
 
 speed-percent = Velocidad (%)
 speed-percent-tooltip =
-  Ajusta la velocidad de la chart y su audio (sin cambiar el tono).
+  Ajusta la velocidad del chart y su audio (sin cambiar el tono).
 
 bass-pedal-1x = 1x pedal de bombo
 bass-pedal-2x = 2x pedal de bombo
@@ -139,14 +139,14 @@ song-list-open =
   }
 
 warning-gh2-packs =
-  ¡Asegúrate de combinar canciones a paquetes (dentro de 'Otras herramientas') antes de jugar! Cargar más de 16 paquetes corrompe tu partida de GH2.
+  ¡Asegúrate de combinar canciones en paquetes (dentro de 'Otras herramientas') antes de jugar! Cargar más de 16 paquetes corromperá tu partida de GH2.
 warning-gh2-packs-long =
-  ¡Advertencia! Cuando estas importando canciones a Guitar Hero II en Xbox 360, *necesitas* combinarlas a paquetes (dentro de 'Otras herramientas').
-  ¡Cargando mas de 16 paquete resultara en canciones erróneas y corrompiera tu partida!
+  ¡Advertencia! Cuando estas importando canciones a Guitar Hero II en Xbox 360, *necesitas* combinarlas en paquetes (dentro de 'Otras herramientas').
+  ¡Cargar mas de 16 paquetes resultará en canciones erróneas y la corrupción de tu partida!
 warning-gh3-cache =
-  ¡Asegúrate de crear un caché de canciones para GH3 (dentro de 'Otras herramientas') de todas tus customs y DLC! Esto es requerido para cargar varias canciones.
+  ¡Asegúrate de crear una caché de canciones para GH3 (dentro de 'Otras herramientas') de todas tus customs y DLC! Esto se requiere para cargar varias canciones.
 warning-ghwor-cache =
-  ¡Asegúrate de crear un caché de para GH:WoR (dentro de 'Otras herramientas') de todas tus customs y DLC! Esto es requerido para cargar varias canciones.
+  ¡Asegúrate de crear una caché de para GH:WoR (dentro de 'Otras herramientas') de todas tus customs y DLC! Esto se requiere para cargar varias canciones.
 warning-ghwor-long =
   Por favor usa la pestaña de "Caché para WoR" dentro de 'Otras herramientas' después de convertir
   para producir el archivo que se necesita para cargar tus canciones.
@@ -289,8 +289,8 @@ file-type-song =
   .load = Cargar canción
   .clear = Borrar canciones
 
-drums-mode-4lane = Batería de 4 lineas
-drums-mode-5lane = Batería de 5 lineas
+drums-mode-4lane = Batería de 4 líneas
+drums-mode-5lane = Batería de 5 líneas
 drums-mode-pro = Batería PRO
 drums-mode-real = Batería 'Real' de Phase Shift
 drums-mode-elite = Batería 'Elite'
@@ -324,16 +324,16 @@ vocals-solo = Solo
 vocals-harmonies-2 = Armonías (2)
 vocals-harmonies-3 = Armonías (3)
 
-toggle-ps2-practice-audio = Generar sonido de modo practica para PS2
+toggle-ps2-practice-audio = Generar sonido de modo práctica para PS2
 
 template-runner-tooltip =
   Estructura de ubicación para archivos nuevos.
     %carp_de_entrad% - carpeta que contiene la entrada
     %input_base% - nombre de archivo de entrada sin extensión
     %modifiers% - características distintivas e.g. modificador de velocidad
-    %title% - titulo desde los metadatos de la canción (incluyendo modificadores)
+    %title% - título desde los metadatos de la canción (incluyendo modificadores)
     %artist% - artista desde los metadatos de la canción
-    %album% - album desde los metadatos de la canción
+    %album% - álbum desde los metadatos de la canción
     %author% - autor desde los metadatos de la canción
     %song_id% - ID único de canción
 
@@ -370,9 +370,9 @@ batch-tab-songs-data-path =
   }
 
 batch-tab-rb3-all-toms = Convertir todas las notas de batería sin pro a Toms
-  .tooltip = Si activas esta opción, se agregarán marcadores de Tom a todas las notas al importar un chart de FoF/PS/CH donde no se detecte Batería Pro.
-batch-tab-gh-drums-5lane = Batería Pro a 5 lineas
-batch-tab-gh-drums-4lane = Batería Pro a 4 lineas
+  .tooltip = Si activas esta opción, se agregaran marcadores de Tom a todas las notas al importar un chart de FoF/PS/CH donde no se detecte Batería Pro.
+batch-tab-gh-drums-5lane = Batería Pro a 5 líneas
+batch-tab-gh-drums-4lane = Batería Pro a 4 líneas
 batch-tab-rr-drums-6pad = Batería Pro a 6 pads
 batch-tab-rr-drums-4pad = Batería Pro a 4 pads
 
@@ -527,7 +527,7 @@ quick-convert-tab-gh2-pack = Creador de paquetes GH2
 quick-convert-tab-rb-legacy-pkg = CON->PKG de legado RB
 
 quick-convert-limit-easy-medium-frets = Limitar trastes de Fácil/Medio
-  .tooltip = Asegura que fácil/medio usen 3/4 trastes respectivamente en cinco lineas.
+  .tooltip = Asegura que fácil/medio usen 3/4 trastes respectivamente en cinco líneas.
 
 quick-convert-rb-black-venue = VENUE negra
   .tooltip = Reemplaza la pista de VENUE con una que intenta imitar un fondo negro. Funciona en canciones previas a RB3 o canciones en formato RBN2; no funciona con canciones de RB3 en formato .milo.
@@ -547,7 +547,7 @@ quick-convert-rb-decompress-milo = Descomprimir .milo_*
   .tooltip = Descomprime cualquier archivo .milo_xbox, etc. Es probable que ForgeTool requiera esto para leer archivos durante el proceso de conversión a RB4.
 quick-convert-rb-author-to-tag = Colocar Autor en DTA
   .tooltip = Copia la información de autor en formato C3 al DTA para que se pueda usar en proyectos como RB2/RB3 Deluxe.
-quick-convert-rb-strip-title-tags = Eliminar etiquetas de titulo
+quick-convert-rb-strip-title-tags = Eliminar etiquetas de título
   .tooltip = Elimina las siguiente etiquetas de los titulos: (2x Bass Pedal) y sellos de autor (Z) (X) (O) etc.
 quick-convert-rb-note-shuffle = Aleatorizar notas
   .tooltip = Notas en partes de 5 trastes y batería serán aleatorizadas.
@@ -557,18 +557,18 @@ quick-convert-rb-decrypt-moggs = Desencriptar MOGGs
 quick-convert-ch-chart-to-midi = .chart a MIDI
   .tooltip = Convierte todos los archivos .chart a .mid.
 quick-convert-ch-ps-tap-open = 'Taps'/'opens' en formato PS
-  .tooltip = Codifica notas 'tap' y 'open' usando el formato viejo de Phase Shift (mensajes SYSEX). Esto reducirá el tamaño de las notas extendidas para eliminar notas superpuestas y eliminara notas 'open' en acordes.
+  .tooltip = Codifica notas 'tap' y 'open' usando el formato viejo de Phase Shift (mensajes SYSEX). Esto reducirá el tamaño de las notas sostenidas para eliminar notas superpuestas y notas 'open' en acordes.
 quick-convert-ch-audio-ogg = Audio a .ogg
-  .tooltip = Codifica audio al formato .OGG si es que no lo están ya.
+  .tooltip = Codifica archivos de audio al formato .OGG si es que no lo están ya.
 quick-convert-ch-audio-opus = Audio a .opus
-  .tooltip = Codifica audio al formato Opus si es que no lo están ya.
+  .tooltip = Codifica archivos de audio al formato Opus si es que no lo están ya.
 quick-convert-ch-real-drums-to-elite = Batería 'Real' a 'Elite'
   .tooltip = Si la canción tiene una parte de Batería 'Real', agrega una conversión a Batería 'Elite'.
 
 quick-convert-mode-in-place = Reemplazar los archivos originales con versiones nuevas
 quick-convert-mode-one-to-one = Cada archivo de entrada produce un archivo nuevo
 quick-convert-mode-make-packs = Crear paquetes: Unir canciones respetando el tamaño máximo 
-quick-convert-mode-make-songs = Crear canciones: Producir un archivo nueva para cada canción
+quick-convert-mode-make-songs = Crear canciones: Producir un archivo nuevo para cada canción
 quick-convert-mode-make-dolphin = Crear paquete de Dolphin (Wii)
 
 quick-convert-format-con = CON (360)
@@ -587,10 +587,10 @@ quick-convert-folder-combine-per-pack = Combinar a una sub-carpeta USRDIR nueva 
 quick-convert-folder-each = Cada canción tiene una sub-carpeta USRDIR nueva
 quick-convert-folder-custom-initial = Nombrar sub-carpeta USRDIR…
 quick-convert-folder-custom = Carpeta personalizada: {$folder}
-quick-convert-folder-custom-prompt = Entra el nombre de la sub-carpeta de USRDIR para tu paquete. (Se agregará un número si se crea mas de un paquete.)
+quick-convert-folder-custom-prompt = Ingresa el nombre de la sub-carpeta de USRDIR para tu paquete. (Se agregará un número si se crea mas de un paquete.)
 
 quick-convert-max-pack-size = Tamaño max. de paq. (MiB)
-quick-convert-invalid-pack-size = Tamaño invalido
+quick-convert-invalid-pack-size = Tamaño inválido
 quick-convert-no-songs-added = No hay canciones
 quick-convert-make-packs-count =
   {$count ->
@@ -598,39 +598,39 @@ quick-convert-make-packs-count =
    *[other] Crear {$count} paquetes
   }
 quick-convert-unsupported-format = Formato no permitido: 'transformar en lugar' solo puede convertir CON/LIVE/PKG
-quick-convert-empty = (vació)
-quick-convert-songs-incl = {$count} songs incl. {$title}
-quick-convert-save-pack-file = Save pack file
-quick-convert-save-pack-template = Select template for packs (a number will be added for each pack)
+quick-convert-empty = (vacio)
+quick-convert-songs-incl = {$count} canciones inclu. {$title}
+quick-convert-save-pack-file = Guardar archivo de paquete
+quick-convert-save-pack-template = Elegir plantilla para paquetes (se agregará un numero a cada paquete)
 quick-convert-pack-number = Paquete #{$number}
 
 quick-convert-fof-folder = formato carpeta
 quick-convert-fof-sng = formato .sng
 quick-convert-fof-encore = formato Encore
-quick-convert-mode-to-folders = Cada canción se guardara a su propia carpeta
-quick-convert-mode-to-sng = Cada canción se guardara a un archivo .sng
+quick-convert-mode-to-folders = Cada canción se guardará a su propia carpeta
+quick-convert-mode-to-sng = Cada canción se guardará a un archivo .sng
 
-quick-convert-ch-warning-base = Esta opción modificara la canciones elegidas y las eliminara las versiones viejas.
+quick-convert-ch-warning-base = Esta opción modificará la canciones elegidas y las eliminará las versiones viejas.
 quick-convert-ch-warning-encore =
-  WARNING: Esto formato convertirá canciones a formato CH y eliminara los archivos originales.
+  WARNING: Esto formato convertirá canciones a formato CH y eliminará los archivos originales.
   Elige otro modo para preservarlos.
 quick-convert-ch-ops-header = Según la plantilla de nombres, se cumplirán estas operaciones:
 quick-convert-ch-op-overwrite =
   {$songs ->
-    [one] - {$songs} canción sera sobrescrita con una versión nueva
+    [one] - {$songs} canción será sobrescrita con una versión nueva
    *[other] - {$songs} canciones serán sobrescritas con versiones nuevas
   }
 quick-convert-ch-op-convert =
   {$songs ->
-    [one] - {$songs} canción sera convertida a una versión nueva
+    [one] - {$songs} canción será convertida a una versión nueva
    *[other] - {$songs} canciones serán convertidas a versiones nuevas
   }
 quick-convert-ch-op-convert-delete =
   {$songs ->
-    [one] - {$songs} canción sera convertida a una versión nueva y se eliminara la versión vieja
-   *[other] - {$songs} canciones serán convertidas a versiones nuevas y se eliminaran la versiones viejas
+    [one] - {$songs} canción será convertida a una versión nueva y se eliminará la versión vieja
+   *[other] - {$songs} canciones serán convertidas a versiones nuevas y se eliminarán la versiones viejas
   }
-quick-convert-ch-ops-encore = ADVERTENCIA: Ciertas canciones en formato Encore serán eliminadas/reemplazadas con versiones compatible con CH
+quick-convert-ch-ops-encore = ADVERTENCIA: Ciertas canciones en formato Encore serán eliminadas/reemplazadas con versiones compatibles con CH
 
 quick-convert-delete-originals = Eliminar archivos originales
 quick-convert-dolphin-preview-audio = Intenta generar audio de previsualización
@@ -810,7 +810,7 @@ encoding-as-is = Tal cual
 pref-gh2-offset = Compensación de audio para GH2 (ms)
   .tooltip = Ajusta la compensación del sonido para exportaciones de Guitar Hero II, principalmente para uso con emulador. Valores positivos apresuran el sonido para compensar por el retraso. Valores negativos mueve el sonido para que suene mas tarde.
 pref-sort-gh2 = Organizar canciones bonus de GH2 en el .ARK
-pref-artist-sort = Para GH2 y GH3, organizar canciones bonus por artista antes que titulo
+pref-artist-sort = Para GH2 y GH3, organizar canciones bonus por artista antes que título
   .tooltip = Esto afecta las canciones bonus de GH2 en el .ARK (cuando activas esta opción) y DLC de GH3 (como se organiza en el archivo de caché).
 
 pref-dir-ch = Carpeta por defecto de CH
@@ -820,9 +820,9 @@ pref-ch-audio-opus = Exportar audio Opus
 
 pref-dir-rb = Carpeta para CON/LIVE
 pref-trim-xbox = Limitar nombre de archivos para USBs o discos duros de Xbox 360
-  .tooltip = Si activas esta opción, los nombres de archivos CON o LIVE files se limitaran 42 caracteres y eliminara caracteres de 'más' y comas (una restricción que existe para discos duros de 360, pero no USB).
+  .tooltip = Si activas esta opción, los nombres de archivos CON o LIVE files se limitaran 42 caracteres y eliminará caracteres de 'más' y comas (una restricción que existe para discos duros de 360, pero no USB).
 pref-rb-number-id = Usar números validos en vez de símbolos para archivos de RB para Xbox 360
-  .tooltip = Si activas esta opción, archivos de Rock Band files usara un número entero al azar para generar song_id. De lo contrario, una 'o' sera prefija para formar el símbolo y el juego generara un ID aleatoriamente. Un numero entero valido se requiere para jugar online en RGH, para conversión de PS3 y para mantener puntuaciones cuando se regenere el caché de canciones.
+  .tooltip = Si activas esta opción, archivos de Rock Band files usara un número entero al azar para generar song_id. De lo contrario, una 'o' será prefija para formar el símbolo y el juego generara un ID aleatoriamente. Un numero entero valido se requiere para jugar online en RGH, para conversión de PS3 y para mantener puntuaciones cuando se regenere la caché de canciones.
 
 pref-ps3-encrypt = Encriptar archivos .mid.edat para PS3
   .tooltip = Si activas esta opción, los archivos .mid.edat para customs de PS3 serán encriptadas. Esto se requiere para jugadores de PS3 en vanilla pero opcional y menos conveniente para usuarios de Deluxe o RPCS3.
