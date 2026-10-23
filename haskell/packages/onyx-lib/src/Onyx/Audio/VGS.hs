@@ -27,7 +27,7 @@ import           Control.Monad.Trans.Class    (lift)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State    (StateT, get, put, runStateT)
 import           Data.Binary.Get              (Get, getByteString, getWord32le,
-                                               getWord64le, isEmpty, runGet)
+                                               getWord64le, isEmpty)
 import           Data.Binary.Put
 import           Data.Bits                    (shiftL, shiftR, xor, (.&.),
                                                (.|.))
@@ -41,6 +41,7 @@ import qualified Data.Conduit.Audio           as CA
 import           Data.Functor                 ((<&>))
 import           Data.Int                     (Int16, Int32)
 import           Data.List.Extra              (elemIndex, minimumOn)
+import           Data.Maybe                   (fromMaybe)
 import qualified Data.Vector.Storable         as V
 import           Data.Word                    (Word32, Word64, Word8)
 import           Foreign                      (Ptr, allocaBytes, castPtr, peek,
@@ -221,9 +222,10 @@ readVGSReadable vgs = do
       let go _    0          = return ()
           go dbls blocksLeft = do
             chunk <- liftIO $ BL.hGet h 16
-            case runGet (runStateT (decodeVAGBlock $ Just i) dbls) chunk of
-              ([], _)    -> go dbls $ blocksLeft - 1
-              (samps, dbls') -> do
+            case runGetM (runStateT (decodeVAGBlock $ Just i) dbls) chunk of
+              Nothing             -> return () -- ran out of data earlier than expected
+              Just ([]   , _    ) -> go dbls $ blocksLeft - 1
+              Just (samps, dbls') -> do
                 C.yield $ V.fromList samps
                 go dbls' $ blocksLeft - 1
       go (0, 0) totalBlocks
@@ -254,7 +256,9 @@ readSingleRateVGS dur vgs = do
           go states blockSetsLeft = do
             results <- forM states \channelState -> do
               chunk <- liftIO $ BL.hGet h 16
-              let (samps, newState) = runGet (runStateT (decodeVAGBlock Nothing) channelState) chunk
+              let (samps, newState)
+                    = fromMaybe (replicate 16 0, channelState) -- if runGetM fails, ran out of data earlier than expected
+                    $ runGetM (runStateT (decodeVAGBlock Nothing) channelState) chunk
               return (V.fromList samps, newState)
             C.yield $ CA.interleave $ map fst results
             go (map snd results) $ blockSetsLeft - 1
@@ -279,7 +283,9 @@ splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
               <> BB.byteString (B.drop 2 block)
       go bb' $ blocksLeft - 1
     else return $ BB.toLazyByteString bb
-  in go newHeader $ sum $ map snd vgs.header.channels
+  in do
+    IO.hSeek hin IO.AbsoluteSeek 0x80
+    go newHeader $ sum $ map snd vgs.header.channels
 
 makeVGSHeader :: VGSHeader -> BB.Builder
 makeVGSHeader hdr
