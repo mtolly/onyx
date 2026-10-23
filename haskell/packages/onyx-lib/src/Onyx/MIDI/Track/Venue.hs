@@ -412,16 +412,17 @@ computeBlendable = \case
     -> Wait t1 (BlendableCut x1) $ computeBlendable rest
   RNil -> RNil
 
-bakeLightingModeRB3 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> RTB.T t LightingRB
-bakeLightingModeRB3 modes lights = if RTB.null modes
+-- Converts from pre-RB3 [verse]/[chorus] to instead replace [lighting ()] presets
+lightingModeToPresets :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t T.Text -> RTB.T t T.Text
+lightingModeToPresets modes lights = if RTB.null modes
   then lights <&> \case
-    Lighting_ -> Lighting_verse
-    x         -> x
+    "" -> "verse"
+    x  -> x
   else applyStatus1 ModeVerse modes lights <&> \case
     -- this could remove blending if adjacent () become different, not sure of best solution
-    (ModeVerse , Lighting_) -> Lighting_verse
-    (ModeChorus, Lighting_) -> Lighting_chorus
-    (_         , x        ) -> x
+    (ModeVerse , "") -> "verse"
+    (ModeChorus, "") -> "chorus"
+    (_         , x ) -> x
 
 bakeLightingModeRB2 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> (RTB.T t LightingMode2, RTB.T t LightingRB)
 bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
@@ -476,7 +477,7 @@ bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
 compileLightingRB3 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t T.Text)
 compileLightingRB3 modes lights = do
   results <- selectFadingVisual $ matchLightingRB <$> lights
-  return $ getLightingString <$> bakeLightingModeRB3 modes results
+  return $ lightingModeToPresets modes $ getLightingString <$> results
 
 compileLightingRB2 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t LightingMode2, RTB.T t T.Text)
 compileLightingRB2 modes lights = do

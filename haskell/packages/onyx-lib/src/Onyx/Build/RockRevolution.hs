@@ -248,9 +248,8 @@ rrRules buildInfo dir rr = do
             { rrdSolo = maybe RTB.empty (\res -> res.other.solo) drums
             }, length rrDiff.rrdGems)
 
-    venue <- getVenue
+    venue <- getVenueRB3
       (mkStdGen $ hash key)
-      VenueTargetRB3
       (Map.fromList $ concat
         [ [ (Guitar, rr.guitar) | isJust guitar ]
         , [ (Bass  , rr.bass  ) | isJust bass   ]

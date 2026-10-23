@@ -29,8 +29,7 @@ import           Development.Shake.FilePath
 import           Onyx.Audio
 import           Onyx.Audio.FSB                    (emitFSB, ghBandMP3sToFSB4)
 import           Onyx.Audio.Render                 (computeDrumsPart)
-import           Onyx.Background                   (VenueTarget (VenueTargetRB3),
-                                                    getVenue)
+import           Onyx.Background                   (getVenueRB3)
 import           Onyx.Build.Common
 import           Onyx.Build.GuitarHero5.Logic      (makeGHWoRNote,
                                                     packageNameHash,
@@ -232,9 +231,8 @@ gh5Rules buildInfo dir gh5 = do
           , [(Vocal , gh5.vocal )]
           ]
 
-    rbCamera <- (.cameraRB3) <$> getVenue
+    rbCamera <- (.cameraRB3) <$> getVenueRB3
       (mkStdGen hashed)
-      VenueTargetRB3
       partMap
       tmap
       endTime

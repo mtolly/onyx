@@ -1,6 +1,7 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -21,6 +22,7 @@ import           Data.Maybe                           (catMaybes, fromMaybe,
                                                        isJust, isNothing)
 import qualified Data.Text                            as T
 import qualified Numeric.NonNegative.Class            as NNC
+import           Onyx.Background                      (getVenue)
 import           Onyx.Build.Common                    (getTargetMetadata)
 import           Onyx.Build.RB3CH                     (BasicTiming (..),
                                                        basicTiming)
@@ -48,6 +50,7 @@ import qualified Onyx.MIDI.Track.Drums                as RB
 import qualified Onyx.MIDI.Track.Events               as RB
 import qualified Onyx.MIDI.Track.File                 as F
 import qualified Onyx.MIDI.Track.FiveFret             as RB
+import qualified Onyx.MIDI.Track.Venue                as RB
 import qualified Onyx.MIDI.Track.Vocal                as RB
 import           Onyx.Mode
 import           Onyx.Overdrive                       (removeNotelessOD)
@@ -203,16 +206,38 @@ computeGH2Audio song target is360 hasAudio = do
 makeSoloEdges :: (NNC.C t) => RTB.T t Bool -> RTB.T t ()
 makeSoloEdges = void . RTB.filter (odd . length) . RTB.collectCoincident
 
+matchLightingGH2 :: T.Text -> RB.VisualResult T.Text
+matchLightingGH2 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = if elem folded gh2LightingPresets
+    then (Just folded, [])
+    else (Nothing,) if
+      -- fuzzy match some rb presets
+      | "black"  `T.isInfixOf` folded -> ["blackout"]
+      | folded == "searchlights"      -> ["chase"]
+      | "flare"  `T.isInfixOf` folded -> ["flare"]
+      | "strobe" `T.isInfixOf` folded -> ["strobe"]
+      | otherwise                     -> []
+  in RB.VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = ""
+    , fallback2 = "color1"
+    , fallback3 = "color2"
+    , original  = t
+    }
+
 midiRB3toGH2
   :: (SendMessage m)
   => SongYaml f
+  -> T.Text
   -> TargetGH2 f
   -> GH2Audio
   -> FretLimit
   -> F.Song (F.OnyxFile U.Beats)
   -> StackTraceT m U.Seconds
   -> StackTraceT m (F.Song (GH2File U.Beats), Int)
-midiRB3toGH2 song target audio fretLimit inputMid@(F.Song tmap mmap onyx) getAudioLength = do
+midiRB3toGH2 song key target audio fretLimit inputMid@(F.Song tmap mmap onyx) getAudioLength = do
   timing <- basicTiming False inputMid getAudioLength
   let makeMoods origMoods gems = let
         moods = if RTB.null origMoods
@@ -336,15 +361,23 @@ midiRB3toGH2 song target audio fretLimit inputMid@(F.Song tmap mmap onyx) getAud
           $ fmap (\case (p, True) -> NoteOn () p; (p, False) -> NoteOff p)
           $ trk.notes
         in mempty { singerIdle = idle, singerPlay = play }
+      venue = getVenue
+        (mkStdGen $ hash key)
+        Map.empty -- whatever, not using camera events
+        tmap
+        timing.timingEnd
+        inputMid
       events = mempty
-        { eventsSections      = fmap (makeGH2Section . sectionBody) onyx.onyxEvents.sections
-        , eventsOther         = foldr RTB.merge RTB.empty
+        { eventsSections = fmap (makeGH2Section . sectionBody) onyx.onyxEvents.sections
+        , eventsOther    = foldr RTB.merge RTB.empty
           [ RTB.cons timing.timingMusicStart MusicStart RTB.empty
           , RTB.cons timing.timingEnd        End        RTB.empty
           ]
+        , eventsLighting = RB.selectFadingVisualPure $ fmap matchLightingGH2 venue.lighting
         }
       triggers = mempty
         { backing = onyx.onyxEvents.backing
+        , lightingCommands = fst <$> venue.lightingCommands
         }
       getFive' fpart = do
         builder <- getPart fpart song >>= anyFiveFret

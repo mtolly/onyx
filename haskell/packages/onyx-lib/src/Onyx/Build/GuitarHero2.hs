@@ -93,7 +93,7 @@ gh2Rules buildInfo dir gh2 = do
     hasAudio <- loadPartAudioCheck
     audio <- computeGH2Audio songYaml gh2 True hasAudio -- "is 360" parameter here doesn't matter
     fretLimit <- loadFretLimit
-    (mid, padSeconds) <- midiRB3toGH2 songYaml gh2 audio fretLimit
+    (mid, padSeconds) <- midiRB3toGH2 songYaml key gh2 audio fretLimit
       (applyTargetMIDI gh2.common input)
       (getAudioLength buildInfo planName plan)
     F.saveMIDILatin1 out mid

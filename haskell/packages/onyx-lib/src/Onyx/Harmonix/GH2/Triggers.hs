@@ -38,10 +38,10 @@ instance ParseTrack TriggersTrack where
         BackingSnare -> 25
         BackingHihat -> 26
     lightingCommands <- (.lightingCommands) =. do
-      condenseMap_ $ fatBlips (1/8) $ eachKey each \case
-        LightingFirst -> blip 50
-        LightingPrev  -> blip 49
-        LightingNext  -> blip 48
+      fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
+        LightingFirst -> 50
+        LightingPrev  -> 49
+        LightingNext  -> 48
     unknown52 <- (.unknown52) =. edges 52
     -- Trogdor has pitches 36 and 38
     -- Tonight I'm Gonna Rock You Tonight has pitch 60

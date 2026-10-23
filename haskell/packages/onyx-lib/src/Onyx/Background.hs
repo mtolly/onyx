@@ -107,24 +107,16 @@ makeMoodsFromNotes buffer gap rtb = let
 
 -- venue
 
-data VenueTarget
-  = VenueTargetRB2
-  | VenueTargetRB3
-
 getVenue
-  :: (SendMessage m)
-  => StdGen
-  -> VenueTarget
+  :: StdGen
   -> Map.Map RB3Instrument F.PartName -- map of target parts to project parts
   -> U.TempoMap
   -> U.Beats
   -> F.Song (F.OnyxFile U.Beats)
-  -> StackTraceT m (VenueTrack U.Beats)
-getVenue stdGen target partMap tmap endTime ofile = let
+  -> VenueTrack U.Beats
+getVenue stdGen partMap tmap endTime ofile = let
   runRandom f = evalRand f stdGen
   camera = runRandom $ buildCamera (Map.keys partMap) ofile.tracks.onyxCamera
-  -- cut off at end mostly since new blips introduced in rb3->rb2 can go past the end event
-  trimEnd = mapTrack $ U.trackTake endTime
   gen = mconcat
     [ ofile.tracks.onyxVenue
     , buildLighting ofile.tracks.onyxLighting
@@ -134,9 +126,19 @@ getVenue stdGen target partMap tmap endTime ofile = let
   withCamera = runRandom $ if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directedRB2
     then (\cam -> gen { cameraRB3 = cam }) <$> autoCamera partMap tmap endTime ofile
     else return gen
-  in fmap trimEnd
-    $ (case target of VenueTargetRB2 -> compileVenueRB2; VenueTargetRB3 -> compileVenueRB3)
-    $ withCamera
+  in withCamera
+
+getVenueRB3
+  :: (SendMessage m)
+  => StdGen
+  -> Map.Map RB3Instrument F.PartName -- map of target parts to project parts
+  -> U.TempoMap
+  -> U.Beats
+  -> F.Song (F.OnyxFile U.Beats)
+  -> StackTraceT m (VenueTrack U.Beats)
+getVenueRB3 stdGen partMap tmap endTime ofile = let
+  venue = getVenue stdGen partMap tmap endTime ofile
+  in fmap (mapTrack $ U.trackTake endTime) $ compileVenueRB3 venue
 
 autoCamera
   :: (R.MonadRandom m)
