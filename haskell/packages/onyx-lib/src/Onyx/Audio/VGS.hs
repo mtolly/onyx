@@ -279,7 +279,9 @@ splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
               <> BB.byteString (B.drop 2 block)
       go bb' $ blocksLeft - 1
     else return $ BB.toLazyByteString bb
-  in go newHeader $ sum $ map snd vgs.header.channels
+  in do
+    IO.hSeek hin IO.AbsoluteSeek 0x80
+    go newHeader $ sum $ map snd vgs.header.channels
 
 makeVGSHeader :: VGSHeader -> BB.Builder
 makeVGSHeader hdr
