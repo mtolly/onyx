@@ -18,6 +18,7 @@ import           GHC.Generics                     (Generic)
 import           Onyx.DeriveHelpers
 import           Onyx.MIDI.Common
 import           Onyx.MIDI.Read
+import           Onyx.MIDI.Track.Venue            (anyLighting)
 
 data CrowdTempo
   = CrowdHalfTempo
@@ -68,29 +69,23 @@ instance Command Event where
     End          -> ["end"]
   toCommand = reverseLookup each fromCommand
 
-data Lighting
-  = Lighting_
-  | Lighting_blackout
-  | Lighting_chase
-  | Lighting_flare
-  | Lighting_strobe
-  | Lighting_sweep
-  | Lighting_color1
-  | Lighting_color2
-  -- TODO laid to rest has [lighting (f)]
-  deriving (Eq, Ord, Show, Enum, Bounded)
-
--- TODO handle [lighting(foo)] with no space, like we do from RB
-instance Command Lighting where
-  fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
-    Just s  -> ["lighting", "(" <> s <> ")"]
-    Nothing -> error "panic! couldn't strip Lighting_ from venue event"
-  toCommand = reverseLookup each fromCommand
+gh2LightingPresets :: [T.Text]
+gh2LightingPresets =
+  [ "" -- lighting ()
+  , "blackout"
+  , "chase"
+  , "flare"
+  , "strobe"
+  , "sweep"
+  , "color1"
+  , "color2"
+  -- laid to rest has [lighting (f)]
+  ]
 
 data EventsTrack t = EventsTrack
   { eventsCrowdTempo    :: RTB.T t CrowdTempo
   , eventsCrowdLighters :: RTB.T t CrowdLighters
-  , eventsLighting      :: RTB.T t Lighting
+  , eventsLighting      :: RTB.T t T.Text
   , eventsSections      :: RTB.T t T.Text
   , eventsOther         :: RTB.T t Event
   } deriving (Eq, Ord, Show, Generic)
@@ -104,7 +99,7 @@ instance ParseTrack EventsTrack where
   parseTrack = do
     eventsCrowdTempo    <- (.eventsCrowdTempo)    =. command
     eventsCrowdLighters <- (.eventsCrowdLighters) =. command
-    eventsLighting      <- (.eventsLighting)      =. command
+    eventsLighting      <- (.eventsLighting)      =. anyLighting
     eventsOther         <- (.eventsOther)         =. command
     eventsSections      <- (.eventsSections)      =. let
       fp = \case

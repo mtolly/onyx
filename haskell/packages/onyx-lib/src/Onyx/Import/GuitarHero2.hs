@@ -62,6 +62,7 @@ import qualified Onyx.MIDI.Track.Drums            as Drums
 import qualified Onyx.MIDI.Track.Events           as RB
 import qualified Onyx.MIDI.Track.File             as F
 import qualified Onyx.MIDI.Track.FiveFret         as RB
+import qualified Onyx.MIDI.Track.Venue            as RB
 import           Onyx.Project
 import           Onyx.Sections                    (fromGH2Section,
                                                    simpleSection)
@@ -140,7 +141,11 @@ importGH2MIDI mode songChunk (F.Song tmap mmap gh2) = F.Song tmap mmap let
       , RB.crowd      = RTB.empty -- TODO
       , RB.crowdClap  = RTB.empty -- TODO
       , RB.sections   = (\s -> simpleSection $ fromGH2Section s) <$> gh2.gh2Events.eventsSections
-      , RB.backing    = gh2.gh2Triggers.triggersBacking
+      , RB.backing    = gh2.gh2Triggers.backing
+      }
+    , F.fixedVenue = mempty
+      { RB.lighting = gh2.gh2Events.eventsLighting
+      , RB.lightingCommands = (, RB.RBN1) <$> gh2.gh2Triggers.lightingCommands
       }
     , F.fixedPartGuitar = convertPart case mode of
       ImportSolo -> gh2.gh2PartGuitar

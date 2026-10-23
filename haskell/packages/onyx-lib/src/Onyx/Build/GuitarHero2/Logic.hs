@@ -344,7 +344,7 @@ midiRB3toGH2 song target audio fretLimit inputMid@(F.Song tmap mmap onyx) getAud
           ]
         }
       triggers = mempty
-        { triggersBacking = onyx.onyxEvents.backing
+        { backing = onyx.onyxEvents.backing
         }
       getFive' fpart = do
         builder <- getPart fpart song >>= anyFiveFret
