@@ -18,6 +18,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List                        (sort)
+import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Word
 import           Numeric                          (showFFloat)
@@ -34,7 +35,6 @@ import           Onyx.StackTrace                  (SendMessage, StackTraceT,
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
-import           Text.Read                        (readMaybe)
 
 data Anim t = Anim
   { animVersion    :: Word32
@@ -262,9 +262,7 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
           Just pp -> [(e.eventTime, Right pp)]
     lighting <- inside "track: lightpreset" $ toRTB do
       e <- cleanPostproc $ getEvents "lightpreset"
-      case readMaybe $ "Lighting_" <> B8.unpack e.eventName of
-        Nothing    -> [(e.eventTime, Left $ "Unrecognized lighting event: " <> show e.eventName)]
-        Just light -> [(e.eventTime, Right light)]
+      [(e.eventTime, Right $ T.pack $ B8.unpack e.eventName)]
     lightingCommands <- inside "track: lightpreset_keyframe" $ toRTB do
       e <- getEvents "lightpreset_keyframe"
       case e.eventName of
