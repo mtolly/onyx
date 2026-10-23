@@ -22,8 +22,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, sortBy)
-import           Data.Maybe                       (catMaybes, fromMaybe,
-                                                   isNothing, listToMaybe)
+import           Data.Maybe                       (isNothing, listToMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -350,71 +349,129 @@ selectFadingVisual input = do
   unless (null unknown) $ warn $ T.unpack $ "Substituting replacement events for: " <> T.intercalate ", " unknown
 
   let perTime = RTB.collectCoincident input
-      noStacks = RTB.flatten $ take 1 <$> perTime
   unless (all (null . drop 1) perTime) $ warn "Simultaneous events found, dropping all but one per timestamp"
 
-  let go :: (Eq a) => Maybe (T.Text, a) -> RTB.T t (VisualResult a) -> RTB.T t a
-      go prev = \case
-        RNil            -> RNil
-        Wait dt vr rest -> let
-          nextResult = listToMaybe $ dropWhile (\r -> vr.original == r.original) $ RTB.getBodies rest
-          this = case vr.match of
-            -- is it an exact match
-            Just match -> match
-            Nothing    -> case prev of
-              -- does this continue the previous setting
-              Just (prevText, x) | prevText == vr.original -> x
-              _ -> let
-                -- fuzzy options need to be different from previous selection + next exact match
-                isGoodFuzzy x = and
+  return $ selectFadingVisualPure input
+
+selectFadingVisualPure :: (NNC.C t, Eq a) => RTB.T t (VisualResult a) -> RTB.T t a
+selectFadingVisualPure input = let
+
+  perTime = RTB.collectCoincident input
+  noStacks = RTB.flatten $ take 1 <$> perTime
+
+  go :: (Eq a) => Maybe (T.Text, a) -> RTB.T t (VisualResult a) -> RTB.T t a
+  go prev = \case
+    RNil            -> RNil
+    Wait dt vr rest -> let
+      nextResult = listToMaybe $ dropWhile (\r -> vr.original == r.original) $ RTB.getBodies rest
+      this = case vr.match of
+        -- is it an exact match
+        Just match -> match
+        Nothing    -> case prev of
+          -- does this continue the previous setting
+          Just (prevText, x) | prevText == vr.original -> x
+          _ -> let
+            -- fuzzy options need to be different from previous selection + next exact match
+            isGoodFuzzy x = and
+              [ maybe True (\(_, y) -> x /= y) prev
+              , case nextResult of
+                Nothing -> True
+                Just nr -> maybe True (x /=) nr.match
+              ]
+            in case filter isGoodFuzzy vr.fuzzy of
+              x : _ -> x
+              []    -> let
+                -- fallback options need to be different from previous selection + next exact/fuzzy match (only first one)
+                isGoodFallback x = and
                   [ maybe True (\(_, y) -> x /= y) prev
                   , case nextResult of
                     Nothing -> True
-                    Just nr -> maybe True (x /=) nr.match
+                    Just nr -> maybe True (x /=) $ nr.match <|> listToMaybe nr.fuzzy
                   ]
-                in case filter isGoodFuzzy vr.fuzzy of
-                  x : _ -> x
-                  []    -> let
-                    -- fallback options need to be different from previous selection + next exact/fuzzy match (only first one)
-                    isGoodFallback x = and
-                      [ maybe True (\(_, y) -> x /= y) prev
-                      , case nextResult of
-                        Nothing -> True
-                        Just nr -> maybe True (x /=) $ nr.match <|> listToMaybe nr.fuzzy
-                      ]
-                    in if isGoodFallback vr.fallback1
-                      then vr.fallback1
-                      else if isGoodFallback vr.fallback2
-                        then vr.fallback2
-                        else vr.fallback3
-          in Wait dt this $ go (Just (vr.original, this)) rest
+                in if isGoodFallback vr.fallback1
+                  then vr.fallback1
+                  else if isGoodFallback vr.fallback2
+                    then vr.fallback2
+                    else vr.fallback3
+      in Wait dt this $ go (Just (vr.original, this)) rest
 
-  return $ go Nothing noStacks
+  in go Nothing noStacks
+
+data BlendableEvent a
+  = BlendableCut    a
+  | BlendableFade a a
+
+computeBlendable :: (NNC.C t, Eq a) => RTB.T t a -> RTB.T t (BlendableEvent a)
+computeBlendable = \case
+  Wait t1 x1 (Wait t2 x2 (Wait t3 x3 rest))
+    | x1 == x2 && x1 == x3
+    -> computeBlendable $ Wait t1 x1 $ Wait (t2 <> t3) x2 rest
+    | x1 == x2
+    -> Wait t1 (BlendableCut x1) $ Wait t2 (BlendableFade x2 x3) $ computeBlendable $ Wait t3 x3 rest
+  Wait t1 x1 rest
+    -> Wait t1 (BlendableCut x1) $ computeBlendable rest
+  RNil -> RNil
 
 bakeLightingModeRB3 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> RTB.T t LightingRB
 bakeLightingModeRB3 modes lights = if RTB.null modes
   then lights <&> \case
     Lighting_ -> Lighting_verse
     x         -> x
-  else let
-    (parens, notParens) = RTB.partition (== Lighting_) lights
-    merged = RTB.collectCoincident $ RTB.merge (Just <$> modes) (Nothing <$ parens)
-    go mode = \case
-      RNil -> RNil
-      Wait dt events rest -> let
-        mode' = fromMaybe mode $ listToMaybe $ catMaybes events
-        in undefined -- TODO
-    in RTB.merge (go ModeVerse merged) notParens
+  else applyStatus1 ModeVerse modes lights <&> \case
+    -- this could remove blending if adjacent () become different, not sure of best solution
+    (ModeVerse , Lighting_) -> Lighting_verse
+    (ModeChorus, Lighting_) -> Lighting_chorus
+    (_         , x        ) -> x
 
 bakeLightingModeRB2 :: (NNC.C t) => RTB.T t LightingMode2 -> RTB.T t LightingRB -> (RTB.T t LightingMode2, RTB.T t LightingRB)
-bakeLightingModeRB2 modes lights = undefined
-{-
-TODO
-* replace (verse)/(chorus) with () + mode
-* replace (intro) and (blackout_spot)
-* have to have [verse] at start?
-* noRedundantStatus? dunno
--}
+bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
+  then (modes, lights) -- don't touch empty input
+  else let
+    -- this could add unintended blending! should be smarter
+    toParens = \case
+      Lighting_verse  -> Lighting_
+      Lighting_chorus -> Lighting_
+      x               -> x
+    newLights = toParens <$> lights
+    newModes = if RTB.null modes
+      then flip RTB.mapMaybe lights \case
+        Lighting_verse  -> Just ModeVerse
+        Lighting_chorus -> Just ModeChorus
+        _               -> Nothing
+      -- assume there should never be (verse)/(chorus) and [verse]/[chorus] in same file
+      else modes
+    -- magma v1 needs to have a mode at time 0, so add [verse] if needed
+    withStartMode = case newModes of
+      Wait t _ _ | t == NNC.zero -> newModes
+      _                          -> Wait NNC.zero ModeVerse newModes
+    -- replace (intro) and (blackout_spot); pick replacements to not add blending
+    noRB3Lights = selectFadingVisualPure $ newLights <&> \x -> case x of
+      Lighting_intro -> VisualResult
+        { match     = Nothing
+        , fuzzy     = []
+        , fallback1 = Lighting_manual_cool
+        , fallback2 = Lighting_manual_warm
+        , fallback3 = Lighting_dischord
+        , original  = getLightingString x
+        }
+      Lighting_blackout_spot -> VisualResult
+        { match     = Nothing
+        , fuzzy     = []
+        , fallback1 = Lighting_blackout_fast
+        -- these aren't great but hopefully never happen
+        , fallback2 = Lighting_blackout_slow
+        , fallback3 = Lighting_sweep
+        , original  = getLightingString x
+        }
+      _ -> VisualResult
+        { match     = Just x
+        , fuzzy     = []
+        , fallback1 = Lighting_manual_cool
+        , fallback2 = Lighting_manual_warm
+        , fallback3 = Lighting_dischord
+        , original  = getLightingString x
+        }
+    in (withStartMode, noRB3Lights)
 
 compileLightingRB3 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t T.Text)
 compileLightingRB3 modes lights = do
