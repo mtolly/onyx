@@ -4,9 +4,10 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TupleSections       #-}
 module Onyx.Neversoft.GH3.MidQB where
 
-import           Control.Monad                    (forM)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import           Data.Bits                        (bit, testBit, (.|.))
 import qualified Data.ByteString                  as B
@@ -28,7 +29,7 @@ import           Onyx.Guitar                      (HOPOsAlgorithm (..),
                                                    strumHOPOTap)
 import           Onyx.MIDI.Common                 (Difficulty (..),
                                                    StrumHOPOTap (..),
-                                                   blipEdgesRBNice)
+                                                   blipEdgesRBNice, makeEdge)
 import qualified Onyx.MIDI.Track.Drums            as D
 import           Onyx.MIDI.Track.Drums.Elite
 import           Onyx.MIDI.Track.Events
@@ -310,6 +311,38 @@ readGH3TempoMap sigs bars = let
   in U.tempoMapFromBPS $ RTB.fromPairList
     $ zip (0 : map snd temposGaps) (map fst temposGaps)
 
+{-
+some stabs at background/venue/animation notes
+
+anim
+  127 to at least 118: guitarist fret hand position (127 lowest)
+  at least 110 to 104: bassist (/rhythm?) fret hand position
+
+camera
+   84 guitarist close
+   85 front band
+   86 far shot from above crowd
+   87 various behind shots, either front members or drummer
+   88 vocalist closeup, low
+   89 drummer front
+   90 guitarist fretboard
+   91 behind guitarist, slow pan side to side
+   95 guitarist hands closeup
+   97 bassist mid
+  104 vocalist super close face
+  107 behind guitarist, slow back up
+
+  note: using star power switches to guitarist shot
+
+lightshow
+  75: chill manual preset?
+  74: intense manual preset?
+  60: toggles strobe on or off
+  58: like [next]
+  57: also like [next]? used for bigger hits
+
+-}
+
 gh3ToMidi :: SongInfoGH3 -> Bool -> Bool -> HM.HashMap QBKey T.Text -> GH3MidQB
   -> (F.Song (F.OnyxFile U.Beats), [(T.Text, FilePath)])
 gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
@@ -382,7 +415,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
   usedCountinAudio = case songInfo.gh3Countoff >>= \c -> lookup (B8.map toLower c) gh3CountinMapping of
     Nothing   -> []
     Just path -> [("count", path)]
-  fixed = mempty
+  tracks = mempty
     { F.onyxParts = Map.fromList
       [ ( F.PartGuitar
         , mempty { F.onyxPartGuitar = trackLead }
@@ -396,6 +429,29 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       ]
     , F.onyxEvents = events
     , F.onyxSamples = Map.singleton "countin" countin
+    , F.onyxRaw = Map.fromList do
+      (name, bg) <-
+        [ ("scripts"    , gh3.gh3BackgroundNotes.gh3Scripts    )
+        , ("anim"       , gh3.gh3BackgroundNotes.gh3Anim       )
+        , ("triggers"   , gh3.gh3BackgroundNotes.gh3Triggers   )
+        , ("cameras"    , gh3.gh3BackgroundNotes.gh3Cameras    )
+        , ("lightshow"  , gh3.gh3BackgroundNotes.gh3LightShow  )
+        , ("crowd"      , gh3.gh3BackgroundNotes.gh3Crowd      )
+        , ("drums"      , gh3.gh3BackgroundNotes.gh3Drums      )
+        , ("performance", gh3.gh3BackgroundNotes.gh3Performance)
+        ]
+      let edges = bg >>= \case
+            posn : pitch : len : _ -> let
+              start = toBeats posn
+              end = toBeats $ posn + len
+              pitchInt = fromIntegral pitch
+              in [(start, makeEdge pitchInt True), (end, makeEdge pitchInt False)]
+            _ -> []
+      guard $ not $ null edges
+      return $ (name,)
+        $ RTB.fromAbsoluteEventList
+        $ ATB.fromPairList
+        $ sort edges
     }
   in (F.Song
     { F.tempos = tempos
@@ -404,7 +460,7 @@ gh3ToMidi songInfo coopTracks coopRhythm bank gh3 = let
       let unit = 4 / fromIntegral den
           len = fromIntegral num * unit
       return (toBeats time, U.TimeSig len unit)
-    , F.tracks = fixed
+    , F.tracks = tracks
     }, usedCountinAudio)
 
 gh3DrumMapping :: [(Word32, (EliteGem (), D.Hand))]
