@@ -216,7 +216,7 @@ applyStrobeNotes lt = let
 
 buildLighting :: LightingTrack U.Beats -> VenueTrack U.Beats
 buildLighting lt = mempty
-  { postProcessRB3   = venue_generate lt.lightingPostProcess
+  { postProcessRB3   = postProcV3ToString <$> venue_generate lt.lightingPostProcess
   , lighting         = let
     lightingInput = RTB.merge
       (first Just <$> lt.lightingTypes)
@@ -233,8 +233,9 @@ buildLighting lt = mempty
 unbuildLighting :: (NNC.C t, SendMessage m) => t -> VenueTrack t -> StackTraceT m (LightingTrack t)
 unbuildLighting lastLen vt = do
   lighting <- selectFadingVisual $ matchLightingRB <$> vt.lighting
+  postProc <- selectFadingVisual $ matchPostProcRB3 <$> vt.postProcessRB3
   return LightingTrack
-    { lightingPostProcess     = venue_ungenerate lastLen vt.postProcessRB3
+    { lightingPostProcess     = venue_ungenerate lastLen postProc
     , lightingTypes           = venue_ungenerate lastLen lighting
     , lightingStrobe          = RTB.empty
     , lightingCommands        = fst <$> vt.lightingCommands

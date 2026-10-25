@@ -255,11 +255,8 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
     fog <- onOff "stagekit_fog"
     postProc <- inside "track: postproc" $ toRTB do
       e <- cleanPostproc $ getEvents "postproc"
-      case e.eventName of
-        "" -> [(e.eventTime, Right V3_ProFilm_a)] -- is this right? seen empty string in ziggystardust
-        _  -> case toCommand [TE.decodeLatin1 e.eventName] of
-          Nothing -> [(e.eventTime, Left $ "Unrecognized postproc event: " <> show e.eventName)]
-          Just pp -> [(e.eventTime, Right pp)]
+      -- note, empty string seen in ziggystardust
+      [(e.eventTime, Right $ T.pack $ B8.unpack e.eventName)]
     lighting <- inside "track: lightpreset" $ toRTB do
       e <- cleanPostproc $ getEvents "lightpreset"
       [(e.eventTime, Right $ T.pack $ B8.unpack e.eventName)]

@@ -13,15 +13,17 @@ Pre-RB3 venue format information from:
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Onyx.MIDI.Track.Venue where
 
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (guard, unless, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
-import           Data.List.Extra                  (nubOrd, sortBy)
+import           Data.List.Extra                  (nubOrd, sortBy, unsnoc)
 import           Data.Maybe                       (isNothing, listToMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
@@ -223,13 +225,15 @@ data PostProcess3
   | V3_space_woosh
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance Command PostProcess3 where
-  fromCommand V3_film_b_w = ["film_b+w.pp"]
-  fromCommand x           = case T.stripPrefix "V3_" $ T.pack $ show x of
-    Just s  -> [s <> ".pp"]
-    Nothing -> error "panic! couldn't strip V3_ from venue event"
-  toCommand = reverseLookupCI each fromCommand
-  -- case insensitive since RB4 .rbsong just has them all lowercase
+-- does not include .pp
+postProcV3ToString :: PostProcess3 -> T.Text
+postProcV3ToString V3_film_b_w = "film_b+w"
+postProcV3ToString x           = case T.stripPrefix "V3_" $ T.pack $ show x of
+  Just s  -> s
+  Nothing -> error "panic! couldn't strip V3_ from venue event"
+
+postProcV3Table :: HM.HashMap T.Text PostProcess3
+postProcV3Table = HM.fromList [ (T.toCaseFold $ postProcV3ToString x, x) | x <- each ]
 
 data PostProcess2
   = V2_video_trails
@@ -248,6 +252,14 @@ data PostProcess2
   | V2_contrast_a
   | V2_Default -- ^ rbn2 docs say ProFilm_a is @"default"@. apparently in rb2 they were different?
   deriving (Eq, Ord, Show, Enum, Bounded)
+
+postProcV2ToString :: PostProcess2 -> T.Text
+postProcV2ToString x = case T.stripPrefix "V2_" $ T.pack $ show x of
+  Just s  -> s
+  Nothing -> error "panic! couldn't strip V2_ from venue event"
+
+postProcV2Table :: HM.HashMap T.Text PostProcess2
+postProcV2Table = HM.fromList [ (T.toCaseFold $ postProcV2ToString x, x) | x <- each ]
 
 data CutEvent2
   = CameraCut
@@ -503,6 +515,107 @@ specificLighting s = commandMatch'
   (isLighting >=> guard . (== s))
   (\() -> ["lighting", "(" <> s <> ")"])
 
+anyPostProc :: (Monad m, NNC.C t) => TrackEvent m t T.Text
+anyPostProc = commandMatch'
+  isPostProc
+  (\s -> [s <> ".pp"])
+
+isPostProc :: [T.Text] -> Maybe T.Text
+isPostProc xs = case unsnoc xs of
+  -- support multiple words as long as last one ends in .pp
+  Just (ys, T.stripSuffix ".pp" -> Just y) -> Just $ T.replace " " "_" $ T.unwords $ ys <> [y]
+  _                                        -> Nothing
+
+matchPostProcRB3 :: T.Text -> VisualResult PostProcess3
+matchPostProcRB3 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded postProcV3Table of
+    Just pp -> (Just pp, [])
+    Nothing -> (Nothing,) case folded of
+      -- RB2, all others match an RB3 name
+      "default"             -> [V3_ProFilm_a] -- rbn2 docs say ProFilm_a is "default"?
+      "bluetint"            -> [V3_film_blue_filter]
+      -- RB4
+      "b&w"                 -> [V3_film_b_w]
+      "blue_bright"         -> [V3_film_blue_filter]
+      "cool"                -> [V3_ProFilm_b]
+      "high_contrast_cool"  -> [V3_posterize]
+      "high_contrast_dark"  -> [V3_photocopy]
+      "high_contrast_warm"  -> [V3_film_contrast]
+      "low_contrast_green"  -> [V3_film_contrast_green]
+      "low_contrast_purple" -> [V3_desat_blue]
+      "low_contrast_red"    -> [V3_film_contrast_red]
+      "orange_bright"       -> [V3_film_contrast_red]
+      "pink_bright"         -> [V3_film_contrast_red]
+      "purple_bright"       -> [V3_film_contrast_blue]
+      "sepia_bright"        -> [V3_film_sepia_ink]
+      "sepia_dark"          -> [V3_film_sepia_ink]
+      "video"               -> [V3_video_a]
+      "warm"                -> [V3_posterize]
+      "yellow_bright"       -> [V3_film_contrast_green]
+      "<null>"              -> [V3_ProFilm_a] -- ??? seen in neverenough.rbsong
+      _                     -> []
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = V3_ProFilm_a
+    , fallback2 = V3_ProFilm_b
+    , fallback3 = V3_video_a
+    , original  = t
+    }
+
+compilePostProcRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (RTB.T t PostProcess3)
+compilePostProcRB3 vt = selectFadingVisual $ fmap matchPostProcRB3 $ RTB.merge
+  vt.postProcessRB3
+  -- should we remove redundant events to prevent blending from RB2 postprocs?
+  (postProcV2ToString <$> vt.postProcessRB2)
+
+matchPostProcRB2 :: T.Text -> VisualResult PostProcess2
+matchPostProcRB2 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded postProcV2Table of
+    Just pp -> (Just pp, [])
+    Nothing -> (Nothing,) let
+      -- just match to RB3 first, to handle RB4 also
+      rb3Result = matchPostProcRB3 folded
+      in case toList rb3Result.match <> rb3Result.fuzzy of
+        x : _ -> case x of
+          -- only ones that didn't already match an RB2 name
+          V3_shitty_tv                    -> [V2_video_security]
+          V3_bloom                        -> [V2_ProFilm_a]
+          V3_film_b_w                     -> [V2_video_bw]
+          V3_film_blue_filter             -> [V2_BlueTint]
+          V3_desat_blue                   -> [V2_BlueTint]
+          V3_bright                       -> [V2_ProFilm_b]
+          V3_posterize                    -> [V2_ProFilm_a]
+          V3_clean_trails                 -> [V2_video_trails]
+          V3_flicker_trails               -> [V2_video_trails]
+          V3_desat_posterize_trails       -> [V2_film_16mm]
+          V3_film_contrast                -> [V2_contrast_a]
+          V3_film_contrast_blue           -> [V2_BlueTint]
+          V3_film_contrast_green          -> [V2_contrast_a]
+          V3_film_contrast_red            -> [V2_contrast_a]
+          V3_horror_movie_special         -> [V2_photo_negative]
+          V3_ProFilm_psychedelic_blue_red -> [V2_photo_negative]
+          V3_space_woosh                  -> [V2_video_trails]
+          _                               -> []
+        _ -> []
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = V2_ProFilm_a
+    , fallback2 = V2_ProFilm_b
+    , fallback3 = V2_video_a
+    , original  = t
+    }
+
+compilePostProcRB2 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (RTB.T t PostProcess2)
+compilePostProcRB2 vt = if RTB.null vt.postProcessRB3
+  then return vt.postProcessRB2
+  else selectFadingVisual $ fmap matchPostProcRB2 $ RTB.merge
+    vt.postProcessRB3
+    (postProcV2ToString <$> vt.postProcessRB2)
+
 data VenueTrack t = VenueTrack
 
   { cameraRB3        :: RTB.T t Camera3
@@ -521,7 +634,7 @@ data VenueTrack t = VenueTrack
   , spotlightDrums   :: RTB.T t Bool
   , spotlightBass    :: RTB.T t Bool
 
-  , postProcessRB3   :: RTB.T t PostProcess3
+  , postProcessRB3   :: RTB.T t T.Text
   , postProcessRB2   :: RTB.T t PostProcess2
 
   , lighting         :: RTB.T t T.Text
@@ -614,7 +727,7 @@ instance ParseTrack VenueTrack where
     spotlightGuitar <- (.spotlightGuitar) =. edges 39
     spotlightDrums  <- (.spotlightDrums ) =. edges 38 -- RBN2 docs incorrectly say this is bass
     spotlightBass   <- (.spotlightBass  ) =. edges 37 -- RBN2 docs incorrectly say this is drums
-    postProcessRB3  <- (.postProcessRB3 ) =. command
+    postProcessRB3  <- (.postProcessRB3 ) =. anyPostProc
     postProcessRB2  <- (.postProcessRB2 ) =. do
       condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
         V2_video_trails     -> 110
@@ -656,6 +769,7 @@ instance ParseTrack VenueTrack where
 compileVenueRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (VenueTrack t)
 compileVenueRB3 vt = do
   lighting <- compileLightingRB3 vt.lightingMode vt.lighting
+  postProc <- fmap postProcV3ToString <$> compilePostProcRB3 vt
   return vt
     { cameraRB3 = let
       directed = vt.directedRB2 <&> \docut -> let
@@ -760,26 +874,7 @@ compileVenueRB3 vt = do
       in RTB.merge vt.cameraRB3 $ RTB.merge generic directed
     , cameraRB2 = RTB.empty
     , directedRB2 = RTB.empty
-    , postProcessRB3
-      = RTB.merge vt.postProcessRB3
-      $ vt.postProcessRB2 <&> \case
-        -- TODO do we need to remove redundant events to prevent blending from an RB2 source
-        V2_video_trails     -> V3_video_trails
-        V2_video_security   -> V3_video_security
-        V2_video_bw         -> V3_video_bw
-        V2_video_a          -> V3_video_a
-        V2_BlueTint         -> V3_film_blue_filter -- not in rbn2 list
-        V2_ProFilm_mirror_a -> V3_ProFilm_mirror_a
-        V2_ProFilm_b        -> V3_ProFilm_b
-        V2_ProFilm_a        -> V3_ProFilm_a
-        V2_photocopy        -> V3_photocopy
-        V2_photo_negative   -> V3_photo_negative
-        V2_film_silvertone  -> V3_film_silvertone
-        V2_film_sepia_ink   -> V3_film_sepia_ink
-        V2_film_16mm        -> V3_film_16mm
-        V2_contrast_a       -> V3_contrast_a
-        V2_Default          -> V3_ProFilm_a
-        -- not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
+    , postProcessRB3 = postProc
     , postProcessRB2 = RTB.empty
     , lighting = lighting
     , lightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> vt.lightingCommands
@@ -886,6 +981,7 @@ compileVenueRB2 vt = let
       V3_directed_duo_kg        -> directed V2_directed_duo_gb
   in do
     (modes, lighting) <- compileLightingRB2 vt.lightingMode vt.lighting
+    postProc <- compilePostProcRB2 vt
     return vt
       { cameraRB3 = RTB.empty
       , cameraRB2 = RTB.merge vt.cameraRB2 $ RTB.mapMaybe
@@ -896,39 +992,7 @@ compileVenueRB2 vt = let
         camera
       , spotlightKeys = RTB.empty
       , postProcessRB3 = RTB.empty
-      , postProcessRB2
-        = RTB.merge vt.postProcessRB2
-        $ vt.postProcessRB3 <&> \case
-          V3_ProFilm_a                    -> V2_Default
-          V3_ProFilm_b                    -> V2_Default
-          V3_video_a                      -> V2_video_a
-          V3_film_16mm                    -> V2_film_16mm
-          V3_shitty_tv                    -> V2_video_security
-          V3_bloom                        -> V2_ProFilm_a
-          V3_film_sepia_ink               -> V2_film_sepia_ink
-          V3_film_silvertone              -> V2_film_silvertone
-          V3_film_b_w                     -> V2_video_bw
-          V3_video_bw                     -> V2_video_bw
-          V3_contrast_a                   -> V2_contrast_a
-          V3_photocopy                    -> V2_photocopy
-          V3_film_blue_filter             -> V2_BlueTint
-          V3_desat_blue                   -> V2_BlueTint
-          V3_video_security               -> V2_video_security
-          V3_bright                       -> V2_ProFilm_b
-          V3_posterize                    -> V2_ProFilm_a
-          V3_clean_trails                 -> V2_video_trails
-          V3_video_trails                 -> V2_video_trails
-          V3_flicker_trails               -> V2_video_trails
-          V3_desat_posterize_trails       -> V2_film_16mm
-          V3_film_contrast                -> V2_contrast_a
-          V3_film_contrast_blue           -> V2_BlueTint
-          V3_film_contrast_green          -> V2_contrast_a
-          V3_film_contrast_red            -> V2_contrast_a
-          V3_horror_movie_special         -> V2_photo_negative
-          V3_photo_negative               -> V2_photo_negative
-          V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
-          V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
-          V3_space_woosh                  -> V2_video_trails
+      , postProcessRB2 = postProc
       , lighting = lighting
       , lightingCommands
         = fmap (\cmd -> (cmd, RBN1))

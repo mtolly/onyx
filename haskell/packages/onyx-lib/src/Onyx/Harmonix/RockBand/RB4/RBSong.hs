@@ -30,7 +30,6 @@ import           Data.Bits
 import qualified Data.ByteString                     as B
 import qualified Data.ByteString.Char8               as B8
 import qualified Data.ByteString.Lazy                as BL
-import           Data.Char                           (toLower)
 import qualified Data.EventList.Relative.TimeBody    as RTB
 import           Data.Functor                        ((<&>))
 import           Data.Int
@@ -404,7 +403,7 @@ getRBSongVenue beatTrack top = let
       guard $ prop /= "stagekit_fog" -- appears to be garbage in songs I checked
       let events = do
             StructValue [Property "frame" (FloatValue frames), Property "value" (SymbolValue preStrip)] <- keys
-            -- need to adjust some camera cut names, also postprocs
+            -- need to adjust some camera cut names, also postproc suffix
             let x = B8.strip preStrip -- needed for blink.rbsong
                 adjustedValue = if "shot" `B.isPrefixOf` prop
                   then let
@@ -420,30 +419,7 @@ getRBSongVenue beatTrack top = let
                       "directed_crowd" -> x2 -- exception to below line
                       _                -> maybe x2 (<> "_behind") $ B.stripSuffix "_crowd" x2
                   else if prop == "postproc"
-                    -- all lowercase also but that's fine, handled by reverseLookupCI in Venue.hs
-                    then case B8.map toLower x of
-                      -- seemingly new simple postprocs seen in e.g. beatsports.rbsong and others
-                      -- TODO we should be smarter about adjacent pps, so we don't introduce unintended blending
-                      "b&w"                 -> "film_b+w.pp"
-                      "blue bright"         -> "film_blue_filter.pp"
-                      "cool"                -> "ProFilm_b.pp"
-                      "default"             -> "ProFilm_a.pp"
-                      "high contrast cool"  -> "posterize.pp"
-                      "high contrast dark"  -> "photocopy.pp"
-                      "high contrast warm"  -> "film_contrast.pp"
-                      "low contrast green"  -> "film_contrast_green.pp"
-                      "low contrast purple" -> "desat_blue.pp"
-                      "low contrast red"    -> "film_contrast_red.pp"
-                      "orange bright"       -> "film_contrast_red.pp"
-                      "pink bright"         -> "film_contrast_red.pp"
-                      "purple bright"       -> "film_contrast_blue.pp"
-                      "sepia bright"        -> "film_sepia_ink.pp"
-                      "sepia dark"          -> "film_sepia_ink.pp"
-                      "video"               -> "video_a.pp"
-                      "warm"                -> "posterize.pp"
-                      "yellow bright"       -> "film_contrast_green.pp"
-                      "<null>"              -> "ProFilm_a.pp" -- ??? seen in neverenough.rbsong
-                      _                     -> x <> ".pp"
+                    then x <> ".pp" -- casing and spaces now adjusted more by later import steps
                     else x
             return (frames, adjustedValue)
       return (prop, events)

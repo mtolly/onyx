@@ -43,7 +43,8 @@ import           Onyx.MIDI.Track.Mania
 import qualified Onyx.MIDI.Track.ProGuitar        as PG
 import           Onyx.MIDI.Track.Rocksmith
 import           Onyx.MIDI.Track.Venue            (VenueTrack (..),
-                                                   compileVenueRB3)
+                                                   compileLightingRB3,
+                                                   compilePostProcRB3)
 import           Onyx.MIDI.Track.Vocal
 import           Onyx.Mode
 import           Onyx.PhaseShift.Dance            (NoteType (..))
@@ -704,10 +705,13 @@ computeTracks songYaml song = basicTiming False song (return 0) >>= \timing -> l
 
     maybeVenue <- if song.tracks.onyxVenue /= mempty
       then do
-        rb3 <- compileVenueRB3 song.tracks.onyxVenue
+        lighting <- compileLightingRB3
+          song.tracks.onyxVenue.lightingMode
+          song.tracks.onyxVenue.lighting
+        postProc <- compilePostProcRB3 song.tracks.onyxVenue
         return $ Just $ PreviewBGVenue $ (\(a, b) -> PNF.VenueState a b) <$> do
-          PNF.makeLightStates (rtbToMap $ PNF.Lighting <$> rb3.lighting)
-            `PNF.zipStateMaps` PNF.makeLightStates (rtbToMap rb3.postProcessRB3)
+          PNF.makeLightStates (rtbToMap $ PNF.Lighting <$> lighting)
+            `PNF.zipStateMaps` PNF.makeLightStates (rtbToMap postProc)
       else return Nothing
 
     return PreviewSong

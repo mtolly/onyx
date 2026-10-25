@@ -366,7 +366,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     mapStackTraceT (liftIO . runResourceT) (Magma.runMagma pathMagmaProj out) >>= lg
   let blackVenueTrack = mempty
         { cameraRB3        = RTB.singleton 0 V3_coop_all_far
-        , postProcessRB3   = RTB.singleton 0 V3_film_b_w
+        , postProcessRB3   = RTB.singleton 0 "film_b+w"
         , lighting         = RTB.singleton 0 "blackout_fast"
         }
       magmaErrorMessage = unwords
