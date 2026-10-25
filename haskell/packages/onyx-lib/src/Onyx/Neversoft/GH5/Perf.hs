@@ -15,10 +15,9 @@ import qualified Data.ByteString.Lazy             as BL
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
-import           Data.Maybe                       (mapMaybe)
 import           Data.Word
 import           Onyx.MIDI.Common                 (pattern ANil, pattern At)
-import           Onyx.MIDI.Track.Venue            (Camera3 (..))
+import           Onyx.MIDI.Track.Venue            (CutNormal3 (..))
 import           Onyx.Neversoft.CRC
 import           Onyx.Util.Binary                 (runGetM)
 import qualified Sound.MIDI.Util                  as U
@@ -107,56 +106,55 @@ makePerf p = runPut do
         putQBKeyBE "gh6_actor_loops"
         mapM_ putByteString loops
 
-rbCameraToPerf :: QBKey -> U.TempoMap -> RTB.T U.Beats Camera3 -> U.Beats -> Perf
+rbCameraToPerf :: QBKey -> U.TempoMap -> RTB.T U.Beats CutNormal3 -> U.Beats -> Perf
 rbCameraToPerf key tmap rb endTime = let
   angles = RTB.mapMaybe eachInstant $ RTB.collectCoincident rb
-  eachInstant cuts = case mapMaybe mapCut $ reverse $ sort cuts of
-    [] -> Nothing -- only directed cuts here
+  eachInstant cuts = case map mapCut $ reverse $ sort cuts of
+    [] -> Nothing -- shouldn't happen
     ns -> Just case filter (/= 255) ns of
       n : _ -> n
       []    -> 30 -- only keys cuts here
   mapCut = \case
-    V3_coop_all_behind     -> Just 31
-    V3_coop_all_far        -> Just 28
-    V3_coop_all_near       -> Just 30
-    V3_coop_front_behind   -> Just 31
-    V3_coop_front_near     -> Just 30
-    V3_coop_d_behind       -> Just 26
-    V3_coop_d_near         -> Just 25
-    V3_coop_v_behind       -> Just 16
-    V3_coop_v_near         -> Just 15
-    V3_coop_b_behind       -> Just 21
-    V3_coop_b_near         -> Just 20
-    V3_coop_g_behind       -> Just 11
-    V3_coop_g_near         -> Just 10
-    V3_coop_k_behind       -> Just 255
-    V3_coop_k_near         -> Just 255
-    V3_coop_d_closeup_hand -> Just 35
-    V3_coop_d_closeup_head -> Just 23
-    V3_coop_v_closeup      -> Just 13
-    V3_coop_b_closeup_hand -> Just 36
-    V3_coop_b_closeup_head -> Just 18
-    V3_coop_g_closeup_hand -> Just 33
-    V3_coop_g_closeup_head -> Just 8
-    V3_coop_k_closeup_hand -> Just 255
-    V3_coop_k_closeup_head -> Just 255
+    V3_coop_all_behind     -> 31
+    V3_coop_all_far        -> 28
+    V3_coop_all_near       -> 30
+    V3_coop_front_behind   -> 31
+    V3_coop_front_near     -> 30
+    V3_coop_d_behind       -> 26
+    V3_coop_d_near         -> 25
+    V3_coop_v_behind       -> 16
+    V3_coop_v_near         -> 15
+    V3_coop_b_behind       -> 21
+    V3_coop_b_near         -> 20
+    V3_coop_g_behind       -> 11
+    V3_coop_g_near         -> 10
+    V3_coop_k_behind       -> 255
+    V3_coop_k_near         -> 255
+    V3_coop_d_closeup_hand -> 35
+    V3_coop_d_closeup_head -> 23
+    V3_coop_v_closeup      -> 13
+    V3_coop_b_closeup_hand -> 36
+    V3_coop_b_closeup_head -> 18
+    V3_coop_g_closeup_hand -> 33
+    V3_coop_g_closeup_head -> 8
+    V3_coop_k_closeup_hand -> 255
+    V3_coop_k_closeup_head -> 255
     -- just picking arbitrarily from duos
-    V3_coop_dv_near        -> Just 25
-    V3_coop_bd_near        -> Just 21
-    V3_coop_dg_near        -> Just 10
-    V3_coop_bv_behind      -> Just 21
-    V3_coop_bv_near        -> Just 15
-    V3_coop_gv_behind      -> Just 11
-    V3_coop_gv_near        -> Just 15
-    V3_coop_kv_behind      -> Just 16
-    V3_coop_kv_near        -> Just 15
-    V3_coop_bg_behind      -> Just 11
-    V3_coop_bg_near        -> Just 20
-    V3_coop_bk_behind      -> Just 21
-    V3_coop_bk_near        -> Just 20
-    V3_coop_gk_behind      -> Just 11
-    V3_coop_gk_near        -> Just 10
-    _                      -> Nothing -- directed cut
+    V3_coop_dv_near        -> 25
+    V3_coop_bd_near        -> 21
+    V3_coop_dg_near        -> 10
+    V3_coop_bv_behind      -> 21
+    V3_coop_bv_near        -> 15
+    V3_coop_gv_behind      -> 11
+    V3_coop_gv_near        -> 15
+    V3_coop_kv_behind      -> 16
+    V3_coop_kv_near        -> 15
+    V3_coop_bg_behind      -> 11
+    V3_coop_bg_near        -> 20
+    V3_coop_bk_behind      -> 21
+    V3_coop_bk_near        -> 20
+    V3_coop_gk_behind      -> 11
+    V3_coop_gk_near        -> 10
   toMS :: U.Seconds -> Word32
   toMS s = round (s * 1000)
   toCamLength :: Word32 -> Word32 -> Word16

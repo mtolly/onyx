@@ -216,12 +216,12 @@ applyStrobeNotes lt = let
 
 buildLighting :: LightingTrack U.Beats -> VenueTrack U.Beats
 buildLighting lt = mempty
-  { postProcessRB3   = postProcV3ToString <$> venue_generate lt.lightingPostProcess
+  { postProcessRB3   = venueToString <$> venue_generate lt.lightingPostProcess
   , lighting         = let
     lightingInput = RTB.merge
       (first Just <$> lt.lightingTypes)
       ((\speed -> (Nothing, isJust speed)) <$> lt.lightingStrobe)
-    in  fmap getLightingString
+    in  fmap venueToString
       $ RTB.merge (applyStrobeNotes lt)
       $ RTB.mapMaybe id
       $ venue_generate lightingInput
@@ -255,92 +255,93 @@ instance TraverseTrack CameraTrack where
 instance ParseTrack CameraTrack where
   parseTrack = do
     cameraRandom <- (.cameraRandom) =. blip 102
-    cameraCuts <- ((.cameraCuts) =.) $ condenseMap $ eachKey each $ edges . \case
-      -- generic 4 camera shots
-      V3_coop_all_behind        -> 100
-      V3_coop_all_far           -> 99
-      V3_coop_all_near          -> 98
-      -- 3 char shots (no drum)
-      V3_coop_front_behind      -> 96
-      V3_coop_front_near        -> 95
-      -- 1 char standard shots
-      V3_coop_d_behind          -> 93
-      V3_coop_d_near            -> 92
-      V3_coop_v_behind          -> 91
-      V3_coop_v_near            -> 90
-      V3_coop_b_behind          -> 89
-      V3_coop_b_near            -> 88
-      V3_coop_g_behind          -> 87
-      V3_coop_g_near            -> 86
-      V3_coop_k_behind          -> 85
-      V3_coop_k_near            -> 84
-      -- 1 char closeups
-      V3_coop_d_closeup_hand    -> 82
-      V3_coop_d_closeup_head    -> 81
-      V3_coop_v_closeup         -> 80
-      V3_coop_b_closeup_hand    -> 79
-      V3_coop_b_closeup_head    -> 78
-      V3_coop_g_closeup_hand    -> 77
-      V3_coop_g_closeup_head    -> 76
-      V3_coop_k_closeup_hand    -> 75
-      V3_coop_k_closeup_head    -> 74
-      -- 2 char shots
-      V3_coop_dv_near           -> 72
-      V3_coop_bd_near           -> 71
-      V3_coop_dg_near           -> 70
-      V3_coop_bv_behind         -> 69
-      V3_coop_bv_near           -> 68
-      V3_coop_gv_behind         -> 67
-      V3_coop_gv_near           -> 66
-      V3_coop_kv_behind         -> 65
-      V3_coop_kv_near           -> 64
-      V3_coop_bg_behind         -> 63
-      V3_coop_bg_near           -> 62
-      V3_coop_bk_behind         -> 61
-      V3_coop_bk_near           -> 60
-      V3_coop_gk_behind         -> 59
-      V3_coop_gk_near           -> 58
-      -- directed cuts
-      V3_directed_all           -> 56
-      V3_directed_all_cam       -> 55
-      V3_directed_all_lt        -> 54 -- free
-      V3_directed_all_yeah      -> 53
-      V3_directed_bre           -> 52
-      V3_directed_brej          -> 51
-      V3_directed_crowd         -> 10 -- free
-      V3_directed_drums         -> 43
-      V3_directed_drums_pnt     -> 21
-      V3_directed_drums_np      -> 49
-      V3_directed_drums_lt      -> 42 -- free
-      V3_directed_drums_kd      -> 23 -- free
-      V3_directed_vocals        -> 41
-      V3_directed_vocals_np     -> 46
-      V3_directed_vocals_cls    -> 26
-      V3_directed_vocals_cam_pr -> 36
-      V3_directed_vocals_cam_pt -> 35
-      V3_directed_stagedive     -> 29
-      V3_directed_crowdsurf     -> 28
-      V3_directed_bass          -> 40
-      V3_directed_crowd_b       -> 19
-      V3_directed_bass_np       -> 48
-      V3_directed_bass_cam      -> 31
-      V3_directed_bass_cls      -> 25 -- free
-      V3_directed_guitar        -> 39
-      V3_directed_crowd_g       -> 20
-      V3_directed_guitar_np     -> 47
-      V3_directed_guitar_cls    -> 24 -- free
-      V3_directed_guitar_cam_pr -> 34
-      V3_directed_guitar_cam_pt -> 33
-      V3_directed_keys          -> 38
-      V3_directed_keys_cam      -> 32
-      V3_directed_keys_np       -> 45
-      V3_directed_duo_drums     -> 17
-      V3_directed_duo_bass      -> 15
-      V3_directed_duo_guitar    -> 16
-      V3_directed_duo_kv        -> 14
-      V3_directed_duo_gb        -> 13
-      V3_directed_duo_kb        -> 12
-      V3_directed_duo_kg        -> 11
+    cameraCuts <- ((.cameraCuts) =.) $ condenseMap $ eachKey (fmap Left each <> fmap Right each) $ edges . \case
+      Left normal -> case normal of
+        -- generic 4 camera shots
+        V3_coop_all_behind     -> 100
+        V3_coop_all_far        -> 99
+        V3_coop_all_near       -> 98
+        -- 3 char shots (no drum)
+        V3_coop_front_behind   -> 96
+        V3_coop_front_near     -> 95
+        -- 1 char standard shots
+        V3_coop_d_behind       -> 93
+        V3_coop_d_near         -> 92
+        V3_coop_v_behind       -> 91
+        V3_coop_v_near         -> 90
+        V3_coop_b_behind       -> 89
+        V3_coop_b_near         -> 88
+        V3_coop_g_behind       -> 87
+        V3_coop_g_near         -> 86
+        V3_coop_k_behind       -> 85
+        V3_coop_k_near         -> 84
+        -- 1 char closeups
+        V3_coop_d_closeup_hand -> 82
+        V3_coop_d_closeup_head -> 81
+        V3_coop_v_closeup      -> 80
+        V3_coop_b_closeup_hand -> 79
+        V3_coop_b_closeup_head -> 78
+        V3_coop_g_closeup_hand -> 77
+        V3_coop_g_closeup_head -> 76
+        V3_coop_k_closeup_hand -> 75
+        V3_coop_k_closeup_head -> 74
+        -- 2 char shots
+        V3_coop_dv_near        -> 72
+        V3_coop_bd_near        -> 71
+        V3_coop_dg_near        -> 70
+        V3_coop_bv_behind      -> 69
+        V3_coop_bv_near        -> 68
+        V3_coop_gv_behind      -> 67
+        V3_coop_gv_near        -> 66
+        V3_coop_kv_behind      -> 65
+        V3_coop_kv_near        -> 64
+        V3_coop_bg_behind      -> 63
+        V3_coop_bg_near        -> 62
+        V3_coop_bk_behind      -> 61
+        V3_coop_bk_near        -> 60
+        V3_coop_gk_behind      -> 59
+        V3_coop_gk_near        -> 58
+      Right directed -> case directed of
+        V3_directed_all           -> 56
+        V3_directed_all_cam       -> 55
+        V3_directed_all_lt        -> 54 -- free
+        V3_directed_all_yeah      -> 53
+        V3_directed_bre           -> 52
+        V3_directed_brej          -> 51
+        V3_directed_crowd         -> 10 -- free
+        V3_directed_drums         -> 43
+        V3_directed_drums_pnt     -> 21
+        V3_directed_drums_np      -> 49
+        V3_directed_drums_lt      -> 42 -- free
+        V3_directed_drums_kd      -> 23 -- free
+        V3_directed_vocals        -> 41
+        V3_directed_vocals_np     -> 46
+        V3_directed_vocals_cls    -> 26
+        V3_directed_vocals_cam_pr -> 36
+        V3_directed_vocals_cam_pt -> 35
+        V3_directed_stagedive     -> 29
+        V3_directed_crowdsurf     -> 28
+        V3_directed_bass          -> 40
+        V3_directed_crowd_b       -> 19
+        V3_directed_bass_np       -> 48
+        V3_directed_bass_cam      -> 31
+        V3_directed_bass_cls      -> 25 -- free
+        V3_directed_guitar        -> 39
+        V3_directed_crowd_g       -> 20
+        V3_directed_guitar_np     -> 47
+        V3_directed_guitar_cls    -> 24 -- free
+        V3_directed_guitar_cam_pr -> 34
+        V3_directed_guitar_cam_pt -> 33
+        V3_directed_keys          -> 38
+        V3_directed_keys_cam      -> 32
+        V3_directed_keys_np       -> 45
+        V3_directed_duo_drums     -> 17
+        V3_directed_duo_bass      -> 15
+        V3_directed_duo_guitar    -> 16
+        V3_directed_duo_kv        -> 14
+        V3_directed_duo_gb        -> 13
+        V3_directed_duo_kb        -> 12
+        V3_directed_duo_kg        -> 11
     return CameraTrack{..}
 
 instance ChopTrack CameraTrack where
@@ -355,45 +356,45 @@ instance ChopTrack CameraTrack where
 
 cameraLevels :: [(Camera3, (Int, [RB3Instrument]))]
 cameraLevels =
-  [ (V3_coop_gk_near       , (7, [Guitar, Keys]))
-  , (V3_coop_gk_behind     , (7, [Guitar, Keys]))
-  , (V3_coop_bk_near       , (6, [Bass, Keys]))
-  , (V3_coop_bk_behind     , (6, [Bass, Keys]))
-  , (V3_coop_bg_near       , (5, [Bass, Guitar]))
-  , (V3_coop_bg_behind     , (5, [Bass, Guitar]))
-  , (V3_coop_kv_near       , (4, [Keys, Vocal]))
-  , (V3_coop_kv_behind     , (4, [Keys, Vocal]))
-  , (V3_coop_gv_near       , (3, [Guitar, Vocal]))
-  , (V3_coop_gv_behind     , (3, [Guitar, Vocal]))
-  , (V3_coop_bv_near       , (2, [Bass, Vocal]))
-  , (V3_coop_bv_behind     , (2, [Bass, Vocal]))
-  , (V3_coop_dg_near       , (1, [Drums, Guitar]))
-  , (V3_coop_bd_near       , (1, [Bass, Drums]))
-  , (V3_coop_dv_near       , (0, [Drums, Vocal]))
-  , (V3_coop_k_closeup_head, (8, [Keys]))
-  , (V3_coop_k_closeup_hand, (8, [Keys]))
-  , (V3_coop_g_closeup_head, (2, [Guitar]))
-  , (V3_coop_g_closeup_hand, (2, [Guitar]))
-  , (V3_coop_b_closeup_head, (1, [Bass]))
-  , (V3_coop_b_closeup_hand, (1, [Bass]))
-  , (V3_coop_v_closeup     , (0, [Vocal]))
-  , (V3_coop_d_closeup_head, (0, [Drums]))
-  , (V3_coop_d_closeup_hand, (0, [Drums]))
-  , (V3_coop_k_near        , (8, [Keys]))
-  , (V3_coop_k_behind      , (8, [Keys]))
-  , (V3_coop_g_near        , (2, [Guitar]))
-  , (V3_coop_g_behind      , (2, [Guitar]))
-  , (V3_coop_b_near        , (1, [Bass]))
-  , (V3_coop_b_behind      , (1, [Bass]))
-  , (V3_coop_v_near        , (0, [Vocal]))
-  , (V3_coop_v_behind      , (0, [Vocal]))
-  , (V3_coop_d_near        , (0, [Drums]))
-  , (V3_coop_d_behind      , (0, [Drums]))
-  , (V3_coop_front_near    , (0, []))
-  , (V3_coop_front_behind  , (0, []))
-  , (V3_coop_all_near      , (0, []))
-  , (V3_coop_all_far       , (0, []))
-  , (V3_coop_all_behind    , (0, []))
+  [ (Left V3_coop_gk_near       , (7, [Guitar, Keys]))
+  , (Left V3_coop_gk_behind     , (7, [Guitar, Keys]))
+  , (Left V3_coop_bk_near       , (6, [Bass, Keys]))
+  , (Left V3_coop_bk_behind     , (6, [Bass, Keys]))
+  , (Left V3_coop_bg_near       , (5, [Bass, Guitar]))
+  , (Left V3_coop_bg_behind     , (5, [Bass, Guitar]))
+  , (Left V3_coop_kv_near       , (4, [Keys, Vocal]))
+  , (Left V3_coop_kv_behind     , (4, [Keys, Vocal]))
+  , (Left V3_coop_gv_near       , (3, [Guitar, Vocal]))
+  , (Left V3_coop_gv_behind     , (3, [Guitar, Vocal]))
+  , (Left V3_coop_bv_near       , (2, [Bass, Vocal]))
+  , (Left V3_coop_bv_behind     , (2, [Bass, Vocal]))
+  , (Left V3_coop_dg_near       , (1, [Drums, Guitar]))
+  , (Left V3_coop_bd_near       , (1, [Bass, Drums]))
+  , (Left V3_coop_dv_near       , (0, [Drums, Vocal]))
+  , (Left V3_coop_k_closeup_head, (8, [Keys]))
+  , (Left V3_coop_k_closeup_hand, (8, [Keys]))
+  , (Left V3_coop_g_closeup_head, (2, [Guitar]))
+  , (Left V3_coop_g_closeup_hand, (2, [Guitar]))
+  , (Left V3_coop_b_closeup_head, (1, [Bass]))
+  , (Left V3_coop_b_closeup_hand, (1, [Bass]))
+  , (Left V3_coop_v_closeup     , (0, [Vocal]))
+  , (Left V3_coop_d_closeup_head, (0, [Drums]))
+  , (Left V3_coop_d_closeup_hand, (0, [Drums]))
+  , (Left V3_coop_k_near        , (8, [Keys]))
+  , (Left V3_coop_k_behind      , (8, [Keys]))
+  , (Left V3_coop_g_near        , (2, [Guitar]))
+  , (Left V3_coop_g_behind      , (2, [Guitar]))
+  , (Left V3_coop_b_near        , (1, [Bass]))
+  , (Left V3_coop_b_behind      , (1, [Bass]))
+  , (Left V3_coop_v_near        , (0, [Vocal]))
+  , (Left V3_coop_v_behind      , (0, [Vocal]))
+  , (Left V3_coop_d_near        , (0, [Drums]))
+  , (Left V3_coop_d_behind      , (0, [Drums]))
+  , (Left V3_coop_front_near    , (0, []))
+  , (Left V3_coop_front_behind  , (0, []))
+  , (Left V3_coop_all_near      , (0, []))
+  , (Left V3_coop_all_far       , (0, []))
+  , (Left V3_coop_all_behind    , (0, []))
   ]
 
 buildCamera :: (NNC.C t, MonadRandom m) => [RB3Instrument] -> CameraTrack t -> m (VenueTrack t)
@@ -418,18 +419,18 @@ buildCamera hasInsts ct = do
                     guard $ all (`elem` hasInsts) insts
                     guard $ notElem cut avoidCuts
                     return cut
-              cut <- fromMaybe V3_coop_all_near <$> fromListMay
+              cut <- fromMaybe (Left V3_coop_all_near) <$> fromListMay
                 [ (cut, 1) | cut <- possibleCuts ]
               return [((), cut, NNC.zero)]
             else return []
           let this = random ++ written
               starCuts =
-                [ V3_directed_all_lt
-                , V3_directed_crowd
-                , V3_directed_drums_lt
-                , V3_directed_drums_kd
-                , V3_directed_bass_cls
-                , V3_directed_guitar_cls
+                [ Right V3_directed_all_lt
+                , Right V3_directed_crowd
+                , Right V3_directed_drums_lt
+                , Right V3_directed_drums_kd
+                , Right V3_directed_bass_cls
+                , Right V3_directed_guitar_cls
                 ]
               translateNoteOff cut len = if elem cut starCuts
                 then case RTB.viewL rtb' of
@@ -442,19 +443,28 @@ buildCamera hasInsts ct = do
                   then RTB.fromPairList [(NNC.zero, cut), (len, cut)]
                   else RTB.singleton NNC.zero cut
           RTB.cons dt theseCuts <$> go this rtb'
-  cuts <- go [] $ RTB.collectCoincident $ RTB.merge
+  cuts <- fmap U.trackJoin $ go [] $ RTB.collectCoincident $ RTB.merge
     (Just <$> joined)
     (Nothing <$ ct.cameraRandom)
-  return mempty { cameraRB3 = U.trackJoin cuts }
+  return mempty
+    { cameraRB3 = RTB.mapMaybe (\case Left  x -> Just $ venueToString x          ; _ -> Nothing) cuts
+    , directed  = RTB.mapMaybe (\case Right x -> Just (Directed, venueToString x); _ -> Nothing) cuts
+    }
 
-unbuildCamera :: (NNC.C t) => t -> VenueTrack t -> CameraTrack t
-unbuildCamera lastLen vt = CameraTrack
-  { cameraCuts = let
-    -- each set of cuts, just make it a note that extends to the next set of cuts
-    pairs = RTB.toPairList $ RTB.collectCoincident vt.cameraRB3
-    lens = drop 1 (map fst pairs) ++ [lastLen]
-    in U.trackJoin $ RTB.fromPairList $ zip pairs lens <&> \((dt, cuts), len) ->
-      (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])
-    -- TODO this makes repeated directed cuts look weird, should fix
-  , cameraRandom = RTB.empty
-  }
+unbuildCamera :: (NNC.C t, SendMessage m) => t -> VenueTrack t -> StackTraceT m (CameraTrack t)
+unbuildCamera lastLen vt = do
+
+  normal   <- selectSimpleVisual $ matchNormalCutRB3 <$> vt.cameraRB3
+  directed <- selectSimpleVisual $ matchDirectedRB3 . snd <$> vt.directed
+  let mixed = RTB.merge (Left <$> normal) (Right <$> directed)
+
+  return CameraTrack
+    { cameraCuts = let
+      -- each set of cuts, just make it a note that extends to the next set of cuts
+      pairs = RTB.toPairList $ RTB.collectCoincident mixed
+      lens = drop 1 (map fst pairs) ++ [lastLen]
+      in U.trackJoin $ RTB.fromPairList $ zip pairs lens <&> \((dt, cuts), len) ->
+        (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])
+      -- TODO this makes repeated directed cuts look weird, should fix
+    , cameraRandom = RTB.empty
+    }

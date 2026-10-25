@@ -258,11 +258,12 @@ rrRules buildInfo dir rr = do
       mid.tempos
       endTime
       mid
+    rbCamera <- selectSimpleVisual $ matchNormalCutRB3 <$> venue.cameraRB3
 
     let camera = RTB.mapMaybe (listToMaybe . catMaybes)
           $ flip evalRand (mkStdGen $ hash key)
           $ mapM (\cuts -> mapM rrCameraCut $ reverse $ sort cuts)
-          $ RTB.collectCoincident venue.cameraRB3
+          $ RTB.collectCoincident rbCamera
         moodFor part = maybe RTB.empty (getMoods mid.tempos endTime)
           $ Map.lookup part mid.tracks.onyxParts
 
@@ -1127,7 +1128,7 @@ makeFrontEndFEV songID playtime = FEV
   , reverbs = Left []
   }
 
-rrCameraCut :: (MonadRandom m) => Camera3 -> m (Maybe Int)
+rrCameraCut :: (MonadRandom m) => CutNormal3 -> m (Maybe Int)
 rrCameraCut = \case
   -- venue info in v0006_002.lua
   V3_coop_all_behind     -> cut $ trigger E 0 -- RegisterDebugTrigger("Target", "E", 0, "Crowd")
@@ -1169,7 +1170,6 @@ rrCameraCut = \case
   V3_coop_bk_near        -> cut $ trigger Ds (-2) -- RegisterDebugTrigger("Target", "D#", -2, "Bassist")
   V3_coop_gk_behind      -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
   V3_coop_gk_near        -> cut $ trigger C (-2) -- RegisterDebugTrigger("Target", "C", -2, "Guitarist")
-  _                      -> return Nothing -- directed cut
   where cut = return . Just
         cutOneOf = fmap Just . uniform
         moneyShot = cutOneOf [trigger Fs 0, trigger G 0, trigger Gs 0]

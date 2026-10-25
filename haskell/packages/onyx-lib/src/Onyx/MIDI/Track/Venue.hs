@@ -5,8 +5,10 @@ Pre-RB3 venue format information from:
 -}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
@@ -17,14 +19,15 @@ Pre-RB3 venue format information from:
 module Onyx.MIDI.Track.Venue where
 
 import           Control.Applicative              ((<|>))
-import           Control.Monad                    (guard, unless, (>=>))
+import           Control.Monad                    (unless, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, sortBy, unsnoc)
-import           Data.Maybe                       (isNothing, listToMaybe)
+import           Data.Maybe                       (isNothing, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -42,7 +45,28 @@ import qualified Sound.MIDI.Util                  as U
 import           Control.Applicative              (liftA2)
 #endif
 
-data Camera3
+identifierToString :: (Show a) => T.Text -> (a -> Maybe T.Text) -> a -> T.Text
+identifierToString prefix override x = case override x of
+  Just y  -> y
+  Nothing -> case T.stripPrefix prefix $ T.pack $ show x of
+    Just y  -> y
+    Nothing -> error $ unwords
+      [ "panic! couldn't strip prefix"
+      , show prefix
+      , "from event"
+      , show x
+      ]
+
+identifierTable :: (Enum a, Bounded a) => (a -> T.Text) -> HM.HashMap T.Text a
+identifierTable f = HM.fromList [ (T.toCaseFold $ f x, x) | x <- each ]
+
+class VenueIdentifier a where
+  venueToString :: a -> T.Text
+  venueTable :: HM.HashMap T.Text a
+
+type Camera3 = Either CutNormal3 CutDirected3
+
+data CutNormal3
   -- generic 4 camera shots
   = V3_coop_all_behind
   | V3_coop_all_far
@@ -87,8 +111,14 @@ data Camera3
   | V3_coop_bk_near
   | V3_coop_gk_behind
   | V3_coop_gk_near
-  -- directed cuts
-  | V3_directed_all
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
+instance VenueIdentifier CutNormal3 where
+  venueToString = identifierToString "V3_" $ const Nothing
+  venueTable = identifierTable venueToString
+
+data CutDirected3
+  = V3_directed_all
   | V3_directed_all_cam
   | V3_directed_all_lt
   | V3_directed_all_yeah
@@ -130,14 +160,11 @@ data Camera3
   | V3_directed_duo_kg
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance Command Camera3 where
-  fromCommand x = case T.stripPrefix "V3_" $ T.pack $ show x of
-    Just s  -> [s]
-    Nothing -> error "panic! couldn't strip V3_ from venue event"
-  toCommand = reverseLookup each fromCommand
+instance VenueIdentifier CutDirected3 where
+  venueToString = identifierToString "V3_" $ const Nothing
+  venueTable = identifierTable venueToString
 
--- | In RB2 format, only directed cuts use text events.
-data Camera2
+data CutDirected2
   = V2_directed_all
   | V2_directed_all_yeah
   | V2_directed_bre
@@ -172,23 +199,37 @@ data Camera2
   | V2_directed_crowdsurf
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance Command Camera2 where
-  fromCommand x = case T.stripPrefix "V2_" $ T.pack $ show x of
-    Just s  -> [s]
-    Nothing -> error "panic! couldn't strip V2_ from venue event"
-  toCommand = reverseLookup each fromCommand
+instance VenueIdentifier CutDirected2 where
+  venueToString = identifierToString "V2_" $ const Nothing
+  venueTable = identifierTable venueToString
 
-data DoCut2
-  = DoDirectedCut Camera2
-  | DoOptionalCut Camera2
+data DirectedCutStyle
+  = Directed      -- rb3
+  | DoDirectedCut -- pre-rb3, always runs
+  | DoOptionalCut -- pre-rb3, runs if doing well
   deriving (Eq, Ord, Show)
 
-instance Command DoCut2 where
-  fromCommand (DoDirectedCut cam) = "do_directed_cut" : fromCommand cam
-  fromCommand (DoOptionalCut cam) = "do_optional_cut" : fromCommand cam
-  toCommand ("do_directed_cut" : args) = DoDirectedCut <$> toCommand args
-  toCommand ("do_optional_cut" : args) = DoOptionalCut <$> toCommand args
-  toCommand _                          = Nothing
+instance Command (DirectedCutStyle, T.Text) where
+  fromCommand (style, cut) = case style of
+    Directed      -> [cut]
+    DoDirectedCut -> ["do_directed_cut", cut]
+    DoOptionalCut -> ["do_optional_cut", cut]
+  toCommand = \case
+    [cut] | "directed_" `T.isPrefixOf` cut -> Just (Directed     , cut)
+    ["do_directed_cut", cut]               -> Just (DoDirectedCut, cut)
+    ["do_optional_cut", cut]               -> Just (DoOptionalCut, cut)
+    _                                      -> Nothing
+
+anyNormalCut :: (Monad m, NNC.C t) => TrackEvent m t T.Text
+anyNormalCut = commandMatch'
+  isNormalCut
+  (\cut -> [cut])
+
+isNormalCut :: [T.Text] -> Maybe T.Text
+isNormalCut = \case
+  -- band_ is from rb4
+  [cut] | any (`T.isPrefixOf` cut) ["coop_", "band_"] -> Just cut
+  _                                                   -> Nothing
 
 data PostProcess3
   -- basic
@@ -226,14 +267,11 @@ data PostProcess3
   deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- does not include .pp
-postProcV3ToString :: PostProcess3 -> T.Text
-postProcV3ToString V3_film_b_w = "film_b+w"
-postProcV3ToString x           = case T.stripPrefix "V3_" $ T.pack $ show x of
-  Just s  -> s
-  Nothing -> error "panic! couldn't strip V3_ from venue event"
-
-postProcV3Table :: HM.HashMap T.Text PostProcess3
-postProcV3Table = HM.fromList [ (T.toCaseFold $ postProcV3ToString x, x) | x <- each ]
+instance VenueIdentifier PostProcess3 where
+  venueToString = identifierToString "V3_" \case
+    V3_film_b_w -> Just "film_b+w"
+    _           -> Nothing
+  venueTable = identifierTable venueToString
 
 data PostProcess2
   = V2_video_trails
@@ -253,13 +291,10 @@ data PostProcess2
   | V2_Default -- ^ rbn2 docs say ProFilm_a is @"default"@. apparently in rb2 they were different?
   deriving (Eq, Ord, Show, Enum, Bounded)
 
-postProcV2ToString :: PostProcess2 -> T.Text
-postProcV2ToString x = case T.stripPrefix "V2_" $ T.pack $ show x of
-  Just s  -> s
-  Nothing -> error "panic! couldn't strip V2_ from venue event"
-
-postProcV2Table :: HM.HashMap T.Text PostProcess2
-postProcV2Table = HM.fromList [ (T.toCaseFold $ postProcV2ToString x, x) | x <- each ]
+-- not normally text in rb2 midi but we use the docs names when converting
+instance VenueIdentifier PostProcess2 where
+  venueToString = identifierToString "V2_" $ const Nothing
+  venueTable = identifierTable venueToString
 
 data CutEvent2
   = CameraCut
@@ -302,13 +337,9 @@ data LightingRB
   | Lighting_bre
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-getLightingString :: LightingRB -> T.Text
-getLightingString light = case T.stripPrefix "Lighting_" $ T.pack $ show light of
-  Just s  -> s
-  Nothing -> error $ "panic! couldn't strip Lighting_ from: " <> show light
-
-lightingTable :: HM.HashMap T.Text LightingRB
-lightingTable = HM.fromList [ (T.toCaseFold $ getLightingString x, x) | x <- each ]
+instance VenueIdentifier LightingRB where
+  venueToString = identifierToString "Lighting_" $ const Nothing
+  venueTable = identifierTable venueToString
 
 data LightingMode2 = ModeVerse | ModeChorus
   deriving (Eq, Ord, Show, Enum, Bounded)
@@ -329,12 +360,12 @@ data VisualResult a = VisualResult
   , fallback2 :: a
   , fallback3 :: a
   , original  :: T.Text
-  }
+  } deriving (Functor)
 
 matchLightingRB :: T.Text -> VisualResult LightingRB
 matchLightingRB t = let
   folded = T.toCaseFold t
-  (match, fuzzy) = case HM.lookup folded lightingTable of
+  (match, fuzzy) = case HM.lookup folded venueTable of
     Just lrb -> (Just lrb, [])
     Nothing  -> (Nothing,) case folded of
       -- GH2 other than () and (sweep)
@@ -353,6 +384,21 @@ matchLightingRB t = let
     , fallback3 = Lighting_dischord
     , original  = t
     }
+
+selectSimpleVisual :: (NNC.C t, SendMessage m, Eq a) => RTB.T t (VisualResult a) -> StackTraceT m (RTB.T t a)
+selectSimpleVisual input = do
+
+  let unknown = nubOrd $ map (.original) $ filter (isNothing . (.match)) $ RTB.getBodies input
+  unless (null unknown) $ warn $ T.unpack $ "Substituting replacement events for: " <> T.intercalate ", " unknown
+
+  let perTime = RTB.collectCoincident input
+  unless (all (null . drop 1) perTime) $ warn "Simultaneous events found, dropping all but one per timestamp"
+
+  return $ RTB.flatten $ perTime <&> \case
+    result : _ -> return $ case toList result.match <> result.fuzzy of
+      x : _ -> x
+      []    -> result.fallback1
+    [] -> []
 
 selectFadingVisual :: (NNC.C t, SendMessage m, Eq a) => RTB.T t (VisualResult a) -> StackTraceT m (RTB.T t a)
 selectFadingVisual input = do
@@ -465,7 +511,7 @@ bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
         , fallback1 = Lighting_manual_cool
         , fallback2 = Lighting_manual_warm
         , fallback3 = Lighting_dischord
-        , original  = getLightingString x
+        , original  = venueToString x
         }
       Lighting_blackout_spot -> VisualResult
         { match     = Nothing
@@ -474,7 +520,7 @@ bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
         -- these aren't great but hopefully never happen
         , fallback2 = Lighting_blackout_slow
         , fallback3 = Lighting_sweep
-        , original  = getLightingString x
+        , original  = venueToString x
         }
       _ -> VisualResult
         { match     = Just x
@@ -482,20 +528,20 @@ bakeLightingModeRB2 modes lights = if RTB.null modes && RTB.null lights
         , fallback1 = Lighting_manual_cool
         , fallback2 = Lighting_manual_warm
         , fallback3 = Lighting_dischord
-        , original  = getLightingString x
+        , original  = venueToString x
         }
     in (withStartMode, noRB3Lights)
 
 compileLightingRB3 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t T.Text)
 compileLightingRB3 modes lights = do
   results <- selectFadingVisual $ matchLightingRB <$> lights
-  return $ lightingModeToPresets modes $ getLightingString <$> results
+  return $ lightingModeToPresets modes $ venueToString <$> results
 
 compileLightingRB2 :: (NNC.C t, SendMessage m) => RTB.T t LightingMode2 -> RTB.T t T.Text -> StackTraceT m (RTB.T t LightingMode2, RTB.T t T.Text)
 compileLightingRB2 modes lights = do
   results <- selectFadingVisual $ matchLightingRB <$> lights
   let (modes', lights') = bakeLightingModeRB2 modes results
-  return (modes', getLightingString <$> lights')
+  return (modes', venueToString <$> lights')
 
 anyLighting :: (Monad m, NNC.C t) => TrackEvent m t T.Text
 anyLighting = commandMatch'
@@ -509,11 +555,6 @@ isLighting = let
     ["lighting", s] -> stripParens s
     [s]             -> T.stripPrefix "lighting" s >>= stripParens
     _               -> Nothing
-
-specificLighting :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
-specificLighting s = commandMatch'
-  (isLighting >=> guard . (== s))
-  (\() -> ["lighting", "(" <> s <> ")"])
 
 anyPostProc :: (Monad m, NNC.C t) => TrackEvent m t T.Text
 anyPostProc = commandMatch'
@@ -529,7 +570,7 @@ isPostProc xs = case unsnoc xs of
 matchPostProcRB3 :: T.Text -> VisualResult PostProcess3
 matchPostProcRB3 t = let
   folded = T.toCaseFold t
-  (match, fuzzy) = case HM.lookup folded postProcV3Table of
+  (match, fuzzy) = case HM.lookup folded venueTable of
     Just pp -> (Just pp, [])
     Nothing -> (Nothing,) case folded of
       -- RB2, all others match an RB3 name
@@ -568,12 +609,12 @@ compilePostProcRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m 
 compilePostProcRB3 vt = selectFadingVisual $ fmap matchPostProcRB3 $ RTB.merge
   vt.postProcessRB3
   -- should we remove redundant events to prevent blending from RB2 postprocs?
-  (postProcV2ToString <$> vt.postProcessRB2)
+  (venueToString <$> vt.postProcessRB2)
 
 matchPostProcRB2 :: T.Text -> VisualResult PostProcess2
 matchPostProcRB2 t = let
   folded = T.toCaseFold t
-  (match, fuzzy) = case HM.lookup folded postProcV2Table of
+  (match, fuzzy) = case HM.lookup folded venueTable of
     Just pp -> (Just pp, [])
     Nothing -> (Nothing,) let
       -- just match to RB3 first, to handle RB4 also
@@ -614,13 +655,13 @@ compilePostProcRB2 vt = if RTB.null vt.postProcessRB3
   then return vt.postProcessRB2
   else selectFadingVisual $ fmap matchPostProcRB2 $ RTB.merge
     vt.postProcessRB3
-    (postProcV2ToString <$> vt.postProcessRB2)
+    (venueToString <$> vt.postProcessRB2)
 
 data VenueTrack t = VenueTrack
 
-  { cameraRB3        :: RTB.T t Camera3
+  { cameraRB3        :: RTB.T t T.Text -- undirected cuts
   , cameraRB2        :: RTB.T t CutEvent2
-  , directedRB2      :: RTB.T t DoCut2
+  , directed         :: RTB.T t (DirectedCutStyle, T.Text)
 
   , singGuitar       :: RTB.T t Bool -- or keys if no guitar
   , singDrums        :: RTB.T t Bool
@@ -657,7 +698,7 @@ instance ChopTrack VenueTrack where
   chopTake t o = VenueTrack
     { cameraRB3        = U.trackTake  t o.cameraRB3
     , cameraRB2        = U.trackTake  t o.cameraRB2
-    , directedRB2      = U.trackTake  t o.directedRB2
+    , directed         = U.trackTake  t o.directed
     , singGuitar       = chopTakeBool t o.singGuitar
     , singDrums        = chopTakeBool t o.singDrums
     , singBass         = chopTakeBool t o.singBass
@@ -678,7 +719,7 @@ instance ChopTrack VenueTrack where
   chopDrop t o = VenueTrack
     { cameraRB3        = U.trackDrop  t o.cameraRB3
     , cameraRB2        = U.trackDrop  t o.cameraRB2
-    , directedRB2      = U.trackDrop  t o.directedRB2
+    , directed         = U.trackDrop  t o.directed
     , singGuitar       = chopDropBool t o.singGuitar
     , singDrums        = chopDropBool t o.singDrums
     , singBass         = chopDropBool t o.singBass
@@ -706,7 +747,7 @@ instance TraverseTrack VenueTrack where
 
 instance ParseTrack VenueTrack where
   parseTrack = do
-    cameraRB3 <- (.cameraRB3) =. command
+    cameraRB3 <- (.cameraRB3) =. anyNormalCut
     cameraRB2 <- (.cameraRB2) =. do
       condenseMap_ $ fatBlips (1/8) $ eachKey each $ blip . \case
         CameraCut   -> 60
@@ -718,7 +759,7 @@ instance ParseTrack VenueTrack where
         OnlyClose   -> 72
         OnlyFar     -> 71
         NoBehind    -> 70
-    directedRB2     <- (.directedRB2    ) =. command
+    directed        <- (.directed       ) =. command
     singGuitar      <- (.singGuitar     ) =. edges 87
     singDrums       <- (.singDrums      ) =. edges 86
     singBass        <- (.singBass       ) =. edges 85
@@ -766,48 +807,60 @@ instance ParseTrack VenueTrack where
         False -> ["FogOff"]
     return VenueTrack{..}
 
+matchNormalCutRB3 :: T.Text -> VisualResult CutNormal3
+matchNormalCutRB3 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded venueTable of
+    Just cut -> (Just cut, [])
+    Nothing  -> (Nothing,  []) -- TODO more fuzzy matches
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = V3_coop_all_near
+    , fallback2 = V3_coop_all_near
+    , fallback3 = V3_coop_all_near
+    , original  = t
+    }
+
+compileNormalRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (RTB.T t T.Text)
+compileNormalRB3 vt
+  = fmap (fmap venueToString)
+  $ selectSimpleVisual
+  $ matchNormalCutRB3 <$> vt.cameraRB3
+
+matchDirectedRB3 :: T.Text -> VisualResult CutDirected3
+matchDirectedRB3 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded venueTable of
+    Just cut -> (Just cut, [])
+    Nothing  -> (Nothing,) case folded of
+      -- RB2 tweaks
+      "directed_guitar_cam" -> [V3_directed_guitar_cam_pt]
+      "directed_vocals_cam" -> [V3_directed_vocals_cam_pt]
+      _                     -> []
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = V3_directed_all
+    , fallback2 = V3_directed_all
+    , fallback3 = V3_directed_all
+    , original  = t
+    }
+
+compileDirectedRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (RTB.T t (DirectedCutStyle, T.Text))
+compileDirectedRB3 vt
+  = fmap (fmap \cut -> (Directed, venueToString cut))
+  $ selectSimpleVisual
+  $ vt.directed <&> \(_, x) -> matchDirectedRB3 x
+
 compileVenueRB3 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (VenueTrack t)
 compileVenueRB3 vt = do
   lighting <- compileLightingRB3 vt.lightingMode vt.lighting
-  postProc <- fmap postProcV3ToString <$> compilePostProcRB3 vt
+  postProc <- fmap venueToString <$> compilePostProcRB3 vt
+  normal <- compileNormalRB3 vt
+  directed <- compileDirectedRB3 vt
   return vt
     { cameraRB3 = let
-      directed = vt.directedRB2 <&> \docut -> let
-        cut = case docut of
-          DoDirectedCut c -> c
-          DoOptionalCut c -> c
-        in case cut of
-          V2_directed_all        -> V3_directed_all
-          V2_directed_all_yeah   -> V3_directed_all_yeah
-          V2_directed_bre        -> V3_directed_bre
-          V2_directed_brej       -> V3_directed_brej
-          V2_directed_drums_np   -> V3_directed_drums_np
-          V2_directed_bass_np    -> V3_directed_bass_np
-          V2_directed_guitar_np  -> V3_directed_guitar_np
-          V2_directed_vocals_np  -> V3_directed_vocals_np
-          V2_directed_drums      -> V3_directed_drums
-          V2_directed_bass       -> V3_directed_bass
-          V2_directed_guitar     -> V3_directed_guitar
-          V2_directed_vocals     -> V3_directed_vocals
-          V2_directed_bass_cam   -> V3_directed_bass_cam
-          V2_directed_guitar_cam -> V3_directed_guitar_cam_pt -- tweak
-          V2_directed_vocals_cam -> V3_directed_vocals_cam_pt -- tweak
-          V2_directed_duo_guitar -> V3_directed_duo_guitar
-          V2_directed_duo_bass   -> V3_directed_duo_bass
-          V2_directed_duo_drums  -> V3_directed_duo_drums
-          V2_directed_drums_pnt  -> V3_directed_drums_pnt
-          V2_directed_guitar_cls -> V3_directed_guitar_cls
-          V2_directed_bass_cls   -> V3_directed_bass_cls
-          V2_directed_vocals_cls -> V3_directed_vocals_cls
-          V2_directed_drums_kd   -> V3_directed_drums_kd
-          V2_directed_stagedive  -> V3_directed_stagedive
-          V2_directed_duo_gb     -> V3_directed_duo_gb
-          V2_directed_all_cam    -> V3_directed_all_cam
-          V2_directed_crowd_g    -> V3_directed_crowd_g
-          V2_directed_crowd_b    -> V3_directed_crowd_b
-          V2_directed_all_lt     -> V3_directed_all_lt
-          V2_directed_drums_lt   -> V3_directed_drums_lt
-          V2_directed_crowdsurf  -> V3_directed_crowdsurf
       generic = RTB.flatten $ fmap genericInstant $ RTB.collectCoincident vt.cameraRB2
       genericInstant xs = case elem CameraCut xs of
         False -> []
@@ -871,9 +924,9 @@ compileVenueRB3 vt = do
           in case cuts of
             [] -> [V3_coop_all_near] -- some default if we cut but excluded all options
             _  -> cuts
-      in RTB.merge vt.cameraRB3 $ RTB.merge generic directed
+      in RTB.merge normal $ venueToString <$> generic
     , cameraRB2 = RTB.empty
-    , directedRB2 = RTB.empty
+    , directed = directed
     , postProcessRB3 = postProc
     , postProcessRB2 = RTB.empty
     , lighting = lighting
@@ -881,6 +934,43 @@ compileVenueRB3 vt = do
     , lightingMode = RTB.empty
     , fog = RTB.empty
     }
+
+matchDirectedRB2 :: T.Text -> VisualResult CutDirected2
+matchDirectedRB2 t = let
+  folded = T.toCaseFold t
+  (match, fuzzy) = case HM.lookup folded venueTable of
+    Just cut -> (Just cut, [])
+    Nothing  -> (Nothing,) case folded of
+      -- RB3 missing
+      "directed_vocals_cam_pr" -> [V2_directed_vocals_cam]
+      "directed_vocals_cam_pt" -> [V2_directed_vocals_cam]
+      "directed_guitar_cam_pr" -> [V2_directed_guitar_cam]
+      "directed_guitar_cam_pt" -> [V2_directed_guitar_cam]
+      "directed_keys"          -> [V2_directed_crowd_b]
+      "directed_keys_cam"      -> [V2_directed_crowd_b]
+      "directed_keys_np"       -> [V2_directed_crowd_b]
+      "directed_duo_drums"     -> [V2_directed_drums]
+      "directed_duo_kv"        -> [V2_directed_duo_guitar]
+      "directed_duo_kb"        -> [V2_directed_duo_gb]
+      "directed_duo_kg"        -> [V2_directed_duo_gb]
+      _                        -> []
+  in VisualResult
+    { match     = match
+    , fuzzy     = fuzzy
+    , fallback1 = V2_directed_all
+    , fallback2 = V2_directed_all
+    , fallback3 = V2_directed_all
+    , original  = t
+    }
+
+compileDirectedRB2 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (RTB.T t (DirectedCutStyle, T.Text))
+compileDirectedRB2 vt
+  = selectSimpleVisual
+  $ vt.directed <&> \(style, x) -> let
+    newStyle = case style of
+      Directed -> DoDirectedCut
+      _        -> style -- already one of the rb2 styles
+    in matchDirectedRB2 x <&> \cut -> (newStyle, venueToString cut)
 
 compileVenueRB2 :: (NNC.C t, SendMessage m) => VenueTrack t -> StackTraceT m (VenueTrack t)
 compileVenueRB2 vt | vt == mempty = return vt -- don't add anything (like [verse]) to an empty input
@@ -890,106 +980,65 @@ compileVenueRB2 vt = let
   close = cut [NoBehind, OnlyClose]
   far = cut [NoBehind, OnlyFar, NoClose]
   near = cut [NoBehind, NoClose]
-  directed x = [Right $ DoDirectedCut x]
-  camera = RTB.flatten $ RTB.collectCoincident vt.cameraRB3 <&> \cams -> case sortBy (flip compare) cams of
-    [] -> [] -- shouldn't happen
-    x : _ -> case x of
-      -- generic 4 camera shots
-      V3_coop_all_behind        -> behind [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
-      V3_coop_all_far           -> far [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
-      V3_coop_all_near          -> near [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
-      -- 3 char shots (no drum)
-      V3_coop_front_behind      -> behind [FocusGuitar, FocusBass, FocusVocal]
-      V3_coop_front_near        -> near [FocusGuitar, FocusBass, FocusVocal]
-      -- 1 char standard shots
-      V3_coop_d_behind          -> behind [FocusDrums]
-      V3_coop_d_near            -> near [FocusDrums]
-      V3_coop_v_behind          -> behind [FocusVocal]
-      V3_coop_v_near            -> near [FocusVocal]
-      V3_coop_b_behind          -> behind [FocusBass]
-      V3_coop_b_near            -> near [FocusBass]
-      V3_coop_g_behind          -> behind [FocusGuitar]
-      V3_coop_g_near            -> near [FocusGuitar]
-      V3_coop_k_behind          -> behind [FocusGuitar]
-      V3_coop_k_near            -> near [FocusGuitar]
-      -- 1 char closeups
-      V3_coop_d_closeup_hand    -> close [FocusDrums]
-      V3_coop_d_closeup_head    -> close [FocusDrums]
-      V3_coop_v_closeup         -> close [FocusVocal]
-      V3_coop_b_closeup_hand    -> close [FocusBass]
-      V3_coop_b_closeup_head    -> close [FocusBass]
-      V3_coop_g_closeup_hand    -> close [FocusGuitar]
-      V3_coop_g_closeup_head    -> close [FocusGuitar]
-      V3_coop_k_closeup_hand    -> close [FocusGuitar]
-      V3_coop_k_closeup_head    -> close [FocusGuitar]
-      -- 2 char shots
-      V3_coop_dv_near           -> near [FocusDrums, FocusVocal]
-      V3_coop_bd_near           -> near [FocusBass, FocusDrums]
-      V3_coop_dg_near           -> near [FocusDrums, FocusGuitar]
-      V3_coop_bv_behind         -> behind [FocusBass, FocusVocal]
-      V3_coop_bv_near           -> near [FocusBass, FocusVocal]
-      V3_coop_gv_behind         -> behind [FocusGuitar, FocusVocal]
-      V3_coop_gv_near           -> near [FocusGuitar, FocusVocal]
-      V3_coop_kv_behind         -> behind [FocusGuitar, FocusVocal]
-      V3_coop_kv_near           -> near [FocusGuitar, FocusVocal]
-      V3_coop_bg_behind         -> behind [FocusBass, FocusGuitar]
-      V3_coop_bg_near           -> near [FocusBass, FocusGuitar]
-      V3_coop_bk_behind         -> behind [FocusBass, FocusGuitar]
-      V3_coop_bk_near           -> near [FocusBass, FocusGuitar]
-      V3_coop_gk_behind         -> behind [FocusGuitar, FocusBass]
-      V3_coop_gk_near           -> near [FocusGuitar, FocusBass]
-      -- directed cuts
-      V3_directed_all           -> directed V2_directed_all
-      V3_directed_all_cam       -> directed V2_directed_all_cam
-      V3_directed_all_lt        -> directed V2_directed_all_lt
-      V3_directed_all_yeah      -> directed V2_directed_all_yeah
-      V3_directed_bre           -> directed V2_directed_bre
-      V3_directed_brej          -> directed V2_directed_brej
-      V3_directed_crowd         -> directed V2_directed_crowd_g
-      V3_directed_drums         -> directed V2_directed_drums
-      V3_directed_drums_pnt     -> directed V2_directed_drums_pnt
-      V3_directed_drums_np      -> directed V2_directed_drums_np
-      V3_directed_drums_lt      -> directed V2_directed_drums_lt
-      V3_directed_drums_kd      -> directed V2_directed_drums_kd
-      V3_directed_vocals        -> directed V2_directed_vocals
-      V3_directed_vocals_np     -> directed V2_directed_vocals_np
-      V3_directed_vocals_cls    -> directed V2_directed_vocals_cls
-      V3_directed_vocals_cam_pr -> directed V2_directed_vocals_cam
-      V3_directed_vocals_cam_pt -> directed V2_directed_vocals_cam
-      V3_directed_stagedive     -> directed V2_directed_stagedive
-      V3_directed_crowdsurf     -> directed V2_directed_crowdsurf
-      V3_directed_bass          -> directed V2_directed_bass
-      V3_directed_crowd_b       -> directed V2_directed_crowd_b
-      V3_directed_bass_np       -> directed V2_directed_bass_np
-      V3_directed_bass_cam      -> directed V2_directed_bass_cam
-      V3_directed_bass_cls      -> directed V2_directed_bass_cls
-      V3_directed_guitar        -> directed V2_directed_guitar
-      V3_directed_crowd_g       -> directed V2_directed_crowd_g
-      V3_directed_guitar_np     -> directed V2_directed_guitar_np
-      V3_directed_guitar_cls    -> directed V2_directed_guitar_cls
-      V3_directed_guitar_cam_pr -> directed V2_directed_guitar_cam
-      V3_directed_guitar_cam_pt -> directed V2_directed_guitar_cam
-      V3_directed_keys          -> directed V2_directed_crowd_b
-      V3_directed_keys_cam      -> directed V2_directed_crowd_b
-      V3_directed_keys_np       -> directed V2_directed_crowd_b
-      V3_directed_duo_drums     -> directed V2_directed_drums
-      V3_directed_duo_bass      -> directed V2_directed_duo_bass
-      V3_directed_duo_guitar    -> directed V2_directed_duo_guitar
-      V3_directed_duo_kv        -> directed V2_directed_duo_guitar
-      V3_directed_duo_gb        -> directed V2_directed_duo_gb
-      V3_directed_duo_kb        -> directed V2_directed_duo_gb
-      V3_directed_duo_kg        -> directed V2_directed_duo_gb
+  camera = RTB.flatten $ RTB.collectCoincident vt.cameraRB3 <&> \cams -> let
+    rb3 = mapMaybe (`HM.lookup` venueTable) cams
+    in case sortBy (flip compare) rb3 of
+      []    -> cut [] []
+      x : _ -> case x of
+        -- generic 4 camera shots
+        V3_coop_all_behind        -> behind [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
+        V3_coop_all_far           -> far [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
+        V3_coop_all_near          -> near [FocusGuitar, FocusBass, FocusDrums, FocusVocal]
+        -- 3 char shots (no drum)
+        V3_coop_front_behind      -> behind [FocusGuitar, FocusBass, FocusVocal]
+        V3_coop_front_near        -> near [FocusGuitar, FocusBass, FocusVocal]
+        -- 1 char standard shots
+        V3_coop_d_behind          -> behind [FocusDrums]
+        V3_coop_d_near            -> near [FocusDrums]
+        V3_coop_v_behind          -> behind [FocusVocal]
+        V3_coop_v_near            -> near [FocusVocal]
+        V3_coop_b_behind          -> behind [FocusBass]
+        V3_coop_b_near            -> near [FocusBass]
+        V3_coop_g_behind          -> behind [FocusGuitar]
+        V3_coop_g_near            -> near [FocusGuitar]
+        V3_coop_k_behind          -> behind [FocusGuitar]
+        V3_coop_k_near            -> near [FocusGuitar]
+        -- 1 char closeups
+        V3_coop_d_closeup_hand    -> close [FocusDrums]
+        V3_coop_d_closeup_head    -> close [FocusDrums]
+        V3_coop_v_closeup         -> close [FocusVocal]
+        V3_coop_b_closeup_hand    -> close [FocusBass]
+        V3_coop_b_closeup_head    -> close [FocusBass]
+        V3_coop_g_closeup_hand    -> close [FocusGuitar]
+        V3_coop_g_closeup_head    -> close [FocusGuitar]
+        V3_coop_k_closeup_hand    -> close [FocusGuitar]
+        V3_coop_k_closeup_head    -> close [FocusGuitar]
+        -- 2 char shots
+        V3_coop_dv_near           -> near [FocusDrums, FocusVocal]
+        V3_coop_bd_near           -> near [FocusBass, FocusDrums]
+        V3_coop_dg_near           -> near [FocusDrums, FocusGuitar]
+        V3_coop_bv_behind         -> behind [FocusBass, FocusVocal]
+        V3_coop_bv_near           -> near [FocusBass, FocusVocal]
+        V3_coop_gv_behind         -> behind [FocusGuitar, FocusVocal]
+        V3_coop_gv_near           -> near [FocusGuitar, FocusVocal]
+        V3_coop_kv_behind         -> behind [FocusGuitar, FocusVocal]
+        V3_coop_kv_near           -> near [FocusGuitar, FocusVocal]
+        V3_coop_bg_behind         -> behind [FocusBass, FocusGuitar]
+        V3_coop_bg_near           -> near [FocusBass, FocusGuitar]
+        V3_coop_bk_behind         -> behind [FocusBass, FocusGuitar]
+        V3_coop_bk_near           -> near [FocusBass, FocusGuitar]
+        V3_coop_gk_behind         -> behind [FocusGuitar, FocusBass]
+        V3_coop_gk_near           -> near [FocusGuitar, FocusBass]
   in do
     (modes, lighting) <- compileLightingRB2 vt.lightingMode vt.lighting
     postProc <- compilePostProcRB2 vt
+    directed <- compileDirectedRB2 vt
     return vt
       { cameraRB3 = RTB.empty
       , cameraRB2 = RTB.merge vt.cameraRB2 $ RTB.mapMaybe
         (\case Left x -> Just x; Right _ -> Nothing)
         camera
-      , directedRB2 = RTB.merge vt.directedRB2 $ RTB.mapMaybe
-        (\case Left _ -> Nothing; Right x -> Just x)
-        camera
+      , directed = directed
       , spotlightKeys = RTB.empty
       , postProcessRB3 = RTB.empty
       , postProcessRB2 = postProc

@@ -123,8 +123,8 @@ getVenue stdGen partMap tmap endTime ofile = let
     , camera
     ]
   -- TODO lighting autogen
-  withCamera = runRandom $ if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directedRB2
-    then (\cam -> gen { cameraRB3 = cam }) <$> autoCamera partMap tmap endTime ofile
+  withCamera = runRandom $ if RTB.null gen.cameraRB3 && RTB.null gen.cameraRB2 && RTB.null gen.directed
+    then (\cam -> gen { cameraRB3 = venueToString <$> cam }) <$> autoCamera partMap tmap endTime ofile
     else return gen
   in withCamera
 
@@ -146,7 +146,7 @@ autoCamera
   -> U.TempoMap
   -> U.Beats
   -> F.Song (F.OnyxFile U.Beats)
-  -> m (RTB.T U.Beats Camera3)
+  -> m (RTB.T U.Beats CutNormal3)
 autoCamera partMap tmap endTime ofile = do
   let moodMap = partMap <&> \fpart -> let
         moods = getMoods tmap endTime $ fromMaybe mempty $ Map.lookup fpart ofile.tracks.onyxParts

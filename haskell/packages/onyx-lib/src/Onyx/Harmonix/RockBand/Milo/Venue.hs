@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFoldable      #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
 {-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -18,6 +19,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List                        (sort)
+import           Data.Maybe                       (fromMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Word
@@ -28,8 +30,6 @@ import           Onyx.MIDI.Common                 (toCommand)
 import           Onyx.MIDI.Track.Events
 import qualified Onyx.MIDI.Track.File             as F
 import           Onyx.MIDI.Track.Venue
-import           Onyx.MIDI.Track.VenueGen         (unbuildCamera,
-                                                   unbuildLighting)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    inside, logStdout, warn)
 import qualified Sound.MIDI.File.Event            as E
@@ -203,10 +203,17 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
     case toCommand [TE.decodeLatin1 e.eventName] of
       Nothing -> [(e.eventTime, Left $ "Unrecognized command: " <> show e.eventName)]
       Just x  -> [(e.eventTime, Right x)]
-  camera name = do
-    cam <- getCommands name
-    return $ unbuildCamera 1 $ mempty
-      { cameraRB3 = cam
+  camera name = inside ("track: " <> B8.unpack name) do
+    mixed <- toRTB do
+      e <- getEvents name
+      guard $ e.eventName /= "TEST_CAM"
+      let str = TE.decodeLatin1 e.eventName
+      if | "directed_" `T.isPrefixOf` str -> [(e.eventTime, Right $ Right str)]
+         | "coop_"     `T.isPrefixOf` str -> [(e.eventTime, Right $ Left  str)]
+         | otherwise                      -> [(e.eventTime, Left $ "Unrecognized camera cut: " <> show e.eventName)]
+    return mempty
+      { cameraRB3 = RTB.mapMaybe (\case Left  x -> Just x            ; _ -> Nothing) mixed
+      , directed  = RTB.mapMaybe (\case Right x -> Just (Directed, x); _ -> Nothing) mixed
       }
   -- various redundant events seen in pulseofthemaggots postproc track;
   -- cleaning up so it converts to venuegen better
@@ -256,7 +263,9 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
     postProc <- inside "track: postproc" $ toRTB do
       e <- cleanPostproc $ getEvents "postproc"
       -- note, empty string seen in ziggystardust
-      [(e.eventTime, Right $ T.pack $ B8.unpack e.eventName)]
+      let text = T.pack $ B8.unpack e.eventName
+          stripped = fromMaybe text $ T.stripSuffix ".pp" text
+      [(e.eventTime, Right stripped)]
     lighting <- inside "track: lightpreset" $ toRTB do
       e <- cleanPostproc $ getEvents "lightpreset"
       [(e.eventTime, Right $ T.pack $ B8.unpack e.eventName)]
@@ -271,37 +280,32 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
       e <- getEvents "world_event"
       guard $ e.eventName == "bonusfx"
       return (e.eventTime, Right ())
-    camera5 <- camera "shot_5"
-    cameraBG <- camera "shot_bg"
-    cameraBK <- camera "shot_bk"
-    cameraGK <- camera "shot_gk"
+    shot5 <- camera "shot_5"
+    shotBG <- camera "shot_bg"
+    shotBK <- camera "shot_bk"
+    shotGK <- camera "shot_gk"
     crowd <- getCommands "crowd"
 
-    lightingTrack <- unbuildLighting 1 mempty
-      { postProcessRB3 = postProc
-      , lighting = lighting
-      , lightingCommands = lightingCommands
-      , bonusFX = bonusFX
-      }
-
     return mempty
-      { F.onyxVenue = mempty
-        { singGuitar   = sing2
-        , singDrums    = sing4
-        , singBass     = sing3
-        , spotlightKeys     = spotKeys
-        , spotlightVocal    = spotVocal
-        , spotlightGuitar   = spotGuitar
-        , spotlightDrums    = spotDrums
-        , spotlightBass     = spotBass
-        , lightingMode = lightingMode
-        , fog          = fog
+      { F.onyxVenue = shot5
+        { singGuitar       = sing2
+        , singDrums        = sing4
+        , singBass         = sing3
+        , spotlightKeys    = spotKeys
+        , spotlightVocal   = spotVocal
+        , spotlightGuitar  = spotGuitar
+        , spotlightDrums   = spotDrums
+        , spotlightBass    = spotBass
+        , lightingMode     = lightingMode
+        , fog              = fog
+        , postProcessRB3   = postProc
+        , lighting         = lighting
+        , lightingCommands = lightingCommands
+        , bonusFX          = bonusFX
         }
-      , F.onyxLighting = lightingTrack
-      , F.onyxCamera = camera5
-      , F.onyxCameraBG = cameraBG
-      , F.onyxCameraBK = cameraBK
-      , F.onyxCameraGK = cameraGK
+      , F.onyxShotBG = shotBG
+      , F.onyxShotBK = shotBK
+      , F.onyxShotGK = shotGK
       , F.onyxEvents = mempty
         { crowd = crowd
         }

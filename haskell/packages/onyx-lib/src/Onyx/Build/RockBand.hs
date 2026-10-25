@@ -365,7 +365,7 @@ rbRules buildInfo dir rb3 mrb2 = do
     lg "# Running Magma v2 (C3)"
     mapStackTraceT (liftIO . runResourceT) (Magma.runMagma pathMagmaProj out) >>= lg
   let blackVenueTrack = mempty
-        { cameraRB3        = RTB.singleton 0 V3_coop_all_far
+        { cameraRB3        = RTB.singleton 0 "coop_all_far"
         , postProcessRB3   = RTB.singleton 0 "film_b+w"
         , lighting         = RTB.singleton 0 "blackout_fast"
         }
@@ -461,7 +461,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             onlyCamera venue = mempty
               { cameraRB3 = venue.cameraRB3
               , cameraRB2 = venue.cameraRB2
-              , directedRB2 = venue.directedRB2
+              , directed = venue.directed
               }
             onlyOther venue = mempty
               { singGuitar = venue.singGuitar

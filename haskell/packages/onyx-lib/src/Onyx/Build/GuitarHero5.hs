@@ -46,7 +46,9 @@ import           Onyx.MIDI.Common                  (RB3Instrument (..),
                                                     pattern RNil, pattern Wait)
 import           Onyx.MIDI.Track.Events            (EventsTrack (..))
 import qualified Onyx.MIDI.Track.File              as F
-import           Onyx.MIDI.Track.Venue             (cameraRB3)
+import           Onyx.MIDI.Track.Venue             (VenueTrack (cameraRB3),
+                                                    matchNormalCutRB3,
+                                                    selectSimpleVisual)
 import           Onyx.Neversoft.CRC                (qbKeyCRC, qsKey)
 import           Onyx.Neversoft.Crypt              (ghworEncrypt)
 import           Onyx.Neversoft.GH4.Metadata       (makeVocalsCents)
@@ -231,12 +233,13 @@ gh5Rules buildInfo dir gh5 = do
           , [(Vocal , gh5.vocal )]
           ]
 
-    rbCamera <- (.cameraRB3) <$> getVenueRB3
+    rbVenue <- getVenueRB3
       (mkStdGen hashed)
       partMap
       tmap
       endTime
       mid
+    rbCamera <- selectSimpleVisual $ matchNormalCutRB3 <$> rbVenue.cameraRB3
 
     drumAnims <- stackIO (B.readFile $ dir </> "drum-anims.txt") >>= \bs -> case readMaybe $ B8.unpack bs of
       Nothing -> fatal "panic! couldn't read back drums_notes WoR array"

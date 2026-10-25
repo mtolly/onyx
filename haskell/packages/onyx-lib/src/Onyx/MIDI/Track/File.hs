@@ -311,9 +311,9 @@ data OnyxFile t = OnyxFile
   , onyxVenue    :: VenueTrack t
   , onyxLighting :: LightingTrack t
   , onyxCamera   :: CameraTrack t
-  , onyxCameraBG :: CameraTrack t
-  , onyxCameraBK :: CameraTrack t
-  , onyxCameraGK :: CameraTrack t
+  , onyxShotBG   :: VenueTrack t
+  , onyxShotBK   :: VenueTrack t
+  , onyxShotGK   :: VenueTrack t
   , onyxSamples  :: Map.Map T.Text (SamplesTrack t)
   , onyxRaw      :: Map.Map T.Text (RTB.T t (E.T T.Text))
   } deriving (Eq, Ord, Show, Generic)
@@ -501,9 +501,9 @@ instance ParseFile OnyxFile where
     onyxVenue    <- (.onyxVenue   ) =. fileTrack (pure "VENUE"    )
     onyxLighting <- (.onyxLighting) =. fileTrack (pure "LIGHTING" )
     onyxCamera   <- (.onyxCamera  ) =. fileTrack (pure "CAMERA"   )
-    onyxCameraBG <- (.onyxCameraBG) =. fileTrack (pure "CAMERA_BG")
-    onyxCameraBK <- (.onyxCameraBK) =. fileTrack (pure "CAMERA_BK")
-    onyxCameraGK <- (.onyxCameraGK) =. fileTrack (pure "CAMERA_GK")
+    onyxShotBG   <- (.onyxShotBG  ) =. fileTrack (pure "SHOT_BG")
+    onyxShotBK   <- (.onyxShotBK  ) =. fileTrack (pure "SHOT_BK")
+    onyxShotGK   <- (.onyxShotGK  ) =. fileTrack (pure "SHOT_GK")
     onyxSamples  <- (.onyxSamples ) =. Codec
       { codecIn = do
         trks <- lift get
@@ -827,9 +827,10 @@ wiiUnmute22 = let
 convertToVenueGen :: (SendMessage m) => Song (OnyxFile U.Beats) -> StackTraceT m (Song (OnyxFile U.Beats))
 convertToVenueGen (Song temps sigs trks) = do
   lighting <- unbuildLighting 1 trks.onyxVenue
+  camera   <- unbuildCamera 1 trks.onyxVenue
   return $ Song temps sigs trks
     { onyxLighting = trks.onyxLighting <> lighting
-    , onyxCamera   = trks.onyxCamera   <> unbuildCamera   1 trks.onyxVenue
+    , onyxCamera   = trks.onyxCamera   <> camera
     , onyxVenue = trks.onyxVenue
       { cameraRB3        = RTB.empty
       , postProcessRB3   = RTB.empty
@@ -848,9 +849,9 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = chopTake t o.onyxVenue
     , onyxLighting = chopTake t o.onyxLighting
     , onyxCamera   = chopTake t o.onyxCamera
-    , onyxCameraBG = chopTake t o.onyxCameraBG
-    , onyxCameraBK = chopTake t o.onyxCameraBK
-    , onyxCameraGK = chopTake t o.onyxCameraGK
+    , onyxShotBG   = chopTake t o.onyxShotBG
+    , onyxShotBK   = chopTake t o.onyxShotBK
+    , onyxShotGK   = chopTake t o.onyxShotGK
     , onyxSamples  = chopTake t <$> o.onyxSamples
     , onyxRaw      = U.trackTake t <$> o.onyxRaw
     }
@@ -861,9 +862,9 @@ instance ChopTrack OnyxFile where
     , onyxVenue    = chopDrop t o.onyxVenue
     , onyxLighting = chopDrop t o.onyxLighting
     , onyxCamera   = chopDrop t o.onyxCamera
-    , onyxCameraBG = chopDrop t o.onyxCameraBG
-    , onyxCameraBK = chopDrop t o.onyxCameraBK
-    , onyxCameraGK = chopDrop t o.onyxCameraGK
+    , onyxShotBG   = chopDrop t o.onyxShotBG
+    , onyxShotBK   = chopDrop t o.onyxShotBK
+    , onyxShotGK   = chopDrop t o.onyxShotGK
     , onyxSamples  = chopDrop t <$> o.onyxSamples
     , onyxRaw      = U.trackDrop t <$> o.onyxRaw
     }
@@ -1039,9 +1040,9 @@ fixedToOnyx f = OnyxFile
   , onyxVenue    = f.fixedVenue
   , onyxLighting = mempty
   , onyxCamera   = mempty
-  , onyxCameraBG = mempty
-  , onyxCameraBK = mempty
-  , onyxCameraGK = mempty
+  , onyxShotBG   = mempty
+  , onyxShotBK   = mempty
+  , onyxShotGK   = mempty
   , onyxSamples  = mempty
   , onyxRaw      = mempty
   }

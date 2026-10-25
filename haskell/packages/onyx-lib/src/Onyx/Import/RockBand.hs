@@ -103,7 +103,7 @@ import           Onyx.Util.Handle                     (Folder (..), Readable,
                                                        handleToByteString,
                                                        makeHandle, splitPath,
                                                        useHandle)
-import           Optics                               ((.~))
+import           Optics                               ((%), (.~))
 import           Sound.MIDI.File                      (T (..))
 import qualified Sound.MIDI.File.Save                 as Save
 import qualified Sound.MIDI.Util                      as U
@@ -520,26 +520,27 @@ importRB rbi level = do
         , parsed
         )
   -- if we don't have all 3 guitar/bass/keys, only import the actually used camera track
-  let adjustAnimMidi orig = case (hasRankStr "guitar", hasRankStr "bass", hasRankStr "keys") of
+  let adjustAnimMidi :: F.OnyxFile U.Beats -> F.OnyxFile U.Beats
+      adjustAnimMidi orig = case (hasRankStr "guitar", hasRankStr "bass", hasRankStr "keys") of
         (True, True, True) -> orig
         (_, _, False) -> orig
-          { F.onyxCamera = orig.onyxCameraBG
-          , F.onyxCameraBG = mempty
-          , F.onyxCameraBK = mempty
-          , F.onyxCameraGK = mempty
-          }
+          & #onyxVenue % #cameraRB3 .~ orig.onyxShotBG.cameraRB3
+          & #onyxVenue % #directed  .~ orig.onyxShotBG.directed
+          & #onyxShotBG .~ mempty
+          & #onyxShotBK .~ mempty
+          & #onyxShotGK .~ mempty
         (False, _, True) -> orig
-          { F.onyxCamera = orig.onyxCameraBK
-          , F.onyxCameraBG = mempty
-          , F.onyxCameraBK = mempty
-          , F.onyxCameraGK = mempty
-          }
+          & #onyxVenue % #cameraRB3 .~ orig.onyxShotBK.cameraRB3
+          & #onyxVenue % #directed  .~ orig.onyxShotBK.directed
+          & #onyxShotBG .~ mempty
+          & #onyxShotBK .~ mempty
+          & #onyxShotGK .~ mempty
         (True, False, True) -> orig
-          { F.onyxCamera = orig.onyxCameraGK
-          , F.onyxCameraBG = mempty
-          , F.onyxCameraBK = mempty
-          , F.onyxCameraGK = mempty
-          }
+          & #onyxVenue % #cameraRB3 .~ orig.onyxShotGK.cameraRB3
+          & #onyxVenue % #directed  .~ orig.onyxShotGK.directed
+          & #onyxShotBG .~ mempty
+          & #onyxShotBK .~ mempty
+          & #onyxShotGK .~ mempty
       cutoffAnimAtEnd = case midiOnyx.tracks.onyxEvents.end of
         RNil              -> id
         Wait endTime () _ -> chopTake endTime
