@@ -403,24 +403,11 @@ getRBSongVenue beatTrack top = let
       guard $ prop /= "stagekit_fog" -- appears to be garbage in songs I checked
       let events = do
             StructValue [Property "frame" (FloatValue frames), Property "value" (SymbolValue preStrip)] <- keys
-            -- need to adjust some camera cut names, also postproc suffix
             let x = B8.strip preStrip -- needed for blink.rbsong
-                adjustedValue = if "shot" `B.isPrefixOf` prop
-                  then let
-                    x2 = maybe x ("coop_" <>) $ B.stripPrefix "band_" x
-                    in case x2 of
-                      "coop_dv_behind" -> "coop_dv_near"
-                      "coop_bd_behind" -> "coop_bd_near"
-                      "coop_dg_behind" -> "coop_dg_near"
-                      "coop_d_near_head" -> "coop_d_closeup_head"
-                      "coop_g_near_head" -> "coop_g_closeup_head"
-                      "coop_v_near_head" -> "coop_v_closeup"
-                      "coop_b_near_head" -> "coop_b_closeup_head"
-                      "directed_crowd" -> x2 -- exception to below line
-                      _                -> maybe x2 (<> "_behind") $ B.stripSuffix "_crowd" x2
-                  else if prop == "postproc"
-                    then x <> ".pp" -- casing and spaces now adjusted more by later import steps
-                    else x
+                -- need to add postproc suffix
+                adjustedValue = if prop == "postproc"
+                  then x <> ".pp" -- casing and spaces now adjusted more by later import steps
+                  else x
             return (frames, adjustedValue)
       return (prop, events)
   in Anim

@@ -210,6 +210,8 @@ convertFromAnim anim = inside "Converting venue info to MIDI" let
       let str = TE.decodeLatin1 e.eventName
       if | "directed_" `T.isPrefixOf` str -> [(e.eventTime, Right $ Right str)]
          | "coop_"     `T.isPrefixOf` str -> [(e.eventTime, Right $ Left  str)]
+         -- from RB4 rbsong
+         | "band_"     `T.isPrefixOf` str -> [(e.eventTime, Right $ Left  str)]
          | otherwise                      -> [(e.eventTime, Left $ "Unrecognized camera cut: " <> show e.eventName)]
     return mempty
       { cameraRB3 = RTB.mapMaybe (\case Left  x -> Just x            ; _ -> Nothing) mixed

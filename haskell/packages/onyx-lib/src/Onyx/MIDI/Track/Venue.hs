@@ -809,10 +809,27 @@ instance ParseTrack VenueTrack where
 
 matchNormalCutRB3 :: T.Text -> VisualResult CutNormal3
 matchNormalCutRB3 t = let
-  folded = T.toCaseFold t
+  foldedOrig = T.toCaseFold t
+  -- band_ prefix used in RB4 rbsong
+  folded = case T.stripPrefix "band_" foldedOrig of
+    Nothing        -> foldedOrig
+    Just minusBand -> "coop_" <> minusBand
   (match, fuzzy) = case HM.lookup folded venueTable of
     Just cut -> (Just cut, [])
-    Nothing  -> (Nothing,  []) -- TODO more fuzzy matches
+    Nothing  -> (Nothing,) case folded of
+      -- rest is all RB4 matching
+      "coop_dv_behind"   -> [V3_coop_dv_near]
+      "coop_bd_behind"   -> [V3_coop_bd_near]
+      "coop_dg_behind"   -> [V3_coop_dg_near]
+      "coop_d_near_head" -> [V3_coop_d_closeup_head]
+      "coop_g_near_head" -> [V3_coop_g_closeup_head]
+      "coop_v_near_head" -> [V3_coop_v_closeup]
+      "coop_b_near_head" -> [V3_coop_b_closeup_head]
+      _                  -> case T.stripSuffix "_crowd" folded of
+        Nothing         -> []
+        Just minusCrowd -> let
+          withBehind = matchNormalCutRB3 $ minusCrowd <> "_behind"
+          in toList withBehind.match <> withBehind.fuzzy
   in VisualResult
     { match     = match
     , fuzzy     = fuzzy
