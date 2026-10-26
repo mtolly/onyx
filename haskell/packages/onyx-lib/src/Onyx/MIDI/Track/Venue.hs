@@ -26,8 +26,7 @@ import           Data.Foldable                    (toList)
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
 import           Data.List.Extra                  (nubOrd, sortBy, unsnoc)
-import           Data.Maybe                       (isNothing, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (isNothing, listToMaybe)
 import qualified Data.Text                        as T
 import           GHC.Generics                     (Generic)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -362,6 +361,9 @@ data VisualResult a = VisualResult
   , original  :: T.Text
   } deriving (Functor)
 
+resultMatches :: VisualResult a -> [a]
+resultMatches vr = toList vr.match <> vr.fuzzy
+
 matchLightingRB :: T.Text -> VisualResult LightingRB
 matchLightingRB t = let
   folded = T.toCaseFold t
@@ -395,7 +397,7 @@ selectSimpleVisual input = do
   unless (all (null . drop 1) perTime) $ warn "Simultaneous events found, dropping all but one per timestamp"
 
   return $ RTB.flatten $ perTime <&> \case
-    result : _ -> return $ case toList result.match <> result.fuzzy of
+    result : _ -> return $ case resultMatches result of
       x : _ -> x
       []    -> result.fallback1
     [] -> []
@@ -616,10 +618,9 @@ matchPostProcRB2 t = let
   folded = T.toCaseFold t
   (match, fuzzy) = case HM.lookup folded venueTable of
     Just pp -> (Just pp, [])
-    Nothing -> (Nothing,) let
+    Nothing -> (Nothing,)
       -- just match to RB3 first, to handle RB4 also
-      rb3Result = matchPostProcRB3 folded
-      in case toList rb3Result.match <> rb3Result.fuzzy of
+      case resultMatches $ matchPostProcRB3 folded of
         x : _ -> case x of
           -- only ones that didn't already match an RB2 name
           V3_shitty_tv                    -> [V2_video_security]
@@ -998,7 +999,7 @@ compileVenueRB2 vt = let
   far = cut [NoBehind, OnlyFar, NoClose]
   near = cut [NoBehind, NoClose]
   camera = RTB.flatten $ RTB.collectCoincident vt.cameraRB3 <&> \cams -> let
-    rb3 = mapMaybe (`HM.lookup` venueTable) cams
+    rb3 = cams >>= resultMatches . matchNormalCutRB3
     in case sortBy (flip compare) rb3 of
       []    -> cut [] []
       x : _ -> case x of
