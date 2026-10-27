@@ -1,0 +1,6 @@
+#!/bin/bash
+BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
+
+# previously this AppRun was just a symlink.
+# but for some reason that trips up when running x64 on aarch64 through fex?
+"$BUILD_DIR/usr/bin/onyx" "$@"
