@@ -54,6 +54,7 @@ import           Data.Word                            (Word32)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
+import           Onyx.Audio.Extend                    (extendOggVorbis)
 import           Onyx.FFMPEG                          (ffSourceFrom)
 import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
@@ -73,7 +74,9 @@ import           Onyx.Harmonix.Magma                  (RBAFiles (..),
 import           Onyx.Harmonix.MOGG                   (decryptMOGG,
                                                        encryptMOGGToByteString,
                                                        fixOldC3Mogg, moggToOgg,
-                                                       oggToMoggFiles)
+                                                       oggToMogg,
+                                                       oggToMoggFiles,
+                                                       sourceVorbis)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
@@ -267,6 +270,9 @@ mapMFilesWithName f dir = do
     sub' <- mapMFilesWithName f sub
     return (subName, sub')
   return Folder { folderFiles = newFiles, folderSubfolders = newSubs }
+
+mconcatFilesWithName :: (Monad m, Monoid b) => ((T.Text, a) -> m b) -> Folder T.Text a -> m b
+mconcatFilesWithName f dir = foldr mappend mempty <$> mapMFilesWithName (\pair@(name, _) -> (name,) <$> f pair) dir
 
 mapMaybeFolder :: (a -> Maybe b) -> Folder t a -> Folder t b
 mapMaybeFolder f dir = Folder
@@ -1030,28 +1036,34 @@ applyToMIDI
   => (F.T B.ByteString -> StackTraceT m (F.T B.ByteString))
   -> Folder T.Text QuickFileSized
   -> StackTraceT m (Folder T.Text QuickFileSized)
-applyToMIDI midFunction = mapMFilesWithName let
-  withParsed name mid = do
-    mid' <- midFunction mid
-    return (name, QFParsedMIDI mid')
+applyToMIDI midFunction = mapMFilesWithName \(name, (size, qfile)) -> do
+  (name', qfile') <- case getParsedMIDI name qfile of
+    Nothing -> return (name, qfile)
+    Just f  -> do
+      (name', mid) <- f
+      mid' <- midFunction mid
+      return (name', QFParsedMIDI mid')
+  return (name', (size, qfile'))
+
+getParsedMIDI :: (SendMessage m, MonadIO m) => T.Text -> QuickFile Readable -> Maybe (StackTraceT m (T.Text, F.T B.ByteString))
+getParsedMIDI origName qfile = let
+  withParsed name mid = return (name, mid)
   withUnenc name r = do
     bs <- stackIO $ useHandle r handleToByteString
     (mid, warns) <- runGetM getMIDI bs
     mapM_ warn warns
-    withParsed name mid
+    return (name, mid)
   withEnc name crypt r = do
     let name' = case splitExtension $ T.unpack name of
           (base, ".edat") -> T.pack base
           _               -> name
     r' <- decryptEDAT crypt (TE.encodeUtf8 name) r
     withUnenc name' r'
-  in \(name, (size, qfile)) -> do
-    (name', qfile') <- case qfile of
-      QFEncryptedMIDI crypt r   -> withEnc    name crypt r
-      QFUnencryptedMIDI     r   -> withUnenc  name       r
-      QFParsedMIDI          mid -> withParsed name       mid
-      _                         -> return (name, qfile)
-    return (name', (size, qfile'))
+  in case qfile of
+    QFEncryptedMIDI crypt r   -> Just $ withEnc    origName crypt r
+    QFUnencryptedMIDI     r   -> Just $ withUnenc  origName       r
+    QFParsedMIDI          mid -> Just $ withParsed origName       mid
+    _                         -> Nothing
 
 decompressMilos :: (SendMessage m, MonadIO m) => Folder T.Text QuickFileSized -> StackTraceT m (Folder T.Text QuickFileSized)
 decompressMilos = mapMFilesWithName \(name, (size, qfile)) -> do
@@ -1203,6 +1215,54 @@ enforceEncoding enc dta = let
       , qdtaParsed   = switchEncoding <$> withEncodingSetting
       , qdtaComments = switchEncoding <$> dta.qdtaComments
       }
+
+getEndTime :: F.T B.ByteString -> Maybe Double
+getEndTime mid = let
+  isEnd = \case
+    E.MetaEvent (Meta.TextEvent s) -> B8.filter (/= ' ') s == "[end]"
+    _                              -> False
+  findEnd :: (NNC.C t, Num t) => [RTB.T t (E.T B.ByteString)] -> Maybe t
+  findEnd trks = listToMaybe do
+    trk <- trks
+    guard $ U.trackName trk == Just "EVENTS"
+    take 1 $ map fst $ ATB.toPairList $ RTB.toAbsoluteEventList NNC.zero $ RTB.filter isEnd trk
+  in case U.decodeFile mid of
+    Left beatTracks -> do
+      tempos <- listToMaybe beatTracks
+      endBeats <- findEnd $ drop 1 beatTracks
+      return $ realToFrac $ U.applyTempoMap (U.makeTempoMap tempos) endBeats
+    Right secTracks -> realToFrac <$> findEnd secTracks
+
+extendMOGG
+  :: (SendMessage m, MonadIO m)
+  => Double -- ^ add silence if less than this much from @[end]@ to audio end
+  -> Double -- ^ if adding silence, add enough to have this much from @[end]@ to audio end
+  -> Folder T.Text QuickFileSized
+  -> StackTraceT m (Folder T.Text QuickFileSized)
+extendMOGG checkTime applyTime input = do
+  endTime <- foldr max 0 <$> flip mconcatFilesWithName input \(name, (_, qf)) ->
+    case getParsedMIDI name qf of
+      Nothing -> return [0]
+      Just f  -> do
+        (_, mid) <- f
+        case getEndTime mid of
+          Nothing -> fail "Couldn't find [end] in MIDI"
+          Just t  -> return [t]
+  forM input \pair@(size, file) -> let
+    withMOGG r = do
+      let ogg = moggToOgg r
+      src <- sourceVorbis (CA.Frames 0) ogg
+      let _ = src :: CA.AudioSource (ResourceT IO) Float
+          moggLength = realToFrac $ CA.framesToSeconds src.frames src.rate
+      if endTime + checkTime <= moggLength
+        then return pair
+        else do
+          let ogg' = extendOggVorbis (endTime + applyTime - moggLength) ogg
+          return (size, QFUnencryptedMOGG $ oggToMogg ogg')
+    in case file of
+      QFUnencryptedMOGG r -> withMOGG r
+      QFEncryptedMOGG   r -> withMOGG r
+      _                   -> return pair
 
 ------------------------
 

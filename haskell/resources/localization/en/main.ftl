@@ -553,7 +553,9 @@ quick-convert-rb-strip-title-tags = Strip title tags
 quick-convert-rb-note-shuffle = Note shuffle
   .tooltip = Shuffles notes on 5-fret and drum parts.
 quick-convert-rb-decrypt-moggs = Decrypt MOGGs
-  .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3Enhanced.
+  .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3 Deluxe.
+quick-convert-rb-fix-looping-end-moggs = Fix looping end
+  .tooltip = To avoid some looping song ends on PS3, adds silence to the end of .mogg files to go past the chart length.
 
 quick-convert-ch-chart-to-midi = .chart to MIDI
   .tooltip = Converts all .chart files to .mid.
