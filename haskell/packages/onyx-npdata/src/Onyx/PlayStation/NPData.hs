@@ -1,5 +1,7 @@
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings   #-}
 module Onyx.PlayStation.NPData
 ( packNPData
 , NPDataConfig(..)
@@ -59,42 +61,42 @@ foreign import ccall "get_rif_key"
     -> IO ()
 
 data NPDataConfig = NPDataConfig
-  { npdContentID :: B.ByteString
-  , npdKLIC      :: B.ByteString
-  , npdRAP       :: Maybe B.ByteString
-  , npdVersion   :: Int
-  , npdLicense   :: Int
-  , npdType      :: Int
-  , npdBlock     :: Int
-  , npdEDAT      :: Bool
+  { contentID :: B.ByteString
+  , klic      :: B.ByteString
+  , rap       :: Maybe B.ByteString
+  , version   :: Int
+  , license   :: Int
+  , type_     :: Int
+  , block     :: Int
+  , edat      :: Bool
   }
 
 -- ^ .mid.edat encryption for customs using NTSC Still Alive free DLC license
-rb2MidEdatConfig :: NPDataConfig
-rb2MidEdatConfig = NPDataConfig
-  { npdContentID = "UP0006-BLUS30050_00-RBSTILLALCCF005D"
+_rb2MidEdatConfig :: NPDataConfig
+_rb2MidEdatConfig = NPDataConfig
+  { contentID = "UP0006-BLUS30050_00-RBSTILLALCCF005D"
   -- klic is MD5("Ih38rtW1ng3rCCF005D10025250")
-  , npdKLIC      = B.pack        [0x22, 0x19, 0x54, 0xA1, 0x0A, 0x89, 0xCE, 0xC6, 0x9E, 0xE0, 0x99, 0x41, 0x23, 0x39, 0x81, 0x74]
-  , npdRAP       = Just $ B.pack [0x44, 0xD3, 0x9A, 0xCD, 0x73, 0x40, 0x2B, 0xE0, 0x94, 0x56, 0xF9, 0xA0, 0xD7, 0x30, 0xB4, 0xB5]
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  , klic      = B.pack        [0x22, 0x19, 0x54, 0xA1, 0x0A, 0x89, 0xCE, 0xC6, 0x9E, 0xE0, 0x99, 0x41, 0x23, 0x39, 0x81, 0x74]
+  , rap       = Just $ B.pack [0x44, 0xD3, 0x9A, 0xCD, 0x73, 0x40, 0x2B, 0xE0, 0x94, 0x56, 0xF9, 0xA0, 0xD7, 0x30, 0xB4, 0xB5]
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 -- ^ .mid.edat encryption for customs using NTSC Rock Band Free Pack 01 free DLC license
-rb3NTSCMidEdatConfig :: NPDataConfig
-rb3NTSCMidEdatConfig = NPDataConfig
-  { npdContentID = "UP8802-BLUS30463_00-RBHMXBANDCCFF0D6"
+_rb3NTSCMidEdatConfig :: NPDataConfig
+_rb3NTSCMidEdatConfig = NPDataConfig
+  { contentID = "UP8802-BLUS30463_00-RBHMXBANDCCFF0D6"
   -- klic is MD5("Ih38rtW1ng3rHMX075610025250") where HMX0756 is the free pack ID
-  , npdKLIC      = B.pack [0x0B, 0x72, 0xB6, 0x2D, 0xAB, 0xA8, 0xCA, 0xFD, 0xA3, 0x35, 0x2F, 0xF9, 0x79, 0xC6, 0xD5, 0xC2]
-  , npdRAP       = Just $ B.pack [0xCF, 0x1E, 0xA0, 0xDA, 0x36, 0xEB, 0x82, 0xD9, 0x6D, 0xC2, 0x68, 0x6C, 0xD9, 0x17, 0x44, 0xEA]
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  , klic      = B.pack [0x0B, 0x72, 0xB6, 0x2D, 0xAB, 0xA8, 0xCA, 0xFD, 0xA3, 0x35, 0x2F, 0xF9, 0x79, 0xC6, 0xD5, 0xC2]
+  , rap       = Just $ B.pack [0xCF, 0x1E, 0xA0, 0xDA, 0x36, 0xEB, 0x82, 0xD9, 0x6D, 0xC2, 0x68, 0x6C, 0xD9, 0x17, 0x44, 0xEA]
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 {-
@@ -108,75 +110,75 @@ rap: 59 de 7e 02 16 a6 7b fb 0c ff 90 c2 6b f5 52 4b
 
 rb2CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 rb2CustomMidEdatConfig dir = NPDataConfig
-  { npdContentID = "UP0006-BLUS30050_00-" <> dir
-  , npdKLIC      = rockBandKLIC dir
-  , npdRAP       = Nothing
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP0006-BLUS30050_00-" <> dir
+  , klic      = rockBandKLIC dir
+  , rap       = Nothing
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 rb3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 rb3CustomMidEdatConfig dir = NPDataConfig
-  { npdContentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
-  , npdKLIC      = rockBandKLIC dir
-  , npdRAP       = Nothing
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP8802-BLUS30463_00-" <> dir -- actually this probably doesn't have to be the same
+  , klic      = rockBandKLIC dir
+  , rap       = Nothing
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 ghworCustomMidEdatConfig :: B.ByteString -> NPDataConfig
 ghworCustomMidEdatConfig pkgLabel = NPDataConfig
-  { npdContentID = "UP0002-BLUS30487_00-" <> pkgLabel
-  , npdKLIC      = ghworKLIC
-  , npdRAP       = Nothing
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP0002-BLUS30487_00-" <> pkgLabel
+  , klic      = ghworKLIC
+  , rap       = Nothing
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 gh3CustomMidEdatConfig :: B.ByteString -> NPDataConfig
 gh3CustomMidEdatConfig pkgLabel = NPDataConfig
-  { npdContentID = "UP0002-BLUS30074_00-" <> pkgLabel
-  , npdKLIC      = ghworKLIC
-  , npdRAP       = Nothing
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP0002-BLUS30074_00-" <> pkgLabel
+  , klic      = ghworKLIC
+  , rap       = Nothing
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 ghaCustomMidEdatConfig :: B.ByteString -> NPDataConfig
 ghaCustomMidEdatConfig pkgLabel = NPDataConfig
-  { npdContentID = "UP0002-BLUS30133_00-" <> pkgLabel
-  , npdKLIC      = ghworKLIC
-  , npdRAP       = Nothing
-  , npdVersion   = 2
-  , npdLicense   = 3
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP0002-BLUS30133_00-" <> pkgLabel
+  , klic      = ghworKLIC
+  , rap       = Nothing
+  , version   = 2
+  , license   = 3
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 -- RR PS3 appears to not like rapless edat... annoying
 rockRevolutionEdatConfig :: B.ByteString -> NPDataConfig
 rockRevolutionEdatConfig pkgLabel = NPDataConfig
-  { npdContentID = "UP0101-BLUS30212_00-" <> pkgLabel
-  , npdKLIC      = B.replicate 16 0
-  , npdRAP       = Just $ B.replicate 16 0
-  , npdVersion   = 2
-  , npdLicense   = 2
-  , npdType      = 0
-  , npdBlock     = 16
-  , npdEDAT      = True
+  { contentID = "UP0101-BLUS30212_00-" <> pkgLabel
+  , klic      = B.replicate 16 0
+  , rap       = Just $ B.replicate 16 0
+  , version   = 2
+  , license   = 2
+  , type_     = 0
+  , block     = 16
+  , edat      = True
   }
 
 packNPData :: NPDataConfig -> FilePath -> FilePath -> B.ByteString -> IO ()
@@ -186,11 +188,11 @@ packNPData cfg fin fout hashName = do
       -- must be null-terminated
       B.useAsCString hashName \pname -> do
         -- content ID must be padded to 0x30 bytes with zeroes at end
-        BU.unsafeUseAsCString (npdContentID cfg <> B.replicate 0x30 0) \pcid -> do
+        BU.unsafeUseAsCString (cfg.contentID <> B.replicate 0x30 0) \pcid -> do
           -- klic, RAP, and RIF are all 0x10 bytes
-          BU.unsafeUseAsCString (npdKLIC cfg <> B.replicate 0x10 0) \pklic -> do
+          BU.unsafeUseAsCString (cfg.klic <> B.replicate 0x10 0) \pklic -> do
             withArray (replicate 0x10 0) \prif -> do
-              forM_ (npdRAP cfg) \rap -> do
+              forM_ cfg.rap \rap -> do
                 BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) \prap -> do
                   c_get_rif_key (castPtr prap) (castPtr prif)
               err <- c_pack_data_from_paths
@@ -200,12 +202,12 @@ packNPData cfg fin fout hashName = do
                 (castPtr pcid)
                 (castPtr pklic)
                 prif
-                (fromIntegral $ npdVersion cfg)
-                (fromIntegral $ npdLicense cfg)
-                (fromIntegral $ npdType cfg)
-                (fromIntegral $ npdBlock cfg)
+                (fromIntegral cfg.version)
+                (fromIntegral cfg.license)
+                (fromIntegral cfg.type_)
+                (fromIntegral cfg.block)
                 False
-                (npdEDAT cfg)
+                cfg.edat
                 True
                 True
               when err $ ioError $ userError "Error in PS3 file encryption"
@@ -222,9 +224,9 @@ decryptNPData cfg fin fout hashName = do
       -- must be null-terminated
       B.useAsCString hashName \pname -> do
         -- klic, RAP, and RIF are all 0x10 bytes
-        BU.unsafeUseAsCString (decKLIC cfg <> B.replicate 0x10 0) \pklic -> do
+        BU.unsafeUseAsCString (cfg.decKLIC <> B.replicate 0x10 0) \pklic -> do
           withArray (replicate 0x10 0) \prif -> do
-            forM_ (decRAP cfg) \rap -> do
+            forM_ cfg.decRAP \rap -> do
               BU.unsafeUseAsCString (rap <> B.replicate 0x10 0) \prap -> do
                 c_get_rif_key (castPtr prap) (castPtr prif)
             err <- c_extract_data_from_paths

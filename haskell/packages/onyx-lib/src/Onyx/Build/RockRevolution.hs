@@ -71,7 +71,7 @@ import qualified Onyx.MIDI.Track.File              as F
 import qualified Onyx.MIDI.Track.FiveFret          as Five
 import           Onyx.MIDI.Track.Venue
 import           Onyx.Mode
-import           Onyx.PlayStation.NPData           (npdContentID, packNPData,
+import           Onyx.PlayStation.NPData           (contentID, packNPData,
                                                     rockRevolutionEdatConfig)
 import           Onyx.PlayStation.PKG
 import           Onyx.Project                      hiding (Difficulty)
@@ -563,7 +563,7 @@ rrRules buildInfo dir rr = do
   -- ps3
 
   let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
-      contentID = npdContentID edatConfig
+      contentID = edatConfig.contentID
 
   rrPS3Files <- forM rrBuildFiles \f -> do
     let ps3 = dir </> "files-ps3" </> map toUpper (takeFileName f) <.> "EDAT"
@@ -599,6 +599,7 @@ makeRRFiveDifficulty result gems = RRFiveDifficulty
   , rrfSolo = RTB.empty -- added later
   } where
     -- just use same hopo rules as GH3: no hopo chords, no repeated hopos
+    -- TODO actually do extended sustains work? see unreleased dlc You Can't Bring Me Down
     processed = noOpenNotes result.settings.detectMutedOpens
       $ noExtendedSustains' standardBlipThreshold gap $ gh3LegalHOPOs gems
     gap = fromIntegral result.settings.sustainGap / 480

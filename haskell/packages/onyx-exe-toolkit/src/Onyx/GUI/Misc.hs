@@ -2,6 +2,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
@@ -657,11 +658,11 @@ miscPageCONtoPKG
 miscPageCONtoPKG sink widgets startTasks = do
   loadedFiles <- newMVar []
   void $ fileLoadPanel widgets.cpFiles sink (l10nFull "file-type-rb-con-live" []) (modifyMVar_ loadedFiles) [] searchSTFS \info -> let
-    entry = T.pack $ stfsPath info
+    entry = T.pack info.stfsPath
     sublines = take 1 info.stfsMeta.md_DisplayName
     in (entry, sublines)
   let callback isRB3 = sink $ EventIO do
-        inputs <- map stfsPath <$> readMVar loadedFiles
+        inputs <- map (.stfsPath) <$> readMVar loadedFiles
         sink $ EventOnyx $ startTasks $ inputs <&> \input -> let
           pkg = input <> ".pkg"
           task = do

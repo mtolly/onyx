@@ -31,9 +31,10 @@ import           Onyx.Harmonix.Ark.GH2        (SongSort (..), sortSongs)
 import           Onyx.Neversoft.CRC
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
-import           Onyx.PlayStation.NPData      (gh3CustomMidEdatConfig,
+import           Onyx.PlayStation.NPData      (contentID,
+                                               gh3CustomMidEdatConfig,
                                                ghaCustomMidEdatConfig,
-                                               npdContentID, packNPData)
+                                               packNPData)
 import           Onyx.PlayStation.PKG         (getDecryptedUSRDIR, loadPKG,
                                                makePKG, pkgFolder,
                                                tryDecryptEDAT)
@@ -350,7 +351,7 @@ combineGH3SongCachePS3 ins out = do
         GuitarHeroAerosmith -> ghaCustomMidEdatConfig folderLabel
   let main = singleFolder "USRDIR" folder
   extra <- stackIO $ getResourcesPath "pkg-contents/gh3" >>= fmap (first TE.encodeUtf8) . crawlFolder
-  stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
+  stackIO $ makePKG edatConfig.contentID (main <> extra) out
 
 readGH3TextPakQB :: (?endian :: ByteOrder) => [(Node, BL.ByteString)] -> GH3TextPakQB
 readGH3TextPakQB nodes = let

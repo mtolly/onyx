@@ -2305,7 +2305,7 @@ loadGLStuff scaleUI previewSong = do
     _              -> setupSimple
   let fxaaEnabled = prefs.prefFXAA
 
-  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) \case
+  videoBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . (.previewBG)) previewSong) \case
     PreviewBGVideo vi -> do
       writeMsg <- getQueueLog
       frameLoader <- stackIO $ forkFrameLoader writeMsg vi
@@ -2316,7 +2316,7 @@ loadGLStuff scaleUI previewSong = do
         , filePath    = vi.fileVideo
         })
     _ -> return Nothing
-  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . previewBG) previewSong) \case
+  imageBGs <- fmap (Map.fromList . catMaybes) $ forM (maybe [] (map snd . (.previewBG)) previewSong) \case
     PreviewBGImage f -> stackIO (readImage f) >>= \case
       Left _err -> do
         warn "Failed to load song image background"
@@ -2501,7 +2501,7 @@ deleteGLStuff gl = liftIO do
 
 stopVideoLoaders :: (MonadIO m) => GLStuff -> m ()
 stopVideoLoaders gl = liftIO do
-  forM_ (Map.elems gl.videoBGs) \vh -> frameMessage vh.frameLoader CloseLoader
+  forM_ (Map.elems gl.videoBGs) \vh -> vh.frameLoader.frameMessage CloseLoader
 
 data WindowDims = WindowDims Int Int
 
@@ -2976,8 +2976,8 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
     Just (PreviewBGVideo vi) -> case Map.lookup vi gl.videoBGs of
       Just videoHandle -> do
         -- TODO maybe separate out the timestamp updates from drawing
-        frameMessage videoHandle.frameLoader $ RequestFrame time
-        mtex <- getFrame videoHandle.frameLoader >>= \case
+        videoHandle.frameLoader.frameMessage $ RequestFrame time
+        mtex <- videoHandle.frameLoader.getFrame >>= \case
           Nothing -> return Nothing
           Just (timeNew, image) -> readIORef videoHandle.texture >>= \case
             Nothing -> do
@@ -3014,11 +3014,11 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
 
   glViewport 0 0 (fromIntegral wWhole) (fromIntegral hWhole)
   forM_ gl.previewSong \psong -> let
-    songLength = U.applyTempoMap (previewTempo psong) (previewTiming psong).timingEnd
-    currentBeats = U.unapplyTempoMap (previewTempo psong) (realToFrac time :: U.Seconds)
-    currentMB = showPosition (previewMeasures psong) currentBeats
-    lengthMB = showPosition (previewMeasures psong) (previewTiming psong).timingEnd
-    currentBPM = realToFrac (U.getTempoAtTime (previewTempo psong) currentBeats) * 60 * realToFrac speed :: Rational
+    songLength = U.applyTempoMap psong.previewTempo psong.previewTiming.timingEnd
+    currentBeats = U.unapplyTempoMap psong.previewTempo (realToFrac time :: U.Seconds)
+    currentMB = showPosition psong.previewMeasures currentBeats
+    lengthMB = showPosition psong.previewMeasures psong.previewTiming.timingEnd
+    currentBPM = realToFrac (U.getTempoAtTime psong.previewTempo currentBeats) * 60 * realToFrac speed :: Rational
     -- round into Fixed type, rather than realToFrac which uses floor
     bpmMilli = MkFixed $ round $ currentBPM * 1000 :: Milli
     bpmNumSpaces
@@ -3031,7 +3031,7 @@ drawTracks gl dims@(WindowDims wWhole hWhole) time speed bg userLayout trks mAud
       [ showTimestamp (realToFrac time) <> " / " <> showTimestamp songLength
       , T.pack $ currentMB <> " / " <> lengthMB
       , T.pack bpmString
-      ] <> toList (fmap snd $ Map.lookupLE time $ previewSections psong)
+      ] <> toList (fmap snd $ Map.lookupLE time psong.previewSections)
 
   let (vocalSpaces, highwaySpaces) = splitSpace gl trks dims
 

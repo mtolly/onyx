@@ -72,6 +72,7 @@ data VocalTrack t = VocalTrack
   , rangeShift          :: RTB.T t Bool
   , notes               :: RTB.T t (Pitch, Bool)
   , eyesClosed          :: RTB.T t Bool -- ^ Temporary event for lipsync generation (this will be moved to dedicated lipsync track)
+  -- TODO fortnite festival "pitchoffset" text event
   } deriving (Eq, Ord, Show, Generic)
     deriving (Semigroup, Monoid, Mergeable) via GenericMerge (VocalTrack t)
 

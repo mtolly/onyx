@@ -29,8 +29,7 @@ import qualified Data.Text.Encoding        as TE
 import           Onyx.Audio.FSB.FEV
 import           Onyx.Build.Common         (crawlFolderBytes)
 import           Onyx.Build.RockRevolution (intToRRSongID)
-import           Onyx.PlayStation.NPData   (npdContentID,
-                                            rockRevolutionEdatConfig)
+import           Onyx.PlayStation.NPData   (contentID, rockRevolutionEdatConfig)
 import           Onyx.PlayStation.PKG      (PKG (..), getDecryptedUSRDIR,
                                             loadPKGReadable, makePKG)
 import           Onyx.Resources            (getResourcesPath)
@@ -198,7 +197,7 @@ renumberFrom n = let
 saveSongsPS3, saveSongs360 :: FilePath -> [RRSong] -> IO ()
 saveSongsPS3 f songs = do
   let edatConfig = rockRevolutionEdatConfig "CUSTOMSONGS"
-      contentID = npdContentID edatConfig
+      contentID = edatConfig.contentID
       main = singleFolder "USRDIR" Folder
         { folderFiles = songs >>= map (first \name -> TE.encodeUtf8 $ T.toUpper name <> ".EDAT") . (.files)
         , folderSubfolders = []

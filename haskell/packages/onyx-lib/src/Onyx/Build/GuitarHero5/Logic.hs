@@ -57,8 +57,9 @@ import           Onyx.Neversoft.GH5.Metadata
 import           Onyx.Neversoft.GH5.Note
 import           Onyx.Neversoft.Pak
 import           Onyx.Neversoft.QB
-import           Onyx.PlayStation.NPData          (ghworCustomMidEdatConfig,
-                                                   npdContentID, packNPData)
+import           Onyx.PlayStation.NPData          (contentID,
+                                                   ghworCustomMidEdatConfig,
+                                                   packNPData)
 import           Onyx.PlayStation.PKG             (loadPKG, makePKG, pkgFolder,
                                                    tryDecryptEDAT)
 import           Onyx.Project
@@ -832,7 +833,7 @@ saveMetadataPKG :: [TextPakSongStruct] -> FilePath -> IO ()
 saveMetadataPKG library fout = let
   label = "CUSTOMS_DATABASE" :: T.Text
   ps3EDATConfig = ghworCustomMidEdatConfig $ TE.encodeUtf8 label
-  ps3ContentID  = npdContentID ps3EDATConfig
+  ps3ContentID  = ps3EDATConfig.contentID
   in do
     main <- singleFolder "USRDIR" <$> metadataPS3Folder library
     extra <- getResourcesPath "pkg-contents/ghwor" >>= fmap (first TE.encodeUtf8) . crawlFolder

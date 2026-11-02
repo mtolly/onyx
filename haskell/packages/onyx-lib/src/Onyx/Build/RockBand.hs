@@ -77,8 +77,7 @@ import qualified Onyx.MIDI.Track.File                  as F
 import           Onyx.MIDI.Track.ProGuitar
 import           Onyx.MIDI.Track.Venue
 import           Onyx.MIDI.Track.Vocal                 (VocalTrack)
-import           Onyx.PlayStation.NPData               (npdContentID,
-                                                        packNPData,
+import           Onyx.PlayStation.NPData               (contentID, packNPData,
                                                         rb2CustomMidEdatConfig,
                                                         rb3CustomMidEdatConfig)
 import           Onyx.PlayStation.PKG                  (makePKG)
@@ -659,7 +658,7 @@ rbRules buildInfo dir rb3 mrb2 = do
       rb3ps3Pkg = dir </> "rb3-ps3.pkg"
       rb3ps3Folder = makePS3Name (hashRB3 songYaml rb3) songYaml
       rb3ps3EDATConfig = rb3CustomMidEdatConfig rb3ps3Folder
-      rb3ps3ContentID = npdContentID rb3ps3EDATConfig
+      rb3ps3ContentID = rb3ps3EDATConfig.contentID
 
   rb3ps3DTA %> \out -> do
     song <- F.shakeMIDI pathMid
@@ -1022,7 +1021,7 @@ rbRules buildInfo dir rb3 mrb2 = do
             rb2ps3Pkg = dir </> "rb2-ps3.pkg"
             rb2ps3Folder = makePS3Name (hashRB3 songYaml rb2) songYaml
             rb2ps3EDATConfig = rb2CustomMidEdatConfig rb2ps3Folder
-            rb2ps3ContentID = npdContentID rb2ps3EDATConfig
+            rb2ps3ContentID = rb2ps3EDATConfig.contentID
 
         rb2ps3DTA %> writeRB2DTA True
         rb2ps3Mid %> \out -> if rb2.ps3Encrypt

@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Game.Graphics.Video
 ( forkFrameLoader

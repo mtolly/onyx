@@ -59,8 +59,9 @@ import           Onyx.Neversoft.Pak                (Node (..), buildPak, makeQS,
 import           Onyx.Neversoft.QB                 (QBArray (..),
                                                     QBSection (..),
                                                     QBStructItem (..), putQB)
-import           Onyx.PlayStation.NPData           (ghworCustomMidEdatConfig,
-                                                    npdContentID, packNPData)
+import           Onyx.PlayStation.NPData           (contentID,
+                                                    ghworCustomMidEdatConfig,
+                                                    packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (loadFretLimit)
@@ -451,7 +452,7 @@ gh5Rules buildInfo dir gh5 = do
 
       ps3PkgLabel        = makePS3Name songID songYaml
       ps3EDATConfig      = ghworCustomMidEdatConfig ps3PkgLabel
-      ps3ContentID       = npdContentID ps3EDATConfig
+      ps3ContentID       = ps3EDATConfig.contentID
 
   ps3SongVRAMPakDec  %> \out -> stackIO $ BL.writeFile out $ worFilePS3SongVRAMPak songKeyQB
   ps3EmptyVRAMPakDec %> \out -> stackIO $ BL.writeFile out worFilePS3EmptyVRAMPak

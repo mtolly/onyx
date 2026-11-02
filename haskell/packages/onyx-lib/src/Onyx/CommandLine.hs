@@ -822,14 +822,14 @@ commands =
                     tmpIn'  <- shortWindowsPath False tmpIn
                     tmpOut' <- shortWindowsPath True  tmpOut
                     stackIO $ packNPData NPDataConfig
-                      { npdContentID = contentID
-                      , npdKLIC      = ghworKLIC
-                      , npdRAP       = Nothing
-                      , npdVersion   = 2
-                      , npdLicense   = 3
-                      , npdType      = 0
-                      , npdBlock     = 16
-                      , npdEDAT      = True
+                      { contentID = contentID
+                      , klic      = ghworKLIC
+                      , rap       = Nothing
+                      , version   = 2
+                      , license   = 3
+                      , type_      = 0
+                      , block     = 16
+                      , edat      = True
                       } tmpIn' tmpOut' (TE.encodeUtf8 edatName)
                     edat <- stackIO $ BL.fromStrict <$> B.readFile tmpOut
                     return (edatName, makeHandle "(new edat)" $ byteStringSimpleHandle edat)
@@ -874,14 +874,14 @@ commands =
         fin' <- shortWindowsPath False fin
         fout' <- shortWindowsPath True fout
         stackIO $ packNPData NPDataConfig
-          { npdContentID = contentID
-          , npdKLIC      = klic
-          , npdRAP       = Nothing
-          , npdVersion   = 2
-          , npdLicense   = 3
-          , npdType      = 0
-          , npdBlock     = 16
-          , npdEDAT      = True
+          { contentID = contentID
+          , klic      = klic
+          , rap       = Nothing
+          , version   = 2
+          , license   = 3
+          , type_      = 0
+          , block     = 16
+          , edat      = True
           } fin' fout' (TE.encodeUtf8 $ T.pack $ takeFileName fout)
         return [fout]
       _ -> fatal $ "onyx edat expected 3 arguments, given " <> show (length args)

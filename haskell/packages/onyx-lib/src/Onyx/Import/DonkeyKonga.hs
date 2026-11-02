@@ -1,10 +1,11 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
-module Onyx.Import.DonkeyKonga where
+module Onyx.Import.DonkeyKonga (supportedDKGames) where
 
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.IO.Class           (MonadIO)

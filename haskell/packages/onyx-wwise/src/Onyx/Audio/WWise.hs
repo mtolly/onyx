@@ -1,5 +1,7 @@
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NoFieldSelectors    #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 module Onyx.Audio.WWise (WW2OggConfig(..), ww2ogg) where
 
 import qualified Data.ByteString        as B
@@ -17,7 +19,7 @@ ww2ogg cfg inBytes = do
   BU.unsafeUseAsCStringLen inBytes \(p, len) -> do
     alloca \pStream -> do
       alloca \pOutLen -> do
-        withCString (wwCodebook cfg) \cbook -> do
+        withCString cfg.wwCodebook \cbook -> do
           n <- hs_ww2ogg p (fromIntegral len) pStream pOutLen cbook
           if n == 0
             then do

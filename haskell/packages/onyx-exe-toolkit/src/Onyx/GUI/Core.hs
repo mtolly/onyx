@@ -3,6 +3,7 @@
 {-# LANGUAGE ImplicitParams        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiWayIf            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -669,7 +670,7 @@ isWoRCachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
   then return $ Just (f, "") -- could read content ID from EDAT if we wanted
   else getPackageSpec f >>= \case
     Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
-    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 pkg.pkgContentID)
     Nothing          -> return Nothing
 
 isGH3Cachable :: FilePath -> IO (Maybe (FilePath, T.Text))
@@ -677,7 +678,7 @@ isGH3Cachable f = if "_TEXT.PAK.PS3.EDAT" `T.isSuffixOf` T.toUpper (T.pack f)
   then return $ Just (f, "")
   else getPackageSpec f >>= \case
     Just (Left stfs) -> return $ Just (f, T.concat $ take 1 stfs.stfsMeta.md_DisplayName)
-    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 $ pkgContentID pkg)
+    Just (Right pkg) -> return $ Just (f, TE.decodeLatin1 pkg.pkgContentID)
     Nothing          -> return Nothing
 
 -- | The text field of a FLUID @FilePickerRow@, for the few callers that need

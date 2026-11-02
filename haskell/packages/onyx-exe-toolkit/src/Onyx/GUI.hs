@@ -928,7 +928,7 @@ launchWindow sink makeMenuBar proj song maybeAudio albumArt isRB = mdo
     [C.block| void {
       $(HsScrubber* scrubber)->set_colors($(unsigned int filledColorVal), $(unsigned int emptyColorVal));
     } |]
-    let sectionTimes = Map.keys $ previewSections song
+    let sectionTimes = Map.keys song.previewSections
     case sectionTimes of
       [] -> return ()
       times -> withArray (coerce times :: [CDouble]) \pTimes -> do
@@ -1814,7 +1814,7 @@ miscPagePacks sink widgets startTasks = do
             [C.block| void { $(Fl_Box* gameBox)->copy_label($(char* clbl)); } |]
   void $ fileLoadPanel widgets.pkFiles sink (l10nFull "file-type-con-live" []) modifyButtons [] searchSTFS
     \info -> let
-      entry = T.pack $ stfsPath info
+      entry = T.pack info.stfsPath
       sublines = concat
         [ take 1 info.stfsMeta.md_DisplayName
         , return $ T.unwords
@@ -1831,7 +1831,7 @@ miscPagePacks sink widgets startTasks = do
           withUTF8 (l10n "pack-save-stfs") \cs ->
             [C.block| void { $(Fl_Native_File_Chooser* picker)->title($(char* cs)); } |]
           case stfs of
-            f : _ -> withUTF8 (takeDirectory $ stfsPath f) \cdir ->
+            f : _ -> withUTF8 (takeDirectory f.stfsPath) \cdir ->
               [C.block| void { $(Fl_Native_File_Chooser* picker)->directory($(char* cdir)); } |]
             _     -> return ()
           result <- [C.exp| int { $(Fl_Native_File_Chooser* picker)->show() } |]
@@ -1848,12 +1848,12 @@ miscPagePacks sink widgets startTasks = do
                         , STFS.createDescriptions = [packDesc]
                         , STFS.createLIVE         = isLIVE
                         }
-                      in STFS.makePack (map stfsPath stfs) applyOpts f
+                      in STFS.makePack (map (.stfsPath) stfs) applyOpts f
                 maybeArtDir <- case output of
                   PackCON       -> makeSTFS False
                   PackLIVE      -> makeSTFS True
                   PackExtracted -> do
-                    roots <- stackIO $ mapM (STFS.getSTFSFolder . stfsPath) stfs
+                    roots <- stackIO $ mapM (STFS.getSTFSFolder . (.stfsPath)) stfs
                     merged <- STFS.packCombineFolders roots
                     stackIO $ saveHandleFolder merged f
                     -- TODO add album_art save? probably check what gh2dx xenia setup expects
@@ -3324,7 +3324,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
           when doRedraw $ sink $ EventIO [C.block| void { Fl::redraw(); } |]
 
   initSong <- getSong
-  updateParts False $ map (map fst) $ previewTracks initSong
+  updateParts False $ map (map fst) initSong.previewTracks
 
   -- Audio selection menu
   audioMenu <- withRect audioSelectArea \mx my mw mh ->
@@ -3347,7 +3347,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
   -- Background selection menu
   bgMenu <- withRect bgSelectArea \mx my mw mh ->
     withUTF8 (l10n "preview-background") \cs -> [C.exp| Fl_Menu_Button* { new Fl_Menu_Button($(int mx), $(int my), $(int mw), $(int mh), fl_strdup($(char* cs))) } |]
-  let bgs = [(t, Just bg) | (t, bg) <- previewBG initSong]
+  let bgs = [(t, Just bg) | (t, bg) <- initSong.previewBG]
       emptyBG = (l10n "preview-bg-none", Nothing)
       initialBG = fromMaybe emptyBG $ listToMaybe bgs
       allBGs = emptyBG : bgs
@@ -3392,7 +3392,7 @@ previewGroup sink rect getSong getTime getSpeed getAudioHandle audioParts getAud
     forM_ mstuff \stuff -> do
       t <- getTime
       speed <- getSpeed
-      trks <- fmap previewTracks getSong
+      trks <- (.previewTracks) <$> getSong
       bg <- readIORef currentBG
       updateParts True $ map (map fst) trks
       selected <- getSelectedMenuItems trackMenu

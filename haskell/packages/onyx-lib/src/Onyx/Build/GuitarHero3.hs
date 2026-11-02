@@ -49,8 +49,9 @@ import           Onyx.Neversoft.GH3.Metadata       (gh3MysteryScript)
 import           Onyx.Neversoft.GH3.MidQB
 import           Onyx.Neversoft.Pak                (Node (..), buildPak)
 import           Onyx.Neversoft.QB
-import           Onyx.PlayStation.NPData           (gh3CustomMidEdatConfig,
-                                                    npdContentID, packNPData)
+import           Onyx.PlayStation.NPData           (contentID,
+                                                    gh3CustomMidEdatConfig,
+                                                    packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (FretLimit,
@@ -382,7 +383,7 @@ gh3Rules buildInfo dir gh3 = do
     shk $ need [ps3Root]
     main <- singleFolder "USRDIR" . singleFolder ps3Folder <$> crawlFolderBytes ps3Root
     extra <- stackIO (getResourcesPath "pkg-contents/gh3") >>= crawlFolderBytes
-    stackIO $ makePKG (npdContentID edatConfig) (main <> extra) out
+    stackIO $ makePKG edatConfig.contentID (main <> extra) out
 
 fromSeconds :: U.Seconds -> Word32
 fromSeconds secs = floor $ secs * 1000

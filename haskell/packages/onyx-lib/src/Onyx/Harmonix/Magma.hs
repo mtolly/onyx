@@ -1,3 +1,7 @@
+{-
+RBA info thanks to AerialX
+http://rockband.scorehero.com/forum/viewtopic.php?p=482992#482992
+-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DeriveFoldable      #-}

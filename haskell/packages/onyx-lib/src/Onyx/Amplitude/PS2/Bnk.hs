@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments    #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NoFieldSelectors  #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Onyx.Amplitude.PS2.Bnk
 ( bnkChunks

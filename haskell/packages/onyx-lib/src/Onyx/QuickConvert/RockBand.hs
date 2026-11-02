@@ -777,7 +777,7 @@ saveQuickSongsPKG :: (MonadResource m, SendMessage m) => [QuickSong] -> QuickPS3
 saveQuickSongsPKG qsongs settings fout = do
   contents <- quickSongsPS3Folder qsongs settings
   let oneFolder = defaultFolderPS3 qsongs
-      contentID = npdContentID
+      contentID = (.contentID)
         $ (if settings.qcPS3RB3 then rb3CustomMidEdatConfig else rb2CustomMidEdatConfig) oneFolder
       rootFolder = singleFolder "USRDIR" contents
   stackIO do
@@ -1276,7 +1276,7 @@ conToPkg isRB3 fin fout = tempDir "onyx-con2pkg" \tmp -> do
       rbps3EDATConfig = if isRB3
         then rb3CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
         else rb2CustomMidEdatConfig $ TE.encodeUtf8 rbps3Folder
-      rbps3ContentID = npdContentID rbps3EDATConfig
+      rbps3ContentID = rbps3EDATConfig.contentID
       adjustFiles folder = do
         newFiles <- forM (folderFiles folder) \(name, r) -> case map toLower $ takeExtension $ T.unpack name of
           ".mogg" -> stackIO do
