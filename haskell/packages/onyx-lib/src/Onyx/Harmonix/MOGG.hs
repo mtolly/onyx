@@ -30,6 +30,7 @@ import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.VorbisFile
 import           System.IO                    (SeekMode (..), hSeek)
+import           Witch                        (from)
 
 moggToOggFiles :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 moggToOggFiles mogg ogg = stackIO $ saveReadable (moggToOgg $ fileReadable mogg) ogg
@@ -103,7 +104,7 @@ sourceVorbis pos ogg = liftIO $ runVorbisReadable ogg \case
   Just ovInit -> do
     (chans, rate) <- getChannelsRate ovInit
     total <- ov_pcm_total ovInit (-1)
-    let seekTo = fromIntegral case pos of
+    let seekTo = from case pos of
           CA.Seconds secs -> CA.secondsToFrames secs (fromIntegral rate)
           CA.Frames fms   -> fms
     return $ CA.reorganize CA.chunkSize $ CA.AudioSource
@@ -170,7 +171,7 @@ checkOldC3Mogg r = useHandle r \h -> do
   encType <- BL.hGet h 4 >>= runGetM getWord32le
   hSeek h AbsoluteSeek 16
   numEntries <- BL.hGet h 4 >>= runGetM getWord32le
-  let patchLocation = 20 + fromIntegral numEntries * 8 + 16 + 16
+  let patchLocation = 20 + from numEntries * 8 + 16 + 16
   hSeek h AbsoluteSeek patchLocation
   mask <- B.hGet h 16
   return $ listToMaybe do

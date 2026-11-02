@@ -72,6 +72,7 @@ import           Optics                                  (mapped, (%), (%~))
 import qualified Sound.MIDI.Util                         as U
 import           System.FilePath                         (takeExtension)
 import           Text.Read                               (readMaybe)
+import           Witch                                   (from)
 
 data MagmaLipsync
   = MagmaLipsync1 Lipsync
@@ -330,8 +331,8 @@ parseLipsync = do
   _followingSize <- getWord32be
   keyframes <- replicateM (fromIntegral keyframeCount) do
     eventCount <- getWord8
-    events <- replicateM (fromIntegral eventCount) do
-      visemeKey <- fromIntegral <$> getWord8
+    events <- replicateM (from eventCount) do
+      visemeKey <- from <$> getWord8
       visemeWeight <- getWord8
       let visemeGraph = ()
       return VisemeEvent{..}
@@ -1106,7 +1107,7 @@ parseVocViseme = do
   mystery4 <- getWord32le
   mystery5 <- getWord32le
   eventCount <- getWord16le
-  events <- replicateM (fromIntegral eventCount) parseVocEvent
+  events <- replicateM (from eventCount) parseVocEvent
   mystery6 <- getWord16le
   return VocViseme{..}
 

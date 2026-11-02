@@ -51,6 +51,7 @@ import qualified System.Directory                 as Dir
 import           System.FilePath
 import           System.IO
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 loadDTXLines' :: Bool -> FilePath -> IO [(T.Text, T.Text)]
 loadDTXLines' semicolonComments f = do
@@ -440,7 +441,7 @@ findOggS h = do
   bs <- B.hGet h 0x1000
   return let
     (x, y) = B.breakSubstring "OggS" bs
-    in guard (not $ B.null y) >> Just (fromIntegral $ B.length x)
+    in guard (not $ B.null y) >> Just (from $ B.length x)
 
 -- Older DTX simfiles sometimes have these strange "wav" with mp3 or ogg data inside
 sourceCompressedWAV :: (MonadIO f, MonadResource m) => Readable -> f (AudioSource m Float)
@@ -453,7 +454,7 @@ sourceCompressedWAV r = liftIO do
           if magic == thisChunk
             then return ()
             else do
-              hSeek h RelativeSeek $ fromIntegral size
+              hSeek h RelativeSeek $ from size
               findChunk' magic
     findChunk "fmt "
     audioType <- BL.hGet h 2

@@ -42,6 +42,7 @@ import           Onyx.MIDI.Read
 import           Optics                           (mapped, (%), (.~))
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 data NoteType
   = NormalNote
@@ -133,7 +134,7 @@ encodeTuningOffsets tun typ = let
     TypeGuitar -> 6
     TypeBass   -> 4
   this = take n $ tuningPitches tun { gtrGlobal = 0, gtrCapo = 0 }
-  in map fromIntegral $ zipWith (-) this std
+  in map from $ zipWith (-) this std
 
 eadgbeOffsetsToTuning :: GuitarType -> [Int] -> GtrTuning
 eadgbeOffsetsToTuning TypeGuitar ns = GtrTuning

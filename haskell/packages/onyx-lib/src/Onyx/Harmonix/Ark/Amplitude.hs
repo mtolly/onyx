@@ -24,6 +24,7 @@ import           System.Directory       (doesDirectoryExist, listDirectory)
 import           System.FilePath        ((</>))
 import           System.IO              (IOMode (..), SeekMode (..), hSeek,
                                          hTell, withBinaryFile)
+import           Witch                  (from)
 
 data FoundFile = FoundFile
   { onDisk    :: FilePath
@@ -74,9 +75,9 @@ createArk dout ark = do
       stringCount = HM.size stringToIndex
       sizeBeforeFiles = sum
         [ 4
-        , 4, fromIntegral $ 20 * fileCount -- file entries
-        , 4, fromIntegral $ BL.length stringBank -- string bank
-        , 4, fromIntegral $ 4 * stringCount -- string offset list
+        , 4, from $ 20 * fileCount -- file entries
+        , 4, from $ BL.length stringBank -- string bank
+        , 4, from $ 4 * stringCount -- string offset list
         ]
   withBinaryFile ark WriteMode \h -> do
     hSeek h AbsoluteSeek sizeBeforeFiles
@@ -85,7 +86,7 @@ createArk dout ark = do
       contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
       return FileEntry
-        { offset = fromIntegral posn
+        { offset = from posn
         , name = ff.arkName
         , folder = ff.arkParent
         , size = fromIntegral $ BL.length contents

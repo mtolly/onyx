@@ -30,6 +30,7 @@ import           Data.Maybe                (fromMaybe)
 import           Data.Word
 import qualified Onyx.Harmonix.DTA         as D
 import           Onyx.StackTrace
+import           Witch                     (from)
 
 data TxtBin = TxtBin
   { sources :: [B.ByteString]
@@ -67,7 +68,7 @@ getTxtBin = do
 
 getNode :: Get Node
 getNode = do
-  len <- fromIntegral <$> getWord16le
+  len <- from <$> getWord16le
   id1 <- getWord32le
   id2 <- getWord32le
   let numTypeWords = case quotRem len 16 of

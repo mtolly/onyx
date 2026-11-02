@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy            as BL
 import           Data.List                       (foldl')
 import           Data.List.Split                 (keepDelimsR, onSublist, split)
 import           Data.Word                       (Word8)
+import           Witch                           (from)
 
 data MiloCompression
   = MILO_A
@@ -75,7 +76,7 @@ decompressMilo = do
   posn <- bytesRead
   skip $ fromIntegral offset - fromIntegral (posn - startingOffset)
   fmap BL.concat $ forM blockInfo \(size, compressed) -> do
-    bs <- getLazyByteString $ fromIntegral size
+    bs <- getLazyByteString $ from size
     return if compressed then decompressBlock comp bs else bs
 
 magicBarrier :: [Word8]
@@ -97,6 +98,6 @@ addMiloHeader bs = let
     mapM_ putWord32le chunks
   in BL.concat
     [ header
-    , BL.replicate (fromIntegral headerSize - BL.length header) 0
+    , BL.replicate (from headerSize - BL.length header) 0
     , bs
     ]

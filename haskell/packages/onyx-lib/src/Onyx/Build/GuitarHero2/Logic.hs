@@ -61,6 +61,7 @@ import           Onyx.Sections                        (makeGH2Section,
                                                        sectionBody)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                      as U
+import           Witch                                (from)
 
 gh2Pad
   :: (SendMessage m)
@@ -435,7 +436,7 @@ adjustSongText = T.replace "&" "+"
 
 -- Pass along guitar's (probably imported) hopo threshold
 getDefaultHOPOThreshold :: SongYaml f -> GH2Audio -> Maybe Integer
-getDefaultHOPOThreshold song audio = fmap (fromIntegral . (.hopoThreshold))
+getDefaultHOPOThreshold song audio = fmap (from . (.hopoThreshold))
   $ getPart audio.leadTrack song >>= (.grybo)
   -- could support other converted modes I guess but this is realistically
   -- the only place weird thresholds would come from
@@ -448,7 +449,7 @@ makeGH2DTA song key preview target audio title = D.SongPackage
   , D.song = makeSong target.gh2Deluxe
   , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
-  , D.preview = bimap fromIntegral fromIntegral preview
+  , D.preview = bimap from from preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   , D.practiceSpeeds = Just [100, 90, 75, 60]
   , D.songCoop = Nothing
@@ -465,9 +466,9 @@ makeGH2DTA song key preview target audio title = D.SongPackage
         then "songs/" <> key <> "/" <> key <> "_p" <> T.pack (show speed)
         else "songs/" <> key <> "/" <> key <> "_empty"
       , D.tracks = D.DictList $ filter (\(_, ns) -> not $ null ns)
-        [ ("guitar", [fromIntegral audio.leadPractice])
-        , (coop    , [fromIntegral audio.coopPractice])
-        , ("drum"  , maybe [] (\n -> [fromIntegral n]) audio.drumPractice)
+        [ ("guitar", [from audio.leadPractice])
+        , (coop    , [from audio.coopPractice])
+        , ("drum"  , maybe [] (\n -> [from n]) audio.drumPractice)
         ]
       , D.pans = 0 <$ audio.practice
       , D.vols = 0 <$ audio.practice
@@ -478,13 +479,13 @@ makeGH2DTA song key preview target audio title = D.SongPackage
     makeSong includeTrack3 = D.Song
       { D.songName      = "songs/" <> key <> "/" <> key
       , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns) $
-        [ ("guitar", map fromIntegral audio.leadChannels)
-        , (coop    , map fromIntegral audio.coopChannels)
+        [ ("guitar", map from audio.leadChannels)
+        , (coop    , map from audio.coopChannels)
         ] <> if includeTrack3
           then if null audio.drumChannels
             -- GH2DX2 in some configurations requires a third tracks entry, even when there is no drum part
-            then [("fake", map fromIntegral audio.backChannels)]
-            else [("drum", map fromIntegral audio.drumChannels)]
+            then [("fake", map from audio.backChannels)]
+            else [("drum", map from audio.drumChannels)]
           else []
       , D.pans          = audio.audioSections >>= \case
         GH2PartStereo _ -> [-1, 1]
@@ -514,7 +515,7 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
   , D.song = makeSong target.gh2Deluxe
   , D.song_vs = if target.gh2Deluxe then Just $ makeSong False else Nothing
   , D.animTempo = KTempoMedium
-  , D.preview = bimap fromIntegral fromIntegral preview
+  , D.preview = bimap from from preview
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   , D.practiceSpeeds = Nothing
   , D.songCoop = Nothing
@@ -528,9 +529,9 @@ makeGH2DTA360 song key preview target audio title = D.SongPackage
     makeSong includeTrack3 = D.Song
       { D.songName      = "songs/" <> key <> "/" <> key
       , D.tracks        = D.DictList $ filter (\(_, ns) -> not $ null ns) $
-        [ ("guitar", map fromIntegral audio.leadChannels)
-        , (coop    , map fromIntegral audio.coopChannels)
-        ] <> [("drum", map fromIntegral audio.drumChannels) | includeTrack3]
+        [ ("guitar", map from audio.leadChannels)
+        , (coop    , map from audio.coopChannels)
+        ] <> [("drum", map from audio.drumChannels) | includeTrack3]
       , D.pans          = audio.audioSections >>= \case
         GH2PartStereo _ -> [-1, 1]
         GH2PartMono   _ -> [0] -- note, we don't use actually any mono on 360

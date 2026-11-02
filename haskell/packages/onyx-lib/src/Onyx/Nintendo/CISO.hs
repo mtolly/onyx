@@ -21,6 +21,7 @@ import qualified Data.Vector.Unboxed  as U
 import           Data.Word            (Word8)
 import           Onyx.Util.Handle
 import           System.IO
+import           Witch                (from)
 
 cisoHeaderSize :: Integer
 cisoHeaderSize = 0x8000
@@ -38,7 +39,7 @@ cisoReadable r = Readable
     unless (B.length header == fromIntegral cisoHeaderSize && B.take 4 header == "CISO") do
       hClose h
       fail "Not a valid CISO file"
-    let blockSize = fromIntegral $ runGet getWord32le $ BL.fromStrict $ B.take 4 $ B.drop 4 header :: Integer
+    let blockSize = from $ runGet getWord32le $ BL.fromStrict $ B.take 4 $ B.drop 4 header :: Integer
         mapBytes = B.unpack $ B.drop 8 header
         neededBlocks = length $ dropWhile (== 0) $ reverse mapBytes
     when (blockSize < 0x8000 || blockSize `mod` 0x8000 /= 0 || any (> 1) mapBytes) do
@@ -50,13 +51,13 @@ cisoReadable r = Readable
         go _ []       = []
         go n (b : bs) = if b == 1 then n : go (n + 1) bs else (-1) : go n bs
     posn <- newIORef 0
-    let virtSize = blockSize * fromIntegral (U.length blockMap)
+    let virtSize = blockSize * from (U.length blockMap)
         readChunk pos len = let
           (block, beg) = pos `quotRem` blockSize
           size = min len $ blockSize - beg
           in case blockMap U.!? fromIntegral block of
             Just stored | stored >= 0 -> do
-              hSeek h AbsoluteSeek $ cisoHeaderSize + fromIntegral stored * blockSize + beg
+              hSeek h AbsoluteSeek $ cisoHeaderSize + from stored * blockSize + beg
               bs <- B.hGet h $ fromIntegral size
               -- final stored block may be truncated in the file
               return $ bs <> B.replicate (fromIntegral size - B.length bs) 0
@@ -65,7 +66,7 @@ cisoReadable r = Readable
           then return []
           else do
             chunk <- readChunk pos len
-            let n = fromIntegral $ B.length chunk
+            let n = from $ B.length chunk
             (chunk :) <$> readRange (pos + n) (len - n)
     openSimpleHandle (handleLabel h <> " | ciso") SimpleHandle
       { shSize  = virtSize

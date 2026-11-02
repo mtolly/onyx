@@ -52,6 +52,7 @@ import qualified System.Directory         as Dir
 import           System.FilePath          (takeDirectory, takeFileName, (</>))
 import           System.IO                (Handle, SeekMode (..), hClose,
                                            hFileSize, hSeek)
+import           Witch                    (from)
 
 data PrimaryVolumeDescriptor = PrimaryVolumeDescriptor
   -- byte 1, string "CD001"
@@ -141,7 +142,7 @@ folderISOLayer special r = do
   (pvd, recs) <- useHandle r \h -> do
     hSeek h AbsoluteSeek 0x8000
     pvd <- B.hGet h 0x800 >>= runGetM getPrimaryVolumeDescriptor . BL.fromStrict
-    hSeek h AbsoluteSeek $ fromIntegral pvd.locationTypeMPathTable * 0x800
+    hSeek h AbsoluteSeek $ from pvd.locationTypeMPathTable * 0x800
     ptrs <- B.hGet h (fromIntegral pvd.pathTableSize) >>= runGetM (getMany getPathTableRecordBE) . BL.fromStrict
     recs <- fromFiles <$> getFileTree h ptrs
     return (pvd, recs)
@@ -150,13 +151,13 @@ folderISOLayer special r = do
     (\dr -> fromMaybe
       (subHandle
         id -- TODO add label
-        (fromIntegral dr.locationOfExtent * 0x800)
-        (Just $ fromIntegral dr.dataLength)
+        (from dr.locationOfExtent * 0x800)
+        (Just $ from dr.dataLength)
         r
       )
       (special dr)
     )
-    recs, fromIntegral pvd.volumeSpaceSize * 0x800 - 0x8000)
+    recs, from pvd.volumeSpaceSize * 0x800 - 0x8000)
 
 getFileTree :: Handle -> [PathTableRecord] -> IO [(NE.NonEmpty B.ByteString, DirectoryRecord)]
 getFileTree h ptrs = do
@@ -165,7 +166,7 @@ getFileTree h ptrs = do
   let realPTRs = Map.elems $ Map.fromList [ (ptr.locationOfExtent, ptr) | ptr <- ptrs ]
       ptrToParents ptr = case ptr.directoryIdentifier of
         "\0"  -> []
-        dirID -> dirID : ptrToParents (ptrs !! fromIntegral (ptr.parentDirectoryNumber - 1))
+        dirID -> dirID : ptrToParents (ptrs !! from (ptr.parentDirectoryNumber - 1))
   fmap concat $ forM realPTRs \ptr -> do
     let parents = ptrToParents ptr
     recs <- getFolderFiles h ptr
@@ -175,7 +176,7 @@ getFileTree h ptrs = do
 
 getFolderFiles :: Handle -> PathTableRecord -> IO [DirectoryRecord]
 getFolderFiles h ptr = do
-  hSeek h AbsoluteSeek $ fromIntegral ptr.locationOfExtent * 0x800
+  hSeek h AbsoluteSeek $ from ptr.locationOfExtent * 0x800
   firstSector <- B.hGet h 0x800
   -- the first record (".") tells us the size of the whole directory
   self <- runGetM getDirectoryRecord $ BL.fromStrict firstSector
@@ -244,10 +245,10 @@ getDirectoryRecord = lookAhead getWord8 >>= \case
     interleaveGapSize             <- getWord8
     volumeSequenceNumber          <- mirrored getWord16le getWord16be
     lenFileIdentifier             <- getWord8
-    fileIdentifier                <- getByteString $ fromIntegral lenFileIdentifier
+    fileIdentifier                <- getByteString $ from lenFileIdentifier
     when (even lenFileIdentifier) $ skip 1
     posn2                         <- bytesRead
-    systemUse                     <- getByteString $ max 0 $ fromIntegral len - fromIntegral (posn2 - posn1)
+    systemUse                     <- getByteString $ max 0 $ from len - fromIntegral (posn2 - posn1)
     return DirectoryRecord{..}
 
 getPathTableRecordBE :: Get (Maybe PathTableRecord)
@@ -258,7 +259,7 @@ getPathTableRecordBE = lookAhead getWord8 >>= \case
     extendedAttributeRecordLength <- getWord8
     locationOfExtent              <- getWord32be
     parentDirectoryNumber         <- getWord16be
-    directoryIdentifier           <- getByteString $ fromIntegral lenDI
+    directoryIdentifier           <- getByteString $ from lenDI
     when (odd lenDI) $ skip 1
     return PathTableRecord{..}
 
@@ -325,7 +326,7 @@ sectorSlices sectorSize sliceOffset sliceSize r = Readable
                   | i <- [0 .. sectorCount - 1]
                   ]
                 result = B.take (fromIntegral n') $ B.drop (fromIntegral $ p `rem` sliceSize) slices
-            writeIORef posn $ p + fromIntegral (B.length result)
+            writeIORef posn $ p + from (B.length result)
             return result
       }
   }
@@ -335,7 +336,7 @@ xaAttributes :: DirectoryRecord -> Maybe Word16
 xaAttributes dr = do
   let su = dr.systemUse
   guard $ B.length su >= 8 && B.take 2 (B.drop 6 su) == "XA"
-  return $ (fromIntegral (B.index su 4) `shiftL` 8) .|. fromIntegral (B.index su 5)
+  return $ (from (B.index su 4) `shiftL` 8) .|. from (B.index su 5)
 
 folderCueBin :: FilePath -> IO (Folder B.ByteString Readable)
 folderCueBin cue = do
@@ -354,9 +355,9 @@ folderCueBin cue = do
         guard $ dataOffset >= 8
         attrs <- xaAttributes dr
         guard $ attrs .&. 0x3000 /= 0
-        let sectors = (fromIntegral dr.dataLength + 0x7FF) `quot` 0x800
+        let sectors = (from dr.dataLength + 0x7FF) `quot` 0x800
         return $ subHandle id
-          (fromIntegral dr.locationOfExtent * 2336)
+          (from dr.locationOfExtent * 2336)
           (Just $ sectors * 2336)
           mode2Raw
   isISO cooked >>= \case

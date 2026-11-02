@@ -133,6 +133,7 @@ import           System.FilePath                  (dropTrailingPathSeparator,
 import           System.Info                      (os)
 import qualified System.IO                        as IO
 import           System.Process                   (proc)
+import           Witch                            (from)
 
 data Audio t a
   = Silence Int t
@@ -778,7 +779,7 @@ audioMD5 f = liftIO case takeExtension f of
       then Nothing
       else let
         thisTag = BL.take 4 bytes
-        len = fmap fromIntegral $ runGetM getWord32le $ BL.drop 4 bytes
+        len = fmap from $ runGetM getWord32le $ BL.drop 4 bytes
         in if tag == thisTag
           then len >>= \l -> Just $ BL.take l $ BL.drop 8 bytes
           else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
@@ -808,7 +809,7 @@ audioLengthReadable :: (MonadIO m) => FilePath -> Readable -> m (Maybe Integer)
 audioLengthReadable f r = case map toLower $ takeExtension f of
   -- ffmpeg fails to give 0 frames for empty ogg files, saying
   -- "Estimating duration from bitrate, this may be inaccurate"
-  ".ogg" -> liftIO $ Just . fromIntegral . frames
+  ".ogg" -> liftIO $ Just . from . frames
     <$> (sourceVorbis (Frames 0) r :: IO (AudioSource (ResourceT IO) Float))
   -- ffmpeg fails to load empty opus files???
   -- "Error: opening input: End of file"
@@ -817,9 +818,9 @@ audioLengthReadable f r = case map toLower $ takeExtension f of
     size <- liftIO $ useHandle r IO.hFileSize
     if size < 2048 -- I get 869 bytes from onyx+libsndfile; 137 bytes from ffmpeg
       then return $ Just 0
-      else liftIO $ Just . fromIntegral . frames <$> ffSourceSimple r
+      else liftIO $ Just . from . frames <$> ffSourceSimple r
   _      -> if supportedFFExt f
-    then liftIO $ Just . fromIntegral . frames <$> ffSourceSimple r
+    then liftIO $ Just . from . frames <$> ffSourceSimple r
     else return Nothing
   -- TODO does this not work for .xma
 

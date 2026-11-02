@@ -21,6 +21,7 @@ import           Data.Int
 import           Data.Word
 import           Onyx.Nintendo.U8
 import           Onyx.Util.Handle
+import           Witch                (from)
 
 data WADHeader = WADHeader
   { wadHeaderSize           :: Word32
@@ -140,7 +141,7 @@ getTMD = do
   tmdPadding2           <- getByteString 0x3E
   tmdAccessRights       <- getWord32be
   tmdTitleVersion       <- getWord16be
-  countContents         <- fromIntegral <$> getWord16be
+  countContents         <- from <$> getWord16be
   tmdBootIndex          <- getWord16be
   tmdPadding3           <- getWord16be
   tmdContents           <- replicateM countContents getTMDContent

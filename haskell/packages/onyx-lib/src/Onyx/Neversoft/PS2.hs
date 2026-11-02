@@ -30,6 +30,7 @@ import           Onyx.Neversoft.CRC
 import           Onyx.Nintendo.WAD     (skipToMultiple)
 import           Onyx.Util.Binary      (runGetM, splitEvery)
 import           Onyx.Util.Handle
+import           Witch                 (from)
 
 #if MIN_VERSION_base(4,18,0)
 -- liftA2 from Prelude
@@ -92,7 +93,7 @@ identifyHedFormat entries = let
 hookUpWAD :: Readable -> Folder B.ByteString (Word32, Word32) -> Folder T.Text Readable
 hookUpWAD wad = bimap TE.decodeLatin1
   -- TODO add label to handle
-  \(pos, len) -> subHandle id (fromIntegral pos) (Just $ fromIntegral len) wad
+  \(pos, len) -> subHandle id (from pos) (Just $ from len) wad
 
 hedFolder :: [HedEntry] -> Folder B.ByteString (Word32, Word32)
 hedFolder entries = fromFiles let
@@ -126,7 +127,7 @@ parseHDP bs = do
     bs
   folders <- case folderOffset of
     0 -> return []
-    _ -> flip runGetM (BL.drop (fromIntegral folderOffset) bs) $ whileJustM do
+    _ -> flip runGetM (BL.drop (from folderOffset) bs) $ whileJustM do
       fileCount <- getWord32le
       case fileCount of
         0xffffffff -> return Nothing
@@ -136,7 +137,7 @@ parseHDP bs = do
           return $ Just [HDPFolder{..}]
   files <- case fileOffset of
     0 -> return Map.empty
-    _ -> flip runGetM (BL.drop (fromIntegral fileOffset) bs) do
+    _ -> flip runGetM (BL.drop (from fileOffset) bs) do
       fmap Map.fromList $ replicateM (fromIntegral numEntries) do
         pos         <- bytesRead
         sectorIndex <- getWord32le
@@ -190,9 +191,9 @@ convertChannelToVGS chan = do
   return $ runPut do
     putByteString $ B8.pack "VgS!"
     putWord32le 2
-    let audio = BL.take (fromIntegral len) $ BL.drop 0x40 chan
-    putWord32le $ fromIntegral rate
-    putWord32le $ fromIntegral $ len `quot` 0x10
+    let audio = BL.take (from len) $ BL.drop 0x40 chan
+    putWord32le $ from rate
+    putWord32le $ from $ len `quot` 0x10
     putByteString $ B.replicate (0x80 - 16) 0
     putLazyByteString audio
 
@@ -241,12 +242,12 @@ getNeoHeader = do
 
 splitNeoStreams :: NeoHeader -> BL.ByteString -> [(NeoStream, [BL.ByteString])]
 splitNeoStreams hdr bs = let
-  blocks = splitEvery (fromIntegral hdr.totalBlockSize) $ BL.drop 0x10000 bs
+  blocks = splitEvery (from hdr.totalBlockSize) $ BL.drop 0x10000 bs
   in hdr.streams <&> \stream -> let
-    blockTake = fromIntegral stream.channelBlockSize
+    blockTake = from stream.channelBlockSize
     chans = [0 .. stream.channels - 1] <&> \i -> let
-      blockDrop = fromIntegral (stream.firstBlockOffset - 0x10000)
-        + fromIntegral i * blockTake
+      blockDrop = from (stream.firstBlockOffset - 0x10000)
+        + from i * blockTake
       in BL.concat $ map
         (BL.take blockTake . BL.drop blockDrop)
         blocks
@@ -257,7 +258,7 @@ neoStreamToVGS (stream, chans) = runPut do
   putByteString "VgS!"
   putWord32le 2
   forM_ chans \chan -> do
-    putWord32le $ fromIntegral stream.frequency
+    putWord32le $ from stream.frequency
     putWord32le $ fromIntegral $ quot (BL.length chan) 0x10
   putByteString $ B.replicate (0x80 - 8 - 8 * length chans) 0
   let go chansLeft = if any BL.null chansLeft

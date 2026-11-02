@@ -54,6 +54,7 @@ import           Onyx.Util.Handle                (Folder (..), Readable,
                                                   handleToByteString, useHandle)
 import qualified System.IO                       as IO
 import           System.IO.Temp                  (withSystemTempFile)
+import           Witch                           (from)
 
 -- Haskell extract/repack stuff
 
@@ -74,7 +75,7 @@ createHdrArk dout hdr ark = do
       contents <- BL.fromStrict <$> B.readFile ff.onDisk
       BL.hPut h contents
       return FileEntry
-        { offset = fromIntegral posn
+        { offset = from posn
         , name = ff.arkName
         , folder = ff.arkParent
         , size = fromIntegral $ BL.length contents

@@ -24,7 +24,7 @@ import           Data.Binary.Get           (getByteString, getFloatle,
 import           Data.Binary.Put           (putByteString, putFloatle,
                                             putWord16le, putWord32le)
 import           Data.Hashable             (Hashable (..))
-import           GHC.Generics              (Generic (..))
+import           GHC.Generics              (Generic)
 
 #if MIN_VERSION_base(4,18,0)
 -- liftA2 from Prelude

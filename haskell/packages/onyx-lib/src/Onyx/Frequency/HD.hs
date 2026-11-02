@@ -11,6 +11,7 @@ import           Data.Char       (isSpace)
 import           Data.List       (stripPrefix)
 import           Data.Maybe      (mapMaybe)
 import           Text.Read       (readMaybe)
+import           Witch           (from)
 
 data HD = HD
   { hdProg :: [Maybe ProgEntry]
@@ -75,7 +76,7 @@ getVagiEntry = do
   posn <- getWord32le
   rate <- getWord16le
   _ <- getByteString 2
-  return $ VagiEntry (fromIntegral posn) (fromIntegral rate) bs
+  return $ VagiEntry (fromIntegral posn) (from rate) bs
 
 data SmplEntry = SmplEntry
   { smplVagiIndex   :: Int
@@ -90,9 +91,9 @@ getSmplEntry = do
   vagi <- getWord16le
   _ <- getByteString 40
   return $ SmplEntry
-    { smplVagiIndex = fromIntegral vagi
-    , smplBasePitch = fromIntegral $ B.index bs 11
-    , smplMaybeCutoff = fromIntegral $ B.index bs 20
+    { smplVagiIndex = from vagi
+    , smplBasePitch = from $ B.index bs 11
+    , smplMaybeCutoff = from $ B.index bs 20
     , smplBytes = bs
     }
 
@@ -106,7 +107,7 @@ getSsetEntry = do
   bs <- lookAhead $ getByteString 6
   _ <- getByteString 4
   smpl <- getWord16le
-  return $ SsetEntry (fromIntegral smpl) bs
+  return $ SsetEntry (from smpl) bs
 
 data ProgEntry = ProgEntry
   { progHeader :: B.ByteString
@@ -116,7 +117,7 @@ data ProgEntry = ProgEntry
 getProgEntry :: Get ProgEntry
 getProgEntry = do
   hdr <- getByteString 0x24
-  rows <- replicateM (fromIntegral $ B.index hdr 4) getProgRow
+  rows <- replicateM (from $ B.index hdr 4) getProgRow
   return $ ProgEntry hdr rows
 
 data ProgRow = ProgRow
@@ -134,11 +135,11 @@ getProgRow = do
   bs <- getByteString 0x14
   return $ ProgRow
     { progRowBytes = bs
-    , progRowMinPitch = fromIntegral $ B.index bs 2
-    , progRowMaxPitch = fromIntegral $ B.index bs 4
-    , progRowVol = fromIntegral $ B.index bs 16
-    , progRowPan = fromIntegral $ B.index bs 17
-    , progRowSsetIndex = fromIntegral sset
+    , progRowMinPitch = from $ B.index bs 2
+    , progRowMaxPitch = from $ B.index bs 4
+    , progRowVol = from $ B.index bs 16
+    , progRowPan = from $ B.index bs 17
+    , progRowSsetIndex = from sset
     }
 
 getBankSections :: String -> Maybe [Int]

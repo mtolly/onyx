@@ -110,6 +110,7 @@ import qualified Sound.MIDI.Util                      as U
 import qualified System.Directory                     as Dir
 import           System.FilePath                      ((-<.>), (<.>), (</>))
 import           Text.Read                            (readMaybe)
+import           Witch                                (from)
 
 data RBImport = RBImport
   { songPackage   :: D.SongPackage
@@ -394,7 +395,7 @@ importRB rbi level = do
           _             -> Nothing
         in case mapM isTierBoundary $ HM.toList $ D.rank pkg of
           Nothing    -> Rank                <$> D.rank pkg
-          Just tiers -> Tier . fromIntegral <$> HM.fromList tiers
+          Just tiers -> Tier . from <$> HM.fromList tiers
       hasRankStr s = maybe False (/= 0) $ HM.lookup s $ D.rank pkg
   vocalMode <- if hasRankStr "vocals"
     then case D.vocalParts $ D.song pkg of
@@ -929,16 +930,16 @@ importRB4 fdta level = do
           , D.vols             = moggDTA.vols
           , D.cores            = map (const (-1)) moggDTA.pans
           , D.crowdChannels    = lookup "crowd" moggDTA.tracks
-          , D.vocalParts       = Just $ fromIntegral dta.vocalParts
+          , D.vocalParts       = Just $ from dta.vocalParts
           , D.drumSolo         = D.DrumSounds [] -- not used in import
           , D.drumFreestyle    = D.DrumSounds [] -- not used in import
           , D.muteVolume       = Nothing -- not used in import
           , D.muteVolumeVocals = Nothing -- not used in import
-          , D.hopoThreshold    = Just $ fromIntegral hopoThreshold
+          , D.hopoThreshold    = Just $ from hopoThreshold
           , D.midiFile         = Nothing
           }
         , D.songScrollSpeed   = case lookup "vocal_track_scroll_duration_ms" songMeta of
-          Just (LongValue n) -> fromIntegral n
+          Just (LongValue n) -> from n
           _                  -> 2300
         -- bank could come from "vocal_percussion_patch" in RBSongMetadata,
         -- but we just use midi events to distinguish cowbell/clap/tambourine anyway
@@ -974,13 +975,13 @@ importRB4 fdta level = do
           1 -> Just Male
           2 -> Just Female
           _ -> Nothing
-        , D.version           = Just $ fromIntegral dta.version
+        , D.version           = Just $ from dta.version
         , D.songFormat        = 10 -- we'll call it rb3 format for now
         , D.albumArt          = Just $ isJust art
-        , D.yearReleased      = Just $ fromIntegral dta.albumYear
+        , D.yearReleased      = Just $ from dta.albumYear
         , D.rating            = 4 -- seemingly not there
         , D.subGenre          = Nothing
-        , D.songId            = Just $ Left $ fromIntegral dta.songId
+        , D.songId            = Just $ Left $ from dta.songId
         , D.solo              = Nothing
         , D.tuningOffsetCents = case lookup "global_tuning_offset" songMeta of
           Just (FloatValue cents) -> Just cents
@@ -989,7 +990,7 @@ importRB4 fdta level = do
         , D.gameOrigin        = Just $ decodeBS dta.gameOrigin
         , D.encoding          = Just "utf8"
         , D.albumName         = Just $ decodeBS dta.albumName -- can this be blank?
-        , D.albumTrackNumber  = Just $ fromIntegral dta.albumTrackNumber
+        , D.albumTrackNumber  = Just $ from dta.albumTrackNumber
         , D.vocalTonicNote    = case lookup "vocal_tonic_note" songMeta of
           Just (LongValue n) | 0 <= n && n <= 11 -> Just $ toEnum $ fromIntegral n
           -- note, RBN rereleases have vocal_tonic_note -1
@@ -1001,7 +1002,7 @@ importRB4 fdta level = do
         , D.fake              = Just dta.fake
         , D.ugc               = Nothing
         , D.shortVersion      = Nothing
-        , D.yearRecorded      = guard (dta.originalYear /= dta.albumYear) >> Just (fromIntegral dta.originalYear)
+        , D.yearRecorded      = guard (dta.originalYear /= dta.albumYear) >> Just (from dta.originalYear)
         , D.packName          = Nothing
         , D.songKey           = Nothing
         , D.extraAuthoring    = Nothing

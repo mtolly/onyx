@@ -113,6 +113,7 @@ import qualified Sound.MIDI.Util                       as U
 import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
+import           Witch                                 (from)
 
 -- Turns a mogg plan into one that explicitly pulls channels out of the mogg file.
 -- Channels which are referenced by not exactly 1 instrument will go to the backing track.
@@ -915,11 +916,11 @@ rbRules buildInfo dir rb3 mrb2 = do
                     , D.subGenre = Just $ "subgenre_" <> thisFullGenre.rbn1Subgenre
                     , D.songId = Just case rb2.songID of
                       SongIDSymbol s   -> Right s -- could override on PS3 but shouldn't happen
-                      SongIDInt i      -> Left $ fromIntegral i
+                      SongIDInt i      -> Left $ from i
                       SongIDAutoSymbol -> if isPS3
-                        then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
+                        then Left $ from $ hashRB3 songYaml rb3 -- PS3 needs real number ID
                         else Right pkg
-                      SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
+                      SongIDAutoInt    -> Left $ from $ hashRB3 songYaml rb3
                     , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                     , D.context = Just 2000
                     , D.gameOrigin = Just "rb2"
@@ -1079,7 +1080,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
       pvFile :: [(Double, Double)] -> T.Text -> Magma.AudioFile
       pvFile pvs f = Magma.AudioFile
         { Magma.audioEnabled = True
-        , Magma.channels = fromIntegral $ length pvs
+        , Magma.channels = from $ length pvs
         , Magma.pan = map (realToFrac . fst) pvs
         , Magma.vol = map (realToFrac . snd) pvs
         , Magma.audioFile = f
@@ -1106,7 +1107,7 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.artistName = T.strip $ T.take 74 $ fixString artistName
         , Magma.genre = thisFullGenre.rbn2Genre
         , Magma.subGenre = "subgenre_" <> thisFullGenre.rbn2Subgenre
-        , Magma.yearReleased = fromIntegral $ max 1960 $ getYear metadata
+        , Magma.yearReleased = from $ max 1960 $ getYear metadata
         -- "album_name: This field must be less than 75 characters."
         , Magma.albumName = T.strip $ T.take 74 $ fixString albumName
         -- "author: This field must be less than 75 characters."
@@ -1114,11 +1115,11 @@ makeMagmaProj songYaml rb3 plan (DifficultyRB3{..}, voxCount) pkg mid thisTitle 
         , Magma.releaseLabel = "Custom Songs"
         , Magma.country = "ugc_country_us"
         , Magma.price = 160
-        , Magma.trackNumber = fromIntegral $ getTrackNumber metadata
+        , Magma.trackNumber = from $ getTrackNumber metadata
         , Magma.hasAlbum = True
         }
       , Magma.gamedata = Magma.Gamedata
-        { Magma.previewStartMs = fromIntegral pstart'
+        { Magma.previewStartMs = from pstart'
         , Magma.rankDrum    = max 1 rb3DrumsTier
         , Magma.rankBass    = max 1 rb3BassTier
         , Magma.rankGuitar  = max 1 rb3GuitarTier
@@ -1259,15 +1260,15 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.master = not metadata.cover
     , D.songId = Just case rb3.songID of
       SongIDSymbol s   -> Right s
-      SongIDInt i      -> Left $ fromIntegral i
+      SongIDInt i      -> Left $ from i
       SongIDAutoSymbol -> if isPS3
-        then Left $ fromIntegral $ hashRB3 songYaml rb3 -- PS3 needs real number ID
+        then Left $ from $ hashRB3 songYaml rb3 -- PS3 needs real number ID
         else Right filename
-      SongIDAutoInt    -> Left $ fromIntegral $ hashRB3 songYaml rb3
+      SongIDAutoInt    -> Left $ from $ hashRB3 songYaml rb3
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
-      , D.tracks = D.DictList $ map (second $ map fromIntegral) $ filter (not . null . snd) case plan of
+      , D.tracks = D.DictList $ map (second $ map from) $ filter (not . null . snd) case plan of
         MoggPlan x -> let
           getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart x.parts
           -- * the below trick does not work. RB3 freezes if a part doesn't have any channels.
@@ -1316,7 +1317,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
         chans = case plan of
           MoggPlan     x -> x.crowd
           StandardPlan _ -> take (length crowdChannels) [(length partChannels + length songChannels) ..]
-        in guard (not $ null chans) >> Just (map fromIntegral chans)
+        in guard (not $ null chans) >> Just (map from chans)
       , D.hopoThreshold = Just thresh
       , D.muteVolume = Nothing
       , D.muteVolumeVocals = Nothing
@@ -1337,8 +1338,8 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.animTempo = songYaml.global.animTempo
     , D.bandFailCue = Nothing
     , D.songScrollSpeed = 2300
-    , D.preview = (fromIntegral pstart, fromIntegral pend)
-    , D.songLength = Just $ fromIntegral len
+    , D.preview = (from pstart, from pend)
+    , D.songLength = Just $ from len
     , D.rank = HM.fromList
       [ ("drum"       , rb3DrumsRank    )
       , ("bass"       , rb3BassRank     )
@@ -1365,7 +1366,7 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.fake = Nothing
     , D.gameOrigin = Just if rb3.harmonix then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
-    , D.rating = case (isPS3, fromIntegral $ fromEnum metadata.rating + 1) of
+    , D.rating = case (isPS3, from $ fromEnum metadata.rating + 1) of
       (True, 4) -> 2 -- Unrated (on RB2 at least) causes it to be locked in game on PS3
       (_   , x) -> x
     , D.genre = Just thisFullGenre.rbn2Genre
@@ -1373,22 +1374,22 @@ makeRB3DTA songYaml plan rb3 isPS3 (DifficultyRB3{..}, vocalCount) midi filename
     , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart rb3.vocal songYaml >>= (.vocal) >>= (.gender)
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
-    , D.yearReleased = Just $ fromIntegral $ getYear metadata
+    , D.yearReleased = Just $ from $ getYear metadata
     , D.yearRecorded = Nothing
     -- confirmed: you can have (album_art 1) with no album_name/album_track_number
     , D.albumArt = Just $ isJust metadata.fileAlbumArt
     -- haven't tested behavior if you have album_name but no album_track_number
     , D.albumName = albumName
-    , D.albumTrackNumber = fromIntegral <$> metadata.trackNumber
+    , D.albumTrackNumber = from <$> metadata.trackNumber
     , D.packName = Nothing
     , D.vocalTonicNote = (.songKey     ) <$> metadata.key
     , D.songTonality   = (.songTonality) <$> metadata.key
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ getTuningCents plan
     , D.realGuitarTuning = (getPart rb3.guitar songYaml >>= (.proGuitar)) <&> \pg ->
-      map fromIntegral $ encodeTuningOffsets pg.tuning TypeGuitar
+      map from $ encodeTuningOffsets pg.tuning TypeGuitar
     , D.realBassTuning = (getPart rb3.bass songYaml >>= (.proGuitar)) <&> \pg ->
-      map fromIntegral $ encodeTuningOffsets pg.tuning TypeBass
+      map from $ encodeTuningOffsets pg.tuning TypeBass
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just case rb3.encoding of
       Latin1 -> "latin1"
@@ -1462,7 +1463,7 @@ makeC3 songYaml plan rb3 midi pkg (pstart, _) = do
     , C3.soloBass = F.hasSolo Bass midi
     , C3.soloKeys = F.hasSolo Keys midi
     , C3.soloVocals = F.hasSolo Vocal midi
-    , C3.songPreview = Just $ fromIntegral pstart
+    , C3.songPreview = Just $ from pstart
     , C3.checkTempoMap = True
     , C3.wiiMode = False
     , C3.doDrumMixEvents = True -- is this a good idea?

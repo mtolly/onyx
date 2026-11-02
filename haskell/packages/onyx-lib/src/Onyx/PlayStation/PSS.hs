@@ -23,6 +23,7 @@ import           Data.Word            (Word16, Word32, Word8)
 import           Numeric
 import           Onyx.Util.Binary     (runGetM)
 import           System.IO
+import           Witch                (from)
 
 data Packet a
   = PackStart PackHeader
@@ -74,7 +75,7 @@ readPackHeader h = do
         ,      b12 `testBit` 1
         ,      b12 `testBit` 0
         ]
-      pack_stuffing_length = fromIntegral $ b13 .&. 0x03
+      pack_stuffing_length = from $ b13 .&. 0x03
       in if not $ and expectedBits
         then return $ Left "Unexpected control bit in pack header"
         else do
@@ -143,7 +144,7 @@ readPESExtension h = do
   three <- B.hGet h 3
   case B.unpack three of
     [b6, b7, b8] -> do
-      header <- B.hGet h $ fromIntegral b8
+      header <- B.hGet h $ from b8
       (timestamps, header') <- case (b7 `testBit` 7, b7 `testBit` 6) of
         (False, False) -> return (TimeNone, header)
         (False, True ) -> return (TimeForbidden, header)
@@ -169,7 +170,7 @@ readPESExtension h = do
         , pesCRC                 = b7 `testBit` 1
         , pesExtension           = b7 `testBit` 0
         , headerData             = header'
-        , totalExtensionLength   = 3 + fromIntegral b8
+        , totalExtensionLength   = 3 + from b8
         }
     _ -> return $ Left "Not enough bytes for PES extension"
 
@@ -178,7 +179,7 @@ extractVideoStream videoID pkts h = do
   let matchPackets = [(pos, len) | (_, Packet pktID (pos, len)) <- pkts, videoID == pktID]
   fmap BL.concat $ forM matchPackets \(pos, len) -> do
     -- Packet starts with extension described at http://dvd.sourceforge.net/dvdinfo/pes-hdr.html
-    hSeek h AbsoluteSeek $ fromIntegral pos
+    hSeek h AbsoluteSeek $ from pos
     readPESExtension h >>= \case
       Left  err -> fail err
       Right ext -> BL.hGet h $ len - ext.totalExtensionLength
@@ -188,7 +189,7 @@ extractVGSStream vgsID pkts h = do
   let matchPackets = [(pos, len) | (_, Packet pktID (pos, len)) <- pkts, vgsID == pktID]
   fmap BL.concat $ forM matchPackets \(pos, len) -> do
     -- Packet starts with PES extension and then some extra private audio stuff
-    hSeek h AbsoluteSeek $ fromIntegral pos
+    hSeek h AbsoluteSeek $ from pos
     readPESExtension h >>= \case
       Left  err -> fail err
       Right ext -> do

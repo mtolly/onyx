@@ -30,6 +30,7 @@ import qualified Data.ByteString.Lazy                    as BL
 import           Data.Maybe                              (catMaybes)
 import           Onyx.Codec.Binary
 import           Onyx.Harmonix.RockBand.Milo.Compression (magicBarrier)
+import           Witch                                   (from)
 
 #if MIN_VERSION_base(4,18,0)
 import           Control.Applicative                     ((<|>))
@@ -205,7 +206,7 @@ parseDataArray = do
   size <- getWord16be
   line <- getWord16be
   deprecated <- getWord16be
-  nodes <- replicateM (fromIntegral size) do
+  nodes <- replicateM (from size) do
     t <- getWord32be
     val <- if
       | elem t [0, 6, 8, 9]        -> MDInt <$> getWord32be
@@ -214,11 +215,11 @@ parseDataArray = do
       | elem t [16, 17, 19]        -> MDArray <$> parseDataArray
       | t == 18                    -> do
         v <- getWord32be
-        MDBlob v <$> getLazyByteString (fromIntegral v)
+        MDBlob v <$> getLazyByteString (from v)
       | t == 20                    -> do
         v <- getWord32be
         MDBlob v <$> getLazyByteString
-          (fromIntegral $ negate (fromIntegral v :: Int32))
+          (from $ negate (fromIntegral v :: Int32))
       | otherwise -> fail $ "Unsupported DataArray node type " <> show t
     return (t, val)
   return MiloDataArray{..}
@@ -343,7 +344,7 @@ parseObjectDir = do
   typeProps <- getMaybe (propsFlag /= 0) parseDataArray
   let objectRev = maybe 0 fst $ objectType <|> objectTypePost
   reserved <- if objectRev /= 0
-    then Just <$> (getWord32be >>= getLazyByteString . fromIntegral)
+    then Just <$> (getWord32be >>= getLazyByteString . from)
     else return Nothing
   return ObjectDirInfo{..}
 

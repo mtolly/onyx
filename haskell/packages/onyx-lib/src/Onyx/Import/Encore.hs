@@ -40,6 +40,7 @@ import qualified Sound.MIDI.Util                  as U
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeExtension, (<.>), (</>))
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 -- TODO maybe import lead to PartKeys if sig/icon_guitar == Keyboard
 
@@ -217,7 +218,7 @@ encorePartData diffs mid = let
   getTier options = listToMaybe do
     o <- options
     case HM.lookup o diffs of
-      Just d | d >= 0 -> [Tier $ fromIntegral d + 1] -- 0..6 -> 1..7
+      Just d | d >= 0 -> [Tier $ from d + 1] -- 0..6 -> 1..7
       _               -> []
 
   in Parts $ HM.fromList

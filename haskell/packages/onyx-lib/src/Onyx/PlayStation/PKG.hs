@@ -67,6 +67,7 @@ import           System.FilePath          ((<.>), (</>))
 import           System.IO                (Handle, IOMode (..), SeekMode (..),
                                            hFileSize, hSeek, withBinaryFile)
 import           System.IO.Temp           (withSystemTempDirectory)
+import           Witch                    (from)
 
 nullPadded :: Int -> BinaryCodec B.ByteString
 nullPadded n = dimap
@@ -270,7 +271,7 @@ loadFinalizedPKGFolder r h header = do
   decoder <- maybe (fail "Couldn't decode PKG contents") return $ cryptFinalizedPKG header
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
-          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + header.pkgDataOffset
+          hSeek aHandle AbsoluteSeek $ from $ posn + header.pkgDataOffset
           enc <- B.hGet aHandle len
           return $ BL.fromStrict $ decoder hexes enc
         _ -> fail "Expected a read position divisible by 0x10"
@@ -278,11 +279,11 @@ loadFinalizedPKGFolder r h header = do
     >>= runGetM (replicateM (fromIntegral header.pkgItemCount) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
-    name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
+    name <- BL.toStrict <$> decryptPart h (from recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) do
           bs <- useHandle r \h' -> do
-            decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
+            decryptPart h' (from recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
@@ -290,7 +291,7 @@ loadNonFinalizedPKGFolder :: Readable -> Handle -> PKGHeader -> IO (Folder B.Byt
 loadNonFinalizedPKGFolder r h header = do
   let decryptPart aHandle posn len = case quotRem posn 0x10 of
         (hexes, 0) -> do
-          hSeek aHandle AbsoluteSeek $ fromIntegral $ posn + header.pkgDataOffset
+          hSeek aHandle AbsoluteSeek $ from $ posn + header.pkgDataOffset
           enc <- BL.hGet aHandle len
           return $ cryptNonFinalizedPKG False hexes header enc
         _ -> fail "Expected a read position divisible by 0x10"
@@ -298,11 +299,11 @@ loadNonFinalizedPKGFolder r h header = do
     >>= runGetM (replicateM (fromIntegral header.pkgItemCount) $ codecIn bin)
   let notFolder = \(_, (flags, _)) -> flags .&. 0x4 == 0
   fmap (fmap snd . fromFiles . filter notFolder) $ forM recs \PKGItemRecord{..} -> do
-    name <- BL.toStrict <$> decryptPart h (fromIntegral recFilenameOffset) (fromIntegral recFilenameSize)
+    name <- BL.toStrict <$> decryptPart h (from recFilenameOffset) (fromIntegral recFilenameSize)
     nameParts <- readPKGName name
     let readable = makeHandle (B8.unpack name) do
           bs <- useHandle r \h' -> do
-            decryptPart h' (fromIntegral recDataOffset) (fromIntegral recDataSize)
+            decryptPart h' (from recDataOffset) (fromIntegral recDataSize)
           byteStringSimpleHandle bs
     return (nameParts, (recFlags, readable))
 
@@ -506,7 +507,7 @@ makePKGBank = go "" [] where
   go bank entries ((new, x) : rest) = let
     padding = case B.length new `rem` 0x10 of
       0 -> BL.empty
-      n -> BL.replicate (0x10 - fromIntegral n) 0
+      n -> BL.replicate (0x10 - from n) 0
     bank' = bank <> BL.fromStrict new <> padding
     entry = (x, BL.length bank, B.length new)
     in go bank' (entry : entries) rest

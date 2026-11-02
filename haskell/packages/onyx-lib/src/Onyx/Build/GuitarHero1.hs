@@ -56,6 +56,7 @@ import           Onyx.Reductions                      (FretLimit (..),
                                                        loadFretLimit)
 import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                      as U
+import           Witch                                (from)
 
 gh1Pad
   :: (SendMessage m)
@@ -257,7 +258,7 @@ makeGH1DTA song key preview audio gh1 = D.SongPackage
   , D.song = D.Song
     { D.songName = "songs/" <> key <> "/" <> key
     , D.tracks = 1
-    , D.slip_tracks = [map fromIntegral audio.gh1LeadChannels]
+    , D.slip_tracks = [map from audio.gh1LeadChannels]
     -- note, we don't actually use GH2PartMono
     , D.pans = audio.gh1AudioSections >>= \case
       GH2PartStereo _ -> [-1, 1]
@@ -281,7 +282,7 @@ makeGH1DTA song key preview audio gh1 = D.SongPackage
   , D.bank = "sfx/song_default"
   , D.bpm = 120 -- does this do anything?
   , D.animTempo = KTempoMedium
-  , D.preview = bimap fromIntegral fromIntegral preview
+  , D.preview = bimap from from preview
   , D.midiFile = "songs/" <> key <> "/" <> key <> ".mid"
   , D.quickplay = evalRand D.randomQuickplay $ mkStdGen $ hash key
   }

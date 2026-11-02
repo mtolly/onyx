@@ -46,6 +46,7 @@ import           Optics                            (set, (.~))
 import qualified System.Directory                  as Dir
 import           System.FilePath
 import           Text.Read                         (readMaybe)
+import           Witch                             (from)
 
 importMagma :: (SendMessage m, MonadIO m) => FilePath -> Import m
 importMagma fin level = do
@@ -281,7 +282,7 @@ importMagma fin level = do
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= (.proGuitarDiff)
           Just ModeProGuitar
-            { difficulty = Just $ Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
+            { difficulty = Just $ Tier $ rankToTier proGuitarDiffMap $ from diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
               { gtrBase = Guitar6
@@ -308,7 +309,7 @@ importMagma fin level = do
         , proGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= (.proBassDiff)
           Just ModeProGuitar
-            { difficulty = Just $ Tier $ rankToTier proBassDiffMap $ fromIntegral diff
+            { difficulty = Just $ Tier $ rankToTier proBassDiffMap $ from diff
             , hopoThreshold = hopoThresh
             , tuning = GtrTuning
               { gtrBase = bassBase

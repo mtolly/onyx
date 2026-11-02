@@ -76,6 +76,7 @@ import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((<.>), (</>))
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 importNeversoftGH :: (SendMessage m, MonadIO m) => FilePath -> Folder T.Text Readable -> StackTraceT m [Import m]
 importNeversoftGH src folder = let
@@ -143,7 +144,7 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                     (name, trk) <- songPakContents.qbNotes
                     let midiTrack = fmap makeEdge'
                           $ blipEdgesRBNice
-                          $ fmap (\(pitch, vel) -> (fromIntegral vel, (0, fromIntegral pitch), Nothing))
+                          $ fmap (\(pitch, vel) -> (from vel, (0, from pitch), Nothing))
                           $ U.unapplyTempoTrack midiFixed.tempos trk
                     return (TE.decodeLatin1 name, midiTrack)
                   msToBeats :: Word32 -> U.Beats
@@ -156,8 +157,8 @@ importGH5WoRSongStructs isDisc src folder qbSections = do
                       let cameraTrack = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort do
                             c <- cams
                             guard $ c.camAngle <= 0x7F
-                            let on = (msToBeats c.camTime, makeEdge' $ EdgeOn 96 (0, fromIntegral c.camAngle))
-                                off = (msToBeats $ c.camTime + fromIntegral c.camLength, makeEdge' $ EdgeOff (0, fromIntegral c.camAngle))
+                            let on = (msToBeats c.camTime, makeEdge' $ EdgeOn 96 (0, from c.camAngle))
+                                off = (msToBeats $ c.camTime + from c.camLength, makeEdge' $ EdgeOff (0, from c.camAngle))
                             [on, off]
                       return (k, cameraTrack)
               return (midiFixed, extraTracksQB <> extraTracksPerf)
@@ -559,7 +560,7 @@ importGH4Song ghi level = do
                 $ makeHandle str $ byteStringSimpleHandle $ neoStreamToVGS pair
               , commands = []
               , rate = Nothing
-              , channels = fromIntegral ns.channels
+              , channels = from ns.channels
               })
           plan = StandardPlan StandardPlanInfo
             { song = adjustedInputNS <$> streamSong

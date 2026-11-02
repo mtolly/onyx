@@ -39,6 +39,7 @@ import           Onyx.Util.Binary         (runGetM)
 import           Onyx.Util.Handle
 import           Onyx.Xbox.STFS           (bytesToInteger)
 import           System.IO
+import           Witch                    (from)
 
 data Header = Header
   { magic              :: B.ByteString
@@ -168,7 +169,7 @@ readPKG h = do
   hSeek h AbsoluteSeek 0xFE0
   headerDigest    <- B.hGet h 32
   headerSignature <- B.hGet h 256
-  hSeek h AbsoluteSeek $ fromIntegral header.entry_table_offset
+  hSeek h AbsoluteSeek $ from header.entry_table_offset
   metasBytes      <- BL.hGet h $ 0x20 * fromIntegral header.entry_count
   metasEmpty      <- flip runGetM metasBytes $ replicateM (fromIntegral header.entry_count) do
     id_ <- getWord32be
@@ -181,12 +182,12 @@ readPKG h = do
     return MetaEntry { entryContents = Nothing, .. }
   metas <- forM metasEmpty \meta -> let
     readStrict f = do
-      hSeek h AbsoluteSeek $ fromIntegral meta.dataOffset
+      hSeek h AbsoluteSeek $ from meta.dataOffset
       bs <- B.hGet h $ fromIntegral meta.dataSize
       return meta { entryContents = Just $ f bs }
     in case meta.id_ of
       0x10 -> do -- ENTRY_KEYS
-        hSeek h AbsoluteSeek $ fromIntegral meta.dataOffset
+        hSeek h AbsoluteSeek $ from meta.dataOffset
         seedDigest <- B.hGet h 32
         digests <- replicateM 7 $ B.hGet h 32
         keyBytes <- replicateM 7 $ B.hGet h 256
@@ -402,7 +403,7 @@ data PfsDecrypt
 readPfs :: Readable -> PKG -> IO Pfs
 readPfs orig pkg = do
 
-  let offset = subHandle (<> " | pfs image") (fromIntegral pkg.header0x400.pfs_image_offset) Nothing orig
+  let offset = subHandle (<> " | pfs image") (from pkg.header0x400.pfs_image_offset) Nothing orig
 
   (header, reader, flagSigned) <- useHandle offset \h -> do
     header <- BL.hGet h 0x400 >>= runGetM readPfsHeader
@@ -415,16 +416,16 @@ readPfs orig pkg = do
             xtsStartSector = quot header.blockSize xtsSectorSize
         ekpfs <- getEkpfs pkg
         let (tweakKey, dataKey) = pfsGenEncKey ekpfs header.seed newCrypt
-        return $ xtsReadable (dataKey, tweakKey) (fromIntegral xtsStartSector) (fromIntegral xtsSectorSize) offset
+        return $ xtsReadable (dataKey, tweakKey) (from xtsStartSector) (from xtsSectorSize) offset
       else return offset
     return (header, reader, flagSigned)
 
   useHandle reader \h -> do
     let readDinodes dinodeReader dinodeSize = do
           let maxPerSector = toInteger $ quot header.blockSize dinodeSize
-          fmap concat $ forM [0 .. fromIntegral header.dinodeBlockCount - 1] \i -> do
+          fmap concat $ forM [0 .. from header.dinodeBlockCount - 1] \i -> do
             let dinodesInThisBlock = max maxPerSector $ toInteger header.dinodeCount - i * toInteger maxPerSector
-            hSeek h AbsoluteSeek $ fromIntegral $ toInteger header.blockSize * (1 + i)
+            hSeek h AbsoluteSeek $ from $ toInteger header.blockSize * (1 + i)
             bs <- BL.hGet h $ fromIntegral header.blockSize
             runGetM (replicateM (fromIntegral dinodesInThisBlock) dinodeReader) bs
     dinodes <- if flagSigned
@@ -513,7 +514,7 @@ xtsReadable (dataKey, tweakKey) xtsStartSector xtsSectorSize r = makeHandle "XTS
                 putWord64le $ fromIntegral n
                 putWord64le 0
           iv <- maybe (fail "Couldn't make IV for XTS") return $ makeIV ivBytes
-          hSeek h AbsoluteSeek $ fromIntegral $ n * xtsSectorSize
+          hSeek h AbsoluteSeek $ from $ n * xtsSectorSize
           bs <- B.hGet h $ fromIntegral xtsSectorSize
           let sector = if n < xtsStartSector
                 then bs

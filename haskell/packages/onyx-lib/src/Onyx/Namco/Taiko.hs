@@ -56,6 +56,7 @@ import           Data.Word
 import           Onyx.Util.Binary        (splitEvery)
 import           Onyx.Util.Handle
 import           Onyx.Util.Text.Decode   (decodeGeneral)
+import           Witch                   (from)
 
 -- * Obfuscation
 
@@ -108,18 +109,18 @@ readListBin bs = do
       -- newer revisions put "YYYY-MM-DD-HH-MM" after the counts
       dated = BL.all (\c -> 0x30 <= c && c <= 0x39) $ BL.take 4 $ BL.drop 8 bs
       (groupStart, groupSize) = if dated then (0x20, 32) else (8, 28) :: (Int64, Int64)
-      fileStart = groupStart + groupSize * fromIntegral numGroups
-      strStart  = fileStart + 16 * fromIntegral numFiles
+      fileStart = groupStart + groupSize * from numGroups
+      strStart  = fileStart + 16 * from numFiles
       getStr off = BL.toStrict $ BL.takeWhile (/= 0)
         $ BL.drop (strStart + fromIntegral off) bs
   unless (strStart <= BL.length bs) $ fail "LIST.BIN tables extend past end of file"
   forM [0 .. numGroups - 1] \i -> do
-    let base = groupStart + groupSize * fromIntegral i
+    let base = groupStart + groupSize * from i
         field j = getW32 $ base + 4 * j
         count     = fromIntegral $ field 1 :: Int
         firstFile = fromIntegral $ field 2 :: Int
     files <- forM [firstFile .. firstFile + count - 1] \j -> do
-      let fbase = fileStart + 16 * fromIntegral j
+      let fbase = fileStart + 16 * from j
           ffield k = getW32 $ fbase + 4 * k
       return ListFile
         { name   = getStr $ ffield 0
@@ -139,7 +140,7 @@ readListBin bs = do
 loadGroup :: Readable -> ListGroup -> IO BL.ByteString
 loadGroup dat grp = do
   raw <- useHandle
-    (subHandle id (fromIntegral grp.sector * 0x800) (Just $ fromIntegral grp.sizeIn) dat)
+    (subHandle id (from grp.sector * 0x800) (Just $ from grp.sizeIn) dat)
     handleToByteString
   let plain = descrambleData raw
   return $ if grp.groupType == 2 then Z.decompress plain else plain
@@ -155,8 +156,8 @@ listBinFolder list dat = do
           ( f.name
           , makeHandle (B8.unpack grp.name <> "/" <> B8.unpack f.name) do
             blob <- getBlob
-            byteStringSimpleHandle $ BL.take (fromIntegral f.size)
-              $ BL.drop (fromIntegral f.offset) blob
+            byteStringSimpleHandle $ BL.take (from f.size)
+              $ BL.drop (from f.offset) blob
           )
     return (grp.name, Folder { folderSubfolders = [], folderFiles = files })
   return Folder { folderSubfolders = subs, folderFiles = [] }
@@ -179,13 +180,13 @@ readImageTable bs = do
   let getW32 :: Int64 -> Word32
       getW32 off = runGet getWord32le $ BL.drop off bs
       count = fromIntegral $ getW32 4 :: Int
-      start = fromIntegral $ getW32 8 :: Int64
+      start = from $ getW32 8 :: Int64
       getStr off = BL.toStrict $ BL.takeWhile (/= 0) $ BL.drop (fromIntegral off) bs
-  unless (start + 12 * fromIntegral count <= BL.length bs)
+  unless (start + 12 * from count <= BL.length bs)
     $ fail "IMAGE00.TBL entry table extends past end of file"
   return do
     i <- [0 .. count - 1]
-    let base = start + 12 * fromIntegral i
+    let base = start + 12 * from i
         name = getStr $ getW32 base
     guard $ not $ B.null name
     return ImageEntry
@@ -200,7 +201,7 @@ imageFolder tbl dat = do
   entries <- useHandle tbl handleToByteString >>= readImageTable
   return $ fromFiles $ entries <&> \e ->
     ( fromMaybe (pure e.name) $ NE.nonEmpty $ B8.split '/' e.name
-    , subHandle id (fromIntegral e.offset) (Just $ fromIntegral e.size) dat
+    , subHandle id (from e.offset) (Just $ from e.size) dat
     )
 
 -- * Notes
@@ -299,13 +300,13 @@ readFumen bs = do
       getI32 off = fromIntegral (getW32 off) :: Int32
       getF32 off = runGet getFloatle $ BL.drop off bs
       numMeasures = fromIntegral $ getW32 0 :: Int
-      noteStart   = fromIntegral $ getW32 4 :: Int64
+      noteStart   = from $ getW32 4 :: Int64
       numNotes    = fromIntegral $ getW32 8 :: Int
   unless (numMeasures > 0) $ fail "fumen has no measures"
-  unless (noteStart + 16 * fromIntegral numNotes <= BL.length bs)
+  unless (noteStart + 16 * from numNotes <= BL.length bs)
     $ fail "fumen note table extends past end of file"
-  let stride = (noteStart - 16) `div` fromIntegral numMeasures
-  unless (stride > 72 && (noteStart - 16) `mod` fromIntegral numMeasures == 0)
+  let stride = (noteStart - 16) `div` from numMeasures
+  unless (stride > 72 && (noteStart - 16) `mod` from numMeasures == 0)
     $ fail "unrecognized fumen measure size"
   let base i = 16 + stride * fromIntegral i
       -- a float tempo read as an integer is enormous (or negative)
@@ -425,14 +426,14 @@ sheetMeasure branch rec' = TaikoMeasure
   { start = pos / 98.44 + sheetMeasureLength rec'
   , len   = sheetMeasureLength rec'
   , notes = sheetNotes rec' branch
-  } where pos = fromIntegral (runGet getWord16le $ BL.drop 8 rec') :: Double
+  } where pos = from (runGet getWord16le $ BL.drop 8 rec') :: Double
 
 sheetMeasureLength :: BL.ByteString -> Double
-sheetMeasureLength rec' = fromIntegral (BL.index rec' 11) / 60
+sheetMeasureLength rec' = from (BL.index rec' 11) / 60
 
 sheetNotes :: BL.ByteString -> TaikoBranch -> [SheetNote]
 sheetNotes rec' branch = do
-  let slots = BL.unpack $ BL.take 48 $ BL.drop (0x24 + 48 * fromIntegral (fromEnum branch)) rec'
+  let slots = BL.unpack $ BL.take 48 $ BL.drop (0x24 + 48 * from (fromEnum branch)) rec'
   (j, v) <- zip [0 ..] slots
   -- rolls are a run of identical bytes rather than a length; they are
   -- emitted here as one note per slot and merged by the caller
@@ -480,18 +481,18 @@ readMusicInfo bs = do
       getI32 off = fromIntegral (getW32 off) :: Int32
       count = fromIntegral $ getW32 0 :: Int
   -- header is N counts then N+1 offsets, so first offset is 4*(2N+1)
-  numCounts <- case [ n | n <- [2, 4, 6, 8 :: Int], getW32 (4 * fromIntegral n) == fromIntegral (4 * (2 * n + 1)) ] of
+  numCounts <- case [ n | n <- [2, 4, 6, 8 :: Int], getW32 (4 * from n) == fromIntegral (4 * (2 * n + 1)) ] of
     n : _ -> return n
     []    -> fail "unrecognized musicinfo.bin header"
-  let table = fromIntegral $ getW32 $ 4 * fromIntegral numCounts :: Int64
-      strs  = fromIntegral $ getW32 $ 4 * fromIntegral (2 * numCounts) :: Int64
-      stride = (fromIntegral (getW32 $ 4 * fromIntegral (numCounts + 1)) - table)
-        `div` fromIntegral count
+  let table = from $ getW32 $ 4 * from numCounts :: Int64
+      strs  = from $ getW32 $ 4 * from (2 * numCounts) :: Int64
+      stride = (from (getW32 $ 4 * from (numCounts + 1)) - table)
+        `div` from count
       getStr off = BL.toStrict $ BL.takeWhile (/= 0) $ BL.drop (strs + fromIntegral off) bs
   unless (count > 0 && stride > 8) $ fail "unrecognized musicinfo.bin song table"
   return do
     i <- [0 .. count - 1]
-    let base = table + stride * fromIntegral i
+    let base = table + stride * from i
         prev = getI32 $ base + 4 * 5
     return TaikoSongInfo
       { songID  = getStr $ getW32 base
@@ -499,7 +500,7 @@ readMusicInfo bs = do
       , genre   = fromIntegral $ getI32 $ base + 8
       , preview = do
         guard $ stride >= 24 && prev > 0
-        return $ fromIntegral prev / 1000
+        return $ from prev / 1000
       }
 
 -- * Song titles for @IMAGE00@ discs

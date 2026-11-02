@@ -20,6 +20,7 @@ import qualified Data.Text.Encoding       as TE
 import           Data.Text.Encoding.Error (lenientDecode)
 import           Data.Word
 import           Onyx.Util.Binary         (runGetM)
+import           Witch                    (from)
 
 data SFOEntry
   = SFO_UTF8_S Word32 T.Text -- Word32 is max allocated size
@@ -47,11 +48,11 @@ readSFO bs = do
       totalBytes <- getWord32le
       dataOffset <- getWord32le
       let key = toText $ BL.takeWhile (/= 0) keyBytes
-          keyBytes  = BL.drop (fromIntegral keysStart + fromIntegral keyOffset ) bs
-          dataBytes = BL.drop (fromIntegral dataStart + fromIntegral dataOffset) bs
+          keyBytes  = BL.drop (from keysStart + from keyOffset ) bs
+          dataBytes = BL.drop (from dataStart + from dataOffset) bs
       dat <- case dataFormat of
-        0x0400 -> return $ SFO_UTF8_S totalBytes $ toText $ BL.take (fromIntegral usedBytes) dataBytes
-        0x0402 -> return $ SFO_UTF8 totalBytes $ toText $ BL.takeWhile (/= 0) $ BL.take (fromIntegral usedBytes) dataBytes
+        0x0400 -> return $ SFO_UTF8_S totalBytes $ toText $ BL.take (from usedBytes) dataBytes
+        0x0402 -> return $ SFO_UTF8 totalBytes $ toText $ BL.takeWhile (/= 0) $ BL.take (from usedBytes) dataBytes
         0x0404 -> SFO_Word32 <$> runGetM getWord32le dataBytes
         _ -> fail $ "Unrecognized entry type in .SFO: " <> show dataFormat
       return (key, dat)

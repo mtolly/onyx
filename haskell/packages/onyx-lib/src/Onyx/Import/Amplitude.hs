@@ -59,13 +59,14 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  ((<.>), (</>))
 import           System.IO                        (SeekMode (..), hClose, hSeek)
+import           Witch                            (from)
 
 sampToVGS :: SAMPEntry -> Readable -> Readable
 sampToVGS samp nse = makeHandle "nse -> vgs" do
   unless (samp.sampChannels == 1) $ fail "Non-mono SAMP"
   h <- rOpen nse
 
-  hSeek h AbsoluteSeek $ fromIntegral samp.sampFilePosition
+  hSeek h AbsoluteSeek $ from samp.sampFilePosition
   -- TODO most (but not all) samp areas start with an all-zero row;
   -- should we skip that?
   let go !blocks = do
@@ -79,8 +80,8 @@ sampToVGS samp nse = makeHandle "nse -> vgs" do
     { version = 2
     , channels = [(fromIntegral samp.sampRate, blocks)]
     }
-  let startPosn = fromIntegral samp.sampFilePosition
-      dataLength = fromIntegral $ blocks * 16
+  let startPosn = from samp.sampFilePosition
+      dataLength = from $ blocks * 16
   sub <- subHandleInternal startPosn (Just dataLength) h hClose
 
   appendSimpleHandle header sub

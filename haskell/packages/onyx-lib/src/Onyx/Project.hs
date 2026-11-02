@@ -42,7 +42,7 @@ import           Data.Scientific                      (Scientific, toRealFloat)
 import           Data.String                          (IsString (..))
 import qualified Data.Text                            as T
 import qualified Data.Vector                          as V
-import           GHC.Generics                         (Generic (..))
+import           GHC.Generics                         (Generic)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Amplitude.PS2.MIDI              (AmpInstrument (..))
 import           Onyx.Audio                           hiding (fadeEnd,

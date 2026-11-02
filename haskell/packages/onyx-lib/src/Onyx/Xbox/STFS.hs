@@ -81,6 +81,7 @@ import           Onyx.Util.Binary          (runGetM)
 import           Onyx.Util.Handle
 import           System.FilePath           (takeDirectory, (</>))
 import           System.IO
+import           Witch                     (from)
 
 data Header
   = CON CONHeader
@@ -321,7 +322,7 @@ int24le = Codec
     a <- getWord8
     b <- getWord8
     c <- getWord8
-    return $ fromIntegral a + fromIntegral b * 0x100 + fromIntegral c * 0x10000
+    return $ from a + from b * 0x100 + from c * 0x10000
   , codecOut = fmapArg \w -> do
     putWord16le $ fromIntegral w
     putWord8 $ fromIntegral $ w `shiftR` 16
@@ -333,7 +334,7 @@ int24be = Codec
     a <- getWord8
     b <- getWord8
     c <- getWord8
-    return $ fromIntegral a * 0x10000 + fromIntegral b * 0x100 + fromIntegral c
+    return $ from a * 0x10000 + from b * 0x100 + from c
   , codecOut = fmapArg \w -> do
     putWord8 $ fromIntegral $ w `shiftR` 16
     putWord16be $ fromIntegral w
@@ -491,7 +492,7 @@ data FileEntry = FileEntry
 _readFatTime :: Word32 -> LocalTime
 _readFatTime ts = LocalTime
   { localDay = fromGregorian
-    (1980 + fromIntegral (ts `shiftR` 25)) -- year
+    (1980 + from (ts `shiftR` 25)) -- year
     (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
     (fromIntegral $ (ts `shiftR` 16) .&. 0x1F) -- day
   , localTimeOfDay = TimeOfDay
@@ -519,7 +520,7 @@ instance Bin FileEntry where
       { codecIn = do
         bytes <- getByteString 0x28
         len <- getWord8
-        let name = decodeLatin1 $ B.take (fromIntegral $ len .&. 0x3F) bytes
+        let name = decodeLatin1 $ B.take (from $ len .&. 0x3F) bytes
             cons = len `testBit` 6
             dir  = len `testBit` 7
         return (name, cons, dir)
@@ -565,7 +566,7 @@ newtype FileBlock = FileBlock Int32
 
 seekToRealBlock :: RealBlock -> STFSPackage -> IO ()
 seekToRealBlock (RealBlock blk) stfs = do
-  hSeek stfs.stfsHandle AbsoluteSeek $ 0xc000 + fromIntegral blk * 0x1000
+  hSeek stfs.stfsHandle AbsoluteSeek $ 0xc000 + from blk * 0x1000
 
 tableSizeShift :: Metadata -> TableSizeShift
 tableSizeShift meta
@@ -596,7 +597,7 @@ seekToBlockHash (FileBlock blk) tableOffset stfs = do
         , tableOffset - (1 `shiftL` tssNum)
         ]
   seekToRealBlock (RealBlock tablenum) stfs
-  hSeek stfs.stfsHandle RelativeSeek $ fromIntegral record * 0x18
+  hSeek stfs.stfsHandle RelativeSeek $ from record * 0x18
 
 fixBlockNumber :: FileBlock -> STFSPackage -> RealBlock
 fixBlockNumber (FileBlock blk) stfs = let
@@ -678,7 +679,7 @@ getFileHandle fe stfs readable = Readable
     posn <- newIORef 0
     -- TODO include the whole directory in the new label, not just fe_FileName
     openSimpleHandle (handleLabel h <> " | " <> T.unpack fe.fe_FileName) SimpleHandle
-      { shSize  = fromIntegral fe.fe_Size
+      { shSize  = from fe.fe_Size
       , shSeek  = writeIORef posn
       , shTell  = readIORef posn
       , shClose = hClose h
@@ -691,7 +692,7 @@ getFileHandle fe stfs readable = Readable
               else do
                 seekToFileBlock (FileBlock fblk) stfs'
                 blockData <- B.take bytesLeft . B.drop offset <$> readBlock 0x1000 stfs'
-                (blockData :) <$> readBlocks fblks 0 (bytesLeft - fromIntegral (B.length blockData))
+                (blockData :) <$> readBlocks fblks 0 (bytesLeft - from (B.length blockData))
         case quotRem p 0x1000 of
           (q, r) -> B.concat <$> readBlocks
             (VU.toList $ VU.drop (fromIntegral q) blks)
@@ -835,7 +836,7 @@ data KV = KV
 bytesToInteger :: B.ByteString -> Integer
 bytesToInteger bs = sum do
   (i, b) <- zip [0..] $ B.unpack $ B.reverse bs
-  return $ (0x100 ^ (i :: Int)) * fromIntegral b
+  return $ (0x100 ^ (i :: Int)) * from b
 
 bytesFromInteger :: Int -> Integer -> B.ByteString
 bytesFromInteger len n = if len <= 0
@@ -1315,7 +1316,7 @@ stfsFolder f = liftIO $ withBinaryFile f ReadMode \h -> do
     "LIVE" -> return 2
     magic  -> error $ "stfsFolder: unknown magic number " ++ show magic
   hSeek h AbsoluteSeek 0x360
-  [a, b, c, d] <- map fromIntegral . B.unpack <$> B.hGet h 4
+  [a, b, c, d] <- map from . B.unpack <$> B.hGet h 4
   let titleID = a * 0x1000000 + b * 0x10000 + c * 0x100 + d
   return (titleID, ftype)
 

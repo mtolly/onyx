@@ -37,6 +37,7 @@ import           Onyx.Neversoft.CRC
 import           Onyx.Util.Handle             (byteStringSimpleHandle,
                                                makeHandle)
 import           System.FilePath              (takeFileName)
+import           Witch                        (from)
 
 ghworKeys :: [B.ByteString]
 ghworKeys = map B.pack
@@ -312,7 +313,7 @@ ghworDecrypt bs = do
   cipher <- makeKey $ head ghworKeys
   let footer = ctrCombine cipher iv cipherFooter
       keyIndex = sum $ map (B.index footer) [4..7]
-  key <- makeKey $ ghworKeys !! fromIntegral keyIndex
+  key <- makeKey $ ghworKeys !! from keyIndex
   checkFSB $ BL.fromStrict $ ctrCombine key iv cipherData
 
 ghworEncrypt :: B.ByteString -> Maybe B.ByteString
@@ -324,7 +325,7 @@ ghworEncrypt bs = do
   cipher <- makeKey $ head ghworKeys
   let footer = ctrCombine cipher iv ghworCipher
       keyIndex = sum $ map (B.index footer) [4..7]
-  key <- makeKey $ ghworKeys !! fromIntegral keyIndex
+  key <- makeKey $ ghworKeys !! from keyIndex
   return $ ctrCombine key iv bs <> ghworCipher
 
 readFSBXMA :: (MonadResource m) => BL.ByteString -> IO (CA.AudioSource m Float)
@@ -344,7 +345,7 @@ readFSB dec = do
   case song.fsbExtra of
     Left _xma -> readFSBXMA dec
     Right _mp3 -> do
-      let numStreams = case quotRem (fromIntegral song.fsbSongChannels) 2 of
+      let numStreams = case quotRem (from song.fsbSongChannels) 2 of
             (x, y) -> x + y
       mp3s <- splitInterleavedMP3 numStreams $ head fsb.fsbSongData
       srcs <- forM mp3s \mp3 -> ffSource $ makeHandle "decoded FSB audio" $ byteStringSimpleHandle mp3
@@ -380,7 +381,7 @@ reverseMapping = B.pack $ [0 .. 0xFF] <&> \i -> foldr (.|.) 0
   ]
 
 revByte :: Word8 -> Word8
-revByte = B.index reverseMapping . fromIntegral
+revByte = B.index reverseMapping . from
 
 revBytes :: BL.ByteString -> BL.ByteString
 revBytes = BL.map revByte

@@ -24,6 +24,7 @@ import           Data.Word
 import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
 import           System.IO
+import           Witch                (from)
 
 data FileEntry = DirEntry Dir | FileEntry File
   deriving (Show)
@@ -63,21 +64,21 @@ loadGCM gcm = useHandle gcm \h -> do
   fst_size <- read_u32 0x428
 
   -- read_filesystem
-  num_file_entries <- read_u32 $ fromIntegral fst_offset + 8
+  num_file_entries <- read_u32 $ from fst_offset + 8
   let fnt_offset = fst_offset + num_file_entries * 0xC
   entries <- forM [0 .. num_file_entries - 1] \file_index -> do
     let file_entry_offset = fst_offset + file_index * 0xC
     -- FileEntry.read
-    is_dir_and_name_offset <- read_u32 $ fromIntegral file_entry_offset
-    file_data_offset_or_parent_fst_index <- read_u32 $ fromIntegral file_entry_offset + 4
-    file_size_or_next_fst_index <- read_u32 $ fromIntegral file_entry_offset + 8
+    is_dir_and_name_offset <- read_u32 $ from file_entry_offset
+    file_data_offset_or_parent_fst_index <- read_u32 $ from file_entry_offset + 4
+    file_size_or_next_fst_index <- read_u32 $ from file_entry_offset + 8
 
     let is_dir = (is_dir_and_name_offset .&. 0xFF000000) /= 0
         name_offset = is_dir_and_name_offset .&. 0x00FFFFFF
 
     name <- case file_index of
       0 -> return ""
-      _ -> read_str_until_null_character $ fromIntegral $ fnt_offset + name_offset
+      _ -> read_str_until_null_character $ from $ fnt_offset + name_offset
 
     return if is_dir
       then let
@@ -108,8 +109,8 @@ loadGCM gcm = useHandle gcm \h -> do
           FileEntry file -> let
             newFile = makeFile
               (NE.prependList (reverse $ map snd openDirs') $ pure file.name)
-              (fromIntegral file.file_data_offset)
-              (fromIntegral file.file_size)
+              (from file.file_data_offset)
+              (from file.file_size)
             in newFile : makeFiles openDirs' rest
       normalFiles = makeFiles [] entries
 
@@ -122,23 +123,23 @@ loadGCM gcm = useHandle gcm \h -> do
   apploader_size <- read_u32 $ 0x2440 + 0x14
   apploader_trailer_size <- read_u32 $ 0x2440 + 0x18
   let apploader_full_size = apploader_header_size + apploader_size + apploader_trailer_size
-      apploader_img = makeFile ("sys" :| ["apploader.img"]) 0x2440 (fromIntegral apploader_full_size)
+      apploader_img = makeFile ("sys" :| ["apploader.img"]) 0x2440 (from apploader_full_size)
 
   dol_offset <- read_u32 0x420
   dol_sizes_text <- forM [0..6] \i -> do -- Text sections
-    section_offset <- read_u32 $ fromIntegral dol_offset + 0x00 + i*4
-    section_size <- read_u32 $ fromIntegral dol_offset + 0x90 + i*4
+    section_offset <- read_u32 $ from dol_offset + 0x00 + i*4
+    section_size <- read_u32 $ from dol_offset + 0x90 + i*4
     let section_end_offset = section_offset + section_size
     return section_end_offset
   dol_sizes_data <- forM [0..10] \i -> do -- Data sections
-    section_offset <- read_u32 $ fromIntegral dol_offset + 0x1C + i*4
-    section_size <- read_u32 $ fromIntegral dol_offset + 0xAC + i*4
+    section_offset <- read_u32 $ from dol_offset + 0x1C + i*4
+    section_size <- read_u32 $ from dol_offset + 0xAC + i*4
     let section_end_offset = section_offset + section_size
     return section_end_offset
   let main_dol_size = foldr max 0 $ dol_sizes_text <> dol_sizes_data
-      main_dol = makeFile ("sys" :| ["main.dol"]) (fromIntegral dol_offset) (fromIntegral main_dol_size)
+      main_dol = makeFile ("sys" :| ["main.dol"]) (from dol_offset) (from main_dol_size)
 
-  let fst_bin = makeFile ("sys" :| ["fst.bin"]) (fromIntegral fst_offset) (fromIntegral fst_size)
+  let fst_bin = makeFile ("sys" :| ["fst.bin"]) (from fst_offset) (from fst_size)
 
   return $ fromFiles $
     [ boot_bin

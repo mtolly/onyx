@@ -24,6 +24,7 @@ import           Foreign
 import           Foreign.C
 import           Onyx.Util.Binary           (runGetM)
 import           System.IO.Unsafe           (unsafePerformIO)
+import           Witch                      (from)
 
 foreign import ccall unsafe "stb_compress_dxt_block"
   stb_compress_dxt_block :: Ptr CUChar -> Ptr CUChar -> CInt -> CInt -> IO ()
@@ -266,21 +267,21 @@ readRBImageMaybe isPS3 bs = let
     palette <- replicateM 256 readRGBA
     Image width height . V.fromList . concat <$> replicateM (width * height) do
       i <- getWord8
-      return $ palette !! fromIntegral (flip34 i)
+      return $ palette !! from (flip34 i)
   palette4bit width height = do
     palette <- replicateM 16 readRGBA
     Image width height . V.fromList . concat . concat <$> replicateM (quot (width * height) 2) do
       i <- getWord8
       let high = (i `shiftR` 4) .&. 0xF
           low  = i              .&. 0xF
-      return [palette !! fromIntegral low, palette !! fromIntegral high]
+      return [palette !! from low, palette !! from high]
   -- Amplitude (PS2)
   format0 = do
     bitsPerPixel  <- getWord8
     format        <- getWord8
     _mipmaps      <- getWord8 -- usually 0 but not in arenas/constructo/gen/tall_building01_05.bmp.gz
-    width         <- fromIntegral <$> getWord16le
-    height        <- fromIntegral <$> getWord16le
+    width         <- from <$> getWord16le
+    height        <- from <$> getWord16le
     _bytesPerLine <- getWord16le -- assuming this is like later format
     zeroes        <- getByteString 6
     guard $ B.all (== 0) zeroes
@@ -297,8 +298,8 @@ readRBImageMaybe isPS3 bs = let
     bitsPerPixel  <- getWord8
     format        <- getWord32le
     _mipmaps      <- getWord8
-    width         <- fromIntegral <$> getWord16le
-    height        <- fromIntegral <$> getWord16le
+    width         <- from <$> getWord16le
+    height        <- from <$> getWord16le
     _bytesPerLine <- getWord16le
     zeroes        <- getByteString 19
     guard $ B.all (== 0) zeroes

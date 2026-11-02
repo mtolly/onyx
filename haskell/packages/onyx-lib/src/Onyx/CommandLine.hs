@@ -195,6 +195,7 @@ import           System.FilePath                      (dropExtension,
 import qualified System.IO                            as IO
 import           Text.Printf                          (printf)
 import           Text.Read                            (readMaybe)
+import           Witch                                (from)
 
 #ifdef WINDOWS
 import           Data.Bits                            (testBit)
@@ -1595,7 +1596,7 @@ _oldCommands =
       [pathHdr, dir] -> do
         hdrOrig <- stackIO (B.readFile pathHdr) >>= PG.decryptE2 >>= PG.readHeader
         let origFolder = PG.getFolder hdrOrig.fh_Contents
-            newPKNum = fromIntegral $
+            newPKNum = from $
               maximum (map (.oe_PKNum) $ toList origFolder >>= toList . (.pkOffsetEntries)) + 1
         src <- (if elem OptCrypt opts then PG.encryptPKContents else id)
           <$> stackIO (crawlFolder dir)

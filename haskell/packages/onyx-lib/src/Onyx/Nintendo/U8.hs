@@ -29,6 +29,7 @@ import           Onyx.Util.Binary      (runGetM)
 import           Onyx.Util.Handle
 import           System.IO             (IOMode (..), SeekMode (..), hFileSize,
                                         hSeek, withBinaryFile)
+import           Witch                 (from)
 
 data U8Folder = U8Folder
   { u8FolderName    :: B8.ByteString
@@ -134,7 +135,7 @@ writeU8 out root = withBinaryFile out WriteMode \hout -> do
     putByteString $ B.replicate 16 0
   mapM_ (BL.hPut hout) nodes
   BL.hPut hout nameTable
-  hSeek hout AbsoluteSeek $ fromIntegral alignedDataOffset
+  hSeek hout AbsoluteSeek $ from alignedDataOffset
   mapM_ writeData datas
 
 packU8 :: FilePath -> FilePath -> IO ()
@@ -149,7 +150,7 @@ readU8 u8 = do
         isDir <- (/= 0) <$> getWord8
         nameHigh <- getWord8
         nameLow <- getWord16be
-        let name = fromIntegral nameHigh * 0x10000 + fromIntegral nameLow :: Word32
+        let name = from nameHigh * 0x10000 + from nameLow :: Word32
         dataOrLevel <- getWord32be
         sizeOrExtent <- getWord32be
         return (isDir, name, dataOrLevel, sizeOrExtent)

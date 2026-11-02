@@ -58,6 +58,7 @@ import           Onyx.Sections                    (simpleSection)
 import           Onyx.StackTrace                  (StackTraceT, inside)
 import           Onyx.Util.Binary                 (runGetM)
 import qualified Sound.MIDI.Util                  as U
+import           Witch                            (from)
 
 data NoteEntry = NoteEntry
   { entryIdentifier  :: QBKey
@@ -478,7 +479,7 @@ convertVocals toBeats vox lyrics phrases sp = let
   -- so the "re" gets a "+" and messes things up.
   -- probably we should just ignore the slide (remove "+")
   pluses = slideNotes <&> \vn ->
-    ( toBeats $ vn.vnTimeOffset + fromIntegral vn.vnDuration
+    ( toBeats $ vn.vnTimeOffset + from vn.vnDuration
     , "+"
     )
   -- Talkies have a special pitch of 26, so we add the # to those
@@ -492,7 +493,7 @@ convertVocals toBeats vox lyrics phrases sp = let
     notesInPhrase = filter (\vn -> start <= vn.vnTimeOffset && vn.vnTimeOffset < end) vox
     isStarPower = case notesInPhrase of
       [] -> False
-      vn : _ -> any (\(Single t len) -> t <= vn.vnTimeOffset && vn.vnTimeOffset < t + fromIntegral len) sp
+      vn : _ -> any (\(Single t len) -> t <= vn.vnTimeOffset && vn.vnTimeOffset < t + from len) sp
     in do
       guard $ not $ null notesInPhrase
       return (start, end, isStarPower)
@@ -507,12 +508,12 @@ convertVocals toBeats vox lyrics phrases sp = let
     , V.notes = fmap (\case EdgeOn () p -> (p, True); EdgeOff p -> (p, False))
       $ splitEdgesSimple $ fromPairs $ notSlides <&> \vn -> let
         pos = toBeats vn.vnTimeOffset
-        len = toBeats (vn.vnTimeOffset + fromIntegral vn.vnDuration) - pos
+        len = toBeats (vn.vnTimeOffset + from vn.vnDuration) - pos
         pitch
           -- TODO GH might use a different octave reference? or maybe it's flexible
           | vn.vnPitch < 36 = minBound
           | vn.vnPitch > 84 = maxBound
-          | otherwise       = toEnum $ fromIntegral vn.vnPitch - 36
+          | otherwise       = toEnum $ from vn.vnPitch - 36
         in (pos, ((), pitch, len))
     }
 
@@ -549,7 +550,7 @@ ghToMidi bank nf = let
           sht | isTap note.noteTimeOffset = Tap
               | note.noteBits `testBit` 6 = HOPO
               | otherwise                 = Strum
-          len = toBeats (note.noteTimeOffset + fromIntegral note.noteDuration) - pos
+          len = toBeats (note.noteTimeOffset + from note.noteDuration) - pos
       return (pos, ((fret, sht), Just len))
   getDrums :: Drums -> D.DrumDifficulty U.Beats
   getDrums drum = mempty
@@ -580,7 +581,7 @@ ghToMidi bank nf = let
     -- TODO detect this and import as separate kick track, to fix songs like The Shortest Straw
     return (toBeats note.noteTimeOffset, ())
   getOD = RTB.fromAbsoluteEventList . ATB.fromPairList . sort . concatMap
-    (\(Single t len) -> [(toBeats t, True), (toBeats $ t + fromIntegral len, False)])
+    (\(Single t len) -> [(toBeats t, True), (toBeats $ t + from len, False)])
   markers
     = fromPairs
     $ mapMaybe (\(Single t qsID) -> let

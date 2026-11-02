@@ -30,6 +30,7 @@ import           Onyx.Util.Binary       (runGetM)
 import           Onyx.Util.Handle
 import           System.FilePath        (dropExtension, takeFileName, (-<.>))
 import           System.IO              (SeekMode (..), hGetPosn, hSeek)
+import           Witch                  (from)
 
 data FileEntry a = FileEntry
   { offset  :: Integer
@@ -67,13 +68,13 @@ readLoneArk ark = useHandle ark \h -> do
       afterStrings      <- runGetM getWord32le $ BL.drop 0x20 headerStart
       blockSize         <- runGetM getWord32le $ BL.drop 0x24 headerStart
 
-      hSeek h AbsoluteSeek $ fromIntegral fileTableOffset
+      hSeek h AbsoluteSeek $ from fileTableOffset
       fileTableBytes <- BL.hGet h $ fromIntegral $ dirTableOffset - fileTableOffset
 
-      hSeek h AbsoluteSeek $ fromIntegral dirTableOffset
+      hSeek h AbsoluteSeek $ from dirTableOffset
       dirTableBytes <- BL.hGet h $ fromIntegral $ stringTableOffset - dirTableOffset
 
-      hSeek h AbsoluteSeek $ fromIntegral stringTableOffset
+      hSeek h AbsoluteSeek $ from stringTableOffset
       stringTableBytes <- B.hGet h $ fromIntegral $ afterStrings - stringTableOffset
       let getString offset = B.takeWhile (/= 0) $ B.drop (fromIntegral $ offset - stringTableOffset) stringTableBytes
 
@@ -90,9 +91,9 @@ readLoneArk ark = useHandle ark \h -> do
         compressedSize <- getWord32le
         fullSize       <- getWord32le -- assuming
         return FileEntry
-          { offset  = fromIntegral (block * blockSize) + fromIntegral blockOffset
+          { offset  = from (block * blockSize) + from blockOffset
           , name    = fileName
-          , folder  = Just $ dirNames !! fromIntegral dir
+          , folder  = Just $ dirNames !! from dir
           , size    = fullSize
           , inflate = compressedSize
           }
@@ -107,13 +108,13 @@ readLoneArk ark = useHandle ark \h -> do
       hSeek h AbsoluteSeek 4
       numEntries <- BL.hGet h 4 >>= runGetM getWord32le
 
-      hSeek h RelativeSeek $ fromIntegral $ numEntries * 20
+      hSeek h RelativeSeek $ from $ numEntries * 20
       stringSize <- BL.hGet h 4 >>= runGetM getWord32le
 
-      hSeek h RelativeSeek $ fromIntegral stringSize
+      hSeek h RelativeSeek $ from stringSize
       offsetCount <- BL.hGet h 4 >>= runGetM getWord32le
 
-      hSeek h RelativeSeek $ fromIntegral $ offsetCount * 4
+      hSeek h RelativeSeek $ from $ offsetCount * 4
 
       H.HandlePosn _ headerLength <- hGetPosn h
       hSeek h AbsoluteSeek 0
@@ -166,7 +167,7 @@ readHdr bs = do
         when (arkCount /= arkCount2) $ fail $ "ARK version 3: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
         arkSizes <- replicateM (fromIntegral arkCount) do
           size <- getWord32le
-          return ArkReference { path = Nothing, size = fromIntegral size }
+          return ArkReference { path = Nothing, size = from size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord32le
@@ -182,7 +183,7 @@ readHdr bs = do
         when (arkCount /= arkCount2) $ fail $ "ARK version 4: ark counts don't match (" <> show arkCount <> " and " <> show arkCount2 <> ")"
         arkSizes <- replicateM (fromIntegral arkCount) do
           size <- getWord64le -- only in v4: each ark size is 8 bytes
-          return ArkReference { path = Nothing, size = fromIntegral size }
+          return ArkReference { path = Nothing, size = from size }
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le -- new in v4: each entry's offset index is 8 bytes
@@ -201,7 +202,7 @@ readHdr bs = do
         arkCount3 <- getWord32le
         when (arkCount /= arkCount3) $ fail $ "ARK version 5: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
         arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
-        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        let arks = zipWith ArkReference (map Just arkPaths) (map from arkSizes)
         stringBytes <- parseStrings
         offsets <- parseOffsets
         entries <- parseEntries getWord64le
@@ -220,7 +221,7 @@ readHdr bs = do
         arkCount3 <- getWord32le
         when (arkCount /= arkCount3) $ fail $ "ARK version 6: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
         arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
-        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        let arks = zipWith ArkReference (map Just arkPaths) (map from arkSizes)
         -- new: "Versions 6,7,9: appear to have checksums or something for each content file?"
         arkCount4 <- getWord32le
         when (arkCount /= arkCount4) $ fail $ "ARK version 6: ark count doesn't match unknown checksum count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
@@ -243,7 +244,7 @@ readHdr bs = do
         arkCount3 <- getWord32le
         when (arkCount /= arkCount3) $ fail $ "ARK version 9: ark count doesn't match ark path count (" <> show arkCount <> " and " <> show arkCount3 <> ")"
         arkPaths <- replicateM (fromIntegral arkCount3) $ getWord32le >>= getByteString . fromIntegral
-        let arks = zipWith ArkReference (map Just arkPaths) (map fromIntegral arkSizes)
+        let arks = zipWith ArkReference (map Just arkPaths) (map from arkSizes)
         -- all zeroes in amp ps3
         arkCount4 <- getWord32le
         when (arkCount /= arkCount4) $ fail $ "ARK version 9: ark count doesn't match unknown checksum count (" <> show arkCount <> " and " <> show arkCount4 <> ")"
@@ -269,7 +270,7 @@ readHdr bs = do
                 x : xs@(_ : _) -> (Just $ B8.intercalate "/" $ reverse xs, x)
                 _              -> (Nothing, path)
           return FileEntry
-            { offset  = fromIntegral arkFileOffset
+            { offset  = from arkFileOffset
             , name    = file
             , folder  = dir
             , size    = size
@@ -319,14 +320,14 @@ selectArk hdr offset = case hdr.arks of
 readFileEntry :: (MonadFail m) => Hdr -> [Readable] -> FileEntry B.ByteString -> m Readable
 readFileEntry hdr arks entry = do
   let path = maybe id (\dir f -> dir <> "/" <> f) entry.folder entry.name
-  (arkIndex, offset) <- selectArk hdr $ fromIntegral entry.offset
+  (arkIndex, offset) <- selectArk hdr $ from entry.offset
   ark <- case drop arkIndex arks of
     []      -> fail $ "Couldn't find .ARK index " <> show arkIndex
     ark : _ -> return ark
   return $ subHandle
     (<> (" | " <> B8.unpack path))
     offset
-    (Just $ fromIntegral entry.size)
+    (Just $ from entry.size)
     ark
 
 getFileArks :: Hdr -> T.Text -> [T.Text]

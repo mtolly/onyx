@@ -17,13 +17,14 @@ import qualified Data.ByteString.Lazy    as BL
 import           Data.List               (foldl')
 import           Data.Maybe              (mapMaybe)
 import           Onyx.Util.Binary        (runGetM)
+import           Witch                   (from)
 
 gpxFiles :: (MonadFail m) => BL.ByteString -> m [(B.ByteString, BL.ByteString)]
 gpxFiles gpx = do
   sectors <- gpxSectors gpx
   return $ flip mapMaybe sectors \sector -> do
     (name, size, sectorIDs) <- isFileSector sector
-    let contents = BL.take (fromIntegral size) $ BL.concat $ map (sectors !!) sectorIDs
+    let contents = BL.take (from size) $ BL.concat $ map (sectors !!) sectorIDs
     return (name, contents)
 
 isFileSector :: BL.ByteString -> Maybe (B.ByteString, Int, [Int])
@@ -72,7 +73,7 @@ getDecompressSteps = do
     flag <- Bits.block Bits.bool
     if flag
       then do
-        bits <- fromIntegral <$> Bits.getWord8 4
+        bits <- from <$> Bits.getWord8 4
         offs <- Bits.block $ bitsLE bits
         size <- Bits.block $ bitsLE bits
         return $ Repeat offs size
@@ -93,7 +94,7 @@ applyDecompress = BB.toLazyByteString . fst . foldl' step (mempty, BL.empty) whe
   -- build is the builder for the final product, rev is a reversed bytestring for looking backwards
   step (build, rev) (Raw bs) = (build <> BB.byteString bs, BL.fromStrict (B.reverse bs) <> rev)
   step (build, rev) (Repeat offs size) = let
-    newBytesRev = BL.drop (fromIntegral $ offs - min offs size) $ BL.take (fromIntegral offs) rev
+    newBytesRev = BL.drop (from $ offs - min offs size) $ BL.take (from offs) rev
     build' = build <> BB.lazyByteString (BL.reverse newBytesRev)
     rev' = newBytesRev <> rev
     in (build', rev')

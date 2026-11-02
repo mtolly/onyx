@@ -15,6 +15,7 @@ import           Control.Monad   (replicateM)
 import           Data.Binary.Get
 import qualified Data.ByteString as B
 import           Data.Word
+import           Witch           (from)
 
 data SAMPEntry = SAMPEntry
   { sampChannels     :: Int -- always 1, just a guess
@@ -66,7 +67,7 @@ sizedArea g = do
   startPosn <- bytesRead
   x <- g bs
   endPosn <- bytesRead
-  if startPosn + fromIntegral size == endPosn
+  if startPosn + from size == endPosn
     then return x
     else fail $ unwords
       [ "Struct with size at", show startPosn
@@ -96,12 +97,12 @@ getSDESEntry = sizedArea \bs -> do
   samp <- getWord8
   _ <- getByteString $ 3 + fromIntegral endbytes -- all 0
   return $ SDESEntry
-    (fromIntegral minPitch)
-    (fromIntegral maxPitch)
-    (fromIntegral basePitch)
-    (fromIntegral transpose)
-    (fromIntegral pan)
-    (fromIntegral samp)
+    (from minPitch)
+    (from maxPitch)
+    (from basePitch)
+    (from transpose)
+    (from pan)
+    (from samp)
     bs
 
 getINSTEntry :: Get INSTEntry
@@ -111,7 +112,7 @@ getINSTEntry = sizedArea \bs -> do
   _ <- getWord16le -- unknown
   _ <- getWord16le -- observed 0
   sdes <- getWord16le -- number of SDES entries for this instrument
-  return $ INSTEntry (fromIntegral prog) (fromIntegral sdes) bs
+  return $ INSTEntry (from prog) (from sdes) bs
 
 getBANK :: Word32 -> Get BANKEntry
 getBANK n = do
@@ -120,7 +121,7 @@ getBANK n = do
       instCount = B.index bs 11
   -- I assume you'd use the inst count with multiple BANK entries in a .bnk,
   -- but I haven't seen that yet.
-  return $ BANKEntry (fromIntegral bankNum) (fromIntegral instCount) bs
+  return $ BANKEntry (from bankNum) (from instCount) bs
 
 getSAMP :: Word32 -> Get [SAMPEntry]
 getSAMP n = case quotRem n 22 of
@@ -134,7 +135,7 @@ getINST n = case quotRem n 16 of
 
 getSDES :: Word32 -> Get [SDESEntry]
 getSDES n = do
-  endPosn <- (+ fromIntegral n) <$> bytesRead
+  endPosn <- (+ from n) <$> bytesRead
   let go = bytesRead >>= \br -> case compare br endPosn of
         EQ -> return []
         LT -> do
@@ -150,7 +151,7 @@ getString = do
 
 getStringList :: Word32 -> Get [B.ByteString]
 getStringList n = do
-  endPosn <- (+ fromIntegral n) <$> bytesRead
+  endPosn <- (+ from n) <$> bytesRead
   1 <- getWord32le -- dunno what this is
   let go = bytesRead >>= \br -> case compare br endPosn of
         EQ -> return []

@@ -17,6 +17,7 @@ import qualified Data.Text            as T
 import qualified Data.Text.Encoding   as TE
 import           Data.Word
 import           System.FilePath      (dropExtension, takeFileName)
+import           Witch                (from)
 
 data Blob = Blob
   { blobMagic         :: Word32 -- CB 8E F1 02 (but read little endian)
@@ -45,7 +46,7 @@ getBlob = do
     else return (False, Nothing, x) -- we assume original format
   let str = do
         len <- getWord16le
-        s <- getByteString $ fromIntegral len * 2
+        s <- getByteString $ from len * 2
         return $ TE.decodeUtf16LE s -- TODO handle decode errors
   blobTitle <- str
   blobArtist <- str

@@ -39,6 +39,7 @@ import           Foreign.Marshal.Utils     (withMany)
 import           Onyx.Codec.Binary
 import           Onyx.Util.Handle
 import           System.IO
+import           Witch                     (from)
 
 powerGigBlockSize :: Int
 powerGigBlockSize = 512
@@ -71,7 +72,7 @@ decryptE2 input = do
   let encBlocks = drop 1 $ splitEvery powerGigBlockSize input
       -- this length is needed so you don't get extra garbage when decrypting .lua files
       decryptLength = runGet getWord32le $ BL.fromStrict $ B.take 4 $ B.drop 0x30 header
-  return $ BL.take (fromIntegral decryptLength)
+  return $ BL.take (from decryptLength)
     $ BL.fromChunks $ map (decryptOvershoot cipher iv) encBlocks
 
 encryptE2 :: (MonadFail m) => B.ByteString -> m BL.ByteString
@@ -98,7 +99,7 @@ encryptE2 input = do
   CryptoPassed cipher <- return $ cipherInit cipherBytes
   let _ = [iv, headerIV] :: [IV AES256]
       dataSizeRoundedUp = (quot (B.length input) 0x10 + 1) * 0x10
-  return $ BL.take (fromIntegral $ powerGigBlockSize + dataSizeRoundedUp)
+  return $ BL.take (from $ powerGigBlockSize + dataSizeRoundedUp)
     $ BL.fromChunks $ headerBlockEnc : map (cbcEncrypt cipher iv) blocks
 
 data PGHeader = PGHeader
@@ -232,20 +233,20 @@ data PKReference = PKReference
   } deriving (Eq, Show)
 
 pkArchive :: PKReference -> Int
-pkArchive = fromIntegral . (.oe_PKNum) . NE.head . (.pkOffsetEntries)
+pkArchive = from . (.oe_PKNum) . NE.head . (.pkOffsetEntries)
 
 pkOffset :: PKReference -> Integer
-pkOffset = fromIntegral . (.oe_PKOffset) . NE.head . (.pkOffsetEntries)
+pkOffset = from . (.oe_PKOffset) . NE.head . (.pkOffsetEntries)
 
 pkLength :: PKReference -> Integer
-pkLength = fromIntegral . (.fe_Size) . (.pkFileEntry)
+pkLength = from . (.fe_Size) . (.pkFileEntry)
 
 getFolder :: HeaderContents -> Folder B.ByteString PKReference
 getFolder hc = fromFiles do
   f <- V.toList hc.hc_Files
   let offset = hc.hc_Offsets V.! fromIntegral f.fe_OffsetNum
       getString i = hc.hc_Strings V.! fromIntegral i
-      path = getParents (fromIntegral f.fe_DirNum) (return $ getString f.fe_StringNum)
+      path = getParents (from f.fe_DirNum) (return $ getString f.fe_StringNum)
       getParents (-1) cur = cur
       getParents dirNum cur = let
         dir = hc.hc_Dirs V.! dirNum
@@ -256,7 +257,7 @@ getFolder hc = fromFiles do
       ref = PKReference
         { pkFileEntry = f
         , pkOffsetEntries = offset :| do
-          i <- take (fromIntegral offset.oe_Copies) [fromIntegral f.fe_OffsetNum + 1 ..]
+          i <- take (from offset.oe_Copies) [fromIntegral f.fe_OffsetNum + 1 ..]
           return $ hc.hc_Offsets V.! i
         }
   return (path, ref)
@@ -338,7 +339,7 @@ makeNewPK pkNumber root = runStateT (traverseFiles eachFile $ first (B8.pack . T
         , fe_DirNum = 0 -- filled in later
         , fe_StringNum = 0 -- filled in later
         , fe_OffsetNum = 0 -- filled in later
-        , fe_Size = fromIntegral $ BL.length bs
+        , fe_Size = from $ BL.length bs
         , fe_FileHash = md5
         , fe_Time = 0 -- unknown
         }

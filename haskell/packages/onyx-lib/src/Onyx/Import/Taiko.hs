@@ -41,6 +41,7 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
+import           Witch                            (from)
 
 -- * Chart conversion
 
@@ -123,12 +124,12 @@ taikoADPCMtoVGS
   -> BL.ByteString
   -> BL.ByteString
 taikoADPCMtoVGS rate numChannels interleave bs = let
-  groupSize = fromIntegral $ numChannels * interleave
+  groupSize = from $ numChannels * interleave
   -- round up so a final partial group isn't dropped
   totalGroups = (BL.length bs + groupSize - 1) `div` groupSize
   deinterleaved = [0 .. numChannels - 1] <&> \i -> BL.concat
-    [ BL.take (fromIntegral interleave)
-      $ BL.drop (group * groupSize + fromIntegral (i * interleave)) bs
+    [ BL.take (from interleave)
+      $ BL.drop (group * groupSize + from (i * interleave)) bs
     | group <- [0 .. totalGroups - 1]
     ]
   -- trim all channels to common length in case last group is short
@@ -173,7 +174,7 @@ taikoStreamToVGS bs = do
     (fromIntegral rate)
     (fromIntegral channels)
     (fromIntegral $ groupSize `quot` channels)
-    (BL.take (fromIntegral dataSize) $ BL.drop (fromIntegral groupSize) bs)
+    (BL.take (from dataSize) $ BL.drop (from groupSize) bs)
 
 -- * Importing
 
@@ -435,5 +436,5 @@ taikoSongYaml title (diffName, tier) preview samples chart audio = let
     , targets = HM.empty
     , parts = Parts $ HM.singleton F.PartDrums
       $ (emptyPart :: Part SoftFile)
-      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ Just (Tier $ fromIntegral tier))
+      & #drums .~ Just (emptyPartDrums Drums4 Kicks1x & #difficulty .~ Just (Tier $ from tier))
     }

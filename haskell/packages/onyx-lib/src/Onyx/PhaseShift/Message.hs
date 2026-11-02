@@ -11,6 +11,7 @@ import           Onyx.MIDI.Common                      (Difficulty (..),
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import           Text.Read                             (readMaybe)
+import           Witch                                 (from)
 
 data PSMessage = PSMessage
   { psDifficulty :: Maybe Difficulty
@@ -107,7 +108,7 @@ parsePSSysEx evt = do
     3   -> Just $ Just Expert
     255 -> Just Nothing
     _   -> Nothing
-  pid <- lookup (fromIntegral bPID)
+  pid <- lookup (from bPID)
     [ (fromEnum pid + 1, pid) | pid <- [minBound .. maxBound] ]
   pedge <- case bEdge of
     0 -> Just False

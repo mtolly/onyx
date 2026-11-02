@@ -26,6 +26,7 @@ import           Onyx.Codec.Binary     (BinEndian (..))
 import           Onyx.Resources
 import           System.Directory      (doesFileExist)
 import           System.IO.Unsafe      (unsafePerformIO)
+import           Witch                 (from)
 
 newtype QBKey = QBKey { fromQBKey :: Word32 }
   deriving (Eq, Ord, Hashable, Num)
@@ -71,7 +72,7 @@ qbKeyCRCNoLowercase = go 0xFFFFFFFF where
     Nothing -> crc
     Just (b, bs') -> let
       index = fromIntegral crc `xor` b
-      entry = crcTable VU.! fromIntegral index
+      entry = crcTable VU.! from index
       crc' = (crc `shiftR` 8) `xor` entry
       in go crc' bs'
 

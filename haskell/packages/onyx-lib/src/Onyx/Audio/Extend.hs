@@ -39,6 +39,7 @@ import           Onyx.Util.Handle        (Readable (..), byteStringSimpleHandle,
                                           handleLabel, openSimpleHandle,
                                           useHandle)
 import           System.IO               (hFileSize)
+import           Witch                   (from)
 
 -- | Adds the given number of seconds of silence to the end of an Ogg Vorbis
 -- file. The work happens when the result is opened; errors are thrown then.
@@ -98,7 +99,7 @@ extendOggVorbisBytes secs input = do
         gs -> last gs
       -- the untrimmed decoded length, which the last page's granule
       -- needs to be once it's no longer the final page
-      trueEnd = prevGranule + sum [ fromIntegral n | (p, n) <- blockSamples, p == lastIndex ]
+      trueEnd = prevGranule + sum [ from n | (p, n) <- blockSamples, p == lastIndex ]
       addSamples = round $ secs * fromIntegral idh.rate :: Int64
       target = lastPage.granule + addSamples
       prefix = B.take lastPage.offset input
@@ -139,7 +140,7 @@ extendOggVorbisBytes secs input = do
             generate cur prevLong isFirst = let
               m = if isFirst then firstMode else restMode
               thisLong = isLongMode m
-              cur' = cur + fromIntegral (quot (blockSize prevLong) 4 + quot (blockSize thisLong) 4)
+              cur' = cur + from (quot (blockSize prevLong) 4 + quot (blockSize thisLong) 4)
               in (silentPacket prevLong m, cur') : if cur' >= target then [] else generate cur' thisLong False
             newPackets = generate trueEnd lastLong True
             groups = groupPackets newPackets
@@ -181,9 +182,9 @@ parsePages input = go 0 where
         bad msg = Left $ msg <> " at offset " <> show off
     when (B.length rest < 27 || B.take 4 rest /= "OggS") $ bad "Invalid Ogg page"
     when (B.index rest 4 /= 0) $ bad "Unsupported Ogg version"
-    let nsegs = fromIntegral $ B.index rest 26
+    let nsegs = from $ B.index rest 26
     when (B.length rest < 27 + nsegs) $ bad "Truncated Ogg page"
-    let segs = map fromIntegral $ B.unpack $ B.take nsegs $ B.drop 27 rest
+    let segs = map from $ B.unpack $ B.take nsegs $ B.drop 27 rest
         bodyStart = 27 + nsegs
         total = bodyStart + sum segs
     when (B.length rest < total) $ bad "Truncated Ogg page"
@@ -260,7 +261,7 @@ crcTable = VU.generate 256 \i -> foldl'
 
 oggCRC :: B.ByteString -> Word32
 oggCRC = B.foldl'
-  (\crc b -> shiftL crc 8 `xor` (crcTable VU.! fromIntegral (shiftR crc 24 `xor` fromIntegral b)))
+  (\crc b -> shiftL crc 8 `xor` (crcTable VU.! fromIntegral (shiftR crc 24 `xor` from b)))
   0
 
 -- Vorbis bit packing (LSB first)
@@ -331,10 +332,10 @@ parseIdHeader pkt = do
     Left "Not a Vorbis stream (bad identification header)"
   let blocksizes = B.index pkt 28
   Right IdHeader
-    { channels   = fromIntegral $ B.index pkt 11
+    { channels   = from $ B.index pkt 11
     , rate       = readLE pkt 12 4
-    , blocksize0 = shiftL 1 $ fromIntegral $ blocksizes .&. 0xF
-    , blocksize1 = shiftL 1 $ fromIntegral $ shiftR blocksizes 4
+    , blocksize0 = shiftL 1 $ from $ blocksizes .&. 0xF
+    , blocksize1 = shiftL 1 $ from $ shiftR blocksizes 4
     }
 
 data Mode = Mode

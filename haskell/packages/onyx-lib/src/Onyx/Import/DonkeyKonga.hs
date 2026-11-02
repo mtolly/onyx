@@ -46,6 +46,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.Directory                 (listDirectory)
 import           System.FilePath                  ((<.>), (</>))
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 supportedDKGames :: (SendMessage m, MonadIO m) => [(B.ByteString, Readable -> StackTraceT m [Import m])]
 supportedDKGames =
@@ -136,7 +137,7 @@ importDK23 isJapanese gcm = do
         , comment = s.info_COMMENT >>= nonEmpty . T.strip
         , genre   = s.info_GENRE >>= readMaybe . T.unpack >>= (`lookup` genreNames)
         , ratings = catMaybes
-          [ (\n -> (suffix, fromIntegral n)) <$> rating
+          [ (\n -> (suffix, from n)) <$> rating
           | (suffix, rating) <- [("_1e.mid", s.info_1E), ("_1h.mid", s.info_1H), ("_1x.mid", s.info_1X)]
           ]
         })
@@ -150,7 +151,7 @@ importDK23 isJapanese gcm = do
         { title   = maybe (TE.decodeLatin1 s.chart) (T.strip . decodeShiftJIS) s.title
         , comment = decodeShiftJIS <$> s.comment
         , genre   = s.genre >>= \g -> T.strip . decodeShiftJIS <$> listToMaybe (drop (fromIntegral g) genreNames)
-        , ratings = zip ["_1e.mid", "_1h.mid", "_1x.mid"] $ map fromIntegral s.ratings
+        , ratings = zip ["_1e.mid", "_1h.mid", "_1x.mid"] $ map from s.ratings
         })
   fmap catMaybes $ forM songs \(number, chartName, info) -> let
     audioName = B8.pack $ (if number < 10 then ('0' :) else id) (show number) <> ".dsp"
@@ -247,7 +248,7 @@ importDKSong info rating isMidi chartFile dsp level = do
       (rate, chanL, chanR) <- stackIO $ useHandle dsp handleToByteString >>= decodeStereoCstr . BL.toStrict
       return $ Just $ CA.mapSamples CA.fractionalSample CA.AudioSource
         { CA.source = yield $ CA.interleave [chanL, chanR]
-        , CA.rate = fromIntegral rate
+        , CA.rate = from rate
         , CA.channels = 2
         , CA.frames = V.length chanL
         }

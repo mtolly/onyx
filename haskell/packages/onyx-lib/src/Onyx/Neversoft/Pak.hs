@@ -30,6 +30,7 @@ import           Onyx.StackTrace                 (SendMessage, StackTraceT,
                                                   errorToEither, fatal, inside,
                                                   warnNoContext)
 import           Onyx.Util.Binary                (runGetM)
+import           Witch                           (from)
 
 data Node = Node
   { nodeFileType       :: QBKey
@@ -52,11 +53,11 @@ decompressPakGH4 bs = do
   if magic /= 0x43484e4b -- CHNK
     then return BL.empty
     else do
-      let buf = BL.take (fromIntegral len) $ BL.drop (fromIntegral start) bs
+      let buf = BL.take (from len) $ BL.drop (from start) bs
       dec <- tryDecompress Z.rawFormat False buf
       case next of
         0xffffffff -> return dec
-        _          -> (dec <>) <$> decompressPakGH4 (BL.drop (fromIntegral next) bs)
+        _          -> (dec <>) <$> decompressPakGH4 (BL.drop (from next) bs)
 
 -- TODO this apparently doesn't work for PS3 ("invalid block type") at least qb.pab.ps3
 decompressPakGH3 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
@@ -146,14 +147,14 @@ splitPakNodes fmt pak maybePab = do
             -- ...nevermind, gh3 ps2 DATAP/zones/global/global_net.pak.ps2
             -- has a useless pab we should ignore? very strange
             specifiedPakLength = case nodes of
-              node : _ -> fromIntegral node.nodeOffset
+              node : _ -> from node.nodeOffset
               []       -> 0
             in BL.take specifiedPakLength pak' <> pab
       attachData :: Node -> (Node, BL.ByteString)
       attachData node = let
         goToData
-          = BL.take (fromIntegral node.nodeSize  )
-          . BL.drop (fromIntegral node.nodeOffset)
+          = BL.take (from node.nodeSize  )
+          . BL.drop (from node.nodeOffset)
         in (node, goToData dataSection)
   return $ map attachData nodes
 
@@ -214,7 +215,7 @@ buildPak nodes = let
       putByteString bs
       putByteString $ B.replicate (0xA0 - B.length bs) 0
   header = runPut $ mapM_ putHeader $ zip [0..] $ fixNodes dataStart nodes
-  header' = BL.take (fromIntegral dataStart) $ header <> BL.replicate (fromIntegral dataStart) 0
+  header' = BL.take (from dataStart) $ header <> BL.replicate (from dataStart) 0
   in BL.concat $ [header'] <> map (padData . snd) nodes <> [BL.replicate 0xCF0 0xAB]
 
 qsBank :: [(Node, BL.ByteString)] -> HM.HashMap Word32 T.Text

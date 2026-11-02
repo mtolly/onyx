@@ -42,6 +42,7 @@ import           Onyx.Util.Handle
 import           System.FilePath              (dropExtension, (<.>), (</>))
 import qualified System.IO                    as IO
 import           System.IO.Temp               (withSystemTempDirectory)
+import           Witch                        (from)
 
 data FSBSong = FSBSong
   { fsbSongHeaderSize  :: Word16
@@ -117,7 +118,7 @@ getFSBSong = do
 
       pos2 <- bytesRead
 
-      let bytesLeft = fromIntegral fsbSongHeaderSize - fromIntegral (pos2 - pos1)
+      let bytesLeft = from fsbSongHeaderSize - fromIntegral (pos2 - pos1)
       numEntries <- case quotRem bytesLeft 4 of
         (q, 0) -> return q -- sometimes this is fsbXMAUnknown8, sometimes fsbXMAUnknown8 - 1?
         _      -> fail $ unwords
@@ -251,7 +252,7 @@ fixFSB3 FSB3Header{..} = let
     }
   in FSB3Header
     { fsb3SongCount   = fromIntegral $ length fsb3Songs
-    , fsb3HeadersSize = sum $ map (fromIntegral . (.fsbSongHeaderSize)) songs
+    , fsb3HeadersSize = sum $ map (from . (.fsbSongHeaderSize)) songs
     , fsb3DataSize    = sum $ map (.fsbSongDataSize) songs
     , fsb3Version     = fsb3Version
     , fsb3Flags       = fsb3Flags
@@ -276,7 +277,7 @@ parseFSB = runGetM do
         Right fsb4 -> 0x30 + fsb4.fsb4HeadersSize
   bytesRead >>= \n -> skip $ fromIntegral dataStart - fromIntegral n
   fsbSongData <- forM (either (.fsb3Songs) (.fsb4Songs) fsbHeader) \song -> do
-    getLazyByteString $ fromIntegral song.fsbSongDataSize
+    getLazyByteString $ from song.fsbSongDataSize
   return FSB{..}
 
 fixFSB :: FSB -> FSB
@@ -293,7 +294,7 @@ fixFSB fsb = let
       in Left header3
         { fsb3SongCount   = fromIntegral $ length songs
         -- TODO pad to 0x10
-        , fsb3HeadersSize = sum $ map (fromIntegral . (.fsbSongHeaderSize)) songs
+        , fsb3HeadersSize = sum $ map (from . (.fsbSongHeaderSize)) songs
         , fsb3DataSize    = sum $ map (.fsbSongDataSize) songs
         , fsb3Songs       = songs
         }
@@ -302,7 +303,7 @@ fixFSB fsb = let
       in Right header4
         { fsb4SongCount   = fromIntegral $ length songs
         -- TODO pad to 0x10
-        , fsb4HeadersSize = sum $ map (fromIntegral . (.fsbSongHeaderSize)) songs
+        , fsb4HeadersSize = sum $ map (from . (.fsbSongHeaderSize)) songs
         , fsb4DataSize    = sum $ map (.fsbSongDataSize) songs
         , fsb4Songs       = songs
         }
@@ -441,7 +442,7 @@ splitFSBStreams fsb = do
       case song.fsbExtra of
         Left xma -> do
           return $ FSB_XMA1 XMA1Contents
-            { xma1Channels  = fromIntegral song.fsbSongChannels
+            { xma1Channels  = from song.fsbSongChannels
             , xma1Rate      = fromIntegral song.fsbSongSampleRate
             , xma1SeekTable = xma.fsbXMASeek -- both fsb3 and .xma xma1 start with 0 entry (.xma xma2 does not)
             , xma1Data      = sdata
@@ -450,7 +451,7 @@ splitFSBStreams fsb = do
     -- FSB4 in Neversoft GH and (I think?) Power Gig is a single multi-channel "song".
     -- FSB4 in PS3 Rock Revolution is more like FSB3, with separate songs.
     Right fsb4 -> fmap concat $ forM (zip fsb4.fsb4Songs fsb.fsbSongData) \(song, sdata) -> do
-      let (stereoCount, monoCount) = quotRem (fromIntegral song.fsbSongChannels) 2
+      let (stereoCount, monoCount) = quotRem (from song.fsbSongChannels) 2
       case song.fsbExtra of
         Left _xma -> do
           marked <- markXMA2PacketStreams <$> splitXMA2Packets sdata
@@ -462,7 +463,7 @@ splitFSBStreams fsb = do
             , xma2SeekTable       = Nothing
             , xma2Data            = writeXMA2Packets $ extractXMAStream 16 i marked
             }
-        Right _mp3 -> map FSB_MP3 <$> splitInterleavedMP3 (fromIntegral $ stereoCount + monoCount) sdata
+        Right _mp3 -> map FSB_MP3 <$> splitInterleavedMP3 (from $ stereoCount + monoCount) sdata
 
 -- Currently FFMPEG does not read XMA1 correctly.
 -- So for project import purposes, convert input XMA1 to XMA2.
@@ -505,7 +506,7 @@ mp3CBRFrameSize bs = do
     (2, 1) -> Just [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0]
     (2, _) -> Just [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
     _      -> Nothing
-  bitRate <- case drop (fromIntegral ((byte2 .&. 0xF0) `shiftR` 4)) bitRateLookup of
+  bitRate <- case drop (from ((byte2 .&. 0xF0) `shiftR` 4)) bitRateLookup of
     kbps : _ -> guard (kbps /= 0) >> Just ((kbps :: Rational) * 1000)
     []       -> Nothing
   sampleRate <- case (mpegVersion, (byte2 .&. 0xC) `shiftR` 2) of
@@ -654,7 +655,7 @@ parseXMA b = let
     then fail $ "Couldn't find RIFF chunk: " <> show tag
     else let
       thisTag = BL.take 4 bytes
-      len = fmap fromIntegral $ runGetM getWord32le $ BL.drop 4 bytes
+      len = fmap from $ runGetM getWord32le $ BL.drop 4 bytes
       in if tag == thisTag
         then len >>= \l -> return $ BL.take l $ BL.drop 8 bytes
         else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
@@ -677,7 +678,7 @@ parseXMA b = let
                                     --                     // Always 3 or higher for XMA2 files.
           -- XMASTREAMFORMAT XmaStreams[1]; // Per-stream format information; the actual array length is in the NumStreams field.
           -- [However, Onyx will only support single-stream XMA1 files.]
-          streams <- replicateM (fromIntegral numStreams) do
+          streams <- replicateM (from numStreams) do
             _        <- getWord32le -- PsuedoBytesPerSec; // Used by the XMA encoder (typo preserved for legacy reasons)
             rate     <- getWord32le -- SampleRate;        // The stream's decoded sample rate (in XMA2 files,
                                     --                    // this is the same for all streams in the file).
@@ -701,7 +702,7 @@ parseXMA b = let
             count <- getWord32le
             replicateM (fromIntegral count) getWord32le -- note, little endian! (xma2 is big)
           return $ Left XMA1Contents
-            { xma1Channels  = fromIntegral channels
+            { xma1Channels  = from channels
             , xma1Rate      = fromIntegral rate
             , xma1SeekTable = seekTable
             , xma1Data      = data_
@@ -735,7 +736,7 @@ parseXMA b = let
               -- TODO maybe use BlockCount from above instead of going to end?
           seekTable <- runGetM getSeekTable seek
           return $ Right XMA2Contents
-            { xma2Channels        = fromIntegral channels
+            { xma2Channels        = from channels
             , xma2Rate            = fromIntegral rate
             , xma2Samples         = fromIntegral len
             , xma2PacketsPerBlock = fromIntegral packetsPerBlock
@@ -775,7 +776,7 @@ seekXMA bs pos = parseXMA bs >>= \case
     [newXMA] <- liftIO $ makeXMA2s $ return xma2
       { xma2Samples = xma2.xma2Samples - fromIntegral dropPos
       , xma2SeekTable = Just newSeekTable
-      , xma2Data = BL.drop (dropBlocks * fromIntegral xma2.xma2PacketsPerBlock * 2048) xma2.xma2Data
+      , xma2Data = BL.drop (dropBlocks * from xma2.xma2PacketsPerBlock * 2048) xma2.xma2Data
       }
     return (makeHandle "temp.xma" $ byteStringSimpleHandle newXMA, frames - fromIntegral dropPos)
 

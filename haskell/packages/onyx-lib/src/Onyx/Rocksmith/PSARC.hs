@@ -27,6 +27,7 @@ import           Onyx.Rocksmith.Crypt
 import           Onyx.Util.Binary                (runGetM)
 import qualified Onyx.Util.Handle                as SH
 import           System.IO                       (SeekMode (..), hSeek)
+import           Witch                           (from)
 
 #if MIN_VERSION_base(4,18,0)
 -- liftA2 from Prelude
@@ -80,7 +81,7 @@ word40be = Codec
   , codecIn = do
     a <- getWord8
     b <- getWord32be
-    return $ fromIntegral a * 0x100000000 + fromIntegral b
+    return $ from a * 0x100000000 + from b
   }
 
 extractPSARC :: FilePath -> FilePath -> IO ()
@@ -104,7 +105,7 @@ readPSARCFolder readable = do
     zlengths <- getZLengths
     return (toc, zlengths)
   let entryReaders = toc <&> \entry -> SH.useHandle readable \h -> do
-        hSeek h AbsoluteSeek $ fromIntegral entry.toc_offset
+        hSeek h AbsoluteSeek $ from entry.toc_offset
         let readEntry' []       _   = return BL.empty
             readEntry' (z : zs) len = if len == entry.toc_length
               then return BL.empty
@@ -113,7 +114,7 @@ readPSARCFolder readable = do
                 chunk <- BL.hGet h if z == 0 then defaultBlockSize else z
                 let chunk' = fromMaybe chunk $ zlibMaybe chunk
                 (chunk' <>) <$> readEntry' zs (len + fromIntegral (BL.length chunk'))
-            lens = map fromIntegral $ drop (fromIntegral entry.toc_zIndex) zlengths
+            lens = map from $ drop (fromIntegral entry.toc_zIndex) zlengths
         readEntry' lens 0
   (listingReader, fileReaders) <- case entryReaders of
     []     -> fail "No file listing found in PSARC"

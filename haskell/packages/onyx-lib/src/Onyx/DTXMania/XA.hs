@@ -36,6 +36,7 @@ import           Onyx.Util.Binary             (runGetM)
 import           Onyx.Util.Handle             (Readable, rOpen, useHandle)
 import           System.IO                    (SeekMode (AbsoluteSeek), hClose,
                                                hSeek)
+import           Witch                        (from)
 
 data XAState = XAState
   { prev0 :: Int16
@@ -55,14 +56,14 @@ data XAHeader = XAHeader
 
 blockInflater :: Int -> Maybe (B.ByteString -> ([Int16], Word8))
 blockInflater 8 = Just \src ->
-  ( map (\b -> fromIntegral b `shiftL` 8) $ drop 1 $ B.unpack src
+  ( map (\b -> from b `shiftL` 8) $ drop 1 $ B.unpack src
   , B.head src
   )
 blockInflater 4 = Just \src ->
   ( do
     b <- drop 1 $ B.unpack src
-    [   fromIntegral (b .&. 0xF0) `shiftL` 8
-      , fromIntegral (b .&. 0x0F) `shiftL` 12
+    [   from (b .&. 0xF0) `shiftL` 8
+      , from (b .&. 0x0F) `shiftL` 12
       ]
   , B.head src
   )
@@ -95,16 +96,16 @@ gainFactor =
 
 decodeInflated :: (MonadIO m) => [Int16] -> Int -> Word8 -> StateT [XAState] m (V.Vector Int16)
 decodeInflated shorts channel prof = let
-  (k0, k1) = gainFactor !! fromIntegral (prof `shiftR` 4)
-  range = fromIntegral $ prof .&. 0xF
+  (k0, k1) = gainFactor !! from (prof `shiftR` 4)
+  range = from $ prof .&. 0xF
   in fmap V.fromList $ forM shorts \short -> do
     XAState prev0 prev1 <- gets (!! channel)
-    let ranged = fromIntegral $ short `shiftR` range :: Int32
-        sampleGain = fromIntegral prev0 * fromIntegral k0 + fromIntegral prev1 * fromIntegral k1 :: Int32
+    let ranged = from $ short `shiftR` range :: Int32
+        sampleGain = from prev0 * from k0 + from prev1 * from k1 :: Int32
         sample = ranged + quot sampleGain 256
-        sample' = if sample > fromIntegral (maxBound :: Int16)
+        sample' = if sample > from (maxBound :: Int16)
           then maxBound
-          else if sample < fromIntegral (minBound :: Int16)
+          else if sample < from (minBound :: Int16)
             then minBound
             else fromIntegral sample
     modify let
@@ -121,9 +122,9 @@ sourceXA r = do
     "KWD1"     <- getByteString 4
     dataLength <- fromIntegral <$> getWord32le
     samples    <- fromIntegral <$> getWord32le
-    rate       <- fromIntegral <$> getWord16le
-    bits       <- fromIntegral <$> getWord8
-    channels   <- fromIntegral <$> getWord8
+    rate       <- from <$> getWord16le
+    bits       <- from <$> getWord8
+    channels   <- from <$> getWord8
     initState  <- replicateM channels do
       prev0 <- getInt16le
       prev1 <- getInt16le
@@ -141,7 +142,7 @@ sourceXA r = do
     , source   = C.bracketP
       (rOpen r)
       hClose
-      \h -> liftIO (hSeek h AbsoluteSeek $ fromIntegral headerSizeXA) >> let
+      \h -> liftIO (hSeek h AbsoluteSeek $ from headerSizeXA) >> let
         numBlocks = xa.dataLength `quot` xa.blockSize
         go blocksLeft samplesLeft
           | blocksLeft  <= 0 = return ()

@@ -43,6 +43,7 @@ import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle
 import           Optics                           ((.~))
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 importRR :: (SendMessage m, MonadIO m) => Folder T.Text Readable -> [Import m]
 importRR dir = map (importRRSong dir) $ findRRSongKeys dir
@@ -121,7 +122,7 @@ importRRSong dir key level = inside ("Rock Revolution song " <> show key) do
             let sdefName' = bsLower sdefName
             filter (\soundDef -> bsLower soundDef.name == sdefName') fev.soundDefs
           -- (later fev version) ps3, dlc and probably disc
-          Right sdefIndex -> toList $ fev.soundDefs !? fromIntegral sdefIndex
+          Right sdefIndex -> toList $ fev.soundDefs !? from sdefIndex
         [waveform] <- return soundDef.waveforms
         return (T.toCaseFold $ TE.decodeLatin1 waveform.bankName, waveform.indexInBank)
   let guitarDef  = findDef "guitar"

@@ -14,9 +14,10 @@ import           Onyx.Preferences                 (MagmaSetting (..),
                                                    RBEncoding (..))
 import           Onyx.Project
 import qualified Sound.MIDI.Util                  as U
+import           Witch                            (from)
 
 rankToTier :: DiffMap -> Integer -> Integer
-rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
+rankToTier dm rank = from $ length $ takeWhile (<= rank) (1 : dm)
 
 tierToRank :: DiffMap -> Integer -> Integer
 tierToRank dm tier = let

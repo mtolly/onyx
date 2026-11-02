@@ -80,6 +80,7 @@ library:
   - optics
   - inline-c
   - megaparsec
+  - witch
   # my libraries
   - jammittools
   - midi-util

@@ -65,6 +65,7 @@ import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (<.>))
 import           Text.XML.Light
+import           Witch                            (from)
 
 data RSSong = RSSong
   { rsHeader        :: String
@@ -331,7 +332,7 @@ importRSSong folder song level = do
             let capoOffset :: Int
                 capoOffset = case sng.sng_Metadata.meta_CapoFretId of
                   -1 -> 0
-                  n  -> fromIntegral n
+                  n  -> from n
                 unapplyCapo 0    = 0
                 unapplyCapo fret = fret - capoOffset
                 getNotes note = let
@@ -453,7 +454,7 @@ importRSSong folder song level = do
                   $ sort
                   $ fmap (\anc -> let
                     t = toSeconds anc.anchor_StartBeatTime
-                    lowFret = unapplyCapo $ fromIntegral anc.anchor_FretId
+                    lowFret = unapplyCapo $ from anc.anchor_FretId
                     highFret = lowFret + fromIntegral anc.anchor_Width - 1
                     in (t, (lowFret, highFret))
                     )
@@ -647,20 +648,20 @@ importRSSong folder song level = do
                   -- TODO detect bass-on-guitar via some threshold and use Bass5/Bass6 as tuning base
                   then GtrTuning
                     { gtrBase    = Bass4
-                    , gtrOffsets = map (fixOffsetOctave . fromIntegral)
+                    , gtrOffsets = map (fixOffsetOctave . from)
                       $ take 4 sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
-                    , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
+                    , gtrCapo    = case from sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0 -- is capo supposed to be -1? seen in albatross213's Vektor charts (F tuning)
                       n  -> n
                     , gtrName    = Nothing
                     }
                   else GtrTuning
                     { gtrBase    = Guitar6
-                    , gtrOffsets = map (fixOffsetOctave . fromIntegral)
+                    , gtrOffsets = map (fixOffsetOctave . from)
                       sng.sng_Metadata.meta_Tuning
                     , gtrGlobal  = 0
-                    , gtrCapo    = case fromIntegral sng.sng_Metadata.meta_CapoFretId of
+                    , gtrCapo    = case from sng.sng_Metadata.meta_CapoFretId of
                       -1 -> 0
                       n  -> n
                     , gtrName    = Nothing

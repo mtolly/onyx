@@ -28,6 +28,7 @@ import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.Util                       as U
 import           Text.Read                             (readMaybe)
+import           Witch                                 (from)
 
 data DKDrum
   = DKYellow
@@ -195,7 +196,7 @@ findDKAudioStart :: [RTB.T t (E.T s)] -> Maybe Int
 findDKAudioStart tracks = listToMaybe do
   trk <- tracks
   E.SystemExclusive (SysEx.Regular (0x7D : 0x44 : 0x4B : _ : hi : lo : _)) <- RTB.getBodies trk
-  return $ fromIntegral hi * 128 + fromIntegral lo
+  return $ from hi * 128 + from lo
 
 -- SongInfo.res found in DK2 (U/E but not J) and DK3 (J)
 -- (in other games, metadata is hardcoded in the executable)
@@ -289,7 +290,7 @@ readDOL bytes = DOL
 word32At :: B.ByteString -> Int -> Maybe Word32
 word32At bs i = if i < 0 || i + 4 > B.length bs
   then Nothing
-  else Just $ foldl (\acc j -> shiftL acc 8 .|. fromIntegral (B.index bs $ i + j)) 0 [0 .. 3]
+  else Just $ foldl (\acc j -> shiftL acc 8 .|. from (B.index bs $ i + j)) 0 [0 .. 3]
 
 dolAddress :: DOL -> Word32 -> Maybe Int
 dolAddress dol addr = listToMaybe

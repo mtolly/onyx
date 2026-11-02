@@ -119,6 +119,7 @@ import           System.FilePath                      (dropExtension,
                                                        takeExtension,
                                                        takeFileName, (</>))
 import           System.IO                            (hFileSize)
+import           Witch                                (from)
 
 data QuickSong = QuickSong
   { quickSongDTA       :: QuickDTA
@@ -1078,7 +1079,7 @@ decompressMilos = mapMFilesWithName \(name, (size, qfile)) -> do
             return (size, qfile)
           Just decomp -> do
             let newMilo = addMiloHeader decomp
-            return (fromIntegral $ BL.length newMilo, QFMilo $ makeHandle (T.unpack name) $ byteStringSimpleHandle newMilo)
+            return (from $ BL.length newMilo, QFMilo $ makeHandle (T.unpack name) $ byteStringSimpleHandle newMilo)
     _ -> return (size, qfile)
   return (name, newFileSized)
 

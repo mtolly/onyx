@@ -43,6 +43,7 @@ import           Optics                           ((.~))
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, (<.>))
 import           Text.Read                        (readMaybe)
+import           Witch                            (from)
 
 importOsu :: (SendMessage m, MonadIO m) => Bool -> FilePath -> StackTraceT m [Import m]
 importOsu separateSongs f = do
@@ -308,7 +309,7 @@ getTaikoChart osu = let
               sideLengthMS :: Rational
               sideLengthMS = toRational lengthPixels / toRational (sliderMultiplier * 100 * sv) * toRational beatLength
               totalLengthMS :: Integer
-              totalLengthMS = floor $ sideLengthMS * fromIntegral slides
+              totalLengthMS = floor $ sideLengthMS * from slides
           return $ (if finish then TaikoRollLarge else TaikoRoll) $ msToSecs totalLengthMS
         else if testBit hit.type_ 3 -- spinner (denden)
           then do

@@ -28,6 +28,7 @@ import           Onyx.Util.Handle     (Folder, Readable, byteStringSimpleHandle,
                                        findFile, handleToByteString, makeHandle,
                                        useHandle)
 import           System.FilePath      ((<.>))
+import           Witch                (from)
 
 #if MIN_VERSION_base(4,18,0)
 -- liftA2 from Prelude
@@ -81,7 +82,7 @@ splitChunks = runGet let
     False -> do
       magic <- getByteString 4
       size <- getWord32Platform
-      chunk <- getLazyByteString $ fromIntegral size
+      chunk <- getLazyByteString $ from size
       ((magic, chunk) :) <$> go
   in go
 
@@ -184,8 +185,8 @@ getHIRCObject = do
       eact_objectID <- getWord32Platform
       eact_zero1    <- getWord8
       paramCount <- getWord8
-      paramTypes <- replicateM (fromIntegral paramCount) getWord8
-      paramValues <- replicateM (fromIntegral paramCount) $ getByteString 4
+      paramTypes <- replicateM (from paramCount) getWord8
+      paramValues <- replicateM (from paramCount) $ getByteString 4
       let eact_params = zip paramTypes paramValues
       eact_zero2    <- getWord8
       end <- bytesRead
@@ -242,6 +243,6 @@ getSTID = do
   stid_banks <- replicateM (fromIntegral bankCount) do
     bankID <- getWord32Platform
     len <- getWord8
-    name <- getByteString $ fromIntegral len
+    name <- getByteString $ from len
     return (bankID, name)
   return STID{..}

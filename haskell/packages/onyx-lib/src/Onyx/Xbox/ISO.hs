@@ -21,6 +21,7 @@ import           Data.Word
 import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
 import           System.IO
+import           Witch                (from)
 
 sectorLength :: Integer
 sectorLength = 0x800
@@ -32,7 +33,7 @@ data XboxHeader = XboxHeader
   } deriving (Show)
 
 rootOffset :: XboxHeader -> Integer
-rootOffset hdr = hdr.partitionOffset + fromIntegral hdr.rootSector * sectorLength
+rootOffset hdr = hdr.partitionOffset + from hdr.rootSector * sectorLength
 
 findXboxHeader :: Handle -> IO (Maybe XboxHeader)
 findXboxHeader h = do
@@ -61,14 +62,14 @@ parseTree h hdr baseOffset entryOffset = do
   entry <- readEntry h baseOffset entryOffset
   thisTree <- if testBit entry.attribs 4
     then do
-      subDir <- parseTree h hdr (hdr.partitionOffset + fromIntegral entry.sector * sectorLength) 0
+      subDir <- parseTree h hdr (hdr.partitionOffset + from entry.sector * sectorLength) 0
       return Folder { folderFiles = [], folderSubfolders = [(entry.name, subDir)] }
     else return Folder { folderFiles = [(entry.name, entry)], folderSubfolders = [] }
   left <- if entry.left /= 0
-    then parseTree h hdr baseOffset $ fromIntegral entry.left * 4
+    then parseTree h hdr baseOffset $ from entry.left * 4
     else return mempty
   right <- if entry.right /= 0
-    then parseTree h hdr baseOffset $ fromIntegral entry.right * 4
+    then parseTree h hdr baseOffset $ from entry.right * 4
     else return mempty
   return $ thisTree <> left <> right
 
@@ -93,14 +94,14 @@ readEntry h baseOffset entryOffset = do
     attribs <- getWord8
     name    <- getWord8
     return XDVDFSEntry{..}
-  name <- B.hGet h $ fromIntegral entry.name
+  name <- B.hGet h $ from entry.name
   return entry { name = name }
 
 getXboxFile :: XboxHeader -> XDVDFSEntry B.ByteString -> Readable -> Readable
 getXboxFile hdr entry = subHandle
   id -- TODO
-  (hdr.partitionOffset + fromIntegral entry.sector * sectorLength)
-  (Just $ fromIntegral entry.length_)
+  (hdr.partitionOffset + from entry.sector * sectorLength)
+  (Just $ from entry.length_)
 
 loadXboxISO :: Readable -> IO (Maybe (Folder B.ByteString Readable))
 loadXboxISO r = useHandle r \h -> findXboxHeader h >>= \case

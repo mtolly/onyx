@@ -54,6 +54,7 @@ import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension)
+import           Witch                            (from)
 
 atomStr :: Atom -> T.Text
 atomStr (Str  s) = s
@@ -91,7 +92,7 @@ parseEvent = \case
   -- for non-*/4 signatures by https://github.com/EFHIII/midi-ch
   -- For example 7/8 becomes "TS 3.5"
   [Str "TS", Real r] -> case U.showSignature $ realToFrac r of
-    Just (E.MetaEvent (Meta.TimeSig n d _ _)) -> return $ TimeSig (fromIntegral n) (fromIntegral d)
+    Just (E.MetaEvent (Meta.TimeSig n d _ _)) -> return $ TimeSig (from n) (from d)
     _                                         -> fatal $
       "Unsupported fractional time signature (non-base-2 denominator): " <> show r
   [Str "TS", Int i, Int d] -> return $ TimeSig i d
@@ -172,7 +173,7 @@ chartToIni chart = def
             "" -> Nothing
             s  -> Just s
           atomReal :: Atom -> Maybe Rational
-          atomReal (Int  i) = Just $ fromIntegral i
+          atomReal (Int  i) = Just $ from i
           atomReal (Real r) = Just r
           atomReal _        = Nothing
           previewStart = maybe 0 (floor . (* 1000)) $ HM.lookup "PreviewStart" song >>= atomReal

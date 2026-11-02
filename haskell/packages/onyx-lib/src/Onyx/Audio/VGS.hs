@@ -55,6 +55,7 @@ import           Onyx.Util.Handle             (Readable (..), SimpleHandle (..),
                                                subHandleInternal, useHandle)
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
+import           Witch                        (from)
 
 foreign import ccall unsafe "encodeVAGBlock"
   encodeVAGBlock
@@ -119,7 +120,7 @@ writeVGSMultiRate fp srcs = let
       , vgsBlocksWritten = inputState.vgsBlocksWritten + 1
       }
   secondsWritten :: VGSInputState m -> Double
-  secondsWritten st = fromIntegral (st.vgsBlocksWritten * 28) / st.vgsRate
+  secondsWritten st = from (st.vgsBlocksWritten * 28) / st.vgsRate
   writeBlocks h inputStates = do
     let (nextIndex, nextInput) = minimumOn (\(_, st) -> secondsWritten st) $ zip [0..] inputStates
     if secondsWritten nextInput < maxSeconds
@@ -161,18 +162,18 @@ decodeVAGBlock targetChannel = do
         byte <- B.unpack $ B.drop 2 bytes
         let signExtend :: Word32 -> Int32
             signExtend x = fromIntegral if (x .&. 0x8000) /= 0 then x .|. 0xFFFF0000 else x
-            ss0 = signExtend $ (fromIntegral byte .&. 0xF ) `shiftL` 12
-            ss1 = signExtend $ (fromIntegral byte .&. 0xF0) `shiftL` 8
-        [   realToFrac $ ss0 `shiftR` fromIntegral shift'
-          , realToFrac $ ss1 `shiftR` fromIntegral shift'
+            ss0 = signExtend $ (from byte .&. 0xF ) `shiftL` 12
+            ss1 = signExtend $ (from byte .&. 0xF0) `shiftL` 8
+        [   realToFrac $ ss0 `shiftR` from shift'
+          , realToFrac $ ss1 `shiftR` from shift'
           ]
   if maybe False (channel /=) targetChannel
     then return []
     else forM samples \sample -> do
       (s0, s1) <- get
       let newSample = sample
-            + s0 * fst (vagFilter !! fromIntegral predictor)
-            + s1 * snd (vagFilter !! fromIntegral predictor)
+            + s0 * fst (vagFilter !! from predictor)
+            + s1 * snd (vagFilter !! from predictor)
       put (newSample, s0)
       -- TODO do we need to clamp this
       return $ round newSample
@@ -246,12 +247,12 @@ readSingleRateVGS dur vgs = do
     [] -> fail "readSingleRateVGS: VGS has no channels"
   let startFrame = case dur of
         CA.Frames  f -> f
-        CA.Seconds s -> floor $ s * fromIntegral rate
+        CA.Seconds s -> floor $ s * from rate
       startBlockSet = quot startFrame xaBlockSamples
       initialSkip = startFrame - startBlockSet * xaBlockSamples
   return $ CA.dropStart (CA.Frames initialSkip) let
     src = C.bracketP (rOpen vgs.decrypted) IO.hClose \h -> do
-      liftIO $ IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ 0x80 + startBlockSet * 0x10 * numChans
+      liftIO $ IO.hSeek h IO.AbsoluteSeek $ from $ 0x80 + startBlockSet * 0x10 * numChans
       let go _      0             = return ()
           go states blockSetsLeft = do
             results <- forM states \channelState -> do
@@ -275,7 +276,7 @@ splitOutVGSChannels wantChannels vgs = useHandle vgs.decrypted \hin -> let
   go !bb !blocksLeft = if blocksLeft > 0
     then do
       block <- B.hGet hin 16
-      let bb' = case elemIndex (fromIntegral $ B.index block 1 .&. 0xF) wantChannels of
+      let bb' = case elemIndex (from $ B.index block 1 .&. 0xF) wantChannels of
             Nothing       -> bb
             Just newIndex -> bb
               <> BB.word8 (B.index block 0)
@@ -316,7 +317,7 @@ transform64Bits input table = let
     in (hi', lo', num')
 
   (hiF, loF, _) = foldr ($) (hi0, lo0, 0) $ replicate 4 step
-  in (fromIntegral hiF `shiftL` 32) .|. fromIntegral loF
+  in (from hiF `shiftL` 32) .|. from loF
 
 -- infinite lazy bytestring for xoring
 vgsCryptStream :: (Word64, Word64) -> BL.ByteString
@@ -338,7 +339,7 @@ decryptV4Handle (key0, key1) sh = sh
           $ vgsCryptStream (key0 + fromIntegral keyOffset, key1 + fromIntegral keyOffset)
     return
       $ B.packZipWith xor enc
-      $ B.toStrict $ BL.take (fromIntegral $ B.length enc) stream
+      $ B.toStrict $ BL.take (from $ B.length enc) stream
   }
 
 decryptReadVGS :: Readable -> IO VGS

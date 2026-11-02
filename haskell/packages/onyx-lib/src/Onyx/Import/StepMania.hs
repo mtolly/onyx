@@ -39,6 +39,7 @@ import           Onyx.Util.Handle
 import qualified Sound.MIDI.Util                      as U
 import           System.Directory                     (doesFileExist)
 import           System.FilePath
+import           Witch                                (from)
 
 data TempoChunk
   = TempoPlay U.Beats U.BPS
@@ -287,7 +288,7 @@ importSM src level = do
       , keys = keyCount
       , style = if keyCount == 4 then ManiaArrows else ManiaDefault
       -- hack difficulty rating so e.g. 10 becomes 6
-      , difficulty = Just $ Tier $ fromIntegral $ max 1 $ smn.smn_NumericalMeter - 4
+      , difficulty = Just $ Tier $ from $ max 1 $ smn.smn_NumericalMeter - 4
       }
 
   return SongYaml

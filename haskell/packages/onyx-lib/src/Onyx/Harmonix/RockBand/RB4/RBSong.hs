@@ -41,6 +41,7 @@ import           Onyx.MIDI.Track.Beat
 import           Onyx.MIDI.Track.Lipsync             (VisemeEvent (..))
 import           Onyx.Util.Binary                    (runGetM)
 import qualified Sound.MIDI.Util                     as U
+import           Witch                               (from)
 
 data Resource = Resource
   { type_    :: B.ByteString
@@ -366,8 +367,8 @@ getRBSongLipsync res = let
     True -> return $ reverse prev
     False -> do
       eventCount <- getWord8
-      events <- replicateM (fromIntegral eventCount) do
-        visemeKey <- fromIntegral <$> getWord8
+      events <- replicateM (from eventCount) do
+        visemeKey <- from <$> getWord8
         visemeWeight <- getWord8
         let visemeGraph = ()
         return VisemeEvent{..}

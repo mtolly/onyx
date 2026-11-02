@@ -29,6 +29,7 @@ import qualified GHC.IO.Handle        as H
 import           Onyx.Util.Binary     (runGetM)
 import           Onyx.Util.Handle
 import           System.IO            (SeekMode (..), hClose, hFileSize, hSeek)
+import           Witch                (from)
 
 #if MIN_VERSION_base(4,18,0)
 -- liftA2 from Prelude
@@ -60,7 +61,7 @@ readSNGHeader r = useHandle r \h -> do
         len <- fromIntegral <$> getInt32le
         TE.decodeUtf8 <$> getByteString len
       getString8 = do
-        len <- fromIntegral <$> getWord8
+        len <- from <$> getWord8
         TE.decodeUtf8 <$> getByteString len
   metaLength <- fromIntegral <$> load 8 getWord64le
   metadata <- load metaLength do
@@ -137,7 +138,7 @@ getSNGFolder addINI hdr r = fromFiles let
   normalFiles = do
     file <- hdr.files
     path <- toList $ splitPath file.name
-    let subFile = subHandle addLabel (fromIntegral file.offset) (Just $ fromIntegral file.size) r
+    let subFile = subHandle addLabel (from file.offset) (Just $ from file.size) r
         addLabel orig = orig <> " | " <> T.unpack file.name
     return (path, cryptFile seedPattern subFile)
   ini = do
@@ -182,7 +183,7 @@ makeSNG metaOrig files = do
           , metadata = meta
           , files = fs
           }
-        fileSectionSize = runPut $ putWord64le $ fromIntegral totalFileSize
+        fileSectionSize = runPut $ putWord64le $ from totalFileSize
         in headerBytes <> fileSectionSize
       headerSize = fromIntegral $ BL.length $ headerForFiles do
         (name, _) <- files

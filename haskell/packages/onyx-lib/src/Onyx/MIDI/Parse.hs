@@ -30,6 +30,7 @@ import qualified Sound.MIDI.KeySignature               as Key
 import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Mode       as Mode
 import qualified Sound.MIDI.Message.Channel.Voice      as V
+import           Witch                                 (from)
 
 getMIDI :: Get (F.T B.ByteString, [String])
 getMIDI = do
@@ -59,7 +60,7 @@ getChunks = isEmpty >>= \case
         Nothing -> return [] -- not enough bytes for chunk size
         Just size -> do
           posn <- bytesRead
-          optional (getLazyByteString $ fromIntegral size) >>= \case
+          optional (getLazyByteString $ from size) >>= \case
             Nothing -> do
               restBytes <- getRemainingLazyByteString
               let warning
@@ -78,13 +79,13 @@ getHeader = do
     1 -> return F.Parallel
     2 -> return F.Serial
     n -> fail $ "Unknown MIDI file type: " <> show n
-  ntrks <- fromIntegral <$> getWord16be
+  ntrks <- from <$> getWord16be
   dvn <- getInt16be
   let dvn' = if dvn >= 0
         then F.Ticks $ fromIntegral dvn
         else F.SMPTE
-          (negate $ fromIntegral $ dvn `shiftR` 8)
-          (fromIntegral $ dvn .&. 0xFF)
+          (negate $ from $ dvn `shiftR` 8)
+          (from $ dvn .&. 0xFF)
   return (fmt, ntrks, dvn')
 
 getVariableNum :: Get Int
@@ -95,13 +96,13 @@ getVariableNum = readVariableBytes <$> getVariableBytes where
       then ((b .&. 0x7F) :) <$> getVariableBytes
       else return [b]
   bytePlaces = 1 : map (* 0x80) bytePlaces
-  readVariableBytes = sum . zipWith (*) bytePlaces . reverse . map fromIntegral
+  readVariableBytes = sum . zipWith (*) bytePlaces . reverse . map from
 
 getWord24be :: Get Word32
 getWord24be = do
   x <- getWord8
   y <- getWord16be
-  return $ fromIntegral x * 0x10000 + fromIntegral y
+  return $ from x * 0x10000 + from y
 
 data RunningStatus
   = Status  Word8 -- normal running status from the previous event
@@ -134,7 +135,7 @@ getEvent running = do
       metaLen <- getVariableNum
       let str = getByteString metaLen
       e <- E.MetaEvent <$> case (metaType, metaLen) of
-        (0x00, 2) -> Meta.SequenceNum . fromIntegral <$> getWord16be
+        (0x00, 2) -> Meta.SequenceNum . from <$> getWord16be
         (0x01, _) -> Meta.TextEvent <$> str
         (0x02, _) -> Meta.Copyright <$> str
         (0x03, _) -> Meta.TrackName <$> str
@@ -142,23 +143,23 @@ getEvent running = do
         (0x05, _) -> Meta.Lyric <$> str
         (0x06, _) -> Meta.Marker <$> str
         (0x07, _) -> Meta.CuePoint <$> str
-        (0x20, 1) -> Meta.MIDIPrefix . C.toChannel . fromIntegral <$> getWord8
+        (0x20, 1) -> Meta.MIDIPrefix . C.toChannel . from <$> getWord8
         (0x2F, 0) -> return Meta.EndOfTrack
         (0x51, 3) -> Meta.SetTempo . fromIntegral <$> getWord24be
         (0x54, 5) -> do
-          [hr, mn, se, fr, ff] <- map fromIntegral . B.unpack <$> getByteString 5
+          [hr, mn, se, fr, ff] <- map from . B.unpack <$> getByteString 5
           return $ Meta.SMPTEOffset hr mn se fr ff
         (0x58, 4) -> do
-          [nn, dd, cc, bb] <- map fromIntegral . B.unpack <$> getByteString 4
+          [nn, dd, cc, bb] <- map from . B.unpack <$> getByteString 4
           return $ Meta.TimeSig nn dd cc bb
         (0x59, 2) -> do
           sf <- getWord8
           mi <- getWord8
           return $ Meta.KeySig $ Key.Cons
             (case mi of 0 -> Key.Major; _ -> Key.Minor) -- technically only 1 should be minor
-            (Key.Accidentals $ fromIntegral sf)
+            (Key.Accidentals $ from sf)
         (0x7F, _) -> Meta.SequencerSpecific . B.unpack <$> getByteString metaLen
-        _ -> Meta.Unknown (fromIntegral metaType) . B.unpack <$> getByteString metaLen
+        _ -> Meta.Unknown (from metaType) . B.unpack <$> getByteString metaLen
       return (e, markCleared)
     0xF0 -> do
       sysexLen <- getVariableNum
@@ -175,8 +176,8 @@ getEvent running = do
           Just (Status  runningByte) -> return (runningByte, return n)
           Just (Cleared runningByte) -> return (runningByte, return n) -- TODO maybe warn about this, technically not legal
           Nothing                    -> fail "Event needs running status but none is set"
-      let chan = C.Cons $ C.toChannel $ fromIntegral $ statusByte .&. 0xF
-          int7Bits b = fromIntegral $ (b :: Word8) .&. 0x7F :: Int
+      let chan = C.Cons $ C.toChannel $ from $ statusByte .&. 0xF
+          int7Bits b = from $ (b :: Word8) .&. 0x7F :: Int
       e <- E.MIDIEvent . chan <$> case statusByte `shiftR` 4 of
         0x8 -> (\k v -> C.Voice $ V.NoteOff k v)
           <$> (V.toPitch . int7Bits <$> getFirstByte)
