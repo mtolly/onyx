@@ -80,8 +80,8 @@ import qualified Network.HTTP.Req                  as Req
 import           Numeric                           (showHex)
 import           Onyx.Audio                        (Audio (..), audioChannels,
                                                     audioLength, audioRate,
-                                                    buildSource', makeXMAFSB3,
-                                                    makeXMAPieces, runAudio)
+                                                    buildSource', makeXMA,
+                                                    makeXMAFSB3, runAudio)
 import           Onyx.Audio.FSB                    (emitFSB, ghBandXMAtoFSB4)
 import           Onyx.Audio.VGS                    (writeVGSMultiRate)
 import           Onyx.Build                        (NameRule (..),
@@ -2914,7 +2914,7 @@ miscPageMOGG sink tab startTasks = do
         audio' <- maybe (fatal "Panic! No audio files") return $ NE.nonEmpty audio
         src <- buildSource' $ Merge $ fmap (Input . (.path)) audio'
         runAudio src wav
-        fsb <- makeXMAPieces (fileReadable wav) >>= ghBandXMAtoFSB4
+        fsb <- makeXMA (fileReadable wav) >>= ghBandXMAtoFSB4
         stackIO $ BL.writeFile f' $ emitFSB fsb
         return [f']
       in [(T.unpack $ l10n "mogg-task-fsb4", task)]

@@ -44,7 +44,7 @@ module Onyx.Audio
 , stereoPanRatios, fromStereoPanRatios, decibelDifferenceInPanRatios, gainRatioToDecibels
 , emptyChannels
 , remapChannels
-, makeFSB4, makeFSB4', makeXMAPieces, makeXMAFSB3
+, makeFSB4, makeXMA, makeXMAFSB3
 , cacheAudio
 , audioToChannelWAVs
 , standardRate
@@ -53,6 +53,7 @@ module Onyx.Audio
 
 import           Control.Concurrent               (newEmptyMVar, threadDelay,
                                                    tryPutMVar, tryReadMVar)
+import           Control.Concurrent.Async         (forConcurrently)
 import           Control.DeepSeq                  (($!!))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (ap, forM, forM_, guard,
@@ -68,7 +69,7 @@ import           Data.Bits                        (shiftR)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.ByteString.Lazy.Char8       as BL8
-import           Data.Char                        (isSpace, toLower)
+import           Data.Char                        (toLower)
 import           Data.Conduit
 import qualified Data.Conduit                     as C
 import           Data.Conduit.Audio
@@ -94,7 +95,7 @@ import           Data.Word                        (Word16, Word32, Word8,
                                                    byteSwap16)
 import           Development.Shake                (Action, getShakeOptions,
                                                    need, shakeFiles)
-import           Development.Shake.FilePath       (takeExtension, (-<.>))
+import           Development.Shake.FilePath       (takeExtension)
 import           Foreign                          (Ptr, allocaBytes, castPtr,
                                                    peekElemOff, pokeElemOff,
                                                    withMany)
@@ -107,18 +108,17 @@ import qualified Numeric.NonNegative.Wrapper      as NN
 import           Onyx.Audio.FSB
 import           Onyx.Audio.VGS                   (decryptReadVGS,
                                                    readSingleRateVGS, readVGS)
+import           Onyx.Audio.XMA                   (defaultXMAQuality,
+                                                   encodeXMA1, encodeXMA2)
 import           Onyx.FFMPEG                      (ffSink, ffSource,
                                                    ffSourceBinkFrom,
                                                    ffSourceFrom)
-import           Onyx.Harmonix.Magma              (withWin32Exe)
 import           Onyx.Harmonix.MOGG               (sourceVorbis)
 import           Onyx.MIDI.Common                 (pattern RNil, pattern Wait)
 import           Onyx.Preferences
-import           Onyx.Resources                   (makeFSB4exe, xma2encodeExe)
 import           Onyx.StackTrace                  (SendMessage, StackTraceT,
                                                    Staction, inside, lg,
-                                                   stackIO, stackProcess,
-                                                   tempDir)
+                                                   stackIO)
 import           Onyx.Util.Binary                 (runGetM)
 import           Onyx.Util.Handle                 (Readable, fileReadable,
                                                    handleToByteString,
@@ -130,9 +130,7 @@ import           System.Directory                 (makeAbsolute)
 import           System.FilePath                  (dropTrailingPathSeparator,
                                                    isRelative, makeRelative,
                                                    takeDirectory, (</>))
-import           System.Info                      (os)
 import qualified System.IO                        as IO
-import           System.Process                   (proc)
 import           Witch                            (from)
 
 data Audio t a
@@ -1082,122 +1080,29 @@ mixMany' r c polyphony srcs = let
       in go [] $ (\(asrc, group) -> (source asrc, group)) <$> srcs'
     }
 
--- Use official FMOD generator
+-- | Encodes audio to XMA2, with 32 KB blocks as used by FSB4 and PowerGig.
+-- Each pair of channels becomes a stereo stream.
+makeXMA :: (MonadIO m) => Readable -> StackTraceT m XMA2Contents
+makeXMA input = inside "encoding XMA2" $ stackIO $ runResourceT $ do
+  src <- liftIO $ ffSource input
+  encodeXMA2 defaultXMAQuality 16 src
+
+-- | Encodes an audio file to a multichannel XMA2 FSB4, as used by GHWT and later.
 makeFSB4 :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
-makeFSB4 wav fsb = do
-  exe <- stackIO makeFSB4exe
-  let createProc = withWin32Exe proc exe [wav, fsb]
-  inside "converting WAV to FSB4" do
-    str <- stackProcess createProc
-    when (any (not . isSpace) str) $ lg str
-    stackIO $ IO.withBinaryFile fsb IO.ReadWriteMode \h -> do
-      IO.hSeek h IO.AbsoluteSeek 0x32
-      B.hPut h $ "multichannel sound" <> B.replicate 12 0
-    lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
+makeFSB4 fin fout = do
+  xma <- makeXMA $ fileReadable fin
+  fsb <- ghBandXMAtoFSB4 xma
+  stackIO $ BL.writeFile fout $ emitFSB fsb
+  lg $ "Created XMA (Xbox 360) FSB4 at: " <> fout
 
--- Use Microsoft generator, then repackage xma as fsb
-makeFSB4' :: (MonadIO m, SendMessage m) => FilePath -> FilePath -> StackTraceT m ()
-makeFSB4' wav fsb = do
-  exe <- stackIO xma2encodeExe
-  let xma = fsb -<.> "xma"
-  -- this is required for wine, otherwise it messes up the unix paths somehow.
-  let windowsPath s = if os == "mingw32"
-        then return s
-        else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
-  wav' <- windowsPath wav
-  xma' <- windowsPath xma
-  let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-  inside "converting WAV to FSB4 (XMA)" do
-    str <- stackProcess createProc
-    when (any (not . isSpace) str) $ lg str
-    madeFSB <- stackIO (BL.readFile xma) >>= parseXMA2 >>= ghBandXMAtoFSB4
-    stackIO $ BL.writeFile fsb $ emitFSB madeFSB
-    lg $ "Created XMA (Xbox 360) FSB4 at: " <> fsb
-
--- Ensures the XMA ends on a full 16-packet (32 Kb) block
-trimXMA :: (MonadFail m) => XMA2Contents -> m XMA2Contents
-trimXMA xma = do
-  let blockSize = 32 * 1024
-  newSize <- case quotRem (BL.length xma.xma2Data) blockSize of
-    (q, 0) -> if q >= 2
-      then return $ (q - 1) * blockSize
-      else fail "trimXMA: not enough XMA data to trim off a block safely"
-    (0, _) -> fail "trimXMA: not a full block in XMA data"
-    (q, _) -> return $ q * blockSize
-  let newData = BL.take newSize xma.xma2Data
-  packets <- markXMA2PacketStreams <$> splitXMA2Packets newData
-  return xma
-    { xma2Samples = fromIntegral $ sum [ if stream == 0 then pkt.xma2FrameCount else 0 | (stream, pkt) <- packets ] * 512
-    , xma2Data    = newData
-    }
-
--- All are assumed to be same rate and channels.
--- All except last one should end in a full block
-concatenateXMA :: [XMA2Contents] -> XMA2Contents
-concatenateXMA xmas = (head xmas)
-  { xma2Samples = sum $ map (.xma2Samples) xmas
-  , xma2Data    = BL.concat $ map (.xma2Data) xmas
-  }
-
--- Encode an XMA file, possibly splitting the input up into pieces to avoid xma2encode's memory limit.
--- The seams between pieces will have very small audio gaps.
-makeXMAPieces :: (MonadResource m, SendMessage m) => Readable -> StackTraceT m XMA2Contents
-makeXMAPieces input = do
-  -- TODO fix the ffSource/ffSourceFrom here to use the windows path fix versions
-  -- (maybe not crucial because this is only called on temp folder inputs)
-  exe <- stackIO xma2encodeExe
-  c <- stackIO $ channels <$> (ffSource input :: IO (AudioSource (ResourceT IO) Int16))
-  let maxSamples = 15 * 60 * 44100 * 4
-      -- probably could go a bit higher; xma2encode limit is somewhere between 20 and 60 minutes of 4-channel 44100 Hz
-      maxFrames  = quot maxSamples c
-  tempDir "onyx-xma" \temp -> do
-    let windowsPath s = if os == "mingw32"
-          then return s
-          else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
-        wav = temp </> "audio.wav"
-        xma = temp </> "audio.xma"
-    wav' <- windowsPath wav
-    xma' <- windowsPath xma
-    let runXMA = do
-          str <- stackProcess $ withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-          when (any (not . isSpace) str) $ lg str
-        go contents startFrame = do
-          src <- stackIO $ ffSourceFrom (Frames startFrame) input
-          case frames src of
-            0 -> return $ concatenateXMA contents
-            n -> if n < maxFrames
-              then do
-                runAudio src wav
-                runXMA
-                newData <- stackIO (BL.readFile xma) >>= parseXMA2
-                return $ concatenateXMA $ contents <> [newData]
-              else do
-                runAudio (takeStart (Frames maxFrames) src) wav
-                runXMA
-                origData <- stackIO (BL.readFile xma) >>= parseXMA2
-                newData <- trimXMA origData
-                go (contents <> [newData]) $ startFrame + newData.xma2Samples
-    go [] 0
-
+-- | Encodes mono/stereo audio files to XMA1 streams in an FSB3, as used by GH3.
 makeXMAFSB3 :: (MonadIO m, SendMessage m) => [(B.ByteString, FilePath)] -> FilePath -> StackTraceT m ()
 makeXMAFSB3 inputs fsb = do
-  exe <- stackIO xma2encodeExe
-  -- TODO run the xma conversions in parallel
-  inputs' <- forM inputs \(name, wav) -> do
-    let xma = wav -<.> "xma"
-    -- this is required for wine, otherwise it messes up the unix paths somehow.
-    let windowsPath s = if os == "mingw32"
-          then return s
-          else fmap (takeWhile (/= '\n')) $ stackProcess $ proc "winepath" ["-w", s]
-    wav' <- windowsPath wav
-    xma' <- windowsPath xma
-    let createProc = withWin32Exe proc exe [wav', "/TargetFile", xma', "/BlockSize", "32"]
-    madeXMA <- inside ("converting WAV to XMA: " <> wav) do
-      str <- stackProcess createProc
-      when (any (not . isSpace) str) $ lg str
-      stackIO (BL.readFile xma) >>= parseXMA2 >>= xma2To1
-    return (name, madeXMA)
-  madeFSB <- xmasToFSB3 inputs'
+  xmas <- inside "encoding XMA1" $ stackIO $ forConcurrently inputs \(name, fin) -> runResourceT $ do
+    src <- liftIO $ ffSource $ fileReadable fin
+    xma <- encodeXMA1 defaultXMAQuality src
+    return (name, xma)
+  madeFSB <- xmasToFSB3 xmas
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
 

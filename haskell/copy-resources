@@ -9,8 +9,6 @@ cp ../player/build/app.min.js resources/player/
 cp CHANGES.md resources/CHANGES.txt
 cp LICENSE.txt resources/LICENSE.txt
 cp CREDITS.txt resources/CREDITS.txt
-mkdir -p resources/makefsb4
-cp makefsb4/*.{exe,dll} resources/makefsb4
 
 cp readme/index.html resources/README.html
 rm -rf resources/readme-images

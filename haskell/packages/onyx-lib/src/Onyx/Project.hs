@@ -62,7 +62,8 @@ import           Onyx.MIDI.Track.ProGuitar            (GtrBase (..),
                                                        GtrTuning (..))
 import           Onyx.Preferences                     (EliteDrumLayoutHint (..),
                                                        MagmaSetting (..),
-                                                       RBEncoding (..))
+                                                       RBEncoding (..),
+                                                       XboxFSBCodec (..))
 import           Onyx.Sections                        (Section (..),
                                                        emitSection,
                                                        makeDisplaySection,
@@ -1403,14 +1404,15 @@ instance Default (TargetGH2 f) where
 
 -- gh5 or ghwor, mostly same formats
 data TargetGH5 f = TargetGH5
-  { common :: TargetCommon f
-  , guitar :: F.PartName
-  , bass   :: F.PartName
-  , drums  :: F.PartName
-  , vocal  :: F.PartName
-  , songID :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
-  , cdl    :: Maybe Int -- like 511 in "cdl511"
-  , proTo4 :: Bool -- true if pro drums should just use RYBG
+  { common    :: TargetCommon f
+  , guitar    :: F.PartName
+  , bass      :: F.PartName
+  , drums     :: F.PartName
+  , vocal     :: F.PartName
+  , songID    :: Maybe Int -- like 783 in "adlc783_1.fsb.xen"
+  , cdl       :: Maybe Int -- like 511 in "cdl511"
+  , proTo4    :: Bool -- true if pro drums should just use RYBG
+  , xboxAudio :: XboxFSBCodec
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetGH5 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH5 f)
@@ -1423,6 +1425,7 @@ parseTargetGH5 = do
   songID <- (.songID) =. opt Nothing    "song-id"  stackJSON
   cdl    <- (.cdl   ) =. opt Nothing    "cdl"      stackJSON
   proTo4 <- (.proTo4) =. opt False      "pro-to-4" stackJSON
+  xboxAudio <- (.xboxAudio) =. opt XboxFSB_XMA "xbox-audio" stackJSON
   return TargetGH5{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetGH5 f) where
@@ -1432,16 +1435,17 @@ instance Default (TargetGH5 f) where
   def = (fromEmptyObject :: TargetGH5 String) & #common .~ def
 
 data TargetGH3 f = TargetGH3
-  { common :: TargetCommon f
-  , guitar :: F.PartName
-  , bass   :: F.PartName
-  , rhythm :: F.PartName
-  , coop   :: GH2Coop
-  , drums  :: F.PartName
-  , vocal  :: F.PartName
-  , keys   :: F.PartName
-  , songID :: Maybe (Either Int T.Text) -- Int gets title/artist added, Text is exact
-  , dl     :: Maybe Int -- like 15 in "dl15"
+  { common    :: TargetCommon f
+  , guitar    :: F.PartName
+  , bass      :: F.PartName
+  , rhythm    :: F.PartName
+  , coop      :: GH2Coop
+  , drums     :: F.PartName
+  , vocal     :: F.PartName
+  , keys      :: F.PartName
+  , songID    :: Maybe (Either Int T.Text) -- Int gets title/artist added, Text is exact
+  , dl        :: Maybe Int -- like 15 in "dl15"
+  , xboxAudio :: XboxFSBCodec
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetGH3 :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetGH3 f)
@@ -1456,6 +1460,7 @@ parseTargetGH3 = do
   keys   <- (.keys  ) =. opt F.PartVocal            "keys"    stackJSON
   songID <- (.songID) =. opt Nothing              "song-id" stackJSON
   dl     <- (.dl    ) =. opt Nothing              "dl"      stackJSON
+  xboxAudio <- (.xboxAudio) =. opt XboxFSB_XMA "xbox-audio" stackJSON
   return TargetGH3{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetGH3 f) where

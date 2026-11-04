@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedLabels    #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
@@ -18,7 +19,7 @@ import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
 import           Data.Conduit.Audio.SampleRate
-import           Data.Foldable                     (toList)
+import           Data.Foldable                     (forM_, toList)
 import           Data.Hashable                     (Hashable, hash)
 import qualified Data.HashMap.Strict               as HM
 import qualified Data.Map                          as Map
@@ -27,8 +28,11 @@ import qualified Data.Text                         as T
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
-import           Onyx.Audio.FSB                    (emitFSB, ghBandMP3sToFSB4)
+import           Onyx.Audio.FSB                    (emitFSB, ghBandMP3sToFSB4,
+                                                    ghBandXMAtoFSB4)
 import           Onyx.Audio.Render                 (computeDrumsPart)
+import           Onyx.Audio.XMA                    (defaultXMAQuality,
+                                                    encodeXMA2)
 import           Onyx.Background                   (getVenueRB3)
 import           Onyx.Build.Common
 import           Onyx.Build.GuitarHero5.Logic      (makeGHWoRNote,
@@ -63,6 +67,7 @@ import           Onyx.PlayStation.NPData           (contentID,
                                                     ghworCustomMidEdatConfig,
                                                     packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
+import           Onyx.Preferences                  (XboxFSBCodec (..))
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (loadFretLimit)
 import           Onyx.Resources                    (getResourcesPath,
@@ -339,42 +344,6 @@ gh5Rules buildInfo dir gh5 = do
       $ Input (planDir </> "everything.wav")
     runAudio (applySpeedAudio gh5.common src) out
 
-  {-
-  -- No longer used, see bottom where we use ps3 (mp3) audio instead
-
-  -- Not supporting stems yet due to FSB generator issue;
-  -- it will fail with memory errors on large WAVs, so we have to keep them small.
-  -- However they do have to be the full length of the song!
-  -- Otherwise pausing doesn't pause the audio once you pass the end of any of the FSBs.
-  dir </> "audio1.wav" %> \out -> do
-    len <- getAudioLength buildInfo planName plan
-    runAudio (applySpeedAudio (common gh5) $ silent (Seconds $ realToFrac len) 1000 8) out
-  dir </> "audio2.wav" %> \out -> do
-    len <- getAudioLength buildInfo planName plan
-    runAudio (applySpeedAudio (common gh5) $ silent (Seconds $ realToFrac len) 1000 6) out
-  dir </> "audio3.wav" %> \out -> do
-    mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    let _ = mid :: F.Song (F.OnyxFile U.Beats)
-    src <- shk $ buildSource $ Merge
-      $ Input (planDir </> "everything.wav")
-      :| [Silence 2 $ Seconds 0]
-    runAudio (applyTargetAudio (common gh5) mid src) out
-
-  forM_ ["audio1", "audio2", "audio3", "preview"] \audio -> do
-    let wav = dir </> audio <.> "wav"
-        fsb = dir </> audio <.> "fsb"
-    fsb %> \out -> do
-      shk $ need [wav]
-      xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ Right wav
-      ghBandXMAtoFSB4 xma >>= stackIO . BL.writeFile out . emitFSB
-    fsb <.> "xen" %> \out -> do
-      shk $ need [fsb]
-      bs <- stackIO $ B.readFile fsb
-      case ghworEncrypt bs of
-        Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
-        Just enc -> stackIO $ B.writeFile out enc
-  -}
-
   dir </> "ghworlive" %> \out -> do
     let files =
           [ ("cmanifest_" <> titleHash <> ".pak.xen", dir </> "cmanifest.pak.xen")
@@ -489,56 +458,51 @@ gh5Rules buildInfo dir gh5 = do
         ]
       ghParts = map fst ghDifficulties
       pad = 0 -- TODO did we forget to pad ghwor output?
+  -- Stereo stems for each of the 3 audio FSBs, all set to the full song length
+  -- (otherwise pausing doesn't pause the audio once you pass the end of any of the FSBs)
+  let stemsDrums, stemsGBV, stemsBacking :: Staction [AudioSource (ResourceT IO) Float]
+      stemsDrums = do
+        (mid, setLength) <- midAndAudioLength
+        kick    <- sourceKick    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+        snare   <- sourceSnare   buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+        toms    <- sourceToms    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+        cymbals <- sourceCymbals buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+        return $ map setLength [kick, snare, toms, cymbals]
+      stemsGBV = do
+        (mid, setLength) <- midAndAudioLength
+        guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.guitar difficulties.gh5GuitarTier
+        bass   <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.bass   difficulties.gh5BassTier
+        vocals <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.vocal  difficulties.gh5VocalsTier
+        return $ map setLength [guitar, bass, vocals]
+      stemsBacking = do
+        (mid, setLength) <- midAndAudioLength
+        backing <- sourceBacking buildInfo gh5.common mid pad planName plan ghDifficulties
+        (_, _, isGHDrums) <- computeDrumsPart gh5.drums plan songYaml
+        backingWithDrums <- if isGHDrums
+          then return backing
+          else do
+            kit <- sourceKit buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
+            return $ mix backing kit
+        crowd <- sourceCrowd buildInfo gh5.common mid pad planName plan
+        return $ map setLength [backingWithDrums, crowd]
+      -- if all the stems of a drums or guitar/bass/vocals FSB are silent, we use small MP3s to save space
+      writeStemMP3s allowSmall stems outs = do
+        srcs <- stems
+        allSilent <- if allowSmall
+          then stackIO $ runResourceT $ allM isSilentSource srcs
+          else return False
+        forM_ (zip srcs outs) \(src, out) -> if allSilent
+          then shk $ copyFile' ps3MP3SilenceSmall out
+          else stackIO $ runResourceT $ sinkMP3WithHandle out setup src
   ps3MP3SilenceSmall %> \out -> do
     (_, setLength) <- midAndAudioLength
     stackIO $ runResourceT $ sinkMP3WithHandle out setupSmall $ setLength $ silent (Frames 0) 48000 2
-  (ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals) %> \_ -> do
-    (mid, setLength) <- midAndAudioLength
-    kick    <- sourceKick    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
-    snare   <- sourceSnare   buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
-    toms    <- sourceToms    buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
-    cymbals <- sourceCymbals buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
-    allSilent <- stackIO $ runResourceT $ allM isSilentSource [kick, snare, toms, cymbals]
-    if allSilent
-      then do
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Kick
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Snare
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Toms
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Cymbals
-      else do
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Kick    setup $ setLength kick
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Snare   setup $ setLength snare
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Toms    setup $ setLength toms
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Cymbals setup $ setLength cymbals
-  (ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals) %> \_ -> do
-    (mid, setLength) <- midAndAudioLength
-    guitar <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.guitar difficulties.gh5GuitarTier
-    bass   <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.bass   difficulties.gh5BassTier
-    vocals <- sourceSimplePart buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.vocal  difficulties.gh5VocalsTier
-    allSilent <- stackIO $ runResourceT $ allM isSilentSource [guitar, bass, vocals]
-    if allSilent
-      then do
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Guitar
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Bass
-        shk $ copyFile' ps3MP3SilenceSmall ps3MP3Vocals
-      else do
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Guitar setup $ setLength guitar
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Bass   setup $ setLength bass
-        stackIO $ runResourceT $ sinkMP3WithHandle ps3MP3Vocals setup $ setLength vocals
-  ps3MP3Backing %> \out -> do
-    (mid, setLength) <- midAndAudioLength
-    backing <- sourceBacking buildInfo gh5.common mid pad planName plan ghDifficulties
-    (_, _, isGHDrums) <- computeDrumsPart gh5.drums plan songYaml
-    backingWithDrums <- if isGHDrums
-      then return backing
-      else do
-        kit <- sourceKit buildInfo ghParts gh5.common mid pad SpecStereo planName plan gh5.drums difficulties.gh5DrumsTier
-        return $ mix backing kit
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength backingWithDrums
-  ps3MP3Crowd %> \out -> do
-    (mid, setLength) <- midAndAudioLength
-    crowd <- sourceCrowd buildInfo gh5.common mid pad planName plan
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ setLength crowd
+  (ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals) %> \_ ->
+    writeStemMP3s True stemsDrums [ps3MP3Kick, ps3MP3Snare, ps3MP3Toms, ps3MP3Cymbals]
+  (ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals) %> \_ ->
+    writeStemMP3s True stemsGBV [ps3MP3Guitar, ps3MP3Bass, ps3MP3Vocals]
+  (ps3MP3Backing, ps3MP3Crowd) %> \_ ->
+    writeStemMP3s False stemsBacking [ps3MP3Backing, ps3MP3Crowd]
 
   let readMP3s paths = do
         shk $ need paths
@@ -602,8 +566,38 @@ gh5Rules buildInfo dir gh5 = do
     extra <- stackIO (getResourcesPath "pkg-contents/ghwor") >>= crawlFolderBytes
     stackIO $ makePKG ps3ContentID (main <> extra) out
 
-  -- redirect ps3 fsb to xbox
-  dir </> "audio1.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio1PreEdat )
-  dir </> "audio2.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio2PreEdat )
-  dir </> "audio3.fsb.xen"  %> shk . copyFile' (ps3SongRoot </> ps3Audio3PreEdat )
-  dir </> "preview.fsb.xen" %> shk . copyFile' (ps3SongRoot </> ps3PreviewPreEdat)
+  -- Xbox 360 XMA versions: each FSB has one multichannel stream,
+  -- made of a stereo stream for each stem
+  let xmaDir = dir </> "xma"
+      xmaAudio1   = xmaDir </> "audio1.fsb.xen"
+      xmaAudio2   = xmaDir </> "audio2.fsb.xen"
+      xmaAudio3   = xmaDir </> "audio3.fsb.xen"
+      xmaPreview  = xmaDir </> "preview.fsb.xen"
+      writeXMAFSB out stems = do
+        srcs <- stems
+        let merged = foldr1 merge srcs
+            -- official files are 48 kHz
+            merged' = if rate merged == 48000
+              then merged
+              else resampleTo 48000 SincMediumQuality merged
+        xma <- inside ("encoding XMA2 audio: " <> out) $ stackIO $ runResourceT $
+          encodeXMA2 defaultXMAQuality 16 merged'
+        fsb <- ghBandXMAtoFSB4 xma
+        case ghworEncrypt $ BL.toStrict $ emitFSB fsb of
+          Nothing  -> fatal "Unable to encrypt .fsb to .fsb.xen"
+          Just enc -> stackIO $ B.writeFile out enc
+  xmaAudio1  %> \out -> writeXMAFSB out stemsDrums
+  xmaAudio2  %> \out -> writeXMAFSB out stemsGBV
+  xmaAudio3  %> \out -> writeXMAFSB out stemsBacking
+  xmaPreview %> \out -> writeXMAFSB out $ do
+    src <- shk $ buildSource $ Input (dir </> "preview.wav")
+    return [src]
+
+  -- Xbox 360 uses the format chosen in the target (XMA or MP3). PS3 always uses MP3
+  let xboxAudio xma mp3 = case gh5.xboxAudio of
+        XboxFSB_XMA -> xma
+        XboxFSB_MP3 -> ps3SongRoot </> mp3
+  dir </> "audio1.fsb.xen"  %> shk . copyFile' (xboxAudio xmaAudio1  ps3Audio1PreEdat )
+  dir </> "audio2.fsb.xen"  %> shk . copyFile' (xboxAudio xmaAudio2  ps3Audio2PreEdat )
+  dir </> "audio3.fsb.xen"  %> shk . copyFile' (xboxAudio xmaAudio3  ps3Audio3PreEdat )
+  dir </> "preview.fsb.xen" %> shk . copyFile' (xboxAudio xmaPreview ps3PreviewPreEdat)

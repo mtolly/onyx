@@ -57,27 +57,32 @@ data FSBSong = FSBSong
   , fsbSongDefPan      :: Word16
   , fsbSongDefPri      :: Word16
   , fsbSongChannels    :: Word16
-  -- rest is less certain, see http://wiki.xentax.com/index.php/FSB_FSB4
-  , fsbSongMinDistance :: Word32 -- 00 00 80 3F (big endian?) in WT
-  , fsbSongMaxDistance :: Word32 -- 00 40 1C 46 (big endian?) in WT
+  -- rest follows FSOUND_FSB_SAMPLE_HEADER_3_1 from fsbext's fsb.h
+  , fsbSongMinDistance :: Word32 -- float 1.0 (stored as 00 00 80 3F)
+  , fsbSongMaxDistance :: Word32 -- float 10000.0 (stored as 00 40 1C 46)
   , fsbExtra           :: Either FSBExtraXMA FSBExtraMP3
   } deriving (Show)
 
+-- | Rest of an XMA sample header. All values seen in GH3 (FSB3, XMA1) and
+-- GHWT/GH5/WoR (FSB4, XMA2).
 data FSBExtraXMA = FSBExtraXMA
-  { fsbXMAUnknown1 :: Word32 -- in GH3 dlc82 and WT dlc3, 0. WoR dlc721, same as fsbSongHeaderSize?
-  , fsbXMAUnknown2 :: Word32 -- in GH3 dlc82, WT dlc3, and WoR dlc721, 0
-  , fsbXMAUnknown3 :: Word32 -- in GH3 dlc82, 20 00 00 00. WT dlc3 and WoR dlc721, 0
-  , fsbXMAUnknown4 :: Word32 -- in GH3 dlc82, 71 49 69 03. WT dlc3 and WoR dlc721, 0
-  , fsbXMAUnknown5 :: Word32 -- in GH3 dlc82, 33 00 00 00. WT dlc3 and WoR dlc721, 0
-  , fsbXMAUnknown6 :: Word32 -- think this is size of rest of song struct (unk7, unk8, seek table)
-  , fsbXMAUnknown7 :: Word32 -- think this is number of XMA streams (channels / 2, rounded up)
-  , fsbXMAUnknown8 :: Word32 -- think this is number of seek entries + 1?
-  , fsbXMASeek     :: [Word32] -- LE (they are BE in .xma files)
+  { fsbXMAVarFreq      :: Word32 -- varfreq from fsb.h, always 0
+  , fsbXMAVarVolPan    :: Word32 -- varvol and varpan from fsb.h, always 0
+  -- The next 3 match the loop fields of XMA1's XMASTREAMFORMAT. 0 for XMA2.
+  , fsbXMALoopStart    :: Word32 -- bit position of the first frame (32, after the first packet header)
+  , fsbXMALoopEnd      :: Word32 -- bit position of the last frame
+  , fsbXMASubframeData :: Word32 -- high nibble: subframes used in the last frame, low nibble: 3
+  , fsbXMASeekSize     :: Word32 -- size of the next two fields and the seek table: 8 + 4 * length seek
+  , fsbXMAStreams      :: Word32 -- number of XMA streams (mono or stereo each)
+  , fsbXMASeekCount    :: Word32 -- length seek for FSB3, length seek + 1 for FSB4
+  , fsbXMASeek         :: [Word32] -- LE (they are BE in .xma files)
+    -- FSB3/XMA1: one entry per packet, the samples decoded before it
+    -- FSB4/XMA2: 0, then one entry per block, the samples decoded by its end
   } deriving (Show)
 
 data FSBExtraMP3 = FSBExtraMP3
-  -- no idea what these are
-  { fsbMP3Unknown1 :: Word32 -- 50 00 00 00
+  -- These are in the position of varfreq, varvol, varpan from fsb.h
+  { fsbMP3Unknown1 :: Word32 -- 0 in GH3, 50 00 00 00 in GHWT
   , fsbMP3Unknown2 :: Word32 -- 00 00 00 00
   } deriving (Show)
 
@@ -107,25 +112,25 @@ getFSBSong = do
   fsbExtra <- if fsbSongMode .&. 0x01000000 /= 0
     then Left <$> do
 
-      fsbXMAUnknown1 <- getWord32le
-      fsbXMAUnknown2 <- getWord32le
-      fsbXMAUnknown3 <- getWord32le
-      fsbXMAUnknown4 <- getWord32le
-      fsbXMAUnknown5 <- getWord32le
-      fsbXMAUnknown6 <- getWord32le
-      fsbXMAUnknown7 <- getWord32le
-      fsbXMAUnknown8 <- getWord32le
+      fsbXMAVarFreq      <- getWord32le
+      fsbXMAVarVolPan    <- getWord32le
+      fsbXMALoopStart    <- getWord32le
+      fsbXMALoopEnd      <- getWord32le
+      fsbXMASubframeData <- getWord32le
+      fsbXMASeekSize     <- getWord32le
+      fsbXMAStreams      <- getWord32le
+      fsbXMASeekCount    <- getWord32le
 
       pos2 <- bytesRead
 
       let bytesLeft = from fsbSongHeaderSize - fromIntegral (pos2 - pos1)
       numEntries <- case quotRem bytesLeft 4 of
-        (q, 0) -> return q -- sometimes this is fsbXMAUnknown8, sometimes fsbXMAUnknown8 - 1?
+        (q, 0) -> return q -- fsbXMASeekCount for FSB3, fsbXMASeekCount - 1 for FSB4
         _      -> fail $ unwords
           [ "Incorrect size left for XMA seek table;"
           , show bytesLeft
           , "not divisible by 4. Header value claims"
-          , show fsbXMAUnknown8
+          , show fsbXMASeekCount
           , "entries"
           ]
       fsbXMASeek <- replicateM numEntries getWord32le
@@ -159,14 +164,14 @@ putFSBSong FSBSong{..} = do
 
   case fsbExtra of
     Left FSBExtraXMA{..} -> do
-      putWord32le fsbXMAUnknown1
-      putWord32le fsbXMAUnknown2
-      putWord32le fsbXMAUnknown3
-      putWord32le fsbXMAUnknown4
-      putWord32le fsbXMAUnknown5
-      putWord32le fsbXMAUnknown6
-      putWord32le fsbXMAUnknown7
-      putWord32le fsbXMAUnknown8
+      putWord32le fsbXMAVarFreq
+      putWord32le fsbXMAVarVolPan
+      putWord32le fsbXMALoopStart
+      putWord32le fsbXMALoopEnd
+      putWord32le fsbXMASubframeData
+      putWord32le fsbXMASeekSize
+      putWord32le fsbXMAStreams
+      putWord32le fsbXMASeekCount
       mapM_ putWord32le fsbXMASeek
     Right FSBExtraMP3{..} -> do
       putWord32le fsbMP3Unknown1
@@ -245,20 +250,6 @@ songHeaderSize song = 64 + 8 + case song.fsbExtra of
   Left  xma  -> 32 + fromIntegral (length xma.fsbXMASeek) * 4
   Right _mp3 -> 8
 
-fixFSB3 :: FSB3Header -> FSB3Header
-fixFSB3 FSB3Header{..} = let
-  songs = fsb3Songs <&> \song -> song
-    { fsbSongHeaderSize = songHeaderSize song
-    }
-  in FSB3Header
-    { fsb3SongCount   = fromIntegral $ length fsb3Songs
-    , fsb3HeadersSize = sum $ map (from . (.fsbSongHeaderSize)) songs
-    , fsb3DataSize    = sum $ map (.fsbSongDataSize) songs
-    , fsb3Version     = fsb3Version
-    , fsb3Flags       = fsb3Flags
-    , fsb3Songs       = songs
-    }
-
 data FSB = FSB
   { fsbHeader   :: Either FSB3Header FSB4Header
   , fsbSongData :: [BL.ByteString]
@@ -302,18 +293,25 @@ fixFSB fsb = let
       songs = fixSongs header4.fsb4Songs
       in Right header4
         { fsb4SongCount   = fromIntegral $ length songs
-        -- TODO pad to 0x10
-        , fsb4HeadersSize = sum $ map (from . (.fsbSongHeaderSize)) songs
+        -- official files pad the headers so the data starts at a multiple of 0x10
+        , fsb4HeadersSize = roundUp16 $ sum $ map (from . (.fsbSongHeaderSize)) songs
         , fsb4DataSize    = sum $ map (.fsbSongDataSize) songs
         , fsb4Songs       = songs
         }
+  roundUp16 n = case quotRem n 0x10 of
+    (_, 0) -> n
+    (q, _) -> (q + 1) * 0x10
   in fsb { fsbHeader = header }
 
 emitFSB :: FSB -> BL.ByteString
 emitFSB fsb = runPut do
   let fsb' = fixFSB fsb
   either putFSB3Header putFSB4Header fsb'.fsbHeader
-  -- TODO pad to 0x10 to match fsbXHeadersSize
+  case fsb'.fsbHeader of
+    Left  _    -> return ()
+    Right fsb4 -> let
+      songHeaders = sum $ map (from . (.fsbSongHeaderSize)) fsb4.fsb4Songs
+      in putByteString $ B.replicate (fromIntegral fsb4.fsb4HeadersSize - songHeaders) 0
   mapM_ putLazyByteString fsb'.fsbSongData
 
 readGH3FSB3 :: (MonadResource m) => BL.ByteString -> IO [(B.ByteString, CA.AudioSource m Int16)]
@@ -621,12 +619,17 @@ makeXMA2SeekTable xma = do
   let stream0Counts = map
         (\(stream, pkt) -> if stream == 0 then pkt.xma2FrameCount else 0)
         (markXMA2PacketStreams pkts)
-  return do
-    -- Packets are 2048 bytes in all XMA. Each frame is 512 samples.
-    -- FSB appear to use 16-packet blocks. (Maybe this is stored somewhere?)
-    -- Each entry in the seek table is "how many samples would you have decoded by block N"
-    packetIndex <- [0, xma.xma2PacketsPerBlock .. length stream0Counts]
-    return $ sum (take packetIndex stream0Counts) * 512
+  -- Packets are 2048 bytes in all XMA. Each frame is 512 samples.
+  -- FSB uses 16-packet blocks. Each block has the same number of frames for each stream.
+  -- Each entry in the seek table is "how many samples would you have decoded by the end of block N",
+  -- so we get 0, then one entry per block (the last one is the total).
+  return $ scanl (+) 0 $ map ((* 512) . sum) $ chunksOf xma.xma2PacketsPerBlock stream0Counts
+
+-- | Seek table in .fsb format (starting with 0), from an existing table or from the data.
+fsbXMA2SeekTable :: (MonadFail m) => XMA2Contents -> m [Word32]
+fsbXMA2SeekTable xma = case xma.xma2SeekTable of
+  Just table -> return $ 0 : table
+  Nothing    -> makeXMA2SeekTable xma
 
 data XMA1Contents = XMA1Contents
   { xma1Channels  :: Int
@@ -634,6 +637,14 @@ data XMA1Contents = XMA1Contents
   , xma1SeekTable :: [Word32] -- this is per-packet (not per-block like XMA2)
   , xma1Data      :: BL.ByteString
   } deriving (Eq, Generic, Hashable)
+
+-- | An XMA1 stream along with the info for its FSB3 header (as in Guitar Hero 3).
+data FSB3XMA = FSB3XMA
+  { fsb3XMA          :: XMA1Contents
+  , fsb3XMASamples   :: Word32 -- valid samples (without the encoder delay and padding)
+  , fsb3XMALastFrame :: Word32 -- bit position of the last frame (counting packet headers)
+  , fsb3XMASubframes :: Word32 -- subframes (128 samples each) used in the last frame
+  }
 
 data XMA2Contents = XMA2Contents
   { xma2Channels        :: Int
@@ -718,10 +729,12 @@ parseXMA b = let
           -- rest
           _        <- getWord16le -- NumStreams;     // Number of audio streams (1 or 2 channels each)
           _        <- getWord32le -- ChannelMask;    // Spatial positions of the channels in this file
-          len      <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
+          encoded  <- getWord32le -- SamplesEncoded; // Total number of PCM samples the file decodes to
           blkSize  <- getWord32le -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
           _        <- getWord32le -- PlayBegin;      // First valid sample in the decoded audio
-          _        <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
+          playLen  <- getWord32le -- PlayLength;     // Length of the valid part of the decoded audio
+          -- xma2encode sets SamplesEncoded to frames * 512, and PlayLength to the input length
+          let len = if playLen /= 0 then playLen else encoded
           _        <- getWord32le -- LoopBegin;      // Beginning of the loop region in decoded sample terms
           _        <- getWord32le -- LoopLength;     // Length of the loop region in decoded sample terms
           _        <- getWord8    -- LoopCount;      // Number of loop repetitions; 255 = infinite
@@ -843,27 +856,39 @@ writeXMA1 fp xma = IO.withBinaryFile fp IO.WriteMode \h -> do
 
 writeXMA2 :: FilePath -> XMA2Contents -> IO ()
 writeXMA2 fp xma = IO.withBinaryFile fp IO.WriteMode \h -> do
-  xmaSeek <- makeXMA2SeekTable xma -- TODO use existing one if it's there
+  xmaSeek <- fsbXMA2SeekTable xma
   riffChunk h "RIFF" do
     B.hPut h "WAVE"
     riffChunk h "fmt " do
       let c = xma.xma2Channels
           r = xma.xma2Rate
           len = xma.xma2Samples
+          -- all frames decode to 512 samples, including the trimmed ones at the start and end
+          encoded = last xmaSeek
           blockSize = fromIntegral xma.xma2PacketsPerBlock * 2048
+          avgBytes = if encoded == 0 then 0
+            else (BL.length xma.xma2Data * fromIntegral r) `quot` fromIntegral encoded
+          -- what xma2encode uses
+          channelMask = case c of
+            1 -> 0x4   -- center
+            2 -> 0x3   -- front left, right
+            4 -> 0x33  -- front and back left, right
+            6 -> 0x3F  -- 5.1
+            8 -> 0x63F -- 7.1
+            _ -> 0
 
       -- WAVEFORMATEX wfx;
-      writePut h $ putWord16le 0x166                -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
-      writePut h $ putWord16le $ fromIntegral c     -- nChannels;       // Channel count of the decoded audio
-      writePut h $ putWord32le $ fromIntegral r     -- nSamplesPerSec;  // Sample rate of the decoded audio
-      writePut h $ putWord32le 0 -- TODO            -- nAvgBytesPerSec; // Used internally by the XMA encoder
-      writePut h $ putWord16le $ fromIntegral c * 2 -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
-      writePut h $ putWord16le 0x10                 -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
-      writePut h $ putWord16le 0x22                 -- cbSize;          // Size in bytes of the rest of this structure (34)
+      writePut h $ putWord16le 0x166                  -- wFormatTag;      // Audio format type; always WAVE_FORMAT_XMA2
+      writePut h $ putWord16le $ fromIntegral c       -- nChannels;       // Channel count of the decoded audio
+      writePut h $ putWord32le $ fromIntegral r       -- nSamplesPerSec;  // Sample rate of the decoded audio
+      writePut h $ putWord32le $ fromIntegral avgBytes -- nAvgBytesPerSec; // Used internally by the XMA encoder
+      writePut h $ putWord16le $ fromIntegral c * 2   -- nBlockAlign;     // Decoded sample size; channels * wBitsPerSample / 8
+      writePut h $ putWord16le 0x10                   -- wBitsPerSample;  // Bits per decoded mono sample; always 16 for XMA
+      writePut h $ putWord16le 0x22                   -- cbSize;          // Size in bytes of the rest of this structure (34)
 
       writePut h $ putWord16le $ (fromIntegral c + 1) `quot` 2 -- NumStreams;     // Number of audio streams (1 or 2 channels each)
-      writePut h $ putWord32le 0                               -- ChannelMask;    // Spatial positions of the channels in this file
-      writePut h $ putWord32le $ fromIntegral len              -- SamplesEncoded; // Total number of PCM samples the file decodes to
+      writePut h $ putWord32le channelMask                     -- ChannelMask;    // Spatial positions of the channels in this file
+      writePut h $ putWord32le encoded                         -- SamplesEncoded; // Total number of PCM samples the file decodes to
       writePut h $ putWord32le blockSize                       -- BytesPerBlock;  // XMA block size (but the last one may be shorter)
       writePut h $ putWord32le 0                               -- PlayBegin;      // First valid sample in the decoded audio
       writePut h $ putWord32le $ fromIntegral len              -- PlayLength;     // Length of the valid part of the decoded audio
@@ -871,8 +896,7 @@ writeXMA2 fp xma = IO.withBinaryFile fp IO.WriteMode \h -> do
       writePut h $ putWord32le 0                               -- LoopLength;     // Length of the loop region in decoded sample terms
       writePut h $ putWord8 0                                  -- LoopCount;      // Number of loop repetitions; 255 = infinite
       writePut h $ putWord8 4                                  -- EncoderVersion; // Version of XMA encoder that generated the file
-      writePut h $ putWord16le $ fromIntegral $ length xmaSeek -- BlockCount;     // XMA blocks in file (and entries in its seek table)
-      -- TODO should that be "length xmaSeek - 1"? We might be missing a final entry in our table
+      writePut h $ putWord16le $ fromIntegral $ length xmaSeek - 1 -- BlockCount; // XMA blocks in file (and entries in its seek table)
 
     riffChunk h "seek" do
       -- FSB's version of the seek table starts from block 0, and is little-endian.
@@ -941,39 +965,43 @@ mp3sToFSB3 mp3s = do
     , fsbSongData = map snd songs
     }
 
-xmasToFSB3 :: (MonadFail m) => [(B.ByteString, (XMA1Contents, Word32))] -> m FSB
+-- | Header values follow official GH3 DLC.
+xmasToFSB3 :: (MonadFail m) => [(B.ByteString, FSB3XMA)] -> m FSB
 xmasToFSB3 xmas = do
 
-  songs <- forM xmas \(name, (xma, numFrames)) -> do
-    let seekTable = xma.xma1SeekTable
+  songs <- forM xmas \(name, info) -> do
+    let xma = info.fsb3XMA
+        seekTable = xma.xma1SeekTable
         lenSeekTable = fromIntegral $ length seekTable
         song = FSBSong
           { fsbSongHeaderSize = 0
           , fsbSongName       = name
-          , fsbSongSamples    = numFrames * 512
+          -- if this is wrong, GH3 practice mode seeks to the wrong place.
+          , fsbSongSamples    = info.fsb3XMASamples
           , fsbSongDataSize   = 0
           , fsbSongLoopStart  = 0
-          , fsbSongLoopEnd    = numFrames * 512 - 1
-          , fsbSongMode       = 0x1002040
-          , fsbSongSampleRate = fromIntegral xma.xma1Rate -- RR uses 48000 but plays 44100 ok. GH3 uses 44100
-          , fsbSongDefVol     = 255 -- 1 in RR (maybe not used) but GH3 does apply it
-          , fsbSongDefPan     = 128 -- 0 in RR (maybe not used) but GH3 probably does apply it
-          , fsbSongDefPri     = 255 -- 128 in RR (dunno what this is)
+          , fsbSongLoopEnd    = info.fsb3XMASamples - 1
+          -- FSOUND_XMA | 0x100000 (FSOUND_ENABLEFX in old fsb.h) | FSOUND_MONO or FSOUND_STEREO
+          , fsbSongMode       = 0x1100000 .|. (if xma.xma1Channels == 1 then 0x20 else 0x40)
+          , fsbSongSampleRate = fromIntegral xma.xma1Rate -- GH3 uses 44100
+          , fsbSongDefVol     = 255 -- GH3 does apply this
+          , fsbSongDefPan     = 128
+          , fsbSongDefPri     = 255
           , fsbSongChannels   = fromIntegral xma.xma1Channels
 
           , fsbSongMinDistance = 0x803F
           , fsbSongMaxDistance = 0x401C46
 
           , fsbExtra = Left FSBExtraXMA
-            { fsbXMAUnknown1 = 0
-            , fsbXMAUnknown2 = 0
-            , fsbXMAUnknown3 = 32
-            , fsbXMAUnknown4 = 0 -- RR 0x5ac6c22 but not consistent
-            , fsbXMAUnknown5 = 19
-            , fsbXMAUnknown6 = 8 + 4 * lenSeekTable
-            , fsbXMAUnknown7 = fromIntegral (xma.xma1Channels + 1) `quot` 2
-            , fsbXMAUnknown8 = lenSeekTable + 1
-            , fsbXMASeek = seekTable
+            { fsbXMAVarFreq      = 0
+            , fsbXMAVarVolPan    = 0
+            , fsbXMALoopStart    = 32
+            , fsbXMALoopEnd      = info.fsb3XMALastFrame
+            , fsbXMASubframeData = info.fsb3XMASubframes * 0x10 + 3
+            , fsbXMASeekSize     = 8 + 4 * lenSeekTable
+            , fsbXMAStreams      = 1
+            , fsbXMASeekCount    = lenSeekTable
+            , fsbXMASeek         = seekTable
             }
 
           }
@@ -997,7 +1025,7 @@ xmasToFSB4 xmas = do
   songs <- forM xmas \(name, xma) -> do
     -- FSB should use 32 KB blocks (16-packet)
     unless (xma.xma2PacketsPerBlock == 16) $ fail "XMA data doesn't have FSB packets-per-block of 16"
-    seekTable <- makeXMA2SeekTable xma
+    seekTable <- fsbXMA2SeekTable xma
     let lenSeekTable = fromIntegral $ length seekTable
         song = FSBSong
           { fsbSongHeaderSize = 0
@@ -1017,15 +1045,15 @@ xmasToFSB4 xmas = do
           , fsbSongMaxDistance = 0x401C46
 
           , fsbExtra = Left FSBExtraXMA
-            { fsbXMAUnknown1 = 0
-            , fsbXMAUnknown2 = 0
-            , fsbXMAUnknown3 = 0 -- RR 32
-            , fsbXMAUnknown4 = 0 -- RR 0x5ac6c22 but not consistent
-            , fsbXMAUnknown5 = 0 -- RR 19
-            , fsbXMAUnknown6 = 8 + 4 * lenSeekTable
-            , fsbXMAUnknown7 = fromIntegral (xma.xma2Channels + 1) `quot` 2
-            , fsbXMAUnknown8 = lenSeekTable + 1
-            , fsbXMASeek = seekTable
+            { fsbXMAVarFreq      = 0
+            , fsbXMAVarVolPan    = 0
+            , fsbXMALoopStart    = 0
+            , fsbXMALoopEnd      = 0
+            , fsbXMASubframeData = 0
+            , fsbXMASeekSize     = 8 + 4 * lenSeekTable
+            , fsbXMAStreams      = fromIntegral (xma.xma2Channels + 1) `quot` 2
+            , fsbXMASeekCount    = lenSeekTable + 1
+            , fsbXMASeek         = seekTable
             }
 
           }

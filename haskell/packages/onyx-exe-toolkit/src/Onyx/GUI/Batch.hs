@@ -266,6 +266,7 @@ batchPageGH3 sink rect tab build = do
             ]
           tgt = (def :: TargetGH3 FilePath)
             & #common % #speed .~ Just speed
+            & #xboxAudio .~ newPrefs.prefXboxFSB
             & #guitar .~ fromMaybe (F.PartName "undefined") leadPart
             & #bass %~ case coopPart of
               Just (x, GH2Bass) -> const x
@@ -440,6 +441,7 @@ batchPageGHWOR sink rect tab build = do
             & #bass            .~ fromMaybe defGH5.bass (pickedBass <|> pickedGuitar)
             & #drums           .~ getDrumsOrDance proj.projectSongYaml
             & #proTo4          .~ proTo4
+            & #xboxAudio       .~ newPreferences.prefXboxFSB
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ GH5 tgt
             , let

@@ -5,8 +5,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Build.PowerGig (pgRules) where
 
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource
 import qualified Data.Aeson                       as A
 import           Data.Binary.Put                  (runPut)
 import           Data.Bits                        ((.|.))
@@ -445,7 +443,7 @@ pgRules buildInfo dir pg = do
   objAudio %> \out -> do
     let wav = planDir </> "everything.wav"
     shk $ need [wav]
-    xma <- mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ makeXMAPieces $ fileReadable wav
+    xma <- makeXMA $ fileReadable wav
     stackIO $ writeXMA2 out xma
   objAudioE2 %> \out -> do
     shk $ need [objAudio]

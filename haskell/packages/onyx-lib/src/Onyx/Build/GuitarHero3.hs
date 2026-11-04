@@ -1,12 +1,14 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedRecordDot   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 module Onyx.Build.GuitarHero3 (gh3Rules, hashGH3) where
 
+import           Control.Concurrent.Async          (forConcurrently)
 import           Control.Monad                     (forM_, guard, when)
-import           Control.Monad.Trans.Resource      (runResourceT)
+import           Control.Monad.Trans.Resource      (ResourceT, runResourceT)
 import           Data.Binary.Put                   (putWord32be, runPut)
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Char8             as B8
@@ -15,6 +17,8 @@ import           Data.Char                         (toUpper)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
+import           Data.Conduit.Audio.SampleRate     (ConverterType (..),
+                                                    resampleTo)
 import qualified Data.EventList.Absolute.TimeBody  as ATB
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
@@ -28,7 +32,11 @@ import           Data.Word                         (Word32)
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           Onyx.Audio
-import           Onyx.Audio.FSB                    (emitFSB, mp3sToFSB3)
+import           Onyx.Audio.FSB                    (FSB3XMA (..),
+                                                    XMA1Contents (..), emitFSB,
+                                                    mp3sToFSB3, xmasToFSB3)
+import           Onyx.Audio.XMA                    (defaultXMAQuality,
+                                                    encodeXMA1)
 import           Onyx.Build.Common
 import           Onyx.Build.RB3CH                  (BasicTiming (..),
                                                     basicTiming)
@@ -53,6 +61,7 @@ import           Onyx.PlayStation.NPData           (contentID,
                                                     gh3CustomMidEdatConfig,
                                                     packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
+import           Onyx.Preferences                  (XboxFSBCodec (..))
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (FretLimit,
                                                     completeFiveResult,
@@ -128,49 +137,65 @@ gh3Rules buildInfo dir gh3 = do
       pathPad = dir </> "pad.txt"
       readPad :: Staction Int
       readPad = shk $ read <$> readFile' pathPad
-  pathGuitar %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
-      [(gh3.guitar, 1)]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathRhythm %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan
-      [(coopPart, 1)]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathSong %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceBacking buildInfo gh3.common mid 0 planName plan
-      [ (gh3.guitar, 1)
-      , (coopPart      , 1)
-      ]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathPreview %> \out -> do
-    mid <- F.shakeMIDI $ planDir </> "processed.mid"
-    -- Pad passed as 0 because we are just applying it to the unpadded audio
-    let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
-        fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
-        metadata = getTargetMetadata songYaml $ GH3 gh3
-        previewExpr
-          = Fade End (Seconds 5)
-          $ Fade Start (Seconds 2)
-          $ Take Start (fromMS $ pend - pstart)
-          $ Drop Start (fromMS pstart)
-          $ Input (planDir </> "everything.wav")
-    src <- shk $ buildSource previewExpr
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup
-      $ applySpeedAudio gh3.common src
+  -- Audio for the FSB's streams
+  let srcParts :: [(F.PartName, Integer)] -> Staction (AudioSource (ResourceT IO) Float)
+      srcParts parts = do
+        mid <- loadOnyxMidi
+        s <- sourceStereoParts buildInfo gh3Parts gh3.common mid 0 planName plan parts
+        pad <- readPad
+        return $ padAudio pad $ clampIfSilent s
+      srcGuitar = srcParts [(gh3.guitar, 1)]
+      srcRhythm = srcParts [(coopPart, 1)]
+      srcSong :: Staction (AudioSource (ResourceT IO) Float)
+      srcSong = do
+        mid <- loadOnyxMidi
+        s <- sourceBacking buildInfo gh3.common mid 0 planName plan
+          [ (gh3.guitar, 1)
+          , (coopPart  , 1)
+          ]
+        pad <- readPad
+        return $ padAudio pad $ clampIfSilent s
+      srcPreview :: Staction (AudioSource (ResourceT IO) Float)
+      srcPreview = do
+        mid <- F.shakeMIDI $ planDir </> "processed.mid"
+        -- Pad passed as 0 because we are just applying it to the unpadded audio
+        let (pstart, pend) = previewBounds metadata (mid :: F.Song (F.OnyxFile U.Beats)) 0 False
+            fromMS ms = Seconds $ fromIntegral (ms :: Int) / 1000
+            metadata = getTargetMetadata songYaml $ GH3 gh3
+            previewExpr
+              = Fade End (Seconds 5)
+              $ Fade Start (Seconds 2)
+              $ Take Start (fromMS $ pend - pstart)
+              $ Drop Start (fromMS pstart)
+              $ Input (planDir </> "everything.wav")
+        src <- shk $ buildSource previewExpr
+        return $ applySpeedAudio gh3.common src
+      sinkMP3 out src = stackIO $ runResourceT $ sinkMP3WithHandle out setup src
+  pathGuitar  %> \out -> srcGuitar  >>= sinkMP3 out
+  pathRhythm  %> \out -> srcRhythm  >>= sinkMP3 out
+  pathSong    %> \out -> srcSong    >>= sinkMP3 out
+  pathPreview %> \out -> srcPreview >>= sinkMP3 out
 
-  let pathFsb = dir </> "audio.fsb"
+  -- FSB and DAT files are made in each audio format.
+  -- Xbox 360 uses the format chosen in the target (XMA or MP3), and PS3 always uses MP3.
+  let audioDir codec = dir </> case codec of
+        XboxFSB_XMA -> "audio-xma"
+        XboxFSB_MP3 -> "audio-mp3"
+      pathFsbFor     codec = audioDir codec </> "audio.fsb"
+      -- whether the guitar and rhythm streams are included in the FSB
+      pathStreamsFor codec = audioDir codec </> "streams.txt"
+      pathFsbXenFor  codec = audioDir codec </> (B8.unpack dlcID <> ".fsb.xen")
+      pathDatXenFor  codec = audioDir codec </> (B8.unpack dlcID <> ".dat.xen")
       pathFsbXen = dir </> "xbox" </> (B8.unpack dlcID <> ".fsb.xen")
       pathDatXen = dir </> "xbox" </> (B8.unpack dlcID <> ".dat.xen")
-      -- for some reason ffmpeg errors trying to read empty mp3s back!
-      -- so we just look at filesize instead as a hack
+      -- Streams shorter than this are left out.
+      -- For MP3, ffmpeg errors trying to read empty mp3s back,
+      -- so we just look at filesize instead as a hack (5000 bytes is about 0.3 seconds)
       testSize f = stackIO $ (>= 5000) <$> withBinaryFile f ReadMode hFileSize
-  pathFsb %> \out -> do
+      minXMASamples :: FSB3XMA -> Int
+      minXMASamples xma = xma.fsb3XMA.xma1Rate * 3 `quot` 10
+
+  [pathFsbFor XboxFSB_MP3, pathStreamsFor XboxFSB_MP3] %> \_ -> do
     shk $ need [pathGuitar, pathPreview, pathRhythm, pathSong]
     tracks <- catMaybes <$> mapM
       (\(name, path) -> do
@@ -187,31 +212,60 @@ gh3Rules buildInfo dir gh3 = do
       bs <- stackIO $ BL.readFile path
       return (name, bs)
       ) tracks >>= mp3sToFSB3
-    stackIO $ BL.writeFile out $ emitFSB fsb
-  pathFsbXen %> \out -> do
-    shk $ need [pathFsb]
-    fsb <- stackIO $ BL.readFile pathFsb
-    stackIO $ BL.writeFile out $ gh3Encrypt fsb
-  pathDatXen %> \out -> do
-    shk $ need [pathGuitar, pathRhythm, pathFsbXen]
+    stackIO $ BL.writeFile (pathFsbFor XboxFSB_MP3) $ emitFSB fsb
     hasGuitarAudio <- testSize pathGuitar
     hasRhythmAudio <- testSize pathRhythm
-    fsbLength <- stackIO $ withBinaryFile pathFsbXen ReadMode hFileSize
-    stackIO $ BL.writeFile out $ runPut do
-      let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
-      putWord32be count
-      putWord32be $ fromIntegral fsbLength
-      let datEntry slot index = do
-            putQBKeyBE $ qbKeyCRC $ dlcID <> "_" <> slot
-            putWord32be index
-            putWord32be 0
-            putWord32be 0
-            putWord32be 0
-      -- TODO these indexes may not be right if preview file is empty?
-      datEntry "preview" 0
-      datEntry "song" 1
-      when hasGuitarAudio $ datEntry "guitar" 2
-      when hasRhythmAudio $ datEntry "rhythm" if hasGuitarAudio then 3 else 2
+    stackIO $ writeFile (pathStreamsFor XboxFSB_MP3) $ show (hasGuitarAudio, hasRhythmAudio)
+
+  [pathFsbFor XboxFSB_XMA, pathStreamsFor XboxFSB_XMA] %> \_ -> do
+    srcs <- sequence
+      [ (,) "onyx_preview.xma" <$> srcPreview
+      , (,) "onyx_song.xma"    <$> srcSong
+      , (,) "onyx_guitar.xma"  <$> srcGuitar
+      , (,) "onyx_rhythm.xma"  <$> srcRhythm
+      ]
+    xmas <- inside "encoding XMA1 audio" $ stackIO $ forConcurrently srcs \(name, src) -> do
+      -- GH3 uses 44100 Hz, but 48000 Hz works too
+      let src' = if elem (rate src) [44100, 48000]
+            then src
+            else resampleTo 48000 SincMediumQuality src
+      xma <- runResourceT $ encodeXMA1 defaultXMAQuality src'
+      return (name, xma)
+    let hasAudio :: FSB3XMA -> Bool
+        hasAudio xma = fromIntegral xma.fsb3XMASamples >= minXMASamples xma
+    fsb <- xmasToFSB3 $ filter (hasAudio . snd) xmas
+    stackIO $ BL.writeFile (pathFsbFor XboxFSB_XMA) $ emitFSB fsb
+    let hasStream name = any (\(n, xma) -> n == name && hasAudio xma) xmas
+    stackIO $ writeFile (pathStreamsFor XboxFSB_XMA) $ show
+      (hasStream "onyx_guitar.xma", hasStream "onyx_rhythm.xma")
+
+  forM_ [minBound .. maxBound] \codec -> do
+    pathFsbXenFor codec %> \out -> do
+      shk $ need [pathFsbFor codec]
+      fsb <- stackIO $ BL.readFile $ pathFsbFor codec
+      stackIO $ BL.writeFile out $ gh3Encrypt fsb
+    pathDatXenFor codec %> \out -> do
+      shk $ need [pathStreamsFor codec, pathFsbXenFor codec]
+      (hasGuitarAudio, hasRhythmAudio) <- shk $ read <$> readFile' (pathStreamsFor codec)
+      fsbLength <- stackIO $ withBinaryFile (pathFsbXenFor codec) ReadMode hFileSize
+      stackIO $ BL.writeFile out $ runPut do
+        let count = 2 + (if hasGuitarAudio then 1 else 0) + (if hasRhythmAudio then 1 else 0)
+        putWord32be count
+        putWord32be $ fromIntegral fsbLength
+        let datEntry slot index = do
+              putQBKeyBE $ qbKeyCRC $ dlcID <> "_" <> slot
+              putWord32be index
+              putWord32be 0
+              putWord32be 0
+              putWord32be 0
+        -- TODO these indexes may not be right if preview file is empty?
+        datEntry "preview" 0
+        datEntry "song" 1
+        when hasGuitarAudio $ datEntry "guitar" 2
+        when hasRhythmAudio $ datEntry "rhythm" if hasGuitarAudio then 3 else 2
+
+  pathFsbXen %> \out -> shk $ copyFile' (pathFsbXenFor gh3.xboxAudio) out
+  pathDatXen %> \out -> shk $ copyFile' (pathDatXenFor gh3.xboxAudio) out
 
   let pathDL = dir </> "xbox" </> (dl <> ".pak.xen")
       pathText = dir </> "xbox" </> (dl <> "_text.pak.xen")
@@ -370,8 +424,8 @@ gh3Rules buildInfo dir gh3 = do
         fin'  <- shortWindowsPath False fin
         fout' <- shortWindowsPath True  fout
         stackIO $ packNPData edatConfig fin' fout' $ B8.pack $ takeFileName fout
-  ps3Fsb     %> makeEDAT pathFsbXen
-  ps3Dat     %> makeEDAT pathDatXen
+  ps3Fsb     %> makeEDAT (pathFsbXenFor XboxFSB_MP3)
+  ps3Dat     %> makeEDAT (pathDatXenFor XboxFSB_MP3)
   ps3DL      %> makeEDAT pathDL
   ps3Text    %> makeEDAT pathText
   ps3SongPak %> makeEDAT pathSongPak

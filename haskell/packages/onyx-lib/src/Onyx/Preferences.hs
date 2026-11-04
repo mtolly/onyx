@@ -61,6 +61,7 @@ data Preferences = Preferences
   , prefWaveform      :: Bool -- display audio waveform in None or Venue preview backgrounds
   , prefLeftyFlip     :: Bool
   , prefReduceFrets   :: Bool -- should auto 5-fret reductions use only 3 frets on Easy and 4 frets on Medium
+  , prefXboxFSB       :: XboxFSBCodec
   }
 
 instance StackJSON Preferences where
@@ -100,6 +101,7 @@ instance StackJSON Preferences where
     prefWaveform      <- (.prefWaveform     ) =. opt  True             "waveform"        stackJSON
     prefLeftyFlip     <- (.prefLeftyFlip    ) =. opt  False            "lefty-flip"      stackJSON
     prefReduceFrets   <- (.prefReduceFrets  ) =. opt  False            "reduce-frets"    stackJSON
+    prefXboxFSB       <- (.prefXboxFSB      ) =. opt  XboxFSB_XMA      "xbox-fsb"        stackJSON
     return Preferences{..}
 
 instance Default Preferences where
@@ -184,6 +186,16 @@ instance StackJSON RBEncoding where
   stackJSON = enumCodec "an RB dta encoding" \case
     Latin1 -> "latin1"
     UTF8   -> "utf8"
+
+data XboxFSBCodec
+  = XboxFSB_XMA
+  | XboxFSB_MP3
+  deriving (Eq, Ord, Show, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON XboxFSBCodec where
+  stackJSON = enumCodec "an audio format for Xbox 360 FSB files" \case
+    XboxFSB_XMA -> "xma"
+    XboxFSB_MP3 -> "mp3"
 
 getDefaultPS3Dir :: (SendMessage m, MonadIO m) => StackTraceT m (Maybe FilePath)
 getDefaultPS3Dir = do

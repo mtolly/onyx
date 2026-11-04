@@ -349,7 +349,7 @@ songPageGHWOR sink rect tab proj build = mdo
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
-          stackIO $ warnXboxGHWoR sink $ stackIO $ build tgt $ GHWORLIVE $ trimXbox newPreferences f
+          stackIO $ warnXboxGHWoR sink $ stackIO $ build (tgt & #xboxAudio .~ newPreferences.prefXboxFSB) $ GHWORLIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 (l10n "create-ps3-pkg") \clbl ->
@@ -649,7 +649,7 @@ songPageGH3 sink rect tab proj build = mdo
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
-          stackIO $ build tgt $ GH3LIVE $ trimXbox newPreferences f
+          stackIO $ build (tgt & #xboxAudio .~ newPreferences.prefXboxFSB) $ GH3LIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 (l10n "create-ps3-pkg") \clbl ->

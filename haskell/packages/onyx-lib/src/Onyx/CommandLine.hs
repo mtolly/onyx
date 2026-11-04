@@ -60,7 +60,7 @@ import           Onyx.Amplitude.PS2.TxtBin            (TxtBin (..), dtaToTxtBin,
                                                        txtBinToTracedDTA)
 import           Onyx.Audio                           (Audio (..), audioLength,
                                                        audioMD5, buildSource',
-                                                       makeFSB4, makeFSB4',
+                                                       makeFSB4, makeXMA,
                                                        makeXMAFSB3, runAudio)
 import           Onyx.Audio.FSB                       (FSBExtraMP3 (..),
                                                        FSBExtraXMA (..),
@@ -720,27 +720,22 @@ commands =
       _ -> fatal "Expected 2 arguments (gh game, input fsb)"
     }
 
-  -- TODO clean this up, maybe only output MP3 and just have the two types (gh3 and ghwt+)
   , Command
     { commandWord = "fsb"
-    , commandDesc = "Encode a WAV file to an XMA-based FSB file. This command will be modified in the future to primarily support MP3-based FSB files."
+    , commandDesc = "Encode audio files to an FSB file for Neversoft Guitar Hero games."
     , commandUsage = T.unlines
-      [ "onyx fsb fmod    in.wav --to out.fsb"
-      , "onyx fsb xdk     in.wav --to out.fsb"
-      , "onyx fsb gh4-mp3 in1.wav [in2.wav ...] --to out.fsb # each input should be stereo"
+      [ "# GH3: each input (mono or stereo) becomes a separate XMA1 stream"
+      , "onyx fsb gh3     in1.wav [in2.wav ...] --to out.fsb"
+      , "# GHWT and later: one multichannel XMA2 stream, with a stereo pair for each 2 channels"
+      , "onyx fsb gh4     in.wav [--to out.fsb]"
+      , "# GHWT and later: one multichannel MP3 stream; each input should be stereo"
+      , "onyx fsb gh4-mp3 in1.wav [in2.wav ...] --to out.fsb"
       ]
     , commandList = True
     , commandRun = \args opts -> case args of
-      ["fmod", fin] -> do
+      ["gh4", fin] -> do
         fout <- outputFile opts $ return $ fin <.> "fsb"
         makeFSB4 fin fout
-        let xmaDir = fout <> "_xma"
-        stackIO $ Dir.createDirectoryIfMissing False xmaDir
-        stackIO $ splitFSBStreamsToDir fout xmaDir
-        return [fout, xmaDir]
-      ["xdk", fin] -> do
-        fout <- outputFile opts $ return $ fin <.> "fsb"
-        makeFSB4' fin fout
         return [fout]
       "gh3" : streams -> do
         fout <- outputFile opts $ fatal "Need --to"
@@ -752,7 +747,7 @@ commands =
         fout <- outputFile opts $ fatal "Need --to"
         tempDir "onyx-fsb" \tmp -> do
           let tmpWav = tmp </> "temp.wav"
-          mp3s <- forM streams \fin -> case map toLower $ takeExtension tmp of
+          mp3s <- forM streams \fin -> case map toLower $ takeExtension fin of
             ".mp3" -> stackIO $ BL.fromStrict <$> B.readFile fin
             ".wav" -> do
               let setup lame = liftIO do
@@ -1539,6 +1534,22 @@ commands =
               JS.jsValueToJSON ctx x >>= print
               JS.js_FreeValue ctx x
       return []
+    }
+
+  , Command
+    { commandWord = "xma"
+    , commandDesc = "Encode an audio file to XMA2, with a stereo stream for each 2 channels."
+    , commandUsage = T.unlines
+      [ "onyx xma in.wav [--to out.xma]"
+      ]
+    , commandList = True
+    , commandRun = \args opts -> case args of
+      [fin] -> do
+        fout <- outputFile opts $ return $ fin -<.> "xma"
+        xma <- makeXMA $ fileReadable fin
+        stackIO $ writeXMA2 fout xma
+        return [fout]
+      _ -> fatal "Expected 1 argument"
     }
 
   ]

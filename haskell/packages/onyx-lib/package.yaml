@@ -114,6 +114,7 @@ library:
   - cbits/stb_dxt.c
   - cbits/encode_vag.c
   - cbits/cross_correlate.c
+  - cbits/xma_encode.c
   extra-libraries:
   - vorbisfile # needed for ghci to work, even though it's under pkg-config?
   pkg-config-dependencies:
