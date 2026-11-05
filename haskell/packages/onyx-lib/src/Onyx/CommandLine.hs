@@ -141,13 +141,14 @@ import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
                                                        ghwtEncrypt)
 import           Onyx.Neversoft.GH5.Note              (loadNoteFile)
 import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
-                                                       nodeFileType,
-                                                       pakByteOrder, qsBank,
-                                                       splitPakNodesAuto)
+                                                       PakInfo (..),
+                                                       nodeFileType, qsBank,
+                                                       splitPak)
 import           Onyx.Neversoft.PS2                   (hedFolder, hookUpWAD,
                                                        parseHed)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,
-                                                       lookupQS, parseQB, putQB)
+                                                       lookupQS, parseQB, putQB,
+                                                       qbFormatGH5)
 import           Onyx.Nintendo.CISO                   (cisoReadable)
 import           Onyx.Nintendo.GCM                    (loadGCM)
 import           Onyx.Nintendo.U8                     (packU8, readU8)
@@ -1125,8 +1126,8 @@ commands =
                 False -> return Nothing
                 True  -> Just <$> stackIO (BL.readFile pabPath)
             _ -> return Nothing
-        (nodes, format) <- stackIO (BL.readFile pak) >>= \bs -> splitPakNodesAuto bs pabData
-        lg $ show format
+        (nodes, info) <- stackIO (BL.readFile pak) >>= \bs -> splitPak bs pabData
+        lg $ show info
         stackIO $ writeFile (dout </> "pak-contents.txt") $ unlines $ map (show . fst) nodes
         let knownExts =
               [ ".cam", ".clt", ".col", ".dbg", ".empty", ".fam", ".fnc", ".fnt", ".fnv"
@@ -1152,7 +1153,7 @@ commands =
                     && otherNode.nodeFileType == ".qs.en"
                 mappingQS = qsBank matchingQS
             inside ("Parsing QB file: " <> show name) do
-              let ?endian = format.pakByteOrder
+              let ?endian = info.byteOrder
               mqb <- errorToWarning $ runGetM parseQB contents
               forM_ mqb \qb -> do
                 let filled = map (lookupQB knownKeys . lookupQS mappingQS) qb
@@ -1876,7 +1877,8 @@ _oldCommands =
       [fin] -> do
         fout <- outputFile opts $ return $ fin <.> "qb"
         qb <- stackIO (Y.decodeFileEither fin) >>= either (\e -> fatal $ show e) return
-        stackIO $ BL.writeFile fout $ putQB $ discardStrings qb
+        -- the .yaml doesn't record which game the .qb came from, so this always writes GH5/WoR style
+        stackIO $ BL.writeFile fout $ putQB (qbFormatGH5 BigEndian) $ discardStrings qb
         return [fout]
       _ -> fatal "Expected 1 argument (.yaml)"
     }

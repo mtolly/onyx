@@ -17,6 +17,7 @@ import qualified Data.ByteString                 as B
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Char                       (isAscii, isSpace)
 import qualified Data.HashMap.Strict             as HM
+import           Data.Int                        (Int64)
 import           Data.List                       (sortOn)
 import           Data.Maybe                      (fromMaybe, isJust,
                                                   listToMaybe)
@@ -26,9 +27,7 @@ import           Data.Word
 import           GHC.ByteOrder
 import           Numeric                         (readHex, showHex)
 import           Onyx.Neversoft.CRC              (QBKey (..), putQBKeyBE)
-import           Onyx.StackTrace                 (SendMessage, StackTraceT,
-                                                  errorToEither, fatal, inside,
-                                                  warnNoContext)
+import           Onyx.Neversoft.LZSS             (decompressLZSS)
 import           Onyx.Util.Binary                (runGetM)
 import           Witch                           (from)
 
@@ -44,10 +43,10 @@ data Node = Node
   , nodeName           :: Maybe B.ByteString -- snippet of filename seen in PS2 GH3 when flags (LE) is 0x20
   } deriving (Show, Read)
 
--- Credit to unpak.pl by Tarragon Allen (tma).
--- Used in GHWT and onward.
-decompressPakGH4 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
-decompressPakGH4 bs = do
+-- | Chunked deflate starting with "CHNK" magic, used on 360/PS3 GHWT+
+-- Credit to unpak.pl by Tarragon Allen (tma)
+decompressCHNK :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+decompressCHNK bs = do
   -- conveniently, start and next are relative to this CHNK, not the whole file
   [magic, start, len, next, _flags, _size] <- runGetM (replicateM 6 getWord32be) bs
   if magic /= 0x43484e4b -- CHNK
@@ -57,11 +56,11 @@ decompressPakGH4 bs = do
       dec <- tryDecompress Z.rawFormat False buf
       case next of
         0xffffffff -> return dec
-        _          -> (dec <>) <$> decompressPakGH4 (BL.drop (from next) bs)
+        _          -> (dec <>) <$> decompressCHNK (BL.drop (from next) bs)
 
--- TODO this apparently doesn't work for PS3 ("invalid block type") at least qb.pab.ps3
-decompressPakGH3 :: (MonadFail m) => BL.ByteString -> m BL.ByteString
-decompressPakGH3 bs = tryDecompress Z.zlibFormat True $ BL.pack [0x58, 0x85] <> bs
+-- | Raw deflate of whole file, used on GH3 360 (compress.toc method 3)
+decompressDeflate :: (MonadFail m) => BL.ByteString -> m BL.ByteString
+decompressDeflate = tryDecompress Z.rawFormat True
 
 -- decompresses stream, optionally ignores "input ended prematurely" error
 tryDecompress :: (MonadFail m) => Z.Format -> Bool -> BL.ByteString -> m BL.ByteString
@@ -79,110 +78,161 @@ tryDecompress format ignoreTruncate bs = either fail return $ runST let
       Left $ "Decompression error: " <> show err
   in go (BL.toChunks bs) [] $ Z.decompressST format Z.defaultDecompressParams
 
-decompressPak :: (MonadFail m) => BL.ByteString -> m BL.ByteString
-decompressPak bs = if BL.take 4 bs == "CHNK"
-  then decompressPakGH4 bs
-  else return $ fromMaybe bs $ decompressPakGH3 bs -- if gh3 decompression fails, assume it's uncompressed
+data PakCompression
+  = PakUncompressed
+  | PakChunked -- ^ "CHNK" chunked deflate (GHWT and later, 360/PS3)
+  | PakDeflate -- ^ raw deflate of the whole file (GH3/GH:A 360)
+  | PakLZSS    -- ^ LZSS of the whole file (GH3/GH:A PS3, under DATA/COMPRESSED/PS3)
+  deriving (Eq, Show)
 
--- .pak header values are big endian on 360/PS3, but little on PS2
-
-data PakFormat = PakFormat
-  { pakByteOrder     :: ByteOrder
-  , pakNewPabOffsets :: Bool
-  -- in WoR, pak and pab are processed separately. offsets are always relative to start of pab.
-  -- in GH3 it's as if they are one file. offsets are computed just like no-pab pak files.
+-- | What was detected about a .pak (and .pab) when reading it
+data PakInfo = PakInfo
+  { byteOrder      :: ByteOrder -- ^ little endian on PS2, big elsewhere
+  , compression    :: PakCompression
+  , pabCompression :: Maybe PakCompression -- ^ Nothing if there is no .pab
+  , pabRelative    :: Bool
+    -- ^ True (WoR) if offsets are relative to the start of the .pab.
+    -- False (GH3, and GHWT on at least PS2) if the .pab is treated as if it
+    -- were appended to the .pak, starting at the first entry's offset.
   } deriving (Show)
 
-pakFormatGH3 :: ByteOrder -> PakFormat
-pakFormatGH3 endian = PakFormat { pakByteOrder = endian, pakNewPabOffsets = False }
+-- | Reads the entry table in the given byte order. Returns each entry's position
+-- in the table, and the node with its offset still relative to that position.
+-- Fails if the table doesn't end in a "last" entry.
+readPakEntries :: ByteOrder -> B.ByteString -> Maybe [(Word32, Node)]
+readPakEntries endian pak = go 0 where
+  w32 = wordAt endian pak
+  go p = if p + 32 > B.length pak
+    then Nothing
+    else let
+      nodeFileType       = QBKey $ w32 p
+      nodeOffset         = w32 $ p + 4
+      nodeSize           = w32 $ p + 8
+      nodeFilenamePakKey = QBKey $ w32 $ p + 12
+      nodeFilenameKey    = QBKey $ w32 $ p + 16
+      nodeFilenameCRC    = QBKey $ w32 $ p + 20
+      nodeUnknown        = w32 $ p + 24
+      nodeFlags          = w32 $ p + 28
+      -- PS2 paks have a 0xA0-byte filename after entries with flag 0x20.
+      -- WoR sets flag 0x20 too but without a filename, so check that one is actually there.
+      nameBlock = B.take 0xA0 $ B.drop (p + 32) pak
+      nodeName = if nodeFlags .&. 0x20 /= 0 && looksLikeName nameBlock
+        then Just $ B.takeWhile (/= 0) nameBlock
+        else Nothing
+      next = p + 32 + maybe 0 (const 0xA0) nodeName
+      in ((fromIntegral p, Node{..}) :) <$> if elem nodeFileType ["last", ".last"]
+        then Just []
+        else go next
+  looksLikeName block = let
+    (str, rest) = B.break (== 0) block
+    in B.length block == 0xA0
+      && not (B.null str)
+      && B.all (\c -> 0x20 <= c && c < 0x7F) str
+      && B.all (== 0) rest
 
-pakFormatWoR :: PakFormat
-pakFormatWoR = PakFormat { pakByteOrder = BigEndian, pakNewPabOffsets = True }
+-- | Reads a 32-bit word at a position (which should be in range).
+wordAt :: ByteOrder -> B.ByteString -> Int -> Word32
+wordAt endian bs i = let
+  bytes = B.unpack $ B.take 4 $ B.drop i bs
+  ordered = case endian of
+    BigEndian    -> bytes
+    LittleEndian -> reverse bytes
+  in foldl (\acc b -> acc * 0x100 + fromIntegral b) 0 ordered
 
-getPakNodes :: (MonadFail m) => PakFormat -> Bool -> BL.ByteString -> m [Node]
-getPakNodes fmt hasPab = runGetM let
-  go = do
-    posnOffset <- if hasPab && fmt.pakNewPabOffsets
-      then return 0
-      else fromIntegral <$> bytesRead
-    let getW32 = case fmt.pakByteOrder of
-          BigEndian    -> getWord32be
-          LittleEndian -> getWord32le
-        getQBKey = QBKey <$> getW32
-    nodeFileType       <- getQBKey
-    nodeOffset         <- (+ posnOffset) <$> getW32
-    nodeSize           <- getW32
-    nodeFilenamePakKey <- getQBKey
-    nodeFilenameKey    <- getQBKey
-    nodeFilenameCRC    <- getQBKey
-    nodeUnknown        <- getW32
-    nodeFlags          <- getW32
-    nodeName           <- if nodeFlags .&. 0x20 == 0x20
-      then Just . B.takeWhile (/= 0) <$> getByteString 0xA0
-      else return Nothing
-    (Node{..} :) <$> if elem nodeFileType ["last", ".last"]
-      then return []
-      else go
-  in go
+-- | Finds the compression and byte order of a .pak by checking which one gives
+-- a valid entry table. Returns the decompressed .pak and its entries.
+detectPak :: BL.ByteString -> Maybe BL.ByteString -> Maybe (BL.ByteString, PakCompression, ByteOrder, [(Word32, Node)])
+detectPak pak maybePab = listToMaybe do
+  (comp, pak') <- if BL.take 4 pak == "CHNK"
+    then [(PakChunked, dec) | Just dec <- [decompressCHNK pak]]
+    else concat
+      [ [(PakUncompressed, pak)]
+      , [(PakDeflate, dec) | Just dec <- [decompressDeflate pak]]
+      , [(PakLZSS, BL.fromStrict $ decompressLZSS $ BL.toStrict pak)]
+      ]
+  let strict = BL.toStrict pak'
+      totalLen = fromIntegral (B.length strict) + maybe 0 BL.length maybePab
+      -- try first the byte order where the first entry's offset and size look sensible
+      plausible endian = B.length strict >= 12 && all
+        (\i -> fromIntegral (wordAt endian strict i) <= totalLen)
+        [4, 8]
+      orders = sortOn (not . plausible) [BigEndian, LittleEndian]
+  endian <- orders
+  Just entries <- [readPakEntries endian strict]
+  -- Compressed bytes can contain the "last" key verbatim (LZSS copies literal bytes through),
+  -- so also check two things true of every official pak: the first entry's offset is
+  -- within the .pak (a .pab is appended at or before the .pak's end, or uses offset 0),
+  -- and the final "last" entry is 0 or 4 bytes.
+  case (entries, reverse entries) of
+    ((_, firstNode) : _, (_, lastNode) : _) -> guard
+      $  fromIntegral firstNode.nodeOffset <= B.length strict
+      && lastNode.nodeSize <= 4
+    _ -> []
+  return (pak', comp, endian, entries)
 
-splitPakNodes :: (MonadFail m) => PakFormat -> BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
-splitPakNodes _ pak _
+-- | Splits a .pak (and optional .pab) into its files, detecting the format.
+splitPak :: (MonadFail m) => BL.ByteString -> Maybe BL.ByteString -> m ([(Node, BL.ByteString)], PakInfo)
+splitPak pak maybePab
   | "\\\\Dummy file" `BL.isPrefixOf` pak
   -- these are seen in GH3 PS2, songs/*_{gfx,sfx}.pak.ps2
-  = return []
-splitPakNodes fmt pak maybePab = do
-  pak'      <- decompressPak pak
-  maybePab' <- mapM decompressPak maybePab
-  nodes     <- getPakNodes fmt (isJust maybePab') pak'
-  let dataSection = case maybePab' of
-        Nothing  -> pak'
-        Just pab -> if fmt.pakNewPabOffsets
-          then pab
-          else let
-            -- in GHWT qb.pak.xen, the pak is 0x10000 bytes long.
-            -- but the offsets in the pab start at 0x9000
-            -- (the 0x1000-multiple after the last node details).
-            -- we could either do that, or the below, where hopefully we can
-            -- assume the first node is at the start of the pab.
-            -- ...nevermind, gh3 ps2 DATAP/zones/global/global_net.pak.ps2
-            -- has a useless pab we should ignore? very strange
-            specifiedPakLength = case nodes of
-              node : _ -> from node.nodeOffset
-              []       -> 0
-            in BL.take specifiedPakLength pak' <> pab
+  = return ([], PakInfo
+    { byteOrder = LittleEndian
+    , compression = PakUncompressed
+    , pabCompression = Nothing
+    , pabRelative = False
+    })
+  | otherwise = case detectPak pak maybePab of
+    Nothing -> fail ".pak format not recognized (no valid entry table found in any byte order or compression)"
+    Just (pak', comp, endian, entries) -> let
+      firstOffset = case entries of
+        (_, node) : _ -> node.nodeOffset
+        []            -> 0
+      pabRelative = isJust maybePab && firstOffset == 0
+      nodes = flip map entries \(posn, node) -> if pabRelative
+        then node
+        else node { nodeOffset = posn + node.nodeOffset }
+      -- the data that the final node offsets point into
+      (dataSection, pabComp) = case maybePab of
+        Nothing -> (pak', Nothing)
+        Just pab -> let
+          -- in GH3, the .pab acts as if it were appended to the .pak at the first entry's offset.
+          -- (this also makes us ignore the useless pab of GH3 PS2 zones/global/global_net.pak.ps2)
+          prefix = if pabRelative then BL.empty else BL.take (fromIntegral firstOffset) pak'
+          -- The "last" entry's data is at the end of the data section. (Don't use other entries;
+          -- some point past the end, like VRAM entries whose data is in the _vram.pak.)
+          needed = case reverse nodes of
+            lastNode : _ -> fromIntegral lastNode.nodeOffset + fromIntegral lastNode.nodeSize - BL.length prefix
+            []           -> 0
+          (pab', comp') = decodePab needed pab
+          in (prefix <> pab', Just comp')
       attachData :: Node -> (Node, BL.ByteString)
-      attachData node = let
-        goToData
-          = BL.take (from node.nodeSize  )
-          . BL.drop (from node.nodeOffset)
-        in (node, goToData dataSection)
-  return $ map attachData nodes
+      attachData node = (node, BL.take (fromIntegral node.nodeSize) $ BL.drop (fromIntegral node.nodeOffset) dataSection)
+      in return
+        ( map attachData nodes
+        , PakInfo
+          { byteOrder = endian
+          , compression = comp
+          , pabCompression = pabComp
+          , pabRelative = pabRelative
+          }
+        )
 
--- Tries possible pak+pab formats until one parses (seemingly) correctly.
-splitPakNodesAuto :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> StackTraceT m ([(Node, BL.ByteString)], PakFormat)
-splitPakNodesAuto pak maybePab = let
-  tryFormat ctx fmt = errorToEither $ inside ctx do
-    nodes <- splitPakNodes fmt pak maybePab
-    case reverse nodes of
-      (node, bs) : _
-        | elem node.nodeFileType ["last", ".last"]
-          && bs == BL.replicate 4 0xAB
-        -> return nodes
-      _ -> fatal "Pak didn't contain proper 'last', probably not the right format"
-  -- Have to try GH3 format before WoR format; otherwise GH3 can get wrongly detected as WoR
-  in if "\\\\Dummy file" `BL.isPrefixOf` pak
-    then return ([], pakFormatGH3 LittleEndian)
-    else tryFormat ".pak autodetect: GH3 format, little endian" (pakFormatGH3 LittleEndian) >>= \case
-      Right result -> return (result, pakFormatGH3 LittleEndian)
-      Left err1 -> tryFormat ".pak autodetect: GH3 format, big endian" (pakFormatGH3 BigEndian) >>= \case
-        Right result -> return (result, pakFormatGH3 BigEndian)
-        Left err2 -> tryFormat ".pak autodetect: WoR format" pakFormatWoR >>= \case
-          Right result -> return (result, pakFormatWoR)
-          Left err3 -> do
-            warnNoContext err1
-            warnNoContext err2
-            warnNoContext err3
-            fatal ".pak format autodetect failed"
+-- | Undoes .pab compression; without CHNK magic there's no marker,
+-- so pick the first candidate that is long enough to hold all the entries' data
+decodePab :: Int64 -> BL.ByteString -> (BL.ByteString, PakCompression)
+decodePab needed pab = if BL.take 4 pab == "CHNK"
+  then (fromMaybe pab $ decompressCHNK pab, PakChunked)
+  else let
+    candidates = concat
+      [ [(pab, PakUncompressed)]
+      , [(dec, PakDeflate) | Just dec <- [decompressDeflate pab]]
+      , [(BL.fromStrict $ decompressLZSS $ BL.toStrict pab, PakLZSS)]
+      ]
+    in fromMaybe (pab, PakUncompressed) $ listToMaybe
+      [ cand | cand@(bs, _) <- candidates, BL.length bs >= needed ]
+
+splitPakNodes :: (MonadFail m) => BL.ByteString -> Maybe BL.ByteString -> m [(Node, BL.ByteString)]
+splitPakNodes pak maybePab = fst <$> splitPak pak maybePab
 
 buildPak :: [(Node, BL.ByteString)] -> BL.ByteString
 buildPak nodes = let

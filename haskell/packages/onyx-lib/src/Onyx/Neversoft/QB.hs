@@ -1,12 +1,17 @@
 {- |
-Written with much assistance from https://github.com/Nanook/Queen-Bee
+Written with much assistance from Queen Bee (https://github.com/Nanook/Queen-Bee)
+and Honeycomb (https://github.com/AddyMills/GH-Toolkit-NET)
 -}
-{-# LANGUAGE BlockArguments    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE ImplicitParams    #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE BlockArguments        #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ImplicitParams        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NoFieldSelectors      #-}
+{-# LANGUAGE OverloadedRecordDot   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
 module Onyx.Neversoft.QB where
 
 import           Control.Exception            (evaluate, try)
@@ -20,6 +25,7 @@ import           Data.Bifoldable
 import           Data.Bifunctor
 import           Data.Binary.Get
 import           Data.Binary.Put
+import           Data.Bits                    (shiftL, shiftR, (.&.), (.|.))
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
@@ -31,6 +37,7 @@ import           Data.Text.Encoding.Error     (UnicodeException (..),
                                                strictDecode)
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
+import           Data.Int                     (Int32)
 import           Data.Word
 import           GHC.ByteOrder
 import           Numeric                      (showHex)
@@ -39,16 +46,74 @@ import           Onyx.Codec.JSON              (pattern OneKey)
 import           Onyx.Neversoft.CRC           (QBKey (..), qbKeyCRC)
 import           System.IO.Unsafe             (unsafePerformIO)
 
-data QBFormat
-  = QBFormatPS2
-  | QBFormatNew
+{-
+Every element in a .qb starts with a 4-byte type word, not endian-dependent:
+
+* section: @00 ff tt 00@, where @ff@ is 0x20 on big endian and 0x04 on PS2
+  (same flag bit; bitfield order flips with endianness)
+* struct item, GH3/GH:A style: @00 (0x80 .|. tt) 00 00@ on big endian,
+  @00 (tt << 1 .|. 1) 00 00@ on PS2
+* struct item, GHWT and later: @00 01 tt 00@ on all platforms.
+  GH3 can read these too (later GH3 DLC uses them)
+* array: @00 01 tt 00@, where type 0 means an empty array
+* struct header: @00 00 01 00@
+* header before the floats of a pair/vector: @00 01 00 00@
+
+All other 32-bit values (keys, numbers, pointers, sizes) use the platform's
+endianness; wide strings are UTF-16BE on all platforms
+-}
+
+-- | Settings needed to write a .qb file.
+-- Reading only needs the endianness, everything else is detected from the bytes
+data QBFormat = QBFormat
+  { endian    :: ByteOrder
+  , itemStyle :: QBItemStyle
+  , header    :: QBHeaderStyle
+  } deriving (Eq, Show)
+
+data QBItemStyle
+  = QBItemsGH3  -- ^ struct item type stored in byte 1 with a flag bit (GH3, GH:A)
+  | QBItemsGHWT -- ^ struct item header @00 01 tt 00@ (GHWT and later)
+  deriving (Eq, Show)
+
+data QBHeaderStyle
+  = QBHeaderGH3 -- ^ fixed 20 bytes after the file size (GH3, GH:A, GHWT)
+  | QBHeaderGH5 -- ^ header size and content size (GH5, BH, WoR)
+  deriving (Eq, Show)
+
+qbFormatGH3, qbFormatGHWT, qbFormatGH5 :: ByteOrder -> QBFormat
+qbFormatGH3  e = QBFormat { endian = e, itemStyle = QBItemsGH3 , header = QBHeaderGH3 }
+qbFormatGHWT e = QBFormat { endian = e, itemStyle = QBItemsGHWT, header = QBHeaderGH3 }
+qbFormatGH5  e = QBFormat { endian = e, itemStyle = QBItemsGHWT, header = QBHeaderGH5 }
+
+-- Type bytes (the @tt@ above)
+typeInteger, typeFloat, typeString, typeStringW, typeFloatsX2, typeFloatsX3,
+  typeScript, typeStruct, typeArray, typeQbKey, typeQbKeyString,
+  typeStringPointer, typeQbKeyStringQs :: Word8
+typeInteger       = 0x01
+typeFloat         = 0x02
+typeString        = 0x03
+typeStringW       = 0x04
+typeFloatsX2      = 0x05
+typeFloatsX3      = 0x06
+typeScript        = 0x07
+typeStruct        = 0x0A
+typeArray         = 0x0C
+typeQbKey         = 0x0D
+typeQbKeyString   = 0x1A -- a reference to a global, written as $name in .q
+typeStringPointer = 0x1B -- listed by QueenBee but not seen in any GH files
+typeQbKeyStringQs = 0x1C -- localized string key, written as qs(...) in .q
 
 data QBSection qs k
-  = QBSectionInteger k k Word32 -- TODO all these "Integer" data should probably be signed, e.g. vocals_pitch_score_shift
+  = QBSectionInteger k k Int32
   | QBSectionArray k k (QBArray qs k)
   | QBSectionQbKey k k k
   | QBSectionStruct k k [QBStructItem qs k]
-  | QBSectionScript k k Word32 B.ByteString -- decompressed size, then compressed bytestring (not bothering with decompression)
+  | QBSectionScript k k Word32 Word32 B.ByteString
+    -- ^ checksum, decompressed size, then compressed bytestring.
+    -- checksum is qbKeyCRCNoLowercase of the decompressed script
+    -- with newline (0x01) and endscript (0x24) opcodes removed.
+    -- WoR computes it differently somehow for scripts with ifs or structs.
   | QBSectionString k k B.ByteString -- seen in gh3 ps2
   | QBSectionStringW k k T.Text -- seen in gh3
   | QBSectionQbKeyStringQs k k qs
@@ -65,7 +130,7 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBSection qs k) where
     QBSectionArray x y z -> OneKey "SectionArray" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionQbKey x y z -> OneKey "SectionQbKey" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionStruct x y z -> OneKey "SectionStruct" $ toJSON [toJSON x, toJSON y, toJSON z]
-    QBSectionScript w x y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON $ B.unpack z]
+    QBSectionScript w x c y z -> OneKey "SectionScript" $ toJSON [toJSON w, toJSON x, toJSON c, toJSON y, toJSON $ B.unpack z]
     QBSectionString x y z -> OneKey "SectionString" $ toJSON [toJSON x, toJSON y, toJSON $ B8.unpack z]
     QBSectionStringW x y z -> OneKey "SectionStringW" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBSectionQbKeyStringQs x y z -> OneKey "SectionQbKeyStringQs" $ toJSON [toJSON x, toJSON y, toJSON z]
@@ -90,7 +155,7 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
       [x, y, z] -> QBSectionStruct <$> parseJSON x <*> parseJSON y <*> parseJSON z
       _ -> fail "QB json error"
     OneKey "SectionScript" xs -> parseJSON xs >>= \case
-      [w, x, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> fmap B.pack (parseJSON z)
+      [w, x, c, y, z] -> QBSectionScript <$> parseJSON w <*> parseJSON x <*> parseJSON c <*> parseJSON y <*> fmap B.pack (parseJSON z)
       _ -> fail "QB json error"
     OneKey "SectionString" xs -> parseJSON xs >>= \case
       [x, y, z] -> QBSectionString <$> parseJSON x <*> parseJSON y <*> fmap B8.pack (parseJSON z)
@@ -115,11 +180,11 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBSection qs k) where
     _ -> fail "QB json error"
 
 data QBArray qs k
-  = QBArrayOfQbKey [k]
-  | QBArrayOfInteger [Word32]
+  = QBArrayEmpty -- array type 0, all empty arrays in official files use this
+  | QBArrayOfQbKey [k]
+  | QBArrayOfInteger [Int32]
   | QBArrayOfStruct [[QBStructItem qs k]]
   | QBArrayOfFloat [Float]
-  | QBArrayOfFloatRaw [Float] -- QueenBee says "this isn't really an array, just a simple type", I don't know what that means
   | QBArrayOfQbKeyStringQs [qs]
   | QBArrayOfArray [QBArray qs k]
   | QBArrayOfQbKeyString [k]
@@ -131,11 +196,11 @@ data QBArray qs k
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
   toJSON = \case
+    QBArrayEmpty             -> "ArrayEmpty"
     QBArrayOfQbKey x         -> OneKey "ArrayOfQbKey" $ toJSON x
     QBArrayOfInteger x       -> OneKey "ArrayOfInteger" $ toJSON x
     QBArrayOfStruct x        -> OneKey "ArrayOfStruct" $ toJSON x
     QBArrayOfFloat x         -> OneKey "ArrayOfFloat" $ toJSON x
-    QBArrayOfFloatRaw x      -> OneKey "ArrayOfFloatRaw" $ toJSON x
     QBArrayOfQbKeyStringQs x -> OneKey "ArrayOfQbKeyStringQs" $ toJSON x
     QBArrayOfArray x         -> OneKey "ArrayOfArray" $ toJSON x
     QBArrayOfQbKeyString x   -> OneKey "ArrayOfQbKeyString" $ toJSON x
@@ -146,12 +211,13 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBArray qs k) where
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
   parseJSON = \case
+    "ArrayEmpty"                    -> return QBArrayEmpty
     OneKey "ArrayOfQbKey" x         -> QBArrayOfQbKey <$> parseJSON x
     OneKey "ArrayOfInteger" x       -> QBArrayOfInteger <$> parseJSON x
     OneKey "ArrayOfStruct" x        -> QBArrayOfStruct <$> parseJSON x
     OneKey "ArrayOfFloat" x         -> QBArrayOfFloat <$> parseJSON x
-    OneKey "ArrayOfFloatRaw" x      -> QBArrayOfFloatRaw <$> parseJSON x
     OneKey "ArrayOfQbKeyStringQs" x -> QBArrayOfQbKeyStringQs <$> parseJSON x
+    OneKey "ArrayOfArray" x         -> QBArrayOfArray <$> parseJSON x
     OneKey "ArrayOfQbKeyString" x   -> QBArrayOfQbKeyString <$> parseJSON x
     OneKey "ArrayOfFloatsX2" x      -> QBArrayOfFloatsX2 <$> parseJSON x
     OneKey "ArrayOfFloatsX3" x      -> QBArrayOfFloatsX3 <$> parseJSON x
@@ -159,38 +225,28 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBArray qs k) where
     OneKey "ArrayOfStringW" x       -> QBArrayOfStringW <$> parseJSON x
     _                               -> fail "QB json error"
 
+-- struct header is unrepresented as it is always written;
+-- whether items are written GH3-style or GHWT-style is up to the 'QBFormat'
 data QBStructItem qs k
-  = QBStructHeader -- empty
-  | QBStructItemStruct k [QBStructItem qs k]
+  = QBStructItemStruct k [QBStructItem qs k]
   | QBStructItemQbKey k k
   | QBStructItemString k B.ByteString
+  | QBStructItemStringW k T.Text
   | QBStructItemQbKeyString k k
   | QBStructItemQbKeyStringQs k qs
-  | QBStructItemInteger k Word32
+  | QBStructItemInteger k Int32
   | QBStructItemFloat k Float
   | QBStructItemArray k (QBArray qs k)
   | QBStructItemFloatsX2 k Float Float
   | QBStructItemFloatsX3 k Float Float Float
-  -- remaining ones are seen in older games like gh3.
-  -- should come up with better naming once more is known
-  | QBStructItemInteger810000 k Word32
-  | QBStructItemQbKeyString9A0000 k k
-  | QBStructItemQbKey8D0000 k k
-  | QBStructItemStruct8A0000 k [QBStructItem qs k]
-  | QBStructItemFloat820000 k Float
-  | QBStructItemString830000 k B.ByteString
-  | QBStructItemStringW k T.Text
-  | QBStructItemArray8C0000 k (QBArray qs k)
-  | QBStructItemFloatsX2Old k Float Float
-  | QBStructItemFloatsX3Old k Float Float Float
   deriving (Eq, Show, Functor)
 
 instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
   toJSON = \case
-    QBStructHeader -> "StructHeader"
     QBStructItemStruct x y -> OneKey "StructItemStruct" $ toJSON [toJSON x, toJSON y]
     QBStructItemQbKey x y -> OneKey "StructItemQbKey" $ toJSON [toJSON x, toJSON y]
     QBStructItemString x y -> OneKey "StructItemString" $ toJSON [toJSON x, toJSON $ B8.unpack y]
+    QBStructItemStringW x y -> OneKey "StructItemStringW" $ toJSON [toJSON x, toJSON y]
     QBStructItemQbKeyString x y -> OneKey "StructItemQbKeyString" $ toJSON [toJSON x, toJSON y]
     QBStructItemQbKeyStringQs x y -> OneKey "StructItemQbKeyStringQs" $ toJSON [toJSON x, toJSON y]
     QBStructItemInteger x y -> OneKey "StructItemInteger" $ toJSON [toJSON x, toJSON y]
@@ -198,20 +254,9 @@ instance (ToJSON qs, ToJSON k) => ToJSON (QBStructItem qs k) where
     QBStructItemArray x y -> OneKey "StructItemArray" $ toJSON [toJSON x, toJSON y]
     QBStructItemFloatsX2 x y z -> OneKey "StructItemFloatsX2" $ toJSON [toJSON x, toJSON y, toJSON z]
     QBStructItemFloatsX3 w x y z -> OneKey "StructItemFloatsX3" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON z]
-    QBStructItemInteger810000 x y -> OneKey "StructItemInteger810000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemQbKeyString9A0000 x y -> OneKey "StructItemQbKeyString9A0000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemQbKey8D0000 x y -> OneKey "StructItemQbKey8D0000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemStruct8A0000 x y -> OneKey "StructItemStruct8A0000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemFloat820000 x y -> OneKey "StructItemFloat820000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemString830000 x y -> OneKey "StructItemString830000" $ toJSON [toJSON x, toJSON $ B8.unpack y]
-    QBStructItemStringW x y -> OneKey "StructItemStringW" $ toJSON [toJSON x, toJSON y]
-    QBStructItemArray8C0000 x y -> OneKey "StructItemArray8C0000" $ toJSON [toJSON x, toJSON y]
-    QBStructItemFloatsX2Old x y z -> OneKey "StructItemFloatsX2Old" $ toJSON [toJSON x, toJSON y, toJSON z]
-    QBStructItemFloatsX3Old w x y z -> OneKey "StructItemFloatsX3Old" $ toJSON [toJSON w, toJSON x, toJSON y, toJSON z]
 
 instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
   parseJSON = \case
-    "StructHeader" -> return QBStructHeader
     OneKey "StructItemStruct" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemStruct <$> parseJSON x <*> parseJSON y
       _      -> fail "QB json error"
@@ -220,6 +265,9 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
       _      -> fail "QB json error"
     OneKey "StructItemString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemString <$> parseJSON x <*> fmap B8.pack (parseJSON y)
+      _ -> fail "QB json error"
+    OneKey "StructItemStringW" xs -> parseJSON xs >>= \case
+      [x, y] -> QBStructItemStringW <$> parseJSON x <*> parseJSON y
       _ -> fail "QB json error"
     OneKey "StructItemQbKeyString" xs -> parseJSON xs >>= \case
       [x, y] -> QBStructItemQbKeyString <$> parseJSON x <*> parseJSON y
@@ -242,19 +290,6 @@ instance (FromJSON qs, FromJSON k) => FromJSON (QBStructItem qs k) where
     OneKey "StructItemFloatsX3" xs -> parseJSON xs >>= \case
       [w, x, y, z] -> QBStructItemFloatsX3 <$> parseJSON w <*> parseJSON x <*> parseJSON y <*> parseJSON z
       _      -> fail "QB json error"
-    OneKey "StructItemInteger810000" xs -> parseJSON xs >>= \case
-      [x, y] -> QBStructItemInteger810000 <$> parseJSON x <*> parseJSON y
-      _      -> fail "QB json error"
-    OneKey "StructItemQbKeyString9A0000" xs -> parseJSON xs >>= \case
-      [x, y] -> QBStructItemQbKeyString9A0000 <$> parseJSON x <*> parseJSON y
-      _      -> fail "QB json error"
-    OneKey "StructItemQbKey8D0000" xs -> parseJSON xs >>= \case
-      [x, y] -> QBStructItemQbKey8D0000 <$> parseJSON x <*> parseJSON y
-      _      -> fail "QB json error"
-    OneKey "StructItemStruct8A0000" xs -> parseJSON xs >>= \case
-      [x, y] -> QBStructItemStruct8A0000 <$> parseJSON x <*> parseJSON y
-      _      -> fail "QB json error"
-    -- TODO missing ones
     _ -> fail "QB json error"
 
 instance Bifunctor QBSection where
@@ -263,7 +298,7 @@ instance Bifunctor QBSection where
     QBSectionArray x y arr         -> QBSectionArray x y $ first f arr
     QBSectionQbKey x y z           -> QBSectionQbKey x y z
     QBSectionStruct x y items      -> QBSectionStruct x y $ map (first f) items
-    QBSectionScript w x y z        -> QBSectionScript w x y z
+    QBSectionScript w x c y z      -> QBSectionScript w x c y z
     QBSectionString x y s          -> QBSectionString x y s
     QBSectionStringW x y s         -> QBSectionStringW x y s
     QBSectionQbKeyStringQs x y z   -> QBSectionQbKeyStringQs x y (f z)
@@ -276,11 +311,11 @@ instance Bifunctor QBSection where
 
 instance Bifunctor QBArray where
   first f = \case
+    QBArrayEmpty              -> QBArrayEmpty
     QBArrayOfQbKey ks         -> QBArrayOfQbKey ks
     QBArrayOfInteger ns       -> QBArrayOfInteger ns
     QBArrayOfStruct structs   -> QBArrayOfStruct $ map (map $ first f) structs
     QBArrayOfFloat ns         -> QBArrayOfFloat ns
-    QBArrayOfFloatRaw ns      -> QBArrayOfFloatRaw ns
     QBArrayOfQbKeyStringQs qs -> QBArrayOfQbKeyStringQs $ map f qs
     QBArrayOfArray arrs       -> QBArrayOfArray $ map (first f) arrs
     QBArrayOfQbKeyString ks   -> QBArrayOfQbKeyString ks
@@ -292,10 +327,10 @@ instance Bifunctor QBArray where
 
 instance Bifunctor QBStructItem where
   first f = \case
-    QBStructHeader -> QBStructHeader
     QBStructItemStruct x items -> QBStructItemStruct x $ map (first f) items
     QBStructItemQbKey x y -> QBStructItemQbKey x y
     QBStructItemString x y -> QBStructItemString x y
+    QBStructItemStringW x y -> QBStructItemStringW x y
     QBStructItemQbKeyString x y -> QBStructItemQbKeyString x y
     QBStructItemQbKeyStringQs x qs -> QBStructItemQbKeyStringQs x $ f qs
     QBStructItemInteger x y -> QBStructItemInteger x y
@@ -303,16 +338,6 @@ instance Bifunctor QBStructItem where
     QBStructItemArray x arr -> QBStructItemArray x $ first f arr
     QBStructItemFloatsX2 x y z -> QBStructItemFloatsX2 x y z
     QBStructItemFloatsX3 w x y z -> QBStructItemFloatsX3 w x y z
-    QBStructItemInteger810000 x y -> QBStructItemInteger810000 x y
-    QBStructItemQbKeyString9A0000 x y -> QBStructItemQbKeyString9A0000 x y
-    QBStructItemQbKey8D0000 x y -> QBStructItemQbKey8D0000 x y
-    QBStructItemStruct8A0000 x items -> QBStructItemStruct8A0000 x $ map (first f) items
-    QBStructItemFloat820000 x y -> QBStructItemFloat820000 x y
-    QBStructItemString830000 x y -> QBStructItemString830000 x y
-    QBStructItemStringW x y -> QBStructItemStringW x y
-    QBStructItemArray8C0000 x arr -> QBStructItemArray8C0000 x $ first f arr
-    QBStructItemFloatsX2Old x y z -> QBStructItemFloatsX2Old x y z
-    QBStructItemFloatsX3Old w x y z -> QBStructItemFloatsX3Old w x y z
   second = fmap
 
 instance Bifoldable QBSection where
@@ -321,7 +346,7 @@ instance Bifoldable QBSection where
     QBSectionArray   x y arr     -> g x <> g y <> bifoldMap f g arr
     QBSectionQbKey   x y z       -> g x <> g y <> g z
     QBSectionStruct  x y items   -> g x <> g y <> mconcat (map (bifoldMap f g) items)
-    QBSectionScript  x y _ _     -> g x <> g y
+    QBSectionScript  x y _ _ _   -> g x <> g y
     QBSectionString  x y _       -> g x <> g y
     QBSectionStringW x y _       -> g x <> g y
     QBSectionQbKeyStringQs x y z -> g x <> g y <> f z
@@ -333,11 +358,11 @@ instance Bifoldable QBSection where
 
 instance Bifoldable QBArray where
   bifoldMap f g = \case
+    QBArrayEmpty                   -> mempty
     QBArrayOfQbKey         ks      -> mconcat (map g ks)
     QBArrayOfInteger       _       -> mempty
     QBArrayOfStruct        structs -> mconcat $ mconcat $ map (map $ bifoldMap f g) structs
     QBArrayOfFloat         _       -> mempty
-    QBArrayOfFloatRaw      _       -> mempty
     QBArrayOfQbKeyStringQs qs      -> mconcat $ map f qs
     QBArrayOfArray         arrs    -> mconcat $ map (bifoldMap f g) arrs
     QBArrayOfQbKeyString   ks      -> mconcat (map g ks)
@@ -348,10 +373,10 @@ instance Bifoldable QBArray where
 
 instance Bifoldable QBStructItem where
   bifoldMap f g = \case
-    QBStructHeader                    -> mempty
     QBStructItemStruct        x items -> g x <> mconcat (map (bifoldMap f g) items)
     QBStructItemQbKey         x y     -> g x <> g y
     QBStructItemString        x _     -> g x
+    QBStructItemStringW       x _     -> g x
     QBStructItemQbKeyString   x y     -> g x <> g y
     QBStructItemQbKeyStringQs x qs    -> g x <> f qs
     QBStructItemInteger       x _     -> g x
@@ -359,19 +384,33 @@ instance Bifoldable QBStructItem where
     QBStructItemArray         x arr   -> g x <> bifoldMap f g arr
     QBStructItemFloatsX2      x _ _   -> g x
     QBStructItemFloatsX3      x _ _ _ -> g x
-    QBStructItemInteger810000 x _     -> g x
-    QBStructItemQbKeyString9A0000 x y -> g x <> g y
-    QBStructItemQbKey8D0000   x y     -> g x <> g y
-    QBStructItemStruct8A0000  x items -> g x <> mconcat (map (bifoldMap f g) items)
-    QBStructItemFloat820000   x _     -> g x
-    QBStructItemString830000  x _     -> g x
-    QBStructItemStringW       x _     -> g x
-    QBStructItemArray8C0000   x arr   -> g x <> bifoldMap f g arr
-    QBStructItemFloatsX2Old   x _ _   -> g x
-    QBStructItemFloatsX3Old   x _ _ _ -> g x
 
 allQS :: (Bifoldable obj) => obj qs k -> [qs]
 allQS = bifoldMap (: []) (const [])
+
+-----------------------------
+-- Reading
+
+type TypeWord = (Word8, Word8, Word8, Word8)
+
+getTypeWord :: Get TypeWord
+getTypeWord = (,,,) <$> getWord8 <*> getWord8 <*> getWord8 <*> getWord8
+
+showTypeWord :: TypeWord -> String
+showTypeWord (a, b, c, d) = concatMap hex2 [a, b, c, d] where
+  hex2 w = case showHex w "" of
+    [x] -> ['0', x]
+    s   -> s
+
+-- | Gets the type byte from a struct item header, in either the GH3 or GHWT style.
+decodeItemType :: (?endian :: ByteOrder) => TypeWord -> Maybe Word8
+decodeItemType = \case
+  (0, 1, t, 0) | t /= 0 -> Just t
+  (0, b, 0, 0) -> case ?endian of
+    BigEndian    | b .&. 0x80 /= 0 -> Just $ b .&. 0x7F
+    LittleEndian | b .&. 0x01 /= 0 -> Just $ b `shiftR` 1
+    _                              -> Nothing
+  _ -> Nothing
 
 shouldBeAt :: Word32 -> Get ()
 shouldBeAt w = do
@@ -383,9 +422,10 @@ shouldBeAt w = do
     , "0x" <> showHex p ""
     ]
 
-parseQBSubArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 QBKey)
+parseQBSubArray :: (?endian :: ByteOrder) => Get (QBArray Word32 QBKey)
 parseQBSubArray = do
-  arrayType <- getW32
+  tw@(a, b, arrayType, d) <- getTypeWord
+  unless (a == 0 && b == 1 && d == 0) $ fail $ "Unrecognized array header: " <> showTypeWord tw
   len <- fromIntegral <$> getW32
   case len of
     0 -> skip 4
@@ -427,37 +467,22 @@ parseQBSubArray = do
         fmap QBArrayOfFloatsX3 $ forM vectorStarts \p4 -> do
           shouldBeAt p4
           parseQBFloatsX3
-  case ?format of
-    QBFormatNew -> case arrayType of
-      0x00010D00 -> QBArrayOfQbKey <$> replicateM len getQBKey
-      0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
-      0x00010A00 -> arrayOfStruct
-      0x00010200 -> QBArrayOfFloat <$> replicateM len getFloat
-      0x00010000 -> QBArrayOfFloatRaw <$> replicateM len getFloat
-      0x00011C00 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
-      0x00010C00 -> arrayOfArray
-      0x00011A00 -> QBArrayOfQbKeyString <$> replicateM len getQBKey
-      0x00010500 -> arrayOfFloatsX2
-      0x00010600 -> arrayOfFloatsX3
-      0x00010300 -> arrayOfString
-      0x00010400 -> arrayOfStringW
-      _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
-    QBFormatPS2 -> case arrayType of
-      0x000D0100 -> QBArrayOfQbKey <$> replicateM len getQBKey
-      0x00010100 -> QBArrayOfInteger <$> replicateM len getW32
-      0x000A0100 -> arrayOfStruct
-      0x00020100 -> QBArrayOfFloat <$> replicateM len getFloat
-      0x00000100 -> QBArrayOfFloatRaw <$> replicateM len getFloat
-      0x001C0100 -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
-      0x000C0100 -> arrayOfArray
-      0x00050100 -> arrayOfFloatsX2
-      0x00060100 -> arrayOfFloatsX3
-      0x001A0100 -> QBArrayOfQbKeyString <$> replicateM len getQBKey
-      0x00030100 -> arrayOfString
-      0x00040100 -> arrayOfStringW
-      _          -> fail $ "Unrecognized array type: 0x" <> showHex arrayType ""
+  case arrayType of
+    0x00 | len == 0           -> return QBArrayEmpty
+    t | t == typeQbKey        -> QBArrayOfQbKey <$> replicateM len getQBKey
+      | t == typeInteger      -> QBArrayOfInteger <$> replicateM len getI32
+      | t == typeStruct       -> arrayOfStruct
+      | t == typeFloat        -> QBArrayOfFloat <$> replicateM len getFloat
+      | t == typeQbKeyStringQs -> QBArrayOfQbKeyStringQs <$> replicateM len getW32
+      | t == typeArray        -> arrayOfArray
+      | t == typeQbKeyString  -> QBArrayOfQbKeyString <$> replicateM len getQBKey
+      | t == typeFloatsX2     -> arrayOfFloatsX2
+      | t == typeFloatsX3     -> arrayOfFloatsX3
+      | t == typeString       -> arrayOfString
+      | t == typeStringW      -> arrayOfStringW
+    _ -> fail $ "Unrecognized array header: " <> showTypeWord tw
 
-parseQBArray :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBArray Word32 QBKey, Word32)
+parseQBArray :: (?endian :: ByteOrder) => Get (QBArray Word32 QBKey, Word32)
 parseQBArray = do
   p1 <- getW32
   p2 <- getW32
@@ -484,55 +509,50 @@ qbNullTerm = let
       else (c :) <$> getNullTerm
   in B.pack <$> getNullTerm
 
-parseQBFloatsX2 :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (Float, Float)
+floatsHeader :: TypeWord
+floatsHeader = (0, 1, 0, 0)
+
+structHeader :: TypeWord
+structHeader = (0, 0, 1, 0)
+
+parseQBFloatsX2 :: (?endian :: ByteOrder) => Get (Float, Float)
 parseQBFloatsX2 = do
-  typ <- getW32
-  let expectedType = case ?format of
-        QBFormatNew -> 0x00010000
-        QBFormatPS2 -> 0x00000100
-  unless (typ == expectedType) $ fail "FloatsX2 does not have Floats subtype?"
+  tw <- getTypeWord
+  unless (tw == floatsHeader) $ fail $ "FloatsX2 does not have Floats subtype: " <> showTypeWord tw
   f1 <- getFloat
   f2 <- getFloat
   return (f1, f2)
 
-parseQBFloatsX3 :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (Float, Float, Float)
+parseQBFloatsX3 :: (?endian :: ByteOrder) => Get (Float, Float, Float)
 parseQBFloatsX3 = do
-  typ <- getW32
-  let expectedType = case ?format of
-        QBFormatNew -> 0x00010000
-        QBFormatPS2 -> 0x00000100
-  unless (typ == expectedType) $ fail "FloatsX3 does not have Floats subtype?"
+  tw <- getTypeWord
+  unless (tw == floatsHeader) $ fail $ "FloatsX3 does not have Floats subtype: " <> showTypeWord tw
   f1 <- getFloat
   f2 <- getFloat
   f3 <- getFloat
   return (f1, f2, f3)
 
-parseQBStruct :: (?endian :: ByteOrder, ?format :: QBFormat) => Get [QBStructItem Word32 QBKey]
+-- | Parses a struct, starting from its header.
+parseQBStruct :: (?endian :: ByteOrder) => Get [QBStructItem Word32 QBKey]
 parseQBStruct = do
-  itemType <- getW32
-  let structHeader = do
-        p <- getW32
-        return (QBStructHeader, p)
-      structItemQbKey = do
+  tw <- getTypeWord
+  unless (tw == structHeader) $ fail $ "Unrecognized struct header: " <> showTypeWord tw
+  firstItem <- getW32
+  case firstItem of
+    0 -> return []
+    _ -> do
+      shouldBeAt firstItem
+      parseQBStructItems
+
+parseQBStructItems :: (?endian :: ByteOrder) => Get [QBStructItem Word32 QBKey]
+parseQBStructItems = do
+  tw <- getTypeWord
+  itemType <- maybe (fail $ "Unrecognized struct item type: " <> showTypeWord tw) return $ decodeItemType tw
+  let simple f getValue = do
         x <- getQBKey
-        y <- getQBKey
+        y <- getValue
         p <- getW32
-        return (QBStructItemQbKey x y, p)
-      structItemQbKeyStringQs = do
-        x <- getQBKey
-        y <- getW32
-        p <- getW32
-        return (QBStructItemQbKeyStringQs x y, p)
-      structItemQbKeyString = do
-        x <- getQBKey
-        y <- getQBKey
-        p <- getW32
-        return (QBStructItemQbKeyString x y, p)
-      structItemInteger = do
-        x <- getQBKey
-        y <- getW32
-        p <- getW32
-        return (QBStructItemInteger x y, p)
+        return (f x y, p)
       structItemString = do
         x <- getQBKey
         start <- getW32
@@ -541,11 +561,14 @@ parseQBStruct = do
         b <- qbNullTerm
         jumpTo4
         return (QBStructItemString x b, p)
-      structItemFloat = do
+      structItemStringW = do
         x <- getQBKey
-        f <- getFloat
+        start <- getW32
         p <- getW32
-        return (QBStructItemFloat x f, p)
+        shouldBeAt start
+        str <- getUtf16BE
+        jumpTo4
+        return (QBStructItemStringW x str, p)
       structItemArray = do
         x <- getQBKey
         (array, p) <- parseQBArray
@@ -571,119 +594,24 @@ parseQBStruct = do
         shouldBeAt p1
         items <- parseQBStruct
         return (QBStructItemStruct x items, p2)
-      structItemInteger810000 = do
-        x <- getQBKey
-        y <- getW32
-        p <- getW32
-        return (QBStructItemInteger810000 x y, p)
-      structItemQbKeyString9A0000 = do
-        x <- getQBKey
-        y <- getQBKey
-        p <- getW32
-        return (QBStructItemQbKeyString9A0000 x y, p)
-      structItemQbKey8D0000 = do
-        x <- getQBKey
-        y <- getQBKey
-        p <- getW32
-        return (QBStructItemQbKey8D0000 x y, p)
-      structItemStruct8A0000 = do
-        x <- getQBKey
-        p1 <- getW32
-        p2 <- getW32
-        shouldBeAt p1
-        items <- parseQBStruct
-        return (QBStructItemStruct8A0000 x items, p2)
-      structItemFloat820000 = do
-        x <- getQBKey
-        f <- getFloat
-        p <- getW32
-        return (QBStructItemFloat820000 x f, p)
-      structItemString830000 = do
-        x <- getQBKey
-        start <- getW32
-        p <- getW32
-        shouldBeAt start
-        b <- qbNullTerm
-        jumpTo4
-        return (QBStructItemString830000 x b, p)
-      structItemStringW = do
-        x <- getQBKey
-        start <- getW32
-        p <- getW32
-        shouldBeAt start
-        str <- getUtf16BE
-        jumpTo4
-        return (QBStructItemStringW x str, p)
-      structItemArray8C0000 = do
-        x <- getQBKey
-        (array, p) <- parseQBArray
-        return (QBStructItemArray8C0000 x array, p)
-      structItemFloatsX2Old = do
-        x <- getQBKey
-        p1 <- getW32
-        p2 <- getW32
-        shouldBeAt p1
-        (f1, f2) <- parseQBFloatsX2
-        return (QBStructItemFloatsX2Old x f1 f2, p2)
-      structItemFloatsX3Old = do
-        x <- getQBKey
-        p1 <- getW32
-        p2 <- getW32
-        shouldBeAt p1
-        (f1, f2, f3) <- parseQBFloatsX3
-        return (QBStructItemFloatsX3Old x f1 f2 f3, p2)
-  (item, nextPosition) <- case ?format of
-    QBFormatNew -> case itemType of
-      0x00000100 -> structHeader
-      0x00010D00 -> structItemQbKey
-      0x00011C00 -> structItemQbKeyStringQs
-      0x00011A00 -> structItemQbKeyString
-      0x00010100 -> structItemInteger
-      0x00010300 -> structItemString
-      0x00010200 -> structItemFloat
-      0x00010C00 -> structItemArray
-      0x00010500 -> structItemFloatsX2
-      0x00010600 -> structItemFloatsX3
-      0x00010A00 -> structItemStruct
-      0x00810000 -> structItemInteger810000
-      0x009A0000 -> structItemQbKeyString9A0000
-      0x008D0000 -> structItemQbKey8D0000
-      0x008A0000 -> structItemStruct8A0000
-      0x00820000 -> structItemFloat820000
-      0x00830000 -> structItemString830000
-      0x00840000 -> structItemStringW
-      0x008C0000 -> structItemArray8C0000
-      0x00850000 -> structItemFloatsX2Old
-      0x00860000 -> structItemFloatsX3Old
-      _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
-    QBFormatPS2 -> case itemType of
-      0x00010000 -> structHeader
-      0x000D0100 -> structItemQbKey
-      0x001C0100 -> structItemQbKeyStringQs
-      0x001A0100 -> structItemQbKeyString
-      0x00010100 -> structItemInteger
-      0x00030100 -> structItemString
-      0x00020100 -> structItemFloat
-      0x000C0100 -> structItemArray
-      0x00050100 -> structItemFloatsX2
-      0x00060100 -> structItemFloatsX3
-      0x000A0100 -> structItemStruct
-      0x00000300 -> structItemInteger810000
-      0x00003500 -> structItemQbKeyString9A0000
-      0x00001B00 -> structItemQbKey8D0000
-      0x00001500 -> structItemStruct8A0000
-      0x00000500 -> structItemFloat820000
-      0x00000700 -> structItemString830000
-      0x00000900 -> structItemStringW
-      0x00001900 -> structItemArray8C0000
-      0x00000B00 -> structItemFloatsX2Old
-      0x00000D00 -> structItemFloatsX3Old
-      _ -> fail $ "Unrecognized struct item type: 0x" <> showHex itemType ""
+  (item, nextPosition) <- case itemType of
+    t | t == typeQbKey         -> simple QBStructItemQbKey getQBKey
+      | t == typeQbKeyStringQs -> simple QBStructItemQbKeyStringQs getW32
+      | t == typeQbKeyString   -> simple QBStructItemQbKeyString getQBKey
+      | t == typeInteger       -> simple QBStructItemInteger getI32
+      | t == typeFloat         -> simple QBStructItemFloat getFloat
+      | t == typeString        -> structItemString
+      | t == typeStringW       -> structItemStringW
+      | t == typeArray         -> structItemArray
+      | t == typeFloatsX2      -> structItemFloatsX2
+      | t == typeFloatsX3      -> structItemFloatsX3
+      | t == typeStruct        -> structItemStruct
+    _ -> fail $ "Unrecognized struct item type: " <> showTypeWord tw
   case nextPosition of
     0 -> return [item] -- this is the last item
     _ -> do
       shouldBeAt nextPosition
-      (item :) <$> parseQBStruct
+      (item :) <$> parseQBStructItems
 
 getUtf16BE :: Get T.Text
 getUtf16BE = do
@@ -699,13 +627,15 @@ getUtf16BE = do
     Left _                   -> fail "shouldn't happen!" -- deprecated EncodeError
     Right t                  -> return t
 
-parseQBSection :: (?endian :: ByteOrder, ?format :: QBFormat) => Get (QBSection Word32 QBKey)
+parseQBSection :: (?endian :: ByteOrder) => Get (QBSection Word32 QBKey)
 parseQBSection = do
-  sectionType <- getW32
+  -- flags byte is 0x20 on big endian, 0x04 on PS2
+  tw@(a, _flags, sectionType, d) <- getTypeWord
+  unless (a == 0 && d == 0) $ fail $ "Unrecognized section header: " <> showTypeWord tw
   itemQbKeyCrc <- getQBKey
   fileId <- getQBKey
   let sectionInteger = do
-        n1 <- getW32
+        n1 <- getI32
         n2 <- getW32
         when (n2 /= 0) $ fail "SectionInteger: expected 0 for second number"
         return $ QBSectionInteger itemQbKeyCrc fileId n1
@@ -727,12 +657,12 @@ parseQBSection = do
         p1 <- getW32
         _reserved <- getW32 -- 0
         shouldBeAt p1
-        _unknown <- getW32 -- 0xFFFFFFFF
+        checksum <- getW32
         decompressedSize <- getW32
         compressedSize <- getW32
         bs <- getByteString $ fromIntegral compressedSize
         jumpTo4
-        return $ QBSectionScript itemQbKeyCrc fileId decompressedSize bs
+        return $ QBSectionScript itemQbKeyCrc fileId checksum decompressedSize bs
       sectionString = do
         p1 <- getW32
         _reserved <- getW32 -- 0
@@ -779,52 +709,28 @@ parseQBSection = do
         n2 <- getW32
         when (n2 /= 0) $ fail "SectionStringPointer: expected 0 for second number"
         return $ QBSectionStringPointer itemQbKeyCrc fileId n1
-  case ?format of
-    QBFormatNew -> case sectionType of
-      0x00200100 -> sectionInteger
-      0x00200C00 -> sectionArray
-      0x00200D00 -> sectionQbKey
-      0x00200A00 -> sectionStruct
-      0x00200700 -> sectionScript
-      0x00200300 -> sectionString
-      0x00200400 -> sectionStringW
-      0x00201C00 -> sectionQbKeyStringQs
-      0x00201A00 -> sectionQbKeyString
-      0x00200200 -> sectionFloat
-      0x00200500 -> sectionFloatsX2
-      0x00200600 -> sectionFloatsX3
-      0x00201B00 -> sectionStringPointer
-      _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
-    QBFormatPS2 -> case sectionType of
-      0x00010400 -> sectionInteger
-      0x000C0400 -> sectionArray
-      0x000D0400 -> sectionQbKey
-      0x000A0400 -> sectionStruct
-      0x00070400 -> sectionScript
-      0x00030400 -> sectionString
-      0x00040400 -> sectionStringW
-      0x001C0400 -> sectionQbKeyStringQs
-      0x00041A00 -> sectionQbKeyString -- is this sectionType right? I see this section type in band hero 360 but not ps2
-      0x00020400 -> sectionFloat
-      0x00050400 -> sectionFloatsX2
-      0x00060400 -> sectionFloatsX3
-      0x001A0400 -> sectionStringPointer
-      _ -> fail $ "Unrecognized section type: 0x" <> showHex sectionType ""
+  case sectionType of
+    t | t == typeInteger       -> sectionInteger
+      | t == typeArray         -> sectionArray
+      | t == typeQbKey         -> sectionQbKey
+      | t == typeStruct        -> sectionStruct
+      | t == typeScript        -> sectionScript
+      | t == typeString        -> sectionString
+      | t == typeStringW       -> sectionStringW
+      | t == typeQbKeyStringQs -> sectionQbKeyStringQs
+      | t == typeQbKeyString   -> sectionQbKeyString
+      | t == typeFloat         -> sectionFloat
+      | t == typeFloatsX2      -> sectionFloatsX2
+      | t == typeFloatsX3      -> sectionFloatsX3
+      | t == typeStringPointer -> sectionStringPointer
+    _ -> fail $ "Unrecognized section header: " <> showTypeWord tw
 
 parseQB :: (?endian :: ByteOrder) => Get [QBSection Word32 QBKey]
 parseQB = do
-  -- for now, just use endian to determine type keys
-  let ?format = case ?endian of
-        LittleEndian -> QBFormatPS2
-        BigEndian    -> QBFormatNew
   _zero1 <- getW32
   fileSize <- getW32
-  _headerSize <- getWord8 -- 0x1C
-  -- note, rest of the zero fields aren't zero on GH3 PS2
-  _zero2 <- getByteString 7
-  _contentSize <- getW32 -- file size - header size
-  _zero3 <- getW32
-  _zero4 <- getW32
+  -- either a fixed 20 bytes (GH3/GHWT), or header size + content size (GH5/WoR)
+  skip 20
   let parseSections = do
         pos <- fromIntegral <$> bytesRead
         if pos >= fileSize
@@ -836,7 +742,6 @@ parseQB = do
 parseSGHStruct :: Get [QBStructItem Word32 QBKey]
 parseSGHStruct = do
   let ?endian = BigEndian
-      ?format = QBFormatNew
   _ <- getByteString 28 -- sort of normal qb header but don't need it
   parseQBStruct
 
@@ -845,6 +750,9 @@ getW32 = codecIn binEndian
 
 getQBKey :: (?endian :: ByteOrder) => Get QBKey
 getQBKey = QBKey <$> getW32
+
+getI32 :: (?endian :: ByteOrder) => Get Int32
+getI32 = fromIntegral <$> getW32
 
 getFloat :: (?endian :: ByteOrder) => Get Float
 getFloat = codecIn binEndian
@@ -894,9 +802,13 @@ lookupQB mapping = second \qb -> case HM.lookup qb mapping of
   Just b  -> KnownQB b
 
 -----------------------------
+-- Writing
 
 type PutSeek s = StateT (MV.STVector s Word8, Int) (ST s)
 type Pointer = Int
+
+-- | Implicit parameters used while writing
+type QBWriter = (?endian :: ByteOrder, ?itemStyle :: QBItemStyle)
 
 grow :: Int -> PutSeek s ()
 grow need = do
@@ -923,36 +835,62 @@ append b = do
   forM_ (zip [used ..] $ B.unpack b) \(i, c) -> MV.write v i c
   put (v, used + B.length b)
 
-w32 :: Word32 -> PutSeek s ()
-w32 = append . BL.toStrict . runPut . putWord32be
+putW32 :: (?endian :: ByteOrder) => Word32 -> Put
+putW32 = case ?endian of
+  BigEndian    -> putWord32be
+  LittleEndian -> putWord32le
 
-putQBKey :: QBKey -> PutSeek s ()
+putF32 :: (?endian :: ByteOrder) => Float -> Put
+putF32 = case ?endian of
+  BigEndian    -> putFloatbe
+  LittleEndian -> putFloatle
+
+w32 :: (?endian :: ByteOrder) => Word32 -> PutSeek s ()
+w32 = append . BL.toStrict . runPut . putW32
+
+i32 :: (?endian :: ByteOrder) => Int32 -> PutSeek s ()
+i32 = w32 . fromIntegral
+
+f32 :: (?endian :: ByteOrder) => Float -> PutSeek s ()
+f32 = append . BL.toStrict . runPut . putF32
+
+typeWord :: TypeWord -> PutSeek s ()
+typeWord (a, b, c, d) = append $ B.pack [a, b, c, d]
+
+sectionTypeWord :: (?endian :: ByteOrder) => Word8 -> PutSeek s ()
+sectionTypeWord t = typeWord (0, flags, t, 0) where
+  flags = case ?endian of
+    BigEndian    -> 0x20
+    LittleEndian -> 0x04
+
+itemTypeWord :: QBWriter => Word8 -> PutSeek s ()
+itemTypeWord t = typeWord $ case ?itemStyle of
+  QBItemsGHWT -> (0, 1, t, 0)
+  QBItemsGH3  -> case ?endian of
+    BigEndian    -> (0, 0x80 .|. t, 0, 0)
+    LittleEndian -> (0, (t `shiftL` 1) .|. 1, 0, 0)
+
+putQBKey :: (?endian :: ByteOrder) => QBKey -> PutSeek s ()
 putQBKey (QBKey k) = w32 k
 
-reservePointer :: PutSeek s Pointer
+reservePointer :: (?endian :: ByteOrder) => PutSeek s Pointer
 reservePointer = do
   p <- gets snd
   w32 0xDEADBEEF
   return p
 
-setPointer :: Pointer -> Word32 -> PutSeek s ()
+setPointer :: (?endian :: ByteOrder) => Pointer -> Word32 -> PutSeek s ()
 setPointer p w = do
-  let bs = BL.toStrict $ runPut $ putWord32be w
+  let bs = BL.toStrict $ runPut $ putW32 w
   (v, _) <- get
   forM_ (zip [p ..] $ B.unpack bs) \(i, c) -> MV.write v i c
 
-setPointerLE :: Pointer -> Word32 -> PutSeek s ()
-setPointerLE p w = do
-  let bs = BL.toStrict $ runPut $ putWord32le w
-  (v, _) <- get
-  forM_ (zip [p ..] $ B.unpack bs) \(i, c) -> MV.write v i c
-
-fillPointer :: Pointer -> PutSeek s ()
+fillPointer :: (?endian :: ByteOrder) => Pointer -> PutSeek s ()
 fillPointer p = do
   posn <- gets snd
   setPointer p $ fromIntegral posn
 
-putQBArray :: QBArray Word32 QBKey -> PutSeek s Pointer
+putQBArray :: QBWriter => QBArray Word32 QBKey -> PutSeek s Pointer
 putQBArray ary = do
   p1 <- reservePointer
   p2 <- reservePointer
@@ -960,90 +898,48 @@ putQBArray ary = do
   putQBSubArray ary
   return p2
 
-putQBSubArray :: QBArray Word32 QBKey -> PutSeek s ()
+putFloats :: (?endian :: ByteOrder) => [Float] -> PutSeek s ()
+putFloats fs = do
+  typeWord floatsHeader
+  mapM_ f32 fs
+
+putQBSubArray :: QBWriter => QBArray Word32 QBKey -> PutSeek s ()
 putQBSubArray ary = let
-  writeLen xs = do
-    let len = length xs
-    w32 $ fromIntegral len
-    case len of
-      0 -> w32 0
-      1 -> return ()
-      _ -> reservePointer >>= fillPointer
+  -- official files always use type 0 for empty arrays
+  arrayOf t xs body = if null xs
+    then do
+      typeWord (0, 1, 0, 0)
+      w32 0
+      w32 0
+    else do
+      typeWord (0, 1, t, 0)
+      let len = length xs
+      w32 $ fromIntegral len
+      case len of
+        1 -> return ()
+        _ -> reservePointer >>= fillPointer
+      body
+  pointersTo xs putOne = do
+    ptrPairs <- mapM (\x -> (\p -> (p, x)) <$> reservePointer) xs
+    forM_ ptrPairs \(p, x) -> do
+      fillPointer p
+      putOne x
   in case ary of
-    QBArrayOfQbKey ks -> do
-      w32 0x00010D00
-      writeLen ks
-      mapM_ putQBKey ks
-    QBArrayOfInteger ns -> do
-      w32 0x00010100
-      writeLen ns
-      mapM_ w32 ns
-    QBArrayOfStruct structs -> do
-      w32 0x00010A00
-      writeLen structs
-      ptrStructPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) structs
-      forM_ ptrStructPairs \(p, s) -> do
-        fillPointer p
-        putQBStruct s
-    QBArrayOfFloat floats -> do
-      w32 0x00010200
-      writeLen floats
-      mapM_ (append . BL.toStrict . runPut . putFloatbe) floats
-    QBArrayOfFloatRaw floats -> do
-      w32 0x00010000
-      writeLen floats
-      mapM_ (append . BL.toStrict . runPut . putFloatbe) floats
-    QBArrayOfQbKeyStringQs qs -> do
-      w32 0x00011C00
-      writeLen qs
-      mapM_ w32 qs
-    QBArrayOfArray arrs -> do
-      w32 0x00010C00
-      writeLen arrs
-      ptrArrayPairs <- mapM (\a -> (\p -> (p, a)) <$> reservePointer) arrs
-      forM_ ptrArrayPairs \(p, a) -> do
-        fillPointer p
-        putQBSubArray a
-    QBArrayOfQbKeyString ks -> do
-      w32 0x00011A00
-      writeLen ks
-      mapM_ putQBKey ks
-    QBArrayOfFloatsX2 vs -> do
-      w32 0x00010500
-      writeLen vs
-      ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
-      forM_ ptrVectorPairs \(p, (f1, f2)) -> do
-        fillPointer p
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-    QBArrayOfFloatsX3 vs -> do
-      w32 0x00010600
-      writeLen vs
-      ptrVectorPairs <- mapM (\v -> (\p -> (p, v)) <$> reservePointer) vs
-      forM_ ptrVectorPairs \(p, (f1, f2, f3)) -> do
-        fillPointer p
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-          putFloatbe f3
-    QBArrayOfString strs -> do
-      w32 0x00010300
-      writeLen strs
-      ptrStringPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) strs
-      forM_ ptrStringPairs \(p, str) -> do
-        fillPointer p
-        append $ str <> B.singleton 0
+    QBArrayEmpty -> arrayOf 0 ([] :: [()]) $ return ()
+    QBArrayOfQbKey ks -> arrayOf typeQbKey ks $ mapM_ putQBKey ks
+    QBArrayOfInteger ns -> arrayOf typeInteger ns $ mapM_ i32 ns
+    QBArrayOfStruct structs -> arrayOf typeStruct structs $ pointersTo structs putQBStruct
+    QBArrayOfFloat floats -> arrayOf typeFloat floats $ mapM_ f32 floats
+    QBArrayOfQbKeyStringQs qs -> arrayOf typeQbKeyStringQs qs $ mapM_ w32 qs
+    QBArrayOfArray arrs -> arrayOf typeArray arrs $ pointersTo arrs putQBSubArray
+    QBArrayOfQbKeyString ks -> arrayOf typeQbKeyString ks $ mapM_ putQBKey ks
+    QBArrayOfFloatsX2 vs -> arrayOf typeFloatsX2 vs $ pointersTo vs \(f1, f2) -> putFloats [f1, f2]
+    QBArrayOfFloatsX3 vs -> arrayOf typeFloatsX3 vs $ pointersTo vs \(f1, f2, f3) -> putFloats [f1, f2, f3]
+    QBArrayOfString strs -> arrayOf typeString strs $ do
+      pointersTo strs \str -> append $ str <> B.singleton 0
       padOutputTo4
-    QBArrayOfStringW strs -> do
-      w32 0x00010400
-      writeLen strs
-      ptrStringPairs <- mapM (\s -> (\p -> (p, s)) <$> reservePointer) strs
-      forM_ ptrStringPairs \(p, str) -> do
-        fillPointer p
-        append $ TE.encodeUtf16BE $ str <> "\0"
+    QBArrayOfStringW strs -> arrayOf typeStringW strs $ do
+      pointersTo strs \str -> append $ TE.encodeUtf16BE $ str <> "\0"
       padOutputTo4
 
 padTo4 :: B.ByteString -> B.ByteString
@@ -1051,113 +947,35 @@ padTo4 bs = case rem (B.length bs) 4 of
   0 -> bs
   r -> bs <> B.replicate (4 - r) 0
 
-putQBStruct :: [QBStructItem Word32 QBKey] -> PutSeek s ()
-putQBStruct = let
-  go prevPointer [] = forM_ prevPointer \p -> setPointer p 0
+-- | Writes a struct, starting with its header.
+putQBStruct :: QBWriter => [QBStructItem Word32 QBKey] -> PutSeek s ()
+putQBStruct struct = let
+  go prevPointer [] = setPointer prevPointer 0
   go prevPointer (item : items) = do
-    mapM_ fillPointer prevPointer
+    fillPointer prevPointer
     p <- case item of
-      QBStructHeader -> do
-        w32 0x00000100
-        reservePointer
       QBStructItemQbKey x y -> do
-        w32 0x00010D00
+        itemTypeWord typeQbKey
         putQBKey x
         putQBKey y
         reservePointer
       QBStructItemQbKeyStringQs x y -> do
-        w32 0x00011C00
+        itemTypeWord typeQbKeyStringQs
         putQBKey x
         w32 y
         reservePointer
       QBStructItemQbKeyString x y -> do
-        w32 0x00011A00
+        itemTypeWord typeQbKeyString
         putQBKey x
         putQBKey y
         reservePointer
       QBStructItemInteger x y -> do
-        w32 0x00010100
+        itemTypeWord typeInteger
         putQBKey x
-        w32 y
+        i32 y
         reservePointer
       QBStructItemString x b -> do
-        w32 0x00010300
-        putQBKey x
-        start <- reservePointer
-        p <- reservePointer
-        fillPointer start
-        append $ padTo4 $ b <> B.singleton 0
-        return p
-      QBStructItemFloat x f -> do
-        w32 0x00010200
-        putQBKey x
-        append $ BL.toStrict $ runPut $ putFloatbe f
-        reservePointer
-      QBStructItemFloatsX2 x f1 f2 -> do
-        w32 0x00010500
-        putQBKey x
-        start <- reservePointer
-        p <- reservePointer
-        fillPointer start
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-        return p
-      QBStructItemFloatsX3 x f1 f2 f3 -> do
-        w32 0x00010600
-        putQBKey x
-        start <- reservePointer
-        p <- reservePointer
-        fillPointer start
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-          putFloatbe f3
-        return p
-      QBStructItemArray x array -> do
-        w32 0x00010C00
-        putQBKey x
-        putQBArray array
-      QBStructItemStruct x sub -> do
-        w32 0x00010A00
-        putQBKey x
-        p1 <- reservePointer
-        p2 <- reservePointer
-        fillPointer p1
-        putQBStruct sub
-        return p2
-      QBStructItemInteger810000 x y -> do
-        w32 0x00810000
-        putQBKey x
-        w32 y
-        reservePointer
-      QBStructItemQbKeyString9A0000 x y -> do
-        w32 0x009A0000
-        putQBKey x
-        putQBKey y
-        reservePointer
-      QBStructItemQbKey8D0000 x y -> do
-        w32 0x008D0000
-        putQBKey x
-        putQBKey y
-        reservePointer
-      QBStructItemStruct8A0000 x sub -> do
-        w32 0x008A0000
-        putQBKey x
-        p1 <- reservePointer
-        p2 <- reservePointer
-        fillPointer p1
-        putQBStruct sub
-        return p2
-      QBStructItemFloat820000 x f -> do
-        w32 0x00820000
-        putQBKey x
-        append $ BL.toStrict $ runPut $ putFloatbe f
-        reservePointer
-      QBStructItemString830000 x b -> do
-        w32 0x00830000
+        itemTypeWord typeString
         putQBKey x
         start <- reservePointer
         p <- reservePointer
@@ -1165,84 +983,93 @@ putQBStruct = let
         append $ padTo4 $ b <> B.singleton 0
         return p
       QBStructItemStringW x str -> do
-        w32 0x00840000
+        itemTypeWord typeStringW
         putQBKey x
         start <- reservePointer
         p <- reservePointer
         fillPointer start
         append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
         return p
-      QBStructItemArray8C0000 x array -> do
-        w32 0x008C0000
+      QBStructItemFloat x f -> do
+        itemTypeWord typeFloat
+        putQBKey x
+        f32 f
+        reservePointer
+      QBStructItemFloatsX2 x f1 f2 -> do
+        itemTypeWord typeFloatsX2
+        putQBKey x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        putFloats [f1, f2]
+        return p
+      QBStructItemFloatsX3 x f1 f2 f3 -> do
+        itemTypeWord typeFloatsX3
+        putQBKey x
+        start <- reservePointer
+        p <- reservePointer
+        fillPointer start
+        putFloats [f1, f2, f3]
+        return p
+      QBStructItemArray x array -> do
+        itemTypeWord typeArray
         putQBKey x
         putQBArray array
-      QBStructItemFloatsX2Old x f1 f2 -> do
-        w32 0x00850000
+      QBStructItemStruct x sub -> do
+        itemTypeWord typeStruct
         putQBKey x
-        start <- reservePointer
-        p <- reservePointer
-        fillPointer start
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-        return p
-      QBStructItemFloatsX3Old x f1 f2 f3 -> do
-        w32 0x00860000
-        putQBKey x
-        start <- reservePointer
-        p <- reservePointer
-        fillPointer start
-        w32 0x00010000
-        append $ BL.toStrict $ runPut do
-          putFloatbe f1
-          putFloatbe f2
-          putFloatbe f3
-        return p
-    go (Just p) items
-  in go Nothing
+        p1 <- reservePointer
+        p2 <- reservePointer
+        fillPointer p1
+        putQBStruct sub
+        return p2
+    go p items
+  in do
+    typeWord structHeader
+    firstItem <- reservePointer
+    go firstItem struct
 
-putQBSection :: QBSection Word32 QBKey -> PutSeek s ()
+putQBSection :: QBWriter => QBSection Word32 QBKey -> PutSeek s ()
 putQBSection = \case
   QBSectionInteger itemQbKeyCrc fileId n1 -> do
-    w32 0x00200100
+    sectionTypeWord typeInteger
     putQBKey itemQbKeyCrc
     putQBKey fileId
-    w32 n1
+    i32 n1
     w32 0
   QBSectionArray itemQbKeyCrc fileId array -> do
-    w32 0x00200C00
+    sectionTypeWord typeArray
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- putQBArray array
     setPointer p 0
   QBSectionQbKey itemQbKeyCrc fileId k -> do
-    w32 0x00200D00
+    sectionTypeWord typeQbKey
     putQBKey itemQbKeyCrc
     putQBKey fileId
     putQBKey k
     w32 0
   QBSectionStruct itemQbKeyCrc fileId struct -> do
-    w32 0x00200A00
+    sectionTypeWord typeStruct
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
     putQBStruct struct
-  QBSectionScript itemQbKeyCrc fileId decompressedSize bs -> do
-    w32 0x00200700
+  QBSectionScript itemQbKeyCrc fileId checksum decompressedSize bs -> do
+    sectionTypeWord typeScript
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
-    w32 0xFFFFFFFF
+    w32 checksum
     w32 decompressedSize
     w32 $ fromIntegral $ B.length bs
     append $ padTo4 bs
   QBSectionString itemQbKeyCrc fileId str -> do
-    w32 0x00200300
+    sectionTypeWord typeString
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
@@ -1250,7 +1077,7 @@ putQBSection = \case
     fillPointer p
     append $ padTo4 $ str <> "\0"
   QBSectionStringW itemQbKeyCrc fileId str -> do
-    w32 0x00200400
+    sectionTypeWord typeStringW
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
@@ -1258,69 +1085,75 @@ putQBSection = \case
     fillPointer p
     append $ padTo4 $ TE.encodeUtf16BE $ str <> "\0"
   QBSectionQbKeyStringQs itemQbKeyCrc fileId qs -> do
-    w32 0x00201C00
+    sectionTypeWord typeQbKeyStringQs
     putQBKey itemQbKeyCrc
     putQBKey fileId
     w32 qs
     w32 0
   QBSectionQbKeyString itemQbKeyCrc fileId k -> do
-    w32 0x00201A00
+    sectionTypeWord typeQbKeyString
     putQBKey itemQbKeyCrc
     putQBKey fileId
     putQBKey k
     w32 0
   QBSectionFloat itemQbKeyCrc fileId f1 -> do
-    w32 0x00200200
+    sectionTypeWord typeFloat
     putQBKey itemQbKeyCrc
     putQBKey fileId
-    append $ BL.toStrict $ runPut $ putFloatbe f1
+    f32 f1
     w32 0
   QBSectionFloatsX2 itemQbKeyCrc fileId f1 f2 -> do
-    w32 0x200500
+    sectionTypeWord typeFloatsX2
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
-    w32 0x00010000
-    append $ BL.toStrict $ runPut do
-      putFloatbe f1
-      putFloatbe f2
+    putFloats [f1, f2]
   QBSectionFloatsX3 itemQbKeyCrc fileId f1 f2 f3 -> do
-    w32 0x200600
+    sectionTypeWord typeFloatsX3
     putQBKey itemQbKeyCrc
     putQBKey fileId
     p <- reservePointer
     w32 0
     fillPointer p
-    w32 0x00010000
-    append $ BL.toStrict $ runPut do
-      putFloatbe f1
-      putFloatbe f2
-      putFloatbe f3
+    putFloats [f1, f2, f3]
   QBSectionStringPointer itemQbKeyCrc fileId qs -> do
-    w32 0x00201B00
+    sectionTypeWord typeStringPointer
     putQBKey itemQbKeyCrc
     putQBKey fileId
     w32 qs
     w32 0
 
-putQB :: [QBSection Word32 QBKey] -> BL.ByteString
-putQB sects = let
+-- | 20 header bytes after the file size, in GH3 through GHWT
+qbHeaderGH3 :: B.ByteString
+qbHeaderGH3 = B.pack
+  [ 0x1C, 0x08, 0x02, 0x04, 0x10, 0x04, 0x08, 0x0C, 0x0C, 0x08
+  , 0x02, 0x04, 0x14, 0x02, 0x04, 0x0C, 0x10, 0x10, 0x0C, 0x00
+  ]
+
+putQB :: QBFormat -> [QBSection Word32 QBKey] -> BL.ByteString
+putQB fmt sects = let
+  go :: PutSeek s ()
   go = do
+    let ?endian = fmt.endian
+    let ?itemStyle = fmt.itemStyle
     w32 0
     pFileSize <- reservePointer
-    pHeaderSize <- reservePointer
-    w32 0
-    pContentSize <- reservePointer
-    w32 0
-    w32 0
+    pContentSize <- case fmt.header of
+      QBHeaderGH3 -> do
+        append qbHeaderGH3
+        return Nothing
+      QBHeaderGH5 -> do
+        append $ B.pack [0x1C, 0, 0, 0, 0, 0, 0, 0]
+        p <- reservePointer
+        append $ B.replicate 8 0
+        return $ Just p
     headerSize <- gets snd
     mapM_ putQBSection sects
     fileSize <- gets snd
     setPointer pFileSize $ fromIntegral fileSize
-    setPointerLE pHeaderSize $ fromIntegral headerSize
-    setPointer pContentSize $ fromIntegral $ fileSize - headerSize
+    forM_ pContentSize \p -> setPointer p $ fromIntegral $ fileSize - headerSize
   in BL.pack $ V.toList $ V.create do
     v <- MV.new 0
     (v', used) <- execStateT go (v, 0)

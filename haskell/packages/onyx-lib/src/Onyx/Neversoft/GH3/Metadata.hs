@@ -25,6 +25,7 @@ import           Data.Maybe                   (catMaybes, fromMaybe,
                                                listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
+import           Data.Int                     (Int32)
 import           Data.Word
 import           GHC.ByteOrder
 import           Onyx.Harmonix.Ark.GH2        (SongSort (..), sortSongs)
@@ -65,13 +66,13 @@ data GH3TextPakQB = GH3TextPakQB
 
 readGH3TextPakQBDisc :: (MonadFail m, ?endian :: ByteOrder) => BL.ByteString -> BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDisc pak pab = do
-  nodes <- splitPakNodes (pakFormatGH3 ?endian) pak $ Just pab
+  nodes <- splitPakNodes pak $ Just pab
   return $ readGH3TextPakQB nodes
 
 readGH3TextPakQBDLC :: (MonadFail m) => BL.ByteString -> m GH3TextPakQB
 readGH3TextPakQBDLC pak = do
   let ?endian = BigEndian
-  nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
+  nodes <- splitPakNodes pak Nothing
   return $ readGH3TextPakQB nodes
 
 data GH3Language
@@ -89,7 +90,7 @@ data GH3Game
 
 data GH3TextSet = GH3TextSet
   { languages :: [(GH3Language, GH3TextPakQB)]
-  , dlcScript :: Maybe (Word32, BL.ByteString)
+  , dlcScript :: Maybe (Int32, BL.ByteString)
   }
 
 instance Semigroup GH3TextSet where
@@ -127,7 +128,7 @@ readGH3TextSetDLC folder = let
       Just dlName | "dl" `T.isPrefixOf` dlName && not ("_song" `T.isSuffixOf` dlName) -> do
         pak <- liftIO $ useHandle r handleToByteString
         let ?endian = BigEndian
-        nodes <- splitPakNodes (pakFormatGH3 ?endian) pak Nothing
+        nodes <- splitPakNodes pak Nothing
         let filenameKey = qbKeyCRC $ "1ni76fm\\" <> B8.pack (T.unpack dlName) <> ".qb"
         fmap mconcat $ forM nodes \(node, bs) -> if node.nodeFilenameKey == filenameKey && node.nodeFileType == ".qb"
           then errorToWarning (runGetM parseQB bs) <&> \case
@@ -192,32 +193,29 @@ buildGH3TextSet prefs dlName lang paks = let
       , nodeFlags          = 0
       , nodeName           = Nothing
       }
-    , putQB $ discardQS
+    , putQB (qbFormatGH3 BigEndian) $ discardQS
       [ QBSectionStruct "GH3_Download_Songs" unk1
-        [ QBStructHeader
-        , QBStructItemString830000 "prefix" "download"
-        , QBStructItemInteger810000 "num_tiers" 1
-        , QBStructItemStruct8A0000 "tier1"
-          [ QBStructHeader
-          , QBStructItemStringW "title" case lang of
+        [ QBStructItemString "prefix" "download"
+        , QBStructItemInteger "num_tiers" 1
+        , QBStructItemStruct "tier1"
+          [ QBStructItemStringW "title" case lang of
             GH3English -> "Downloaded songs"
             GH3French  -> "Chansons téléchargées"
             GH3German  -> "Heruntergel. Songs"
             GH3Italian -> "Canzoni scaricate"
             GH3Spanish -> "Temas descargados"
-          , QBStructItemArray8C0000 "songs" $ QBArrayOfQbKey allSongIDs
+          , QBStructItemArray "songs" $ QBArrayOfQbKey allSongIDs
           , if isAerosmith
-            then QBStructItemInteger810000 "defaultunlocked" 4
-            else QBStructItemQbKey8D0000 0 "unlockall"
-          , QBStructItemQbKey8D0000 "level" if isAerosmith
+            then QBStructItemInteger "defaultunlocked" 4
+            else QBStructItemQbKey 0 "unlockall"
+          , QBStructItemQbKey "level" if isAerosmith
             then "load_z_Nipmuc"
             else "load_z_artdeco"
           ]
         ]
       , QBSectionArray "download_songlist" unk1 $ QBArrayOfQbKey allSongIDs
       , QBSectionStruct "download_songlist_props" unk1
-        $ QBStructHeader
-        : [ QBStructItemStruct8A0000 x y | (x, y) <- allSongData ]
+        [ QBStructItemStruct x y | (x, y) <- allSongData ]
       ]
     )
   end =
@@ -357,7 +355,7 @@ readGH3TextPakQB :: (?endian :: ByteOrder) => [(Node, BL.ByteString)] -> GH3Text
 readGH3TextPakQB nodes = let
   mappingQS = qsBank nodes -- could also filter by matching nodeFilenameCRC
   getSonglistProps qb = do
-    QBSectionStruct structID _fileID (QBStructHeader : songs) <- qb
+    QBSectionStruct structID _fileID songs <- qb
     guard $ elem structID
       [ "permanent_songlist_props" -- disc, both gh3 + ghwt
       , "download_songlist_props" -- dlc, both gh3 + ghwt
@@ -375,17 +373,16 @@ readGH3TextPakQB nodes = let
       []    -> Left pair
       songs -> Right songs
   structs = concat $ concat (rights sortedNodes') <&> \case
-    QBStructItemStruct8A0000 k struct -> [(k, struct)] -- gh3
-    QBStructItemStruct       k struct -> [(k, struct)] -- ghwt
-    _                                 -> []
+    QBStructItemStruct k struct -> [(k, struct)]
+    _                           -> []
     -- known other things found here:
-    -- QBStructItemQbKeyString9A0000 0 "download_songlist_props"  -- GH3 DEMO BUILD
-    -- QBStructItemQbKeyString9A0000 0 "permanent_songlist_props" -- under gh3_songlist_props in final gh3 disc
+    -- QBStructItemQbKeyString 0 "download_songlist_props"  -- GH3 DEMO BUILD
+    -- QBStructItemQbKeyString 0 "permanent_songlist_props" -- under gh3_songlist_props in final gh3 disc
   game = listToMaybe do
     Right (_, qb) <- sortedNodes
-    QBSectionStruct "GH3_Download_Songs" _ (QBStructHeader : meta) <- qb
-    QBStructItemStruct8A0000 "tier1" (QBStructHeader : tier) <- meta
-    QBStructItemQbKey8D0000 "level" level <- tier
+    QBSectionStruct "GH3_Download_Songs" _ meta <- qb
+    QBStructItemStruct "tier1" tier <- meta
+    QBStructItemQbKey "level" level <- tier
     case level of
       "load_z_artdeco" -> [GuitarHero3]
       "load_z_Nipmuc"  -> [GuitarHeroAerosmith]
@@ -423,18 +420,18 @@ data SongInfoGH3 = SongInfoGH3
 
 parseSongInfoGH3 :: [QBStructItem QSResult QBKey] -> Either String SongInfoGH3
 parseSongInfoGH3 songEntries = do
-  gh3Name <- case [ s | QBStructItemString830000 "name" s <- songEntries ] of
+  gh3Name <- case [ s | QBStructItemString "name" s <- songEntries ] of
     s : _ -> Right s
     []    -> Left "parseSongInfoGH3: couldn't get song internal name"
   let getString crc = listToMaybe $ songEntries >>= \case
-        QBStructItemStringW       k s | k == crc -> [s]                 -- 360
-        QBStructItemString830000  k s | k == crc -> [TE.decodeLatin1 s] -- PS2
-        _                                        -> []
+        QBStructItemStringW k s | k == crc -> [s]                 -- 360
+        QBStructItemString  k s | k == crc -> [TE.decodeLatin1 s] -- PS2
+        _                                  -> []
   gh3Title <- maybe (Left "parseSongInfoGH3: couldn't get song title") Right $ getString "title"
   gh3Artist <- maybe (Left "parseSongInfoGH3: couldn't get song artist") Right $ getString "artist"
   -- tutorial songs don't have a year
   let gh3Year = getString "year"
-  gh3Singer <- case [ s | QBStructItemQbKey8D0000 "singer" s <- songEntries ] of
+  gh3Singer <- case [ s | QBStructItemQbKey "singer" s <- songEntries ] of
     s : _ -> case s of
       "female" -> Right $ Just GH3SingerFemale
       "male"   -> Right $ Just GH3SingerMale
@@ -442,27 +439,27 @@ parseSongInfoGH3 songEntries = do
       "none"   -> Right Nothing
       _        -> Left $ "parseSongInfoGH3: unrecognized key for singer (song " <> show gh3Name <> ", key " <> show s <> ")" -- should probably just be warning
     []    -> Right Nothing
-  gh3Keyboard <- case [ s | QBStructItemQbKey8D0000 "keyboard" s <- songEntries ] of
+  gh3Keyboard <- case [ s | QBStructItemQbKey "keyboard" s <- songEntries ] of
     s : _ -> case s of
       "true"  -> Right True
       "false" -> Right False
       _       -> Left $ "parseSongInfoGH3: unrecognized key for keyboard (song " <> show gh3Name <> ", key " <> show s <> ")" -- should probably just be warning
     []    -> Right False
   let findFloat key = listToMaybe $ flip mapMaybe songEntries \case
-        QBStructItemInteger810000 k x | k == key -> Just $ fromIntegral x
-        QBStructItemFloat820000   k x | k == key -> Just x
-        _                                        -> Nothing
+        QBStructItemInteger k x | k == key -> Just $ fromIntegral x
+        QBStructItemFloat   k x | k == key -> Just x
+        _                                  -> Nothing
       gh3BandPlaybackVolume   = fromMaybe 0 $ findFloat "band_playback_volume"
       gh3GuitarPlaybackVolume = fromMaybe 0 $ findFloat "guitar_playback_volume"
       gh3UseCoopNotetracks    = not $ null
-        [ () | QBStructItemQbKey8D0000 0 "use_coop_notetracks" <- songEntries ]
+        [ () | QBStructItemQbKey 0 "use_coop_notetracks" <- songEntries ]
       gh3HammerOnMeasureScale = listToMaybe
-        [ n | QBStructItemFloat820000 "hammer_on_measure_scale" n <- songEntries ]
-      gh3OriginalArtist = case [ n | QBStructItemInteger810000 "original_artist" n <- songEntries ] of
+        [ n | QBStructItemFloat "hammer_on_measure_scale" n <- songEntries ]
+      gh3OriginalArtist = case [ n | QBStructItemInteger "original_artist" n <- songEntries ] of
         b : _ -> b /= 0
         []    -> True
-      gh3Countoff = listToMaybe [ s | QBStructItemString830000 "countoff" s <- songEntries ]
-  gh3RhythmTrack <- case [ n | QBStructItemInteger810000 "rhythm_track" n <- songEntries ] of
+      gh3Countoff = listToMaybe [ s | QBStructItemString "countoff" s <- songEntries ]
+  gh3RhythmTrack <- case [ n | QBStructItemInteger "rhythm_track" n <- songEntries ] of
     0 : _ -> Right False
     1 : _ -> Right True
     _ : _ -> Left "parseSongInfoGH3: unrecognized value for coop-is-rhythm key"

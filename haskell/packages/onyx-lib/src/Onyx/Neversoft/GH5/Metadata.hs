@@ -42,13 +42,13 @@ data TextPakSongStruct = TextPakSongStruct
 
 readTextPakQB :: (SendMessage m) => BL.ByteString -> Maybe BL.ByteString -> Maybe BL.ByteString -> StackTraceT m [TextPakQB]
 readTextPakQB bs pab mqs = do
-  nodes <- splitPakNodes pakFormatWoR bs pab
+  nodes <- splitPakNodes bs pab
   let qbFiles = flip mapMaybe nodes \(n, node) -> do
         guard $ n.nodeFileType == ".qb"
         return node
   mappingQS <- case mqs of
     Nothing -> return $ qsBank nodes -- could also filter by matching nodeFilenameCRC
-    Just qs -> qsBank <$> splitPakNodes pakFormatWoR qs Nothing
+    Just qs -> qsBank <$> splitPakNodes qs Nothing
   flip mapMaybeM qbFiles \qbFile -> do
     qb <- let
       ?endian = BigEndian
@@ -80,7 +80,7 @@ readTextPakQB bs pab mqs = do
           -- TODO we can probably read other custom ones from the qbs directly
           ]
         structs = do
-          QBSectionStruct structID fileID (QBStructHeader : songs) <- qb
+          QBSectionStruct structID fileID songs <- qb
           (listID, propsID) <- filter (\(_, propsID) -> propsID == structID) arrayStructIDPairs
           song <- songs
           return (fileID, (listID, propsID, song))
@@ -108,7 +108,7 @@ showTextPakQBQS contents = let
       return struct.songDLCID
   qbProps = do
     propsID <- nubOrd $ map (.songStructID) contents.textPakSongStructs
-    return $ QBSectionStruct propsID contents.textPakFileKey $ QBStructHeader : do
+    return $ QBSectionStruct propsID contents.textPakFileKey do
       struct <- contents.textPakSongStructs
       guard $ struct.songStructID == propsID
       return $ QBStructItemStruct struct.songDLCID struct.songData
@@ -117,7 +117,7 @@ showTextPakQBQS contents = let
     item <- contents.textPakSongStructs >>= (.songData)
     KnownQS k txt <- allQS item
     return (k, txt)
-  in (putQB $ discardQS qb, makeQS qs)
+  in (putQB (qbFormatGH5 BigEndian) $ discardQS qb, makeQS qs)
 
 data SongInfo = SongInfo
   { songName                  :: B.ByteString -- this is an id like "dlc747"

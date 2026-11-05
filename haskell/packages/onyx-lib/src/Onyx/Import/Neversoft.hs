@@ -437,7 +437,7 @@ importGH4Song ghi level = do
             GH4Audio360{} -> BigEndian
             GH4AudioPS2{} -> LittleEndian
       songNodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
-        inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
+        inside "Parsing song .pak" $ splitPakNodes bs Nothing
       let matchQB :: Node -> Bool
           matchQB node = node.nodeFileType == ".qb"
             && node.nodeFilenameCRC == qbKeyCRC info.gh4Name
@@ -785,7 +785,7 @@ importGH3Song ghi = let
               GH3Audio360{} -> BigEndian
               GH3AudioPS2{} -> LittleEndian
         nodes <- stackIO (useHandle ghi.songPak handleToByteString) >>= \bs ->
-          inside "Parsing song .pak" $ splitPakNodes (pakFormatGH3 ?endian) bs Nothing
+          inside "Parsing song .pak" $ splitPakNodes bs Nothing
         let isMidQB :: Node -> Bool
             isMidQB node
               = elem node.nodeFileType [".qb", ".mqb"] -- .mqb on PS2
@@ -956,7 +956,7 @@ importGH3SGHFolder src folder = case findFileCI (pure "songs.info") folder of
     let platform = (<> ".xen")
         findFolded f = listToMaybe [ r | (name, r) <- folderFiles folder, T.toCaseFold name == T.toCaseFold f ]
     songInfo <- concat <$> forM songs \case
-      QBStructItemStruct8A0000 _ items -> case parseSongInfoGH3 $ map (first UnknownQS) items of
+      QBStructItemStruct _ items -> case parseSongInfoGH3 $ map (first UnknownQS) items of
         Left  err  -> warn err >> return []
         Right info -> return [info]
       _ -> return []

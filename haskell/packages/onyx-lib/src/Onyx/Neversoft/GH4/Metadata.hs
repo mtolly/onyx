@@ -9,11 +9,9 @@ module Onyx.Neversoft.GH4.Metadata where
 
 import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy              as BL
-import           Data.Int
 import           Data.Maybe                        (fromMaybe, listToMaybe,
                                                     mapMaybe)
 import qualified Data.Text                         as T
-import           Data.Word
 import           GHC.ByteOrder
 import           Onyx.Harmonix.DTA.Serialize.Magma (Gender (..))
 import           Onyx.Neversoft.CRC
@@ -50,20 +48,19 @@ data SongInfoGH4 = SongInfoGH4
 
 getVocalsCents :: QBStructItem qs QBKey -> Maybe Int
 getVocalsCents
-  (QBStructItemStruct "vocals_pitch_score_shift" [QBStructHeader, QBStructItemInteger "cents" n])
-  = Just $ fromIntegral $ (fromIntegral :: Word32 -> Int32) n -- TODO simplify when qb is fixed to use Int32
+  (QBStructItemStruct "vocals_pitch_score_shift" [QBStructItemInteger "cents" n])
+  = Just $ fromIntegral n
 getVocalsCents _ = Nothing
 
 makeVocalsCents :: Int -> Maybe (QBStructItem qs QBKey)
 makeVocalsCents 0 = Nothing
 makeVocalsCents n = Just $ QBStructItemStruct "vocals_pitch_score_shift"
-  [ QBStructHeader
-  , QBStructItemInteger "cents" (fromIntegral (fromIntegral n :: Int32) :: Word32)
+  [ QBStructItemInteger "cents" $ fromIntegral n
   ]
 
 getOverallSongVolume :: QBStructItem qs QBKey -> Maybe Float
 getOverallSongVolume (QBStructItemInteger "overall_song_volume" n)
-  = Just $ realToFrac $ (fromIntegral :: Word32 -> Int32) n -- TODO simplify when qb is fixed to use Int32
+  = Just $ fromIntegral n
 getOverallSongVolume (QBStructItemFloat "overall_song_volume" n)
   = Just n
 getOverallSongVolume _ = Nothing
@@ -103,6 +100,6 @@ readGH4TextPakQBDisc
   -> (BL.ByteString, Maybe BL.ByteString)
   -> m GH3TextPakQB
 readGH4TextPakQBDisc (qbpak, qbpab) (qspak, qspab) = do
-  qbnodes <- splitPakNodes (pakFormatGH3 ?endian) qbpak qbpab
-  qsnodes <- splitPakNodes (pakFormatGH3 ?endian) qspak qspab
+  qbnodes <- splitPakNodes qbpak qbpab
+  qsnodes <- splitPakNodes qspak qspab
   return $ readGH3TextPakQB $ qbnodes <> qsnodes

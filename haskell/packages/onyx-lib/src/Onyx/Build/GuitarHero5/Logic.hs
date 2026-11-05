@@ -27,7 +27,9 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
+import           Data.Int                         (Int32)
 import           Data.Word
+import           GHC.ByteOrder                    (ByteOrder (..))
 import           Numeric                          (showHex)
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
@@ -240,7 +242,7 @@ makeGHWoRNote
   -> F.Song (F.OnyxFile U.Beats)
   -> FretLimit
   -> StackTraceT m U.Seconds -- ^ get longest audio length
-  -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text, [Word32])
+  -> StackTraceT m (GHNoteFile, HM.HashMap Word32 T.Text, [Int32])
 makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) fretLimit getAudioLength = let
   secondsToMS :: U.Seconds -> Word32
   secondsToMS = floor . (* 1000)
@@ -508,7 +510,7 @@ makeGHWoRNote songYaml target song@(F.Song tmap mmap ofile) fretLimit getAudioLe
       }, sectionBank, drumAnims)
 
 -- very basic, no velocity, no hihat control
-makeDrumAnimations :: U.TempoMap -> RTB.T U.Beats D.Animation -> [Word32]
+makeDrumAnimations :: U.TempoMap -> RTB.T U.Beats D.Animation -> [Int32]
 makeDrumAnimations tmap anims = do
   (secs, anim) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap anims
   pitch <- case anim of
@@ -564,7 +566,7 @@ makeMetadataPKG inputs fout = do
   library <- getAllMetadata inputs
   stackIO $ saveMetadataPKG library fout
 
-worFileManifest :: QBKey -> T.Text -> QBKey -> [Word32] -> BL.ByteString
+worFileManifest :: QBKey -> T.Text -> QBKey -> [Int32] -> BL.ByteString
 worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
   [ ( Node
       { nodeFileType = ".qb"
@@ -577,13 +579,12 @@ worFileManifest titleHashHex cdl manifestQBFilenameKey songIDs = buildPak
       , nodeFlags = 0
       , nodeName = Nothing
       }
-    , putQB
+    , putQB (qbFormatGH5 BigEndian)
       -- first number in each of these sections is same across packs
       [ QBSectionInteger 3850140781 manifestQBFilenameKey 2
       , QBSectionInteger 1403615505 manifestQBFilenameKey 0
       , QBSectionArray 2706631909 manifestQBFilenameKey $ QBArrayOfStruct
-        [ [ QBStructHeader
-          , QBStructItemArray
+        [ [ QBStructItemArray
             "package_name_checksums"
             (QBArrayOfQbKey [titleHashHex])
           , QBStructItemQbKey
@@ -628,7 +629,7 @@ worFileBarePak = buildPak
       , nodeFlags = 0
       , nodeName = Nothing
       }
-    , putQB []
+    , putQB (qbFormatGH5 BigEndian) []
     )
   , ( Node
       { nodeFileType = ".last"

@@ -275,7 +275,7 @@ data SongPakContents = SongPakContents
 -- Load from an uncompressed _song.pak.xen
 loadSongPakContents :: (Monad m) => B.ByteString -> BL.ByteString -> StackTraceT m SongPakContents
 loadSongPakContents songKey bs = inside "loading _song.pak.*" do
-  nodes <- inside "splitting pak nodes" $ splitPakNodes pakFormatWoR bs Nothing
+  nodes <- inside "splitting pak nodes" $ splitPakNodes bs Nothing
   let findNodeKey = listToMaybe . nodesOfType
       nodesOfType t = filter (\(n, _) -> n.nodeFileType == t) nodes
       bank = qsBank $ nodesOfType ".qs.en"

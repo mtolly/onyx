@@ -16,6 +16,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
+import           Data.Int                         (Int32)
 import           Data.Word
 import           Onyx.Guitar                      (emitGuitar5)
 import           Onyx.MIDI.Common                 (Difficulty (..),
@@ -37,8 +38,8 @@ import           Onyx.StackTrace
 import qualified Sound.MIDI.Util                  as U
 
 data GH4MidQB = GH4MidQB
-  { gh4TimeSignatures  :: [(Word32, Word32, Word32)]
-  , gh4FretBars        :: [Word32]
+  { gh4TimeSignatures  :: [(Int32, Int32, Int32)]
+  , gh4FretBars        :: [Int32]
 
   , gh4Guitar          :: GH4Part
   , gh4Rhythm          :: GH4Part
@@ -50,21 +51,21 @@ data GH4MidQB = GH4MidQB
   -- , gh4BossBattleP1 :: () -- dlc50_bossbattlep1
   -- , gh4BossBattleP2 :: () -- dlc50_bossbattlep2
 
-  , gh4GuitarMarkers   :: [(Word32, Word32)] -- dlc50_guitar_markers
-  , gh4RhythmMarkers   :: [(Word32, Word32)] -- dlc50_rhythm_markers
-  , gh4DrumMarkers     :: [(Word32, Word32)] -- dlc50_drum_markers
+  , gh4GuitarMarkers   :: [(Int32, Word32)] -- dlc50_guitar_markers
+  , gh4RhythmMarkers   :: [(Int32, Word32)] -- dlc50_rhythm_markers
+  , gh4DrumMarkers     :: [(Int32, Word32)] -- dlc50_drum_markers
 
-  , gh4EasyDrumFill    :: [(Word32, Word32)] -- dlc50_easy_drumfill
-  , gh4MediumDrumFill  :: [(Word32, Word32)] -- dlc50_medium_drumfill
-  , gh4HardDrumFill    :: [(Word32, Word32)] -- dlc50_hard_drumfill
-  , gh4ExpertDrumFill  :: [(Word32, Word32)] -- dlc50_expert_drumfill
+  , gh4EasyDrumFill    :: [(Int32, Int32)] -- dlc50_easy_drumfill
+  , gh4MediumDrumFill  :: [(Int32, Int32)] -- dlc50_medium_drumfill
+  , gh4HardDrumFill    :: [(Int32, Int32)] -- dlc50_hard_drumfill
+  , gh4ExpertDrumFill  :: [(Int32, Int32)] -- dlc50_expert_drumfill
 
   -- , gh4EasyDrumUnmute   :: () -- dlc50_easy_drumunmute
   -- , gh4MediumDrumUnmute :: () -- dlc50_medium_drumunmute
   -- , gh4HardDrumUnmute   :: () -- dlc50_hard_drumunmute
   -- , gh4ExpertDrumUnmute :: () -- dlc50_expert_drumunmute
 
-  -- , gh4BackgroundNotes :: GH4Background [Word32]
+  -- , gh4BackgroundNotes :: GH4Background [Int32]
   -- dlc50_scripts_notes
   -- dlc50_anim_notes
   -- dlc50_triggers_notes
@@ -85,12 +86,12 @@ data GH4MidQB = GH4MidQB
   -- , gh4Performance :: [GH3AnimEvent]
   -- dlc50_performance
 
-  , gh4SongVocals      :: [(Word32, Word32, Word32)] -- dlc50_song_vocals
-  , gh4VocalsFreeform  :: [(Word32, Word32, Word32)] -- dlc50_vocals_freeform
-  , gh4VocalsPhrases   :: [(Word32, Word32)] -- dlc50_vocals_phrases
-  , gh4VocalsNoteRange :: (Word32, Word32) -- dlc50_vocals_note_range
-  , gh4Lyrics          :: [(Word32, Word32)] -- dlc50_lyrics
-  , gh4VocalsMarkers   :: [(Word32, Word32)] -- dlc50_vocals_markers
+  , gh4SongVocals      :: [(Int32, Int32, Int32)] -- dlc50_song_vocals
+  , gh4VocalsFreeform  :: [(Int32, Int32, Int32)] -- dlc50_vocals_freeform
+  , gh4VocalsPhrases   :: [(Int32, Int32)] -- dlc50_vocals_phrases
+  , gh4VocalsNoteRange :: (Int32, Int32) -- dlc50_vocals_note_range
+  , gh4Lyrics          :: [(Int32, Word32)] -- dlc50_lyrics
+  , gh4VocalsMarkers   :: [(Int32, Word32)] -- dlc50_vocals_markers
 
   } deriving (Show)
 
@@ -99,16 +100,16 @@ data GH4Part = GH4Part
   , gh4Medium      :: GH4Difficulty
   , gh4Hard        :: GH4Difficulty
   , gh4Expert      :: GH4Difficulty
-  , gh4FaceOffStar :: [(Word32, Word32, Word32)]
-  , gh4FaceOffP1   :: [(Word32, Word32)]
-  , gh4FaceOffP2   :: [(Word32, Word32)]
+  , gh4FaceOffStar :: [(Int32, Int32, Int32)]
+  , gh4FaceOffP1   :: [(Int32, Int32)]
+  , gh4FaceOffP2   :: [(Int32, Int32)]
   } deriving (Show)
 
 data GH4Difficulty = GH4Difficulty
-  { gh4Notes       :: [(Word32, Word32)]
-  , gh4StarPower   :: [(Word32, Word32, Word32)]
-  , gh4BattleStars :: [(Word32, Word32, Word32)]
-  , gh4Tapping     :: [(Word32, Word32, Word32)]
+  { gh4Notes       :: [(Int32, Int32)]
+  , gh4StarPower   :: [(Int32, Int32, Int32)]
+  , gh4BattleStars :: [(Int32, Int32, Int32)]
+  , gh4Tapping     :: [(Int32, Int32, Int32)]
   -- dlc50_expert_whammycontroller
   } deriving (Show)
 
@@ -127,8 +128,8 @@ parseGH4MidQB dlc qb = do
 
   gh4TimeSignatures <- findSection qb (dlc <> "_timesig") listOfTriples
   gh4FretBars       <- findSection qb (dlc <> "_fretbars") \case
-    QBArrayOfFloatRaw [] -> return []
-    QBArrayOfInteger ns  -> return ns
+    QBArrayEmpty        -> return []
+    QBArrayOfInteger ns -> return ns
     _                    -> fatal "Expected array of integers for fretbars"
 
   gh4Guitar     <- parsePart dlc qb ""
@@ -148,13 +149,13 @@ parseGH4MidQB dlc qb = do
   gh4ExpertDrumFill <- findSection qb (dlc <> "_expert_drumfill") listOfPairs
 
   gh4SongVocals <- findSection qb (dlc <> "_song_vocals") \case
-    QBArrayOfFloatRaw [] -> return []
-    QBArrayOfInteger ns  -> groupBy3 ns
+    QBArrayEmpty        -> return []
+    QBArrayOfInteger ns -> groupBy3 ns
     _                    -> fatal "Expected array of integers for vocals notes"
   gh4VocalsFreeform <- findSection qb (dlc <> "_vocals_freeform") listOfTriples
   gh4VocalsPhrases <- findSection qb (dlc <> "_vocals_phrases") \case
-    QBArrayOfFloatRaw [] -> return []
-    QBArrayOfInteger ns  -> groupBy2 ns
+    QBArrayEmpty        -> return []
+    QBArrayOfInteger ns -> groupBy2 ns
     _                    -> fatal "Expected array of integers for vocals phrases"
   gh4VocalsNoteRange <- findSection qb (dlc <> "_vocals_note_range") \case
     QBArrayOfInteger [x, y] -> return (x, y)
@@ -168,8 +169,8 @@ parsePart :: (Monad m) => B.ByteString -> [QBSection Word32 QBKey] -> B.ByteStri
 parsePart dlc qb part = let
   parseTrack diff = do
     gh4Notes       <- findSection qb (dlc <> "_song_" <> part <> diff) \case
-      QBArrayOfFloatRaw [] -> return []
-      QBArrayOfInteger ns  -> groupBy2 ns
+      QBArrayEmpty        -> return []
+      QBArrayOfInteger ns -> groupBy2 ns
       _                    -> fatal "Expected array of integers for notes"
     gh4StarPower   <- findSection qb (dlc <> "_" <> part <> diff <> "_star") listOfTriples
     gh4BattleStars <- findSection qb (dlc <> "_" <> part <> diff <> "_starbattlemode") listOfTriples
@@ -191,32 +192,28 @@ groupBy2 = go [] where
   go pairs (x : y : rest) = go ((x, y) : pairs) rest
   go _     _              = fatal "Expected a list whose length is a multiple of 2"
 
-parseMarkersGH4 :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
+parseMarkersGH4 :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Int32, Word32)]
 parseMarkersGH4 = \case
-  QBArrayOfFloatRaw [] -> return []
-  QBArrayOfStruct marks -> forM marks \case
-    QBStructHeader : items -> let
-      time      = [ v | QBStructItemInteger       "time"   v <- items ]
-      marker    = [ v | QBStructItemQbKeyString   "marker" v <- items ] -- guitar/rhythm/drum
-      markerVox = [ v | QBStructItemQbKeyStringQs "marker" v <- items ] -- vocals
-      in case (time, marker, markerVox) of
-        ([t], [m], []) -> return (t, fromQBKey m)
-        ([t], [], [m]) -> return (t, m)
-        _              -> fatal $ "Unexpected contents of marker: " <> show items
-    _ -> fatal "No struct header in marker"
+  QBArrayEmpty -> return []
+  QBArrayOfStruct marks -> forM marks \items -> let
+    time      = [ v | QBStructItemInteger "time" v <- items ]
+    marker    = [ v | QBStructItemQbKeyString   "marker" v <- items ] -- guitar/rhythm/drum
+    markerVox = [ v | QBStructItemQbKeyStringQs "marker" v <- items ] -- vocals
+    in case (time, marker, markerVox) of
+      ([t], [m], []) -> return (t, fromQBKey m)
+      ([t], [], [m]) -> return (t, m)
+      _              -> fatal $ "Unexpected contents of marker: " <> show items
   _ -> fatal "Expected array of structs for markers"
 
-parseLyrics :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Word32, Word32)]
+parseLyrics :: (Monad m) => QBArray Word32 QBKey -> StackTraceT m [(Int32, Word32)]
 parseLyrics = \case
-  QBArrayOfFloatRaw [] -> return []
-  QBArrayOfStruct lyrics -> forM lyrics \case
-    QBStructHeader : items -> let
-      time   = [ v | QBStructItemInteger       "time" v <- items ]
-      textQs = [ v | QBStructItemQbKeyStringQs "text" v <- items ]
-      in case (time, textQs) of
-        ([t], [txt]) -> return (t, txt)
-        _            -> fatal $ "Unexpected contents of lyric: " <> show items
-    _ -> fatal "No struct header in lyric"
+  QBArrayEmpty -> return []
+  QBArrayOfStruct lyrics -> forM lyrics \items -> let
+    time   = [ v | QBStructItemInteger "time" v <- items ]
+    textQs = [ v | QBStructItemQbKeyStringQs "text" v <- items ]
+    in case (time, textQs) of
+      ([t], [txt]) -> return (t, txt)
+      _            -> fatal $ "Unexpected contents of lyric: " <> show items
   _ -> fatal "Expected array of structs for lyrics"
 
 {-
@@ -401,7 +398,7 @@ from James Bond Theme (dlc50), strings matched with the help of Addy's code
 gh4ToMidi :: SongInfoGH4 -> HM.HashMap Word32 T.Text -> HM.HashMap QBKey T.Text -> GH4MidQB -> F.Song (F.FixedFile U.Beats)
 gh4ToMidi info bankLyrics bankMarkers gh4 = let
   tempos = readGH3TempoMap gh4.gh4TimeSignatures gh4.gh4FretBars
-  toBeats :: Word32 -> U.Beats
+  toBeats :: Int32 -> U.Beats
   toBeats = U.unapplyTempoMap tempos . toSeconds
   fromPairs ps = RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort ps
   markers = fromPairs do
@@ -418,20 +415,20 @@ gh4ToMidi info bankLyrics bankMarkers gh4 = let
     , F.fixedPartBass = getGuitarBass gh4.gh4Rhythm
     , F.fixedPartDrums = getDrums gh4.gh4Drum
     , F.fixedPartVocals = let
-      notes = [ VocalNote time (fromIntegral dur) (fromIntegral pitch) | (time, dur, pitch) <- gh4.gh4SongVocals ]
+      notes = [ VocalNote (fromIntegral time) (fromIntegral dur) (fromIntegral pitch) | (time, dur, pitch) <- gh4.gh4SongVocals ]
       lyrics = do
         (time, lyricQs) <- gh4.gh4Lyrics
         lyric <- toList $ HM.lookup lyricQs bankLyrics
-        return $ Single time $ stripBackL lyric
-      phrases = map fst gh4.gh4VocalsPhrases
-      in convertVocals toBeats notes lyrics phrases []
+        return $ Single (fromIntegral time) $ stripBackL lyric
+      phrases = map (fromIntegral . fst) gh4.gh4VocalsPhrases
+      in convertVocals (toBeats . fromIntegral) notes lyrics phrases []
     , F.fixedEvents = mempty
       { sections = RTB.mapMaybe (\case Right sect -> Just sect; _ -> Nothing) markers
       , end      = RTB.mapMaybe (\case Left  ()   -> Just ()  ; _ -> Nothing) markers
       }
     }
   -- is this sustain cutoff still right? no trim this time
-  sustainThreshold :: Word32
+  sustainThreshold :: Int32
   sustainThreshold = floor $ (U.applyTempoMap tempos 1 / 2) * 1000
   getGuitarBassDiff :: GH4Difficulty -> Five.FiveDifficulty U.Beats
   getGuitarBassDiff diff = emitGuitar5 $ fromPairs do

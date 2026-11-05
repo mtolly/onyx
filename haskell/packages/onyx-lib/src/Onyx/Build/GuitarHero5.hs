@@ -22,11 +22,13 @@ import           Data.Conduit.Audio.SampleRate
 import           Data.Foldable                     (forM_, toList)
 import           Data.Hashable                     (Hashable, hash)
 import qualified Data.HashMap.Strict               as HM
+import           Data.Int                          (Int32)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (fromMaybe)
 import qualified Data.Text                         as T
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
+import           GHC.ByteOrder                     (ByteOrder (..))
 import           Onyx.Audio
 import           Onyx.Audio.FSB                    (emitFSB, ghBandMP3sToFSB4,
                                                     ghBandXMAtoFSB4)
@@ -62,10 +64,10 @@ import           Onyx.Neversoft.Pak                (Node (..), buildPak, makeQS,
                                                     parseQS, worMetadataString)
 import           Onyx.Neversoft.QB                 (QBArray (..),
                                                     QBSection (..),
-                                                    QBStructItem (..), putQB)
-import           Onyx.PlayStation.NPData           (contentID,
-                                                    ghworCustomMidEdatConfig,
-                                                    packNPData)
+                                                    QBStructItem (..), putQB,
+                                                    qbFormatGH5)
+import           Onyx.PlayStation.NPData           (ghworCustomMidEdatConfig,
+                                                    contentID, packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Preferences                  (XboxFSBCodec (..))
 import           Onyx.Project                      hiding (Difficulty)
@@ -158,10 +160,8 @@ gh5Rules buildInfo dir gh5 = do
           [ QBSectionArray "gh6_dlc_songlist" textQBFilenameKey $
             QBArrayOfQbKey [songKeyQB]
           , QBSectionStruct "gh6_dlc_songlist_props" textQBFilenameKey
-            [ QBStructHeader
-            , QBStructItemStruct songKeyQB $
-              [ QBStructHeader
-              , QBStructItemQbKey "checksum" songKeyQB
+            [ QBStructItemStruct songKeyQB $
+              [ QBStructItemQbKey "checksum" songKeyQB
               , QBStructItemString "name" $ B8.pack songKey
               , QBStructItemQbKeyStringQs "title" $ fst titleQS
               , QBStructItemQbKeyStringQs "artist" $ fst artistQS
@@ -214,7 +214,7 @@ gh5Rules buildInfo dir gh5 = do
             ]
           ]
     stackIO $ BL.writeFile out $ worFileTextPak
-      (textQBFilenameKey, putQB qb)
+      (textQBFilenameKey, putQB (qbFormatGH5 BigEndian) qb)
       (textQS1FilenameKey, textQS2FilenameKey, textQS3FilenameKey, textQS4FilenameKey, textQS5FilenameKey, qs)
 
   dir </> "song.pak.xen" %> \out -> do
@@ -247,24 +247,22 @@ gh5Rules buildInfo dir gh5 = do
       mid
     rbCamera <- selectSimpleVisual $ matchNormalCutRB3 <$> rbVenue.cameraRB3
 
-    drumAnims <- stackIO (B.readFile $ dir </> "drum-anims.txt") >>= \bs -> case readMaybe $ B8.unpack bs of
+    drumAnims <- stackIO (B.readFile $ dir </> "drum-anims.txt") >>= \bs -> case readMaybe (B8.unpack bs) :: Maybe [Int32] of
       Nothing -> fatal "panic! couldn't read back drums_notes WoR array"
       Just ns -> return ns
 
     let songKeyAnd s = qbKeyCRC $ B8.pack songKey <> s
         qb =
           [ QBSectionArray (songKeyAnd "_anim_notes") songQBFilenameKey $ QBArrayOfInteger []
-          , QBSectionArray (songKeyAnd "_anim") songQBFilenameKey $ QBArrayOfFloatRaw []
+          , QBSectionArray (songKeyAnd "_anim") songQBFilenameKey QBArrayEmpty
           , QBSectionArray (songKeyAnd "_drums_notes") songQBFilenameKey $ QBArrayOfInteger drumAnims
-          , QBSectionArray (songKeyAnd "_crowd") songQBFilenameKey $ QBArrayOfFloatRaw []
+          , QBSectionArray (songKeyAnd "_crowd") songQBFilenameKey QBArrayEmpty
           , QBSectionArray (songKeyAnd "_lightshow_notes") songQBFilenameKey $ QBArrayOfInteger []
           , QBSectionArray (songKeyAnd "_lightshow") songQBFilenameKey $ QBArrayOfStruct
-            [ [ QBStructHeader
-              , QBStructItemInteger "time" 0
+            [ [ QBStructItemInteger "time" 0
               , QBStructItemQbKey "scr" "LightShow_SetTime"
               , QBStructItemStruct "params"
-                [ QBStructHeader
-                , QBStructItemInteger "time" 3
+                [ QBStructItemInteger "time" 3
                 ]
               ]
             ]
@@ -273,7 +271,7 @@ gh5Rules buildInfo dir gh5 = do
           ]
         nodes =
           [ ( Node {nodeFileType = ".qb", nodeOffset = 0, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQBFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , putQB qb
+            , putQB (qbFormatGH5 BigEndian) qb
             )
           , ( Node {nodeFileType = ".qs.en", nodeOffset = 1, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQSFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             , qsSections
@@ -295,10 +293,10 @@ gh5Rules buildInfo dir gh5 = do
             )
           , ( Node {nodeFileType = ".qb", nodeOffset = 7, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = 4208822249, nodeFilenameCRC = 662273024, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             -- nodeFilenameKey and nodeFilenameCRC here are same across songs
-            , putQB [QBSectionInteger "g_song_changelist" 4208822249 5377]
+            , putQB (qbFormatGH5 BigEndian) [QBSectionInteger "g_song_changelist" 4208822249 5377]
             )
           , ( Node {nodeFileType = ".qb", nodeOffset = 8, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songQB2FilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
-            , putQB [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
+            , putQB (qbFormatGH5 BigEndian) [QBSectionArray 1148198227 3748754942 $ QBArrayOfStruct []]
             )
           , ( Node {nodeFileType = ".perf", nodeOffset = 9, nodeSize = 0, nodeFilenamePakKey = songKeyQB, nodeFilenameKey = songPerfFilenameKey, nodeFilenameCRC = songKeyQB, nodeUnknown = 0, nodeFlags = 0, nodeName = Nothing}
             -- , makePerf Perf
