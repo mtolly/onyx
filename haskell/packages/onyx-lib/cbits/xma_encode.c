@@ -577,9 +577,26 @@ static int choose_coef_table(const XmaEncoder *e, const int *q, int *bits)
 #define SF_STEP   2   /* dB per scale factor unit, as in official files */
 #define SF_START  (45 / SF_STEP)
 
+/*
+ * Scale factor values seen in official files (from xma2encode and FMOD).
+ * Only differences between them matter to the bitstream, but the Xbox 360
+ * hardware decoder clips/chirps loudly when they go far outside this range
+ * (tested in GH3), so values always stay inside it.
+ */
+#define SF_MIN    10
+#define SF_MAX    32
+
 static int clamp_int(int v, int lo, int hi)
 {
     return v < lo ? lo : v > hi ? hi : v;
+}
+
+/* Clamp scale factors into the safe range. A value lowered from above
+   SF_MAX is a finer step (fine); one raised from below SF_MIN is coarser. */
+static void clamp_sf_range(int num_bands, int *sf)
+{
+    for (int b = 0; b < num_bands; b++)
+        sf[b] = clamp_int(sf[b], SF_MIN, SF_MAX);
 }
 
 static void put_sf_dpcm(const XmaEncoder *e, BitWriter *bw, const int *sf)
@@ -613,6 +630,53 @@ static void put_sf_rl(const XmaEncoder *e, BitWriter *bw, const int *old_sf, con
         put_vlc(bw, e->sfrl_vlc[1]); /* end */
 }
 
+/*
+ * xma2encode almost never uses the escape code for run-level coded scale
+ * factor changes (and official GH files only a handful of times), so adjust
+ * the new scale factors to changes that have their own code: no change for
+ * a change of 1 (there's no code for that after unchanged bands), otherwise
+ * the nearest codable change, preferring a finer step. Moves are at most 2
+ * units (4 dB).
+ */
+static void avoid_sf_rl_escapes(const XmaEncoder *e, const int *old_sf, int *sf)
+{
+    static const int tries[] = { 0, -1, 1, -2, 2 };
+    int run = 0;
+    for (int b = 0; b < e->num_bands; b++) {
+        int d = sf[b] - old_sf[b];
+        if (!d) { run++; continue; }
+        for (int i = 0; i < 5; i++) {
+            int d2 = abs(d) == 1 ? (i == 0 ? 0 : d + tries[i]) : d + tries[i];
+            if (d2 == 0) {
+                sf[b] = old_sf[b];
+                break;
+            }
+            int level = abs(d2);
+            if (run < 32 && level < 16 && e->sfrl_index[run][level] >= 0) {
+                sf[b] = old_sf[b] + d2;
+                break;
+            }
+        }
+        /* if nothing worked, the change is left as is and needs an escape */
+        if (sf[b] == old_sf[b]) run++;
+        else run = 0;
+    }
+}
+
+/* Number of changes that would need the escape code */
+static int sf_rl_escapes(const XmaEncoder *e, const int *old_sf, const int *sf)
+{
+    int run = 0, escapes = 0;
+    for (int b = 0; b < e->num_bands; b++) {
+        int d = sf[b] - old_sf[b];
+        if (!d) { run++; continue; }
+        int level = abs(d);
+        if (!(run < 32 && level < 16 && e->sfrl_index[run][level] >= 0)) escapes++;
+        run = 0;
+    }
+    return escapes;
+}
+
 static int sf_rl_bits(const XmaEncoder *e, const int *old_sf, const int *sf)
 {
     BitWriter bw = { NULL, 0, 0 };
@@ -644,17 +708,35 @@ static void quantize(const XmaEncoder *e, const float *y, const int *exps, int *
     }
 }
 
-/* Smallest scale (in SF_STEP units) at which a band quantizes to all zeros. */
-static int zero_scale(const XmaEncoder *e, const float *y, int b)
+/* Smallest scale (in SF_STEP units) at which a band's quantized values are
+   all at most max_level. */
+static int level_scale(const XmaEncoder *e, const float *y, int b, int max_level)
 {
     float peak = 0;
     for (int k = e->band_start[b]; k < e->band_start[b + 1]; k++)
         if (fabsf(y[k]) > peak) peak = fabsf(y[k]);
     if (peak <= 0) return -1000;
-    /* need peak / step + 0.4054 < 1 */
-    double exp_db = 20.0 * log10(peak / (0.5946 * XMA_GAIN));
+    /* need peak / step + 0.4054 < max_level + 1 */
+    double exp_db = 20.0 * log10(peak / ((max_level + 0.5946) * XMA_GAIN));
     return (int)floor(exp_db / SF_STEP) + 1;
 }
+
+/* Smallest scale at which a band quantizes to all zeros. */
+static int zero_scale(const XmaEncoder *e, const float *y, int b)
+{
+    return level_scale(e, y, b, 0);
+}
+
+/* xma2encode rarely makes quantized values above this */
+#define MAX_LEVEL 255
+/* largest quant step modifier, see encode_subframe */
+#define MAX_MODIFIER 32
+/* Cost in bits added when choosing scale factors, for things xma2encode
+   rarely does: a quantized value above MAX_LEVEL, or a scale factor escape.
+   Large values are avoided more strongly, since they can get much larger
+   than anything in official files. */
+#define LEVEL_PENALTY  2000
+#define ESCAPE_PENALTY 300
 
 /* ------------------------------------------------------------------------- */
 /* Frame encoding                                                            */
@@ -691,10 +773,15 @@ static void make_target(const XmaEncoder *e, const float *noise,
         double step = sqrt(12.0 * noise[b]);
         t->want[b] = (int)floor(20.0 * log10(step / XMA_GAIN) / SF_STEP);
         t->zmin[b] = zero_scale(e, y0, b);
+        int cap = level_scale(e, y0, b, MAX_LEVEL);
         if (y1) {
             int z = zero_scale(e, y1, b);
             if (z > t->zmin[b]) t->zmin[b] = z;
+            z = level_scale(e, y1, b, MAX_LEVEL);
+            if (z > cap) cap = z;
         }
+        /* keep coefficients small, like xma2encode does */
+        if (t->want[b] < cap) t->want[b] = cap;
         if (t->want[b] < t->zmin[b]) t->nonzero = 1;
     }
 }
@@ -736,6 +823,12 @@ static int coef_cost(const XmaEncoder *e, const Target *t, const int *exps)
         if (!any) continue;
         choose_coef_table(e, q, &b);
         bits += b;
+        for (int k = 0; k < SUB; k++) {
+            if (abs(q[k]) > MAX_LEVEL) {
+                bits += LEVEL_PENALTY;
+                break;
+            }
+        }
     }
     return bits;
 }
@@ -791,12 +884,15 @@ static void sf_exps(const XmaEncoder *e, const int *sf, int base, int *exps)
 /* DPCM coded scale factors for scales u, starting from SF_START */
 static void dpcm_sf(const XmaEncoder *e, const int *u, int *sf, int *base)
 {
-    *base = SF_START - u[0];
-    int prev = SF_START;
-    for (int b = 0; b < e->num_bands; b++) {
-        sf[b] = clamp_int(u[b] + *base, prev - 60, prev + 60);
-        prev = sf[b];
-    }
+    /* The coarsest band goes at SF_MAX. Bands more than SF_MAX - SF_MIN units
+       finer than that get a coarser step than wanted; these are very quiet
+       next to the loudest band. */
+    int mx = u[0];
+    for (int b = 1; b < e->num_bands; b++) if (u[b] > mx) mx = u[b];
+    *base = SF_MAX - mx;
+    for (int b = 0; b < e->num_bands; b++)
+        sf[b] = u[b] + *base;
+    clamp_sf_range(e->num_bands, sf);
 }
 
 static int sf_dpcm_bits(const XmaEncoder *e, const int *sf)
@@ -875,10 +971,14 @@ static void choose_sf(const XmaEncoder *e, const Target *t, const ChannelState *
                 v = old >= t->zmin[b] ? s->sf[b] : t->zmin[b] + base1;
             else
                 v = (old <= t->want[b] && old >= t->want[b] - tol) ? s->sf[b] : t->want[b] + base1;
-            cand[b] = clamp_int(v, s->sf[b] - 255, s->sf[b] + 255);
+            cand[b] = v;
         }
+        clamp_sf_range(nb, cand);
+        avoid_sf_rl_escapes(e, s->sf, cand);
+        clamp_sf_range(nb, cand);
         sf_exps(e, cand, base1, exps);
-        bits = coef_cost(e, t, exps) + sf_rl_bits(e, s->sf, cand);
+        bits = coef_cost(e, t, exps) + sf_rl_bits(e, s->sf, cand)
+          + ESCAPE_PENALTY * sf_rl_escapes(e, s->sf, cand);
         if (bits < best) {
             best = bits;
             *resend = 1;
@@ -893,29 +993,38 @@ static void choose_sf(const XmaEncoder *e, const Target *t, const ChannelState *
 static void link_sf(const XmaEncoder *e, const int *sf0, int base0, const ChannelState *s,
                     int *resend, int *sf, int *base)
 {
-    int d;
-    if (s->reuse_sf) {
-        int lo = INT_MAX, hi = INT_MIN;
-        for (int b = 0; b < e->num_bands; b++) {
-            int diff = s->sf[b] - sf0[b];
-            if (diff < lo) lo = diff;
-            if (diff > hi) hi = diff;
-        }
-        if (lo == hi) {
-            /* same shape already */
-            *resend = 0;
-            memcpy(sf, s->sf, MAX_BANDS * sizeof(int));
-            *base = base0 + lo;
-            return;
-        }
-        d = (lo + hi) / 2;
-    } else {
-        d = SF_START - sf0[0];
+    /* Use the same values exactly (shifting them could leave the safe range).
+       After an M/S subframe both channels have the same values, so the second
+       channel's changes match the first channel's. */
+    *base = base0;
+    memcpy(sf, sf0, MAX_BANDS * sizeof(int));
+    *resend = !s->reuse_sf || memcmp(s->sf, sf0, e->num_bands * sizeof(int)) != 0;
+}
+
+/*
+ * For an M/S pair (both channels need the same scale factor shape), adjust
+ * the shape until neither channel's changes need escape codes.
+ */
+static void avoid_ms_escapes(const XmaEncoder *e, const ChannelState *st, int *resend,
+                             int (*sf)[MAX_BANDS], const int *base)
+{
+    const int nb = e->num_bands, d = base[1] - base[0];
+    for (int iter = 0; iter < 8; iter++) {
+        int s1[MAX_BANDS];
+        for (int b = 0; b < nb; b++) s1[b] = sf[0][b] + d;
+        avoid_sf_rl_escapes(e, st[1].sf, s1);
+        for (int b = 0; b < nb; b++) sf[0][b] = s1[b] - d;
+        if (st[0].reuse_sf) avoid_sf_rl_escapes(e, st[0].sf, sf[0]);
+        clamp_sf_range(nb, sf[0]);
+        for (int b = 0; b < nb; b++) s1[b] = sf[0][b] + d;
+        if (!sf_rl_escapes(e, st[1].sf, s1)
+            && !(st[0].reuse_sf && sf_rl_escapes(e, st[0].sf, sf[0])))
+            break;
     }
-    *resend = 1;
-    for (int b = 0; b < e->num_bands; b++)
-        sf[b] = sf0[b] + d;
-    *base = base0 + d;
+    for (int b = 0; b < nb; b++) sf[1][b] = sf[0][b] + d;
+    if (st[0].reuse_sf)
+        resend[0] = memcmp(sf[0], st[0].sf, nb * sizeof(int)) != 0;
+    resend[1] = memcmp(sf[1], st[1].sf, nb * sizeof(int)) != 0;
 }
 
 static int max_sf(const XmaEncoder *e, const int *sf)
@@ -967,6 +1076,7 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
     int ms = 0;
 
     make_target(e, noise[0], x[0], NULL, &tgt[0]);
+    Target lr_left = tgt[0];
 
     if (nch == 2) {
         /* Compare L/R against M/S. The decoder computes L = M - S, R = M + S.
@@ -992,13 +1102,23 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
     /* scale factors and exponents for each coded channel */
     int resend[2] = { 0, 0 }, sf[2][MAX_BANDS], base[2] = { 0, 0 }, qs[2] = { 0, 0 };
     int active[2] = { 0, 0 }; /* channel's step sizes matter */
-    if (ms) {
-        if (tgt[0].nonzero) {
-            choose_sf(e, &tgt[0], &st[0], &resend[0], sf[0], &base[0]);
-            link_sf(e, sf[0], base[0], &st[1], &resend[1], sf[1], &base[1]);
-            active[0] = active[1] = 1;
+    if (ms && tgt[0].nonzero) {
+        choose_sf(e, &tgt[0], &st[0], &resend[0], sf[0], &base[0]);
+        link_sf(e, sf[0], base[0], &st[1], &resend[1], sf[1], &base[1]);
+        if (resend[1] && st[1].reuse_sf)
+            avoid_ms_escapes(e, st, resend, sf, base);
+        active[0] = active[1] = 1;
+        /* If the pair can't share a shape without escape codes (after an L/R
+           subframe left the channels with different scale factors), use L/R. */
+        if ((resend[0] && st[0].reuse_sf && sf_rl_escapes(e, st[0].sf, sf[0]))
+            || (resend[1] && st[1].reuse_sf && sf_rl_escapes(e, st[1].sf, sf[1]))) {
+            ms = 0;
+            tgt[0] = lr_left;
+            resend[0] = resend[1] = 0;
+            active[0] = active[1] = 0;
         }
-    } else {
+    }
+    if (!ms) {
         for (int c = 0; c < nch; c++) {
             if (tgt[c].nonzero) {
                 choose_sf(e, &tgt[c], &st[c], &resend[c], sf[c], &base[c]);
@@ -1023,7 +1143,9 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
     for (int c = 0; c < nch; c++) {
         if (!active[c]) continue;
         mod[c] = qs[c] - qs_common;
-        if (mod[c] > 128) mod[c] = 128; /* finer than wanted, but codable */
+        /* Modifiers can go up to 128, but xma2encode never uses more than 5 bits
+           for them, so stay under 32 (finer than wanted, but safe). */
+        if (mod[c] > MAX_MODIFIER) mod[c] = MAX_MODIFIER;
         qs[c] = qs_common + mod[c];
     }
 
@@ -1037,6 +1159,12 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
         quantize(e, ms ? (c ? s : m) : x[c], exps, q[c]);
         for (int k = 0; k < SUB && !transmit[c]; k++) transmit[c] = q[c][k] != 0;
         any |= transmit[c];
+    }
+    /* xma2encode never codes only the right channel in L/R mode;
+       send the left channel's (all zero) coefficients too */
+    if (nch == 2 && !ms && transmit[1] && !transmit[0]) {
+        memset(q[0], 0, sizeof(q[0]));
+        transmit[0] = 1;
     }
 
     /* subframe header */
