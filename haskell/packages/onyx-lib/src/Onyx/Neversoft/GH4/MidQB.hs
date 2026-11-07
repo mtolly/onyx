@@ -13,10 +13,10 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
+import           Data.Int                         (Int32)
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
-import           Data.Int                         (Int32)
 import           Data.Word
 import           Onyx.Guitar                      (emitGuitar5)
 import           Onyx.MIDI.Common                 (Difficulty (..),

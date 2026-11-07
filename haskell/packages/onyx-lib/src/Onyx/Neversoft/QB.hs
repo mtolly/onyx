@@ -30,6 +30,7 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.HashMap.Strict          as HM
+import           Data.Int                     (Int32)
 import           Data.Maybe                   (fromMaybe)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
@@ -37,7 +38,6 @@ import           Data.Text.Encoding.Error     (UnicodeException (..),
                                                strictDecode)
 import qualified Data.Vector.Storable         as V
 import qualified Data.Vector.Storable.Mutable as MV
-import           Data.Int                     (Int32)
 import           Data.Word
 import           GHC.ByteOrder
 import           Numeric                      (showHex)

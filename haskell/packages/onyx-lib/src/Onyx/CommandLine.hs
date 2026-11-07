@@ -140,10 +140,9 @@ import           Onyx.Neversoft.Crypt                 (decryptFSB, decryptFSB',
                                                        gh3Encrypt, ghworEncrypt,
                                                        ghwtEncrypt)
 import           Onyx.Neversoft.GH5.Note              (loadNoteFile)
-import           Onyx.Neversoft.Pak                   (Node (..), buildPak,
-                                                       PakInfo (..),
-                                                       nodeFileType, qsBank,
-                                                       splitPak)
+import           Onyx.Neversoft.Pak                   (Node (..), PakInfo (..),
+                                                       buildPak, nodeFileType,
+                                                       qsBank, splitPak)
 import           Onyx.Neversoft.PS2                   (hedFolder, hookUpWAD,
                                                        parseHed)
 import           Onyx.Neversoft.QB                    (discardStrings, lookupQB,

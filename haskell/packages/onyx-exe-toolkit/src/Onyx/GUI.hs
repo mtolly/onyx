@@ -135,6 +135,7 @@ import           Onyx.Preferences                  (CHAudioFormat (..),
                                                     MagmaSetting (..),
                                                     Preferences (..),
                                                     RBEncoding (..),
+                                                    XboxFSBCodec (..),
                                                     applyThreads,
                                                     getDefaultPS3Dir,
                                                     readPreferences,
@@ -4281,6 +4282,12 @@ launchPreferences sink makeMenuBar = do
               [C.block| void { $(Fl_Check_Button* btn)->value($(int v)); } |]
               return btn
             return $ (\b prefs -> prefs { prefDecryptSilent = b }) <$> checkValue check
+          , do
+            getXboxFSB <- lineBox \box -> horizRadio box
+              [ (l10n "pref-xbox-fsb-xma", XboxFSB_XMA, loadedPrefs.prefXboxFSB == XboxFSB_XMA)
+              , (l10n "pref-xbox-fsb-mp3", XboxFSB_MP3, loadedPrefs.prefXboxFSB == XboxFSB_MP3)
+              ]
+            return $ maybe id (\v prefs -> prefs { prefXboxFSB = v }) <$> getXboxFSB
           ]
         [C.block| void { $(Fl_Pack* pack)->end(); } |]
         return fn

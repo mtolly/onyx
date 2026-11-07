@@ -20,6 +20,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
+import           Data.Int                         (Int32)
 import           Data.List                        (sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
@@ -27,7 +28,6 @@ import           Data.Maybe                       (catMaybes, fromMaybe,
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Int                         (Int32)
 import           Data.Word
 import           GHC.ByteOrder                    (ByteOrder (..))
 import           Numeric                          (showHex)

@@ -66,8 +66,9 @@ import           Onyx.Neversoft.QB                 (QBArray (..),
                                                     QBSection (..),
                                                     QBStructItem (..), putQB,
                                                     qbFormatGH5)
-import           Onyx.PlayStation.NPData           (ghworCustomMidEdatConfig,
-                                                    contentID, packNPData)
+import           Onyx.PlayStation.NPData           (contentID,
+                                                    ghworCustomMidEdatConfig,
+                                                    packNPData)
 import           Onyx.PlayStation.PKG              (makePKG)
 import           Onyx.Preferences                  (XboxFSBCodec (..))
 import           Onyx.Project                      hiding (Difficulty)

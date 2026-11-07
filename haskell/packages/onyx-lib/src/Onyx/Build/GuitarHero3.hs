@@ -24,11 +24,11 @@ import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Functor                      ((<&>))
 import           Data.Hashable                     (Hashable, hash)
+import           Data.Int                          (Int32)
 import qualified Data.Map                          as Map
 import           Data.Maybe                        (catMaybes, fromMaybe)
 import qualified Data.Text                         as T
 import           Data.Tuple                        (swap)
-import           Data.Int                          (Int32)
 import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           GHC.ByteOrder                     (ByteOrder (..))

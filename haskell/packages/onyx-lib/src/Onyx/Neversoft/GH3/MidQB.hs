@@ -17,12 +17,12 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     ((<&>))
 import qualified Data.HashMap.Strict              as HM
+import           Data.Int                         (Int32)
 import           Data.List                        (sort)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
-import           Data.Int                         (Int32)
 import           Data.Word                        (Word32)
 import           Onyx.FeedBack.Load               (TrackEvent (..), emitTrack)
 import           Onyx.Guitar                      (HOPOsAlgorithm (..),

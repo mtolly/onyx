@@ -20,12 +20,12 @@ import qualified Data.ByteString.Lazy         as BL
 import           Data.Char                    (toLower)
 import           Data.Either                  (lefts, rights)
 import           Data.Functor                 ((<&>))
+import           Data.Int                     (Int32)
 import           Data.List.Extra              (nubOrd, nubOrdOn)
 import           Data.Maybe                   (catMaybes, fromMaybe,
                                                listToMaybe, mapMaybe)
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
-import           Data.Int                     (Int32)
 import           Data.Word
 import           GHC.ByteOrder
 import           Onyx.Harmonix.Ark.GH2        (SongSort (..), sortSongs)

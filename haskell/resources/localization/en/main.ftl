@@ -856,3 +856,6 @@ pref-magma-warning =
   Warning! Disabling Magma can result in Rock Band files that crash the game,
   as Onyx does not yet check all of the error cases that Magma does.
   Please test any charts thoroughly before distributing to others!
+
+pref-xbox-fsb-xma = Xbox 360 FSB use XMA
+pref-xbox-fsb-mp3 = Xbox 360 FSB use MP3
