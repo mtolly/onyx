@@ -8,7 +8,7 @@
  * FMOD's encoders), so that the result is safe for the hardware decoder:
  *
  * - every frame is split into four 128-sample subframes, shared by both channels
- * - stereo is coded either as L/R or as M/S for all bands
+ * - stereo is always coded as M/S for all bands (L/R caused trouble on hardware)
  * - scale factor step is 2 dB
  * - no extended headers, post-processing, or dynamic range compression
  * - the first frame trims 512 samples (encoder delay), the last trims the tail
@@ -853,26 +853,6 @@ static void fresh_scales(const XmaEncoder *e, const Target *t, int tolerance, in
     }
 }
 
-static int dpcm_bits(const XmaEncoder *e, const int *u)
-{
-    int bits = 2, prev = u[0];
-    for (int b = 0; b < e->num_bands; b++) {
-        int d = clamp_int(u[b] - prev, -60, 60);
-        bits += e->sf_vlc[d + 60].len;
-        prev += d;
-    }
-    return bits;
-}
-
-/* Estimated bits to code a target from scratch */
-static int target_cost(const XmaEncoder *e, const Target *t)
-{
-    if (!t->nonzero) return 0;
-    int u[MAX_BANDS], exps[MAX_BANDS];
-    fresh_scales(e, t, 0, u);
-    for (int b = 0; b < e->num_bands; b++) exps[b] = u[b] * SF_STEP;
-    return dpcm_bits(e, u) + coef_cost(e, t, exps);
-}
 
 /* Exponents for scale factors sf, where scale = sf - base */
 static void sf_exps(const XmaEncoder *e, const int *sf, int base, int *exps)
@@ -1075,13 +1055,15 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
     Target tgt[2];
     int ms = 0;
 
-    make_target(e, noise[0], x[0], NULL, &tgt[0]);
-    Target lr_left = tgt[0];
-
+    /*
+     * Stereo is always coded as M/S, like xma2encode does almost all the
+     * time. The bitstream also allows L/R, but in GHWoR testing a song using
+     * a lot of L/R got the console stuck looping a block of audio, depending
+     * on which frame started a block (and M/S frames fixed it).
+     * The decoder computes L = M - S, R = M + S, so noise in M and S adds up
+     * in both L and R.
+     */
     if (nch == 2) {
-        /* Compare L/R against M/S. The decoder computes L = M - S, R = M + S.
-           Noise in M and S adds up in both L and R. */
-        Target ms_tgt;
         float ms_noise[MAX_BANDS];
         for (int k = 0; k < SUB; k++) {
             m[k] = (x[0][k] + x[1][k]) * 0.5f;
@@ -1089,46 +1071,23 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
         }
         for (int b = 0; b < e->num_bands; b++)
             ms_noise[b] = e->ms_noise * (noise[0][b] < noise[1][b] ? noise[0][b] : noise[1][b]);
-        make_target(e, noise[1], x[1], NULL, &tgt[1]);
-        make_target(e, ms_noise, m, s, &ms_tgt);
-        int lr_cost = target_cost(e, &tgt[0]) + target_cost(e, &tgt[1]);
-        int ms_cost = target_cost(e, &ms_tgt);
-        if (ms_cost <= lr_cost) {
-            ms = 1;
-            tgt[0] = ms_tgt;
-        }
+        make_target(e, ms_noise, m, s, &tgt[0]);
+        ms = 1;
+    } else {
+        make_target(e, noise[0], x[0], NULL, &tgt[0]);
     }
 
     /* scale factors and exponents for each coded channel */
     int resend[2] = { 0, 0 }, sf[2][MAX_BANDS], base[2] = { 0, 0 }, qs[2] = { 0, 0 };
     int active[2] = { 0, 0 }; /* channel's step sizes matter */
-    if (ms && tgt[0].nonzero) {
+    if (tgt[0].nonzero) {
         choose_sf(e, &tgt[0], &st[0], &resend[0], sf[0], &base[0]);
-        link_sf(e, sf[0], base[0], &st[1], &resend[1], sf[1], &base[1]);
-        if (resend[1] && st[1].reuse_sf)
-            avoid_ms_escapes(e, st, resend, sf, base);
-        active[0] = active[1] = 1;
-        /* If the pair can't share a shape without escape codes (after an L/R
-           subframe left the channels with different scale factors), use L/R. */
-        if ((resend[0] && st[0].reuse_sf && sf_rl_escapes(e, st[0].sf, sf[0]))
-            || (resend[1] && st[1].reuse_sf && sf_rl_escapes(e, st[1].sf, sf[1]))) {
-            ms = 0;
-            tgt[0] = lr_left;
-            resend[0] = resend[1] = 0;
-            active[0] = active[1] = 0;
-        }
-    }
-    if (!ms) {
-        for (int c = 0; c < nch; c++) {
-            if (tgt[c].nonzero) {
-                choose_sf(e, &tgt[c], &st[c], &resend[c], sf[c], &base[c]);
-                active[c] = 1;
-            } else {
-                /* nothing to code; keep or send the cheapest scale factors */
-                resend[c] = !st[c].reuse_sf;
-                for (int b = 0; b < e->num_bands; b++)
-                    sf[c][b] = st[c].reuse_sf ? st[c].sf[b] : SF_START;
-            }
+        active[0] = 1;
+        if (ms) {
+            link_sf(e, sf[0], base[0], &st[1], &resend[1], sf[1], &base[1]);
+            if (resend[1] && st[1].reuse_sf)
+                avoid_ms_escapes(e, st, resend, sf, base);
+            active[1] = 1;
         }
     }
 
@@ -1159,12 +1118,6 @@ static void encode_subframe(const XmaEncoder *e, BitWriter *bw, float *const x[2
         quantize(e, ms ? (c ? s : m) : x[c], exps, q[c]);
         for (int k = 0; k < SUB && !transmit[c]; k++) transmit[c] = q[c][k] != 0;
         any |= transmit[c];
-    }
-    /* xma2encode never codes only the right channel in L/R mode;
-       send the left channel's (all zero) coefficients too */
-    if (nch == 2 && !ms && transmit[1] && !transmit[0]) {
-        memset(q[0], 0, sizeof(q[0]));
-        transmit[0] = 1;
     }
 
     /* subframe header */
