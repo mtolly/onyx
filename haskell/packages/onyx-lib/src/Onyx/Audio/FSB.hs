@@ -965,9 +965,12 @@ mp3sToFSB3 mp3s = do
     , fsbSongData = map snd songs
     }
 
--- | Header values follow official GH3 DLC.
-xmasToFSB3 :: (MonadFail m) => [(B.ByteString, FSB3XMA)] -> m FSB
-xmasToFSB3 xmas = do
+-- | Which game's official files to follow for FSB3 XMA header values.
+data FSB3Style = FSB3StyleGH3 | FSB3StyleRR
+  deriving (Eq, Show)
+
+xmasToFSB3 :: (MonadFail m) => FSB3Style -> [(B.ByteString, FSB3XMA)] -> m FSB
+xmasToFSB3 style xmas = do
 
   songs <- forM xmas \(name, info) -> do
     let xma = info.fsb3XMA
@@ -981,12 +984,13 @@ xmasToFSB3 xmas = do
           , fsbSongDataSize   = 0
           , fsbSongLoopStart  = 0
           , fsbSongLoopEnd    = info.fsb3XMASamples - 1
-          -- FSOUND_XMA | 0x100000 (FSOUND_ENABLEFX in old fsb.h) | FSOUND_MONO or FSOUND_STEREO
-          , fsbSongMode       = 0x1100000 .|. (if xma.xma1Channels == 1 then 0x20 else 0x40)
-          , fsbSongSampleRate = fromIntegral xma.xma1Rate -- GH3 uses 44100
-          , fsbSongDefVol     = 255 -- GH3 does apply this
-          , fsbSongDefPan     = 128
-          , fsbSongDefPri     = 255
+          -- FSOUND_XMA | (GH3: 0x100000, FSOUND_ENABLEFX in old fsb.h) (RR: 0x2000) | FSOUND_MONO or FSOUND_STEREO
+          , fsbSongMode       = (case style of FSB3StyleGH3 -> 0x1100000; FSB3StyleRR -> 0x1002000)
+            .|. (if xma.xma1Channels == 1 then 0x20 else 0x40)
+          , fsbSongSampleRate = fromIntegral xma.xma1Rate -- GH3 uses 44100, RR uses 48000
+          , fsbSongDefVol     = case style of FSB3StyleGH3 -> 255; FSB3StyleRR -> 1 -- GH3 does apply this
+          , fsbSongDefPan     = case style of FSB3StyleGH3 -> 128; FSB3StyleRR -> 0
+          , fsbSongDefPri     = case style of FSB3StyleGH3 -> 255; FSB3StyleRR -> 128
           , fsbSongChannels   = fromIntegral xma.xma1Channels
 
           , fsbSongMinDistance = 0x803F

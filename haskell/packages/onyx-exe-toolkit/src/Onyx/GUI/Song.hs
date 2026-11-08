@@ -447,7 +447,7 @@ songPageRR sink rect tab proj build = mdo
         (T.pack <$> ?preferences.prefDirRB)
         \f -> sink $ EventOnyx do
           newPreferences <- readPreferences
-          stackIO $ build tgt $ RRLIVE $ trimXbox newPreferences f
+          stackIO $ build (tgt & #xboxAudio .~ newPreferences.prefXboxFSB) $ RRLIVE $ trimXbox newPreferences f
     btn2 <- withRect r2 \bx by bw bh ->
       [C.exp| Fl_Button* { new Fl_Button($(int bx), $(int by), $(int bw), $(int bh)) } |]
     withUTF8 (l10n "create-rpcs3-pkg") \clbl ->

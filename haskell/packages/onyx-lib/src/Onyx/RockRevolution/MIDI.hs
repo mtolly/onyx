@@ -23,7 +23,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           Onyx.MIDI.Common                 (Difficulty (..), Edge (..),
                                                    blipEdgesRBNice, each,
                                                    isNoteEdgeCPV, makeEdge',
-                                                   makeEdgeCPV, pattern Wait)
+                                                   makeEdgeCPV)
 import           Onyx.MIDI.Read                   (ChannelType (..),
                                                    ParseTrack (..),
                                                    channelBlip_, condenseMap,
@@ -449,30 +449,3 @@ showRRControl rrc = foldr RTB.merge RTB.empty
       Just Bar  -> 96
       Just Beat -> 98
       Nothing   -> 100
-
---------------------------------------------------------------------------------
-
--- This are a hack to account for an odd delay in our encoded MP3s compared to
--- the ones used on official PS3 content. When exporting, we delay all midi
--- contents by the appropriate amount by changing initial tempos. When
--- importing, we do that change in reverse.
-
-applyMIDIOffsetMS :: Int -> U.TempoMap -> U.TempoMap
-applyMIDIOffsetMS ms tmap = let
-  anchorSecondsOriginal = U.applyTempoMap tmap anchorBeats
-  anchorSecondsNew = if ms < 0
-    then anchorSecondsOriginal NNC.-| (fromIntegral (abs ms) / 1000)
-    else anchorSecondsOriginal +      (fromIntegral ms       / 1000)
-  in if anchorSecondsNew <= 0
-    then tmap -- TODO warn or something. too high tempos
-    else let
-      newStartTempo = U.makeTempo anchorBeats anchorSecondsNew
-      in U.tempoMapFromBPS
-        $ Wait 0 newStartTempo
-        $ Wait anchorBeats (U.getTempoAtTime tmap anchorBeats)
-        $ U.trackDropZero
-        $ U.trackDrop anchorBeats
-        $ U.tempoMapToBPS tmap
-
-anchorBeats :: U.Beats
-anchorBeats = 2

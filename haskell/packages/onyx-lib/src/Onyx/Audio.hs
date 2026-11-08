@@ -1102,7 +1102,7 @@ makeXMAFSB3 inputs fsb = do
     src <- liftIO $ ffSource $ fileReadable fin
     xma <- encodeXMA1 defaultXMAQuality src
     return (name, xma)
-  madeFSB <- xmasToFSB3 xmas
+  madeFSB <- xmasToFSB3 FSB3StyleGH3 xmas
   stackIO $ BL.writeFile fsb $ emitFSB madeFSB
   lg $ "Created XMA (Xbox 360) FSB3 at: " <> fsb
 

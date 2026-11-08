@@ -7,6 +7,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 module Onyx.Build.RockRevolution (rrRules, intToRRSongID) where
 
+import           Control.Concurrent.Async          (forConcurrently)
 import           Control.Monad.Codec
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
@@ -22,6 +23,8 @@ import           Data.Char                         (toUpper)
 import qualified Data.Conduit.Audio                as CA
 import           Data.Conduit.Audio.LAME           (sinkMP3WithHandle)
 import qualified Data.Conduit.Audio.LAME.Binding   as L
+import           Data.Conduit.Audio.SampleRate     (ConverterType (..),
+                                                    resampleTo)
 import qualified Data.EventList.Relative.TimeBody  as RTB
 import           Data.Foldable                     (toList)
 import           Data.Functor                      ((<&>))
@@ -42,6 +45,8 @@ import qualified Numeric.NonNegative.Class         as NNC
 import           Onyx.Audio                        (clampIfSilent)
 import           Onyx.Audio.FSB
 import           Onyx.Audio.FSB.FEV
+import           Onyx.Audio.XMA                    (defaultXMAQuality,
+                                                    encodeXMA1)
 import           Onyx.Background
 import           Onyx.Build.Common
 import           Onyx.Difficulty                   (bassDiffMap,
@@ -74,6 +79,7 @@ import           Onyx.Mode
 import           Onyx.PlayStation.NPData           (contentID, packNPData,
                                                     rockRevolutionEdatConfig)
 import           Onyx.PlayStation.PKG
+import           Onyx.Preferences                  (XboxFSBCodec (..))
 import           Onyx.Project                      hiding (Difficulty)
 import           Onyx.Reductions                   (completeDrumResult,
                                                     completeFiveResult,
@@ -466,38 +472,34 @@ rrRules buildInfo dir rr = do
         -- it may mess up sync if you do have them
         L.check $ L.setBWriteVbrTag lame False
 
-  pathGuitar %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
-      [(rr.guitar, 1)]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathBass %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
-      [(rr.bass, 1)]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathDrums %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan
-      [(rr.drums, 1)]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathSong %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceBacking buildInfo rr.common mid 0 planName plan
-      [ (rr.guitar, 1)
-      , (rr.bass  , 1)
-      , (rr.drums , 1)
-      ]
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
-  pathFE %> \out -> do
-    mid <- loadOnyxMidi
-    s <- sourceBacking buildInfo rr.common mid 0 planName plan []
-    pad <- readPad
-    stackIO $ runResourceT $ sinkMP3WithHandle out setup $ padAudio pad $ clampIfSilent s
+      finishSource :: CA.AudioSource (ResourceT IO) Float -> Staction (CA.AudioSource (ResourceT IO) Float)
+      finishSource s = do
+        pad <- readPad
+        return $ padAudio pad $ clampIfSilent s
+      srcPart part = do
+        mid <- loadOnyxMidi
+        sourceStereoParts buildInfo rrParts rr.common mid 0 planName plan [(part, 1)]
+          >>= finishSource
+      srcGuitar = srcPart rr.guitar
+      srcBass   = srcPart rr.bass
+      srcDrums  = srcPart rr.drums
+      srcSong = do
+        mid <- loadOnyxMidi
+        sourceBacking buildInfo rr.common mid 0 planName plan
+          [ (rr.guitar, 1)
+          , (rr.bass  , 1)
+          , (rr.drums , 1)
+          ] >>= finishSource
+      srcFE = do
+        mid <- loadOnyxMidi
+        sourceBacking buildInfo rr.common mid 0 planName plan [] >>= finishSource
+      sinkMP3 out src = stackIO $ runResourceT $ sinkMP3WithHandle out setup src
+
+  pathGuitar %> \out -> srcGuitar >>= sinkMP3 out
+  pathBass   %> \out -> srcBass   >>= sinkMP3 out
+  pathDrums  %> \out -> srcDrums  >>= sinkMP3 out
+  pathSong   %> \out -> srcSong   >>= sinkMP3 out
+  pathFE     %> \out -> srcFE     >>= sinkMP3 out
 
   let songFev = file $ "s" <> str <> ".fev" -- makeMainFEV
       songFsb = file $ "s" <> str <> ".fsb"
@@ -515,7 +517,18 @@ rrRules buildInfo dir rr = do
               size = round $ CA.framesToSeconds (CA.frames src) (CA.rate src) * 1000
           return (bs, size)
 
-  [songFev, songFsb, songDrumsFsb] %> \_ -> do
+  -- FSB and FEV files are made in each audio format.
+  -- Xbox 360 uses the format chosen in the target (XMA or MP3), and PS3 always uses MP3.
+  let rrAudioFiles = [songFev, songFsb, songDrumsFsb, songFEFev, songFEFsb]
+      audioFileFor codec f = dir </> (case codec of
+        XboxFSB_XMA -> "audio-xma"
+        XboxFSB_MP3 -> "audio-mp3"
+        ) </> takeFileName f
+      mp3File = audioFileFor XboxFSB_MP3
+      xmaFile = audioFileFor XboxFSB_XMA
+  forM_ rrAudioFiles \f -> f %> \out -> shk $ copyFile' (audioFileFor rr.xboxAudio f) out
+
+  map mp3File [songFev, songFsb, songDrumsFsb] %> \_ -> do
     shk $ need [pathGuitar, pathBass, pathDrums, pathSong]
     maybeGuitar  <- getAudio pathGuitar
     maybeBass    <- getAudio pathBass
@@ -525,23 +538,72 @@ rrRules buildInfo dir rr = do
       [ (\(bs, _) -> ("onyx_guitar.mp3" , bs)) <$> maybeGuitar
       , (\(bs, _) -> ("onyx_bass.mp3"   , bs)) <$> maybeBass
       , (\(bs, _) -> ("onyx_backing.mp3", bs)) <$> maybeBacking
-      ]) >>= BL.writeFile songFsb . emitFSB
+      ]) >>= BL.writeFile (mp3File songFsb) . emitFSB
     stackIO $ mp3sToFSB3 (catMaybes
       [ (\(bs, _) -> ("onyx_drums.mp3", bs)) <$> maybeDrums
-      ]) >>= BL.writeFile songDrumsFsb . emitFSB
+      ]) >>= BL.writeFile (mp3File songDrumsFsb) . emitFSB
     let fev = makeMainFEV bytes (snd <$> maybeGuitar) (snd <$> maybeBass) (snd <$> maybeDrums) (snd <$> maybeBacking)
-    stackIO $ BL.writeFile songFev $ runPut $ void $ codecOut binFEV fev
+    stackIO $ BL.writeFile (mp3File songFev) $ runPut $ void $ codecOut binFEV fev
 
-  [songFEFev, songFEFsb] %> \_ -> do
+  map mp3File [songFEFev, songFEFsb] %> \_ -> do
     -- TODO split off vocals like official songs do
     -- TODO if no stems at all, can just reuse backing audio in main fsb as the FE audio
     shk $ need [pathFE]
     (feBytes, feSize) <- getAudio pathFE >>= \case
       Nothing   -> fatal "panic! couldn't produce rock revolution FE audio"
       Just pair -> return pair
-    stackIO $ mp3sToFSB3 [("onyx_fe.mp3", feBytes)] >>= BL.writeFile songFEFsb . emitFSB
+    stackIO $ mp3sToFSB3 [("onyx_fe.mp3", feBytes)] >>= BL.writeFile (mp3File songFEFsb) . emitFSB
     let fev = makeFrontEndFEV bytes feSize
-    stackIO $ BL.writeFile songFEFev $ runPut $ void $ codecOut binFEV fev
+    stackIO $ BL.writeFile (mp3File songFEFev) $ runPut $ void $ codecOut binFEV fev
+
+  let encodeXMAs srcs = inside "encoding XMA1 audio" $ stackIO $ forConcurrently srcs \(name, src) -> do
+        -- official files are all 48000 Hz
+        let src' = if CA.rate src == 48000
+              then src
+              else resampleTo 48000 SincMediumQuality src
+        xma <- runResourceT $ encodeXMA1 defaultXMAQuality src'
+        return (name, xma)
+      -- streams shorter than 0.3 seconds are left out, like the MP3 version
+      xmaPresent :: FSB3XMA -> Bool
+      xmaPresent xma = fromIntegral xma.fsb3XMASamples >= xma.fsb3XMA.xma1Rate * 3 `quot` 10
+      xmaPlaytime :: FSB3XMA -> Word32
+      xmaPlaytime xma = fromIntegral $
+        (fromIntegral xma.fsb3XMASamples * 1000 :: Integer) `quot` fromIntegral xma.fsb3XMA.xma1Rate
+
+  map xmaFile [songFev, songFsb, songDrumsFsb] %> \_ -> do
+    srcs <- sequence
+      [ (,) "onyx_guitar.xma"  <$> srcGuitar
+      , (,) "onyx_bass.xma"    <$> srcBass
+      , (,) "onyx_backing.xma" <$> srcSong
+      , (,) "onyx_drums.xma"   <$> srcDrums
+      ]
+    xmas <- encodeXMAs srcs
+    let getXMA name = case lookup name xmas of
+          Just xma | xmaPresent xma -> Just (name, xma)
+          _                         -> Nothing
+        maybeGuitar  = getXMA "onyx_guitar.xma"
+        maybeBass    = getXMA "onyx_bass.xma"
+        maybeBacking = getXMA "onyx_backing.xma"
+        maybeDrums   = getXMA "onyx_drums.xma"
+    xmasToFSB3 FSB3StyleRR (catMaybes [maybeGuitar, maybeBass, maybeBacking])
+      >>= stackIO . BL.writeFile (xmaFile songFsb) . emitFSB
+    xmasToFSB3 FSB3StyleRR (catMaybes [maybeDrums])
+      >>= stackIO . BL.writeFile (xmaFile songDrumsFsb) . emitFSB
+    let time = fmap $ xmaPlaytime . snd
+        fev = makeMainFEV bytes (time maybeGuitar) (time maybeBass) (time maybeDrums) (time maybeBacking)
+    stackIO $ BL.writeFile (xmaFile songFev) $ runPut $ void $ codecOut binFEV fev
+
+  map xmaFile [songFEFev, songFEFsb] %> \_ -> do
+    src <- srcFE
+    let name = "onyx_fe.xma"
+    xmas <- encodeXMAs [(name, src)]
+    xma <- case xmas of
+      [(_, xma)] | xmaPresent xma -> return xma
+      _                           -> fatal "panic! couldn't produce rock revolution FE audio"
+    xmasToFSB3 FSB3StyleRR [(name, xma)]
+      >>= stackIO . BL.writeFile (xmaFile songFEFsb) . emitFSB
+    let fev = makeFrontEndFEV bytes $ xmaPlaytime xma
+    stackIO $ BL.writeFile (xmaFile songFEFev) $ runPut $ void $ codecOut binFEV fev
 
   let rrBuildFiles = concat
         [ [songBinEnglish, songBinFrench, songBinSpanish]
@@ -567,15 +629,17 @@ rrRules buildInfo dir rr = do
 
   rrPS3Files <- forM rrBuildFiles \f -> do
     let ps3 = dir </> "files-ps3" </> map toUpper (takeFileName f) <.> "EDAT"
+        -- PS3 always uses the MP3 audio files
+        src = if elem f rrAudioFiles then mp3File f else f
     ps3 %> \_ -> do
       -- can't actually get it to work on console yet, so just make unencrypted files for RPCS3
       if False
         then do
-          shk $ need [f]
-          fin  <- shortWindowsPath False f
+          shk $ need [src]
+          fin  <- shortWindowsPath False src
           fout <- shortWindowsPath True  ps3
           stackIO $ packNPData edatConfig fin fout $ B8.pack $ takeFileName ps3
-        else shk $ copyFile' f ps3
+        else shk $ copyFile' src ps3
     return ps3
 
   phony (dir </> "files-ps3") do

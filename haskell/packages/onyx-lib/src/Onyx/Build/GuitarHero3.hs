@@ -33,7 +33,8 @@ import           Development.Shake                 hiding (phony, (%>))
 import           Development.Shake.FilePath
 import           GHC.ByteOrder                     (ByteOrder (..))
 import           Onyx.Audio
-import           Onyx.Audio.FSB                    (FSB3XMA (..),
+import           Onyx.Audio.FSB                    (FSB3Style (..),
+                                                    FSB3XMA (..),
                                                     XMA1Contents (..), emitFSB,
                                                     mp3sToFSB3, xmasToFSB3)
 import           Onyx.Audio.XMA                    (defaultXMAQuality,
@@ -234,7 +235,7 @@ gh3Rules buildInfo dir gh3 = do
       return (name, xma)
     let hasAudio :: FSB3XMA -> Bool
         hasAudio xma = fromIntegral xma.fsb3XMASamples >= minXMASamples xma
-    fsb <- xmasToFSB3 $ filter (hasAudio . snd) xmas
+    fsb <- xmasToFSB3 FSB3StyleGH3 $ filter (hasAudio . snd) xmas
     stackIO $ BL.writeFile (pathFsbFor XboxFSB_XMA) $ emitFSB fsb
     let hasStream name = any (\(n, xma) -> n == name && hasAudio xma) xmas
     stackIO $ writeFile (pathStreamsFor XboxFSB_XMA) $ show

@@ -424,7 +424,9 @@ buildTarget yamlPath fout opts = do
         RS    {} -> targetFolder </> "cst"
         DTX   {} -> undefined -- TODO
         PG    {} -> undefined -- TODO
-        RR    {} -> targetFolder </> "rrlive"
+        RR    {} -> case map toLower $ takeExtension fout of
+          ".pkg" -> targetFolder </> "rr.pkg"
+          _      -> targetFolder </> "rrlive"
   Identity built' <- shakeBuildFiles audioDirs yamlPath $ Identity built
   return (target, takeDirectory yamlPath </> built')
 

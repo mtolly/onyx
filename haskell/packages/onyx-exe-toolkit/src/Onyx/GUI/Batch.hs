@@ -512,6 +512,7 @@ batchPageRR sink rect tab build = do
             & #bass            .~ fromMaybe defRR.bass (pickedBass <|> pickedGuitar)
             & #drums           .~ getDrumsOrDance proj.projectSongYaml
             & #proTo4          .~ proTo4
+            & #xboxAudio       .~ newPreferences.prefXboxFSB
           fout = (if isXbox then trimXbox newPreferences else id) $ T.unpack $ foldr ($) template
             [ templateApplyInput proj $ Just $ RR tgt
             , let

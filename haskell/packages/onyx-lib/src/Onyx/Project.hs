@@ -1597,6 +1597,7 @@ data TargetRR f = TargetRR
   , songID        :: Maybe Int
   , leaderboardID :: Maybe Int
   , proTo4        :: Bool -- true if pro drums should convert to RYBG
+  , xboxAudio     :: XboxFSBCodec
   } deriving (Eq, Ord, Show, Generic, Hashable, Functor, Foldable, Traversable)
 
 parseTargetRR :: (SendMessage m, Eq f, StackJSON f) => ObjectCodec m A.Value (TargetRR f)
@@ -1610,6 +1611,7 @@ parseTargetRR = do
   songID        <- (.songID       ) =. opt  Nothing      "song-id"        stackJSON
   leaderboardID <- (.leaderboardID) =. opt  Nothing      "leaderboard-id" stackJSON
   proTo4        <- (.proTo4       ) =. fill True         "pro-to-4"       stackJSON
+  xboxAudio     <- (.xboxAudio    ) =. opt  XboxFSB_XMA  "xbox-audio"     stackJSON
   return TargetRR{..}
 
 instance (Eq f, StackJSON f) => StackJSON (TargetRR f) where
