@@ -142,25 +142,35 @@ sinkOggVorbis optQuality fout src = do
 
   flushPages h os og
 
+  let encodeBlocks = do
+        whileC [C.exp| int { vorbis_analysis_blockout($(vorbis_dsp_state* vd), $(vorbis_block* vb)) == 1 } |] do
+          [C.block| void {
+            vorbis_analysis($(vorbis_block* vb), NULL);
+            vorbis_bitrate_addblock($(vorbis_block* vb));
+          } |]
+          whileC [C.exp| int { vorbis_bitrate_flushpacket($(vorbis_dsp_state* vd), $(ogg_packet* op)) } |] do
+            [C.block| void { ogg_stream_packetin($(ogg_stream_state* os), $(ogg_packet* op)); } |]
+            pagesOut h os og
+
   runResourceT $ runConduit $ src.source .| CL.mapM_ \buf -> liftIO do
     let chans   = CA.deinterleave src.channels buf
         frames  = CA.vectorFrames buf src.channels
         cframes = fromIntegral frames
 
-    pbuffers <- [C.exp| float** { vorbis_analysis_buffer($(vorbis_dsp_state* vd), $(int cframes)) } |]
-    buffers <- peekArray src.channels pbuffers
-    forM_ (zip chans buffers) \(inVector, outBuffer) -> do
-      V.unsafeWith inVector \pchan -> do
-        copyArray outBuffer ((castPtr :: Ptr Float -> Ptr CFloat) pchan) frames
-    [C.block| void { vorbis_analysis_wrote($(vorbis_dsp_state* vd), $(int cframes)); } |]
+    -- vorbis_analysis_wrote with 0 frames means end of stream, so skip empty chunks
+    unless (frames == 0) do
+      pbuffers <- [C.exp| float** { vorbis_analysis_buffer($(vorbis_dsp_state* vd), $(int cframes)) } |]
+      buffers <- peekArray src.channels pbuffers
+      forM_ (zip chans buffers) \(inVector, outBuffer) -> do
+        V.unsafeWith inVector \pchan -> do
+          copyArray outBuffer ((castPtr :: Ptr Float -> Ptr CFloat) pchan) frames
+      [C.block| void { vorbis_analysis_wrote($(vorbis_dsp_state* vd), $(int cframes)); } |]
+      encodeBlocks
 
-    whileC [C.exp| int { vorbis_analysis_blockout($(vorbis_dsp_state* vd), $(vorbis_block* vb)) == 1 } |] do
-      [C.block| void {
-        vorbis_analysis($(vorbis_block* vb), NULL);
-        vorbis_bitrate_addblock($(vorbis_block* vb));
-      } |]
-      whileC [C.exp| int { vorbis_bitrate_flushpacket($(vorbis_dsp_state* vd), $(ogg_packet* op)) } |] do
-        [C.block| void { ogg_stream_packetin($(ogg_stream_state* os), $(ogg_packet* op)); } |]
-        pagesOut h os og
+  -- signal end of input, makes libvorbis encode the remaining buffered
+  -- samples, and mark last packet as end-of-stream with correct final
+  -- granule position (exact sample count)
+  [C.block| void { vorbis_analysis_wrote($(vorbis_dsp_state* vd), 0); } |]
+  encodeBlocks
 
   flushPages h os og
