@@ -555,7 +555,7 @@ quick-convert-rb-note-shuffle = Note shuffle
 quick-convert-rb-decrypt-moggs = Decrypt MOGGs
   .tooltip = Decrypt all MOGG files. Note that unencrypted MOGGs will not work on PS3 RB3 without RB3 Deluxe.
 quick-convert-rb-fix-looping-end-moggs = Fix looping end
-  .tooltip = To avoid some looping song ends on PS3, adds silence to the end of .mogg files to go past the chart length.
+  .tooltip = To avoid looping song ends on PS3, fixes .mogg files (mostly from older Onyx versions) that are missing the Ogg end-of-stream marker.
 
 quick-convert-ch-chart-to-midi = .chart to MIDI
   .tooltip = Converts all .chart files to .mid.

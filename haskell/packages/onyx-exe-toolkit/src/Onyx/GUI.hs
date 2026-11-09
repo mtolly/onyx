@@ -1985,7 +1985,7 @@ pageQuickConvertRB sink rect tab startTasks = mdo
         , (,) (l10nFull "quick-convert-limit-easy-medium-frets" [])
           QRB.limitEasyMediumFrets
         , (,) (l10nFull "quick-convert-rb-fix-looping-end-moggs" [])
-          $ procFolder $ extendMOGG 0.5 1.0
+          $ procFolder fixMOGGEOS
         ]
   processorGetters <- forM processors \(locResult, processor) -> do
     check <- withRect processorBox \cx cy cw ch ->

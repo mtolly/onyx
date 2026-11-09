@@ -485,6 +485,7 @@ default-song-title = Canción
 
 tier = Nivel {$number}
 rank = Grado
+no-difficulty = (ninguna)
 
 audio-plan-select = Elegir plan de audio
 loading-image = Cargando imagen: {$path}
@@ -553,6 +554,8 @@ quick-convert-rb-note-shuffle = Aleatorizar notas
   .tooltip = Notas en partes de 5 trastes y batería serán aleatorizadas.
 quick-convert-rb-decrypt-moggs = Desencriptar MOGGs
   .tooltip = Desencripta todos los archivos MOGG. Toma en cuenta que MOGGs desencriptados no funcionan en PS3 sin RB3Enhanced o Rock Band 3 Deluxe.
+quick-convert-rb-fix-looping-end-moggs = Corregir final en bucle
+  .tooltip = Para evitar finales de canción en bucle en PS3, corrige archivos .mogg (principalmente de versiones antiguas de Onyx) a los que les falta el marcador de fin de flujo de Ogg.
 
 quick-convert-ch-chart-to-midi = .chart a MIDI
   .tooltip = Convierte todos los archivos .chart a .mid.
@@ -853,3 +856,6 @@ pref-magma-warning =
   ¡Advertencia! Desactivar Magma puede resultar en archivos de Rock Band que crasheen el juego,
   porque Onyx no verifica todos los errores como lo hace Magma.
   ¡Por favor verifica que tus charts funcionan antes de distribuir!
+
+pref-xbox-fsb-xma = FSB de Xbox 360: usar XMA
+pref-xbox-fsb-mp3 = FSB de Xbox 360: usar MP3

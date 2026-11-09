@@ -54,7 +54,7 @@ import           Data.Word                            (Word32)
 import qualified Numeric.NonNegative.Class            as NNC
 import           Onyx.Audio                           (applyPansVols, fadeEnd,
                                                        fadeStart)
-import           Onyx.Audio.Extend                    (extendOggVorbis)
+import           Onyx.Audio.OggEOS                    (fixOggEOS)
 import           Onyx.FFMPEG                          (ffSourceFrom)
 import           Onyx.Guitar                          (HOPOsAlgorithm (..))
 import           Onyx.Harmonix.DTA                    (Chunk (..), DTA (..),
@@ -75,8 +75,7 @@ import           Onyx.Harmonix.MOGG                   (decryptMOGG,
                                                        encryptMOGGToByteString,
                                                        fixOldC3Mogg, moggToOgg,
                                                        oggToMogg,
-                                                       oggToMoggFiles,
-                                                       sourceVorbis)
+                                                       oggToMoggFiles)
 import           Onyx.Harmonix.RockBand.Milo          (addMiloHeader,
                                                        decompressMilo)
 import qualified Onyx.Image.DXT                       as I
@@ -1217,49 +1216,15 @@ enforceEncoding enc dta = let
       , qdtaComments = switchEncoding <$> dta.qdtaComments
       }
 
-getEndTime :: F.T B.ByteString -> Maybe Double
-getEndTime mid = let
-  isEnd = \case
-    E.MetaEvent (Meta.TextEvent s) -> B8.filter (/= ' ') s == "[end]"
-    _                              -> False
-  findEnd :: (NNC.C t, Num t) => [RTB.T t (E.T B.ByteString)] -> Maybe t
-  findEnd trks = listToMaybe do
-    trk <- trks
-    guard $ U.trackName trk == Just "EVENTS"
-    take 1 $ map fst $ ATB.toPairList $ RTB.toAbsoluteEventList NNC.zero $ RTB.filter isEnd trk
-  in case U.decodeFile mid of
-    Left beatTracks -> do
-      tempos <- listToMaybe beatTracks
-      endBeats <- findEnd $ drop 1 beatTracks
-      return $ realToFrac $ U.applyTempoMap (U.makeTempoMap tempos) endBeats
-    Right secTracks -> realToFrac <$> findEnd secTracks
-
-extendMOGG
-  :: (SendMessage m, MonadIO m)
-  => Double -- ^ add silence if less than this much from @[end]@ to audio end
-  -> Double -- ^ if adding silence, add enough to have this much from @[end]@ to audio end
-  -> Folder T.Text QuickFileSized
+fixMOGGEOS
+  :: (MonadIO m)
+  => Folder T.Text QuickFileSized
   -> StackTraceT m (Folder T.Text QuickFileSized)
-extendMOGG checkTime applyTime input = do
-  endTime <- foldr max 0 <$> flip mconcatFilesWithName input \(name, (_, qf)) ->
-    case getParsedMIDI name qf of
-      Nothing -> return [0]
-      Just f  -> do
-        (_, mid) <- f
-        case getEndTime mid of
-          Nothing -> fail "Couldn't find [end] in MIDI"
-          Just t  -> return [t]
+fixMOGGEOS input = do
   forM input \pair@(size, file) -> let
-    withMOGG r = do
-      let ogg = moggToOgg r
-      src <- sourceVorbis (CA.Frames 0) ogg
-      let _ = src :: CA.AudioSource (ResourceT IO) Float
-          moggLength = realToFrac $ CA.framesToSeconds src.frames src.rate
-      if endTime + checkTime <= moggLength
-        then return pair
-        else do
-          let ogg' = extendOggVorbis (endTime + applyTime - moggLength) ogg
-          return (size, QFUnencryptedMOGG $ oggToMogg ogg')
+    withMOGG r = stackIO (fixOggEOS $ moggToOgg r) <&> \case
+      Nothing  -> pair
+      Just ogg -> (size, QFUnencryptedMOGG $ oggToMogg ogg)
     in case file of
       QFUnencryptedMOGG r -> withMOGG r
       QFEncryptedMOGG   r -> withMOGG r
