@@ -17,9 +17,7 @@ import qualified Data.ByteString.Lazy   as BL
 import           Data.Conduit           (runConduit, (.|))
 import qualified Data.Conduit.Audio     as CA
 import qualified Data.Conduit.List      as CL
-import           Data.Int               (Int64)
 import qualified Data.Vector.Storable   as V
-import           Data.Word              (Word32, Word8)
 import           Foreign
 import           Foreign.C.Types
 import           Onyx.Audio.FSB         (FSB3XMA (..), XMA1Contents (..),
