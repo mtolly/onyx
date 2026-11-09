@@ -1,3 +1,20 @@
 **/.stack-work
 dependencies/root/*
 Dockerfile
+
+**/.git
+
+# previous build outputs
+*.AppImage
+Onyx.AppDir/usr/bin/*
+Onyx.AppDir/usr/lib/*
+win/
+mac/
+
+# generated inside packages (stale copies can conflict)
+packages/onyx-lib/*.cabal
+packages/onyx-lib-game/*.cabal
+packages/onyx-exe-toolkit/*.cabal
+packages/onyx-exe-toolkit/gen/
+packages/onyx-js/quickjs-include/
+**/dist-newstyle

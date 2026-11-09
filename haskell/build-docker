@@ -15,12 +15,15 @@ for f in dependencies/libs/*; do
   (cd "$f" && git clean -fdx .)
 done
 
-for f in packages/*; do
-  (cd "$f" && git clean -fdx .)
-done
-
 (cd packages/onyx-js/quickjs && git clean -fdx .)
 
 ./copy-resources
-"$DOCKER" build -t onyxite/onyx .
-"$DOCKER" run -v "$(pwd)":/external onyxite/onyx bash -c "cp /onyx/*.AppImage /external"
+
+"$DOCKER" build --target build -t onyxite/onyx .
+
+# export just AppImage to host
+# (make sure temp dir is outside build context, otherwise second build rebuilds)
+OUT=$(mktemp -d)
+"$DOCKER" build --target export --output type=local,dest="$OUT" .
+mv "$OUT"/*.AppImage .
+rmdir "$OUT"
