@@ -59,9 +59,11 @@ fltk:
 openal:
 	# note, at some point newer openal-soft commits require a newer cmake (3.18) than is in ubuntu 20.04 (3.16).
 	# CMAKE_POLICY_VERSION_MINIMUM setting needed on Windows for some reason.
+	# utils are off since we don't use them, and on macOS they link Homebrew's
+	# libsndfile, which breaks the x64 (Rosetta) build where Homebrew is arm64.
 	# TODO does this need anything else to disable unneeded dependencies?
 	cd libs/openal-soft/build && env PKG_CONFIG_PATH=$(current_dir)/root/lib/pkgconfig cmake -D CMAKE_INSTALL_PREFIX=$(current_dir)/root \
-		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DALSOFT_EXAMPLES=OFF \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF \
 		..
 	cd libs/openal-soft && cmake --build build
 	cd libs/openal-soft && cmake --install build

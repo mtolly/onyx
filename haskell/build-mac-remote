@@ -1,0 +1,130 @@
+#!/bin/bash
+# Build the macOS packages on a remote Apple Silicon Mac, over SSH.
+#
+#   ./build-mac-remote [arm64] [x64]     (default: both, one after the other)
+#
+# Copies this working copy (uncommitted changes included) to the Mac, builds
+# there, and copies the finished onyx-*-macos-*.zip back into this folder.
+# x64 is built on the same Mac by running everything under Rosetta 2.
+#
+# Environment:
+#   MAC_HOST        ssh host to build on (default: mac)
+#   MAC_DIR         folder on the Mac, relative to home (default: onyx-build)
+#   REBUILD_DEPS=1  rebuild the C dependencies even if they look up to date
+#
+# One-time Mac setup: Xcode command line tools, Rosetta 2, the Homebrew
+# packages from ./pre-dependencies, stack in /usr/local/bin, and for x64 the
+# x86_64 tools in $MAC_DIR/x64-tools/bin (stack, plus cmake/meson/ninja from
+# a venv made with `arch -x86_64 /usr/bin/python3 -m venv`). The x64 build must
+# not use the arm64 cmake/meson/ninja: compilers they launch would run as
+# arm64 and build arm64 code.
+
+set -e
+set -u
+set -o pipefail
+
+MAC_HOST="${MAC_HOST:-mac}"
+MAC_DIR="${MAC_DIR:-onyx-build}"
+REBUILD_DEPS="${REBUILD_DEPS:-0}"
+
+cd "$(dirname "$0")"
+
+ARCHES=("$@")
+if [ ${#ARCHES[@]} -eq 0 ]; then
+  ARCHES=(arm64 x64)
+fi
+for ARCH in "${ARCHES[@]}"; do
+  case "$ARCH" in
+    arm64 | x64 ) ;;
+    * ) echo "Unknown arch: $ARCH (expected arm64 or x64)" >&2; exit 1 ;;
+  esac
+done
+
+./copy-resources
+
+# Rebuild the C dependencies only when their sources or build scripts change.
+DEPS_STAMP=$(
+  { git submodule status dependencies/libs; cat dependencies/Makefile build-dependencies stack-local; } \
+  | sha256sum | cut -d' ' -f1
+)
+
+for ARCH in "${ARCHES[@]}"; do
+  echo "=== macOS $ARCH: syncing source to $MAC_HOST:$MAC_DIR/$ARCH"
+  ssh "$MAC_HOST" "mkdir -p $MAC_DIR/$ARCH"
+  # Excluded paths are also left alone by --delete, so build products on the
+  # Mac (.stack-work, dependencies/root, old zips) survive between runs.
+  rsync -a --delete \
+    --exclude='.git' \
+    --exclude='.stack-work/' \
+    --exclude='/dependencies/root/' \
+    --exclude='/Onyx.AppDir/' \
+    --exclude='/Onyx.app/Contents/MacOS/onyx' \
+    --exclude='/Onyx.app/Contents/MacOS/onyx-resources/' \
+    --exclude='/Onyx.app/Contents/libs/*.dylib' \
+    --exclude='/Onyx.app/Contents/_CodeSignature/' \
+    --exclude='/packages/onyx-exe-toolkit/gen/' \
+    --exclude='/packages/onyx-js/quickjs-include/' \
+    --exclude='/packages/onyx-lib/*.cabal' \
+    --exclude='/packages/onyx-lib-game/*.cabal' \
+    --exclude='/packages/onyx-exe-game/*.cabal' \
+    --exclude='/packages/onyx-exe-toolkit/*.cabal' \
+    --exclude='/example-artifacts/' \
+    --exclude='/win/' \
+    --exclude='/mac/' \
+    --exclude='/onyx-20*' \
+    --exclude='/onyx-command-line-*' \
+    --exclude='*.AppImage' \
+    --exclude='/installer.nsi' \
+    --exclude='dist-newstyle/' \
+    --exclude='/.cache/' \
+    ./ "$MAC_HOST:$MAC_DIR/$ARCH/"
+
+  case "$ARCH" in
+    arm64 )
+      LAUNCH="/bin/bash -s"
+      TOOLS_PATH="/opt/homebrew/bin:/usr/local/bin"
+      ;;
+    x64 )
+      # Under Rosetta, universal binaries (clang, make, sh, ...) launched from
+      # here also run as x86_64, so they build x86_64 code by default.
+      LAUNCH="arch -x86_64 /bin/bash -s"
+      TOOLS_PATH="\$HOME/$MAC_DIR/x64-tools/bin:/opt/homebrew/bin"
+      ;;
+  esac
+
+  echo "=== macOS $ARCH: building"
+  # caffeinate -i: an SSH session doesn't stop the Mac from idle-sleeping,
+  # which stalls the build and can drop the connection. The keepalives make a
+  # dropped connection fail within a few minutes instead of hanging forever.
+  ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+    "$MAC_HOST" "caffeinate -i $LAUNCH" <<EOF
+set -e
+set -u
+set -o pipefail
+export PATH="$TOOLS_PATH:/usr/bin:/bin:/usr/sbin:/sbin"
+# separate per arch, so the arm64 and x64 GHCs and package dbs never mix
+export STACK_ROOT="\$HOME/$MAC_DIR/stack-root-$ARCH"
+# only use the C libraries we build, never Homebrew's (arm64-only) ones
+export PKG_CONFIG_LIBDIR="\$HOME/$MAC_DIR/$ARCH/dependencies/root/lib/pkgconfig"
+cd "\$HOME/$MAC_DIR/$ARCH"
+echo "uname -m: \$(uname -m), stack: \$(command -v stack)"
+
+if [ "$REBUILD_DEPS" = 1 ] || [ "\$(cat dependencies/root/.onyx-deps-stamp 2>/dev/null || true)" != "$DEPS_STAMP" ]; then
+  echo "=== building C dependencies"
+  rm -rf dependencies/root
+  mkdir -p dependencies/root
+  ./build-dependencies
+  echo "$DEPS_STAMP" > dependencies/root/.onyx-deps-stamp
+else
+  echo "=== C dependencies up to date"
+fi
+
+echo "=== building Onyx"
+./stack-local build
+./package
+EOF
+
+  ZIP=$(ssh "$MAC_HOST" "cd $MAC_DIR/$ARCH && ls -t onyx-*-macos-$ARCH.zip | head -n 1")
+  echo "=== macOS $ARCH: copying $ZIP back"
+  scp "$MAC_HOST:$MAC_DIR/$ARCH/$ZIP" .
+done

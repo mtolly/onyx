@@ -3,6 +3,12 @@ BUILD_DIR=$(cd $(dirname "$0") && pwd -P)
 
 # PATH is needed on Windows for TH (inline-c) to find .dll files
 
+# oldest macOS build will run on (read by clang and ld);
+# keep in sync with build-dependencies and LSMinimumSystemVersion in Info.plist
+if [ "$(uname)" = Darwin ]; then
+  export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}"
+fi
+
 env PKG_CONFIG_PATH="$BUILD_DIR"/dependencies/root/lib/pkgconfig \
   LD_LIBRARY_PATH="$BUILD_DIR"/dependencies/root/lib \
   PATH="$BUILD_DIR"/dependencies/root/bin:"$PATH" \

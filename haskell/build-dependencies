@@ -9,6 +9,11 @@ case $(uname) in
     export STACK_YAML=../stack.yaml
     stack exec make
     ;;
+  Darwin )
+    # oldest macOS to support, keep in sync with stack-local
+    export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}"
+    make
+    ;;
   * )
     make
 esac

@@ -1,0 +1,70 @@
+#!/bin/bash
+# One-time setup of the x86_64 build tools that ./build-mac-remote uses for
+# the x64 (Rosetta) build on an Apple Silicon Mac. Safe to rerun: it deletes
+# and recreates ~/$MAC_DIR/x64-tools on the Mac.
+#
+#   ./mac-setup-remote
+#
+# Uses the same MAC_HOST / MAC_DIR environment variables as build-mac-remote.
+#
+# Other prerequisites on the Mac, not handled here:
+#   - Xcode command line tools: xcode-select --install
+#   - Rosetta 2: softwareupdate --install-rosetta --agree-to-license
+#   - Homebrew (arm64, /opt/homebrew) and the packages in ./pre-dependencies
+#   - arm64 stack in /usr/local/bin (the arm64 build uses it)
+#
+# Why x86_64 tools are needed: under Rosetta, a universal binary (clang, make,
+# sh, python3, ...) launched from an x86_64 process also runs as x86_64, and
+# clang then builds x86_64 code by default. Homebrew's tools are arm64-only, so
+# anything that launches the compiler (stack/GHC, cmake, meson, ninja) must be
+# x86_64 or universal, or the build silently switches back to arm64. Tools that
+# never launch the compiler (autotools, nasm, pkg-config, dylibbundler) can stay
+# arm64 from Homebrew.
+
+set -e
+set -u
+
+MAC_HOST="${MAC_HOST:-mac}"
+MAC_DIR="${MAC_DIR:-onyx-build}"
+
+# keep in sync with STACK_VERSION in the Dockerfile
+STACK_VERSION=3.11.1
+STACK_SHA256=603db63eef6246b02dd042e446686f61e3410ee9ef73cb3838314e24468fb290
+
+# versions that were tested; pip installs universal2 wheels of these
+CMAKE_VERSION=4.4.4
+MESON_VERSION=1.11.2
+NINJA_VERSION=1.13.2
+
+ssh "$MAC_HOST" "arch -x86_64 /bin/bash -s" <<EOF
+set -e
+set -u
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+TOOLS="\$HOME/$MAC_DIR/x64-tools"
+rm -rf "\$TOOLS"
+mkdir -p "\$TOOLS/bin"
+cd "\$TOOLS"
+
+echo "=== stack $STACK_VERSION (x86_64)"
+STACK_DIR=stack-$STACK_VERSION-osx-x86_64
+curl -sSfL "https://github.com/commercialhaskell/stack/releases/download/v$STACK_VERSION/\$STACK_DIR.tar.gz" -o stack.tar.gz
+echo "$STACK_SHA256  stack.tar.gz" | shasum -a 256 -c -
+tar xzf stack.tar.gz --strip-components=1 -C bin "\$STACK_DIR/stack"
+rm stack.tar.gz
+
+echo "=== cmake, meson, ninja (venv from Apple's universal python3, run as x86_64)"
+/usr/bin/python3 -m venv venv
+venv/bin/pip install -q --upgrade pip
+venv/bin/pip install -q cmake==$CMAKE_VERSION meson==$MESON_VERSION ninja==$NINJA_VERSION
+for t in cmake meson ninja; do
+  ln -sf ../venv/bin/\$t bin/\$t
+done
+
+echo "=== check"
+uname -m
+bin/stack --version
+bin/cmake --version | head -n 1
+echo "meson \$(bin/meson --version)"
+echo "ninja \$(bin/ninja --version)"
+EOF

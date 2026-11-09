@@ -133,8 +133,10 @@ myConfHook (description, buildInfo) flags = do
       applyFlags ("-framework" : f : fs) bi
         = applyFlags fs $ bi <> mempty { frameworks = [f] }
       applyFlags ("-weak_framework" : f : fs) bi
-        -- doesn't look like Cabal supports "weak"
-        = applyFlags fs $ bi <> mempty { frameworks = [f] }
+        -- cabal doesn't have weak frameworks field, pass to linker directly;
+        -- FLTK weak-links frameworks newer than our deployment target,
+        -- if we changed to standard link it would fail to launch on older macOS
+        = applyFlags fs $ bi <> mempty { ldOptions = ["-Wl,-weak_framework," <> f] }
       applyFlags ("-framework-path" : f : fs) bi
         = applyFlags fs $ bi <> mempty { extraFrameworkDirs = [f] }
       applyFlags (f : fs) bi = applyFlags fs $ if archivePath f
