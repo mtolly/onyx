@@ -1,0 +1,70 @@
+#!/bin/bash
+# Throwaway Windows VMs (dockur/windows) for checking that builds run on older
+# Windows. Unlike ./win-vm, there's no SSH or build tooling: you look at them
+# in a browser or over RDP.
+#
+#   ./win-test-vm start 10|7     create (first time) or start the VM
+#   ./win-test-vm stop 10|7
+#   ./win-test-vm destroy 10|7   delete the VM and its disk
+#
+# The newest onyx-*-windows-x64.exe and onyx-command-line-*-windows-x64.zip
+# from this folder are copied into a shared folder each time you start a VM;
+# in Windows it's the "Shared" desktop shortcut.
+#
+#   Windows 10: http://127.0.0.1:8010  RDP 127.0.0.1:13310
+#   Windows 7:  http://127.0.0.1:8007  RDP 127.0.0.1:13307
+#   (user onyx, password onyx; first start installs Windows, ~20-40 min)
+#
+# Environment: WIN_VM_DIR (default /stuff/onyx-windows-vm), same as ./win-vm.
+
+set -e
+set -u
+
+cd "$(dirname "$0")"
+
+WIN_VM_DIR="${WIN_VM_DIR:-/stuff/onyx-windows-vm}"
+IMAGE=docker.io/dockurr/windows:6.06
+
+case "${2:-}" in
+  10 ) VERSION=10; WEB_PORT=8010; RDP_PORT=13310 ;;
+  7 )  VERSION=7u; WEB_PORT=8007; RDP_PORT=13307 ;;
+  * )  sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit 1 ;;
+esac
+NAME="onyx-test-win$2"
+DIR="$WIN_VM_DIR/test-win$2"
+
+case "${1:-}" in
+  start )
+    mkdir -p "$DIR/storage" "$WIN_VM_DIR/test-shared"
+    rm -f "$WIN_VM_DIR/test-shared"/onyx-*
+    for pattern in 'onyx-20*-windows-x64.exe' 'onyx-command-line-*-windows-x64.zip'; do
+      latest=$(ls -t $pattern 2> /dev/null | head -n 1 || true)
+      if [ -n "$latest" ]; then cp "$latest" "$WIN_VM_DIR/test-shared/"; fi
+    done
+    podman run -d --replace --name "$NAME" \
+      --device /dev/kvm --device /dev/net/tun --cap-add NET_ADMIN \
+      -p "127.0.0.1:$WEB_PORT:8006" \
+      -p "127.0.0.1:$RDP_PORT:3389/tcp" -p "127.0.0.1:$RDP_PORT:3389/udp" \
+      -e VERSION="$VERSION" \
+      -e USERNAME=onyx -e PASSWORD=onyx \
+      -e CPU_CORES=4 -e RAM_SIZE=4G -e DISK_SIZE=64G \
+      -v "$DIR/storage:/storage" \
+      -v "$WIN_VM_DIR/test-shared:/shared" \
+      --stop-timeout 120 \
+      "$IMAGE" > /dev/null
+    echo "Windows $2: http://127.0.0.1:$WEB_PORT (RDP 127.0.0.1:$RDP_PORT, onyx/onyx)"
+    ;;
+  stop )
+    podman stop -t 120 "$NAME" > /dev/null 2>&1 || true
+    ;;
+  destroy )
+    read -r -p "Delete the Windows $2 test VM and its disk? Type 'yes': " answer
+    [ "$answer" = yes ] || exit 1
+    podman rm -f -t 120 "$NAME" > /dev/null 2>&1 || true
+    rm -rf "$DIR"
+    ;;
+  * )
+    sed -n '2,/^$/s/^# \{0,1\}//p' "$0"
+    exit 1
+    ;;
+esac

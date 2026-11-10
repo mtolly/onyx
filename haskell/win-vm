@@ -1,0 +1,145 @@
+#!/bin/bash
+# Headless Windows 11 build VM, run with dockur/windows under Podman (KVM).
+#
+#   ./win-vm create        first time: fetch installers, make an SSH key, start
+#                          the VM. Windows then installs itself unattended and
+#                          runs windows-vm/setup.ps1 (takes a while; follow
+#                          with ./win-vm logs, or watch at http://127.0.0.1:8006)
+#   ./win-vm start         start the VM (the container is recreated each time;
+#                          the Windows disk lives in $WIN_VM_DIR/storage)
+#   ./win-vm stop          shut Windows down cleanly
+#   ./win-vm wait          start if needed, then wait until SSH works
+#   ./win-vm status
+#   ./win-vm logs          follow the container log
+#   ./win-vm ssh [cmd...]  SSH in (runs in Git Bash on the Windows side)
+#   ./win-vm destroy       delete the VM and its disk (asks first)
+#
+# Remote desktop: 127.0.0.1:13389, user onyx, password onyx. All ports are
+# bound to 127.0.0.1 only.
+#
+# Environment:
+#   WIN_VM_DIR   where the VM's disk, setup files and SSH key live
+#                (default: /stuff/onyx-windows-vm)
+
+set -e
+set -u
+
+cd "$(dirname "$0")"
+
+WIN_VM_DIR="${WIN_VM_DIR:-/stuff/onyx-windows-vm}"
+NAME=onyx-windows
+IMAGE=docker.io/dockurr/windows:6.06
+SSH_PORT=2222
+RDP_PORT=13389
+WEB_PORT=8006
+
+KEY="$WIN_VM_DIR/ssh/id_ed25519"
+# The VM's host key changes whenever it's recreated, so keep it out of
+# ~/.ssh/known_hosts; destroy deletes this file along with the VM.
+SSH_OPTS=(
+  -p "$SSH_PORT" -i "$KEY" -o IdentitiesOnly=yes
+  -o UserKnownHostsFile="$WIN_VM_DIR/ssh/known_hosts" -o StrictHostKeyChecking=accept-new
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=6
+  onyx@127.0.0.1
+)
+
+# installers copied into C:\OEM: name, url, sha256
+INSTALLERS=(
+  "git.exe https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/Git-2.56.0.4-64-bit.exe 4961a4a8cc778d8b6e00a5819e5fe4d078b754555aff7aedc2d77a5d74c2de80"
+  "nsis.exe https://downloads.sourceforge.net/project/nsis/NSIS%203/3.13/nsis-3.13-setup.exe db9a1038bbc0e53fef24f423fd609979bd578e942f1be1198db186d1c42652a3"
+  "openssh.msi https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.4.0.0p1-Preview/OpenSSH-Win64-v10.4.0.0.msi 788d8643464a01eb63640a2fd746f9ed23d106b5a901a35f88dc8cd40e446ac9"
+  # keep version in sync with STACK_VERSION in the Dockerfile
+  "stack.exe https://github.com/commercialhaskell/stack/releases/download/v3.11.1/stack-3.11.1-windows-x86_64-bin.exe 8745161c7aa0a11f2c91ad78a0b1fcd89927ed884f97d9644612ff43e92ade39"
+)
+
+run_container() {
+  podman run -d --replace --name "$NAME" \
+    --device /dev/kvm --device /dev/net/tun --cap-add NET_ADMIN \
+    -p "127.0.0.1:$WEB_PORT:8006" \
+    -p "127.0.0.1:$RDP_PORT:3389/tcp" -p "127.0.0.1:$RDP_PORT:3389/udp" \
+    -p "127.0.0.1:$SSH_PORT:22" \
+    -e VERSION=11 \
+    -e USERNAME=onyx -e PASSWORD=onyx \
+    -e CPU_CORES=12 -e RAM_SIZE=16G -e DISK_SIZE=128G \
+    -e SAMBA=N \
+    -e USER_PORTS=22 \
+    -v "$WIN_VM_DIR/storage:/storage" \
+    -v "$WIN_VM_DIR/oem:/oem" \
+    --stop-timeout 120 \
+    "$IMAGE" > /dev/null
+}
+
+is_running() {
+  [ "$(podman inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ]
+}
+
+ssh_works() {
+  ssh -o BatchMode=yes -o ConnectTimeout=5 "${SSH_OPTS[@]}" true 2> /dev/null
+}
+
+case "${1:-}" in
+  create )
+    if [ -n "$(ls -A "$WIN_VM_DIR/storage" 2> /dev/null)" ]; then
+      echo "A VM already exists in $WIN_VM_DIR. Use '$0 start', or '$0 destroy' first." >&2
+      exit 1
+    fi
+    mkdir -p "$WIN_VM_DIR/storage" "$WIN_VM_DIR/oem" "$WIN_VM_DIR/ssh"
+    for entry in "${INSTALLERS[@]}"; do
+      read -r file url sha <<< "$entry"
+      dest="$WIN_VM_DIR/oem/$file"
+      if ! echo "$sha  $dest" | sha256sum -c --status - 2> /dev/null; then
+        echo "=== downloading $file"
+        curl -sSfL -o "$dest" "$url"
+        echo "$sha  $dest" | sha256sum -c -
+      fi
+    done
+    if [ ! -f "$KEY" ]; then
+      ssh-keygen -q -t ed25519 -N '' -C onyx-windows-vm -f "$KEY"
+    fi
+    cp "$KEY.pub" "$WIN_VM_DIR/oem/authorized_keys"
+    # batch files want CRLF line endings
+    sed 's/\r*$/\r/' windows-vm/install.bat > "$WIN_VM_DIR/oem/install.bat"
+    cp windows-vm/setup.ps1 "$WIN_VM_DIR/oem/setup.ps1"
+    rm -f "$WIN_VM_DIR/ssh/known_hosts"
+    run_container
+    echo "Windows is installing. Watch at http://127.0.0.1:$WEB_PORT or with '$0 logs'."
+    echo "When '$0 wait' returns, it's ready to build."
+    ;;
+  start )
+    if is_running; then echo "already running"; else run_container; fi
+    ;;
+  stop )
+    podman stop -t 120 "$NAME" > /dev/null 2>&1 || true
+    ;;
+  wait )
+    is_running || run_container
+    echo "waiting for SSH into the Windows VM..."
+    until ssh_works; do sleep 10; done
+    ;;
+  status )
+    if is_running; then
+      echo "container: running"
+      if ssh_works; then echo "ssh: ok"; else echo "ssh: not reachable (still booting or installing?)"; fi
+    else
+      echo "container: stopped"
+    fi
+    ;;
+  logs )
+    exec podman logs -f "$NAME"
+    ;;
+  ssh )
+    shift
+    exec ssh "${SSH_OPTS[@]}" "$@"
+    ;;
+  destroy )
+    read -r -p "Delete the Windows VM and its disk in $WIN_VM_DIR/storage? Type 'yes': " answer
+    [ "$answer" = yes ] || exit 1
+    podman rm -f -t 120 "$NAME" > /dev/null 2>&1 || true
+    rm -rf "$WIN_VM_DIR/storage" "$WIN_VM_DIR/ssh/known_hosts"
+    echo "Deleted. Downloaded installers and the SSH key are kept for the next create."
+    ;;
+  * )
+    sed -n '2,/^$/s/^# \{0,1\}//p' "$0"
+    exit 1
+    ;;
+esac

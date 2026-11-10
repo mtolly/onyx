@@ -4,6 +4,7 @@ module Main where
 
 import           Control.Monad          (forM_, unless)
 import qualified Data.ByteString        as B
+import           Data.Char              (toLower)
 import qualified Data.Set               as Set
 import           Data.String            (IsString (..))
 import qualified Data.Text              as T
@@ -62,19 +63,22 @@ main = getArgs >>= \args -> case args of
 
     -- Find which .dll files Onyx requires, delete the others
     let dir = takeDirectory exe
+    alldlls <- filter ((== ".dll") . map toLower . takeExtension) <$> listDirectory dir
+    -- ldd lists every DLL an exe/dll loads, including Windows system ones;
+    -- keep the ones we bundled. (Names in import tables can differ in case
+    -- from the files, so compare case-insensitively.)
+    let bundled name = [ f | f <- alldlls, map toLower f == map toLower name ]
         go (obj : objs) dlls = if Set.member obj dlls
           then go objs dlls
           else do
             lns <- readProcess "ldd" [dir </> obj] ""
             let objdlls
-                  = map T.unpack
+                  = concatMap (bundled . T.unpack)
                   $ concatMap (take 1 . T.words)
-                  $ filter ("haskell" `T.isInfixOf`)
                   $ T.lines $ T.pack lns
             go (objs ++ objdlls) (Set.insert obj dlls)
         go [] dlls = return dlls
     dlls <- go [takeFileName exe] Set.empty
-    alldlls <- filter ((== ".dll") . takeExtension) <$> listDirectory dir
     forM_ (filter (`Set.notMember` dlls) alldlls) \dll -> do
       removeFile $ dir </> dll
 

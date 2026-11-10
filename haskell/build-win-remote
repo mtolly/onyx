@@ -1,0 +1,139 @@
+#!/bin/bash
+# Build the Windows installer and command-line zip in the Windows VM (./win-vm).
+#
+#   ./build-win-remote
+#
+# Starts the VM if needed, copies this working copy (uncommitted changes
+# included) to C:\build\onyx, builds there in Git Bash, and copies
+# onyx-*-windows-x64.exe and onyx-command-line-*-windows-x64.zip back here.
+# The first run also installs GHC/MSYS2 through stack and the MSYS2 packages
+# from ./pre-dependencies.
+#
+# Environment:
+#   REBUILD_DEPS=1  rebuild the C dependencies even if they look up to date
+#   WIN_VM_DIR      passed through to ./win-vm
+
+set -e
+set -u
+set -o pipefail
+
+cd "$(dirname "$0")"
+REBUILD_DEPS="${REBUILD_DEPS:-0}"
+
+./win-vm wait
+./copy-resources
+
+# Rebuild the C dependencies only when their sources or build scripts change.
+DEPS_STAMP=$(
+  { git submodule status dependencies/libs; cat dependencies/Makefile build-dependencies stack-local; } \
+  | sha256sum | cut -d' ' -f1
+)
+
+echo "=== syncing source to the VM"
+# Unpack into a fresh folder, then robocopy /MIR it over the build folder:
+# only changed files get touched (so builds stay incremental) and files deleted
+# here get deleted there. Build products are excluded on both sides.
+tar -c -f - \
+  --exclude='.git' \
+  --exclude='.stack-work' \
+  --exclude='./dependencies/root' \
+  --exclude='./dependencies/libs/SDL' \
+  --exclude='./Onyx.AppDir' \
+  --exclude='./packages/onyx-exe-toolkit/gen' \
+  --exclude='./packages/onyx-js/quickjs-include' \
+  --exclude='./packages/onyx-lib/onyx-lib.cabal' \
+  --exclude='./packages/onyx-lib-game/onyx-lib-game.cabal' \
+  --exclude='./packages/onyx-exe-game/onyx-exe-game.cabal' \
+  --exclude='./packages/onyx-exe-toolkit/onyx-exe-toolkit.cabal' \
+  --exclude='./example-artifacts' \
+  --exclude='./win' \
+  --exclude='./mac' \
+  --exclude='./onyx-20*' \
+  --exclude='./onyx-command-line-*' \
+  --exclude='*.AppImage' \
+  --exclude='./installer.nsi' \
+  --exclude='dist-newstyle' \
+  --exclude='./.cache' \
+  . \
+| ./win-vm ssh 'rm -rf /c/build/incoming && mkdir -p /c/build/incoming && tar -x -f - -C /c/build/incoming'
+
+./win-vm ssh 'bash -s' <<'EOF'
+# MSYS_NO_PATHCONV: stop Git Bash rewriting /MIR etc. into file paths
+MSYS_NO_PATHCONV=1 robocopy 'C:\build\incoming' 'C:\build\onyx' /MIR /NFL /NDL /NJH /NJS /NP \
+  /XD .stack-work .w .git 'C:\build\onyx\dependencies\root' 'C:\build\onyx\win' \
+      'C:\build\onyx\packages\onyx-exe-toolkit\gen' 'C:\build\onyx\packages\onyx-js\quickjs-include' \
+  /XF onyx-lib.cabal onyx-lib-game.cabal onyx-exe-game.cabal onyx-exe-toolkit.cabal installer.nsi \
+      stack-win.yaml stack-win.yaml.lock \
+      'onyx-20*-windows-x64.exe' 'onyx-command-line-*.zip' \
+  > /dev/null && rc=0 || rc=$?
+# robocopy exit codes below 8 mean success
+if [ "$rc" -ge 8 ]; then echo "robocopy failed ($rc)"; exit 1; fi
+EOF
+
+echo "=== building"
+./win-vm ssh 'bash -s' <<EOF
+set -e
+set -u
+set -o pipefail
+cd /c/build/onyx
+
+echo "=== stack setup (GHC + MSYS2)"
+# Stack 3.11.1 changed its default MSYS2 environment to CLANG64, but our
+# scripts use MINGW64 (pre-dependencies installs mingw-w64-x86_64-* packages,
+# package copies DLLs from /mingw64/bin). This option is only allowed in the
+# global config, not stack.yaml.
+STACK_CONFIG="\$(cygpath -u "\$APPDATA")/stack/config.yaml"
+mkdir -p "\$(dirname "\$STACK_CONFIG")"
+echo 'msys-environment: MINGW64' > "\$STACK_CONFIG"
+stack setup
+
+# The gl package has 833 modules, and Cabal lists every one on GHC's command
+# line. On Windows that only just fits under the 32,767 character limit, and
+# with a snapshot package's long temp build path it doesn't ("createProcess:
+# does not exist"). So build gl as a local package at the short path C:\g, and
+# shorten the work folder name, which also appears ~13 times in the command.
+export STACK_WORK=.w
+if [ ! -f /c/g/gl.cabal ]; then
+  echo "=== unpacking gl to C:\\g"
+  rm -rf /c/g /c/build/gl-0.9
+  curl -sSfL https://hackage.haskell.org/package/gl-0.9/gl-0.9.tar.gz -o /c/build/gl-0.9.tar.gz
+  echo "318ef0aab5239d5253c387709dd935c43a0d614f9bb1e186db4a7a96d88b61cd  /c/build/gl-0.9.tar.gz" | sha256sum -c -
+  tar -x -z -f /c/build/gl-0.9.tar.gz -C /c/build
+  mv /c/build/gl-0.9 /c/g
+  rm /c/build/gl-0.9.tar.gz
+fi
+sed 's|^extra-deps:\$|extra-deps:\n- ../../g # gl, see build-win-remote|' stack.yaml > stack-win.yaml
+grep -q '^- ../../g ' stack-win.yaml
+export STACK_YAML=stack-win.yaml
+
+if [ ! -f /c/build/.msys2-ready ]; then
+  echo "=== updating MSYS2 and installing packages (first run only)"
+  stack exec -- pacman -Syy --noconfirm
+  # the first -Syu can update MSYS2's core and exit early; the second finishes
+  stack exec -- pacman -Syu --noconfirm || true
+  stack exec -- pacman -Syu --noconfirm
+  ./pre-dependencies
+  touch /c/build/.msys2-ready
+fi
+
+if [ "$REBUILD_DEPS" = 1 ] || [ "\$(cat dependencies/root/.onyx-deps-stamp 2>/dev/null || true)" != "$DEPS_STAMP" ]; then
+  echo "=== building C dependencies"
+  rm -rf dependencies/root
+  mkdir -p dependencies/root
+  ./build-dependencies
+  echo "$DEPS_STAMP" > dependencies/root/.onyx-deps-stamp
+else
+  echo "=== C dependencies up to date"
+fi
+
+echo "=== building Onyx"
+./stack-local build
+./package
+./package-cli
+EOF
+
+for pattern in 'onyx-20*-windows-x64.exe' 'onyx-command-line-*-windows-x64.zip'; do
+  FILE=$(./win-vm ssh "cd /c/build/onyx && ls -t $pattern | head -n 1" | tr -d '\r')
+  echo "=== copying $FILE back"
+  ./win-vm ssh "cat /c/build/onyx/$FILE" > "$FILE"
+done

@@ -29,7 +29,8 @@ case $(uname) in
     # for some reason you need "mingw-w64-x86_64-pkgconf" for haskell to use,
     # but when we used libsndfile that needed "pkgconf" to pick up ogg/vorbis/flac/opus.
     # not sure if other C/C++ libs are the same but keeping it to be safe
-    stack exec -- pacman -Sy --needed mingw-w64-x86_64-pkgconf pkgconf \
+    # --noconfirm so this also works over SSH (see build-win-remote)
+    stack exec -- pacman -Sy --needed --noconfirm mingw-w64-x86_64-pkgconf pkgconf \
       wget tar unzip zip man autoconf \
       automake nasm make libtool autogen mingw-w64-x86_64-cmake \
       mingw-w64-x86_64-meson

@@ -122,6 +122,9 @@ executables:
         dependencies: Win32
         cxx-sources:
         - cbits/win_open_folder.cpp
+        # text's AVX-512 code crashes on Windows 7, see the file
+        c-sources:
+        - cbits/text_measure_off.c
       else:
         dependencies: mountpoints
     - condition: os(darwin)
@@ -136,3 +139,8 @@ executables:
   onyx-cli:
     main: CLI.hs
     dependencies: [base, onyx-lib, resourcet]
+    when:
+    - condition: os(mingw32)
+      # text's AVX-512 code crashes on Windows 7, see the file
+      c-sources:
+      - cbits/text_measure_off.c
