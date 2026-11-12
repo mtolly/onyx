@@ -6,6 +6,8 @@ Dockerfile
 
 # previous build outputs
 *.AppImage
+onyx-*.zip
+onyx-*.exe
 Onyx.AppDir/usr/bin/*
 Onyx.AppDir/usr/lib/*
 win/

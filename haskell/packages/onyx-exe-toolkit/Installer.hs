@@ -67,7 +67,7 @@ main = getArgs >>= \args -> case args of
     -- ldd lists every DLL an exe/dll loads, including Windows system ones;
     -- keep the ones we bundled. (Names in import tables can differ in case
     -- from the files, so compare case-insensitively.)
-    let bundled name = [ f | f <- alldlls, map toLower f == map toLower name ]
+    let bundled dllName = [ f | f <- alldlls, map toLower f == map toLower dllName ]
         go (obj : objs) dlls = if Set.member obj dlls
           then go objs dlls
           else do
