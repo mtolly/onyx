@@ -7,6 +7,7 @@
     and **El Fish**
 * Fix bugged end page on Ogg Vorbis output, causing looping song end on RB PS3
 * Add Quick Convert flag to fix above issue on existing moggs
+* Fix a bug in VGS reading preventing import from PS2 games
 * Fix both Mac builds to have a minimum requirement of macOS 11 (Big Sur)
 * Switch back to XMA audio (new encoder) as default for GH3/GHWoR/RR songs on
   Xbox 360
