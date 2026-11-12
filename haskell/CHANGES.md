@@ -1,12 +1,13 @@
 # Version history
 
-## 20261108
+## 20261111
 
 * Spanish localization
   * Big thanks to **carlmylo**, **Toostadora**, **Rulas25**, **Aloquendiar**,
     and **El Fish**
 * Fix bugged end page on Ogg Vorbis output, causing looping song end on RB PS3
 * Add Quick Convert flag to fix above issue on existing moggs
+* Fix both Mac builds to have a minimum requirement of macOS 11 (Big Sur)
 * Switch back to XMA audio (new encoder) as default for GH3/GHWoR/RR songs on
   Xbox 360
   * This avoids a slight delay from MP3 but does desync on Corona

@@ -1,8 +1,13 @@
-Onyx is built on a gigantic amount of code and reverse engineering work done by countless other people.
+Onyx is built on a gigantic amount of code, reverse engineering work, and contributions from countless other people.
 
 ================================================================================
 
 Contributors and other special thanks:
+
+* The Spanish localization was contributed by a team from the MiloHax community,
+  with work by carlmylo, Toostadora, Rulas25, Aloquendiar, and El Fish.
+
+* AddyMills is the author of Honeycomb + GH-Toolkit-NET, an extensive library and tool for working with the Neversoft Guitar Hero formats. His research and code have been crucial for correct implementation of these formats in Onyx. He's also contributed direct fixes for GH customs generation and for the compilation process on Windows systems.
 
 * Inventor211 was a key partner in building the 3D preview tool, creating the high quality models and textures and assisting with general design and testing. As a member of the Clone Hero development team he has also provided important technical details relating to Clone Hero chart formats.
 
